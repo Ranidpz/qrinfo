@@ -144,9 +144,32 @@ export default function CodeEditPage({ params }: PageProps) {
   };
 
   const handleShareWhatsApp = async () => {
-    if (!code) return;
+    if (!code || !qrCanvasRef.current) return;
     const url = `${window.location.origin}/v/${code.shortId}`;
     const text = `${code.title}\n${url}`;
+
+    // Try to share with image using Web Share API (works on mobile)
+    const canvas = qrCanvasRef.current.querySelector('canvas');
+    if (canvas && navigator.canShare) {
+      try {
+        const blob = await new Promise<Blob>((resolve) => {
+          canvas.toBlob((b) => resolve(b!), 'image/png');
+        });
+        const file = new File([blob], `${code.title}.png`, { type: 'image/png' });
+
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            text: text,
+            files: [file],
+          });
+          return;
+        }
+      } catch {
+        // Fall through to WhatsApp URL
+      }
+    }
+
+    // Fallback: open WhatsApp with text only
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, '_blank');
   };

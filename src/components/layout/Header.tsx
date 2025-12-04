@@ -1,6 +1,7 @@
 'use client';
 
-import { Menu, Moon, Sun, User, LogOut, Settings, QrCode } from 'lucide-react';
+import { Menu, Moon, Sun, User, LogOut, Settings } from 'lucide-react';
+import Image from 'next/image';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useState } from 'react';
 
@@ -103,7 +104,13 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
 
         {/* Left side - Logo */}
         <a href="/dashboard" className="flex items-center">
-          <QrCode className="w-8 h-8 text-accent" strokeWidth={1.5} />
+          <Image
+            src="/qrlogo.jpg"
+            alt="QR Playzones"
+            width={40}
+            height={40}
+            className="rounded-lg"
+          />
         </a>
       </div>
     </header>

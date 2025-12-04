@@ -14,10 +14,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "QR.info - מערכת קודי QR דינמיים",
+  metadataBase: new URL('https://qr.playzones.app'),
+  title: "QR Playzones - מערכת קודי QR דינמיים",
   description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
   icons: {
-    icon: "/favicon.svg",
+    icon: "/qrlogo.jpg",
+    apple: "/qrlogo.jpg",
+  },
+  openGraph: {
+    title: "QR Playzones - מערכת קודי QR דינמיים",
+    description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
+    images: [
+      {
+        url: "/qrlogo.jpg",
+        width: 512,
+        height: 512,
+        alt: "QR Playzones Logo",
+      },
+    ],
+    siteName: "QR Playzones",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "QR Playzones - מערכת קודי QR דינמיים",
+    description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
+    images: ["/qrlogo.jpg"],
   },
 };
 
