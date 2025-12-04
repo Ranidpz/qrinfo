@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, Loader2, BarChart3 } from 'lucide-react';
+import { RefreshCw, Loader2, BarChart3, Radio } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
@@ -14,10 +14,10 @@ import HourlyChart from '@/components/analytics/HourlyChart';
 import DevicePieChart from '@/components/analytics/DevicePieChart';
 import { getUserQRCodes, getAllUsers } from '@/lib/db';
 import {
-  getViewLogs,
   getDateRange,
   aggregateAnalytics,
   getAllQRCodes,
+  subscribeToViewLogs,
 } from '@/lib/analytics';
 import { QRCode, User, DateRangePreset, AnalyticsData } from '@/types';
 
@@ -81,41 +81,46 @@ export default function AnalyticsPage() {
     loadCodes();
   }, [user, authLoading, router, isSuperAdmin]);
 
-  // Load analytics when codes or date range changes
+  // Subscribe to real-time analytics when codes or date range changes
   useEffect(() => {
     if (selectedCodeIds.length === 0) {
       setAnalyticsData(emptyAnalytics);
+      setLoadingData(false);
       return;
     }
 
-    const loadAnalytics = async () => {
-      setLoadingData(true);
-      try {
-        const { start, end } = getDateRange(datePreset, customStart, customEnd);
-        const logs = await getViewLogs(selectedCodeIds, start, end);
+    setLoadingData(true);
+    const { start, end } = getDateRange(datePreset, customStart, customEnd);
+
+    // Subscribe to real-time updates
+    const unsubscribe = subscribeToViewLogs(
+      selectedCodeIds,
+      start,
+      end,
+      (logs) => {
         const data = aggregateAnalytics(logs);
         setAnalyticsData(data);
-      } catch (error) {
-        console.error('Error loading analytics:', error);
-      } finally {
+        setLoadingData(false);
+      },
+      (error) => {
+        console.error('Error in analytics subscription:', error);
         setLoadingData(false);
       }
-    };
+    );
 
-    loadAnalytics();
+    // Cleanup subscription on unmount or when dependencies change
+    return () => {
+      unsubscribe();
+    };
   }, [selectedCodeIds, datePreset, customStart, customEnd]);
 
+  // With real-time listeners, this just provides visual feedback
+  // The data updates automatically
   const handleRefresh = () => {
     if (selectedCodeIds.length > 0) {
-      const { start, end } = getDateRange(datePreset, customStart, customEnd);
       setLoadingData(true);
-      getViewLogs(selectedCodeIds, start, end)
-        .then((logs) => {
-          const data = aggregateAnalytics(logs);
-          setAnalyticsData(data);
-        })
-        .catch(console.error)
-        .finally(() => setLoadingData(false));
+      // Brief loading indicator for UX feedback
+      setTimeout(() => setLoadingData(false), 500);
     }
   };
 
@@ -151,6 +156,12 @@ export default function AnalyticsPage() {
                 <BarChart3 className="w-6 h-6 text-accent" />
               </div>
               <h1 className="text-2xl font-bold text-text-primary">אנליטיקס</h1>
+              {selectedCodeIds.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-500">
+                  <Radio className="w-3 h-3 animate-pulse" />
+                  <span className="text-xs font-medium">חי</span>
+                </div>
+              )}
             </div>
             <button
               onClick={handleRefresh}

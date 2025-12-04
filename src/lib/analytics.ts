@@ -7,6 +7,8 @@ import {
   where,
   orderBy,
   Timestamp,
+  onSnapshot,
+  Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { ViewLog, DeviceInfo, AnalyticsData, QRCode } from '@/types';
@@ -246,3 +248,76 @@ export const deviceLabels: Record<string, string> = {
   tablet: 'טאבלט',
   desktop: 'מחשב',
 };
+
+// Real-time listener for view logs
+export function subscribeToViewLogs(
+  codeIds: string[],
+  startDate: Date,
+  endDate: Date,
+  onData: (logs: ViewLog[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  if (codeIds.length === 0) {
+    onData([]);
+    return () => {};
+  }
+
+  const allLogs: Map<string, ViewLog> = new Map();
+  const unsubscribes: Unsubscribe[] = [];
+
+  // Firestore 'in' queries are limited to 30 items
+  const chunks: string[][] = [];
+  for (let i = 0; i < codeIds.length; i += 30) {
+    chunks.push(codeIds.slice(i, i + 30));
+  }
+
+  chunks.forEach((chunk) => {
+    const q = query(
+      collection(db, 'viewLogs'),
+      where('codeId', 'in', chunk),
+      where('timestamp', '>=', Timestamp.fromDate(startDate)),
+      where('timestamp', '<=', Timestamp.fromDate(endDate)),
+      orderBy('timestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data();
+          const log: ViewLog = {
+            id: change.doc.id,
+            codeId: data.codeId,
+            shortId: data.shortId,
+            ownerId: data.ownerId,
+            timestamp: data.timestamp.toDate(),
+            device: data.device,
+          };
+
+          if (change.type === 'added' || change.type === 'modified') {
+            allLogs.set(change.doc.id, log);
+          } else if (change.type === 'removed') {
+            allLogs.delete(change.doc.id);
+          }
+        });
+
+        // Convert map to sorted array and send to callback
+        const sortedLogs = Array.from(allLogs.values()).sort(
+          (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+        );
+        onData(sortedLogs);
+      },
+      (error) => {
+        console.error('Error in viewLogs subscription:', error);
+        onError?.(error);
+      }
+    );
+
+    unsubscribes.push(unsubscribe);
+  });
+
+  // Return a function that unsubscribes from all listeners
+  return () => {
+    unsubscribes.forEach((unsub) => unsub());
+  };
+}

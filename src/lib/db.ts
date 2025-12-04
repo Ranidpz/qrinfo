@@ -341,3 +341,14 @@ export function canDeleteCode(code: QRCode, userId: string, userRole: User['role
   if (code.ownerId === userId) return true;
   return false;
 }
+
+// Transfer code ownership (admin only)
+export async function transferCodeOwnership(
+  codeId: string,
+  newOwnerId: string
+): Promise<void> {
+  await updateDoc(doc(db, 'codes', codeId), {
+    ownerId: newOwnerId,
+    updatedAt: serverTimestamp(),
+  });
+}

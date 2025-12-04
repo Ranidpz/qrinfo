@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, Printer, ExternalLink } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, Printer, ExternalLink, UserCog, User, Clock } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { MediaType } from '@/types';
@@ -16,13 +16,18 @@ interface CodeCardProps {
   fileName?: string;
   fileSize?: number;
   views: number;
+  views24h?: number;
+  updatedAt?: Date;
   isOwner?: boolean;
   isGlobal?: boolean;
+  ownerName?: string;
+  isSuperAdmin?: boolean;
   onDelete?: () => void;
   onRefresh?: () => void;
   onPublish?: () => void;
   onCopy?: () => void;
   onTitleChange?: (newTitle: string) => void;
+  onTransferOwnership?: () => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -60,18 +65,71 @@ export default function CodeCard({
   fileName,
   fileSize,
   views,
+  views24h = 0,
+  updatedAt,
   isOwner = true,
   isGlobal = false,
+  ownerName,
+  isSuperAdmin = false,
   onDelete,
   onRefresh,
   onPublish,
   onCopy,
   onTitleChange,
+  onTransferOwnership,
 }: CodeCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
+  const [displayViews, setDisplayViews] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const qrRef = useRef<HTMLDivElement>(null);
+  const prevViewsRef = useRef(views);
+
+  // Animate counter on mount (from 0) and on view updates (from previous value)
+  useEffect(() => {
+    const startValue = prevViewsRef.current === views ? 0 : prevViewsRef.current;
+    const endValue = views;
+    const duration = startValue === 0 ? 1000 : 500; // Longer animation on first load
+    const startTime = Date.now();
+
+    setIsAnimating(true);
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out cubic for smooth animation
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startValue + (endValue - startValue) * easeOut);
+
+      setDisplayViews(current);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setIsAnimating(false);
+        prevViewsRef.current = views;
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [views]);
+
+  // Format relative time in Hebrew
+  const formatRelativeTime = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'עכשיו';
+    if (diffMins < 60) return `לפני ${diffMins} דקות`;
+    if (diffHours < 24) return `לפני ${diffHours} שעות`;
+    if (diffDays < 7) return `לפני ${diffDays} ימים`;
+    return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+  };
 
   const viewUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/v/${shortId}`
@@ -272,10 +330,38 @@ export default function CodeCard({
           )}
         </div>
 
-        {/* Views counter */}
-        <div className="absolute bottom-2 left-2 px-2 py-0.5 text-xs bg-black/60 backdrop-blur-sm rounded text-white flex items-center gap-1">
-          <Eye className="w-3 h-3" />
-          {views}
+        {/* Views counter with animation and tooltip */}
+        <div
+          className="absolute bottom-2 left-2 relative"
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
+          <div className={clsx(
+            "px-2 py-0.5 text-xs bg-black/60 backdrop-blur-sm rounded text-white flex items-center gap-1 cursor-help transition-all",
+            isAnimating && "scale-110"
+          )}>
+            <Eye className="w-3 h-3" />
+            <span className={clsx(isAnimating && "text-green-400 font-bold")}>
+              {displayViews}
+            </span>
+          </div>
+
+          {/* Tooltip */}
+          {showTooltip && (
+            <div className="absolute bottom-full left-0 mb-2 p-2 bg-bg-card border border-border rounded-lg shadow-lg z-50 whitespace-nowrap text-xs">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-text-secondary">סה״כ צפיות:</span>
+                  <span className="text-text-primary font-medium">{views}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-text-secondary">24 שעות אחרונות:</span>
+                  <span className="text-accent font-medium">{views24h}</span>
+                </div>
+              </div>
+              <div className="absolute -bottom-1 left-3 w-2 h-2 bg-bg-card border-r border-b border-border transform rotate-45"></div>
+            </div>
+          )}
         </div>
       </a>
 
@@ -331,6 +417,27 @@ export default function CodeCard({
             <span>{formatBytes(fileSize)}</span>
           )}
         </div>
+
+        {/* Owner badge */}
+        {ownerName && (
+          <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border">
+            <User className="w-3 h-3 text-text-secondary" />
+            <span className="text-xs text-text-secondary truncate">{ownerName}</span>
+            {isSuperAdmin && onTransferOwnership && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onTransferOwnership();
+                }}
+                className="mr-auto p-1 rounded text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+                title="העבר בעלות"
+              >
+                <UserCog className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Actions */}

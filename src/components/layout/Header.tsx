@@ -24,12 +24,10 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
         <div className="flex items-center gap-2">
           {/* User Menu */}
           {user ? (
-            <div className="relative">
+            <div className="relative z-[60]">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowUserMenu(!showUserMenu);
-                }}
+                type="button"
+                onClick={() => setShowUserMenu(prev => !prev)}
                 className="flex items-center gap-2 p-2 rounded-lg hover:bg-bg-hover transition-colors cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
@@ -43,10 +41,10 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
               {showUserMenu && (
                 <>
                   <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-[55]"
                     onClick={() => setShowUserMenu(false)}
                   />
-                  <div className="absolute left-0 top-full mt-2 w-48 bg-bg-card border border-border rounded-lg shadow-lg z-50">
+                  <div className="absolute left-0 top-full mt-2 w-48 bg-bg-card border border-border rounded-lg shadow-xl z-[60]">
                     <div className="p-3 border-b border-border">
                       <p className="text-sm font-medium text-text-primary">{user.displayName}</p>
                       <p className="text-xs text-text-secondary truncate">{user.email}</p>
@@ -54,8 +52,10 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
                     <div className="p-1">
                       {/* Theme Toggle in Menu */}
                       <button
+                        type="button"
                         onClick={() => {
                           toggleTheme();
+                          setShowUserMenu(false);
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-md transition-colors"
                       >
@@ -67,6 +67,7 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
                         {theme === 'dark' ? 'מצב יום' : 'מצב לילה'}
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           setShowUserMenu(false);
                           onSignOut?.();

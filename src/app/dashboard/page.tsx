@@ -7,9 +7,10 @@ import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
+import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode } from '@/lib/db';
+import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership } from '@/lib/db';
 import { clsx } from 'clsx';
 
 export default function DashboardPage() {
@@ -26,8 +27,13 @@ export default function DashboardPage() {
     isOpen: false,
     code: null,
   });
+  const [transferModal, setTransferModal] = useState<{ isOpen: boolean; code: QRCodeType | null }>({
+    isOpen: false,
+    code: null,
+  });
+  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
 
-  // Load user's codes
+  // Load user's codes and owner names
   useEffect(() => {
     const loadCodes = async () => {
       if (!user) return;
@@ -35,6 +41,16 @@ export default function DashboardPage() {
       try {
         const userCodes = await getUserQRCodes(user.id);
         setCodes(userCodes);
+
+        // Load owner names for super admin
+        if (user.role === 'super_admin') {
+          const allUsers = await getAllUsers();
+          const names: Record<string, string> = {};
+          allUsers.forEach((u) => {
+            names[u.id] = u.displayName;
+          });
+          setOwnerNames(names);
+        }
       } catch (error) {
         console.error('Error loading codes:', error);
       } finally {
@@ -183,6 +199,24 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error updating title:', error);
       alert('שגיאה בעדכון השם. נסה שוב.');
+    }
+  };
+
+  const handleTransferOwnership = async (newOwnerId: string, newOwnerName: string) => {
+    if (!transferModal.code) return;
+
+    try {
+      await transferCodeOwnership(transferModal.code.id, newOwnerId);
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === transferModal.code?.id ? { ...c, ownerId: newOwnerId } : c
+        )
+      );
+      // Update owner names cache
+      setOwnerNames((prev) => ({ ...prev, [newOwnerId]: newOwnerName }));
+    } catch (error) {
+      console.error('Error transferring ownership:', error);
+      alert('שגיאה בהעברת הבעלות. נסה שוב.');
     }
   };
 
@@ -355,11 +389,14 @@ export default function DashboardPage() {
               views={code.views}
               isOwner={user?.id === code.ownerId}
               isGlobal={!!code.widgets.whatsapp?.enabled}
+              ownerName={ownerNames[code.ownerId] || (code.ownerId === user?.id ? user.displayName : undefined)}
+              isSuperAdmin={user?.role === 'super_admin'}
               onDelete={() => handleDelete(code)}
               onRefresh={() => router.push(`/code/${code.id}`)}
               onPublish={() => router.push(`/code/${code.id}`)}
               onCopy={() => handleCopyLink(code.shortId)}
               onTitleChange={(newTitle) => handleTitleChange(code.id, newTitle)}
+              onTransferOwnership={() => setTransferModal({ isOpen: true, code })}
             />
           ))}
         </div>
@@ -379,6 +416,15 @@ export default function DashboardPage() {
         onClose={() => setDeleteModal({ isOpen: false, code: null })}
         onConfirm={confirmDelete}
         title={deleteModal.code?.title || ''}
+      />
+
+      {/* Transfer Ownership Modal */}
+      <TransferOwnershipModal
+        isOpen={transferModal.isOpen}
+        onClose={() => setTransferModal({ isOpen: false, code: null })}
+        onTransfer={handleTransferOwnership}
+        codeTitle={transferModal.code?.title || ''}
+        currentOwnerId={transferModal.code?.ownerId || ''}
       />
     </div>
   );
