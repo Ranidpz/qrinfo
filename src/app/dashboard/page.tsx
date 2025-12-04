@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, LayoutGrid, List, FolderOpen, Loader2 } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2 } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -254,10 +254,15 @@ export default function DashboardPage() {
       }
     }
 
-    // Filter by ownership
-    if (filter === 'mine' && user && code.ownerId !== user.id) {
-      return false;
+    // Filter by ownership based on user role
+    if (filter === 'mine') {
+      // "שלי" = only codes I created
+      if (user && code.ownerId !== user.id) {
+        return false;
+      }
     }
+    // "הכל" for admin = all codes from all users (already loaded in getUserQRCodes)
+    // "הכל" for regular user = my codes + codes shared with me
 
     return true;
   });
@@ -293,90 +298,90 @@ export default function DashboardPage() {
       )}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-          <input
-            type="text"
-            placeholder="חיפוש..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input pl-10 w-full"
-            list="codes-autocomplete"
-          />
-          <datalist id="codes-autocomplete">
-            {codes.map((code) => (
-              <option key={code.id} value={code.title} />
-            ))}
-          </datalist>
+      <div className="space-y-3">
+        {/* Top row - Filter tabs and Search */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Filter tabs - first on mobile */}
+          <div className="flex bg-bg-secondary rounded-lg p-1 order-1 sm:order-2">
+            <button
+              onClick={() => setFilter('all')}
+              className={clsx(
+                'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
+                filter === 'all' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
+              )}
+            >
+              הכל
+            </button>
+            <button
+              onClick={() => setFilter('mine')}
+              className={clsx(
+                'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
+                filter === 'mine' ? 'bg-accent text-white' : 'text-text-secondary'
+              )}
+            >
+              שלי
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-0 order-2 sm:order-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+            <input
+              type="text"
+              placeholder="חיפוש..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input pl-10 w-full"
+              list="codes-autocomplete"
+            />
+            <datalist id="codes-autocomplete">
+              {codes.map((code) => (
+                <option key={code.id} value={code.title} />
+              ))}
+            </datalist>
+          </div>
         </div>
 
-        {/* Grid size controls */}
-        <div className="flex items-center gap-1 bg-bg-secondary rounded-lg p-1">
-          <button
-            onClick={() => setGridSize(Math.max(2, gridSize - 1))}
-            className="px-2 py-1 text-text-secondary hover:text-text-primary"
-          >
-            −
-          </button>
-          <span className="px-2 text-sm text-text-primary">{gridSize}</span>
-          <button
-            onClick={() => setGridSize(Math.min(6, gridSize + 1))}
-            className="px-2 py-1 text-text-secondary hover:text-text-primary"
-          >
-            +
-          </button>
-        </div>
+        {/* Bottom row - View controls (hidden on small mobile) */}
+        <div className="flex items-center gap-2 justify-end">
+          {/* Grid size controls - hide on small screens */}
+          <div className="hidden sm:flex items-center gap-1 bg-bg-secondary rounded-lg p-1">
+            <button
+              onClick={() => setGridSize(Math.max(1, gridSize - 1))}
+              className="px-2 py-1 text-text-secondary hover:text-text-primary"
+            >
+              −
+            </button>
+            <span className="px-2 text-sm text-text-primary">{gridSize}</span>
+            <button
+              onClick={() => setGridSize(Math.min(6, gridSize + 1))}
+              className="px-2 py-1 text-text-secondary hover:text-text-primary"
+            >
+              +
+            </button>
+          </div>
 
-        {/* View mode toggle */}
-        <div className="flex bg-bg-secondary rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('list')}
-            className={clsx(
-              'p-2 rounded-md transition-colors',
-              viewMode === 'list' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
-            )}
-          >
-            <List className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setViewMode('grid')}
-            className={clsx(
-              'p-2 rounded-md transition-colors',
-              viewMode === 'grid' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
-            )}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          <button
-            className="p-2 rounded-md text-text-secondary hover:text-text-primary transition-colors"
-            title="בחירה מרובה"
-          >
-            <FolderOpen className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Filter tabs */}
-        <div className="flex bg-bg-secondary rounded-lg p-1">
-          <button
-            onClick={() => setFilter('all')}
-            className={clsx(
-              'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-              filter === 'all' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
-            )}
-          >
-            הכל
-          </button>
-          <button
-            onClick={() => setFilter('mine')}
-            className={clsx(
-              'px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-              filter === 'mine' ? 'bg-accent text-white' : 'text-text-secondary'
-            )}
-          >
-            שלי
-          </button>
+          {/* View mode toggle */}
+          <div className="flex bg-bg-secondary rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={clsx(
+                'p-2 rounded-md transition-colors',
+                viewMode === 'list' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
+              )}
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={clsx(
+                'p-2 rounded-md transition-colors',
+                viewMode === 'grid' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
+              )}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -384,15 +389,13 @@ export default function DashboardPage() {
       {filteredCodes.length > 0 ? (
         <div
           className={clsx(
-            'grid gap-4',
-            viewMode === 'grid'
-              ? `grid-cols-2 sm:grid-cols-3 lg:grid-cols-${gridSize}`
-              : 'grid-cols-1'
+            'grid gap-3 sm:gap-4',
+            viewMode === 'list' && 'grid-cols-1'
           )}
           style={
             viewMode === 'grid'
               ? {
-                  gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                  gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${Math.max(200, 320 / gridSize * 2)}px), 1fr))`,
                 }
               : undefined
           }

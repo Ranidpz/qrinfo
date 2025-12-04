@@ -266,14 +266,15 @@ export default function CodeCard({
       {/* Thumbnail / Preview - QR Code for links, media preview for others */}
       <a href={`/code/${id}`} className="block aspect-video relative overflow-hidden bg-bg-secondary">
         {mediaType === 'link' ? (
-          // Show QR code for links
-          <div className="w-full h-full flex items-center justify-center bg-white p-4">
-            <div ref={qrRef}>
+          // Show QR code for links - larger and centered
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+            <div ref={qrRef} className="bg-white p-3 rounded-xl shadow-lg">
               <QRCodeSVG
                 value={viewUrl}
-                size={120}
+                size={100}
                 level="H"
                 includeMargin={false}
+                className="w-full h-full"
               />
             </div>
           </div>
@@ -330,40 +331,41 @@ export default function CodeCard({
           )}
         </div>
 
-        {/* Views counter with animation and tooltip */}
-        <div
-          className="absolute bottom-2 left-2 relative"
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-        >
-          <div className={clsx(
-            "px-2 py-0.5 text-xs bg-black/60 backdrop-blur-sm rounded text-white flex items-center gap-1 cursor-help transition-all",
-            isAnimating && "scale-110"
-          )}>
-            <Eye className="w-3 h-3" />
-            <span className={clsx(isAnimating && "text-green-400 font-bold")}>
-              {displayViews}
-            </span>
-          </div>
-
-          {/* Tooltip */}
-          {showTooltip && (
-            <div className="absolute bottom-full left-0 mb-2 p-2 bg-bg-card border border-border rounded-lg shadow-lg z-50 whitespace-nowrap text-xs">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-text-secondary">סה״כ צפיות:</span>
-                  <span className="text-text-primary font-medium">{views}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-text-secondary">24 שעות אחרונות:</span>
-                  <span className="text-accent font-medium">{views24h}</span>
-                </div>
-              </div>
-              <div className="absolute -bottom-1 left-3 w-2 h-2 bg-bg-card border-r border-b border-border transform rotate-45"></div>
-            </div>
-          )}
-        </div>
       </a>
+
+      {/* Views counter - moved outside the link, above info section */}
+      <div
+        className="absolute top-[calc(56.25%-2rem)] left-2 z-10"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        <div className={clsx(
+          "px-2 py-0.5 text-xs bg-black/60 backdrop-blur-sm rounded text-white flex items-center gap-1 cursor-help transition-all",
+          isAnimating && "scale-110"
+        )}>
+          <Eye className="w-3 h-3" />
+          <span className={clsx(isAnimating && "text-green-400 font-bold")}>
+            {displayViews}
+          </span>
+        </div>
+
+        {/* Tooltip */}
+        {showTooltip && (
+          <div className="absolute bottom-full left-0 mb-2 p-2 bg-bg-card border border-border rounded-lg shadow-lg z-50 whitespace-nowrap text-xs">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-text-secondary">סה״כ צפיות:</span>
+                <span className="text-text-primary font-medium">{views}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-text-secondary">24 שעות אחרונות:</span>
+                <span className="text-accent font-medium">{views24h}</span>
+              </div>
+            </div>
+            <div className="absolute -bottom-1 left-3 w-2 h-2 bg-bg-card border-r border-b border-border transform rotate-45"></div>
+          </div>
+        )}
+      </div>
 
       {/* Info */}
       <div className="p-3">
