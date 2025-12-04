@@ -242,6 +242,70 @@ export default function DashboardPage() {
     }
   };
 
+  const handleReplaceFile = async (codeId: string, code: QRCodeType, file: File) => {
+    if (!user) return;
+
+    try {
+      // Upload new file to Vercel Blob
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const uploadData = await uploadResponse.json();
+
+      // Delete old media from Vercel Blob if not a link
+      const oldMedia = code.media[0];
+      if (oldMedia && oldMedia.type !== 'link') {
+        await fetch('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: oldMedia.url }),
+        });
+
+        // Update storage: subtract old size
+        if (oldMedia.uploadedBy === user.id) {
+          await updateUserStorage(user.id, -oldMedia.size);
+        }
+      }
+
+      // Update QR code with new media
+      const newMedia = {
+        id: `media_${Date.now()}_0`,
+        url: uploadData.url,
+        type: uploadData.type,
+        size: uploadData.size,
+        order: 0,
+        uploadedBy: user.id,
+        createdAt: new Date(),
+      };
+
+      await updateQRCode(codeId, { media: [newMedia] });
+
+      // Update user storage: add new size
+      await updateUserStorage(user.id, uploadData.size);
+      await refreshUser();
+
+      // Update local state
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === codeId ? { ...c, media: [newMedia], updatedAt: new Date() } : c
+        )
+      );
+    } catch (error) {
+      console.error('Error replacing file:', error);
+      alert('שגיאה בהחלפת הקובץ. נסה שוב.');
+    }
+  };
+
   const filteredCodes = codes.filter((code) => {
     // Filter by search
     if (searchQuery) {
@@ -420,6 +484,7 @@ export default function DashboardPage() {
               isSuperAdmin={user?.role === 'super_admin'}
               onDelete={() => handleDelete(code)}
               onRefresh={() => router.push(`/code/${code.id}`)}
+              onReplaceFile={(file) => handleReplaceFile(code.id, code, file)}
               onPublish={() => router.push(`/code/${code.id}`)}
               onCopy={() => handleCopyLink(code.shortId)}
               onTitleChange={(newTitle) => handleTitleChange(code.id, newTitle)}

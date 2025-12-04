@@ -1,10 +1,23 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, Printer, ExternalLink, UserCog, User, Clock } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, Printer, ExternalLink, UserCog, User, Clock, Check } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { MediaType } from '@/types';
+
+// Custom Tooltip component for instant display
+function Tooltip({ children, text }: { children: React.ReactNode; text: string }) {
+  return (
+    <div className="relative group/tooltip">
+      {children}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-opacity duration-100 z-[100] pointer-events-none">
+        {text}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+      </div>
+    </div>
+  );
+}
 
 interface CodeCardProps {
   id: string;
@@ -24,6 +37,7 @@ interface CodeCardProps {
   isSuperAdmin?: boolean;
   onDelete?: () => void;
   onRefresh?: () => void;
+  onReplaceFile?: (file: File) => void;
   onPublish?: () => void;
   onCopy?: () => void;
   onTitleChange?: (newTitle: string) => void;
@@ -73,6 +87,7 @@ export default function CodeCard({
   isSuperAdmin = false,
   onDelete,
   onRefresh,
+  onReplaceFile,
   onPublish,
   onCopy,
   onTitleChange,
@@ -83,7 +98,9 @@ export default function CodeCard({
   const [displayViews, setDisplayViews] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const qrRef = useRef<HTMLDivElement>(null);
   const prevViewsRef = useRef(views);
 
@@ -159,6 +176,27 @@ export default function CodeCard({
       setEditTitle(title);
       setIsEditing(false);
     }
+  };
+
+  // Handle copy with animation
+  const handleCopyClick = () => {
+    onCopy?.();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Handle file replacement
+  const handleReplaceClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onReplaceFile?.(file);
+    }
+    // Reset input so same file can be selected again
+    e.target.value = '';
   };
 
   const handlePrint = async () => {
@@ -450,54 +488,77 @@ export default function CodeCard({
         )}
       </div>
 
+      {/* Hidden file input for replacement */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*,.pdf,.gif"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       {/* Actions */}
       <div className="flex items-center gap-1 p-2 pt-0">
         {isOwner && (
-          <button
-            onClick={onDelete}
-            className="p-2 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors"
-            title="מחק"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          <Tooltip text="מחק">
+            <button
+              onClick={onDelete}
+              className="p-2 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </Tooltip>
         )}
 
-        <button
-          onClick={onRefresh}
-          className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
-          title="החלף מדיה"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
+        <Tooltip text="החלף קובץ">
+          <button
+            onClick={handleReplaceClick}
+            className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={onPublish}
-          className={clsx(
-            'p-2 rounded-lg transition-colors',
-            isGlobal
-              ? 'text-success bg-success/10'
-              : 'text-text-secondary hover:text-success hover:bg-success/10'
-          )}
-          title="פרסם"
-        >
-          <Globe className="w-4 h-4" />
-        </button>
+        <Tooltip text={isGlobal ? 'מפורסם' : 'פרסם'}>
+          <button
+            onClick={onPublish}
+            className={clsx(
+              'p-2 rounded-lg transition-colors',
+              isGlobal
+                ? 'text-success bg-success/10'
+                : 'text-text-secondary hover:text-success hover:bg-success/10'
+            )}
+          >
+            <Globe className="w-4 h-4" />
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={handlePrint}
-          className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
-          title="הדפס QR"
-        >
-          <Printer className="w-4 h-4" />
-        </button>
+        <Tooltip text="הדפס QR">
+          <button
+            onClick={handlePrint}
+            className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={onCopy}
-          className="p-2 rounded-lg text-white bg-accent hover:bg-accent-hover transition-colors mr-auto"
-          title="העתק לינק"
-        >
-          <Copy className="w-4 h-4" />
-        </button>
+        <Tooltip text={copied ? 'הועתק!' : 'העתק לינק'}>
+          <button
+            onClick={handleCopyClick}
+            className={clsx(
+              'p-2 rounded-lg transition-all mr-auto',
+              copied
+                ? 'text-white bg-success scale-110'
+                : 'text-white bg-accent hover:bg-accent-hover'
+            )}
+          >
+            {copied ? (
+              <Check className="w-4 h-4 animate-[bounce_0.3s_ease-out]" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
