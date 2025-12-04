@@ -78,10 +78,18 @@ export default function MediaUploader({
 
   const handleLinkSubmit = () => {
     if (!linkUrl.trim()) return;
+    setError(null);
+
+    let url = linkUrl.trim();
+
+    // Add https:// if no protocol specified
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
 
     try {
-      new URL(linkUrl);
-      onLinkAdd?.(linkUrl);
+      new URL(url);
+      onLinkAdd?.(url);
       setLinkUrl('');
     } catch {
       setError('כתובת URL לא תקינה');
@@ -207,7 +215,7 @@ export default function MediaUploader({
             disabled={!linkUrl.trim()}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            הוסף לינק
+            צור קוד
           </button>
         </div>
       )}

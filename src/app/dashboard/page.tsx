@@ -228,14 +228,20 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center gap-3">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
           <input
             type="text"
             placeholder="חיפוש..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="input pr-10"
+            className="input pl-10 w-full"
+            list="codes-autocomplete"
           />
+          <datalist id="codes-autocomplete">
+            {codes.map((code) => (
+              <option key={code.id} value={code.title} />
+            ))}
+          </datalist>
         </div>
 
         {/* Grid size controls */}

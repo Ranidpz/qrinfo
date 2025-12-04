@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "QR.info - מערכת קודי QR דינמיים",
   description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

@@ -4,10 +4,9 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import {
   User as FirebaseUser,
   onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut as firebaseSignOut,
-  updateProfile,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -17,13 +16,14 @@ interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const googleProvider = new GoogleAuthProvider();
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -56,12 +56,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Super admin emails
+  const SUPER_ADMIN_EMAILS = ['admin@playzone.co.il'];
+
   // Create user document in Firestore
   const createUserDocument = async (
-    firebaseUser: FirebaseUser,
-    displayName: string,
-    role: UserRole = 'free'
+    firebaseUser: FirebaseUser
   ): Promise<User> => {
+    const displayName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'משתמש';
+
+    // Auto-assign super_admin role for specific emails
+    const role: UserRole = SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '')
+      ? 'super_admin'
+      : 'free';
+
     const userData = {
       email: firebaseUser.email,
       displayName,
@@ -92,7 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setFirebaseUser(firebaseUser);
 
       if (firebaseUser) {
-        const userData = await fetchUserData(firebaseUser);
+        let userData = await fetchUserData(firebaseUser);
+
+        // Create user document if it doesn't exist (first time login)
+        if (!userData) {
+          userData = await createUserDocument(firebaseUser);
+        }
+
         setUser(userData);
       } else {
         setUser(null);
@@ -104,22 +118,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // Sign in with email and password
-  const signIn = async (email: string, password: string) => {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    const userData = await fetchUserData(result.user);
-    setUser(userData);
-  };
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    const result = await signInWithPopup(auth, googleProvider);
 
-  // Sign up with email and password
-  const signUp = async (email: string, password: string, displayName: string) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
+    let userData = await fetchUserData(result.user);
 
-    // Update Firebase profile
-    await updateProfile(result.user, { displayName });
+    // Create user document if it doesn't exist
+    if (!userData) {
+      userData = await createUserDocument(result.user);
+    }
 
-    // Create Firestore document
-    const userData = await createUserDocument(result.user, displayName);
     setUser(userData);
   };
 
@@ -143,8 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         firebaseUser,
         loading,
-        signIn,
-        signUp,
+        signInWithGoogle,
         signOut,
         refreshUser,
       }}

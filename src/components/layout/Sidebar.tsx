@@ -20,10 +20,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/dashboard', icon: Home, label: 'ראשי' },
-  { href: '/code/new', icon: QrCode, label: 'קוד חדש' },
   { href: '/dashboard/settings', icon: Settings, label: 'הגדרות' },
-  { href: '/admin', icon: Shield, label: 'ניהול', roles: ['super_admin'] },
-  { href: '/admin/users', icon: Users, label: 'משתמשים', roles: ['super_admin'] },
+  { href: '/admin/users', icon: Users, label: 'ניהול משתמשים', roles: ['super_admin'] },
 ];
 
 export default function Sidebar({ isOpen, onClose, userRole = 'free' }: SidebarProps) {
