@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: "QR Playzones - מערכת קודי QR דינמיים",
   description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
   icons: {
-    icon: "/qrlogo.jpg",
+    icon: "/favicon.svg",
     apple: "/qrlogo.jpg",
   },
   openGraph: {

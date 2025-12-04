@@ -1,7 +1,6 @@
 'use client';
 
-import { Menu, Moon, Sun, User, LogOut, Settings } from 'lucide-react';
-import Image from 'next/image';
+import { Menu, Moon, Sun, User, LogOut, QrCode } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useState } from 'react';
 
@@ -64,10 +63,6 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
                         )}
                         {theme === 'dark' ? 'מצב יום' : 'מצב לילה'}
                       </button>
-                      <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-md transition-colors">
-                        <Settings className="w-4 h-4" />
-                        הגדרות
-                      </button>
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
@@ -104,13 +99,7 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
 
         {/* Left side - Logo */}
         <a href="/dashboard" className="flex items-center">
-          <Image
-            src="/qrlogo.jpg"
-            alt="QR Playzones"
-            width={40}
-            height={40}
-            className="rounded-lg"
-          />
+          <QrCode className="w-8 h-8 text-white" strokeWidth={1.5} />
         </a>
       </div>
     </header>
