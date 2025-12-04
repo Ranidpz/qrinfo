@@ -241,10 +241,21 @@ export async function deleteQRCode(id: string): Promise<void> {
   await deleteDoc(doc(db, 'codes', id));
 }
 
-// Increment view count
-export async function incrementViews(id: string): Promise<void> {
+// Increment view count and create view log
+export async function incrementViews(
+  id: string,
+  shortId: string,
+  ownerId: string,
+  userAgent: string
+): Promise<void> {
+  // Increment the counter (atomic, fast)
   await updateDoc(doc(db, 'codes', id), {
     views: increment(1),
+  });
+
+  // Create detailed view log (fire and forget - don't block the page load)
+  import('./analytics').then(({ createViewLog }) => {
+    createViewLog(id, shortId, ownerId, userAgent).catch(console.error);
   });
 }
 

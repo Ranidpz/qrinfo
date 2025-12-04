@@ -1,0 +1,69 @@
+'use client';
+
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { deviceLabels } from '@/lib/analytics';
+
+interface DevicePieChartProps {
+  data: { device: string; views: number }[];
+}
+
+const COLORS = ['#3b82f6', '#8b5cf6', '#22c55e', '#f59e0b'];
+
+export default function DevicePieChart({ data }: DevicePieChartProps) {
+  // Format data with Hebrew labels
+  const chartData = data.map((item) => ({
+    ...item,
+    name: deviceLabels[item.device] || item.device,
+  }));
+
+  const total = data.reduce((sum, item) => sum + item.views, 0);
+
+  return (
+    <div className="card p-6">
+      <h3 className="text-lg font-semibold text-text-primary mb-4">התפלגות מכשירים</h3>
+      <div className="h-[250px]" dir="ltr">
+        {total > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={90}
+                paddingAngle={2}
+                dataKey="views"
+                nameKey="name"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  color: 'var(--text-primary)',
+                }}
+                formatter={(value: number, name: string) => [
+                  `${value} (${Math.round((value / total) * 100)}%)`,
+                  name,
+                ]}
+              />
+              <Legend
+                verticalAlign="bottom"
+                height={36}
+                formatter={(value) => <span className="text-text-primary text-sm">{value}</span>}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-text-secondary">אין נתונים להצגה</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

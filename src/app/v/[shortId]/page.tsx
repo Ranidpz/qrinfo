@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getQRCodeByShortId, incrementViews } from '@/lib/db';
 import ViewerClient from './ViewerClient';
 
@@ -11,6 +12,10 @@ interface ViewerPageProps {
 export default async function ViewerPage({ params }: ViewerPageProps) {
   const { shortId } = await params;
 
+  // Get user agent from headers for analytics
+  const headersList = await headers();
+  const userAgent = headersList.get('user-agent') || 'unknown';
+
   try {
     const code = await getQRCodeByShortId(shortId);
 
@@ -18,8 +23,8 @@ export default async function ViewerPage({ params }: ViewerPageProps) {
       notFound();
     }
 
-    // Increment views (fire and forget)
-    incrementViews(code.id).catch(console.error);
+    // Increment views and log analytics (fire and forget)
+    incrementViews(code.id, code.shortId, code.ownerId, userAgent).catch(console.error);
 
     // Filter media by schedule
     const now = new Date();

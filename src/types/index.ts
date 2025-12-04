@@ -83,3 +83,43 @@ export type ViewMode = 'grid' | 'list';
 
 // Filter options
 export type FilterOption = 'all' | 'mine' | 'shared';
+
+// ============ ANALYTICS ============
+
+// Device info for view logs
+export interface DeviceInfo {
+  type: 'mobile' | 'tablet' | 'desktop';
+  browser: string;
+}
+
+// View log document
+export interface ViewLog {
+  id: string;
+  codeId: string;
+  shortId: string;
+  ownerId: string;
+  timestamp: Date;
+  device: DeviceInfo;
+}
+
+// Date range preset options
+export type DateRangePreset = 'today' | 'week' | 'month' | 'year' | 'custom';
+
+// Aggregated analytics data
+export interface AnalyticsData {
+  totalViews: number;
+  dailyAverage: number;
+  peakHour: number;
+  topDevice: string;
+  viewsByDay: { date: string; views: number }[];
+  viewsByHour: { hour: number; views: number }[];
+  viewsByDevice: { device: string; views: number }[];
+}
+
+// Analytics filter state
+export interface AnalyticsFilter {
+  codeIds: string[];
+  dateRange: DateRangePreset;
+  customStartDate?: Date;
+  customEndDate?: Date;
+}
