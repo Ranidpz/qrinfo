@@ -24,6 +24,7 @@ import {
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage } from '@/lib/db';
+import { subscribeToCodeViews } from '@/lib/analytics';
 import { QRCode as QRCodeType, MediaItem, MediaSchedule } from '@/types';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import ScheduleModal from '@/components/modals/ScheduleModal';
@@ -52,6 +53,10 @@ export default function CodeEditPage({ params }: PageProps) {
     isOpen: false,
     mediaId: null,
   });
+  const [displayViews, setDisplayViews] = useState(0);
+  const [views24h, setViews24h] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const prevViewsRef = useRef(0);
 
   // Load code data
   useEffect(() => {
@@ -83,6 +88,55 @@ export default function CodeEditPage({ params }: PageProps) {
       loadCode();
     }
   }, [id, user, router]);
+
+  // Animate view counter when code.views changes
+  useEffect(() => {
+    if (!code) return;
+
+    const startValue = prevViewsRef.current === code.views ? 0 : prevViewsRef.current;
+    const endValue = code.views;
+    const duration = startValue === 0 ? 1000 : 500;
+    const startTime = Date.now();
+
+    setIsAnimating(true);
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startValue + (endValue - startValue) * easeOut);
+
+      setDisplayViews(current);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setIsAnimating(false);
+        prevViewsRef.current = code.views;
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [code?.views]);
+
+  // Subscribe to real-time view counts for this code
+  useEffect(() => {
+    if (!code) return;
+
+    const unsubscribe = subscribeToCodeViews(
+      [code.id],
+      (viewsData) => {
+        setViews24h(viewsData[code.id] || 0);
+      },
+      (error) => {
+        console.error('Error subscribing to views:', error);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [code?.id]);
 
   const handleSave = async () => {
     if (!code) return;
@@ -440,9 +494,33 @@ export default function CodeEditPage({ params }: PageProps) {
               onChange={(e) => setTitle(e.target.value)}
               className="text-xl font-bold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1 -mx-2"
             />
-            <p className="text-sm text-text-secondary mt-1">
-              {code.shortId} | {code.views} צפיות
-            </p>
+            <div className="flex items-center gap-2 text-sm text-text-secondary mt-1">
+              <span>{code.shortId}</span>
+              <span>|</span>
+              <div className="relative group">
+                <span className={clsx(
+                  "flex items-center gap-1 cursor-help transition-all",
+                  isAnimating && "text-green-500 font-bold scale-110"
+                )}>
+                  <Eye className="w-3.5 h-3.5" />
+                  {displayViews} צפיות
+                </span>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-0 mb-2 p-2 bg-bg-card border border-border rounded-lg shadow-lg z-50 whitespace-nowrap text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-text-secondary">סה״כ צפיות:</span>
+                      <span className="text-text-primary font-medium">{code.views}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-text-secondary">24 שעות אחרונות:</span>
+                      <span className="text-accent font-medium">{views24h}</span>
+                    </div>
+                  </div>
+                  <div className="absolute -bottom-1 left-3 w-2 h-2 bg-bg-card border-r border-b border-border transform rotate-45"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
