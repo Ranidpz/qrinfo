@@ -87,8 +87,9 @@ export async function getQRCode(id: string): Promise<QRCode | null> {
     ownerId: data.ownerId,
     collaborators: data.collaborators || [],
     title: data.title,
-    media: (data.media || []).map((m: Record<string, unknown>) => ({
+    media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
       ...m,
+      id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
       createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
       schedule: m.schedule ? {
         ...m.schedule as object,
@@ -124,8 +125,9 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
     ownerId: data.ownerId,
     collaborators: data.collaborators || [],
     title: data.title,
-    media: (data.media || []).map((m: Record<string, unknown>) => ({
+    media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
       ...m,
+      id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
       createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
     })),
     widgets: data.widgets || {},
@@ -171,8 +173,9 @@ export async function getUserQRCodes(userId: string): Promise<QRCode[]> {
       ownerId: data.ownerId,
       collaborators: data.collaborators || [],
       title: data.title,
-      media: (data.media || []).map((m: Record<string, unknown>) => ({
+      media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
         ...m,
+        id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
         createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
       })),
       widgets: data.widgets || {},
