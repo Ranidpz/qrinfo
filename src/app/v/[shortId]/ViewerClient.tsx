@@ -5,11 +5,15 @@ import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Minimize2 } from
 import { MediaItem, CodeWidgets } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import HTMLFlipBook from 'react-pageflip';
+import { incrementViews } from '@/lib/db';
 
 interface ViewerClientProps {
   media: MediaItem[];
   widgets: CodeWidgets;
   title: string;
+  codeId: string;
+  shortId: string;
+  ownerId: string;
 }
 
 // Loading spinner with percentage
@@ -603,12 +607,22 @@ const ImageGalleryViewer = memo(({
 });
 ImageGalleryViewer.displayName = 'ImageGalleryViewer';
 
-export default function ViewerClient({ media, widgets, title }: ViewerClientProps) {
+export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId }: ViewerClientProps) {
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadMessage, setLoadMessage] = useState('טוען תוכן...');
   const [showContent, setShowContent] = useState(false);
   const loadedCount = useRef(0);
+  const viewLogged = useRef(false);
+
+  // Log view on client side (runs once)
+  useEffect(() => {
+    if (viewLogged.current) return;
+    viewLogged.current = true;
+
+    const userAgent = navigator.userAgent;
+    incrementViews(codeId, shortId, ownerId, userAgent).catch(console.error);
+  }, [codeId, shortId, ownerId]);
 
   const currentMedia = media[0];
   const isMultipleImages = media.length > 1 && media.every(m => m.type === 'image' || m.type === 'gif');
