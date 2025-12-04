@@ -219,6 +219,19 @@ export default function CodeCard({
               />
             </div>
           </div>
+        ) : mediaType === 'pdf' ? (
+          // PDF preview with nice styling
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-red-500/10 to-red-600/20">
+            <div className="w-16 h-20 bg-white rounded-lg shadow-lg flex items-center justify-center relative">
+              <FileText className="w-10 h-10 text-red-500" />
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded">
+                PDF
+              </div>
+            </div>
+            {fileName && (
+              <span className="text-xs text-text-secondary truncate max-w-[80%] px-2">{fileName}</span>
+            )}
+          </div>
         ) : thumbnail ? (
           <img
             src={thumbnail}
@@ -231,6 +244,18 @@ export default function CodeCard({
             {fileName && (
               <span className="text-xs text-text-secondary/70 truncate max-w-[80%]">{fileName}</span>
             )}
+          </div>
+        )}
+
+        {/* Mini QR Code overlay - shown for all except links */}
+        {mediaType !== 'link' && (
+          <div className="absolute top-2 left-2 w-12 h-12 bg-white rounded-lg shadow-lg p-1 opacity-90 group-hover:opacity-100 transition-opacity">
+            <QRCodeSVG
+              value={viewUrl}
+              size={40}
+              level="M"
+              includeMargin={false}
+            />
           </div>
         )}
 

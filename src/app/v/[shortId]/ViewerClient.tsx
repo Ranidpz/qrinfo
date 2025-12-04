@@ -124,7 +124,16 @@ const PDFViewer = memo(({
     }
   }, [currentPage, goToPage]);
 
-  if (pdfImages.length === 0) return null;
+  if (pdfImages.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p>טוען PDF...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -240,7 +249,11 @@ export default function ViewerClient({ media, widgets, title }: ViewerClientProp
         video.onloadedmetadata = updateProgress;
         video.onerror = updateProgress;
         video.src = item.url;
+      } else if (item.type === 'pdf') {
+        // PDF loads in its own component, just mark progress
+        updateProgress();
       } else {
+        // Links and other types
         updateProgress();
       }
     });
