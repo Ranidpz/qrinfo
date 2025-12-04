@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, User, UserPlus } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { user, loading: authLoading, signUp } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,6 +16,13 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,22 +43,29 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // TODO: Implement Firebase registration
-      // const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      // await updateProfile(userCredential.user, { displayName });
-      // Create user document in Firestore
-      console.log('Register:', { displayName, email, password });
-
-      // Simulate registration for now
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await signUp(email, password, displayName);
       router.push('/dashboard');
     } catch (err) {
-      setError('שגיאה בהרשמה. נסה שוב.');
       console.error(err);
+      const errorMessage = (err as Error).message;
+      if (errorMessage.includes('email-already-in-use')) {
+        setError('האימייל כבר רשום במערכת');
+      } else {
+        setError('שגיאה בהרשמה. נסה שוב.');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">

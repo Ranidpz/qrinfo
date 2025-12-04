@@ -1,135 +1,170 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, Plus, LayoutGrid, List, FolderOpen } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, LayoutGrid, List, FolderOpen, Loader2 } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
-import { ViewMode, FilterOption, QRCode } from '@/types';
+import { ViewMode, FilterOption, QRCode as QRCodeType } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage } from '@/lib/db';
 import { clsx } from 'clsx';
 
-// Mock data - will be replaced with real data from Firebase
-const mockCodes: QRCode[] = [
-  {
-    id: '1',
-    shortId: 'abc123',
-    ownerId: 'user1',
-    collaborators: [],
-    title: 'fotomaster.webp',
-    media: [{
-      id: 'm1',
-      url: '/placeholder.jpg',
-      type: 'image',
-      size: 99.7 * 1024,
-      order: 0,
-      uploadedBy: 'user1',
-      createdAt: new Date(),
-    }],
-    widgets: {},
-    views: 42,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: '2',
-    shortId: 'def456',
-    ownerId: 'user1',
-    collaborators: [],
-    title: 'אני',
-    media: [{
-      id: 'm2',
-      url: '/placeholder.jpg',
-      type: 'image',
-      size: 148.1 * 1024,
-      order: 0,
-      uploadedBy: 'user1',
-      createdAt: new Date(),
-    }],
-    widgets: { whatsapp: { enabled: true, groupLink: 'https://chat.whatsapp.com/xxx' } },
-    views: 128,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: '3',
-    shortId: 'ghi789',
-    ownerId: 'user1',
-    collaborators: [],
-    title: 'jpg.1_0',
-    media: [{
-      id: 'm3',
-      url: '/placeholder.jpg',
-      type: 'image',
-      size: 175.3 * 1024,
-      order: 0,
-      uploadedBy: 'user1',
-      createdAt: new Date(),
-    }],
-    widgets: {},
-    views: 56,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: '4',
-    shortId: 'jkl012',
-    ownerId: 'user1',
-    collaborators: [],
-    title: 'jpg.1_0',
-    media: [{
-      id: 'm4',
-      url: '/placeholder.jpg',
-      type: 'image',
-      size: 158.9 * 1024,
-      order: 0,
-      uploadedBy: 'user1',
-      createdAt: new Date(),
-    }],
-    widgets: {},
-    views: 23,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
-
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, refreshUser } = useAuth();
+  const [codes, setCodes] = useState<QRCodeType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filter, setFilter] = useState<FilterOption>('mine');
   const [gridSize, setGridSize] = useState(4);
-  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; code: QRCode | null }>({
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; code: QRCodeType | null }>({
     isOpen: false,
     code: null,
   });
 
-  // Mock storage data
-  const storageUsed = 581.9 * 1024; // 581.9 KB
-  const storageLimit = 50 * 1024 * 1024; // 50 MB
+  // Load user's codes
+  useEffect(() => {
+    const loadCodes = async () => {
+      if (!user) return;
 
-  const handleFileSelect = (file: File) => {
-    console.log('File selected:', file);
-    // TODO: Upload file and create new code
+      try {
+        const userCodes = await getUserQRCodes(user.id);
+        setCodes(userCodes);
+      } catch (error) {
+        console.error('Error loading codes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCodes();
+  }, [user]);
+
+  const handleFileSelect = async (file: File) => {
+    if (!user) return;
+
+    setUploading(true);
+
+    try {
+      // Upload file to Vercel Blob
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const uploadData = await uploadResponse.json();
+
+      // Create QR code in Firestore
+      const newCode = await createQRCode(user.id, file.name, [
+        {
+          url: uploadData.url,
+          type: uploadData.type,
+          size: uploadData.size,
+          order: 0,
+          uploadedBy: user.id,
+        },
+      ]);
+
+      // Update user storage
+      await updateUserStorage(user.id, uploadData.size);
+      await refreshUser();
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Navigate to edit page
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating code:', error);
+      alert('שגיאה ביצירת הקוד. נסה שוב.');
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleLinkAdd = (url: string) => {
-    console.log('Link added:', url);
-    // TODO: Create new code with link
+  const handleLinkAdd = async (url: string) => {
+    if (!user) return;
+
+    setUploading(true);
+
+    try {
+      // Create QR code with link
+      const newCode = await createQRCode(user.id, 'לינק חדש', [
+        {
+          url,
+          type: 'link',
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+        },
+      ]);
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Navigate to edit page
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating code:', error);
+      alert('שגיאה ביצירת הקוד. נסה שוב.');
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleDelete = (code: QRCode) => {
+  const handleDelete = (code: QRCodeType) => {
     setDeleteModal({ isOpen: true, code });
   };
 
-  const confirmDelete = () => {
-    if (deleteModal.code) {
-      console.log('Deleting code:', deleteModal.code.id);
-      // TODO: Delete code from Firebase
+  const confirmDelete = async () => {
+    if (!deleteModal.code || !user) return;
+
+    try {
+      // Calculate total size of media
+      const totalSize = deleteModal.code.media
+        .filter((m) => m.uploadedBy === user.id)
+        .reduce((sum, m) => sum + m.size, 0);
+
+      // Delete from Firestore
+      await deleteQRCode(deleteModal.code.id);
+
+      // Delete media from Vercel Blob
+      for (const media of deleteModal.code.media) {
+        if (media.type !== 'link') {
+          await fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: media.url }),
+          });
+        }
+      }
+
+      // Update user storage (negative to reduce)
+      if (totalSize > 0) {
+        await updateUserStorage(user.id, -totalSize);
+        await refreshUser();
+      }
+
+      // Remove from list
+      setCodes((prev) => prev.filter((c) => c.id !== deleteModal.code?.id));
+    } catch (error) {
+      console.error('Error deleting code:', error);
+      alert('שגיאה במחיקת הקוד. נסה שוב.');
     }
+
     setDeleteModal({ isOpen: false, code: null });
   };
 
@@ -139,24 +174,55 @@ export default function DashboardPage() {
     // TODO: Show toast notification
   };
 
-  const filteredCodes = mockCodes.filter(code => {
+  const filteredCodes = codes.filter((code) => {
+    // Filter by search
     if (searchQuery) {
-      return code.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             code.shortId.toLowerCase().includes(searchQuery.toLowerCase());
+      const query = searchQuery.toLowerCase();
+      if (
+        !code.title.toLowerCase().includes(query) &&
+        !code.shortId.toLowerCase().includes(query)
+      ) {
+        return false;
+      }
     }
+
+    // Filter by ownership
+    if (filter === 'mine' && user && code.ownerId !== user.id) {
+      return false;
+    }
+
     return true;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Storage Bar */}
-      <StorageBar used={storageUsed} limit={storageLimit} />
+      <StorageBar
+        used={user?.storageUsed || 0}
+        limit={user?.storageLimit || 25 * 1024 * 1024}
+      />
 
       {/* Upload Section */}
       <MediaUploader
         onFileSelect={handleFileSelect}
         onLinkAdd={handleLinkAdd}
+        disabled={uploading}
       />
+
+      {uploading && (
+        <div className="flex items-center justify-center gap-2 py-4 text-accent">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>יוצר קוד חדש...</span>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
@@ -249,9 +315,13 @@ export default function DashboardPage() {
               ? `grid-cols-2 sm:grid-cols-3 lg:grid-cols-${gridSize}`
               : 'grid-cols-1'
           )}
-          style={viewMode === 'grid' ? {
-            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`
-          } : undefined}
+          style={
+            viewMode === 'grid'
+              ? {
+                  gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                }
+              : undefined
+          }
         >
           {filteredCodes.map((code) => (
             <CodeCard
@@ -259,15 +329,15 @@ export default function DashboardPage() {
               id={code.id}
               shortId={code.shortId}
               title={code.title}
-              thumbnail={code.media[0]?.url}
+              thumbnail={code.media[0]?.type !== 'link' ? code.media[0]?.url : undefined}
               mediaType={code.media[0]?.type || 'image'}
               fileSize={code.media[0]?.size}
               views={code.views}
-              isOwner={true}
+              isOwner={user?.id === code.ownerId}
               isGlobal={!!code.widgets.whatsapp?.enabled}
               onDelete={() => handleDelete(code)}
-              onRefresh={() => console.log('Refresh', code.id)}
-              onPublish={() => console.log('Publish', code.id)}
+              onRefresh={() => router.push(`/code/${code.id}`)}
+              onPublish={() => router.push(`/code/${code.id}`)}
               onCopy={() => handleCopyLink(code.shortId)}
             />
           ))}
@@ -277,12 +347,8 @@ export default function DashboardPage() {
           <div className="w-16 h-16 rounded-full bg-bg-secondary flex items-center justify-center mx-auto mb-4">
             <Plus className="w-8 h-8 text-text-secondary" />
           </div>
-          <h3 className="text-lg font-medium text-text-primary mb-2">
-            אין קודים עדיין
-          </h3>
-          <p className="text-text-secondary">
-            העלה קובץ או הוסף לינק ליצירת הקוד הראשון שלך
-          </p>
+          <h3 className="text-lg font-medium text-text-primary mb-2">אין קודים עדיין</h3>
+          <p className="text-text-secondary">העלה קובץ או הוסף לינק ליצירת הקוד הראשון שלך</p>
         </div>
       )}
 

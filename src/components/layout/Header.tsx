@@ -10,9 +10,10 @@ interface HeaderProps {
     displayName: string;
     email: string;
   } | null;
+  onSignOut?: () => void;
 }
 
-export default function Header({ onMenuClick, user }: HeaderProps) {
+export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -85,7 +86,13 @@ export default function Header({ onMenuClick, user }: HeaderProps) {
                         <Settings className="w-4 h-4" />
                         הגדרות
                       </button>
-                      <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-bg-hover rounded-md transition-colors">
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onSignOut?.();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-bg-hover rounded-md transition-colors"
+                      >
                         <LogOut className="w-4 h-4" />
                         התנתק
                       </button>
