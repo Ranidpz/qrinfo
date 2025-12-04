@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Link as LinkIcon, Eye } from 'lucide-react';
 import { clsx } from 'clsx';
 import { MediaType } from '@/types';
@@ -18,6 +19,7 @@ interface CodeCardProps {
   onRefresh?: () => void;
   onPublish?: () => void;
   onCopy?: () => void;
+  onTitleChange?: (newTitle: string) => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -75,8 +77,38 @@ export default function CodeCard({
   onRefresh,
   onPublish,
   onCopy,
+  onTitleChange,
 }: CodeCardProps) {
   const MediaIcon = getMediaIcon(mediaType);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    const trimmedTitle = editTitle.trim();
+    if (trimmedTitle && trimmedTitle !== title) {
+      onTitleChange?.(trimmedTitle);
+    } else {
+      setEditTitle(title);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setEditTitle(title);
+      setIsEditing(false);
+    }
+  };
 
   return (
     <div className="group relative bg-bg-card border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all">
@@ -116,9 +148,28 @@ export default function CodeCard({
 
       {/* Info */}
       <div className="p-3">
-        <h3 className="font-medium text-text-primary truncate mb-1">
-          {title}
-        </h3>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            className="w-full font-medium text-text-primary bg-bg-secondary border border-accent rounded px-2 py-0.5 mb-1 focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        ) : (
+          <h3
+            onClick={() => isOwner && setIsEditing(true)}
+            className={clsx(
+              'font-medium text-text-primary truncate mb-1',
+              isOwner && 'cursor-pointer hover:text-accent transition-colors'
+            )}
+            title={isOwner ? 'לחץ לעריכה' : undefined}
+          >
+            {title}
+          </h3>
+        )}
         <div className="flex items-center justify-between text-xs text-text-secondary">
           <span dir="ltr">{shortId}</span>
           {fileSize !== undefined && fileSize > 0 && (

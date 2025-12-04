@@ -9,7 +9,7 @@ import CodeCard from '@/components/code/CodeCard';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import { ViewMode, FilterOption, QRCode as QRCodeType } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage } from '@/lib/db';
+import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode } from '@/lib/db';
 import { clsx } from 'clsx';
 
 export default function DashboardPage() {
@@ -172,6 +172,18 @@ export default function DashboardPage() {
     const url = `${window.location.origin}/v/${shortId}`;
     navigator.clipboard.writeText(url);
     // TODO: Show toast notification
+  };
+
+  const handleTitleChange = async (codeId: string, newTitle: string) => {
+    try {
+      await updateQRCode(codeId, { title: newTitle });
+      setCodes((prev) =>
+        prev.map((c) => (c.id === codeId ? { ...c, title: newTitle } : c))
+      );
+    } catch (error) {
+      console.error('Error updating title:', error);
+      alert('שגיאה בעדכון השם. נסה שוב.');
+    }
   };
 
   const filteredCodes = codes.filter((code) => {
@@ -345,6 +357,7 @@ export default function DashboardPage() {
               onRefresh={() => router.push(`/code/${code.id}`)}
               onPublish={() => router.push(`/code/${code.id}`)}
               onCopy={() => handleCopyLink(code.shortId)}
+              onTitleChange={(newTitle) => handleTitleChange(code.id, newTitle)}
             />
           ))}
         </div>
