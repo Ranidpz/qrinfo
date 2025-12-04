@@ -17,11 +17,11 @@ import {
   Loader2,
   Eye,
   Share2,
-  Printer,
+  Download,
   Clock,
   RefreshCw,
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage } from '@/lib/db';
 import { QRCode as QRCodeType, MediaItem, MediaSchedule } from '@/types';
@@ -38,6 +38,7 @@ export default function CodeEditPage({ params }: PageProps) {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
   const qrRef = useRef<HTMLDivElement>(null);
+  const qrCanvasRef = useRef<HTMLDivElement>(null);
 
   const [code, setCode] = useState<QRCodeType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,90 +164,18 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
-  const handlePrint = () => {
-    if (!code) return;
-    const viewUrl = `${window.location.origin}/v/${code.shortId}`;
-    const qrSize = 1000;
+  const handleDownloadQR = () => {
+    if (!code || !qrCanvasRef.current) return;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    // Get the hidden high-res canvas
+    const canvas = qrCanvasRef.current.querySelector('canvas');
+    if (!canvas) return;
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html dir="rtl">
-      <head>
-        <title>QR Code - ${code.title}</title>
-        <style>
-          @page { size: A4; margin: 20mm; }
-          body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-          }
-          .qr-container {
-            text-align: center;
-            padding: 40px;
-            border: 2px solid #e5e7eb;
-            border-radius: 16px;
-          }
-          h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: #1f2937;
-          }
-          .qr-wrapper {
-            display: inline-block;
-            padding: 20px;
-            background: white;
-            border-radius: 12px;
-          }
-          .url {
-            margin-top: 20px;
-            font-size: 14px;
-            color: #6b7280;
-            direction: ltr;
-          }
-          .shortId {
-            margin-top: 8px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #3b82f6;
-          }
-          @media print {
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="qr-container">
-          <h1>${code.title}</h1>
-          <div class="qr-wrapper" id="qr"></div>
-          <p class="shortId">${code.shortId}</p>
-          <p class="url">${viewUrl}</p>
-        </div>
-        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-        <script>
-          QRCode.toCanvas(document.createElement('canvas'), '${viewUrl}', {
-            width: ${qrSize},
-            margin: 2,
-            errorCorrectionLevel: 'H'
-          }, function(error, canvas) {
-            if (error) console.error(error);
-            document.getElementById('qr').appendChild(canvas);
-            canvas.style.width = '300px';
-            canvas.style.height = '300px';
-            setTimeout(() => window.print(), 500);
-          });
-        </script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
+    // Create download link
+    const link = document.createElement('a');
+    link.download = `${code.title}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
   };
 
   const handleAddMedia = async (file: File) => {
@@ -535,6 +464,16 @@ export default function CodeEditPage({ params }: PageProps) {
             />
           </div>
 
+          {/* Hidden high-res QR for download */}
+          <div ref={qrCanvasRef} className="hidden">
+            <QRCodeCanvas
+              value={viewUrl}
+              size={1000}
+              level="H"
+              includeMargin={true}
+            />
+          </div>
+
           {/* Link */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 p-3 bg-bg-secondary rounded-lg">
@@ -577,11 +516,11 @@ export default function CodeEditPage({ params }: PageProps) {
               צפייה
             </a>
             <button
-              onClick={handlePrint}
+              onClick={handleDownloadQR}
               className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
             >
-              <Printer className="w-4 h-4" />
-              הדפסה
+              <Download className="w-4 h-4" />
+              הורדת QR
             </button>
           </div>
 
