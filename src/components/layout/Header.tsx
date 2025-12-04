@@ -26,8 +26,11 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
           {user ? (
             <div className="relative">
               <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-bg-hover transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowUserMenu(!showUserMenu);
+                }}
+                className="flex items-center gap-2 p-2 rounded-lg hover:bg-bg-hover transition-colors cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
                   <User className="w-4 h-4 text-accent" />
@@ -40,10 +43,10 @@ export default function Header({ onMenuClick, user, onSignOut }: HeaderProps) {
               {showUserMenu && (
                 <>
                   <div
-                    className="fixed inset-0 z-10"
+                    className="fixed inset-0 z-40"
                     onClick={() => setShowUserMenu(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-bg-card border border-border rounded-lg shadow-lg z-20">
+                  <div className="absolute left-0 top-full mt-2 w-48 bg-bg-card border border-border rounded-lg shadow-lg z-50">
                     <div className="p-3 border-b border-border">
                       <p className="text-sm font-medium text-text-primary">{user.displayName}</p>
                       <p className="text-xs text-text-secondary truncate">{user.email}</p>
