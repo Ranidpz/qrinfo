@@ -105,6 +105,8 @@ const PDFFlipBookViewer = memo(({
   onLoad: () => void;
 }) => {
   const [pdfImages, setPdfImages] = useState<string[]>([]);
+  const [pageAnnotations, setPageAnnotations] = useState<PDFAnnotation[][]>([]);
+  const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [dimensions, setDimensions] = useState({ width: 400, height: 560 });
@@ -124,27 +126,44 @@ const PDFFlipBookViewer = memo(({
         setTotalPages(pdf.numPages);
 
         const images: string[] = [];
+        const allAnnotations: PDFAnnotation[][] = [];
         const scale = 2; // High quality
 
         // Get first page dimensions
         const firstPage = await pdf.getPage(1);
         const viewport = firstPage.getViewport({ scale: 1 });
         const aspectRatio = viewport.height / viewport.width;
+        setPageDimensions({ width: viewport.width, height: viewport.height });
 
         // Calculate optimal dimensions for screen
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
-        let bookWidth = Math.min(screenWidth * 0.4, 500);
-        let bookHeight = bookWidth * aspectRatio;
+        const isMobile = screenWidth < 768;
 
-        if (bookHeight > screenHeight * 0.85) {
-          bookHeight = screenHeight * 0.85;
-          bookWidth = bookHeight / aspectRatio;
+        let bookWidth: number;
+        let bookHeight: number;
+
+        if (isMobile) {
+          // Mobile: use more screen width
+          bookWidth = screenWidth * 0.9;
+          bookHeight = bookWidth * aspectRatio;
+          if (bookHeight > screenHeight * 0.75) {
+            bookHeight = screenHeight * 0.75;
+            bookWidth = bookHeight / aspectRatio;
+          }
+        } else {
+          // Desktop
+          bookWidth = Math.min(screenWidth * 0.4, 500);
+          bookHeight = bookWidth * aspectRatio;
+          if (bookHeight > screenHeight * 0.85) {
+            bookHeight = screenHeight * 0.85;
+            bookWidth = bookHeight / aspectRatio;
+          }
         }
 
         setDimensions({ width: Math.round(bookWidth), height: Math.round(bookHeight) });
 
-        // Render all pages
+        // Render all pages and extract annotations
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const pageViewport = page.getViewport({ scale });
@@ -156,9 +175,34 @@ const PDFFlipBookViewer = memo(({
 
           await page.render({ canvasContext: context, viewport: pageViewport, canvas }).promise;
           images.push(canvas.toDataURL('image/jpeg', 0.92));
+
+          // Extract link annotations
+          try {
+            const annotations = await page.getAnnotations();
+            const pageLinks: PDFAnnotation[] = [];
+
+            for (const annotation of annotations) {
+              if (annotation.subtype === 'Link' && annotation.url) {
+                const rect = annotation.rect;
+                pageLinks.push({
+                  url: annotation.url,
+                  rect: {
+                    x: rect[0],
+                    y: rect[1],
+                    width: rect[2] - rect[0],
+                    height: rect[3] - rect[1],
+                  },
+                });
+              }
+            }
+            allAnnotations.push(pageLinks);
+          } catch {
+            allAnnotations.push([]);
+          }
         }
 
         setPdfImages(images);
+        setPageAnnotations(allAnnotations);
         onLoad();
       } catch (error) {
         console.error('Error loading PDF:', error);
@@ -265,7 +309,13 @@ const PDFFlipBookViewer = memo(({
           useMouseEvents={true}
         >
           {pdfImages.map((img, index) => (
-            <Page key={index} number={index + 1}>
+            <Page
+              key={index}
+              number={index + 1}
+              annotations={pageAnnotations[index] || []}
+              pageWidth={pageDimensions.width}
+              pageHeight={pageDimensions.height}
+            >
               <img
                 src={img}
                 alt={`${title} - עמוד ${index + 1}`}
@@ -479,7 +529,13 @@ const ImageGalleryViewer = memo(({
           useMouseEvents={true}
         >
           {images.map((img, index) => (
-            <Page key={index} number={index + 1}>
+            <Page
+              key={index}
+              number={index + 1}
+              annotations={[]}
+              pageWidth={dimensions.width}
+              pageHeight={dimensions.height}
+            >
               <img
                 src={img.url}
                 alt={`${title} - ${index + 1}`}
