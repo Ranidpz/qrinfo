@@ -35,6 +35,7 @@ interface CodeCardProps {
   isGlobal?: boolean;
   ownerName?: string;
   isSuperAdmin?: boolean;
+  isDragging?: boolean;
   onDelete?: () => void;
   onRefresh?: () => void;
   onReplaceFile?: (file: File) => void;
@@ -42,6 +43,8 @@ interface CodeCardProps {
   onCopy?: () => void;
   onTitleChange?: (newTitle: string) => void;
   onTransferOwnership?: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -85,6 +88,7 @@ export default function CodeCard({
   isGlobal = false,
   ownerName,
   isSuperAdmin = false,
+  isDragging = false,
   onDelete,
   onRefresh,
   onReplaceFile,
@@ -92,6 +96,8 @@ export default function CodeCard({
   onCopy,
   onTitleChange,
   onTransferOwnership,
+  onDragStart,
+  onDragEnd,
 }: CodeCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
@@ -300,7 +306,19 @@ export default function CodeCard({
   const MediaIcon = mediaType === 'video' ? Video : mediaType === 'pdf' ? FileText : Image;
 
   return (
-    <div className="group relative bg-bg-card border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all">
+    <div
+      className={clsx(
+        "group relative bg-bg-card border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all",
+        isDragging && "opacity-50 scale-95"
+      )}
+      draggable={isOwner}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', id);
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart?.();
+      }}
+      onDragEnd={() => onDragEnd?.()}
+    >
       {/* Thumbnail / Preview - QR Code for links, media preview for others */}
       <a href={`/code/${id}`} className="block aspect-video relative overflow-hidden bg-bg-secondary">
         {mediaType === 'link' ? (

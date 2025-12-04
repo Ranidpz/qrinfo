@@ -14,7 +14,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { QRCode, MediaItem, User } from '@/types';
+import { QRCode, MediaItem, User, Folder } from '@/types';
 
 // Generate a unique short ID for QR codes
 export function generateShortId(length: number = 6): string {
@@ -349,6 +349,101 @@ export async function transferCodeOwnership(
 ): Promise<void> {
   await updateDoc(doc(db, 'codes', codeId), {
     ownerId: newOwnerId,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ============ FOLDERS ============
+
+// Create a new folder
+export async function createFolder(
+  ownerId: string,
+  name: string,
+  color?: string
+): Promise<Folder> {
+  const folderData = {
+    name,
+    ownerId,
+    color: color || '#3b82f6',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  const docRef = await addDoc(collection(db, 'folders'), folderData);
+
+  return {
+    id: docRef.id,
+    name,
+    ownerId,
+    color: color || '#3b82f6',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+// Get user's folders
+export async function getUserFolders(userId: string): Promise<Folder[]> {
+  const q = query(
+    collection(db, 'folders'),
+    where('ownerId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      name: data.name,
+      ownerId: data.ownerId,
+      color: data.color,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    };
+  });
+}
+
+// Update folder
+export async function updateFolder(
+  folderId: string,
+  updates: Partial<Pick<Folder, 'name' | 'color'>>
+): Promise<void> {
+  await updateDoc(doc(db, 'folders', folderId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Delete folder
+export async function deleteFolder(folderId: string): Promise<void> {
+  // Remove folderId from all codes in this folder
+  const codesQuery = query(
+    collection(db, 'codes'),
+    where('folderId', '==', folderId)
+  );
+  const codesSnapshot = await getDocs(codesQuery);
+
+  const updatePromises = codesSnapshot.docs.map((docSnap) =>
+    updateDoc(doc(db, 'codes', docSnap.id), {
+      folderId: null,
+      updatedAt: serverTimestamp(),
+    })
+  );
+
+  await Promise.all(updatePromises);
+
+  // Delete the folder
+  await deleteDoc(doc(db, 'folders', folderId));
+}
+
+// Move code to folder
+export async function moveCodeToFolder(
+  codeId: string,
+  folderId: string | null
+): Promise<void> {
+  await updateDoc(doc(db, 'codes', codeId), {
+    folderId: folderId,
     updatedAt: serverTimestamp(),
   });
 }

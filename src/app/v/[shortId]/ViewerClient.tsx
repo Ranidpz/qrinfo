@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, memo, forwardRef } from 'react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
 import { MediaItem, CodeWidgets } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
+import HTMLFlipBook from 'react-pageflip';
 
 interface ViewerClientProps {
   media: MediaItem[];
@@ -13,8 +14,8 @@ interface ViewerClientProps {
 
 // Loading spinner with percentage
 const LoadingSpinner = memo(({ progress, message }: { progress: number; message: string }) => (
-  <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
-    <div className="relative w-24 h-24">
+  <div className="fixed inset-0 bg-gradient-to-br from-gray-900 to-black z-50 flex flex-col items-center justify-center">
+    <div className="relative w-28 h-28">
       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
         <circle
           cx="50"
@@ -22,31 +23,79 @@ const LoadingSpinner = memo(({ progress, message }: { progress: number; message:
           r="45"
           fill="none"
           stroke="rgba(255,255,255,0.1)"
-          strokeWidth="8"
+          strokeWidth="6"
         />
         <circle
           cx="50"
           cy="50"
           r="45"
           fill="none"
-          stroke="white"
-          strokeWidth="8"
+          stroke="url(#gradient)"
+          strokeWidth="6"
           strokeLinecap="round"
           strokeDasharray={`${progress * 2.83} 283`}
           style={{ transition: 'stroke-dasharray 0.3s ease-out' }}
         />
+        <defs>
+          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#8b5cf6" />
+          </linearGradient>
+        </defs>
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <span className="text-white text-2xl font-bold">{Math.round(progress)}%</span>
       </div>
     </div>
-    <p className="text-white/70 mt-4 text-sm">{message}</p>
+    <p className="text-white/70 mt-6 text-sm font-medium">{message}</p>
   </div>
 ));
 LoadingSpinner.displayName = 'LoadingSpinner';
 
-// PDF Viewer with flip animation
-const PDFViewer = memo(({
+// Page component for flipbook
+interface PageProps {
+  children: React.ReactNode;
+  number: number;
+  annotations?: PDFAnnotation[];
+  pageWidth: number;
+  pageHeight: number;
+}
+
+interface PDFAnnotation {
+  url: string;
+  rect: { x: number; y: number; width: number; height: number };
+}
+
+const Page = forwardRef<HTMLDivElement, PageProps>(
+  ({ children, annotations = [], pageWidth, pageHeight }, ref) => {
+    return (
+      <div ref={ref} className="page bg-white shadow-lg relative" data-density="soft">
+        {children}
+        {/* Render clickable link areas */}
+        {annotations.map((annotation, idx) => (
+          <a
+            key={idx}
+            href={annotation.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute cursor-pointer hover:bg-blue-500/10 transition-colors"
+            style={{
+              left: `${(annotation.rect.x / pageWidth) * 100}%`,
+              bottom: `${(annotation.rect.y / pageHeight) * 100}%`,
+              width: `${(annotation.rect.width / pageWidth) * 100}%`,
+              height: `${(annotation.rect.height / pageHeight) * 100}%`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ))}
+      </div>
+    );
+  }
+);
+Page.displayName = 'Page';
+
+// PDF FlipBook Viewer
+const PDFFlipBookViewer = memo(({
   url,
   title,
   onLoad
@@ -55,42 +104,57 @@ const PDFViewer = memo(({
   title: string;
   onLoad: () => void;
 }) => {
-  const [numPages, setNumPages] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
   const [pdfImages, setPdfImages] = useState<string[]>([]);
-  const [flipping, setFlipping] = useState(false);
-  const [flipDirection, setFlipDirection] = useState<'next' | 'prev'>('next');
-  const [isLandscape, setIsLandscape] = useState(false);
-  const touchStartX = useRef(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [dimensions, setDimensions] = useState({ width: 400, height: 560 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const flipBookRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  // Load PDF and convert to images
   useEffect(() => {
     const loadPDF = async () => {
       try {
         const pdfjsLib = await import('pdfjs-dist');
-        // Use unpkg CDN which has all versions
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
         const pdf = await pdfjsLib.getDocument(url).promise;
-        setNumPages(pdf.numPages);
+        setTotalPages(pdf.numPages);
 
         const images: string[] = [];
-        const scale = Math.min(window.devicePixelRatio * 2, 3);
+        const scale = 2; // High quality
 
+        // Get first page dimensions
+        const firstPage = await pdf.getPage(1);
+        const viewport = firstPage.getViewport({ scale: 1 });
+        const aspectRatio = viewport.height / viewport.width;
+
+        // Calculate optimal dimensions for screen
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        let bookWidth = Math.min(screenWidth * 0.4, 500);
+        let bookHeight = bookWidth * aspectRatio;
+
+        if (bookHeight > screenHeight * 0.85) {
+          bookHeight = screenHeight * 0.85;
+          bookWidth = bookHeight / aspectRatio;
+        }
+
+        setDimensions({ width: Math.round(bookWidth), height: Math.round(bookHeight) });
+
+        // Render all pages
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale });
-
-          // Check if first page is landscape
-          if (i === 1) {
-            setIsLandscape(viewport.width > viewport.height);
-          }
+          const pageViewport = page.getViewport({ scale });
 
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d')!;
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
+          canvas.width = pageViewport.width;
+          canvas.height = pageViewport.height;
 
-          await page.render({ canvasContext: context, viewport, canvas }).promise;
+          await page.render({ canvasContext: context, viewport: pageViewport, canvas }).promise;
           images.push(canvas.toDataURL('image/jpeg', 0.92));
         }
 
@@ -105,32 +169,56 @@ const PDFViewer = memo(({
     loadPDF();
   }, [url, onLoad]);
 
-  const goToPage = useCallback((page: number, direction: 'next' | 'prev') => {
-    if (page < 1 || page > numPages || flipping) return;
+  const handleFlip = useCallback((e: any) => {
+    setCurrentPage(e.data);
+  }, []);
 
-    setFlipDirection(direction);
-    setFlipping(true);
-
-    setTimeout(() => {
-      setCurrentPage(page);
-      setTimeout(() => setFlipping(false), 300);
-    }, 150);
-  }, [numPages, flipping]);
-
-  const handleTouchEnd = useCallback((endX: number) => {
-    const diff = touchStartX.current - endX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) goToPage(currentPage + 1, 'next');
-      else goToPage(currentPage - 1, 'prev');
+  const goToPage = useCallback((pageNum: number) => {
+    if (flipBookRef.current) {
+      flipBookRef.current.pageFlip().flip(pageNum);
     }
-  }, [currentPage, goToPage]);
+  }, []);
+
+  const nextPage = useCallback(() => {
+    if (flipBookRef.current) {
+      flipBookRef.current.pageFlip().flipNext();
+    }
+  }, []);
+
+  const prevPage = useCallback(() => {
+    if (flipBookRef.current) {
+      flipBookRef.current.pageFlip().flipPrev();
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') nextPage();
+      if (e.key === 'ArrowRight') prevPage();
+      if (e.key === 'Escape' && isFullscreen) toggleFullscreen();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [nextPage, prevPage, isFullscreen, toggleFullscreen]);
 
   if (pdfImages.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center">
         <div className="text-white text-center">
-          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p>טוען PDF...</p>
+          <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-lg">טוען את הספר...</p>
+          <p className="text-sm text-white/60 mt-2">אנא המתן</p>
         </div>
       </div>
     );
@@ -138,80 +226,341 @@ const PDFViewer = memo(({
 
   return (
     <div
-      className={`w-full h-full flex items-center justify-center ${isLandscape ? 'pdf-landscape-container' : ''}`}
-      onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
-      onTouchEnd={(e) => handleTouchEnd(e.changedTouches[0].clientX)}
+      ref={containerRef}
+      className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
     >
-      <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: '1000px' }}>
-        <div
-          style={{
-            transformStyle: 'preserve-3d',
-            transition: 'transform 0.3s ease-out',
-            transform: flipping
-              ? `perspective(1000px) rotateY(${flipDirection === 'next' ? '-15deg' : '15deg'})`
-              : 'perspective(1000px) rotateY(0deg)',
-          }}
+      {/* Flipbook container */}
+      <div
+        className="relative flex items-center justify-center"
+        style={{
+          transform: `scale(${zoom})`,
+          transition: 'transform 0.3s ease'
+        }}
+      >
+        <HTMLFlipBook
+          ref={flipBookRef}
+          width={dimensions.width}
+          height={dimensions.height}
+          size="stretch"
+          minWidth={280}
+          maxWidth={1000}
+          minHeight={400}
+          maxHeight={1400}
+          showCover={true}
+          mobileScrollSupport={false}
+          onFlip={handleFlip}
+          className="flipbook-shadow"
+          style={{}}
+          startPage={0}
+          drawShadow={true}
+          flippingTime={600}
+          usePortrait={true}
+          startZIndex={0}
+          autoSize={true}
+          maxShadowOpacity={0.5}
+          showPageCorners={true}
+          disableFlipByClick={false}
+          swipeDistance={30}
+          clickEventForward={true}
+          useMouseEvents={true}
         >
-          <img
-            src={pdfImages[currentPage - 1]}
-            alt={`${title} - עמוד ${currentPage}`}
-            className="shadow-2xl"
-            style={{
-              maxHeight: isLandscape ? '100vw' : '90vh',
-              maxWidth: isLandscape ? '100vh' : '95vw',
-              width: 'auto',
-              height: 'auto',
-              objectFit: 'contain',
-            }}
-          />
-        </div>
+          {pdfImages.map((img, index) => (
+            <Page key={index} number={index + 1}>
+              <img
+                src={img}
+                alt={`${title} - עמוד ${index + 1}`}
+                className="w-full h-full object-contain"
+                draggable={false}
+              />
+            </Page>
+          ))}
+        </HTMLFlipBook>
+
+        {/* Navigation arrows */}
+        {currentPage > 0 && (
+          <button
+            onClick={prevPage}
+            className="absolute right-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110"
+            aria-label="הקודם"
+          >
+            <ChevronRight className="w-6 h-6 text-white" />
+          </button>
+        )}
+        {currentPage < totalPages - 1 && (
+          <button
+            onClick={nextPage}
+            className="absolute left-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110"
+            aria-label="הבא"
+          >
+            <ChevronLeft className="w-6 h-6 text-white" />
+          </button>
+        )}
       </div>
 
-      {numPages > 1 && (
-        <>
-          {currentPage > 1 && (
-            <button
-              onClick={() => goToPage(currentPage - 1, 'prev')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center backdrop-blur-sm z-10"
-            >
-              <ChevronRight className="w-5 h-5 text-white" />
-            </button>
-          )}
-          {currentPage < numPages && (
-            <button
-              onClick={() => goToPage(currentPage + 1, 'next')}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center backdrop-blur-sm z-10"
-            >
-              <ChevronLeft className="w-5 h-5 text-white" />
-            </button>
-          )}
+      {/* Bottom controls */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 rounded-full bg-black/40 backdrop-blur-md">
+        {/* Page indicator */}
+        <div className="text-white text-sm font-medium">
+          <span className="text-white/60">עמוד</span>{' '}
+          <span className="text-lg">{currentPage + 1}</span>{' '}
+          <span className="text-white/60">מתוך</span>{' '}
+          <span className="text-lg">{totalPages}</span>
+        </div>
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/60 text-white text-sm backdrop-blur-sm">
-            {currentPage} / {numPages}
-          </div>
-        </>
-      )}
+        <div className="w-px h-6 bg-white/20" />
+
+        {/* Zoom controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
+            className="p-2 rounded-full hover:bg-white/10 transition-colors"
+            disabled={zoom <= 0.5}
+          >
+            <ZoomOut className="w-4 h-4 text-white" />
+          </button>
+          <span className="text-white text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
+          <button
+            onClick={() => setZoom(Math.min(2, zoom + 0.1))}
+            className="p-2 rounded-full hover:bg-white/10 transition-colors"
+            disabled={zoom >= 2}
+          >
+            <ZoomIn className="w-4 h-4 text-white" />
+          </button>
+        </div>
+
+        <div className="w-px h-6 bg-white/20" />
+
+        {/* Fullscreen */}
+        <button
+          onClick={toggleFullscreen}
+          className="p-2 rounded-full hover:bg-white/10 transition-colors"
+        >
+          {isFullscreen ? (
+            <Minimize2 className="w-4 h-4 text-white" />
+          ) : (
+            <Maximize2 className="w-4 h-4 text-white" />
+          )}
+        </button>
+      </div>
+
+      {/* Page thumbnails / progress bar */}
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-1">
+        {pdfImages.slice(0, Math.min(10, totalPages)).map((_, index) => (
+          <button
+            key={index}
+            onClick={() => goToPage(index)}
+            className={`h-1 rounded-full transition-all ${
+              index === currentPage
+                ? 'w-8 bg-white'
+                : 'w-2 bg-white/30 hover:bg-white/50'
+            }`}
+          />
+        ))}
+        {totalPages > 10 && (
+          <span className="text-white/50 text-xs ml-2">+{totalPages - 10}</span>
+        )}
+      </div>
+
+      <style jsx global>{`
+        .flipbook-shadow {
+          box-shadow: 0 0 60px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 0, 0, 0.2);
+          border-radius: 4px;
+        }
+        .page {
+          background: white;
+          overflow: hidden;
+        }
+        .stf__parent {
+          margin: 0 auto;
+        }
+      `}</style>
     </div>
   );
 });
-PDFViewer.displayName = 'PDFViewer';
+PDFFlipBookViewer.displayName = 'PDFFlipBookViewer';
+
+// Image Gallery with flip effect
+const ImageGalleryViewer = memo(({
+  images,
+  title,
+  onLoad
+}: {
+  images: { url: string }[];
+  title: string;
+  onLoad: () => void;
+}) => {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [dimensions, setDimensions] = useState({ width: 400, height: 560 });
+  const flipBookRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Calculate optimal dimensions
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    let width = Math.min(screenWidth * 0.4, 500);
+    let height = width * 1.4;
+
+    if (height > screenHeight * 0.85) {
+      height = screenHeight * 0.85;
+      width = height / 1.4;
+    }
+
+    setDimensions({ width: Math.round(width), height: Math.round(height) });
+    onLoad();
+  }, [onLoad]);
+
+  const handleFlip = useCallback((e: any) => {
+    setCurrentPage(e.data);
+  }, []);
+
+  const nextPage = useCallback(() => {
+    if (flipBookRef.current) {
+      flipBookRef.current.pageFlip().flipNext();
+    }
+  }, []);
+
+  const prevPage = useCallback(() => {
+    if (flipBookRef.current) {
+      flipBookRef.current.pageFlip().flipPrev();
+    }
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') nextPage();
+      if (e.key === 'ArrowRight') prevPage();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [nextPage, prevPage]);
+
+  if (images.length === 1) {
+    // Single image - no flip needed
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <img
+          src={images[0].url}
+          alt={title}
+          className="max-w-full max-h-full object-contain animate-fadeIn"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div className="relative flex items-center justify-center">
+        <HTMLFlipBook
+          ref={flipBookRef}
+          width={dimensions.width}
+          height={dimensions.height}
+          size="stretch"
+          minWidth={280}
+          maxWidth={800}
+          minHeight={400}
+          maxHeight={1200}
+          showCover={true}
+          mobileScrollSupport={false}
+          onFlip={handleFlip}
+          className="flipbook-shadow"
+          style={{}}
+          startPage={0}
+          drawShadow={true}
+          flippingTime={600}
+          usePortrait={true}
+          startZIndex={0}
+          autoSize={true}
+          maxShadowOpacity={0.5}
+          showPageCorners={true}
+          disableFlipByClick={false}
+          swipeDistance={30}
+          clickEventForward={true}
+          useMouseEvents={true}
+        >
+          {images.map((img, index) => (
+            <Page key={index} number={index + 1}>
+              <img
+                src={img.url}
+                alt={`${title} - ${index + 1}`}
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
+            </Page>
+          ))}
+        </HTMLFlipBook>
+
+        {/* Navigation arrows */}
+        {currentPage > 0 && (
+          <button
+            onClick={prevPage}
+            className="absolute right-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110"
+          >
+            <ChevronRight className="w-6 h-6 text-white" />
+          </button>
+        )}
+        {currentPage < images.length - 1 && (
+          <button
+            onClick={nextPage}
+            className="absolute left-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110"
+          >
+            <ChevronLeft className="w-6 h-6 text-white" />
+          </button>
+        )}
+      </div>
+
+      {/* Bottom controls */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 rounded-full bg-black/40 backdrop-blur-md">
+        <div className="text-white text-sm font-medium">
+          {currentPage + 1} / {images.length}
+        </div>
+        <div className="flex gap-1">
+          {images.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => flipBookRef.current?.pageFlip().flip(index)}
+              className={`h-2 rounded-full transition-all ${
+                index === currentPage
+                  ? 'w-6 bg-white'
+                  : 'w-2 bg-white/30 hover:bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <style jsx global>{`
+        .flipbook-shadow {
+          box-shadow: 0 0 60px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 0, 0, 0.2);
+          border-radius: 4px;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.5s ease-out;
+        }
+      `}</style>
+    </div>
+  );
+});
+ImageGalleryViewer.displayName = 'ImageGalleryViewer';
 
 export default function ViewerClient({ media, widgets, title }: ViewerClientProps) {
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadMessage, setLoadMessage] = useState('טוען תוכן...');
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [showContent, setShowContent] = useState(false);
-  const [flipping, setFlipping] = useState(false);
-  const [flipDirection, setFlipDirection] = useState<'next' | 'prev'>('next');
   const loadedCount = useRef(0);
 
-  const hasMultiple = media.length > 1;
-  const currentMedia = media[currentIndex];
+  const currentMedia = media[0];
+  const isMultipleImages = media.length > 1 && media.every(m => m.type === 'image' || m.type === 'gif');
+  const isPDF = currentMedia?.type === 'pdf';
+  const isVideo = currentMedia?.type === 'video';
+  const isLink = currentMedia?.type === 'link';
 
-  // Preload all media
+  // Preload media
   useEffect(() => {
     if (media.length === 0) {
       setLoading(false);
@@ -233,8 +582,8 @@ export default function ViewerClient({ media, widgets, title }: ViewerClientProp
         setLoadMessage('מוכן!');
         setTimeout(() => {
           setLoading(false);
-          setTimeout(() => setShowContent(true), 50);
-        }, 200);
+          setTimeout(() => setShowContent(true), 100);
+        }, 300);
       }
     };
 
@@ -250,11 +599,7 @@ export default function ViewerClient({ media, widgets, title }: ViewerClientProp
         video.onloadedmetadata = updateProgress;
         video.onerror = updateProgress;
         video.src = item.url;
-      } else if (item.type === 'pdf') {
-        // PDF loads in its own component, just mark progress
-        updateProgress();
       } else {
-        // Links and other types
         updateProgress();
       }
     });
@@ -264,79 +609,10 @@ export default function ViewerClient({ media, widgets, title }: ViewerClientProp
         setLoading(false);
         setShowContent(true);
       }
-    }, 8000);
+    }, 10000);
 
     return () => clearTimeout(timeout);
   }, [media, loading]);
-
-  // Navigation with flip animation
-  const goNext = useCallback(() => {
-    if (currentIndex < media.length - 1 && !flipping) {
-      setFlipDirection('next');
-      setFlipping(true);
-      setTimeout(() => {
-        setCurrentIndex(prev => prev + 1);
-        setTimeout(() => setFlipping(false), 300);
-      }, 150);
-    }
-  }, [currentIndex, media.length, flipping]);
-
-  const goPrev = useCallback(() => {
-    if (currentIndex > 0 && !flipping) {
-      setFlipDirection('prev');
-      setFlipping(true);
-      setTimeout(() => {
-        setCurrentIndex(prev => prev - 1);
-        setTimeout(() => setFlipping(false), 300);
-      }, 150);
-    }
-  }, [currentIndex, flipping]);
-
-  const goToIndex = useCallback((index: number) => {
-    if (index !== currentIndex && !flipping) {
-      setFlipDirection(index > currentIndex ? 'next' : 'prev');
-      setFlipping(true);
-      setTimeout(() => {
-        setCurrentIndex(index);
-        setTimeout(() => setFlipping(false), 300);
-      }, 150);
-    }
-  }, [currentIndex, flipping]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') goNext();
-      if (e.key === 'ArrowRight') goPrev();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goNext, goPrev]);
-
-  // Touch handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    if (Math.abs(distance) > 50) {
-      if (distance > 0) goNext();
-      else goPrev();
-    }
-    setTouchStart(null);
-    setTouchEnd(null);
-  };
-
-  const handleVideoEnd = useCallback(() => {
-    if (hasMultiple && currentIndex < media.length - 1) goNext();
-  }, [hasMultiple, currentIndex, media.length, goNext]);
 
   const handleMediaLoad = useCallback(() => {}, []);
 
@@ -353,124 +629,57 @@ export default function ViewerClient({ media, widgets, title }: ViewerClientProp
   }
 
   return (
-    <div
-      className="min-h-screen bg-black relative overflow-hidden"
-      onTouchStart={currentMedia.type !== 'pdf' ? handleTouchStart : undefined}
-      onTouchMove={currentMedia.type !== 'pdf' ? handleTouchMove : undefined}
-      onTouchEnd={currentMedia.type !== 'pdf' ? handleTouchEnd : undefined}
-    >
+    <div className={`min-h-screen bg-black relative overflow-hidden ${showContent ? 'animate-fadeIn' : 'opacity-0'}`}>
       <style jsx global>{`
-        @keyframes bounceIn {
-          0% { opacity: 0; transform: scale(0.3); }
-          50% { opacity: 1; transform: scale(1.05); }
-          70% { transform: scale(0.9); }
-          100% { transform: scale(1); }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
-        .bounce-in { animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
-
-        @media (orientation: portrait) {
-          .pdf-landscape-container {
-            transform: rotate(90deg);
-            transform-origin: center center;
-            width: 100vh;
-            height: 100vw;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            margin-left: -50vh;
-            margin-top: -50vw;
-          }
+        .animate-fadeIn {
+          animation: fadeIn 0.5s ease-out forwards;
         }
       `}</style>
 
-      <div className={`w-full h-screen flex items-center justify-center ${showContent ? 'bounce-in' : 'opacity-0'}`}>
-        <div
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            perspective: '1000px',
-            transformStyle: 'preserve-3d',
-            transition: currentMedia.type !== 'pdf' ? 'transform 0.3s ease-out' : 'none',
-            transform: flipping && currentMedia.type !== 'pdf'
-              ? `perspective(1000px) rotateY(${flipDirection === 'next' ? '-15deg' : '15deg'})`
-              : 'perspective(1000px) rotateY(0deg)',
-          }}
-        >
-          {currentMedia.type === 'image' || currentMedia.type === 'gif' ? (
-            <img
-              src={currentMedia.url}
-              alt={title}
-              className="max-w-full max-h-full object-contain"
-            />
-          ) : currentMedia.type === 'video' ? (
+      {/* Content based on type */}
+      <div className="w-full h-screen">
+        {isPDF ? (
+          <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} />
+        ) : isMultipleImages ? (
+          <ImageGalleryViewer
+            images={media.map(m => ({ url: m.url }))}
+            title={title}
+            onLoad={handleMediaLoad}
+          />
+        ) : isVideo ? (
+          <div className="w-full h-full flex items-center justify-center bg-black">
             <video
               src={currentMedia.url}
               className="max-w-full max-h-full"
               controls
               autoPlay
               playsInline
-              onEnded={handleVideoEnd}
             />
-          ) : currentMedia.type === 'pdf' ? (
-            <PDFViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} />
-          ) : currentMedia.type === 'link' ? (
-            <iframe
+          </div>
+        ) : isLink ? (
+          <iframe
+            src={currentMedia.url}
+            className="w-full h-full"
+            title={title}
+            sandbox="allow-scripts allow-same-origin"
+          />
+        ) : (
+          // Single image
+          <div className="w-full h-full flex items-center justify-center">
+            <img
               src={currentMedia.url}
-              className="w-full h-full"
-              title={title}
-              sandbox="allow-scripts allow-same-origin"
+              alt={title}
+              className="max-w-full max-h-full object-contain"
             />
-          ) : null}
-        </div>
+          </div>
+        )}
       </div>
 
-      {hasMultiple && currentMedia.type !== 'pdf' && (
-        <>
-          {currentIndex > 0 && (
-            <button
-              onClick={goPrev}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors backdrop-blur-sm z-20"
-              aria-label="הקודם"
-            >
-              <ChevronRight className="w-6 h-6 text-white" />
-            </button>
-          )}
-          {currentIndex < media.length - 1 && (
-            <button
-              onClick={goNext}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors backdrop-blur-sm z-20"
-              aria-label="הבא"
-            >
-              <ChevronLeft className="w-6 h-6 text-white" />
-            </button>
-          )}
-        </>
-      )}
-
-      {hasMultiple && currentMedia.type !== 'pdf' && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-          {media.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToIndex(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentIndex ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/70'
-              }`}
-              aria-label={`עמוד ${index + 1}`}
-            />
-          ))}
-        </div>
-      )}
-
-      {hasMultiple && currentMedia.type !== 'pdf' && (
-        <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/50 text-white text-sm backdrop-blur-sm z-20">
-          {currentIndex + 1} / {media.length}
-        </div>
-      )}
-
+      {/* WhatsApp Widget */}
       {widgets.whatsapp?.enabled && widgets.whatsapp.groupLink && (
         <WhatsAppWidget groupLink={widgets.whatsapp.groupLink} />
       )}

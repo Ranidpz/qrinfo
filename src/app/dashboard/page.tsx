@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, LayoutGrid, List, Loader2 } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
+import FolderCard from '@/components/code/FolderCard';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
-import { ViewMode, FilterOption, QRCode as QRCodeType } from '@/types';
+import { ViewMode, FilterOption, QRCode as QRCodeType, Folder } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership } from '@/lib/db';
+import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews } from '@/lib/analytics';
 import { clsx } from 'clsx';
 
@@ -34,15 +35,27 @@ export default function DashboardPage() {
   });
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
   const [views24h, setViews24h] = useState<Record<string, number>>({});
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [draggingCodeId, setDraggingCodeId] = useState<string | null>(null);
+  const [deleteFolderModal, setDeleteFolderModal] = useState<{ isOpen: boolean; folder: Folder | null }>({
+    isOpen: false,
+    folder: null,
+  });
 
-  // Load user's codes and owner names
+  // Load user's codes, folders and owner names
   useEffect(() => {
-    const loadCodes = async () => {
+    const loadData = async () => {
       if (!user) return;
 
       try {
-        const userCodes = await getUserQRCodes(user.id);
+        const [userCodes, userFolders] = await Promise.all([
+          getUserQRCodes(user.id),
+          getUserFolders(user.id),
+        ]);
         setCodes(userCodes);
+        setFolders(userFolders);
 
         // Load owner names for super admin
         if (user.role === 'super_admin') {
@@ -54,13 +67,13 @@ export default function DashboardPage() {
           setOwnerNames(names);
         }
       } catch (error) {
-        console.error('Error loading codes:', error);
+        console.error('Error loading data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadCodes();
+    loadData();
   }, [user]);
 
   // Subscribe to real-time view counts for 24h
@@ -242,6 +255,73 @@ export default function DashboardPage() {
     }
   };
 
+  // Folder handlers
+  const handleCreateFolder = async () => {
+    if (!user) return;
+    try {
+      const newFolder = await createFolder(user.id, 'ספריה חדשה');
+      setFolders((prev) => [newFolder, ...prev]);
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      alert('שגיאה ביצירת הספריה. נסה שוב.');
+    }
+  };
+
+  const handleRenameFolder = async (folderId: string, newName: string) => {
+    try {
+      await updateFolder(folderId, { name: newName });
+      setFolders((prev) =>
+        prev.map((f) => (f.id === folderId ? { ...f, name: newName } : f))
+      );
+    } catch (error) {
+      console.error('Error renaming folder:', error);
+      alert('שגיאה בשינוי שם הספריה. נסה שוב.');
+    }
+  };
+
+  const handleDeleteFolder = (folder: Folder) => {
+    setDeleteFolderModal({ isOpen: true, folder });
+  };
+
+  const confirmDeleteFolder = async () => {
+    if (!deleteFolderModal.folder) return;
+    try {
+      await deleteFolder(deleteFolderModal.folder.id);
+      setFolders((prev) => prev.filter((f) => f.id !== deleteFolderModal.folder?.id));
+      // Update codes that were in this folder
+      setCodes((prev) =>
+        prev.map((c) =>
+          (c as QRCodeType & { folderId?: string }).folderId === deleteFolderModal.folder?.id
+            ? { ...c, folderId: undefined } as QRCodeType
+            : c
+        )
+      );
+      if (currentFolderId === deleteFolderModal.folder.id) {
+        setCurrentFolderId(null);
+      }
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+      alert('שגיאה במחיקת הספריה. נסה שוב.');
+    }
+    setDeleteFolderModal({ isOpen: false, folder: null });
+  };
+
+  const handleMoveCodeToFolder = async (codeId: string, folderId: string | null) => {
+    try {
+      await moveCodeToFolder(codeId, folderId);
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === codeId ? { ...c, folderId } as QRCodeType : c
+        )
+      );
+    } catch (error) {
+      console.error('Error moving code:', error);
+      alert('שגיאה בהעברת הקוד. נסה שוב.');
+    }
+    setDraggingCodeId(null);
+    setDragOverFolderId(null);
+  };
+
   const handleReplaceFile = async (codeId: string, code: QRCodeType, file: File) => {
     if (!user) return;
 
@@ -307,6 +387,20 @@ export default function DashboardPage() {
   };
 
   const filteredCodes = codes.filter((code) => {
+    // Filter by folder
+    const codeWithFolder = code as QRCodeType & { folderId?: string };
+    if (currentFolderId !== null) {
+      // Inside a folder - show only codes in this folder
+      if (codeWithFolder.folderId !== currentFolderId) {
+        return false;
+      }
+    } else {
+      // At root level - show only codes without folder
+      if (codeWithFolder.folderId) {
+        return false;
+      }
+    }
+
     // Filter by search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -330,6 +424,14 @@ export default function DashboardPage() {
 
     return true;
   });
+
+  // Get current folder for header
+  const currentFolder = currentFolderId ? folders.find((f) => f.id === currentFolderId) : null;
+
+  // Count codes in each folder
+  const getCodesInFolder = (folderId: string) => {
+    return codes.filter((c) => (c as QRCodeType & { folderId?: string }).folderId === folderId).length;
+  };
 
   if (loading) {
     return (
@@ -358,6 +460,29 @@ export default function DashboardPage() {
         <div className="flex items-center justify-center gap-2 py-4 text-accent">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span>יוצר קוד חדש...</span>
+        </div>
+      )}
+
+      {/* Folder Header - when inside a folder */}
+      {currentFolder && (
+        <div className="flex items-center gap-3 p-4 bg-bg-card border border-border rounded-xl">
+          <button
+            onClick={() => setCurrentFolderId(null)}
+            className="p-2 rounded-lg bg-bg-secondary text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+            title="חזור"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: `${currentFolder.color}20`, color: currentFolder.color }}
+          >
+            <FolderIcon className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-text-primary">{currentFolder.name}</h2>
+            <p className="text-sm text-text-secondary">{filteredCodes.length} קודים</p>
+          </div>
         </div>
       )}
 
@@ -449,6 +574,57 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Folders Section - only show at root level */}
+      {!currentFolderId && folders.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-text-primary">ספריות</h2>
+            <button
+              onClick={handleCreateFolder}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/10 rounded-lg transition-colors"
+            >
+              <FolderPlus className="w-4 h-4" />
+              ספריה חדשה
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {folders.map((folder) => (
+              <FolderCard
+                key={folder.id}
+                folder={folder}
+                codesCount={getCodesInFolder(folder.id)}
+                isOpen={currentFolderId === folder.id}
+                isDragOver={dragOverFolderId === folder.id}
+                onOpen={() => setCurrentFolderId(folder.id)}
+                onDelete={() => handleDeleteFolder(folder)}
+                onRename={(newName) => handleRenameFolder(folder.id, newName)}
+                onDrop={() => {
+                  if (draggingCodeId) {
+                    handleMoveCodeToFolder(draggingCodeId, folder.id);
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverFolderId(folder.id);
+                }}
+                onDragLeave={() => setDragOverFolderId(null)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Create Folder Button - show when no folders exist */}
+      {!currentFolderId && folders.length === 0 && (
+        <button
+          onClick={handleCreateFolder}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary hover:text-accent border border-dashed border-border hover:border-accent rounded-xl transition-colors w-full justify-center"
+        >
+          <FolderPlus className="w-5 h-5" />
+          צור ספריה חדשה לארגון הקודים
+        </button>
+      )}
+
       {/* Codes Grid/List */}
       {filteredCodes.length > 0 ? (
         <div
@@ -482,6 +658,7 @@ export default function DashboardPage() {
               isGlobal={!!code.widgets.whatsapp?.enabled}
               ownerName={ownerNames[code.ownerId] || (code.ownerId === user?.id ? user.displayName : undefined)}
               isSuperAdmin={user?.role === 'super_admin'}
+              isDragging={draggingCodeId === code.id}
               onDelete={() => handleDelete(code)}
               onRefresh={() => router.push(`/code/${code.id}`)}
               onReplaceFile={(file) => handleReplaceFile(code.id, code, file)}
@@ -489,6 +666,11 @@ export default function DashboardPage() {
               onCopy={() => handleCopyLink(code.shortId)}
               onTitleChange={(newTitle) => handleTitleChange(code.id, newTitle)}
               onTransferOwnership={() => setTransferModal({ isOpen: true, code })}
+              onDragStart={() => setDraggingCodeId(code.id)}
+              onDragEnd={() => {
+                setDraggingCodeId(null);
+                setDragOverFolderId(null);
+              }}
             />
           ))}
         </div>
@@ -497,8 +679,14 @@ export default function DashboardPage() {
           <div className="w-16 h-16 rounded-full bg-bg-secondary flex items-center justify-center mx-auto mb-4">
             <Plus className="w-8 h-8 text-text-secondary" />
           </div>
-          <h3 className="text-lg font-medium text-text-primary mb-2">אין קודים עדיין</h3>
-          <p className="text-text-secondary">העלה קובץ או הוסף לינק ליצירת הקוד הראשון שלך</p>
+          <h3 className="text-lg font-medium text-text-primary mb-2">
+            {currentFolderId ? 'הספריה ריקה' : 'אין קודים עדיין'}
+          </h3>
+          <p className="text-text-secondary">
+            {currentFolderId
+              ? 'גרור קודים לכאן כדי להוסיף אותם לספריה'
+              : 'העלה קובץ או הוסף לינק ליצירת הקוד הראשון שלך'}
+          </p>
         </div>
       )}
 
@@ -518,6 +706,34 @@ export default function DashboardPage() {
         codeTitle={transferModal.code?.title || ''}
         currentOwnerId={transferModal.code?.ownerId || ''}
       />
+
+      {/* Delete Folder Confirmation Modal */}
+      {deleteFolderModal.isOpen && deleteFolderModal.folder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-bg-card border border-border rounded-xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">מחיקת ספריה</h3>
+            <p className="text-text-secondary mb-4">
+              האם אתה בטוח שברצונך למחוק את הספריה &quot;{deleteFolderModal.folder.name}&quot;?
+              <br />
+              <span className="text-sm">הקודים בספריה יועברו לרמה הראשית.</span>
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteFolderModal({ isOpen: false, folder: null })}
+                className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={confirmDeleteFolder}
+                className="px-4 py-2 text-sm font-medium text-white bg-danger hover:bg-danger/90 rounded-lg transition-colors"
+              >
+                מחק
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

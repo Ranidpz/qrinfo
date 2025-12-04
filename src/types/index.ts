@@ -45,6 +45,17 @@ export interface QRCode {
   widgets: CodeWidgets;
   views: number;
   isActive: boolean;
+  folderId?: string; // Optional folder assignment
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Folder document
+export interface Folder {
+  id: string;
+  name: string;
+  ownerId: string;
+  color?: string; // Optional color for folder icon
   createdAt: Date;
   updatedAt: Date;
 }
