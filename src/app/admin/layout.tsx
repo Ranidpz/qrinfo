@@ -44,17 +44,17 @@ export default function AdminLayout({
     <div className="min-h-screen bg-bg-primary">
       <Header
         onMenuClick={() => setSidebarOpen(true)}
-        user={{
-          displayName: user.displayName,
-          email: user.email,
-        }}
-        onSignOut={signOut}
       />
 
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userRole={user.role}
+        user={{
+          displayName: user.displayName,
+          email: user.email,
+        }}
+        onSignOut={signOut}
       />
 
       {/* Main content */}

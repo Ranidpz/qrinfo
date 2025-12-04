@@ -418,6 +418,14 @@ export default function CodeCard({
           )}
         </div>
 
+        {/* Last updated */}
+        {updatedAt && (
+          <div className="flex items-center gap-1 text-xs text-text-secondary mt-1" title={updatedAt.toLocaleString('he-IL')}>
+            <Clock className="w-3 h-3" />
+            <span>עודכן {formatRelativeTime(updatedAt)}</span>
+          </div>
+        )}
+
         {/* Owner badge */}
         {ownerName && (
           <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border">

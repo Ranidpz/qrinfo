@@ -11,6 +11,7 @@ import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership } from '@/lib/db';
+import { subscribeToCodeViews } from '@/lib/analytics';
 import { clsx } from 'clsx';
 
 export default function DashboardPage() {
@@ -32,6 +33,7 @@ export default function DashboardPage() {
     code: null,
   });
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
+  const [views24h, setViews24h] = useState<Record<string, number>>({});
 
   // Load user's codes and owner names
   useEffect(() => {
@@ -60,6 +62,26 @@ export default function DashboardPage() {
 
     loadCodes();
   }, [user]);
+
+  // Subscribe to real-time view counts for 24h
+  useEffect(() => {
+    if (codes.length === 0) return;
+
+    const codeIds = codes.map((c) => c.id);
+    const unsubscribe = subscribeToCodeViews(
+      codeIds,
+      (viewsData) => {
+        setViews24h(viewsData);
+      },
+      (error) => {
+        console.error('Error subscribing to views:', error);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [codes]);
 
   const handleFileSelect = async (file: File) => {
     if (!user) return;
@@ -387,6 +409,8 @@ export default function DashboardPage() {
               fileName={code.media[0]?.title}
               fileSize={code.media[0]?.size}
               views={code.views}
+              views24h={views24h[code.id] || 0}
+              updatedAt={code.updatedAt}
               isOwner={user?.id === code.ownerId}
               isGlobal={!!code.widgets.whatsapp?.enabled}
               ownerName={ownerNames[code.ownerId] || (code.ownerId === user?.id ? user.displayName : undefined)}

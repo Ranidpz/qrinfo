@@ -249,6 +249,110 @@ export const deviceLabels: Record<string, string> = {
   desktop: 'מחשב',
 };
 
+// Get views count for last 24 hours for multiple codes
+export async function getViews24h(codeIds: string[]): Promise<Record<string, number>> {
+  if (codeIds.length === 0) return {};
+
+  const result: Record<string, number> = {};
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  // Initialize all codes with 0
+  codeIds.forEach((id) => {
+    result[id] = 0;
+  });
+
+  // Firestore 'in' queries are limited to 30 items
+  const chunks: string[][] = [];
+  for (let i = 0; i < codeIds.length; i += 30) {
+    chunks.push(codeIds.slice(i, i + 30));
+  }
+
+  for (const chunk of chunks) {
+    const q = query(
+      collection(db, 'viewLogs'),
+      where('codeId', 'in', chunk),
+      where('timestamp', '>=', Timestamp.fromDate(yesterday))
+    );
+
+    const snapshot = await getDocs(q);
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      result[data.codeId] = (result[data.codeId] || 0) + 1;
+    });
+  }
+
+  return result;
+}
+
+// Subscribe to real-time view counts for dashboard cards
+export function subscribeToCodeViews(
+  codeIds: string[],
+  onData: (views: Record<string, number>) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  if (codeIds.length === 0) {
+    onData({});
+    return () => {};
+  }
+
+  const viewCounts: Record<string, number> = {};
+  const unsubscribes: Unsubscribe[] = [];
+
+  // Initialize
+  codeIds.forEach((id) => {
+    viewCounts[id] = 0;
+  });
+
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  // Firestore 'in' queries are limited to 30 items
+  const chunks: string[][] = [];
+  for (let i = 0; i < codeIds.length; i += 30) {
+    chunks.push(codeIds.slice(i, i + 30));
+  }
+
+  chunks.forEach((chunk) => {
+    // Listen to viewLogs for these codes (last 24h for efficiency)
+    const q = query(
+      collection(db, 'viewLogs'),
+      where('codeId', 'in', chunk),
+      where('timestamp', '>=', Timestamp.fromDate(yesterday))
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        // Reset counts for this chunk
+        chunk.forEach((id) => {
+          viewCounts[id] = 0;
+        });
+
+        // Count views
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (viewCounts[data.codeId] !== undefined) {
+            viewCounts[data.codeId]++;
+          }
+        });
+
+        onData({ ...viewCounts });
+      },
+      (error) => {
+        console.error('Error in code views subscription:', error);
+        onError?.(error);
+      }
+    );
+
+    unsubscribes.push(unsubscribe);
+  });
+
+  return () => {
+    unsubscribes.forEach((unsub) => unsub());
+  };
+}
+
 // Real-time listener for view logs
 export function subscribeToViewLogs(
   codeIds: string[],
