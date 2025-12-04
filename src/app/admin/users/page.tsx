@@ -213,10 +213,11 @@ export default function AdminUsersPage() {
                           }
                           disabled={isCurrentUser}
                           className={clsx(
-                            'px-3 py-1.5 rounded-lg text-sm font-medium border-0 cursor-pointer',
+                            'px-3 py-1.5 rounded-lg text-sm font-medium border-0 cursor-pointer appearance-none',
                             ROLE_COLORS[u.role],
                             isCurrentUser && 'opacity-50 cursor-not-allowed'
                           )}
+                          style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                         >
                           <option value="free">חינם</option>
                           <option value="producer">מפיק</option>
