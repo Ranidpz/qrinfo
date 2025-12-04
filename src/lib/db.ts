@@ -192,23 +192,46 @@ export async function getUserQRCodes(userId: string): Promise<QRCode[]> {
   return codes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
+// Helper to remove undefined values from an object
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function removeUndefined(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 // Update QR code
 export async function updateQRCode(
   id: string,
   updates: Partial<Pick<QRCode, 'title' | 'media' | 'widgets' | 'collaborators' | 'isActive'>>
 ): Promise<void> {
-  // Convert media createdAt to Firestore Timestamp if present
+  // Convert media createdAt to Firestore Timestamp if present and remove undefined values
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const processedUpdates: Record<string, any> = { ...updates };
   if (processedUpdates.media) {
-    processedUpdates.media = processedUpdates.media.map((m: MediaItem) => ({
-      ...m,
-      createdAt: m.createdAt instanceof Date ? Timestamp.fromDate(m.createdAt) : m.createdAt,
-    }));
+    processedUpdates.media = processedUpdates.media.map((m: MediaItem) => {
+      const mediaItem = {
+        id: m.id,
+        url: m.url,
+        type: m.type,
+        size: m.size,
+        order: m.order,
+        uploadedBy: m.uploadedBy,
+        createdAt: m.createdAt instanceof Date ? Timestamp.fromDate(m.createdAt) : m.createdAt,
+      };
+      // Only add optional fields if they exist
+      if (m.title) (mediaItem as Record<string, unknown>).title = m.title;
+      if (m.schedule) (mediaItem as Record<string, unknown>).schedule = m.schedule;
+      return mediaItem;
+    });
   }
 
   await updateDoc(doc(db, 'codes', id), {
-    ...processedUpdates,
+    ...removeUndefined(processedUpdates),
     updatedAt: serverTimestamp(),
   });
 }
