@@ -4,6 +4,7 @@ import { Home, Users, X, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { clsx } from 'clsx';
+import { APP_VERSION } from '@/lib/version';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -86,9 +87,9 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free' }: SidebarP
         </nav>
 
         {/* Footer */}
-        <div className="absolute bottom-4 right-4 left-4">
-          <p className="text-xs text-text-secondary text-center">
-            נבנה על ידי{' '}
+        <div className="absolute bottom-4 right-4 left-4 text-center">
+          <p className="text-xs text-text-secondary">
+            By{' '}
             <a
               href="https://playzone.co.il"
               target="_blank"
@@ -97,6 +98,9 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free' }: SidebarP
             >
               Playzone
             </a>
+          </p>
+          <p className="text-[10px] text-text-secondary/60 mt-1">
+            v{APP_VERSION}
           </p>
         </div>
       </aside>
