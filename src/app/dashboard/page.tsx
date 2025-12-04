@@ -349,6 +349,8 @@ export default function DashboardPage() {
               title={code.title}
               thumbnail={code.media[0]?.type !== 'link' ? code.media[0]?.url : undefined}
               mediaType={code.media[0]?.type || 'image'}
+              mediaUrl={code.media[0]?.url}
+              fileName={code.media[0]?.title}
               fileSize={code.media[0]?.size}
               views={code.views}
               isOwner={user?.id === code.ownerId}
