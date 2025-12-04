@@ -194,8 +194,17 @@ export async function updateQRCode(
   id: string,
   updates: Partial<Pick<QRCode, 'title' | 'media' | 'widgets' | 'collaborators' | 'isActive'>>
 ): Promise<void> {
+  // Convert media createdAt to Firestore Timestamp if present
+  const processedUpdates = { ...updates };
+  if (processedUpdates.media) {
+    processedUpdates.media = processedUpdates.media.map(m => ({
+      ...m,
+      createdAt: m.createdAt instanceof Date ? Timestamp.fromDate(m.createdAt) : m.createdAt,
+    })) as typeof updates.media;
+  }
+
   await updateDoc(doc(db, 'codes', id), {
-    ...updates,
+    ...processedUpdates,
     updatedAt: serverTimestamp(),
   });
 }
