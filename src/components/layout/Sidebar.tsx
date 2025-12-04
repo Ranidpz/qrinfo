@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, QrCode, Users, Settings, Shield, X, BarChart3 } from 'lucide-react';
+import { Home, Users, X, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { clsx } from 'clsx';
@@ -21,7 +21,6 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', icon: Home, label: 'ראשי' },
   { href: '/analytics', icon: BarChart3, label: 'אנליטיקס' },
-  { href: '/dashboard/settings', icon: Settings, label: 'הגדרות' },
   { href: '/admin/users', icon: Users, label: 'ניהול משתמשים', roles: ['super_admin'] },
 ];
 
