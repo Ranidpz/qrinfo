@@ -312,7 +312,7 @@ export default function CodeCard({
   return (
     <div
       className={clsx(
-        "group relative bg-bg-card border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all",
+        "group relative bg-bg-card border border-border rounded-xl hover:border-accent/50 transition-all",
         isDragging && "opacity-50 scale-95"
       )}
       draggable={isOwner}
@@ -324,7 +324,7 @@ export default function CodeCard({
       onDragEnd={() => onDragEnd?.()}
     >
       {/* Thumbnail / Preview - QR Code for links, media preview for others */}
-      <a href={`/code/${id}`} className="block aspect-[4/3] relative overflow-hidden bg-bg-secondary">
+      <a href={`/code/${id}`} className="block aspect-[4/3] relative overflow-hidden rounded-t-xl bg-bg-secondary">
         {mediaType === 'link' ? (
           // Show QR code for links - larger and centered
           <div className="w-full h-full flex items-center justify-center p-4">
@@ -453,7 +453,7 @@ export default function CodeCard({
 
             {/* Views Tooltip */}
             {showTooltip && (
-              <div className="absolute bottom-full left-0 mb-2 p-2.5 bg-bg-card border border-border rounded-lg shadow-xl z-50 whitespace-nowrap">
+              <div className="absolute bottom-full left-0 mb-2 p-2.5 bg-bg-card border border-border rounded-lg shadow-xl z-[9999] whitespace-nowrap pointer-events-none">
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-6">
                     <span className="text-text-secondary text-xs">סה״כ:</span>
@@ -510,13 +510,13 @@ export default function CodeCard({
       />
 
       {/* Actions Bar */}
-      <div className="flex items-center gap-1 p-2 pt-0 border-t border-border/50">
+      <div className="flex flex-wrap items-center gap-1 p-2 border-t border-border/50">
         {/* Delete - owner only */}
         {isOwner && (
           <Tooltip text="מחק">
             <button
               onClick={onDelete}
-              className="p-2 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors"
+              className="p-1.5 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -527,7 +527,7 @@ export default function CodeCard({
         <Tooltip text="החלף קובץ">
           <button
             onClick={handleReplaceClick}
-            className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+            className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -538,7 +538,7 @@ export default function CodeCard({
           <Tooltip text="שכפל קוד">
             <button
               onClick={onDuplicate}
-              className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+              className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
             >
               <Files className="w-4 h-4" />
             </button>
@@ -551,7 +551,7 @@ export default function CodeCard({
             <button
               onClick={onToggleGlobal}
               className={clsx(
-                'p-2 rounded-lg transition-colors',
+                'p-1.5 rounded-lg transition-colors',
                 isGlobal
                   ? 'text-success bg-success/10'
                   : 'text-text-secondary hover:text-success hover:bg-success/10'
@@ -566,21 +566,21 @@ export default function CodeCard({
         <Tooltip text="הדפס QR">
           <button
             onClick={handlePrint}
-            className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+            className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
           >
             <Printer className="w-4 h-4" />
           </button>
         </Tooltip>
 
         {/* Spacer */}
-        <div className="flex-1" />
+        <div className="flex-1 min-w-[8px]" />
 
         {/* Copy link - primary action */}
         <Tooltip text={copied ? 'הועתק!' : 'העתק לינק'}>
           <button
             onClick={handleCopyClick}
             className={clsx(
-              'p-2 rounded-lg transition-all',
+              'p-1.5 rounded-lg transition-all',
               copied
                 ? 'text-white bg-success scale-105'
                 : 'text-white bg-accent hover:bg-accent-hover'
