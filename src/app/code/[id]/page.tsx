@@ -737,8 +737,9 @@ export default function CodeEditPage({ params }: PageProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="space-y-4">
+        {/* Top row: back button + title */}
+        <div className="flex items-start gap-3">
           <button
             onClick={() => {
               if (folder) {
@@ -747,12 +748,12 @@ export default function CodeEditPage({ params }: PageProps) {
                 router.push('/dashboard');
               }
             }}
-            className="p-2 rounded-lg hover:bg-bg-secondary transition-colors"
+            className="p-2 rounded-lg hover:bg-bg-secondary transition-colors flex-shrink-0 mt-0.5"
             title={folder ? `חזור ל${folder.name}` : 'חזור לדשבורד'}
           >
             <ArrowRight className="w-5 h-5 text-text-secondary" />
           </button>
-          <div>
+          <div className="flex-1 min-w-0">
             {/* Breadcrumb with folder */}
             {folder && (
               <div className="flex items-center gap-1.5 text-sm text-text-secondary mb-1">
@@ -770,7 +771,7 @@ export default function CodeEditPage({ params }: PageProps) {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-xl font-bold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1 -mx-2"
+              className="w-full text-xl font-bold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1 -mx-2"
             />
             <div className="flex items-center gap-2 text-sm text-text-secondary mt-1">
               <span>{code.shortId}</span>
@@ -802,7 +803,8 @@ export default function CodeEditPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Action buttons - separate row */}
+        <div className="flex items-center gap-2 justify-end">
           <Tooltip text="שמור שינויים">
             <button
               onClick={handleSave}
