@@ -33,6 +33,7 @@ interface CodeCardProps {
   updatedAt?: Date;
   isOwner?: boolean;
   isGlobal?: boolean;
+  isGuest?: boolean; // Hide action buttons for guests
   ownerName?: string;
   isSuperAdmin?: boolean;
   isDragging?: boolean;
@@ -90,6 +91,7 @@ export default function CodeCard({
   updatedAt,
   isOwner = true,
   isGlobal = false,
+  isGuest = false,
   ownerName,
   isSuperAdmin = false,
   isDragging = false,
@@ -323,34 +325,36 @@ export default function CodeCard({
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1">
-            {isOwner && (
-              <button onClick={onDelete} className="p-1.5 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-            {isSuperAdmin && onToggleGlobal && (
+          {/* Actions - hidden for guests */}
+          {!isGuest && (
+            <div className="flex items-center gap-1">
+              {isOwner && (
+                <button onClick={onDelete} className="p-1.5 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              {isSuperAdmin && onToggleGlobal && (
+                <button
+                  onClick={onToggleGlobal}
+                  className={clsx(
+                    'p-1.5 rounded-lg transition-colors',
+                    isGlobal ? 'text-success bg-success/10' : 'text-text-secondary hover:text-success hover:bg-success/10'
+                  )}
+                >
+                  <Globe className="w-4 h-4" />
+                </button>
+              )}
               <button
-                onClick={onToggleGlobal}
+                onClick={handleCopyClick}
                 className={clsx(
-                  'p-1.5 rounded-lg transition-colors',
-                  isGlobal ? 'text-success bg-success/10' : 'text-text-secondary hover:text-success hover:bg-success/10'
+                  'p-1.5 rounded-lg transition-all',
+                  copied ? 'text-white bg-success' : 'text-white bg-accent hover:bg-accent-hover'
                 )}
               >
-                <Globe className="w-4 h-4" />
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               </button>
-            )}
-            <button
-              onClick={handleCopyClick}
-              className={clsx(
-                'p-1.5 rounded-lg transition-all',
-                copied ? 'text-white bg-success' : 'text-white bg-accent hover:bg-accent-hover'
-              )}
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </button>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Hidden file input */}
@@ -573,81 +577,83 @@ export default function CodeCard({
         className="hidden"
       />
 
-      {/* Actions Bar */}
-      <div className="flex flex-wrap items-center gap-1 p-2 border-t border-border/50">
-        {/* Delete - owner only */}
-        {isOwner && (
-          <Tooltip text="מחק">
-            <button
-              onClick={onDelete}
-              className="p-1.5 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </Tooltip>
-        )}
+      {/* Actions Bar - hidden for guests */}
+      {!isGuest && (
+        <div className="flex flex-wrap items-center gap-1 p-2 border-t border-border/50">
+          {/* Delete - owner only */}
+          {isOwner && (
+            <Tooltip text="מחק">
+              <button
+                onClick={onDelete}
+                className="p-1.5 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </Tooltip>
+          )}
 
-        {/* Replace file */}
-        <Tooltip text="החלף קובץ">
-          <button
-            onClick={handleReplaceClick}
-            className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </Tooltip>
-
-        {/* Duplicate - creates a copy */}
-        {onDuplicate && (
-          <Tooltip text="שכפל קוד">
+          {/* Replace file */}
+          <Tooltip text="החלף קובץ">
             <button
-              onClick={onDuplicate}
+              onClick={handleReplaceClick}
               className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
             >
-              <Files className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" />
             </button>
           </Tooltip>
-        )}
 
-        {/* Global toggle - super admin only */}
-        {isSuperAdmin && onToggleGlobal && (
-          <Tooltip text={isGlobal ? 'הסר מגלובלי' : 'הפוך לגלובלי'}>
+          {/* Duplicate - creates a copy */}
+          {onDuplicate && (
+            <Tooltip text="שכפל קוד">
+              <button
+                onClick={onDuplicate}
+                className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+              >
+                <Files className="w-4 h-4" />
+              </button>
+            </Tooltip>
+          )}
+
+          {/* Global toggle - super admin only */}
+          {isSuperAdmin && onToggleGlobal && (
+            <Tooltip text={isGlobal ? 'הסר מגלובלי' : 'הפוך לגלובלי'}>
+              <button
+                onClick={onToggleGlobal}
+                className={clsx(
+                  'p-1.5 rounded-lg transition-colors',
+                  isGlobal
+                    ? 'text-success bg-success/10'
+                    : 'text-text-secondary hover:text-success hover:bg-success/10'
+                )}
+              >
+                <Globe className="w-4 h-4" />
+              </button>
+            </Tooltip>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1 min-w-[8px]" />
+
+          {/* Copy link - primary action */}
+          <Tooltip text={copied ? 'הועתק!' : 'העתק לינק'}>
             <button
-              onClick={onToggleGlobal}
+              onClick={handleCopyClick}
               className={clsx(
-                'p-1.5 rounded-lg transition-colors',
-                isGlobal
-                  ? 'text-success bg-success/10'
-                  : 'text-text-secondary hover:text-success hover:bg-success/10'
+                'p-1.5 rounded-lg transition-all',
+                copied
+                  ? 'text-white bg-success scale-105'
+                  : 'text-white bg-accent hover:bg-accent-hover'
               )}
             >
-              <Globe className="w-4 h-4" />
+              {copied ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
             </button>
           </Tooltip>
-        )}
-
-        {/* Spacer */}
-        <div className="flex-1 min-w-[8px]" />
-
-        {/* Copy link - primary action */}
-        <Tooltip text={copied ? 'הועתק!' : 'העתק לינק'}>
-          <button
-            onClick={handleCopyClick}
-            className={clsx(
-              'p-1.5 rounded-lg transition-all',
-              copied
-                ? 'text-white bg-success scale-105'
-                : 'text-white bg-accent hover:bg-accent-hover'
-            )}
-          >
-            {copied ? (
-              <Check className="w-4 h-4" />
-            ) : (
-              <Copy className="w-4 h-4" />
-            )}
-          </button>
-        </Tooltip>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -48,12 +48,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo & Hero */}
         <div className="text-center mb-8">
-          {/* QR Icon like in Header */}
-          <div className="w-16 h-16 rounded-xl bg-accent/10 flex items-center justify-center mx-auto mb-6">
-            <QrCode className="w-10 h-10 text-accent" />
+          {/* QR Icon - large with bounce animation */}
+          <div className="w-32 h-32 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-6 animate-bounce">
+            <QrCode className="w-20 h-20 text-accent" />
           </div>
 
-          <h1 className="text-3xl font-bold text-text-primary mb-3">Queue</h1>
+          <h1 className="text-5xl font-bold text-text-primary mb-3">Q</h1>
           <p className="text-lg text-accent font-medium">One QR. Endless Experiences.</p>
         </div>
 

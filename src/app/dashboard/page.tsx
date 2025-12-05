@@ -928,6 +928,7 @@ export default function DashboardPage() {
               updatedAt={code.updatedAt}
               isOwner={user?.id === code.ownerId}
               isGlobal={code.isGlobal}
+              isGuest={!user}
               widgets={code.widgets}
               viewMode={viewMode}
               ownerName={ownerNames[code.ownerId] || (code.ownerId === user?.id ? user.displayName : undefined)}
