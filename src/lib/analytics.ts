@@ -11,7 +11,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { ViewLog, DeviceInfo, AnalyticsData, QRCode } from '@/types';
+import { ViewLog, DeviceInfo, AnalyticsData, QRCode, LinkClick, LinkSource, LinkClickStats } from '@/types';
 
 // Parse user agent string to device info
 export function parseUserAgent(ua: string): DeviceInfo {
@@ -468,3 +468,140 @@ export function subscribeToViewLogs(
     unsubscribes.forEach((unsub) => unsub());
   };
 }
+
+// ============ LINK CLICK TRACKING ============
+
+// Create a link click entry
+export async function createLinkClick(
+  codeId: string,
+  shortId: string,
+  ownerId: string,
+  linkUrl: string,
+  linkSource: LinkSource
+): Promise<void> {
+  const clickData = {
+    codeId,
+    shortId,
+    ownerId,
+    linkUrl,
+    linkSource,
+    timestamp: Timestamp.now(),
+  };
+
+  await addDoc(collection(db, 'linkClicks'), clickData);
+}
+
+// Subscribe to real-time link clicks
+export function subscribeToLinkClicks(
+  codeIds: string[],
+  startDate: Date,
+  endDate: Date,
+  onData: (clicks: LinkClick[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  if (codeIds.length === 0) {
+    onData([]);
+    return () => {};
+  }
+
+  const allClicks: Map<string, LinkClick> = new Map();
+  const unsubscribes: Unsubscribe[] = [];
+
+  // Firestore 'in' queries are limited to 30 items
+  const chunks: string[][] = [];
+  for (let i = 0; i < codeIds.length; i += 30) {
+    chunks.push(codeIds.slice(i, i + 30));
+  }
+
+  chunks.forEach((chunk) => {
+    const q = query(
+      collection(db, 'linkClicks'),
+      where('codeId', 'in', chunk),
+      where('timestamp', '>=', Timestamp.fromDate(startDate)),
+      where('timestamp', '<=', Timestamp.fromDate(endDate)),
+      orderBy('timestamp', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data();
+          const click: LinkClick = {
+            id: change.doc.id,
+            codeId: data.codeId,
+            shortId: data.shortId,
+            ownerId: data.ownerId,
+            linkUrl: data.linkUrl,
+            linkSource: data.linkSource,
+            timestamp: data.timestamp.toDate(),
+          };
+
+          if (change.type === 'added' || change.type === 'modified') {
+            allClicks.set(change.doc.id, click);
+          } else if (change.type === 'removed') {
+            allClicks.delete(change.doc.id);
+          }
+        });
+
+        // Convert map to sorted array and send to callback
+        const sortedClicks = Array.from(allClicks.values()).sort(
+          (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+        );
+        onData(sortedClicks);
+      },
+      (error) => {
+        console.error('Error in linkClicks subscription:', error);
+        onError?.(error);
+      }
+    );
+
+    unsubscribes.push(unsubscribe);
+  });
+
+  return () => {
+    unsubscribes.forEach((unsub) => unsub());
+  };
+}
+
+// Aggregate link click stats
+export function aggregateLinkClicks(clicks: LinkClick[]): LinkClickStats {
+  const totalClicks = clicks.length;
+
+  // Group by link URL and source
+  const clicksByLinkMap = new Map<string, { url: string; source: LinkSource; count: number; lastClick: Date }>();
+
+  clicks.forEach((click) => {
+    const key = `${click.linkSource}:${click.linkUrl}`;
+    const existing = clicksByLinkMap.get(key);
+
+    if (existing) {
+      existing.count++;
+      if (click.timestamp > existing.lastClick) {
+        existing.lastClick = click.timestamp;
+      }
+    } else {
+      clicksByLinkMap.set(key, {
+        url: click.linkUrl,
+        source: click.linkSource,
+        count: 1,
+        lastClick: click.timestamp,
+      });
+    }
+  });
+
+  // Convert to array and sort by count
+  const clicksByLink = Array.from(clicksByLinkMap.values()).sort((a, b) => b.count - a.count);
+
+  return {
+    totalClicks,
+    clicksByLink,
+  };
+}
+
+// Link source labels in Hebrew
+export const linkSourceLabels: Record<LinkSource, string> = {
+  pdf: 'PDF',
+  media: 'מדיה',
+  whatsapp: 'WhatsApp',
+};

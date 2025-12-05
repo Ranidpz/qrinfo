@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
-import { MediaItem, CodeWidgets } from '@/types';
+import { MediaItem, CodeWidgets, LinkSource } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import type { Swiper as SwiperType } from 'swiper';
 import { incrementViews } from '@/lib/db';
+import { createLinkClick } from '@/lib/analytics';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -78,11 +79,13 @@ interface PDFPageData {
 const PDFFlipBookViewer = memo(({
   url,
   title,
-  onLoad
+  onLoad,
+  onLinkClick
 }: {
   url: string;
   title: string;
   onLoad: () => void;
+  onLinkClick?: (linkUrl: string, source: LinkSource) => void;
 }) => {
   const [pages, setPages] = useState<PDFPageData[]>([]);
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
@@ -256,7 +259,10 @@ const PDFFlipBookViewer = memo(({
                           width: `${(annotation.rect.width / pageDimensions.width) * 100}%`,
                           height: `${(annotation.rect.height / pageDimensions.height) * 100}%`,
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLinkClick?.(annotation.url, 'pdf');
+                        }}
                       />
                     ))}
                   </div>
@@ -341,27 +347,33 @@ PDFFlipBookViewer.displayName = 'PDFFlipBookViewer';
 const ImageGalleryViewer = memo(({
   mediaItems,
   title,
-  onLoad
+  onLoad,
+  onLinkClick
 }: {
   mediaItems: MediaItem[];
   title: string;
   onLoad: () => void;
+  onLinkClick?: (linkUrl: string, source: LinkSource) => void;
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [showLinkButton, setShowLinkButton] = useState(false);
   const linkButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const swiperRef = useRef<SwiperType | null>(null);
 
   useEffect(() => {
     onLoad();
   }, [onLoad]);
 
-  // Clear timeout on unmount
+  // Clear timeouts on unmount
   useEffect(() => {
     return () => {
       if (linkButtonTimeoutRef.current) {
         clearTimeout(linkButtonTimeoutRef.current);
+      }
+      if (touchTimerRef.current) {
+        clearTimeout(touchTimerRef.current);
       }
     };
   }, []);
@@ -371,6 +383,9 @@ const ImageGalleryViewer = memo(({
     setShowLinkButton(false);
     if (linkButtonTimeoutRef.current) {
       clearTimeout(linkButtonTimeoutRef.current);
+    }
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
     }
   }, [currentPage]);
 
@@ -388,17 +403,17 @@ const ImageGalleryViewer = memo(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Handle image tap to show link button
-  const handleImageTap = (mediaItem: MediaItem) => {
+  // Touch handlers for 0.8s hold to show link button
+  const handleTouchStart = (mediaItem: MediaItem) => {
     if (!mediaItem.linkUrl) return;
 
-    // Toggle link button visibility
-    if (showLinkButton) {
-      setShowLinkButton(false);
-      if (linkButtonTimeoutRef.current) {
-        clearTimeout(linkButtonTimeoutRef.current);
-      }
-    } else {
+    // Clear any existing touch timer
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+    }
+
+    // Start timer - show link button after 0.8 seconds of touch
+    touchTimerRef.current = setTimeout(() => {
       setShowLinkButton(true);
       // Auto-hide after 5 seconds
       if (linkButtonTimeoutRef.current) {
@@ -407,6 +422,22 @@ const ImageGalleryViewer = memo(({
       linkButtonTimeoutRef.current = setTimeout(() => {
         setShowLinkButton(false);
       }, 5000);
+    }, 800);
+  };
+
+  const handleTouchEnd = () => {
+    // Cancel the timer if touch ends before 0.8 seconds
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
+  const handleTouchMove = () => {
+    // Cancel the timer if user is swiping/moving
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
     }
   };
 
@@ -446,7 +477,9 @@ const ImageGalleryViewer = memo(({
                 alt={title}
                 className="max-w-full max-h-full object-contain select-none"
                 draggable={false}
-                onClick={() => handleImageTap(media)}
+                onTouchStart={() => handleTouchStart(media)}
+                onTouchEnd={handleTouchEnd}
+                onTouchMove={handleTouchMove}
               />
             </TransformComponent>
           )}
@@ -459,7 +492,10 @@ const ImageGalleryViewer = memo(({
             target="_blank"
             rel="noopener noreferrer"
             className="absolute bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-accent hover:bg-accent-hover text-white rounded-full flex items-center gap-2 shadow-lg shadow-accent/30 transition-all animate-slideUp z-20"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onLinkClick?.(media.linkUrl!, 'media');
+            }}
           >
             <ExternalLink className="w-5 h-5" />
             <span className="font-medium">{getLinkDisplayText(media)}</span>
@@ -518,11 +554,12 @@ const ImageGalleryViewer = memo(({
                     alt={`${title} - ${index + 1}`}
                     className="max-w-full max-h-[100vh] object-contain select-none"
                     draggable={false}
-                    onClick={() => handleImageTap(media)}
+                    onTouchStart={() => handleTouchStart(media)}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchMove={handleTouchMove}
                     style={{
                       transform: 'translateZ(0)',
                       backfaceVisibility: 'hidden',
-                      cursor: media.linkUrl ? 'pointer' : 'default',
                     }}
                   />
                 </TransformComponent>
@@ -539,7 +576,10 @@ const ImageGalleryViewer = memo(({
           target="_blank"
           rel="noopener noreferrer"
           className="absolute bottom-16 left-1/2 -translate-x-1/2 px-6 py-3 bg-accent hover:bg-accent-hover text-white rounded-full flex items-center gap-2 shadow-lg shadow-accent/30 transition-all animate-slideUp z-20"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onLinkClick?.(currentMedia.linkUrl!, 'media');
+          }}
         >
           <ExternalLink className="w-5 h-5" />
           <span className="font-medium">{getLinkDisplayText(currentMedia)}</span>
@@ -618,6 +658,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const [loadMessage, setLoadMessage] = useState('טוען תוכן...');
   const [showContent, setShowContent] = useState(false);
   const loadedCount = useRef(0);
+
+  // Track link clicks (fire and forget)
+  const trackLinkClick = useCallback((linkUrl: string, source: LinkSource) => {
+    createLinkClick(codeId, shortId, ownerId, linkUrl, source)
+      .then(() => console.log('[ViewerClient] Link click tracked:', source, linkUrl))
+      .catch((err) => console.error('[ViewerClient] Error tracking link click:', err));
+  }, [codeId, shortId, ownerId]);
 
   // Log view on client side (runs once per page load)
   useEffect(() => {
@@ -728,12 +775,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
       {/* Content based on type */}
       <div className="w-full h-screen">
         {isPDF ? (
-          <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} />
+          <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
         ) : isMultipleImages ? (
           <ImageGalleryViewer
             mediaItems={media}
             title={title}
             onLoad={handleMediaLoad}
+            onLinkClick={trackLinkClick}
           />
         ) : isVideo ? (
           <div className="w-full h-full flex items-center justify-center bg-black">
@@ -758,13 +806,17 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             mediaItems={[currentMedia]}
             title={title}
             onLoad={handleMediaLoad}
+            onLinkClick={trackLinkClick}
           />
         )}
       </div>
 
       {/* WhatsApp Widget */}
       {widgets.whatsapp?.enabled && widgets.whatsapp.groupLink && (
-        <WhatsAppWidget groupLink={widgets.whatsapp.groupLink} />
+        <WhatsAppWidget
+          groupLink={widgets.whatsapp.groupLink}
+          onTrackClick={() => trackLinkClick(widgets.whatsapp!.groupLink, 'whatsapp')}
+        />
       )}
     </div>
   );

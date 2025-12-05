@@ -136,3 +136,25 @@ export interface AnalyticsFilter {
   customStartDate?: Date;
   customEndDate?: Date;
 }
+
+// ============ LINK CLICK TRACKING ============
+
+// Link source types
+export type LinkSource = 'pdf' | 'media' | 'whatsapp';
+
+// Link click document
+export interface LinkClick {
+  id: string;
+  codeId: string;
+  shortId: string;
+  ownerId: string;
+  linkUrl: string;
+  linkSource: LinkSource;
+  timestamp: Date;
+}
+
+// Aggregated link click stats
+export interface LinkClickStats {
+  totalClicks: number;
+  clicksByLink: { url: string; source: LinkSource; count: number; lastClick: Date }[];
+}
