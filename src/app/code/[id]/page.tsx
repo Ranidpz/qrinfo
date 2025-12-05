@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders } from '@/lib/db';
+import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode } from '@/lib/db';
 import { subscribeToCodeViews } from '@/lib/analytics';
 import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder } from '@/types';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
@@ -257,6 +257,31 @@ export default function CodeEditPage({ params }: PageProps) {
     link.download = `${code.title}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
+  };
+
+  const handleDuplicate = async () => {
+    if (!code || !user) return;
+
+    try {
+      // Create new code with same media references (no actual file copy)
+      const newCode = await createQRCode(
+        user.id,
+        `${code.title} (עותק)`,
+        code.media.map((m) => ({
+          url: m.url,
+          type: m.type,
+          size: 0, // Don't count storage again since it's same file
+          order: m.order,
+          uploadedBy: user.id,
+        }))
+      );
+
+      // Navigate to the new code
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error duplicating code:', error);
+      alert('שגיאה בשכפול הקוד. נסה שוב.');
+    }
   };
 
   const handleAddMedia = async (file: File) => {
@@ -588,12 +613,12 @@ export default function CodeEditPage({ params }: PageProps) {
           <h2 className="text-lg font-semibold text-text-primary">קוד QR</h2>
 
           {/* QR Code */}
-          <div ref={qrRef} className="flex justify-center p-6 bg-white rounded-xl">
+          <div ref={qrRef} className="flex justify-center p-4 bg-white rounded-xl">
             <QRCodeSVG
               value={viewUrl}
-              size={200}
+              size={220}
               level="H"
-              includeMargin={true}
+              marginSize={1}
             />
           </div>
 
@@ -603,7 +628,7 @@ export default function CodeEditPage({ params }: PageProps) {
               value={viewUrl}
               size={1000}
               level="H"
-              includeMargin={true}
+              marginSize={2}
             />
           </div>
 
