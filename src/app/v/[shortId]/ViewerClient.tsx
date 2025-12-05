@@ -359,7 +359,6 @@ const ImageGalleryViewer = memo(({
   const [isZoomed, setIsZoomed] = useState(false);
   const [showLinkButton, setShowLinkButton] = useState(false);
   const linkButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const swiperRef = useRef<SwiperType | null>(null);
 
   useEffect(() => {
@@ -372,22 +371,8 @@ const ImageGalleryViewer = memo(({
       if (linkButtonTimeoutRef.current) {
         clearTimeout(linkButtonTimeoutRef.current);
       }
-      if (touchTimerRef.current) {
-        clearTimeout(touchTimerRef.current);
-      }
     };
   }, []);
-
-  // Hide link button when page changes
-  useEffect(() => {
-    setShowLinkButton(false);
-    if (linkButtonTimeoutRef.current) {
-      clearTimeout(linkButtonTimeoutRef.current);
-    }
-    if (touchTimerRef.current) {
-      clearTimeout(touchTimerRef.current);
-    }
-  }, [currentPage]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -403,44 +388,30 @@ const ImageGalleryViewer = memo(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Pointer handlers for 0.8s hold to show link button (works better than touch events)
-  const handlePointerDown = (mediaItem: MediaItem) => {
-    if (!mediaItem.linkUrl) return;
-
-    // Clear any existing touch timer
-    if (touchTimerRef.current) {
-      clearTimeout(touchTimerRef.current);
+  // Auto-show link button after delay when viewing image with link
+  useEffect(() => {
+    const media = mediaItems[currentPage];
+    if (!media?.linkUrl) {
+      setShowLinkButton(false);
+      return;
     }
 
-    // Start timer - show link button after 0.8 seconds of touch
-    touchTimerRef.current = setTimeout(() => {
+    // Show link button after 0.8 seconds of viewing
+    const showTimer = setTimeout(() => {
       setShowLinkButton(true);
-      touchTimerRef.current = null; // Clear ref so touchEnd won't cancel
       // Auto-hide after 5 seconds
-      if (linkButtonTimeoutRef.current) {
-        clearTimeout(linkButtonTimeoutRef.current);
-      }
       linkButtonTimeoutRef.current = setTimeout(() => {
         setShowLinkButton(false);
       }, 5000);
     }, 800);
-  };
 
-  const handlePointerUp = () => {
-    // Cancel the timer only if it hasn't fired yet
-    if (touchTimerRef.current) {
-      clearTimeout(touchTimerRef.current);
-      touchTimerRef.current = null;
-    }
-  };
-
-  const handlePointerMove = () => {
-    // Cancel the timer if user is swiping/moving
-    if (touchTimerRef.current) {
-      clearTimeout(touchTimerRef.current);
-      touchTimerRef.current = null;
-    }
-  };
+    return () => {
+      clearTimeout(showTimer);
+      if (linkButtonTimeoutRef.current) {
+        clearTimeout(linkButtonTimeoutRef.current);
+      }
+    };
+  }, [currentPage, mediaItems]);
 
   // Get display text for link button
   const getLinkDisplayText = (mediaItem: MediaItem) => {
@@ -478,11 +449,6 @@ const ImageGalleryViewer = memo(({
                 alt={title}
                 className="max-w-full max-h-full object-contain select-none"
                 draggable={false}
-                onPointerDown={() => handlePointerDown(media)}
-                onPointerUp={handlePointerUp}
-                onPointerMove={handlePointerMove}
-                onPointerCancel={handlePointerUp}
-                style={{ touchAction: 'none' }}
               />
             </TransformComponent>
           )}
@@ -557,9 +523,6 @@ const ImageGalleryViewer = memo(({
                     alt={`${title} - ${index + 1}`}
                     className="max-w-full max-h-[100vh] object-contain select-none"
                     draggable={false}
-                    onTouchStart={() => handleTouchStart(media)}
-                    onTouchEnd={handleTouchEnd}
-                    onTouchMove={handleTouchMove}
                     style={{
                       transform: 'translateZ(0)',
                       backfaceVisibility: 'hidden',
