@@ -54,12 +54,7 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-3xl font-bold text-text-primary mb-3">Queue</h1>
-          <p className="text-lg text-accent font-medium mb-2">One QR. Endless Experiences.</p>
-          <p className="text-sm text-text-secondary leading-relaxed">
-            Create one QR code that changes whenever you want — no reprinting needed.
-            <br />
-            Scheduled experiences, live content, real-time analytics.
-          </p>
+          <p className="text-lg text-accent font-medium">One QR. Endless Experiences.</p>
         </div>
 
         {/* Features Grid */}
