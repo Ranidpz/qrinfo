@@ -902,6 +902,7 @@ export default function DashboardPage() {
               isOwner={user?.id === code.ownerId}
               isGlobal={code.isGlobal}
               widgets={code.widgets}
+              viewMode={viewMode}
               ownerName={ownerNames[code.ownerId] || (code.ownerId === user?.id ? user.displayName : undefined)}
               isSuperAdmin={user?.role === 'super_admin'}
               isDragging={draggingCodeId === code.id}
