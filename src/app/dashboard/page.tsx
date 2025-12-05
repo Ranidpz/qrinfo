@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -43,6 +43,7 @@ export default function DashboardPage() {
     isOpen: false,
     folder: null,
   });
+  const [dragOverRoot, setDragOverRoot] = useState(false);
 
   // Load user's codes, folders and owner names
   useEffect(() => {
@@ -465,23 +466,53 @@ export default function DashboardPage() {
 
       {/* Folder Header - when inside a folder */}
       {currentFolder && (
-        <div className="flex items-center gap-3 p-4 bg-bg-card border border-border rounded-xl">
-          <button
-            onClick={() => setCurrentFolderId(null)}
-            className="p-2 rounded-lg bg-bg-secondary text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
-            title="חזור"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+        <div className="flex items-center gap-3">
+          {/* Root folder drop zone - visible when dragging */}
           <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: `${currentFolder.color}20`, color: currentFolder.color }}
+            className={clsx(
+              'flex items-center gap-2 p-4 rounded-xl border-2 border-dashed transition-all cursor-pointer',
+              dragOverRoot
+                ? 'border-accent bg-accent/10 scale-105'
+                : draggingCodeId
+                  ? 'border-border hover:border-accent/50'
+                  : 'border-transparent'
+            )}
+            style={{ display: draggingCodeId ? 'flex' : 'none' }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (draggingCodeId) {
+                handleMoveCodeToFolder(draggingCodeId, null);
+              }
+              setDragOverRoot(false);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOverRoot(true);
+            }}
+            onDragLeave={() => setDragOverRoot(false)}
           >
-            <FolderIcon className="w-6 h-6" />
+            <Home className="w-6 h-6 text-accent" />
+            <span className="text-sm font-medium text-accent">שחרר כאן להעברה לראשי</span>
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold text-text-primary">{currentFolder.name}</h2>
-            <p className="text-sm text-text-secondary">{filteredCodes.length} קודים</p>
+
+          <div className="flex-1 flex items-center gap-3 p-4 bg-bg-card border border-border rounded-xl">
+            <button
+              onClick={() => setCurrentFolderId(null)}
+              className="p-2 rounded-lg bg-bg-secondary text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+              title="חזור"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: `${currentFolder.color}20`, color: currentFolder.color }}
+            >
+              <FolderIcon className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-text-primary">{currentFolder.name}</h2>
+              <p className="text-sm text-text-secondary">{filteredCodes.length} קודים</p>
+            </div>
           </div>
         </div>
       )}

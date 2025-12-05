@@ -69,12 +69,29 @@ export async function generateMetadata({ params }: ViewerPageProps) {
       };
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.info';
+
     return {
       title: `${code.title} - QR.info`,
       description: 'תוכן QR דינמי',
       openGraph: {
         title: code.title,
+        description: 'תוכן QR דינמי',
         type: 'website',
+        images: [
+          {
+            url: `${baseUrl}/qrlogo.jpg`,
+            width: 800,
+            height: 600,
+            alt: 'QR.info Logo',
+          },
+        ],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: code.title,
+        description: 'תוכן QR דינמי',
+        images: [`${baseUrl}/qrlogo.jpg`],
       },
     };
   } catch {
