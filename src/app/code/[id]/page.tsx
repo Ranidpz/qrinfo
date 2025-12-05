@@ -549,12 +549,17 @@ export default function CodeEditPage({ params }: PageProps) {
     if (!code) return;
 
     try {
+      // Firebase doesn't accept undefined values, so we need to build the object carefully
       const updatedWidgets: CodeWidgets = {
         ...code.widgets,
-        whatsapp: whatsappGroupLink
-          ? { enabled: true, groupLink: whatsappGroupLink }
-          : undefined,
       };
+
+      if (whatsappGroupLink) {
+        updatedWidgets.whatsapp = { enabled: true, groupLink: whatsappGroupLink };
+      } else {
+        // Remove the whatsapp widget by setting it to null (Firebase accepts null to delete fields)
+        delete updatedWidgets.whatsapp;
+      }
 
       await updateQRCode(code.id, { widgets: updatedWidgets });
       setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
