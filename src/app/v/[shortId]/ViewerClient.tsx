@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { MediaItem, CodeWidgets } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -339,21 +339,40 @@ PDFFlipBookViewer.displayName = 'PDFFlipBookViewer';
 
 // Image Gallery Viewer with Swiper - smooth swipe and pinch-to-zoom
 const ImageGalleryViewer = memo(({
-  images,
+  mediaItems,
   title,
   onLoad
 }: {
-  images: { url: string }[];
+  mediaItems: MediaItem[];
   title: string;
   onLoad: () => void;
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [showLinkButton, setShowLinkButton] = useState(false);
+  const linkButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const swiperRef = useRef<SwiperType | null>(null);
 
   useEffect(() => {
     onLoad();
   }, [onLoad]);
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (linkButtonTimeoutRef.current) {
+        clearTimeout(linkButtonTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Hide link button when page changes
+  useEffect(() => {
+    setShowLinkButton(false);
+    if (linkButtonTimeoutRef.current) {
+      clearTimeout(linkButtonTimeoutRef.current);
+    }
+  }, [currentPage]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -369,10 +388,45 @@ const ImageGalleryViewer = memo(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  if (images.length === 1) {
+  // Handle image tap to show link button
+  const handleImageTap = (mediaItem: MediaItem) => {
+    if (!mediaItem.linkUrl) return;
+
+    // Toggle link button visibility
+    if (showLinkButton) {
+      setShowLinkButton(false);
+      if (linkButtonTimeoutRef.current) {
+        clearTimeout(linkButtonTimeoutRef.current);
+      }
+    } else {
+      setShowLinkButton(true);
+      // Auto-hide after 5 seconds
+      if (linkButtonTimeoutRef.current) {
+        clearTimeout(linkButtonTimeoutRef.current);
+      }
+      linkButtonTimeoutRef.current = setTimeout(() => {
+        setShowLinkButton(false);
+      }, 5000);
+    }
+  };
+
+  // Get display text for link button
+  const getLinkDisplayText = (mediaItem: MediaItem) => {
+    if (mediaItem.linkTitle) return mediaItem.linkTitle;
+    try {
+      return new URL(mediaItem.linkUrl!).hostname;
+    } catch {
+      return 'פתח לינק';
+    }
+  };
+
+  const currentMedia = mediaItems[currentPage];
+
+  if (mediaItems.length === 1) {
+    const media = mediaItems[0];
     // Single image - with pinch-to-zoom support
     return (
-      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black relative">
         <TransformWrapper
           initialScale={1}
           minScale={1}
@@ -388,20 +442,35 @@ const ImageGalleryViewer = memo(({
               contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               <img
-                src={images[0].url}
+                src={media.url}
                 alt={title}
                 className="max-w-full max-h-full object-contain select-none"
                 draggable={false}
+                onClick={() => handleImageTap(media)}
               />
             </TransformComponent>
           )}
         </TransformWrapper>
+
+        {/* Link Button - appears on tap */}
+        {media.linkUrl && showLinkButton && (
+          <a
+            href={media.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-accent hover:bg-accent-hover text-white rounded-full flex items-center gap-2 shadow-lg shadow-accent/30 transition-all animate-slideUp z-20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="w-5 h-5" />
+            <span className="font-medium">{getLinkDisplayText(media)}</span>
+          </a>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
+    <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative">
       <Swiper
         modules={[Virtual]}
         onSwiper={(swiper) => { swiperRef.current = swiper; }}
@@ -420,7 +489,7 @@ const ImageGalleryViewer = memo(({
         className="w-full h-full"
         style={{ direction: 'rtl' }}
       >
-        {images.map((img, index) => (
+        {mediaItems.map((media, index) => (
           <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
             <TransformWrapper
               initialScale={1}
@@ -445,13 +514,15 @@ const ImageGalleryViewer = memo(({
                   contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <img
-                    src={img.url}
+                    src={media.url}
                     alt={`${title} - ${index + 1}`}
                     className="max-w-full max-h-[100vh] object-contain select-none"
                     draggable={false}
+                    onClick={() => handleImageTap(media)}
                     style={{
                       transform: 'translateZ(0)',
                       backfaceVisibility: 'hidden',
+                      cursor: media.linkUrl ? 'pointer' : 'default',
                     }}
                   />
                 </TransformComponent>
@@ -461,10 +532,24 @@ const ImageGalleryViewer = memo(({
         ))}
       </Swiper>
 
+      {/* Link Button - appears on tap for current slide */}
+      {currentMedia?.linkUrl && showLinkButton && (
+        <a
+          href={currentMedia.linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute bottom-16 left-1/2 -translate-x-1/2 px-6 py-3 bg-accent hover:bg-accent-hover text-white rounded-full flex items-center gap-2 shadow-lg shadow-accent/30 transition-all animate-slideUp z-20"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ExternalLink className="w-5 h-5" />
+          <span className="font-medium">{getLinkDisplayText(currentMedia)}</span>
+        </a>
+      )}
+
       {/* Minimal page indicator - small dots at bottom */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
-        {images.length <= 10 ? (
-          images.map((_, index) => (
+        {mediaItems.length <= 10 ? (
+          mediaItems.map((_, index) => (
             <button
               key={index}
               onClick={() => swiperRef.current?.slideTo(index)}
@@ -478,7 +563,7 @@ const ImageGalleryViewer = memo(({
         ) : (
           <div className="px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
             <span className="text-white/90 text-sm font-medium">
-              {currentPage + 1} / {images.length}
+              {currentPage + 1} / {mediaItems.length}
             </span>
           </div>
         )}
@@ -495,7 +580,7 @@ const ImageGalleryViewer = memo(({
             <ChevronRight className="w-6 h-6 text-white" />
           </button>
         )}
-        {currentPage < images.length - 1 && (
+        {currentPage < mediaItems.length - 1 && (
           <button
             onClick={() => swiperRef.current?.slideNext()}
             className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
@@ -513,6 +598,13 @@ const ImageGalleryViewer = memo(({
         }
         .animate-fadeIn {
           animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .animate-slideUp {
+          animation: slideUp 0.3s ease-out;
         }
       `}</style>
     </div>
@@ -639,7 +731,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} />
         ) : isMultipleImages ? (
           <ImageGalleryViewer
-            images={media.map(m => ({ url: m.url }))}
+            mediaItems={media}
             title={title}
             onLoad={handleMediaLoad}
           />
@@ -661,14 +753,12 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             sandbox="allow-scripts allow-same-origin"
           />
         ) : (
-          // Single image
-          <div className="w-full h-full flex items-center justify-center">
-            <img
-              src={currentMedia.url}
-              alt={title}
-              className="max-w-full max-h-full object-contain"
-            />
-          </div>
+          // Single image - use ImageGalleryViewer for link button support
+          <ImageGalleryViewer
+            mediaItems={[currentMedia]}
+            title={title}
+            onLoad={handleMediaLoad}
+          />
         )}
       </div>
 

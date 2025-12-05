@@ -23,6 +23,8 @@ export interface MediaItem {
   uploadedBy: string; // User ID
   title?: string;
   schedule?: MediaSchedule;
+  linkUrl?: string;     // Optional external link for the media
+  linkTitle?: string;   // Display name for the link button
   createdAt: Date;
 }
 

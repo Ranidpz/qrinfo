@@ -228,6 +228,8 @@ export async function updateQRCode(
       // Only add optional fields if they exist
       if (m.title) (mediaItem as Record<string, unknown>).title = m.title;
       if (m.schedule) (mediaItem as Record<string, unknown>).schedule = m.schedule;
+      if (m.linkUrl) (mediaItem as Record<string, unknown>).linkUrl = m.linkUrl;
+      if (m.linkTitle) (mediaItem as Record<string, unknown>).linkTitle = m.linkTitle;
       return mediaItem;
     });
   }

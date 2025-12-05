@@ -27,9 +27,10 @@ import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode } from '@/lib/db';
 import { subscribeToCodeViews } from '@/lib/analytics';
-import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder } from '@/types';
+import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets } from '@/types';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import ScheduleModal from '@/components/modals/ScheduleModal';
+import MediaLinkModal from '@/components/modals/MediaLinkModal';
 import { clsx } from 'clsx';
 
 // Custom Tooltip component for styled tooltips
@@ -78,6 +79,15 @@ export default function CodeEditPage({ params }: PageProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // Link modal state
+  const [linkModal, setLinkModal] = useState<{ isOpen: boolean; mediaId: string | null }>({
+    isOpen: false,
+    mediaId: null,
+  });
+
+  // Widgets state
+  const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
+
   // Load code data
   useEffect(() => {
     const loadCode = async () => {
@@ -96,6 +106,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
         setCode(codeData);
         setTitle(codeData.title);
+        setWhatsappGroupLink(codeData.widgets?.whatsapp?.groupLink || '');
 
         // Load folder info if code is in a folder
         if (codeData.folderId && user) {
@@ -516,6 +527,27 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  const handleSaveMediaLink = async (linkUrl: string | undefined, linkTitle: string | undefined) => {
+    if (!code || !linkModal.mediaId) return;
+
+    try {
+      const updatedMedia = code.media.map((m) =>
+        m.id === linkModal.mediaId
+          ? { ...m, linkUrl: linkUrl || undefined, linkTitle: linkTitle || undefined }
+          : m
+      );
+
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+    } catch (error) {
+      console.error('Error saving media link:', error);
+      alert('שגיאה בשמירת הלינק. נסה שוב.');
+    }
+  };
+
+  // Get the current media for link modal
+  const currentMediaForLink = code?.media.find((m) => m.id === linkModal.mediaId);
+
   const getMediaIcon = (type: MediaItem['type']) => {
     switch (type) {
       case 'video':
@@ -845,7 +877,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   <p className="text-xs text-text-secondary truncate mt-1" dir="ltr">
                     {media.url}
                   </p>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {media.size > 0 && (
                       <span className="text-xs text-text-secondary">
                         {formatBytes(media.size)}
@@ -855,6 +887,12 @@ export default function CodeEditPage({ params }: PageProps) {
                       <span className="text-xs text-accent flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {formatSchedule(media.schedule)}
+                      </span>
+                    )}
+                    {media.linkUrl && (
+                      <span className="text-xs text-accent flex items-center gap-1">
+                        <LinkIcon className="w-3 h-3" />
+                        {media.linkTitle || new URL(media.linkUrl).hostname}
                       </span>
                     )}
                   </div>
@@ -894,6 +932,20 @@ export default function CodeEditPage({ params }: PageProps) {
                   >
                     <Clock className="w-4 h-4" />
                   </button>
+
+                  {/* Link button - only for images/videos/pdfs */}
+                  {media.type !== 'link' && (
+                    <button
+                      onClick={() => setLinkModal({ isOpen: true, mediaId: media.id })}
+                      className={clsx(
+                        'p-2 rounded-lg hover:bg-bg-hover transition-colors',
+                        media.linkUrl ? 'text-accent' : 'text-text-secondary'
+                      )}
+                      title={media.linkUrl ? 'ערוך לינק' : 'הוסף לינק'}
+                    >
+                      <LinkIcon className="w-4 h-4" />
+                    </button>
+                  )}
 
                   {/* External link */}
                   <a
@@ -940,6 +992,15 @@ export default function CodeEditPage({ params }: PageProps) {
         onClose={() => setScheduleModal({ isOpen: false, mediaId: null })}
         onSave={handleSaveSchedule}
         currentSchedule={currentMediaForSchedule?.schedule}
+      />
+
+      {/* Media link modal */}
+      <MediaLinkModal
+        isOpen={linkModal.isOpen}
+        onClose={() => setLinkModal({ isOpen: false, mediaId: null })}
+        onSave={handleSaveMediaLink}
+        currentLinkUrl={currentMediaForLink?.linkUrl}
+        currentLinkTitle={currentMediaForLink?.linkTitle}
       />
     </div>
   );
