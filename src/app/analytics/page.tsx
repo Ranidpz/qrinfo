@@ -12,14 +12,17 @@ import MetricsCards from '@/components/analytics/MetricsCards';
 import ViewsChart from '@/components/analytics/ViewsChart';
 import HourlyChart from '@/components/analytics/HourlyChart';
 import DevicePieChart from '@/components/analytics/DevicePieChart';
+import LinkClicksSection from '@/components/analytics/LinkClicksSection';
 import { getUserQRCodes, getAllUsers } from '@/lib/db';
 import {
   getDateRange,
   aggregateAnalytics,
   getAllQRCodes,
   subscribeToViewLogs,
+  subscribeToLinkClicks,
+  aggregateLinkClicks,
 } from '@/lib/analytics';
-import { QRCode, User, DateRangePreset, AnalyticsData } from '@/types';
+import { QRCode, User, DateRangePreset, AnalyticsData, LinkClickStats } from '@/types';
 
 const emptyAnalytics: AnalyticsData = {
   totalViews: 0,
@@ -29,6 +32,11 @@ const emptyAnalytics: AnalyticsData = {
   viewsByDay: [],
   viewsByHour: Array.from({ length: 24 }, (_, hour) => ({ hour, views: 0 })),
   viewsByDevice: [],
+};
+
+const emptyLinkClickStats: LinkClickStats = {
+  totalClicks: 0,
+  clicksByLink: [],
 };
 
 export default function AnalyticsPage() {
@@ -44,6 +52,7 @@ export default function AnalyticsPage() {
   const [customStart, setCustomStart] = useState<Date | undefined>();
   const [customEnd, setCustomEnd] = useState<Date | undefined>();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>(emptyAnalytics);
+  const [linkClickStats, setLinkClickStats] = useState<LinkClickStats>(emptyLinkClickStats);
   const [loading, setLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -85,6 +94,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (selectedCodeIds.length === 0) {
       setAnalyticsData(emptyAnalytics);
+      setLinkClickStats(emptyLinkClickStats);
       setLoadingData(false);
       return;
     }
@@ -92,8 +102,8 @@ export default function AnalyticsPage() {
     setLoadingData(true);
     const { start, end } = getDateRange(datePreset, customStart, customEnd);
 
-    // Subscribe to real-time updates
-    const unsubscribe = subscribeToViewLogs(
+    // Subscribe to real-time view logs
+    const unsubscribeViews = subscribeToViewLogs(
       selectedCodeIds,
       start,
       end,
@@ -108,9 +118,24 @@ export default function AnalyticsPage() {
       }
     );
 
-    // Cleanup subscription on unmount or when dependencies change
+    // Subscribe to real-time link clicks
+    const unsubscribeClicks = subscribeToLinkClicks(
+      selectedCodeIds,
+      start,
+      end,
+      (clicks) => {
+        const stats = aggregateLinkClicks(clicks);
+        setLinkClickStats(stats);
+      },
+      (error) => {
+        console.error('Error in link clicks subscription:', error);
+      }
+    );
+
+    // Cleanup subscriptions on unmount or when dependencies change
     return () => {
-      unsubscribe();
+      unsubscribeViews();
+      unsubscribeClicks();
     };
   }, [selectedCodeIds, datePreset, customStart, customEnd]);
 
@@ -231,6 +256,9 @@ export default function AnalyticsPage() {
                 <HourlyChart data={analyticsData.viewsByHour} />
                 <DevicePieChart data={analyticsData.viewsByDevice} />
               </div>
+
+              {/* Link Clicks Section */}
+              <LinkClicksSection stats={linkClickStats} />
             </div>
           )}
         </div>
