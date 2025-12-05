@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection - only the user themselves or super_admin can read/write
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Codes collection
+    match /codes/{codeId} {
+      // Anyone can read codes (for viewer page)
+      allow read: if true;
+
+      // Only authenticated users can create codes
+      allow create: if request.auth != null;
+
+      // Owner, collaborators, or admin can update
+      allow update: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        request.auth.uid in resource.data.collaborators ||
+        isAdmin()
+      ) || isViewIncrement();
+
+      // Only owner or admin can delete
+      allow delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // ViewLogs collection - IMPORTANT: Allow anyone to create (for anonymous QR scanning)
+    match /viewLogs/{logId} {
+      // Anyone can create a view log (when scanning QR code)
+      allow create: if true;
+
+      // Only owner of the code or admin can read view logs
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // No one can update or delete view logs
+      allow update, delete: if false;
+    }
+
+    // Folders collection
+    match /folders/{folderId} {
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
+    // Helper function to check if this is just a view count increment
+    function isViewIncrement() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']);
+    }
+  }
+}

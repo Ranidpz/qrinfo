@@ -323,14 +323,16 @@ export default function CodeCard({
       <a href={`/code/${id}`} className="block aspect-video relative overflow-hidden bg-bg-secondary">
         {mediaType === 'link' ? (
           // Show QR code for links - larger and centered
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-            <div ref={qrRef} className="bg-white p-3 rounded-xl shadow-lg">
+          <div className="w-full h-full flex items-center justify-center p-4">
+            <div ref={qrRef}>
               <QRCodeSVG
                 value={viewUrl}
-                size={100}
+                size={140}
                 level="H"
                 includeMargin={false}
-                className="w-full h-full"
+                bgColor="transparent"
+                fgColor="currentColor"
+                className="text-text-primary"
               />
             </div>
           </div>

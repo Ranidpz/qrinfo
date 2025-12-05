@@ -8,7 +8,7 @@ import {
   orderBy,
   Timestamp,
   onSnapshot,
-  Unsubscribe,
+  type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { ViewLog, DeviceInfo, AnalyticsData, QRCode } from '@/types';
@@ -345,6 +345,49 @@ export function subscribeToCodeViews(
       }
     );
 
+    unsubscribes.push(unsubscribe);
+  });
+
+  return () => {
+    unsubscribes.forEach((unsub) => unsub());
+  };
+}
+
+// Subscribe to real-time views count on codes collection (for dashboard)
+export function subscribeToTotalViews(
+  codeIds: string[],
+  onData: (views: Record<string, number>) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  if (codeIds.length === 0) {
+    onData({});
+    return () => {};
+  }
+
+  const viewCounts: Record<string, number> = {};
+  const unsubscribes: Unsubscribe[] = [];
+
+  // Initialize
+  codeIds.forEach((id) => {
+    viewCounts[id] = 0;
+  });
+
+  // Subscribe to each code document for views changes
+  codeIds.forEach((codeId) => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'codes', codeId),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          viewCounts[codeId] = data.views || 0;
+          onData({ ...viewCounts });
+        }
+      },
+      (error) => {
+        console.error('Error in total views subscription:', error);
+        onError?.(error);
+      }
+    );
     unsubscribes.push(unsubscribe);
   });
 

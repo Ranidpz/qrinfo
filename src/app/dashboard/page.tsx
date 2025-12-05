@@ -12,7 +12,7 @@ import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
-import { subscribeToCodeViews } from '@/lib/analytics';
+import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
 import { clsx } from 'clsx';
 
 export default function DashboardPage() {
@@ -35,6 +35,7 @@ export default function DashboardPage() {
   });
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
   const [views24h, setViews24h] = useState<Record<string, number>>({});
+  const [totalViews, setTotalViews] = useState<Record<string, number>>({});
   const [folders, setFolders] = useState<Folder[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
@@ -85,23 +86,37 @@ export default function DashboardPage() {
     loadData();
   }, [user]);
 
-  // Subscribe to real-time view counts for 24h
+  // Subscribe to real-time view counts for 24h and total views
   useEffect(() => {
     if (codes.length === 0) return;
 
     const codeIds = codes.map((c) => c.id);
-    const unsubscribe = subscribeToCodeViews(
+
+    // Subscribe to 24h views
+    const unsubscribe24h = subscribeToCodeViews(
       codeIds,
       (viewsData) => {
         setViews24h(viewsData);
       },
       (error) => {
-        console.error('Error subscribing to views:', error);
+        console.error('Error subscribing to 24h views:', error);
+      }
+    );
+
+    // Subscribe to total views (real-time updates from codes collection)
+    const unsubscribeTotal = subscribeToTotalViews(
+      codeIds,
+      (viewsData) => {
+        setTotalViews(viewsData);
+      },
+      (error) => {
+        console.error('Error subscribing to total views:', error);
       }
     );
 
     return () => {
-      unsubscribe();
+      unsubscribe24h();
+      unsubscribeTotal();
     };
   }, [codes]);
 
@@ -764,7 +779,7 @@ export default function DashboardPage() {
               mediaUrl={code.media[0]?.url}
               fileName={code.media[0]?.title}
               fileSize={code.media[0]?.size}
-              views={code.views}
+              views={totalViews[code.id] ?? code.views}
               views24h={views24h[code.id] || 0}
               updatedAt={code.updatedAt}
               isOwner={user?.id === code.ownerId}

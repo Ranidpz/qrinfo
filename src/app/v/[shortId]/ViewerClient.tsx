@@ -613,15 +613,25 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const [loadMessage, setLoadMessage] = useState('טוען תוכן...');
   const [showContent, setShowContent] = useState(false);
   const loadedCount = useRef(0);
-  const viewLogged = useRef(false);
 
-  // Log view on client side (runs once)
+  // Log view on client side (runs once per page load)
   useEffect(() => {
-    if (viewLogged.current) return;
-    viewLogged.current = true;
+    // Use sessionStorage to track if we've logged this specific code view in this session
+    const viewKey = `viewed_${codeId}`;
+    const hasViewed = sessionStorage.getItem(viewKey);
+
+    if (hasViewed) {
+      console.log('[ViewerClient] Already logged view for this session:', codeId);
+      return;
+    }
+
+    console.log('[ViewerClient] Logging view for:', codeId, shortId);
+    sessionStorage.setItem(viewKey, 'true');
 
     const userAgent = navigator.userAgent;
-    incrementViews(codeId, shortId, ownerId, userAgent).catch(console.error);
+    incrementViews(codeId, shortId, ownerId, userAgent)
+      .then(() => console.log('[ViewerClient] View logged successfully'))
+      .catch((err) => console.error('[ViewerClient] Error logging view:', err));
   }, [codeId, shortId, ownerId]);
 
   const currentMedia = media[0];
