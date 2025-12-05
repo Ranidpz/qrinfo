@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -44,6 +44,8 @@ export default function DashboardPage() {
     folder: null,
   });
   const [dragOverRoot, setDragOverRoot] = useState(false);
+  const [editingFolderName, setEditingFolderName] = useState(false);
+  const [folderNameInput, setFolderNameInput] = useState('');
 
   // Load user's codes, folders and owner names
   useEffect(() => {
@@ -510,9 +512,60 @@ export default function DashboardPage() {
               <FolderIcon className="w-6 h-6" />
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-text-primary">{currentFolder.name}</h2>
+              {editingFolderName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={folderNameInput}
+                    onChange={(e) => setFolderNameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const trimmed = folderNameInput.trim();
+                        if (trimmed && trimmed !== currentFolder.name) {
+                          handleRenameFolder(currentFolder.id, trimmed);
+                        }
+                        setEditingFolderName(false);
+                      } else if (e.key === 'Escape') {
+                        setEditingFolderName(false);
+                      }
+                    }}
+                    onBlur={() => {
+                      const trimmed = folderNameInput.trim();
+                      if (trimmed && trimmed !== currentFolder.name) {
+                        handleRenameFolder(currentFolder.id, trimmed);
+                      }
+                      setEditingFolderName(false);
+                    }}
+                    autoFocus
+                    className="text-lg font-semibold bg-bg-secondary border border-accent rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+              ) : (
+                <h2
+                  className="text-lg font-semibold text-text-primary cursor-pointer hover:text-accent transition-colors"
+                  onClick={() => {
+                    setFolderNameInput(currentFolder.name);
+                    setEditingFolderName(true);
+                  }}
+                  title="לחץ לעריכת שם"
+                >
+                  {currentFolder.name}
+                </h2>
+              )}
               <p className="text-sm text-text-secondary">{filteredCodes.length} קודים</p>
             </div>
+            {!editingFolderName && (
+              <button
+                onClick={() => {
+                  setFolderNameInput(currentFolder.name);
+                  setEditingFolderName(true);
+                }}
+                className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+                title="ערוך שם"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       )}
