@@ -310,8 +310,8 @@ export default function CodeCard({
           )}
         </div>
 
-        {/* Widget indicators at bottom */}
-        {widgets?.whatsapp?.enabled && (
+        {/* Widget indicators at bottom - only show when widget is enabled AND has a valid groupLink */}
+        {widgets?.whatsapp?.enabled && widgets?.whatsapp?.groupLink && (
           <div className="absolute bottom-2 left-2 flex gap-1.5 z-10">
             <Tooltip text="ווידג׳ט WhatsApp פעיל">
               <div className="w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg shadow-[#25D366]/30">
