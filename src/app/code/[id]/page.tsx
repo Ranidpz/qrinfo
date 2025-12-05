@@ -21,7 +21,6 @@ import {
   Clock,
   RefreshCw,
   Folder as FolderIcon,
-  ChevronLeft,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -741,125 +740,62 @@ export default function CodeEditPage({ params }: PageProps) {
   const currentMediaForSchedule = code.media.find((m) => m.id === scheduleModal.mediaId);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-4">
-        {/* Top row: back button + title */}
-        <div className="flex items-start gap-3">
-          <button
-            onClick={() => {
-              if (folder) {
-                router.push(`/dashboard?folder=${folder.id}`);
-              } else {
-                router.push('/dashboard');
-              }
-            }}
-            className="p-2 rounded-lg hover:bg-bg-secondary transition-colors flex-shrink-0 mt-0.5"
-            title={folder ? `חזור ל${folder.name}` : 'חזור לדשבורד'}
-          >
-            <ArrowRight className="w-5 h-5 text-text-secondary" />
-          </button>
-          <div className="flex-1 min-w-0">
-            {/* Breadcrumb with folder */}
-            {folder && (
-              <div className="flex items-center gap-1.5 text-sm text-text-secondary mb-1">
-                <button
-                  onClick={() => router.push(`/dashboard?folder=${folder.id}`)}
-                  className="flex items-center gap-1 hover:text-accent transition-colors"
-                >
-                  <FolderIcon className="w-3.5 h-3.5" style={{ color: folder.color }} />
-                  <span>{folder.name}</span>
-                </button>
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </div>
-            )}
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-xl font-bold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1 -mx-2"
-            />
-            <div className="flex items-center gap-2 text-sm text-text-secondary mt-1">
-              <span>{code.shortId}</span>
-              <span>|</span>
-              <div className="relative group">
-                <span className={clsx(
-                  "flex items-center gap-1 cursor-help transition-all",
-                  isAnimating && "text-green-500 font-bold scale-110"
-                )}>
-                  <Eye className="w-3.5 h-3.5" />
-                  {displayViews} צפיות
-                </span>
-                {/* Tooltip */}
-                <div className="absolute bottom-full left-0 mb-2 p-2 bg-bg-card border border-border rounded-lg shadow-lg z-50 whitespace-nowrap text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-text-secondary">סה״כ צפיות:</span>
-                      <span className="text-text-primary font-medium">{code.views}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-text-secondary">24 שעות אחרונות:</span>
-                      <span className="text-accent font-medium">{views24h}</span>
-                    </div>
-                  </div>
-                  <div className="absolute -bottom-1 left-3 w-2 h-2 bg-bg-card border-r border-b border-border transform rotate-45"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Action buttons - separate row */}
-        <div className="flex items-center gap-2 justify-end">
-          <Tooltip text="שמור שינויים">
-            <button
-              onClick={handleSave}
-              disabled={saving || title === code.title}
-              className="p-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
-            >
-              {saving ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Save className="w-5 h-5" />
-              )}
-            </button>
-          </Tooltip>
-
-          <Tooltip text="שכפל קוד">
-            <button
-              onClick={handleDuplicate}
-              className="p-2.5 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors"
-            >
-              <CopyPlus className="w-5 h-5" />
-            </button>
-          </Tooltip>
-
-          {user && canDeleteCode(code, user.id, user.role) && (
-            <Tooltip text="מחק קוד">
-              <button
-                onClick={() => setDeleteModal(true)}
-                className="p-2.5 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-            </Tooltip>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* QR Code & Links */}
         <div className="card space-y-4">
-          {/* Collapsible QR Section Header */}
+          {/* Collapsible QR Section Header with title and views */}
           <button
             onClick={handleQrToggle}
             className="w-full flex items-center justify-between"
           >
-            <h2 className="text-lg font-semibold text-text-primary">קוד QR</h2>
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (folder) {
+                    router.push(`/dashboard?folder=${folder.id}`);
+                  } else {
+                    router.push('/dashboard');
+                  }
+                }}
+                className="p-1.5 rounded-lg hover:bg-bg-secondary transition-colors flex-shrink-0"
+                title={folder ? `חזור ל${folder.name}` : 'חזור לדשבורד'}
+              >
+                <ArrowRight className="w-4 h-4 text-text-secondary" />
+              </button>
+              <div className="min-w-0 text-right">
+                <div className="flex items-center gap-2">
+                  {folder && (
+                    <span className="text-xs text-text-secondary flex items-center gap-1">
+                      <FolderIcon className="w-3 h-3" style={{ color: folder.color }} />
+                    </span>
+                  )}
+                  <h2 className="text-lg font-semibold text-text-primary truncate">{code.title}</h2>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-text-secondary">
+                  <span>{code.shortId}</span>
+                  <span>|</span>
+                  <span className={clsx(
+                    "flex items-center gap-1",
+                    isAnimating && "text-green-500 font-bold"
+                  )}>
+                    <Eye className="w-3 h-3" />
+                    {displayViews}
+                  </span>
+                  {views24h > 0 && (
+                    <>
+                      <span>|</span>
+                      <span className="text-accent">+{views24h} היום</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
             {qrExpanded ? (
-              <ChevronUp className="w-5 h-5 text-text-secondary" />
+              <ChevronUp className="w-5 h-5 text-text-secondary flex-shrink-0" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-text-secondary" />
+              <ChevronDown className="w-5 h-5 text-text-secondary flex-shrink-0" />
             )}
           </button>
 
@@ -1014,29 +950,74 @@ export default function CodeEditPage({ params }: PageProps) {
 
         {/* Media List */}
         <div className="lg:col-span-2 card space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text-primary">
-              {code.media.length} פריטי מדיה
-            </h2>
-            <Tooltip text="הוסף מדיה">
-              <label className="p-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer flex items-center justify-center">
-                {uploading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Plus className="w-5 h-5" />
-                )}
-                <input
-                  type="file"
-                  accept="image/*,video/*,.pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleAddMedia(file);
-                }}
-                disabled={uploading}
+          {/* Header with title edit, action buttons and media count */}
+          <div className="flex flex-col gap-3">
+            {/* Title edit row */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="flex-1 text-lg font-semibold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1"
+                placeholder="שם הקוד"
               />
-              </label>
-            </Tooltip>
+              <Tooltip text="שמור שינויים">
+                <button
+                  onClick={handleSave}
+                  disabled={saving || title === code.title}
+                  className="p-2 rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                >
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                </button>
+              </Tooltip>
+              <Tooltip text="שכפל קוד">
+                <button
+                  onClick={handleDuplicate}
+                  className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors"
+                >
+                  <CopyPlus className="w-4 h-4" />
+                </button>
+              </Tooltip>
+              {user && canDeleteCode(code, user.id, user.role) && (
+                <Tooltip text="מחק קוד">
+                  <button
+                    onClick={() => setDeleteModal(true)}
+                    className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+            {/* Media count and add button */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text-secondary">
+                {code.media.length} פריטי מדיה
+              </span>
+              <Tooltip text="הוסף מדיה">
+                <label className="p-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer flex items-center justify-center">
+                  {uploading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*,video/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAddMedia(file);
+                  }}
+                  disabled={uploading}
+                />
+                </label>
+              </Tooltip>
+            </div>
           </div>
 
           {/* Media items */}
