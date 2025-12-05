@@ -46,7 +46,12 @@ export default function DashboardPage() {
   const [dragOverRoot, setDragOverRoot] = useState(false);
   const [editingFolderName, setEditingFolderName] = useState(false);
   const [folderNameInput, setFolderNameInput] = useState('');
-  const [uploadSectionCollapsed, setUploadSectionCollapsed] = useState(false);
+  const [uploadSectionCollapsed, setUploadSectionCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('uploadSectionCollapsed') === 'true';
+    }
+    return false;
+  });
 
   // Load user's codes, folders and owner names
   useEffect(() => {
@@ -456,29 +461,37 @@ export default function DashboardPage() {
       {/* Upload Section - Collapsible */}
       <div className="bg-bg-card border border-border rounded-xl overflow-hidden">
         <button
-          onClick={() => setUploadSectionCollapsed(!uploadSectionCollapsed)}
+          onClick={() => {
+            const newValue = !uploadSectionCollapsed;
+            setUploadSectionCollapsed(newValue);
+            localStorage.setItem('uploadSectionCollapsed', String(newValue));
+          }}
           className="w-full flex items-center justify-between p-4 hover:bg-bg-secondary/50 transition-colors"
         >
           <div className="flex items-center gap-3">
             <Upload className="w-5 h-5 text-accent" />
             <span className="font-medium text-text-primary">יצירת קוד חדש</span>
           </div>
-          {uploadSectionCollapsed ? (
-            <ChevronDown className="w-5 h-5 text-text-secondary" />
-          ) : (
-            <ChevronUp className="w-5 h-5 text-text-secondary" />
-          )}
+          <ChevronDown className={clsx(
+            "w-5 h-5 text-text-secondary transition-transform duration-200",
+            !uploadSectionCollapsed && "rotate-180"
+          )} />
         </button>
 
-        {!uploadSectionCollapsed && (
-          <div className="px-4 pb-4">
-            <MediaUploader
-              onFileSelect={handleFileSelect}
-              onLinkAdd={handleLinkAdd}
-              disabled={uploading}
-            />
+        <div className={clsx(
+          "grid transition-all duration-200 ease-in-out",
+          uploadSectionCollapsed ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"
+        )}>
+          <div className="overflow-hidden">
+            <div className="px-4 pb-4">
+              <MediaUploader
+                onFileSelect={handleFileSelect}
+                onLinkAdd={handleLinkAdd}
+                disabled={uploading}
+              />
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {uploading && (
