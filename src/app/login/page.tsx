@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { QrCode } from 'lucide-react';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
@@ -47,7 +47,13 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <QrCode className="w-24 h-24 text-white mx-auto mb-6" strokeWidth={1.5} />
+          <Image
+            src="/QLogo.jpg"
+            alt="QR.info Logo"
+            width={120}
+            height={120}
+            className="mx-auto mb-6 rounded-2xl shadow-lg"
+          />
           <h1 className="text-2xl font-bold text-text-primary mb-2">ברוכים הבאים</h1>
           <p className="text-text-secondary">היכנס לניהול קודי ה-QR שלך</p>
         </div>
