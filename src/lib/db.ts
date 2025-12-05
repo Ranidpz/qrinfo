@@ -141,15 +141,15 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
 
 // Get all global QR codes (for unauthenticated users)
 export async function getGlobalQRCodes(): Promise<QRCode[]> {
+  // Simple query without orderBy to avoid requiring composite index
   const q = query(
     collection(db, 'codes'),
-    where('isGlobal', '==', true),
-    orderBy('createdAt', 'desc')
+    where('isGlobal', '==', true)
   );
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((docSnap) => {
+  const codes = snapshot.docs.map((docSnap) => {
     const data = docSnap.data();
     return {
       id: docSnap.id,
@@ -171,6 +171,9 @@ export async function getGlobalQRCodes(): Promise<QRCode[]> {
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
   });
+
+  // Sort by createdAt descending (client-side)
+  return codes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 // Get all QR codes for a user (owned + collaborated)
