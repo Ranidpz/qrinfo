@@ -553,14 +553,6 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Storage Bar - hidden on mobile (shown at bottom) */}
-      <div className="hidden sm:block">
-        <StorageBar
-          used={user?.storageUsed || 0}
-          limit={user?.storageLimit || 25 * 1024 * 1024}
-        />
-      </div>
-
       {/* Upload Section - Collapsible */}
       <div className="bg-bg-card border border-border rounded-xl overflow-hidden">
         <button
@@ -953,13 +945,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Storage Bar - mobile only, at the end of the page */}
-      <div className="sm:hidden">
-        <StorageBar
-          used={user?.storageUsed || 0}
-          limit={user?.storageLimit || 25 * 1024 * 1024}
-        />
-      </div>
+      {/* Storage Bar - at the bottom of the page */}
+      <StorageBar
+        used={user?.storageUsed || 0}
+        limit={user?.storageLimit || 25 * 1024 * 1024}
+      />
     </div>
   );
 }
