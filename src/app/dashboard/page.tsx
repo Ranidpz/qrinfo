@@ -265,11 +265,13 @@ export default function DashboardPage() {
       // Create QR code with riddle
       const newCode = await createQRCode(user.id, content.title, [
         {
-          url: JSON.stringify(riddleContent),
+          url: '', // Riddle doesn't have a direct URL
           type: 'riddle',
           size: totalImageSize,
           order: 0,
           uploadedBy: user.id,
+          title: content.title,
+          riddleContent: riddleContent,
         },
       ]);
 
