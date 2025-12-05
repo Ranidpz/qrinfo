@@ -54,11 +54,11 @@ export default function LoginPage() {
           </div>
 
           <h1 className="text-3xl font-bold text-text-primary mb-3">Queue</h1>
-          <p className="text-lg text-accent font-medium mb-2">קוד QR אחד. תוכן שמשתנה.</p>
+          <p className="text-lg text-accent font-medium mb-2">One QR. Endless Experiences.</p>
           <p className="text-sm text-text-secondary leading-relaxed">
-            צור קוד QR אחד שמשתנה מתי שתרצה — בלי להדפיס שוב.
+            Create one QR code that changes whenever you want — no reprinting needed.
             <br />
-            חוויות מתוזמנות, תוכן חי, מדידה בזמן אמת.
+            Scheduled experiences, live content, real-time analytics.
           </p>
         </div>
 
