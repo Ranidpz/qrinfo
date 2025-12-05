@@ -653,12 +653,24 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
       .catch((err) => console.error('[ViewerClient] Error logging view:', err));
   }, [codeId, shortId, ownerId]);
 
-  const currentMedia = media[0];
-  const isMultipleImages = media.length > 1 && media.every(m => m.type === 'image' || m.type === 'gif');
-  const isPDF = currentMedia?.type === 'pdf';
-  const isVideo = currentMedia?.type === 'video';
-  const isLink = currentMedia?.type === 'link';
-  const isRiddle = currentMedia?.type === 'riddle';
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const swiperRef = useRef<SwiperType | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
+
+  const currentMedia = media[currentIndex] || media[0];
+  const hasMultipleMedia = media.length > 1;
+
+  // Check if all media are images/gifs (for backward compatibility with old image gallery behavior)
+  const isAllImages = media.length > 0 && media.every(m => m.type === 'image' || m.type === 'gif');
+
+  // For single media detection
+  const isPDF = media.length === 1 && currentMedia?.type === 'pdf';
+  const isVideo = media.length === 1 && currentMedia?.type === 'video';
+  const isLink = media.length === 1 && currentMedia?.type === 'link';
+  const isRiddle = media.length === 1 && currentMedia?.type === 'riddle';
+
+  // Check if we need the mixed media swiper (multiple items with different types)
+  const needsMixedSwiper = hasMultipleMedia && !isAllImages;
 
   // Preload media
   useEffect(() => {
@@ -742,11 +754,142 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
 
       {/* Content based on type */}
       <div className="w-full h-screen">
-        {isRiddle && currentMedia.riddleContent ? (
+        {needsMixedSwiper ? (
+          // Mixed media types - use swiper to navigate between all types
+          <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative">
+            <Swiper
+              modules={[Virtual]}
+              onSwiper={(swiper) => { swiperRef.current = swiper; }}
+              onSlideChange={(swiper) => setCurrentIndex(swiper.activeIndex)}
+              dir="rtl"
+              slidesPerView={1}
+              spaceBetween={0}
+              speed={300}
+              resistance={true}
+              resistanceRatio={0.85}
+              touchRatio={1}
+              threshold={10}
+              cssMode={false}
+              allowTouchMove={!isZoomed}
+              virtual
+              className="w-full h-full"
+              style={{ direction: 'rtl' }}
+            >
+              {media.map((item, index) => (
+                <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
+                  {item.type === 'riddle' && item.riddleContent ? (
+                    <RiddleViewer content={item.riddleContent} />
+                  ) : item.type === 'pdf' ? (
+                    <PDFFlipBookViewer url={item.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
+                  ) : item.type === 'video' ? (
+                    <div className="w-full h-full flex items-center justify-center bg-black">
+                      <video
+                        src={item.url}
+                        className="max-w-full max-h-full"
+                        controls
+                        autoPlay={index === currentIndex}
+                        playsInline
+                      />
+                    </div>
+                  ) : item.type === 'link' ? (
+                    <iframe
+                      src={item.url}
+                      className="w-full h-full"
+                      title={title}
+                      sandbox="allow-scripts allow-same-origin"
+                    />
+                  ) : (
+                    // Image or gif
+                    <TransformWrapper
+                      initialScale={1}
+                      minScale={1}
+                      maxScale={5}
+                      centerOnInit={true}
+                      wheel={{ disabled: false, step: 0.1 }}
+                      pinch={{ step: 5 }}
+                      panning={{ disabled: !isZoomed }}
+                      doubleClick={{ mode: 'toggle', step: 2 }}
+                      onTransformed={(ref) => {
+                        const zoomed = ref.state.scale > 1.05;
+                        setIsZoomed(zoomed);
+                        if (swiperRef.current) {
+                          swiperRef.current.allowTouchMove = !zoomed;
+                        }
+                      }}
+                    >
+                      {() => (
+                        <TransformComponent
+                          wrapperStyle={{ width: '100%', height: '100%' }}
+                          contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <img
+                            src={item.url}
+                            alt={`${title} - ${index + 1}`}
+                            className="max-w-full max-h-[100vh] object-contain select-none"
+                            draggable={false}
+                            style={{
+                              transform: 'translateZ(0)',
+                              backfaceVisibility: 'hidden',
+                            }}
+                          />
+                        </TransformComponent>
+                      )}
+                    </TransformWrapper>
+                  )}
+                </SwiperSlide>
+              ))}
+            </Swiper>
+
+            {/* Page indicator for mixed media */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+              {media.length <= 10 ? (
+                media.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => swiperRef.current?.slideTo(index)}
+                    className={`rounded-full transition-all duration-200 ${
+                      index === currentIndex
+                        ? 'w-6 h-2 bg-white'
+                        : 'w-2 h-2 bg-white/40 hover:bg-white/60'
+                    }`}
+                  />
+                ))
+              ) : (
+                <div className="px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+                  <span className="text-white/90 text-sm font-medium">
+                    {currentIndex + 1} / {media.length}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Navigation arrows - only on desktop */}
+            <div className="hidden md:block">
+              {currentIndex > 0 && (
+                <button
+                  onClick={() => swiperRef.current?.slidePrev()}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
+                  aria-label="הקודם"
+                >
+                  <ChevronRight className="w-6 h-6 text-white" />
+                </button>
+              )}
+              {currentIndex < media.length - 1 && (
+                <button
+                  onClick={() => swiperRef.current?.slideNext()}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
+                  aria-label="הבא"
+                >
+                  <ChevronLeft className="w-6 h-6 text-white" />
+                </button>
+              )}
+            </div>
+          </div>
+        ) : isRiddle && currentMedia.riddleContent ? (
           <RiddleViewer content={currentMedia.riddleContent} />
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
-        ) : isMultipleImages ? (
+        ) : isAllImages && hasMultipleMedia ? (
           <ImageGalleryViewer
             mediaItems={media}
             title={title}
