@@ -1,7 +1,6 @@
 'use client';
 
-import { Menu } from 'lucide-react';
-import Image from 'next/image';
+import { Menu, QrCode } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -9,7 +8,7 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-50 h-16 bg-[#0a1628] border-b border-border">
+    <header className="sticky top-0 z-50 h-16 bg-bg-secondary border-b border-border">
       <div className="flex items-center justify-between h-full px-4 md:px-6">
         {/* Right side - Hamburger Menu for mobile */}
         <button
@@ -23,15 +22,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
         {/* Spacer for desktop */}
         <div className="hidden md:block" />
 
-        {/* Left side - Logo */}
-        <a href="/dashboard" className="flex items-center">
-          <Image
-            src="/QLogo.jpg"
-            alt="QR.info Logo"
-            width={40}
-            height={40}
-            className="rounded-lg"
-          />
+        {/* Left side - QR Icon */}
+        <a href="/dashboard" className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+            <QrCode className="w-6 h-6 text-accent" />
+          </div>
         </a>
       </div>
     </header>

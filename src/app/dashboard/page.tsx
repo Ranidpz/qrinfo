@@ -605,91 +605,85 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="space-y-3">
-        {/* Top row - Filter tabs and Search */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Filter tabs - first on mobile */}
-          <div className="flex bg-bg-secondary rounded-lg p-1 order-1 sm:order-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={clsx(
-                'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-                filter === 'all' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
-              )}
-            >
-              הכל
-            </button>
-            <button
-              onClick={() => setFilter('mine')}
-              className={clsx(
-                'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
-                filter === 'mine' ? 'bg-accent text-white' : 'text-text-secondary'
-              )}
-            >
-              שלי
-            </button>
-          </div>
-
-          {/* Search */}
-          <div className="relative flex-1 min-w-0 order-2 sm:order-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-            <input
-              type="text"
-              placeholder="חיפוש..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input pl-10 w-full"
-              list="codes-autocomplete"
-            />
-            <datalist id="codes-autocomplete">
-              {codes.map((code) => (
-                <option key={code.id} value={code.title} />
-              ))}
-            </datalist>
-          </div>
+      {/* Toolbar - All controls in one row on desktop */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        {/* View mode toggle - first on mobile, last on desktop */}
+        <div className="flex bg-bg-secondary rounded-lg p-1 order-3 sm:order-4">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={clsx(
+              'p-2 rounded-md transition-colors',
+              viewMode === 'grid' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
+            )}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={clsx(
+              'p-2 rounded-md transition-colors',
+              viewMode === 'list' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
+            )}
+          >
+            <List className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Bottom row - View controls (hidden on small mobile) */}
-        <div className="flex items-center gap-2 justify-end">
-          {/* Grid size controls - hide on small screens */}
-          <div className="hidden sm:flex items-center gap-1 bg-bg-secondary rounded-lg p-1">
-            <button
-              onClick={() => setGridSize(Math.max(1, gridSize - 1))}
-              className="px-2 py-1 text-text-secondary hover:text-text-primary"
-            >
-              −
-            </button>
-            <span className="px-2 text-sm text-text-primary">{gridSize}</span>
-            <button
-              onClick={() => setGridSize(Math.min(6, gridSize + 1))}
-              className="px-2 py-1 text-text-secondary hover:text-text-primary"
-            >
-              +
-            </button>
-          </div>
+        {/* Grid size controls - hide on small screens */}
+        <div className="hidden sm:flex items-center gap-1 bg-bg-secondary rounded-lg p-1 order-3">
+          <button
+            onClick={() => setGridSize(Math.max(1, gridSize - 1))}
+            className="px-2 py-1 text-text-secondary hover:text-text-primary"
+          >
+            −
+          </button>
+          <span className="px-2 text-sm text-text-primary">{gridSize}</span>
+          <button
+            onClick={() => setGridSize(Math.min(6, gridSize + 1))}
+            className="px-2 py-1 text-text-secondary hover:text-text-primary"
+          >
+            +
+          </button>
+        </div>
 
-          {/* View mode toggle */}
-          <div className="flex bg-bg-secondary rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('list')}
-              className={clsx(
-                'p-2 rounded-md transition-colors',
-                viewMode === 'list' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
-              )}
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              className={clsx(
-                'p-2 rounded-md transition-colors',
-                viewMode === 'grid' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
-              )}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-          </div>
+        {/* Filter tabs */}
+        <div className="flex bg-bg-secondary rounded-lg p-1 order-1 sm:order-2">
+          <button
+            onClick={() => setFilter('all')}
+            className={clsx(
+              'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
+              filter === 'all' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
+            )}
+          >
+            הכל
+          </button>
+          <button
+            onClick={() => setFilter('mine')}
+            className={clsx(
+              'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
+              filter === 'mine' ? 'bg-accent text-white' : 'text-text-secondary'
+            )}
+          >
+            שלי
+          </button>
+        </div>
+
+        {/* Search - takes remaining space */}
+        <div className="relative flex-1 min-w-0 order-2 sm:order-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+          <input
+            type="text"
+            placeholder="חיפוש..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input pl-10 w-full"
+            list="codes-autocomplete"
+          />
+          <datalist id="codes-autocomplete">
+            {codes.map((code) => (
+              <option key={code.id} value={code.title} />
+            ))}
+          </datalist>
         </div>
       </div>
 
