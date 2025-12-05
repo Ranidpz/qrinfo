@@ -403,8 +403,8 @@ const ImageGalleryViewer = memo(({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Touch handlers for 0.8s hold to show link button
-  const handleTouchStart = (mediaItem: MediaItem) => {
+  // Pointer handlers for 0.8s hold to show link button (works better than touch events)
+  const handlePointerDown = (mediaItem: MediaItem) => {
     if (!mediaItem.linkUrl) return;
 
     // Clear any existing touch timer
@@ -415,6 +415,7 @@ const ImageGalleryViewer = memo(({
     // Start timer - show link button after 0.8 seconds of touch
     touchTimerRef.current = setTimeout(() => {
       setShowLinkButton(true);
+      touchTimerRef.current = null; // Clear ref so touchEnd won't cancel
       // Auto-hide after 5 seconds
       if (linkButtonTimeoutRef.current) {
         clearTimeout(linkButtonTimeoutRef.current);
@@ -425,15 +426,15 @@ const ImageGalleryViewer = memo(({
     }, 800);
   };
 
-  const handleTouchEnd = () => {
-    // Cancel the timer if touch ends before 0.8 seconds
+  const handlePointerUp = () => {
+    // Cancel the timer only if it hasn't fired yet
     if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current);
       touchTimerRef.current = null;
     }
   };
 
-  const handleTouchMove = () => {
+  const handlePointerMove = () => {
     // Cancel the timer if user is swiping/moving
     if (touchTimerRef.current) {
       clearTimeout(touchTimerRef.current);
@@ -477,9 +478,11 @@ const ImageGalleryViewer = memo(({
                 alt={title}
                 className="max-w-full max-h-full object-contain select-none"
                 draggable={false}
-                onTouchStart={() => handleTouchStart(media)}
-                onTouchEnd={handleTouchEnd}
-                onTouchMove={handleTouchMove}
+                onPointerDown={() => handlePointerDown(media)}
+                onPointerUp={handlePointerUp}
+                onPointerMove={handlePointerMove}
+                onPointerCancel={handlePointerUp}
+                style={{ touchAction: 'none' }}
               />
             </TransformComponent>
           )}
