@@ -1,11 +1,12 @@
 'use client';
 
-import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User } from 'lucide-react';
+import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { clsx } from 'clsx';
 import { APP_VERSION } from '@/lib/version';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -27,16 +28,19 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/dashboard', icon: Home, label: 'דשבורד' },
-  { href: '/analytics', icon: BarChart3, label: 'אנליטיקס' },
+  { href: '/analytics', icon: BarChart3, label: 'אנליטיקס', roles: ['super_admin', 'producer', 'free'] },
   { href: '/admin/users', icon: Users, label: 'ניהול משתמשים', roles: ['super_admin'] },
 ];
 
 export default function Sidebar({ isOpen, onClose, userRole = 'free', user, onSignOut }: SidebarProps) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const { signInWithGoogle } = useAuth();
 
   const filteredItems = navItems.filter(item => {
     if (!item.roles) return true;
+    // If user is not logged in, only show items without role requirements
+    if (!user) return !item.roles;
     return item.roles.includes(userRole);
   });
 
@@ -110,8 +114,8 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', user, onSi
 
         {/* User section & Footer */}
         <div className="p-4 border-t border-border">
-          {/* User Info */}
-          {user && (
+          {/* User Info or Login Button */}
+          {user ? (
             <div className="mb-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
@@ -128,6 +132,23 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', user, onSi
               >
                 <LogOut className="w-4 h-4" />
                 <span>התנתק</span>
+              </button>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <button
+                onClick={async () => {
+                  try {
+                    await signInWithGoogle();
+                    onClose();
+                  } catch (error) {
+                    console.error('Login error:', error);
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>התחבר</span>
               </button>
             </div>
           )}

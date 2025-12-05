@@ -139,6 +139,40 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
   };
 }
 
+// Get all global QR codes (for unauthenticated users)
+export async function getGlobalQRCodes(): Promise<QRCode[]> {
+  const q = query(
+    collection(db, 'codes'),
+    where('isGlobal', '==', true),
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      shortId: data.shortId,
+      ownerId: data.ownerId,
+      collaborators: data.collaborators || [],
+      title: data.title,
+      media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
+        ...m,
+        id: m.id || `media_${Date.now()}_${index}`,
+        createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+      })),
+      widgets: data.widgets || {},
+      views: data.views || 0,
+      isActive: data.isActive ?? true,
+      isGlobal: true,
+      folderId: data.folderId || undefined,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    };
+  });
+}
+
 // Get all QR codes for a user (owned + collaborated)
 export async function getUserQRCodes(userId: string): Promise<QRCode[]> {
   // Get owned codes
