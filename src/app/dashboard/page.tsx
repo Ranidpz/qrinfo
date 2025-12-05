@@ -637,11 +637,11 @@ export default function DashboardPage() {
         </div>
       ) : (
         <button
-          onClick={() => setShowLoginModal(true)}
+          onClick={() => router.push('/login')}
           className="w-full bg-bg-card border border-border rounded-xl p-4 flex items-center justify-center gap-3 hover:bg-bg-secondary/50 transition-colors"
         >
           <Upload className="w-5 h-5 text-accent" />
-          <span className="font-medium text-text-primary">התחבר כדי ליצור חוויה</span>
+          <span className="font-medium text-text-primary">התחברו כדי ליצור חוויה</span>
         </button>
       )}
 
@@ -965,10 +965,10 @@ export default function DashboardPage() {
           </p>
           {!user && (
             <button
-              onClick={() => setShowLoginModal(true)}
+              onClick={() => router.push('/login')}
               className="mt-4 px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent-hover transition-colors"
             >
-              התחבר עכשיו
+              התחברו עכשיו
             </button>
           )}
         </div>
