@@ -182,6 +182,7 @@ export async function getUserQRCodes(userId: string): Promise<QRCode[]> {
       widgets: data.widgets || {},
       views: data.views || 0,
       isActive: data.isActive ?? true,
+      isGlobal: data.isGlobal ?? false,
       folderId: data.folderId || undefined,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
@@ -209,7 +210,7 @@ function removeUndefined(obj: Record<string, any>): Record<string, any> {
 // Update QR code
 export async function updateQRCode(
   id: string,
-  updates: Partial<Pick<QRCode, 'title' | 'media' | 'widgets' | 'collaborators' | 'isActive'>>
+  updates: Partial<Pick<QRCode, 'title' | 'media' | 'widgets' | 'collaborators' | 'isActive' | 'isGlobal'>>
 ): Promise<void> {
   // Convert media createdAt to Firestore Timestamp if present and remove undefined values
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

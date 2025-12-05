@@ -452,31 +452,16 @@ export default function DashboardPage() {
     if (!user || user.role !== 'super_admin') return;
 
     try {
-      const newGlobalStatus = !code.widgets.whatsapp?.enabled;
+      const newGlobalStatus = !code.isGlobal;
       await updateQRCode(code.id, {
-        widgets: {
-          ...code.widgets,
-          whatsapp: {
-            enabled: newGlobalStatus,
-            groupLink: code.widgets.whatsapp?.groupLink || '',
-          },
-        },
+        isGlobal: newGlobalStatus,
       });
 
       // Update local state
       setCodes((prev) =>
         prev.map((c) =>
           c.id === code.id
-            ? {
-                ...c,
-                widgets: {
-                  ...c.widgets,
-                  whatsapp: {
-                    enabled: newGlobalStatus,
-                    groupLink: c.widgets.whatsapp?.groupLink || '',
-                  },
-                },
-              }
+            ? { ...c, isGlobal: newGlobalStatus }
             : c
         )
       );
@@ -915,6 +900,7 @@ export default function DashboardPage() {
               views24h={views24h[code.id] || 0}
               updatedAt={code.updatedAt}
               isOwner={user?.id === code.ownerId}
+              isGlobal={code.isGlobal}
               widgets={code.widgets}
               ownerName={ownerNames[code.ownerId] || (code.ownerId === user?.id ? user.displayName : undefined)}
               isSuperAdmin={user?.role === 'super_admin'}

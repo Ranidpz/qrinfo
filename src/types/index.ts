@@ -47,6 +47,7 @@ export interface QRCode {
   widgets: CodeWidgets;
   views: number;
   isActive: boolean;
+  isGlobal?: boolean; // Whether the code is globally featured (admin only)
   folderId?: string; // Optional folder assignment
   createdAt: Date;
   updatedAt: Date;
