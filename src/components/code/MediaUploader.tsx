@@ -215,7 +215,7 @@ export default function MediaUploader({
             disabled={!linkUrl.trim()}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            צור קוד
+            צור חוויה
           </button>
         </div>
       )}

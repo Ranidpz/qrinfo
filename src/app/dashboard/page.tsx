@@ -602,7 +602,7 @@ export default function DashboardPage() {
         >
           <div className="flex items-center gap-3">
             <Upload className="w-5 h-5 text-accent" />
-            <span className="font-medium text-text-primary">יצירת קוד חדש</span>
+            <span className="font-medium text-text-primary">יצירת חוויה חדשה</span>
           </div>
           <ChevronDown className={clsx(
             "w-5 h-5 text-text-secondary transition-transform duration-200",
