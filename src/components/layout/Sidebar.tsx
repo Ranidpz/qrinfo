@@ -57,9 +57,10 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', user, onSi
       {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-l border-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col',
+          'fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-l border-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col overflow-y-auto pb-safe',
           isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'
         )}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         {/* Close button for mobile */}
         <button

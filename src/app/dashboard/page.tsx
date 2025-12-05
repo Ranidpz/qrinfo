@@ -594,7 +594,7 @@ export default function DashboardPage() {
             animation: fadeIn 0.6s ease-out 0.8s forwards;
           }
         `}</style>
-        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
+        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-accent dark:text-white mb-4 tracking-tight">
           One Code. Endless Experiences.
         </h1>
         <div className="hero-divider flex justify-center mb-4">
