@@ -74,6 +74,10 @@ export default function CodeEditPage({ params }: PageProps) {
   const [folder, setFolder] = useState<Folder | null>(null);
   const prevViewsRef = useRef(0);
 
+  // Drag and drop state for media reordering
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   // Load code data
   useEffect(() => {
     const loadCode = async () => {
@@ -294,6 +298,58 @@ export default function CodeEditPage({ params }: PageProps) {
     } catch (error) {
       console.error('Error duplicating code:', error);
       alert('שגיאה בשכפול הקוד. נסה שוב.');
+    }
+  };
+
+  // Drag and drop handlers for media reordering
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndex !== null && index !== draggedIndex) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (!code || draggedIndex === null || draggedIndex === dropIndex) {
+      handleDragEnd();
+      return;
+    }
+
+    // Reorder the media array
+    const newMedia = [...code.media];
+    const [draggedItem] = newMedia.splice(draggedIndex, 1);
+    newMedia.splice(dropIndex, 0, draggedItem);
+
+    // Update order property for each item
+    const reorderedMedia = newMedia.map((item, idx) => ({
+      ...item,
+      order: idx,
+    }));
+
+    // Update local state immediately for responsive UI
+    setCode((prev) => prev ? { ...prev, media: reorderedMedia } : null);
+    handleDragEnd();
+
+    // Save to Firebase
+    try {
+      await updateQRCode(code.id, { media: reorderedMedia });
+    } catch (error) {
+      console.error('Error saving media order:', error);
+      // Revert on error
+      setCode((prev) => prev ? { ...prev, media: code.media } : null);
     }
   };
 
@@ -745,9 +801,18 @@ export default function CodeEditPage({ params }: PageProps) {
             {code.media.map((media, index) => (
               <div
                 key={media.id}
-                className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl group"
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                onDrop={(e) => handleDrop(e, index)}
+                className={clsx(
+                  'flex items-center gap-4 p-4 bg-bg-secondary rounded-xl group transition-all duration-200',
+                  draggedIndex === index && 'opacity-50 scale-[0.98]',
+                  dragOverIndex === index && 'ring-2 ring-accent ring-offset-2 ring-offset-bg-primary'
+                )}
               >
-                <div className="cursor-grab text-text-secondary">
+                <div className="cursor-grab active:cursor-grabbing text-text-secondary hover:text-text-primary transition-colors">
                   <GripVertical className="w-5 h-5" />
                 </div>
 
