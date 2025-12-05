@@ -88,6 +88,7 @@ const PDFFlipBookViewer = memo(({
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [isZoomed, setIsZoomed] = useState(false);
   const swiperRef = useRef<SwiperType | null>(null);
 
   // Load PDF and convert to images with high resolution
@@ -215,20 +216,13 @@ const PDFFlipBookViewer = memo(({
               centerOnInit={true}
               wheel={{ disabled: false, step: 0.1 }}
               pinch={{ step: 5 }}
-              panning={{ disabled: false, velocityDisabled: false }}
+              panning={{ disabled: !isZoomed }}
               doubleClick={{ mode: 'toggle', step: 2 }}
-              onPanningStart={() => {
-                if (swiperRef.current) swiperRef.current.allowTouchMove = false;
-              }}
-              onPanningStop={() => {
-                if (swiperRef.current) swiperRef.current.allowTouchMove = true;
-              }}
-              onZoomStart={() => {
-                if (swiperRef.current) swiperRef.current.allowTouchMove = false;
-              }}
-              onZoomStop={(ref) => {
-                if (swiperRef.current && ref.state.scale <= 1.05) {
-                  swiperRef.current.allowTouchMove = true;
+              onTransformed={(ref) => {
+                const zoomed = ref.state.scale > 1.05;
+                setIsZoomed(zoomed);
+                if (swiperRef.current) {
+                  swiperRef.current.allowTouchMove = !zoomed;
                 }
               }}
             >
@@ -354,6 +348,7 @@ const ImageGalleryViewer = memo(({
   onLoad: () => void;
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
+  const [isZoomed, setIsZoomed] = useState(false);
   const swiperRef = useRef<SwiperType | null>(null);
 
   useEffect(() => {
@@ -434,19 +429,13 @@ const ImageGalleryViewer = memo(({
               centerOnInit={true}
               wheel={{ disabled: false, step: 0.1 }}
               pinch={{ step: 5 }}
+              panning={{ disabled: !isZoomed }}
               doubleClick={{ mode: 'toggle', step: 2 }}
-              onPanningStart={() => {
-                if (swiperRef.current) swiperRef.current.allowTouchMove = false;
-              }}
-              onPanningStop={() => {
-                if (swiperRef.current) swiperRef.current.allowTouchMove = true;
-              }}
-              onZoomStart={() => {
-                if (swiperRef.current) swiperRef.current.allowTouchMove = false;
-              }}
-              onZoomStop={(ref) => {
-                if (swiperRef.current && ref.state.scale <= 1.05) {
-                  swiperRef.current.allowTouchMove = true;
+              onTransformed={(ref) => {
+                const zoomed = ref.state.scale > 1.05;
+                setIsZoomed(zoomed);
+                if (swiperRef.current) {
+                  swiperRef.current.allowTouchMove = !zoomed;
                 }
               }}
             >
