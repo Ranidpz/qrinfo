@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const [dragOverRoot, setDragOverRoot] = useState(false);
   const [editingFolderName, setEditingFolderName] = useState(false);
   const [folderNameInput, setFolderNameInput] = useState('');
+  const [uploadSectionCollapsed, setUploadSectionCollapsed] = useState(false);
 
   // Load user's codes, folders and owner names
   useEffect(() => {
@@ -452,12 +453,33 @@ export default function DashboardPage() {
         limit={user?.storageLimit || 25 * 1024 * 1024}
       />
 
-      {/* Upload Section */}
-      <MediaUploader
-        onFileSelect={handleFileSelect}
-        onLinkAdd={handleLinkAdd}
-        disabled={uploading}
-      />
+      {/* Upload Section - Collapsible */}
+      <div className="bg-bg-card border border-border rounded-xl overflow-hidden">
+        <button
+          onClick={() => setUploadSectionCollapsed(!uploadSectionCollapsed)}
+          className="w-full flex items-center justify-between p-4 hover:bg-bg-secondary/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Upload className="w-5 h-5 text-accent" />
+            <span className="font-medium text-text-primary">יצירת קוד חדש</span>
+          </div>
+          {uploadSectionCollapsed ? (
+            <ChevronDown className="w-5 h-5 text-text-secondary" />
+          ) : (
+            <ChevronUp className="w-5 h-5 text-text-secondary" />
+          )}
+        </button>
+
+        {!uploadSectionCollapsed && (
+          <div className="px-4 pb-4">
+            <MediaUploader
+              onFileSelect={handleFileSelect}
+              onLinkAdd={handleLinkAdd}
+              disabled={uploading}
+            />
+          </div>
+        )}
+      </div>
 
       {uploading && (
         <div className="flex items-center justify-center gap-2 py-4 text-accent">
