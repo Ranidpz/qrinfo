@@ -45,15 +45,15 @@ export default function DateRangePicker({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-3">
       {/* Preset Buttons */}
-      <div className="flex rounded-lg border border-border overflow-hidden">
+      <div className="flex rounded-lg border border-border overflow-hidden overflow-x-auto">
         {presetOptions.map((option) => (
           <button
             key={option.value}
             onClick={() => onPresetChange(option.value)}
             className={clsx(
-              'px-4 py-2 text-sm font-medium transition-colors',
+              'px-3 sm:px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none',
               preset === option.value
                 ? 'bg-accent text-white'
                 : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover hover:text-text-primary'
@@ -64,30 +64,36 @@ export default function DateRangePicker({
         ))}
       </div>
 
-      {/* Custom Date Inputs */}
+      {/* Custom Date Inputs - stacked on mobile, inline on desktop */}
       {preset === 'custom' && (
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-            <input
-              type="date"
-              value={formatDateForInput(customStart)}
-              onChange={handleStartChange}
-              max={formatDateForInput(customEnd) || formatDateForInput(new Date())}
-              className="pr-10 pl-4 py-2 rounded-lg bg-bg-secondary border border-border text-sm focus:outline-none focus:border-accent"
-            />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-text-secondary text-sm w-12 sm:hidden">מתאריך</span>
+            <div className="relative flex-1">
+              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+              <input
+                type="date"
+                value={formatDateForInput(customStart)}
+                onChange={handleStartChange}
+                max={formatDateForInput(customEnd) || formatDateForInput(new Date())}
+                className="w-full pr-10 pl-4 py-2 rounded-lg bg-bg-secondary border border-border text-sm focus:outline-none focus:border-accent"
+              />
+            </div>
           </div>
-          <span className="text-text-secondary">עד</span>
-          <div className="relative">
-            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-            <input
-              type="date"
-              value={formatDateForInput(customEnd)}
-              onChange={handleEndChange}
-              min={formatDateForInput(customStart)}
-              max={formatDateForInput(new Date())}
-              className="pr-10 pl-4 py-2 rounded-lg bg-bg-secondary border border-border text-sm focus:outline-none focus:border-accent"
-            />
+          <span className="text-text-secondary hidden sm:inline">עד</span>
+          <div className="flex items-center gap-2">
+            <span className="text-text-secondary text-sm w-12 sm:hidden">עד תאריך</span>
+            <div className="relative flex-1">
+              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+              <input
+                type="date"
+                value={formatDateForInput(customEnd)}
+                onChange={handleEndChange}
+                min={formatDateForInput(customStart)}
+                max={formatDateForInput(new Date())}
+                className="w-full pr-10 pl-4 py-2 rounded-lg bg-bg-secondary border border-border text-sm focus:outline-none focus:border-accent"
+              />
+            </div>
           </div>
         </div>
       )}
