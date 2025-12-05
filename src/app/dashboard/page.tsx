@@ -9,7 +9,8 @@ import CodeCard from '@/components/code/CodeCard';
 import FolderCard from '@/components/code/FolderCard';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
-import { ViewMode, FilterOption, QRCode as QRCodeType, Folder } from '@/types';
+import RiddleModal from '@/components/modals/RiddleModal';
+import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
@@ -55,6 +56,8 @@ export default function DashboardPage() {
     return false;
   });
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [riddleModalOpen, setRiddleModalOpen] = useState(false);
+  const [addingRiddle, setAddingRiddle] = useState(false);
 
   // Handle folder param from URL (when returning from code edit)
   useEffect(() => {
@@ -221,6 +224,72 @@ export default function DashboardPage() {
       alert('שגיאה ביצירת הקוד. נסה שוב.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleRiddleCreate = async (content: RiddleContent, imageFiles: File[]) => {
+    if (!user) return;
+
+    setAddingRiddle(true);
+
+    try {
+      // Upload images if any
+      const uploadedImages: string[] = [];
+      let totalImageSize = 0;
+
+      for (const file of imageFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', user.id);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload image');
+        }
+
+        const uploadData = await uploadResponse.json();
+        uploadedImages.push(uploadData.url);
+        totalImageSize += uploadData.size;
+      }
+
+      // Create riddle content with uploaded image URLs
+      const riddleContent: RiddleContent = {
+        ...content,
+        images: uploadedImages,
+      };
+
+      // Create QR code with riddle
+      const newCode = await createQRCode(user.id, content.title, [
+        {
+          url: JSON.stringify(riddleContent),
+          type: 'riddle',
+          size: totalImageSize,
+          order: 0,
+          uploadedBy: user.id,
+        },
+      ]);
+
+      // Update user storage for images
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+        await refreshUser();
+      }
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setRiddleModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating riddle:', error);
+      alert('שגיאה ביצירת כתב החידה. נסה שוב.');
+    } finally {
+      setAddingRiddle(false);
     }
   };
 
@@ -637,6 +706,7 @@ export default function DashboardPage() {
                 <MediaUploader
                   onFileSelect={handleFileSelect}
                   onLinkAdd={handleLinkAdd}
+                  onRiddleCreate={() => setRiddleModalOpen(true)}
                   disabled={uploading}
                 />
               </div>
@@ -1086,6 +1156,14 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Riddle Modal */}
+      <RiddleModal
+        isOpen={riddleModalOpen}
+        onClose={() => setRiddleModalOpen(false)}
+        onSave={handleRiddleCreate}
+        loading={addingRiddle}
+      />
     </div>
   );
 }
