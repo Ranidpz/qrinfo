@@ -17,7 +17,7 @@ import {
   Loader2,
   Eye,
   CopyPlus,
-  Download,
+  Printer,
   Clock,
   RefreshCw,
   Folder as FolderIcon,
@@ -31,6 +31,19 @@ import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder } from '@/types'
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import ScheduleModal from '@/components/modals/ScheduleModal';
 import { clsx } from 'clsx';
+
+// Custom Tooltip component for styled tooltips
+function Tooltip({ children, text }: { children: React.ReactNode; text: string }) {
+  return (
+    <div className="relative group/tooltip">
+      {children}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-bg-card border border-border rounded-lg shadow-xl z-[9999] whitespace-nowrap opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none">
+        <span className="text-xs text-text-primary font-medium">{text}</span>
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-bg-card border-r border-b border-border transform rotate-45" />
+      </div>
+    </div>
+  );
+}
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -574,35 +587,38 @@ export default function CodeEditPage({ params }: PageProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleSave}
-            disabled={saving || title === code.title}
-            className="p-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
-            title="שמור"
-          >
-            {saving ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Save className="w-5 h-5" />
-            )}
-          </button>
+          <Tooltip text="שמור שינויים">
+            <button
+              onClick={handleSave}
+              disabled={saving || title === code.title}
+              className="p-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            >
+              {saving ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Save className="w-5 h-5" />
+              )}
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={handleDuplicate}
-            className="p-2.5 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors"
-            title="שכפול"
-          >
-            <CopyPlus className="w-5 h-5" />
-          </button>
+          <Tooltip text="שכפל קוד">
+            <button
+              onClick={handleDuplicate}
+              className="p-2.5 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors"
+            >
+              <CopyPlus className="w-5 h-5" />
+            </button>
+          </Tooltip>
 
           {user && canDeleteCode(code, user.id, user.role) && (
-            <button
-              onClick={() => setDeleteModal(true)}
-              className="p-2.5 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
-              title="מחק"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
+            <Tooltip text="מחק קוד">
+              <button
+                onClick={() => setDeleteModal(true)}
+                className="p-2.5 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -677,8 +693,8 @@ export default function CodeEditPage({ params }: PageProps) {
               onClick={handleDownloadQR}
               className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
             >
-              <Download className="w-4 h-4" />
-              הורדת QR
+              <Printer className="w-4 h-4" />
+              הדפסת QR
             </button>
           </div>
 
@@ -701,26 +717,27 @@ export default function CodeEditPage({ params }: PageProps) {
         <div className="lg:col-span-2 card space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-text-primary">
-              מדיה ({code.media.length})
+              {code.media.length} פריטי מדיה
             </h2>
-            <label className="btn btn-primary flex items-center gap-2 cursor-pointer">
-              {uploading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-              הוסף מדיה
-              <input
-                type="file"
-                accept="image/*,video/*,.pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleAddMedia(file);
+            <Tooltip text="הוסף מדיה">
+              <label className="p-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer flex items-center justify-center">
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Plus className="w-5 h-5" />
+                )}
+                <input
+                  type="file"
+                  accept="image/*,video/*,.pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAddMedia(file);
                 }}
                 disabled={uploading}
               />
-            </label>
+              </label>
+            </Tooltip>
           </div>
 
           {/* Media items */}

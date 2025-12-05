@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, Printer, ExternalLink, UserCog, User, Clock, Check, Files } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, ExternalLink, UserCog, User, Clock, Check, Files } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { MediaType } from '@/types';
@@ -207,91 +207,6 @@ export default function CodeCard({
     }
     // Reset input so same file can be selected again
     e.target.value = '';
-  };
-
-  const handlePrint = async () => {
-    // Create high-res QR code for printing
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const qrSize = 1000; // High resolution for print
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html dir="rtl">
-      <head>
-        <title>QR Code - ${title}</title>
-        <style>
-          @page { size: A4; margin: 20mm; }
-          body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-          }
-          .qr-container {
-            text-align: center;
-            padding: 40px;
-            border: 2px solid #e5e7eb;
-            border-radius: 16px;
-          }
-          h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: #1f2937;
-          }
-          .qr-wrapper {
-            display: inline-block;
-            padding: 20px;
-            background: white;
-            border-radius: 12px;
-          }
-          .url {
-            margin-top: 20px;
-            font-size: 14px;
-            color: #6b7280;
-            direction: ltr;
-          }
-          .shortId {
-            margin-top: 8px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #3b82f6;
-          }
-          @media print {
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="qr-container">
-          <h1>${title}</h1>
-          <div class="qr-wrapper" id="qr"></div>
-          <p class="shortId">${shortId}</p>
-          <p class="url">${viewUrl}</p>
-        </div>
-        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-        <script>
-          QRCode.toCanvas(document.createElement('canvas'), '${viewUrl}', {
-            width: ${qrSize},
-            margin: 2,
-            errorCorrectionLevel: 'H'
-          }, function(error, canvas) {
-            if (error) console.error(error);
-            document.getElementById('qr').appendChild(canvas);
-            canvas.style.width = '300px';
-            canvas.style.height = '300px';
-            setTimeout(() => window.print(), 500);
-          });
-        </script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
   };
 
   // Get display info based on media type
@@ -561,16 +476,6 @@ export default function CodeCard({
             </button>
           </Tooltip>
         )}
-
-        {/* Print QR */}
-        <Tooltip text="הדפס QR">
-          <button
-            onClick={handlePrint}
-            className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
-          >
-            <Printer className="w-4 h-4" />
-          </button>
-        </Tooltip>
 
         {/* Spacer */}
         <div className="flex-1 min-w-[8px]" />
