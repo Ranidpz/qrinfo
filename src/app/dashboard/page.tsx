@@ -543,6 +543,16 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Hero Section */}
+      <div className="text-center py-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+          One Code. Endless Experiences.
+        </h1>
+        <p className="text-sm sm:text-base text-text-secondary max-w-xl mx-auto">
+          מבידור, הדרכות, הגרלות ומיפוי מסעות במרחב – יוצרים קוד, מדפיסים ומעדכנים את חווית הלקוח בזמן אמת
+        </p>
+      </div>
+
       {/* Storage Bar - hidden on mobile (shown at bottom) */}
       <div className="hidden sm:block">
         <StorageBar
