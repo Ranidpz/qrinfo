@@ -943,16 +943,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Storage Bar - mobile only, fixed at bottom */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-bg-primary border-t border-border p-3 z-40">
+      {/* Storage Bar - mobile only, at the end of the page */}
+      <div className="sm:hidden">
         <StorageBar
           used={user?.storageUsed || 0}
           limit={user?.storageLimit || 25 * 1024 * 1024}
         />
       </div>
-
-      {/* Spacer for mobile to prevent content from being hidden behind fixed storage bar */}
-      <div className="sm:hidden h-20" />
     </div>
   );
 }
