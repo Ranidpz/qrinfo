@@ -544,11 +544,31 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Hero Section */}
-      <div className="text-center py-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+      <div className="text-center py-8 sm:py-10">
+        <style jsx>{`
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          .hero-title {
+            animation: fadeInUp 0.8s ease-out forwards;
+            text-shadow: 0 0 40px rgba(99, 102, 241, 0.5), 0 0 80px rgba(99, 102, 241, 0.3), 0 0 120px rgba(99, 102, 241, 0.2);
+          }
+          .hero-subtitle {
+            opacity: 0;
+            animation: fadeInUp 0.8s ease-out 0.4s forwards;
+          }
+        `}</style>
+        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
           One Code. Endless Experiences.
         </h1>
-        <p className="text-sm sm:text-base text-text-secondary max-w-xl mx-auto">
+        <p className="hero-subtitle text-sm sm:text-base md:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
           מבידור, הדרכות, הגרלות ומיפוי מסעות במרחב – יוצרים קוד, מדפיסים ומעדכנים את חווית הלקוח בזמן אמת
         </p>
       </div>

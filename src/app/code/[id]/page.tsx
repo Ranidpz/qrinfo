@@ -952,7 +952,7 @@ export default function CodeEditPage({ params }: PageProps) {
         <div className="lg:col-span-2 card space-y-4">
           {/* Header with title edit, action buttons and media count */}
           <div className="flex flex-col gap-3">
-            {/* Title edit row */}
+            {/* Title edit row - title only on mobile, title + buttons on desktop */}
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -961,6 +961,43 @@ export default function CodeEditPage({ params }: PageProps) {
                 className="flex-1 text-lg font-semibold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1"
                 placeholder="שם הקוד"
               />
+              {/* Action buttons - hidden on mobile, shown on desktop */}
+              <div className="hidden sm:flex items-center gap-2">
+                <Tooltip text="שמור שינויים">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || title === code.title}
+                    className="p-2 rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                  </button>
+                </Tooltip>
+                <Tooltip text="שכפל קוד">
+                  <button
+                    onClick={handleDuplicate}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors"
+                  >
+                    <CopyPlus className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+                {user && canDeleteCode(code, user.id, user.role) && (
+                  <Tooltip text="מחק קוד">
+                    <button
+                      onClick={() => setDeleteModal(true)}
+                      className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+            {/* Action buttons row - visible only on mobile */}
+            <div className="flex sm:hidden items-center gap-2">
               <Tooltip text="שמור שינויים">
                 <button
                   onClick={handleSave}
