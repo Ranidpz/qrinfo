@@ -546,28 +546,60 @@ export default function DashboardPage() {
       {/* Hero Section */}
       <div className="text-center py-8 sm:py-10">
         <style jsx>{`
-          @keyframes fadeInUp {
+          @keyframes bounceIn {
+            0% {
+              opacity: 0;
+              transform: scale(0.3);
+            }
+            50% {
+              opacity: 1;
+              transform: scale(1.05);
+            }
+            70% {
+              transform: scale(0.95);
+            }
+            100% {
+              transform: scale(1);
+            }
+          }
+          @keyframes fadeIn {
             from {
               opacity: 0;
-              transform: translateY(20px);
             }
             to {
               opacity: 1;
-              transform: translateY(0);
+            }
+          }
+          @keyframes expandWidth {
+            from {
+              width: 0;
+            }
+            to {
+              width: 80px;
             }
           }
           .hero-title {
-            animation: fadeInUp 0.8s ease-out forwards;
-            text-shadow: 0 0 40px rgba(99, 102, 241, 0.5), 0 0 80px rgba(99, 102, 241, 0.3), 0 0 120px rgba(99, 102, 241, 0.2);
+            animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+          }
+          .hero-divider {
+            opacity: 0;
+            animation: fadeIn 0.3s ease-out 0.5s forwards;
+          }
+          .hero-divider-line {
+            width: 0;
+            animation: expandWidth 0.4s ease-out 0.6s forwards;
           }
           .hero-subtitle {
             opacity: 0;
-            animation: fadeInUp 0.8s ease-out 0.4s forwards;
+            animation: fadeIn 0.6s ease-out 0.8s forwards;
           }
         `}</style>
         <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
           One Code. Endless Experiences.
         </h1>
+        <div className="hero-divider flex justify-center mb-4">
+          <div className="hero-divider-line h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
+        </div>
         <p className="hero-subtitle text-sm sm:text-base md:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
           מבידור, הדרכות, הגרלות ומיפוי מסעות במרחב – יוצרים קוד, מדפיסים ומעדכנים את חווית הלקוח בזמן אמת
         </p>
