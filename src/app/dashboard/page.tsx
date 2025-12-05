@@ -68,6 +68,12 @@ export default function DashboardPage() {
 
   // Load user's codes, folders and owner names (or global codes for guests)
   useEffect(() => {
+    // Reset state when user changes (login/logout)
+    setLoading(true);
+    setCodes([]);
+    setFolders([]);
+    setOwnerNames({});
+
     const loadData = async () => {
       try {
         if (user) {
