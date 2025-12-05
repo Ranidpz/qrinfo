@@ -421,6 +421,71 @@ export default function DashboardPage() {
     }
   };
 
+  // Duplicate a code - creates new code with same media references (no actual file copy)
+  const handleDuplicateCode = async (code: QRCodeType) => {
+    if (!user) return;
+
+    try {
+      // Create new code with same media (just references, not copies)
+      const newCode = await createQRCode(
+        user.id,
+        `${code.title} (עותק)`,
+        code.media.map((m) => ({
+          url: m.url,
+          type: m.type,
+          size: 0, // Don't count storage again since it's same file
+          order: m.order,
+          uploadedBy: user.id,
+        }))
+      );
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+    } catch (error) {
+      console.error('Error duplicating code:', error);
+      alert('שגיאה בשכפול הקוד. נסה שוב.');
+    }
+  };
+
+  // Toggle global status (admin only)
+  const handleToggleGlobal = async (code: QRCodeType) => {
+    if (!user || user.role !== 'super_admin') return;
+
+    try {
+      const newGlobalStatus = !code.widgets.whatsapp?.enabled;
+      await updateQRCode(code.id, {
+        widgets: {
+          ...code.widgets,
+          whatsapp: {
+            enabled: newGlobalStatus,
+            groupLink: code.widgets.whatsapp?.groupLink || '',
+          },
+        },
+      });
+
+      // Update local state
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === code.id
+            ? {
+                ...c,
+                widgets: {
+                  ...c.widgets,
+                  whatsapp: {
+                    enabled: newGlobalStatus,
+                    groupLink: c.widgets.whatsapp?.groupLink || '',
+                  },
+                },
+              }
+            : c
+        )
+      );
+    } catch (error) {
+      console.error('Error toggling global status:', error);
+      alert('שגיאה בשינוי סטטוס גלובלי. נסה שוב.');
+    }
+  };
+
   const filteredCodes = codes.filter((code) => {
     // Filter by folder
     const codeWithFolder = code as QRCodeType & { folderId?: string };
@@ -805,6 +870,8 @@ export default function DashboardPage() {
               onCopy={() => handleCopyLink(code.shortId)}
               onTitleChange={(newTitle) => handleTitleChange(code.id, newTitle)}
               onTransferOwnership={() => setTransferModal({ isOpen: true, code })}
+              onDuplicate={() => handleDuplicateCode(code)}
+              onToggleGlobal={() => handleToggleGlobal(code)}
               onDragStart={() => setDraggingCodeId(code.id)}
               onDragEnd={() => {
                 setDraggingCodeId(null);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, Printer, ExternalLink, UserCog, User, Clock, Check } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, Printer, ExternalLink, UserCog, User, Clock, Check, Files } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { MediaType } from '@/types';
@@ -43,6 +43,8 @@ interface CodeCardProps {
   onCopy?: () => void;
   onTitleChange?: (newTitle: string) => void;
   onTransferOwnership?: () => void;
+  onDuplicate?: () => void;
+  onToggleGlobal?: () => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
 }
@@ -96,6 +98,8 @@ export default function CodeCard({
   onCopy,
   onTitleChange,
   onTransferOwnership,
+  onDuplicate,
+  onToggleGlobal,
   onDragStart,
   onDragEnd,
 }: CodeCardProps) {
@@ -391,42 +395,9 @@ export default function CodeCard({
 
       </a>
 
-      {/* Views counter - moved outside the link, above info section */}
-      <div
-        className="absolute top-[calc(75%-2rem)] left-2 z-10"
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-      >
-        <div className={clsx(
-          "px-2 py-0.5 text-xs bg-black/60 backdrop-blur-sm rounded text-white flex items-center gap-1 cursor-help transition-all",
-          isAnimating && "scale-110"
-        )}>
-          <Eye className="w-3 h-3" />
-          <span className={clsx(isAnimating && "text-green-400 font-bold")}>
-            {displayViews}
-          </span>
-        </div>
-
-        {/* Tooltip */}
-        {showTooltip && (
-          <div className="absolute bottom-full left-0 mb-2 p-2 bg-bg-card border border-border rounded-lg shadow-lg z-50 whitespace-nowrap text-xs">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-text-secondary">סה״כ צפיות:</span>
-                <span className="text-text-primary font-medium">{views}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-text-secondary">24 שעות אחרונות:</span>
-                <span className="text-accent font-medium">{views24h}</span>
-              </div>
-            </div>
-            <div className="absolute -bottom-1 left-3 w-2 h-2 bg-bg-card border-r border-b border-border transform rotate-45"></div>
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="p-3">
+      {/* Info Section */}
+      <div className="p-3 space-y-2">
+        {/* Title - editable */}
         {isEditing ? (
           <input
             ref={inputRef}
@@ -435,62 +406,83 @@ export default function CodeCard({
             onChange={(e) => setEditTitle(e.target.value)}
             onBlur={handleSave}
             onKeyDown={handleKeyDown}
-            className="w-full font-medium text-text-primary bg-bg-secondary border border-accent rounded px-2 py-0.5 mb-1 focus:outline-none focus:ring-1 focus:ring-accent"
+            className="w-full font-medium text-text-primary bg-bg-secondary border border-accent rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
           />
         ) : (
           <h3
             onClick={() => isOwner && setIsEditing(true)}
             className={clsx(
-              'font-medium text-text-primary truncate mb-1',
+              'font-medium text-text-primary truncate',
               isOwner && 'cursor-pointer hover:text-accent transition-colors'
             )}
-            title={isOwner ? 'לחץ לעריכה' : undefined}
+            title={isOwner ? 'לחץ לעריכה' : title}
           >
             {title}
           </h3>
         )}
 
-        {/* Media details */}
-        <div className="flex items-center gap-2 text-xs text-text-secondary mb-1">
-          {mediaType === 'link' ? (
-            <a
-              href={mediaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-accent truncate"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ExternalLink className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate" dir="ltr">{getMediaInfo()}</span>
-            </a>
-          ) : (
-            <div className="flex items-center gap-1 truncate">
-              <MediaIcon className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">{getMediaInfo()}</span>
+        {/* Meta info row - shortId and file size */}
+        <div className="flex items-center justify-between text-xs text-text-secondary">
+          <span className="font-mono" dir="ltr">{shortId}</span>
+          {fileSize !== undefined && fileSize > 0 && (
+            <span className="bg-bg-secondary px-1.5 py-0.5 rounded">{formatBytes(fileSize)}</span>
+          )}
+        </div>
+
+        {/* Views and time row */}
+        <div className="flex items-center justify-between text-xs">
+          {/* Views with tooltip */}
+          <div
+            className="relative"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
+            <div className={clsx(
+              "flex items-center gap-1.5 px-2 py-1 bg-bg-secondary rounded cursor-help transition-all",
+              isAnimating && "ring-1 ring-green-500"
+            )}>
+              <Eye className="w-3.5 h-3.5 text-text-secondary" />
+              <span className={clsx(
+                "font-medium",
+                isAnimating ? "text-green-500" : "text-text-primary"
+              )}>
+                {displayViews}
+              </span>
+              <span className="text-text-secondary">צפיות</span>
+            </div>
+
+            {/* Views Tooltip */}
+            {showTooltip && (
+              <div className="absolute bottom-full left-0 mb-2 p-2.5 bg-bg-card border border-border rounded-lg shadow-xl z-50 whitespace-nowrap">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-6">
+                    <span className="text-text-secondary text-xs">סה״כ:</span>
+                    <span className="text-text-primary font-semibold">{views}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-6">
+                    <span className="text-text-secondary text-xs">24 שעות:</span>
+                    <span className="text-accent font-semibold">{views24h}</span>
+                  </div>
+                </div>
+                <div className="absolute -bottom-1.5 left-4 w-3 h-3 bg-bg-card border-r border-b border-border transform rotate-45" />
+              </div>
+            )}
+          </div>
+
+          {/* Last updated */}
+          {updatedAt && (
+            <div className="flex items-center gap-1 text-text-secondary" title={updatedAt.toLocaleString('he-IL')}>
+              <Clock className="w-3 h-3" />
+              <span>{formatRelativeTime(updatedAt)}</span>
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between text-xs text-text-secondary">
-          <span dir="ltr">{shortId}</span>
-          {fileSize !== undefined && fileSize > 0 && (
-            <span>{formatBytes(fileSize)}</span>
-          )}
-        </div>
-
-        {/* Last updated */}
-        {updatedAt && (
-          <div className="flex items-center gap-1 text-xs text-text-secondary mt-1" title={updatedAt.toLocaleString('he-IL')}>
-            <Clock className="w-3 h-3" />
-            <span>עודכן {formatRelativeTime(updatedAt)}</span>
-          </div>
-        )}
-
-        {/* Owner badge */}
+        {/* Owner badge - only show if ownerName exists */}
         {ownerName && (
-          <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border">
-            <User className="w-3 h-3 text-text-secondary" />
-            <span className="text-xs text-text-secondary truncate">{ownerName}</span>
+          <div className="flex items-center gap-1.5 pt-2 border-t border-border">
+            <User className="w-3.5 h-3.5 text-text-secondary" />
+            <span className="text-xs text-text-secondary truncate flex-1">{ownerName}</span>
             {isSuperAdmin && onTransferOwnership && (
               <button
                 onClick={(e) => {
@@ -498,7 +490,7 @@ export default function CodeCard({
                   e.stopPropagation();
                   onTransferOwnership();
                 }}
-                className="mr-auto p-1 rounded text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+                className="p-1 rounded text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
                 title="העבר בעלות"
               >
                 <UserCog className="w-3.5 h-3.5" />
@@ -517,8 +509,9 @@ export default function CodeCard({
         className="hidden"
       />
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 p-2 pt-0">
+      {/* Actions Bar */}
+      <div className="flex items-center gap-1 p-2 pt-0 border-t border-border/50">
+        {/* Delete - owner only */}
         {isOwner && (
           <Tooltip text="מחק">
             <button
@@ -530,6 +523,7 @@ export default function CodeCard({
           </Tooltip>
         )}
 
+        {/* Replace file */}
         <Tooltip text="החלף קובץ">
           <button
             onClick={handleReplaceClick}
@@ -539,20 +533,36 @@ export default function CodeCard({
           </button>
         </Tooltip>
 
-        <Tooltip text={isGlobal ? 'מפורסם' : 'פרסם'}>
-          <button
-            onClick={onPublish}
-            className={clsx(
-              'p-2 rounded-lg transition-colors',
-              isGlobal
-                ? 'text-success bg-success/10'
-                : 'text-text-secondary hover:text-success hover:bg-success/10'
-            )}
-          >
-            <Globe className="w-4 h-4" />
-          </button>
-        </Tooltip>
+        {/* Duplicate - creates a copy */}
+        {onDuplicate && (
+          <Tooltip text="שכפל קוד">
+            <button
+              onClick={onDuplicate}
+              className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+            >
+              <Files className="w-4 h-4" />
+            </button>
+          </Tooltip>
+        )}
 
+        {/* Global toggle - super admin only */}
+        {isSuperAdmin && onToggleGlobal && (
+          <Tooltip text={isGlobal ? 'הסר מגלובלי' : 'הפוך לגלובלי'}>
+            <button
+              onClick={onToggleGlobal}
+              className={clsx(
+                'p-2 rounded-lg transition-colors',
+                isGlobal
+                  ? 'text-success bg-success/10'
+                  : 'text-text-secondary hover:text-success hover:bg-success/10'
+              )}
+            >
+              <Globe className="w-4 h-4" />
+            </button>
+          </Tooltip>
+        )}
+
+        {/* Print QR */}
         <Tooltip text="הדפס QR">
           <button
             onClick={handlePrint}
@@ -562,18 +572,22 @@ export default function CodeCard({
           </button>
         </Tooltip>
 
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Copy link - primary action */}
         <Tooltip text={copied ? 'הועתק!' : 'העתק לינק'}>
           <button
             onClick={handleCopyClick}
             className={clsx(
-              'p-2 rounded-lg transition-all mr-auto',
+              'p-2 rounded-lg transition-all',
               copied
-                ? 'text-white bg-success scale-110'
+                ? 'text-white bg-success scale-105'
                 : 'text-white bg-accent hover:bg-accent-hover'
             )}
           >
             {copied ? (
-              <Check className="w-4 h-4 animate-[bounce_0.3s_ease-out]" />
+              <Check className="w-4 h-4" />
             ) : (
               <Copy className="w-4 h-4" />
             )}
