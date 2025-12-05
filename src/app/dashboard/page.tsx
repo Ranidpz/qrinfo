@@ -859,7 +859,7 @@ export default function DashboardPage() {
               views24h={views24h[code.id] || 0}
               updatedAt={code.updatedAt}
               isOwner={user?.id === code.ownerId}
-              isGlobal={!!code.widgets.whatsapp?.enabled}
+              widgets={code.widgets}
               ownerName={ownerNames[code.ownerId] || (code.ownerId === user?.id ? user.displayName : undefined)}
               isSuperAdmin={user?.role === 'super_admin'}
               isDragging={draggingCodeId === code.id}
