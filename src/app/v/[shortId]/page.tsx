@@ -69,7 +69,7 @@ export async function generateMetadata({ params }: ViewerPageProps) {
       };
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.info';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app';
 
     return {
       title: `${code.title} - QR.info`,

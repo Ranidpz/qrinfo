@@ -19,14 +19,14 @@ export const metadata: Metadata = {
   description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
   icons: {
     icon: "/favicon.svg",
-    apple: "/qrlogo.jpg",
+    apple: "/QLogo.jpg",
   },
   openGraph: {
-    title: "QR Playzones - מערכת קודי QR דינמיים",
+    title: "QR Playzones - תוכן QR דינמי",
     description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
     images: [
       {
-        url: "/qrlogo.jpg",
+        url: "/QLogo.jpg",
         width: 512,
         height: 512,
         alt: "QR Playzones Logo",
@@ -37,9 +37,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "QR Playzones - מערכת קודי QR דינמיים",
+    title: "QR Playzones - תוכן QR דינמי",
     description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
-    images: ["/qrlogo.jpg"],
+    images: ["/QLogo.jpg"],
   },
 };
 
