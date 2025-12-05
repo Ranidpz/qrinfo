@@ -87,6 +87,12 @@ export default function CodeEditPage({ params }: PageProps) {
     mediaId: null,
   });
 
+  // Delete media confirmation modal state
+  const [deleteMediaModal, setDeleteMediaModal] = useState<{ isOpen: boolean; mediaId: string | null }>({
+    isOpen: false,
+    mediaId: null,
+  });
+
   // Widgets state
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
 
@@ -1178,7 +1184,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   {/* Delete */}
                   <Tooltip text="מחק מדיה">
                     <button
-                      onClick={() => handleRemoveMedia(media.id)}
+                      onClick={() => setDeleteMediaModal({ isOpen: true, mediaId: media.id })}
                       className="p-2 rounded-lg hover:bg-danger/10 text-danger"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1222,6 +1228,39 @@ export default function CodeEditPage({ params }: PageProps) {
         currentLinkUrl={currentMediaForLink?.linkUrl}
         currentLinkTitle={currentMediaForLink?.linkTitle}
       />
+
+      {/* Delete media confirmation modal */}
+      {deleteMediaModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-bg-card border border-border rounded-xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">מחיקת מדיה</h3>
+            <p className="text-text-secondary mb-4">
+              האם אתה בטוח שברצונך למחוק את פריט המדיה הזה?
+              <br />
+              <span className="text-sm text-danger">פעולה זו אינה ניתנת לביטול.</span>
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteMediaModal({ isOpen: false, mediaId: null })}
+                className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={() => {
+                  if (deleteMediaModal.mediaId) {
+                    handleRemoveMedia(deleteMediaModal.mediaId);
+                  }
+                  setDeleteMediaModal({ isOpen: false, mediaId: null });
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-danger hover:bg-danger/90 rounded-lg transition-colors"
+              >
+                מחק
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

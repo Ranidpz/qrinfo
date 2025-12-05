@@ -128,15 +128,15 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">ניהול משתמשים</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-text-primary">ניהול משתמשים</h1>
         <span className="text-sm text-text-secondary">
           {users.length} משתמשים
         </span>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
+      <div className="relative w-full sm:max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
         <input
           type="text"
@@ -156,8 +156,86 @@ export default function AdminUsersPage() {
         </datalist>
       </div>
 
-      {/* Users Table */}
-      <div className="card overflow-hidden">
+      {/* Users - Cards on mobile, Table on desktop */}
+      {/* Mobile Cards View */}
+      <div className="sm:hidden space-y-3">
+        {filteredUsers.map((u) => {
+          const isCurrentUser = u.id === user?.id;
+
+          return (
+            <div
+              key={u.id}
+              className="card p-4 space-y-3"
+            >
+              {/* User info */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                  <UserIcon className="w-5 h-5 text-accent" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-text-primary truncate">
+                    {u.displayName}
+                    {isCurrentUser && (
+                      <span className="text-xs text-accent mr-2">(אתה)</span>
+                    )}
+                  </p>
+                  <p className="text-sm text-text-secondary truncate">{u.email}</p>
+                </div>
+              </div>
+
+              {/* Role and Storage */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  {updating === u.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                  ) : (
+                    <select
+                      value={u.role}
+                      onChange={(e) =>
+                        handleRoleChange(u.id, e.target.value as UserRole)
+                      }
+                      disabled={isCurrentUser}
+                      className={clsx(
+                        'px-3 py-1.5 rounded-lg text-sm font-medium border-0 cursor-pointer',
+                        ROLE_COLORS[u.role],
+                        isCurrentUser && 'opacity-50 cursor-not-allowed'
+                      )}
+                    >
+                      <option value="free">חינם</option>
+                      <option value="producer">מפיק</option>
+                      <option value="super_admin">מנהל-על</option>
+                    </select>
+                  )}
+                </div>
+                <div className="text-left">
+                  <div className="text-xs text-text-secondary">
+                    {formatStorage(u.storageUsed)} / {formatStorage(u.storageLimit)}
+                  </div>
+                  <div className="w-20 h-1.5 bg-bg-secondary rounded-full mt-1">
+                    <div
+                      className="h-full bg-accent rounded-full"
+                      style={{
+                        width: `${Math.min(
+                          (u.storageUsed / u.storageLimit) * 100,
+                          100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Join date */}
+              <div className="text-xs text-text-secondary pt-2 border-t border-border">
+                הצטרף: {u.createdAt.toLocaleDateString('he-IL')}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden sm:block card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -178,7 +256,6 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {filteredUsers.map((u) => {
-                const RoleIcon = ROLE_ICONS[u.role];
                 const isCurrentUser = u.id === user?.id;
 
                 return (
