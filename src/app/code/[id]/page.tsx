@@ -24,6 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
   ScrollText,
+  Pencil,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -102,6 +103,7 @@ export default function CodeEditPage({ params }: PageProps) {
   // Riddle modal state
   const [riddleModalOpen, setRiddleModalOpen] = useState(false);
   const [addingRiddle, setAddingRiddle] = useState(false);
+  const [editingRiddleId, setEditingRiddleId] = useState<string | null>(null);
 
   // Widgets state
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
@@ -694,8 +696,8 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
-  // Handler for adding a riddle
-  const handleAddRiddle = async (content: RiddleContent, imageFiles: File[]) => {
+  // Handler for adding or editing a riddle
+  const handleSaveRiddle = async (content: RiddleContent, imageFiles: File[]) => {
     if (!code || !user) return;
 
     setAddingRiddle(true);
@@ -723,23 +725,45 @@ export default function CodeEditPage({ params }: PageProps) {
         totalImageSize += uploadData.size;
       }
 
-      // Create the riddle media item
-      const newMedia: MediaItem = {
-        id: `media_${Date.now()}`,
-        url: '', // Riddle doesn't have a direct URL
-        type: 'riddle',
-        size: totalImageSize,
-        order: code.media.length,
-        uploadedBy: user.id,
-        title: content.title,
-        riddleContent: {
-          ...content,
-          images: uploadedImageUrls,
-        },
-        createdAt: new Date(),
-      };
+      let updatedMedia: MediaItem[];
 
-      const updatedMedia = [...code.media, newMedia];
+      if (editingRiddleId) {
+        // Update existing riddle
+        const existingMedia = code.media.find(m => m.id === editingRiddleId);
+        const oldSize = existingMedia?.size || 0;
+
+        updatedMedia = code.media.map((m) =>
+          m.id === editingRiddleId
+            ? {
+                ...m,
+                title: content.title,
+                size: oldSize + totalImageSize,
+                riddleContent: {
+                  ...content,
+                  images: uploadedImageUrls,
+                },
+              }
+            : m
+        );
+      } else {
+        // Create new riddle media item
+        const newMedia: MediaItem = {
+          id: `media_${Date.now()}`,
+          url: '', // Riddle doesn't have a direct URL
+          type: 'riddle',
+          size: totalImageSize,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: content.title,
+          riddleContent: {
+            ...content,
+            images: uploadedImageUrls,
+          },
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+      }
+
       await updateQRCode(code.id, { media: updatedMedia });
 
       // Update user storage if images were uploaded
@@ -750,9 +774,10 @@ export default function CodeEditPage({ params }: PageProps) {
 
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
       setRiddleModalOpen(false);
+      setEditingRiddleId(null);
     } catch (error) {
-      console.error('Error adding riddle:', error);
-      alert('שגיאה ביצירת כתב החידה. נסה שוב.');
+      console.error('Error saving riddle:', error);
+      alert('שגיאה בשמירת כתב החידה. נסה שוב.');
     } finally {
       setAddingRiddle(false);
     }
@@ -1272,8 +1297,23 @@ export default function CodeEditPage({ params }: PageProps) {
 
                 {/* Actions - bottom row on mobile, inline on desktop */}
                 <div className="flex items-center gap-1 justify-end border-t border-border/50 pt-2 sm:border-0 sm:pt-0">
-                  {/* Replace button */}
-                  {media.type !== 'link' && (
+                  {/* Edit button for riddle */}
+                  {media.type === 'riddle' && (
+                    <Tooltip text="ערוך">
+                      <button
+                        onClick={() => {
+                          setEditingRiddleId(media.id);
+                          setRiddleModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Replace button - not for links or riddles */}
+                  {media.type !== 'link' && media.type !== 'riddle' && (
                     <Tooltip text="החלף קובץ">
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -1427,9 +1467,13 @@ export default function CodeEditPage({ params }: PageProps) {
       {/* Riddle Modal */}
       <RiddleModal
         isOpen={riddleModalOpen}
-        onClose={() => setRiddleModalOpen(false)}
-        onSave={handleAddRiddle}
+        onClose={() => {
+          setRiddleModalOpen(false);
+          setEditingRiddleId(null);
+        }}
+        onSave={handleSaveRiddle}
         loading={addingRiddle}
+        initialContent={editingRiddleId ? code?.media.find(m => m.id === editingRiddleId)?.riddleContent : undefined}
       />
     </div>
   );
