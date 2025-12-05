@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { QrCode, X, Clock, BarChart3, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTerms, setShowTerms] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -45,17 +46,36 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Logo & Hero */}
         <div className="text-center mb-8">
-          <Image
-            src="/QLogo.jpg"
-            alt="QR.info Logo"
-            width={120}
-            height={120}
-            className="mx-auto mb-6 rounded-2xl shadow-lg"
-          />
-          <h1 className="text-2xl font-bold text-text-primary mb-2">ברוכים הבאים</h1>
-          <p className="text-text-secondary">היכנס לניהול קודי ה-QR שלך</p>
+          {/* QR Icon like in Header */}
+          <div className="w-16 h-16 rounded-xl bg-accent/10 flex items-center justify-center mx-auto mb-6">
+            <QrCode className="w-10 h-10 text-accent" />
+          </div>
+
+          <h1 className="text-3xl font-bold text-text-primary mb-3">Queue</h1>
+          <p className="text-lg text-accent font-medium mb-2">קוד QR אחד. תוכן שמשתנה.</p>
+          <p className="text-sm text-text-secondary leading-relaxed">
+            צור קוד QR אחד שמשתנה מתי שתרצה — בלי להדפיס שוב.
+            <br />
+            חוויות מתוזמנות, תוכן חי, מדידה בזמן אמת.
+          </p>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-3 gap-2 mb-6">
+          <div className="bg-bg-card/50 rounded-lg p-2 text-center">
+            <RefreshCw className="w-4 h-4 text-accent mx-auto mb-1" />
+            <p className="text-[10px] text-text-secondary">שינוי בזמן אמת</p>
+          </div>
+          <div className="bg-bg-card/50 rounded-lg p-2 text-center">
+            <Clock className="w-4 h-4 text-accent mx-auto mb-1" />
+            <p className="text-[10px] text-text-secondary">תזמון חוויות</p>
+          </div>
+          <div className="bg-bg-card/50 rounded-lg p-2 text-center">
+            <BarChart3 className="w-4 h-4 text-accent mx-auto mb-1" />
+            <p className="text-[10px] text-text-secondary">אנליטיקס חי</p>
+          </div>
         </div>
 
         {/* Login Card */}
@@ -104,7 +124,12 @@ export default function LoginPage() {
           {/* Info */}
           <p className="mt-6 text-xs text-text-secondary">
             בלחיצה על התחבר אתה מסכים ל
-            <a href="#" className="text-accent hover:underline">תנאי השימוש</a>
+            <button
+              onClick={() => setShowTerms(true)}
+              className="text-accent hover:underline"
+            >
+              תנאי השימוש
+            </button>
           </p>
         </div>
 
@@ -120,9 +145,17 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Use Cases */}
+        <div className="mt-6 text-center">
+          <p className="text-xs text-text-secondary mb-2">מתאים ל:</p>
+          <p className="text-xs text-text-secondary/70">
+            מלונות • תערוכות • הפקות • חוויות שטח • חידונים • קמפיינים
+          </p>
+        </div>
+
         {/* Footer */}
         <p className="mt-8 text-center text-xs text-text-secondary">
-          נבנה על ידי{' '}
+          by{' '}
           <a
             href="https://playzone.co.il"
             target="_blank"
@@ -133,6 +166,83 @@ export default function LoginPage() {
           </a>
         </p>
       </div>
+
+      {/* Terms of Service Modal */}
+      {showTerms && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-bg-card border border-border rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-text-primary">תנאי שימוש</h3>
+              <button
+                onClick={() => setShowTerms(false)}
+                className="p-1.5 rounded-lg hover:bg-bg-secondary transition-colors"
+              >
+                <X className="w-5 h-5 text-text-secondary" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm text-text-secondary leading-relaxed">
+              <section>
+                <h4 className="font-semibold text-text-primary mb-2">מהי Queue?</h4>
+                <p>
+                  Queue היא מערכת ליצירת קודי QR דינמיים המאפשרת לשנות את התוכן מאחורי הקוד בכל עת,
+                  לתזמן חוויות, ולצפות בנתוני שימוש בזמן אמת.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-semibold text-text-primary mb-2">גרסת אלפא</h4>
+                <p>
+                  המערכת נמצאת כרגע בגרסת אלפא (Alpha). המשמעות היא שהמערכת עשויה להשתנות מעת לעת,
+                  פיצ&apos;רים עשויים להתווסף או להשתנות, ויתכנו באגים או שינויים בלתי צפויים.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-semibold text-text-primary mb-2">אחריות על תכנים</h4>
+                <p>
+                  המשתמש אחראי באופן בלעדי על כל התכנים שהוא מעלה למערכת.
+                  אין להעלות תכנים פוגעניים, בלתי חוקיים, או תכנים המפרים זכויות יוצרים.
+                </p>
+                <p className="mt-2">
+                  השירות שומר לעצמו את הזכות להסיר תכנים לא הולמים ולחסום משתמשים המפרים את תנאי השימוש.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-semibold text-text-primary mb-2">פרטיות ונתונים</h4>
+                <p>
+                  המערכת אוספת נתוני שימוש אנונימיים לצורך שיפור השירות והצגת אנליטיקס למשתמשים.
+                  אנו לא משתפים מידע אישי עם צדדים שלישיים.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-semibold text-text-primary mb-2">הגבלת אחריות</h4>
+                <p>
+                  השירות מסופק &quot;כמות שהוא&quot; (AS IS) ללא אחריות מכל סוג.
+                  איננו אחראים לנזקים ישירים או עקיפים הנובעים משימוש בשירות.
+                </p>
+              </section>
+
+              <section>
+                <h4 className="font-semibold text-text-primary mb-2">שינויים בתנאים</h4>
+                <p>
+                  אנו שומרים לעצמנו את הזכות לעדכן תנאים אלו מעת לעת.
+                  המשך השימוש בשירות מהווה הסכמה לתנאים המעודכנים.
+                </p>
+              </section>
+            </div>
+
+            <button
+              onClick={() => setShowTerms(false)}
+              className="mt-6 w-full py-2.5 bg-accent text-white rounded-lg font-medium hover:bg-accent-hover transition-colors"
+            >
+              הבנתי ואני מסכים
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
