@@ -26,7 +26,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', icon: Home, label: 'ראשי' },
+  { href: '/dashboard', icon: Home, label: 'דשבורד' },
   { href: '/analytics', icon: BarChart3, label: 'אנליטיקס' },
   { href: '/admin/users', icon: Users, label: 'ניהול משתמשים', roles: ['super_admin'] },
 ];

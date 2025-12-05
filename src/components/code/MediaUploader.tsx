@@ -118,7 +118,7 @@ export default function MediaUploader({
                 : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
             )}
           >
-            העלאת קובץ
+            העלאת תוכן
           </button>
           <button
             onClick={() => setActiveTab('link')}
@@ -166,10 +166,10 @@ export default function MediaUploader({
 
               <div>
                 <h3 className="text-lg font-medium text-text-primary mb-1">
-                  העלאת קובץ
+                  העלאת תוכן
                 </h3>
                 <p className="text-sm text-text-secondary">
-                  גררו קובץ לכאן או לחצו לבחירה
+                  גררו תוכן לכאן או לחצו לבחירה
                 </p>
               </div>
 

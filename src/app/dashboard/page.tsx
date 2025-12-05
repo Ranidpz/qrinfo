@@ -294,11 +294,11 @@ export default function DashboardPage() {
   const handleCreateFolder = async () => {
     if (!user) return;
     try {
-      const newFolder = await createFolder(user.id, 'ספריה חדשה');
+      const newFolder = await createFolder(user.id, 'חוויה חדשה');
       setFolders((prev) => [newFolder, ...prev]);
     } catch (error) {
       console.error('Error creating folder:', error);
-      alert('שגיאה ביצירת הספריה. נסה שוב.');
+      alert('שגיאה ביצירת החוויה. נסה שוב.');
     }
   };
 
@@ -310,7 +310,7 @@ export default function DashboardPage() {
       );
     } catch (error) {
       console.error('Error renaming folder:', error);
-      alert('שגיאה בשינוי שם הספריה. נסה שוב.');
+      alert('שגיאה בשינוי שם החוויה. נסה שוב.');
     }
   };
 
@@ -336,7 +336,7 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error deleting folder:', error);
-      alert('שגיאה במחיקת הספריה. נסה שוב.');
+      alert('שגיאה במחיקת החוויה. נסה שוב.');
     }
     setDeleteFolderModal({ isOpen: false, folder: null });
   };
@@ -661,7 +661,7 @@ export default function DashboardPage() {
             onDragLeave={() => setDragOverRoot(false)}
           >
             <Home className="w-6 h-6 text-accent" />
-            <span className="text-sm font-medium text-accent">שחרר כאן להעברה לראשי</span>
+            <span className="text-sm font-medium text-accent">שחרר כאן להעברה לדשבורד</span>
           </div>
 
           <div className="flex-1 flex items-center gap-3 p-4 bg-bg-card border border-border rounded-xl">
@@ -796,7 +796,7 @@ export default function DashboardPage() {
               filter === 'mine' ? 'bg-accent text-white' : 'text-text-secondary'
             )}
           >
-            שלי
+            My Q
           </button>
         </div>
 
@@ -823,13 +823,13 @@ export default function DashboardPage() {
       {!currentFolderId && folders.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text-primary">ספריות</h2>
+            <h2 className="text-lg font-semibold text-text-primary">חוויות</h2>
             <button
               onClick={handleCreateFolder}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/10 rounded-lg transition-colors"
             >
               <FolderPlus className="w-4 h-4" />
-              ספריה חדשה
+              חוויה חדשה
             </button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -866,7 +866,7 @@ export default function DashboardPage() {
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary hover:text-accent border border-dashed border-border hover:border-accent rounded-xl transition-colors w-full justify-center"
         >
           <FolderPlus className="w-5 h-5" />
-          צור ספריה חדשה לארגון הקודים
+          צור חוויה חדשה לארגון התוכן
         </button>
       )}
 
@@ -929,12 +929,12 @@ export default function DashboardPage() {
             <Plus className="w-8 h-8 text-text-secondary" />
           </div>
           <h3 className="text-lg font-medium text-text-primary mb-2">
-            {currentFolderId ? 'הספריה ריקה' : 'אין קודים עדיין'}
+            {currentFolderId ? 'החוויה ריקה' : 'אין קודים עדיין'}
           </h3>
           <p className="text-text-secondary">
             {currentFolderId
-              ? 'גרור קודים לכאן כדי להוסיף אותם לספריה'
-              : 'העלה קובץ או הוסף לינק ליצירת הקוד הראשון שלך'}
+              ? 'גרור קודים לכאן כדי להוסיף אותם לחוויה'
+              : 'העלה תוכן או הוסף לינק ליצירת הקוד הראשון שלך'}
           </p>
         </div>
       )}
@@ -960,11 +960,11 @@ export default function DashboardPage() {
       {deleteFolderModal.isOpen && deleteFolderModal.folder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-bg-card border border-border rounded-xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-text-primary mb-2">מחיקת ספריה</h3>
+            <h3 className="text-lg font-semibold text-text-primary mb-2">מחיקת חוויה</h3>
             <p className="text-text-secondary mb-4">
-              האם אתה בטוח שברצונך למחוק את הספריה &quot;{deleteFolderModal.folder.name}&quot;?
+              האם אתה בטוח שברצונך למחוק את החוויה &quot;{deleteFolderModal.folder.name}&quot;?
               <br />
-              <span className="text-sm">הקודים בספריה יועברו לרמה הראשית.</span>
+              <span className="text-sm">הקודים בחוויה יועברו לדשבורד.</span>
             </p>
             <div className="flex gap-3 justify-end">
               <button
