@@ -2,7 +2,17 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle';
+
+// Riddle content structure
+export interface RiddleContent {
+  title: string;
+  content: string; // Supports emojis, line breaks, WhatsApp-style formatting
+  backgroundColor: string;
+  textColor: string;
+  youtubeUrl?: string; // YouTube video URL for embedding
+  images?: string[]; // Array of uploaded image URLs
+}
 
 // Schedule for media
 export interface MediaSchedule {
@@ -25,6 +35,7 @@ export interface MediaItem {
   schedule?: MediaSchedule;
   linkUrl?: string;     // Optional external link for the media
   linkTitle?: string;   // Display name for the link button
+  riddleContent?: RiddleContent; // Content for riddle type
   createdAt: Date;
 }
 

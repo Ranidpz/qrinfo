@@ -23,15 +23,18 @@ import {
   Folder as FolderIcon,
   ChevronDown,
   ChevronUp,
+  ScrollText,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode } from '@/lib/db';
 import { subscribeToCodeViews } from '@/lib/analytics';
-import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets } from '@/types';
+import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent } from '@/types';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import ScheduleModal from '@/components/modals/ScheduleModal';
 import MediaLinkModal from '@/components/modals/MediaLinkModal';
+import AddLinkModal from '@/components/modals/AddLinkModal';
+import RiddleModal from '@/components/modals/RiddleModal';
 import { clsx } from 'clsx';
 
 // Custom Tooltip component for styled tooltips
@@ -91,6 +94,14 @@ export default function CodeEditPage({ params }: PageProps) {
     isOpen: false,
     mediaId: null,
   });
+
+  // Add link modal state
+  const [addLinkModalOpen, setAddLinkModalOpen] = useState(false);
+  const [addingLink, setAddingLink] = useState(false);
+
+  // Riddle modal state
+  const [riddleModalOpen, setRiddleModalOpen] = useState(false);
+  const [addingRiddle, setAddingRiddle] = useState(false);
 
   // Widgets state
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
@@ -654,6 +665,99 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  // Handler for adding a standalone link as media
+  const handleAddLink = async (linkUrl: string, title?: string) => {
+    if (!code || !user) return;
+
+    setAddingLink(true);
+    try {
+      const newMedia: MediaItem = {
+        id: `media_${Date.now()}`,
+        url: linkUrl,
+        type: 'link',
+        size: 0,
+        order: code.media.length,
+        uploadedBy: user.id,
+        title: title,
+        createdAt: new Date(),
+      };
+
+      const updatedMedia = [...code.media, newMedia];
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      setAddLinkModalOpen(false);
+    } catch (error) {
+      console.error('Error adding link:', error);
+      alert('שגיאה בהוספת הלינק. נסה שוב.');
+    } finally {
+      setAddingLink(false);
+    }
+  };
+
+  // Handler for adding a riddle
+  const handleAddRiddle = async (content: RiddleContent, imageFiles: File[]) => {
+    if (!code || !user) return;
+
+    setAddingRiddle(true);
+    try {
+      let uploadedImageUrls: string[] = [...(content.images || [])];
+      let totalImageSize = 0;
+
+      // Upload any new images
+      for (const file of imageFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', user.id);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Image upload failed');
+        }
+
+        const uploadData = await uploadResponse.json();
+        uploadedImageUrls.push(uploadData.url);
+        totalImageSize += uploadData.size;
+      }
+
+      // Create the riddle media item
+      const newMedia: MediaItem = {
+        id: `media_${Date.now()}`,
+        url: '', // Riddle doesn't have a direct URL
+        type: 'riddle',
+        size: totalImageSize,
+        order: code.media.length,
+        uploadedBy: user.id,
+        title: content.title,
+        riddleContent: {
+          ...content,
+          images: uploadedImageUrls,
+        },
+        createdAt: new Date(),
+      };
+
+      const updatedMedia = [...code.media, newMedia];
+      await updateQRCode(code.id, { media: updatedMedia });
+
+      // Update user storage if images were uploaded
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+        await refreshUser();
+      }
+
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      setRiddleModalOpen(false);
+    } catch (error) {
+      console.error('Error adding riddle:', error);
+      alert('שגיאה ביצירת כתב החידה. נסה שוב.');
+    } finally {
+      setAddingRiddle(false);
+    }
+  };
+
   const handleSaveWhatsappWidget = async () => {
     if (!code) return;
 
@@ -689,6 +793,8 @@ export default function CodeEditPage({ params }: PageProps) {
         return <FileText className="w-5 h-5" />;
       case 'link':
         return <LinkIcon className="w-5 h-5" />;
+      case 'riddle':
+        return <ScrollText className="w-5 h-5" />;
       default:
         return <Image className="w-5 h-5" />;
     }
@@ -1030,30 +1136,53 @@ export default function CodeEditPage({ params }: PageProps) {
                 </Tooltip>
               )}
             </div>
-            {/* Media count and add button */}
+            {/* Media count and add buttons */}
             <div className="flex items-center justify-between">
               <span className="text-sm text-text-secondary">
                 {code.media.length} פריטי מדיה
               </span>
-              <Tooltip text="הוסף מדיה">
-                <label className="p-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer flex items-center justify-center">
-                  {uploading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Plus className="w-4 h-4" />
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*,video/*,.pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleAddMedia(file);
-                  }}
-                  disabled={uploading}
-                />
-                </label>
-              </Tooltip>
+              <div className="flex items-center gap-2">
+                {/* Add Riddle Button */}
+                <Tooltip text="כתב חידה">
+                  <button
+                    onClick={() => setRiddleModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <ScrollText className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
+                {/* Add Link Button */}
+                <Tooltip text="הוסף לינק">
+                  <button
+                    onClick={() => setAddLinkModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
+                {/* Add Media Button */}
+                <Tooltip text="הוסף קובץ">
+                  <label className="p-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer flex items-center justify-center">
+                    {uploading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*,video/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAddMedia(file);
+                    }}
+                    disabled={uploading}
+                  />
+                  </label>
+                </Tooltip>
+              </div>
             </div>
           </div>
 
@@ -1091,6 +1220,13 @@ export default function CodeEditPage({ params }: PageProps) {
                       <Video className="w-5 h-5 sm:w-6 sm:h-6 text-text-secondary" />
                     ) : media.type === 'pdf' ? (
                       <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-text-secondary" />
+                    ) : media.type === 'riddle' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ backgroundColor: media.riddleContent?.backgroundColor || '#1a1a2e' }}
+                      >
+                        <ScrollText className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: media.riddleContent?.textColor || '#fff' }} />
+                      </div>
                     ) : (
                       <img
                         src={media.url}
@@ -1105,12 +1241,12 @@ export default function CodeEditPage({ params }: PageProps) {
                     <div className="flex items-center gap-2">
                       {getMediaIcon(media.type)}
                       <span className="text-sm font-medium text-text-primary">
-                        {media.type === 'link' ? 'לינק' : media.type.toUpperCase()}
+                        {media.type === 'link' ? 'לינק' : media.type === 'riddle' ? 'כתב חידה' : media.type.toUpperCase()}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
                     </div>
                     <p className="text-xs text-text-secondary truncate mt-1 hidden sm:block" dir="ltr">
-                      {media.url}
+                      {media.type === 'riddle' ? media.riddleContent?.title || '' : media.url}
                     </p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {media.size > 0 && (
@@ -1279,6 +1415,22 @@ export default function CodeEditPage({ params }: PageProps) {
           </div>
         </div>
       )}
+
+      {/* Add Link Modal */}
+      <AddLinkModal
+        isOpen={addLinkModalOpen}
+        onClose={() => setAddLinkModalOpen(false)}
+        onSave={handleAddLink}
+        loading={addingLink}
+      />
+
+      {/* Riddle Modal */}
+      <RiddleModal
+        isOpen={riddleModalOpen}
+        onClose={() => setRiddleModalOpen(false)}
+        onSave={handleAddRiddle}
+        loading={addingRiddle}
+      />
     </div>
   );
 }

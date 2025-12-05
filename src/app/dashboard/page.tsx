@@ -289,10 +289,12 @@ export default function DashboardPage() {
     if (!transferModal.code) return;
 
     try {
-      await transferCodeOwnership(transferModal.code.id, newOwnerId);
+      const result = await transferCodeOwnership(transferModal.code.id, newOwnerId);
       setCodes((prev) =>
         prev.map((c) =>
-          c.id === transferModal.code?.id ? { ...c, ownerId: newOwnerId } : c
+          c.id === transferModal.code?.id
+            ? { ...c, ownerId: newOwnerId, folderId: result.newFolderId }
+            : c
         )
       );
       // Update owner names cache

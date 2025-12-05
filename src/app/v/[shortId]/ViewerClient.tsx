@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { MediaItem, CodeWidgets, LinkSource } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
+import RiddleViewer from '@/components/viewer/RiddleViewer';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -657,6 +658,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isPDF = currentMedia?.type === 'pdf';
   const isVideo = currentMedia?.type === 'video';
   const isLink = currentMedia?.type === 'link';
+  const isRiddle = currentMedia?.type === 'riddle';
 
   // Preload media
   useEffect(() => {
@@ -740,7 +742,9 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
 
       {/* Content based on type */}
       <div className="w-full h-screen">
-        {isPDF ? (
+        {isRiddle && currentMedia.riddleContent ? (
+          <RiddleViewer content={currentMedia.riddleContent} />
+        ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
         ) : isMultipleImages ? (
           <ImageGalleryViewer
