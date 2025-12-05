@@ -1,11 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, memo, forwardRef } from 'react';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { MediaItem, CodeWidgets } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
-import HTMLFlipBook from 'react-pageflip';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Virtual } from 'swiper/modules';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import type { Swiper as SwiperType } from 'swiper';
 import { incrementViews } from '@/lib/db';
+
+// Import Swiper styles
+import 'swiper/css';
 
 interface ViewerClientProps {
   media: MediaItem[];
@@ -56,49 +62,19 @@ const LoadingSpinner = memo(({ progress, message }: { progress: number; message:
 ));
 LoadingSpinner.displayName = 'LoadingSpinner';
 
-// Page component for flipbook
-interface PageProps {
-  children: React.ReactNode;
-  number: number;
-  annotations?: PDFAnnotation[];
-  pageWidth: number;
-  pageHeight: number;
-}
-
+// PDF Annotation interface
 interface PDFAnnotation {
   url: string;
   rect: { x: number; y: number; width: number; height: number };
 }
 
-const Page = forwardRef<HTMLDivElement, PageProps>(
-  ({ children, annotations = [], pageWidth, pageHeight }, ref) => {
-    return (
-      <div ref={ref} className="page bg-white shadow-lg relative" data-density="soft">
-        {children}
-        {/* Render clickable link areas */}
-        {annotations.map((annotation, idx) => (
-          <a
-            key={idx}
-            href={annotation.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute cursor-pointer hover:bg-blue-500/10 transition-colors"
-            style={{
-              left: `${(annotation.rect.x / pageWidth) * 100}%`,
-              bottom: `${(annotation.rect.y / pageHeight) * 100}%`,
-              width: `${(annotation.rect.width / pageWidth) * 100}%`,
-              height: `${(annotation.rect.height / pageHeight) * 100}%`,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
-        ))}
-      </div>
-    );
-  }
-);
-Page.displayName = 'Page';
+// PDF Page data interface
+interface PDFPageData {
+  image: string;
+  annotations: PDFAnnotation[];
+}
 
-// PDF FlipBook Viewer
+// PDF Swiper Viewer - smooth swipe navigation with pinch-to-zoom
 const PDFFlipBookViewer = memo(({
   url,
   title,
@@ -108,18 +84,13 @@ const PDFFlipBookViewer = memo(({
   title: string;
   onLoad: () => void;
 }) => {
-  const [pdfImages, setPdfImages] = useState<string[]>([]);
-  const [pageAnnotations, setPageAnnotations] = useState<PDFAnnotation[][]>([]);
+  const [pages, setPages] = useState<PDFPageData[]>([]);
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [dimensions, setDimensions] = useState({ width: 400, height: 560 });
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const flipBookRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const swiperRef = useRef<SwiperType | null>(null);
 
-  // Load PDF and convert to images
+  // Load PDF and convert to images with high resolution
   useEffect(() => {
     const loadPDF = async () => {
       try {
@@ -129,43 +100,15 @@ const PDFFlipBookViewer = memo(({
         const pdf = await pdfjsLib.getDocument(url).promise;
         setTotalPages(pdf.numPages);
 
-        const images: string[] = [];
-        const allAnnotations: PDFAnnotation[][] = [];
-        const scale = 2; // High quality
+        const pagesData: PDFPageData[] = [];
+        // Higher scale for better zoom quality - use device pixel ratio
+        const deviceScale = Math.min(window.devicePixelRatio || 1, 3);
+        const scale = 2 * deviceScale;
 
         // Get first page dimensions
         const firstPage = await pdf.getPage(1);
         const viewport = firstPage.getViewport({ scale: 1 });
-        const aspectRatio = viewport.height / viewport.width;
         setPageDimensions({ width: viewport.width, height: viewport.height });
-
-        // Calculate optimal dimensions for screen
-        const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        const isMobile = screenWidth < 768;
-
-        let bookWidth: number;
-        let bookHeight: number;
-
-        if (isMobile) {
-          // Mobile: use more screen width
-          bookWidth = screenWidth * 0.9;
-          bookHeight = bookWidth * aspectRatio;
-          if (bookHeight > screenHeight * 0.75) {
-            bookHeight = screenHeight * 0.75;
-            bookWidth = bookHeight / aspectRatio;
-          }
-        } else {
-          // Desktop
-          bookWidth = Math.min(screenWidth * 0.4, 500);
-          bookHeight = bookWidth * aspectRatio;
-          if (bookHeight > screenHeight * 0.85) {
-            bookHeight = screenHeight * 0.85;
-            bookWidth = bookHeight / aspectRatio;
-          }
-        }
-
-        setDimensions({ width: Math.round(bookWidth), height: Math.round(bookHeight) });
 
         // Render all pages and extract annotations
         for (let i = 1; i <= pdf.numPages; i++) {
@@ -178,35 +121,35 @@ const PDFFlipBookViewer = memo(({
           canvas.height = pageViewport.height;
 
           await page.render({ canvasContext: context, viewport: pageViewport, canvas }).promise;
-          images.push(canvas.toDataURL('image/jpeg', 0.92));
+          const imageData = canvas.toDataURL('image/webp', 0.92);
 
           // Extract link annotations
+          const pageLinks: PDFAnnotation[] = [];
           try {
             const annotations = await page.getAnnotations();
-            const pageLinks: PDFAnnotation[] = [];
-
             for (const annotation of annotations) {
               if (annotation.subtype === 'Link' && annotation.url) {
                 const rect = annotation.rect;
+                // PDF coordinates: origin at bottom-left
                 pageLinks.push({
                   url: annotation.url,
                   rect: {
                     x: rect[0],
-                    y: rect[1],
+                    y: viewport.height - rect[3], // Convert from bottom-left to top-left origin
                     width: rect[2] - rect[0],
                     height: rect[3] - rect[1],
                   },
                 });
               }
             }
-            allAnnotations.push(pageLinks);
           } catch {
-            allAnnotations.push([]);
+            // Ignore annotation errors
           }
+
+          pagesData.push({ image: imageData, annotations: pageLinks });
         }
 
-        setPdfImages(images);
-        setPageAnnotations(allAnnotations);
+        setPages(pagesData);
         onLoad();
       } catch (error) {
         console.error('Error loading PDF:', error);
@@ -217,52 +160,23 @@ const PDFFlipBookViewer = memo(({
     loadPDF();
   }, [url, onLoad]);
 
-  const handleFlip = useCallback((e: any) => {
-    setCurrentPage(e.data);
-  }, []);
-
-  const goToPage = useCallback((pageNum: number) => {
-    if (flipBookRef.current) {
-      flipBookRef.current.pageFlip().flip(pageNum);
-    }
-  }, []);
-
-  const nextPage = useCallback(() => {
-    if (flipBookRef.current) {
-      flipBookRef.current.pageFlip().flipNext();
-    }
-  }, []);
-
-  const prevPage = useCallback(() => {
-    if (flipBookRef.current) {
-      flipBookRef.current.pageFlip().flipPrev();
-    }
-  }, []);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
-  }, []);
-
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') nextPage();
-      if (e.key === 'ArrowRight') prevPage();
-      if (e.key === 'Escape' && isFullscreen) toggleFullscreen();
+      if (e.key === 'ArrowLeft' && swiperRef.current) {
+        swiperRef.current.slideNext();
+      }
+      if (e.key === 'ArrowRight' && swiperRef.current) {
+        swiperRef.current.slidePrev();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextPage, prevPage, isFullscreen, toggleFullscreen]);
+  }, []);
 
-  if (pdfImages.length === 0) {
+  if (pages.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
         <div className="text-white text-center">
           <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
           <p className="text-lg">טוען את הספר...</p>
@@ -273,68 +187,121 @@ const PDFFlipBookViewer = memo(({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
-    >
-      {/* Flipbook container */}
-      <div
-        className="relative flex items-center justify-center"
-        style={{
-          transform: `scale(${zoom})`,
-          transition: 'transform 0.3s ease'
-        }}
+    <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
+      <Swiper
+        modules={[Virtual]}
+        onSwiper={(swiper) => { swiperRef.current = swiper; }}
+        onSlideChange={(swiper) => setCurrentPage(swiper.activeIndex)}
+        dir="rtl"
+        slidesPerView={1}
+        spaceBetween={0}
+        speed={300}
+        resistance={true}
+        resistanceRatio={0.85}
+        touchRatio={1}
+        threshold={10}
+        cssMode={false}
+        allowTouchMove={true}
+        virtual
+        className="w-full h-full"
+        style={{ direction: 'rtl' }}
       >
-        <HTMLFlipBook
-          ref={flipBookRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          size="stretch"
-          minWidth={280}
-          maxWidth={1000}
-          minHeight={400}
-          maxHeight={1400}
-          showCover={true}
-          mobileScrollSupport={false}
-          onFlip={handleFlip}
-          className="flipbook-shadow"
-          style={{}}
-          startPage={0}
-          drawShadow={true}
-          flippingTime={600}
-          usePortrait={true}
-          startZIndex={0}
-          autoSize={true}
-          maxShadowOpacity={0.5}
-          showPageCorners={true}
-          disableFlipByClick={false}
-          swipeDistance={30}
-          clickEventForward={true}
-          useMouseEvents={true}
-        >
-          {pdfImages.map((img, index) => (
-            <Page
-              key={index}
-              number={index + 1}
-              annotations={pageAnnotations[index] || []}
-              pageWidth={pageDimensions.width}
-              pageHeight={pageDimensions.height}
+        {pages.map((page, index) => (
+          <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
+            <TransformWrapper
+              initialScale={1}
+              minScale={1}
+              maxScale={5}
+              centerOnInit={true}
+              wheel={{ disabled: false, step: 0.1 }}
+              pinch={{ step: 5 }}
+              panning={{ disabled: false, velocityDisabled: false }}
+              doubleClick={{ mode: 'toggle', step: 2 }}
+              onPanningStart={() => {
+                if (swiperRef.current) swiperRef.current.allowTouchMove = false;
+              }}
+              onPanningStop={() => {
+                if (swiperRef.current) swiperRef.current.allowTouchMove = true;
+              }}
+              onZoomStart={() => {
+                if (swiperRef.current) swiperRef.current.allowTouchMove = false;
+              }}
+              onZoomStop={(ref) => {
+                if (swiperRef.current && ref.state.scale <= 1.05) {
+                  swiperRef.current.allowTouchMove = true;
+                }
+              }}
             >
-              <img
-                src={img}
-                alt={`${title} - עמוד ${index + 1}`}
-                className="w-full h-full object-contain"
-                draggable={false}
-              />
-            </Page>
-          ))}
-        </HTMLFlipBook>
+              {() => (
+                <TransformComponent
+                  wrapperStyle={{ width: '100%', height: '100%' }}
+                  contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <div className="relative max-w-full max-h-full flex items-center justify-center">
+                    <img
+                      src={page.image}
+                      alt={`${title} - עמוד ${index + 1}`}
+                      className="max-w-full max-h-[100vh] object-contain select-none"
+                      draggable={false}
+                      style={{
+                        transform: 'translateZ(0)',
+                        backfaceVisibility: 'hidden',
+                      }}
+                    />
+                    {/* PDF Link Annotations */}
+                    {page.annotations.map((annotation, idx) => (
+                      <a
+                        key={idx}
+                        href={annotation.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute cursor-pointer hover:bg-blue-500/20 active:bg-blue-500/30 transition-colors z-50"
+                        style={{
+                          left: `${(annotation.rect.x / pageDimensions.width) * 100}%`,
+                          top: `${(annotation.rect.y / pageDimensions.height) * 100}%`,
+                          width: `${(annotation.rect.width / pageDimensions.width) * 100}%`,
+                          height: `${(annotation.rect.height / pageDimensions.height) * 100}%`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ))}
+                  </div>
+                </TransformComponent>
+              )}
+            </TransformWrapper>
+          </SwiperSlide>
+        ))}
+      </Swiper>
 
-        {/* Navigation arrows */}
+      {/* Minimal page indicator - small dots at bottom */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+        {pages.length <= 10 ? (
+          pages.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => swiperRef.current?.slideTo(index)}
+              className={`rounded-full transition-all duration-200 ${
+                index === currentPage
+                  ? 'w-6 h-2 bg-white'
+                  : 'w-2 h-2 bg-white/40 hover:bg-white/60'
+              }`}
+            />
+          ))
+        ) : (
+          <div className="px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+            <span className="text-white/90 text-sm font-medium">
+              {currentPage + 1} / {totalPages}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation arrows - only on desktop */}
+      <div className="hidden md:block">
         {currentPage > 0 && (
           <button
-            onClick={prevPage}
-            className="absolute right-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110"
+            onClick={() => swiperRef.current?.slidePrev()}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
             aria-label="הקודם"
           >
             <ChevronRight className="w-6 h-6 text-white" />
@@ -342,8 +309,8 @@ const PDFFlipBookViewer = memo(({
         )}
         {currentPage < totalPages - 1 && (
           <button
-            onClick={nextPage}
-            className="absolute left-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110"
+            onClick={() => swiperRef.current?.slideNext()}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
             aria-label="הבא"
           >
             <ChevronLeft className="w-6 h-6 text-white" />
@@ -351,81 +318,24 @@ const PDFFlipBookViewer = memo(({
         )}
       </div>
 
-      {/* Bottom controls */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 rounded-full bg-black/40 backdrop-blur-md">
-        {/* Page indicator */}
-        <div className="text-white text-sm font-medium">
-          <span className="text-white/60">עמוד</span>{' '}
-          <span className="text-lg">{currentPage + 1}</span>{' '}
-          <span className="text-white/60">מתוך</span>{' '}
-          <span className="text-lg">{totalPages}</span>
-        </div>
-
-        <div className="w-px h-6 bg-white/20" />
-
-        {/* Zoom controls */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setZoom(Math.max(0.5, zoom - 0.1))}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            disabled={zoom <= 0.5}
-          >
-            <ZoomOut className="w-4 h-4 text-white" />
-          </button>
-          <span className="text-white text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
-          <button
-            onClick={() => setZoom(Math.min(2, zoom + 0.1))}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            disabled={zoom >= 2}
-          >
-            <ZoomIn className="w-4 h-4 text-white" />
-          </button>
-        </div>
-
-        <div className="w-px h-6 bg-white/20" />
-
-        {/* Fullscreen */}
-        <button
-          onClick={toggleFullscreen}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors"
-        >
-          {isFullscreen ? (
-            <Minimize2 className="w-4 h-4 text-white" />
-          ) : (
-            <Maximize2 className="w-4 h-4 text-white" />
-          )}
-        </button>
-      </div>
-
-      {/* Page thumbnails / progress bar */}
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-1">
-        {pdfImages.slice(0, Math.min(10, totalPages)).map((_, index) => (
-          <button
-            key={index}
-            onClick={() => goToPage(index)}
-            className={`h-1 rounded-full transition-all ${
-              index === currentPage
-                ? 'w-8 bg-white'
-                : 'w-2 bg-white/30 hover:bg-white/50'
-            }`}
-          />
-        ))}
-        {totalPages > 10 && (
-          <span className="text-white/50 text-xs ml-2">+{totalPages - 10}</span>
-        )}
-      </div>
-
       <style jsx global>{`
-        .flipbook-shadow {
-          box-shadow: 0 0 60px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 0, 0, 0.2);
-          border-radius: 4px;
+        .swiper-slide {
+          transform: translateZ(0);
+          will-change: transform;
+          backface-visibility: hidden;
         }
-        .page {
-          background: white;
-          overflow: hidden;
+        /* Prevent browser zoom on mobile */
+        html {
+          touch-action: pan-x pan-y;
         }
-        .stf__parent {
-          margin: 0 auto;
+        /* Smooth transitions */
+        .react-transform-wrapper {
+          width: 100% !important;
+          height: 100% !important;
+        }
+        .react-transform-component {
+          width: 100% !important;
+          height: 100% !important;
         }
       `}</style>
     </div>
@@ -433,7 +343,7 @@ const PDFFlipBookViewer = memo(({
 });
 PDFFlipBookViewer.displayName = 'PDFFlipBookViewer';
 
-// Image Gallery with flip effect
+// Image Gallery Viewer with Swiper - smooth swipe and pinch-to-zoom
 const ImageGalleryViewer = memo(({
   images,
   title,
@@ -444,156 +354,170 @@ const ImageGalleryViewer = memo(({
   onLoad: () => void;
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const [dimensions, setDimensions] = useState({ width: 400, height: 560 });
-  const flipBookRef = useRef<any>(null);
+  const swiperRef = useRef<SwiperType | null>(null);
 
   useEffect(() => {
-    // Calculate optimal dimensions
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
-    let width = Math.min(screenWidth * 0.4, 500);
-    let height = width * 1.4;
-
-    if (height > screenHeight * 0.85) {
-      height = screenHeight * 0.85;
-      width = height / 1.4;
-    }
-
-    setDimensions({ width: Math.round(width), height: Math.round(height) });
     onLoad();
   }, [onLoad]);
-
-  const handleFlip = useCallback((e: any) => {
-    setCurrentPage(e.data);
-  }, []);
-
-  const nextPage = useCallback(() => {
-    if (flipBookRef.current) {
-      flipBookRef.current.pageFlip().flipNext();
-    }
-  }, []);
-
-  const prevPage = useCallback(() => {
-    if (flipBookRef.current) {
-      flipBookRef.current.pageFlip().flipPrev();
-    }
-  }, []);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') nextPage();
-      if (e.key === 'ArrowRight') prevPage();
+      if (e.key === 'ArrowLeft' && swiperRef.current) {
+        swiperRef.current.slideNext();
+      }
+      if (e.key === 'ArrowRight' && swiperRef.current) {
+        swiperRef.current.slidePrev();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nextPage, prevPage]);
+  }, []);
 
   if (images.length === 1) {
-    // Single image - no flip needed
+    // Single image - with pinch-to-zoom support
     return (
-      <div className="w-full h-full flex items-center justify-center">
-        <img
-          src={images[0].url}
-          alt={title}
-          className="max-w-full max-h-full object-contain animate-fadeIn"
-        />
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+        <TransformWrapper
+          initialScale={1}
+          minScale={1}
+          maxScale={5}
+          centerOnInit={true}
+          wheel={{ disabled: false, step: 0.1 }}
+          pinch={{ step: 5 }}
+          doubleClick={{ mode: 'toggle', step: 2 }}
+        >
+          {() => (
+            <TransformComponent
+              wrapperStyle={{ width: '100%', height: '100%' }}
+              contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <img
+                src={images[0].url}
+                alt={title}
+                className="max-w-full max-h-full object-contain select-none"
+                draggable={false}
+              />
+            </TransformComponent>
+          )}
+        </TransformWrapper>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <div className="relative flex items-center justify-center">
-        <HTMLFlipBook
-          ref={flipBookRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          size="stretch"
-          minWidth={280}
-          maxWidth={800}
-          minHeight={400}
-          maxHeight={1200}
-          showCover={true}
-          mobileScrollSupport={false}
-          onFlip={handleFlip}
-          className="flipbook-shadow"
-          style={{}}
-          startPage={0}
-          drawShadow={true}
-          flippingTime={600}
-          usePortrait={true}
-          startZIndex={0}
-          autoSize={true}
-          maxShadowOpacity={0.5}
-          showPageCorners={true}
-          disableFlipByClick={false}
-          swipeDistance={30}
-          clickEventForward={true}
-          useMouseEvents={true}
-        >
-          {images.map((img, index) => (
-            <Page
-              key={index}
-              number={index + 1}
-              annotations={[]}
-              pageWidth={dimensions.width}
-              pageHeight={dimensions.height}
+    <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
+      <Swiper
+        modules={[Virtual]}
+        onSwiper={(swiper) => { swiperRef.current = swiper; }}
+        onSlideChange={(swiper) => setCurrentPage(swiper.activeIndex)}
+        dir="rtl"
+        slidesPerView={1}
+        spaceBetween={0}
+        speed={300}
+        resistance={true}
+        resistanceRatio={0.85}
+        touchRatio={1}
+        threshold={10}
+        cssMode={false}
+        allowTouchMove={true}
+        virtual
+        className="w-full h-full"
+        style={{ direction: 'rtl' }}
+      >
+        {images.map((img, index) => (
+          <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
+            <TransformWrapper
+              initialScale={1}
+              minScale={1}
+              maxScale={5}
+              centerOnInit={true}
+              wheel={{ disabled: false, step: 0.1 }}
+              pinch={{ step: 5 }}
+              doubleClick={{ mode: 'toggle', step: 2 }}
+              onPanningStart={() => {
+                if (swiperRef.current) swiperRef.current.allowTouchMove = false;
+              }}
+              onPanningStop={() => {
+                if (swiperRef.current) swiperRef.current.allowTouchMove = true;
+              }}
+              onZoomStart={() => {
+                if (swiperRef.current) swiperRef.current.allowTouchMove = false;
+              }}
+              onZoomStop={(ref) => {
+                if (swiperRef.current && ref.state.scale <= 1.05) {
+                  swiperRef.current.allowTouchMove = true;
+                }
+              }}
             >
-              <img
-                src={img.url}
-                alt={`${title} - ${index + 1}`}
-                className="w-full h-full object-cover"
-                draggable={false}
-              />
-            </Page>
-          ))}
-        </HTMLFlipBook>
+              {() => (
+                <TransformComponent
+                  wrapperStyle={{ width: '100%', height: '100%' }}
+                  contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <img
+                    src={img.url}
+                    alt={`${title} - ${index + 1}`}
+                    className="max-w-full max-h-[100vh] object-contain select-none"
+                    draggable={false}
+                    style={{
+                      transform: 'translateZ(0)',
+                      backfaceVisibility: 'hidden',
+                    }}
+                  />
+                </TransformComponent>
+              )}
+            </TransformWrapper>
+          </SwiperSlide>
+        ))}
+      </Swiper>
 
-        {/* Navigation arrows */}
+      {/* Minimal page indicator - small dots at bottom */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+        {images.length <= 10 ? (
+          images.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => swiperRef.current?.slideTo(index)}
+              className={`rounded-full transition-all duration-200 ${
+                index === currentPage
+                  ? 'w-6 h-2 bg-white'
+                  : 'w-2 h-2 bg-white/40 hover:bg-white/60'
+              }`}
+            />
+          ))
+        ) : (
+          <div className="px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+            <span className="text-white/90 text-sm font-medium">
+              {currentPage + 1} / {images.length}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation arrows - only on desktop */}
+      <div className="hidden md:block">
         {currentPage > 0 && (
           <button
-            onClick={prevPage}
-            className="absolute right-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110"
+            onClick={() => swiperRef.current?.slidePrev()}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
+            aria-label="הקודם"
           >
             <ChevronRight className="w-6 h-6 text-white" />
           </button>
         )}
         {currentPage < images.length - 1 && (
           <button
-            onClick={nextPage}
-            className="absolute left-[-60px] top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110"
+            onClick={() => swiperRef.current?.slideNext()}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
+            aria-label="הבא"
           >
             <ChevronLeft className="w-6 h-6 text-white" />
           </button>
         )}
       </div>
 
-      {/* Bottom controls */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 rounded-full bg-black/40 backdrop-blur-md">
-        <div className="text-white text-sm font-medium">
-          {currentPage + 1} / {images.length}
-        </div>
-        <div className="flex gap-1">
-          {images.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => flipBookRef.current?.pageFlip().flip(index)}
-              className={`h-2 rounded-full transition-all ${
-                index === currentPage
-                  ? 'w-6 bg-white'
-                  : 'w-2 bg-white/30 hover:bg-white/50'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
       <style jsx global>{`
-        .flipbook-shadow {
-          box-shadow: 0 0 60px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 0, 0, 0.2);
-          border-radius: 4px;
-        }
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
