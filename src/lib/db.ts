@@ -104,6 +104,7 @@ export async function getQRCode(id: string): Promise<QRCode | null> {
     widgets: data.widgets || {},
     views: data.views || 0,
     isActive: data.isActive ?? true,
+    folderId: data.folderId || undefined,
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };
