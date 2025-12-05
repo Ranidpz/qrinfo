@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
@@ -17,6 +17,7 @@ import { clsx } from 'clsx';
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, refreshUser } = useAuth();
   const [codes, setCodes] = useState<QRCodeType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +54,16 @@ export default function DashboardPage() {
     }
     return false;
   });
+
+  // Handle folder param from URL (when returning from code edit)
+  useEffect(() => {
+    const folderParam = searchParams.get('folder');
+    if (folderParam) {
+      setCurrentFolderId(folderParam);
+      // Clean URL without causing navigation
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, [searchParams]);
 
   // Load user's codes, folders and owner names
   useEffect(() => {

@@ -20,12 +20,14 @@ import {
   Download,
   Clock,
   RefreshCw,
+  Folder as FolderIcon,
+  ChevronLeft,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage } from '@/lib/db';
+import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders } from '@/lib/db';
 import { subscribeToCodeViews } from '@/lib/analytics';
-import { QRCode as QRCodeType, MediaItem, MediaSchedule } from '@/types';
+import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder } from '@/types';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import ScheduleModal from '@/components/modals/ScheduleModal';
 import { clsx } from 'clsx';
@@ -56,6 +58,7 @@ export default function CodeEditPage({ params }: PageProps) {
   const [displayViews, setDisplayViews] = useState(0);
   const [views24h, setViews24h] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [folder, setFolder] = useState<Folder | null>(null);
   const prevViewsRef = useRef(0);
 
   // Load code data
@@ -76,6 +79,15 @@ export default function CodeEditPage({ params }: PageProps) {
 
         setCode(codeData);
         setTitle(codeData.title);
+
+        // Load folder info if code is in a folder
+        if (codeData.folderId && user) {
+          const userFolders = await getUserFolders(user.id);
+          const codeFolder = userFolders.find(f => f.id === codeData.folderId);
+          if (codeFolder) {
+            setFolder(codeFolder);
+          }
+        }
       } catch (error) {
         console.error('Error loading code:', error);
         router.push('/dashboard');
@@ -182,7 +194,12 @@ export default function CodeEditPage({ params }: PageProps) {
         await refreshUser();
       }
 
-      router.push('/dashboard');
+      // Navigate back to folder or dashboard
+      if (folder) {
+        router.push(`/dashboard?folder=${folder.id}`);
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error) {
       console.error('Error deleting:', error);
       alert('שגיאה במחיקה. נסה שוב.');
@@ -482,12 +499,32 @@ export default function CodeEditPage({ params }: PageProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => {
+              if (folder) {
+                router.push(`/dashboard?folder=${folder.id}`);
+              } else {
+                router.push('/dashboard');
+              }
+            }}
             className="p-2 rounded-lg hover:bg-bg-secondary transition-colors"
+            title={folder ? `חזור ל${folder.name}` : 'חזור לדשבורד'}
           >
             <ArrowRight className="w-5 h-5 text-text-secondary" />
           </button>
           <div>
+            {/* Breadcrumb with folder */}
+            {folder && (
+              <div className="flex items-center gap-1.5 text-sm text-text-secondary mb-1">
+                <button
+                  onClick={() => router.push(`/dashboard?folder=${folder.id}`)}
+                  className="flex items-center gap-1 hover:text-accent transition-colors"
+                >
+                  <FolderIcon className="w-3.5 h-3.5" style={{ color: folder.color }} />
+                  <span>{folder.name}</span>
+                </button>
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </div>
+            )}
             <input
               type="text"
               value={title}

@@ -320,7 +320,7 @@ export default function CodeCard({
       onDragEnd={() => onDragEnd?.()}
     >
       {/* Thumbnail / Preview - QR Code for links, media preview for others */}
-      <a href={`/code/${id}`} className="block aspect-video relative overflow-hidden bg-bg-secondary">
+      <a href={`/code/${id}`} className="block aspect-[4/3] relative overflow-hidden bg-bg-secondary">
         {mediaType === 'link' ? (
           // Show QR code for links - larger and centered
           <div className="w-full h-full flex items-center justify-center p-4">
@@ -366,10 +366,10 @@ export default function CodeCard({
 
         {/* Mini QR Code overlay - shown for all except links */}
         {mediaType !== 'link' && (
-          <div className="absolute top-2 left-2 w-12 h-12 bg-white rounded-lg shadow-lg p-1 opacity-90 group-hover:opacity-100 transition-opacity">
+          <div className="absolute top-2 left-2 w-14 h-14 bg-white rounded-lg shadow-lg p-1.5 opacity-90 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <QRCodeSVG
               value={viewUrl}
-              size={40}
+              size={44}
               level="M"
               includeMargin={false}
             />
@@ -393,7 +393,7 @@ export default function CodeCard({
 
       {/* Views counter - moved outside the link, above info section */}
       <div
-        className="absolute top-[calc(56.25%-2rem)] left-2 z-10"
+        className="absolute top-[calc(75%-2rem)] left-2 z-10"
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
