@@ -50,6 +50,7 @@ export default function AdminLayout({
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userRole={user.role}
+        userId={user.id}
         user={{
           displayName: user.displayName,
           email: user.email,

@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, ScrollText } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, ScrollText, Cloud } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 
@@ -8,6 +8,7 @@ interface MediaUploaderProps {
   onFileSelect: (file: File) => void;
   onLinkAdd?: (url: string) => void;
   onRiddleCreate?: () => void;
+  onWordCloudCreate?: () => void;
   maxSize?: number; // bytes
   accept?: string[];
   disabled?: boolean;
@@ -17,11 +18,12 @@ export default function MediaUploader({
   onFileSelect,
   onLinkAdd,
   onRiddleCreate,
+  onWordCloudCreate,
   maxSize = 5 * 1024 * 1024, // 5MB default
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud'>('upload');
   const [linkUrl, setLinkUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,7 +111,7 @@ export default function MediaUploader({
   return (
     <div className="card">
       {/* Tab buttons */}
-      {(onLinkAdd || onRiddleCreate) && (
+      {(onLinkAdd || onRiddleCreate || onWordCloudCreate) && (
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => setActiveTab('upload')}
@@ -146,6 +148,19 @@ export default function MediaUploader({
               )}
             >
               כתב חידה
+            </button>
+          )}
+          {onWordCloudCreate && (
+            <button
+              onClick={() => setActiveTab('wordcloud')}
+              className={clsx(
+                'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
+                activeTab === 'wordcloud'
+                  ? 'bg-accent text-white'
+                  : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
+              )}
+            >
+              ענן מילים
             </button>
           )}
         </div>
@@ -235,7 +250,7 @@ export default function MediaUploader({
             צור חוויה
           </button>
         </div>
-      ) : (
+      ) : activeTab === 'riddle' ? (
         /* Riddle creation */
         <div className="space-y-4">
           <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
@@ -259,7 +274,31 @@ export default function MediaUploader({
             צור כתב חידה
           </button>
         </div>
-      )}
+      ) : activeTab === 'wordcloud' ? (
+        /* Word Cloud creation */
+        <div className="space-y-4">
+          <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
+            <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center">
+              <Cloud className="w-7 h-7 text-accent" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-text-primary mb-1">
+                ענן מילים
+              </h3>
+              <p className="text-sm text-text-secondary">
+                צור ענן מילים אינטראקטיבי לאירועים עם QuizyCloud
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onWordCloudCreate}
+            disabled={disabled}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            צור ענן מילים
+          </button>
+        </div>
+      ) : null}
 
       {/* Error message */}
       {error && (

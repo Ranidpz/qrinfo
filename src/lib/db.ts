@@ -14,7 +14,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { QRCode, MediaItem, User, Folder } from '@/types';
+import { QRCode, MediaItem, User, Folder, Notification } from '@/types';
 
 // Generate a unique short ID for QR codes
 export function generateShortId(length: number = 6): string {
@@ -105,6 +105,10 @@ export async function getQRCode(id: string): Promise<QRCode | null> {
     views: data.views || 0,
     isActive: data.isActive ?? true,
     folderId: data.folderId || undefined,
+    userGallery: (data.userGallery || []).map((img: Record<string, unknown>) => ({
+      ...img,
+      uploadedAt: (img.uploadedAt as Timestamp)?.toDate() || new Date(),
+    })),
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };
@@ -134,6 +138,10 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
     widgets: data.widgets || {},
     views: data.views || 0,
     isActive: data.isActive ?? true,
+    userGallery: (data.userGallery || []).map((img: Record<string, unknown>) => ({
+      ...img,
+      uploadedAt: (img.uploadedAt as Timestamp)?.toDate() || new Date(),
+    })),
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };
@@ -535,4 +543,56 @@ export async function moveCodeToFolder(
     folderId: folderId,
     updatedAt: serverTimestamp(),
   });
+}
+
+// ============ NOTIFICATIONS ============
+
+// Create a new notification (admin only)
+export async function createNotification(
+  title: string,
+  message: string,
+  createdBy: string
+): Promise<Notification> {
+  const notificationData = {
+    title,
+    message,
+    createdBy,
+    createdAt: serverTimestamp(),
+  };
+
+  const docRef = await addDoc(collection(db, 'notifications'), notificationData);
+
+  return {
+    id: docRef.id,
+    title,
+    message,
+    createdBy,
+    createdAt: new Date(),
+  };
+}
+
+// Get all notifications (ordered by newest first)
+export async function getNotifications(): Promise<Notification[]> {
+  const q = query(
+    collection(db, 'notifications'),
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      title: data.title,
+      message: data.message,
+      createdBy: data.createdBy,
+      createdAt: data.createdAt?.toDate() || new Date(),
+    };
+  });
+}
+
+// Delete notification (admin only)
+export async function deleteNotification(notificationId: string): Promise<void> {
+  await deleteDoc(doc(db, 'notifications', notificationId));
 }

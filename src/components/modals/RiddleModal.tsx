@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2 } from 'lucide-react';
+import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users } from 'lucide-react';
 import { RiddleContent } from '@/types';
 
 interface RiddleModalProps {
@@ -63,6 +63,8 @@ export default function RiddleModal({
   const [customTextColor, setCustomTextColor] = useState('');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [galleryEnabled, setGalleryEnabled] = useState(false);
+  const [allowAnonymous, setAllowAnonymous] = useState(true);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,6 +78,8 @@ export default function RiddleModal({
         setYoutubeUrl(initialContent.youtubeUrl || '');
         // For existing images, we show them as previews
         setImagePreviews(initialContent.images || []);
+        setGalleryEnabled(initialContent.galleryEnabled || false);
+        setAllowAnonymous(initialContent.allowAnonymous ?? true);
       } else {
         setTitle('');
         setContent('');
@@ -83,6 +87,8 @@ export default function RiddleModal({
         setTextColor('#ffffff');
         setYoutubeUrl('');
         setImagePreviews([]);
+        setGalleryEnabled(false);
+        setAllowAnonymous(true);
       }
       setImageFiles([]);
       setError('');
@@ -164,6 +170,8 @@ export default function RiddleModal({
       textColor,
       youtubeUrl: youtubeUrl.trim() || undefined,
       images: initialContent?.images || [],
+      galleryEnabled,
+      allowAnonymous,
     };
 
     await onSave(riddleContent, imageFiles);
@@ -433,6 +441,60 @@ export default function RiddleModal({
             <p className="text-xs text-text-secondary">
               התמונות יישמרו בספריית התמונות וייספרו באחסון שלך
             </p>
+          </div>
+
+          {/* Gallery Settings */}
+          <div className="space-y-3 p-4 bg-bg-secondary rounded-xl">
+            <div className="flex items-center gap-3">
+              <Camera className="w-5 h-5 text-accent" />
+              <h3 className="font-medium text-text-primary">גלריית סלפי</h3>
+            </div>
+
+            {/* Enable Gallery Toggle */}
+            <label className="flex items-center justify-between cursor-pointer">
+              <span className="text-sm text-text-secondary">
+                אפשר למשתמשים להעלות סלפי
+              </span>
+              <button
+                type="button"
+                onClick={() => setGalleryEnabled(!galleryEnabled)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  galleryEnabled ? 'bg-accent' : 'bg-border'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                    galleryEnabled ? 'right-1' : 'left-1'
+                  }`}
+                />
+              </button>
+            </label>
+
+            {/* Allow Anonymous Option */}
+            {galleryEnabled && (
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allowAnonymous}
+                  onChange={(e) => setAllowAnonymous(e.target.checked)}
+                  className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+                />
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-text-secondary" />
+                  <span className="text-sm text-text-secondary">
+                    אפשר העלאה אנונימית (ללא שם)
+                  </span>
+                </div>
+              </label>
+            )}
+
+            {galleryEnabled && (
+              <p className="text-xs text-text-secondary">
+                המשתמשים יוכלו לצלם ולהעלות תמונות לגלריה משותפת.
+                <br />
+                התמונות יישמרו באחסון שלך ויופיעו בלינק הגלריה.
+              </p>
+            )}
           </div>
         </div>
 

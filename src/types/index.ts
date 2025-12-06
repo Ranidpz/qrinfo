@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud';
 
 // Riddle content structure
 export interface RiddleContent {
@@ -12,6 +12,16 @@ export interface RiddleContent {
   textColor: string;
   youtubeUrl?: string; // YouTube video URL for embedding
   images?: string[]; // Array of uploaded image URLs
+  galleryEnabled?: boolean; // Allow users to upload selfies
+  allowAnonymous?: boolean; // Allow anonymous uploads (no name required)
+}
+
+// User gallery image (selfies uploaded by viewers)
+export interface UserGalleryImage {
+  id: string;
+  url: string;
+  uploaderName: string; // Name or "אנונימי"
+  uploadedAt: Date;
 }
 
 // Schedule for media
@@ -39,8 +49,21 @@ export interface MediaItem {
   createdAt: Date;
 }
 
+// QR Sign types
+export type QRSignType = 'text' | 'emoji' | 'icon';
+
+// QR Sign configuration for center overlay
+export interface QRSign {
+  enabled: boolean;
+  type: QRSignType;
+  value: string;           // 1-4 letters / emoji / icon name
+  color: string;           // Sign color (hex)
+  backgroundColor: string; // Background color (hex)
+}
+
 // Widgets configuration
 export interface CodeWidgets {
+  qrSign?: QRSign;
   whatsapp?: {
     enabled: boolean;
     groupLink: string;
@@ -60,6 +83,7 @@ export interface QRCode {
   isActive: boolean;
   isGlobal?: boolean; // Whether the code is globally featured (admin only)
   folderId?: string; // Optional folder assignment
+  userGallery?: UserGalleryImage[]; // Selfies uploaded by viewers
   createdAt: Date;
   updatedAt: Date;
 }
@@ -169,4 +193,15 @@ export interface LinkClick {
 export interface LinkClickStats {
   totalClicks: number;
   clicksByLink: { url: string; source: LinkSource; count: number; lastClick: Date }[];
+}
+
+// ============ NOTIFICATIONS ============
+
+// Admin notification/announcement
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  createdBy: string; // Admin user ID
+  createdAt: Date;
 }

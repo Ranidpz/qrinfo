@@ -46,6 +46,7 @@ export default function CodeLayout({
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userRole={user.role}
+        userId={user.id}
         user={{
           displayName: user.displayName,
           email: user.email,

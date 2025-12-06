@@ -3,14 +3,19 @@
 import { QRCodeSVG } from 'qrcode.react';
 import { Download, Copy, Check } from 'lucide-react';
 import { useState, useRef } from 'react';
+import { QRSign } from '@/types';
+import { ICON_PATHS } from '@/lib/iconPaths';
+import * as LucideIcons from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 
 interface QRGeneratorProps {
   shortId: string;
   size?: number;
   title?: string;
+  sign?: QRSign;
 }
 
-export default function QRGenerator({ shortId, size = 200, title }: QRGeneratorProps) {
+export default function QRGenerator({ shortId, size = 200, title, sign }: QRGeneratorProps) {
   const [copied, setCopied] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
 
@@ -28,15 +33,16 @@ export default function QRGenerator({ shortId, size = 200, title }: QRGeneratorP
     const svg = qrRef.current?.querySelector('svg');
     if (!svg) return;
 
-    // Create canvas
+    // Create canvas with high resolution
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size with padding
-    const padding = 20;
-    canvas.width = size + padding * 2;
-    canvas.height = size + padding * 2;
+    // Set canvas size with padding - use larger size for better quality
+    const downloadSize = 1000;
+    const padding = 40;
+    canvas.width = downloadSize + padding * 2;
+    canvas.height = downloadSize + padding * 2;
 
     // Fill white background
     ctx.fillStyle = '#ffffff';
@@ -46,7 +52,61 @@ export default function QRGenerator({ shortId, size = 200, title }: QRGeneratorP
     const svgData = new XMLSerializer().serializeToString(svg);
     const img = new Image();
     img.onload = () => {
-      ctx.drawImage(img, padding, padding, size, size);
+      ctx.drawImage(img, padding, padding, downloadSize, downloadSize);
+
+      // Draw sign overlay if enabled
+      if (sign?.enabled && sign.value) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const signRadius = downloadSize * 0.125; // 25% of QR / 2
+
+        // Draw background circle
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, signRadius, 0, Math.PI * 2);
+        ctx.fillStyle = sign.backgroundColor;
+        ctx.fill();
+
+        // Draw content
+        ctx.fillStyle = sign.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        if (sign.type === 'text') {
+          const fontSize = signRadius * (sign.value.length <= 2 ? 0.9 : 0.6);
+          ctx.font = `bold ${fontSize}px Assistant, Arial, sans-serif`;
+          ctx.fillText(sign.value, centerX, centerY);
+        } else if (sign.type === 'emoji') {
+          const fontSize = signRadius * 1.1;
+          ctx.font = `${fontSize}px Arial, sans-serif`;
+          ctx.fillText(sign.value, centerX, centerY);
+        } else if (sign.type === 'icon') {
+          // Draw icon using Path2D
+          const iconData = ICON_PATHS[sign.value];
+          if (iconData) {
+            const iconSize = signRadius * 1.3;
+            ctx.save();
+            ctx.translate(centerX - iconSize / 2, centerY - iconSize / 2);
+            ctx.scale(iconSize / 24, iconSize / 24);
+            ctx.strokeStyle = sign.color;
+            ctx.fillStyle = sign.color;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Parse and draw paths
+            const paths = iconData.path.split(' M').map((p, i) => i === 0 ? p : 'M' + p);
+            paths.forEach(pathStr => {
+              const path = new Path2D(pathStr);
+              if (iconData.fill) {
+                ctx.fill(path);
+              } else {
+                ctx.stroke(path);
+              }
+            });
+            ctx.restore();
+          }
+        }
+      }
 
       // Download
       const link = document.createElement('a');
@@ -57,16 +117,55 @@ export default function QRGenerator({ shortId, size = 200, title }: QRGeneratorP
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
+  // Render sign overlay for SVG display
+  const renderSignOverlay = () => {
+    if (!sign?.enabled || !sign.value) return null;
+
+    const overlaySize = size * 0.25;
+
+    return (
+      <div
+        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center shadow-md"
+        style={{
+          width: overlaySize,
+          height: overlaySize,
+          backgroundColor: sign.backgroundColor,
+        }}
+      >
+        {sign.type === 'icon' ? (
+          (() => {
+            const IconComponent = LucideIcons[sign.value as keyof typeof LucideIcons] as LucideIcon;
+            return IconComponent ? (
+              <IconComponent size={overlaySize * 0.55} color={sign.color} strokeWidth={2.5} />
+            ) : null;
+          })()
+        ) : (
+          <span
+            style={{
+              color: sign.color,
+              fontFamily: 'var(--font-assistant), Arial, sans-serif',
+              fontSize: sign.type === 'emoji' ? overlaySize * 0.55 : overlaySize * (sign.value.length <= 2 ? 0.45 : 0.3),
+              fontWeight: sign.type === 'text' ? 700 : 400,
+              lineHeight: 1,
+            }}
+          >
+            {sign.value}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="card text-center">
       {title && (
         <h3 className="text-lg font-medium text-text-primary mb-4">{title}</h3>
       )}
 
-      {/* QR Code */}
+      {/* QR Code with optional sign overlay */}
       <div
         ref={qrRef}
-        className="inline-block p-4 bg-white rounded-xl mb-4"
+        className="inline-block p-4 bg-white rounded-xl mb-4 relative"
       >
         <QRCodeSVG
           value={url}
@@ -76,6 +175,7 @@ export default function QRGenerator({ shortId, size = 200, title }: QRGeneratorP
           bgColor="#ffffff"
           fgColor="#000000"
         />
+        {renderSignOverlay()}
       </div>
 
       {/* Short URL */}

@@ -10,6 +10,7 @@ import FolderCard from '@/components/code/FolderCard';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
 import RiddleModal from '@/components/modals/RiddleModal';
+import WordCloudModal from '@/components/modals/WordCloudModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
@@ -58,6 +59,8 @@ export default function DashboardPage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [riddleModalOpen, setRiddleModalOpen] = useState(false);
   const [addingRiddle, setAddingRiddle] = useState(false);
+  const [wordCloudModalOpen, setWordCloudModalOpen] = useState(false);
+  const [addingWordCloud, setAddingWordCloud] = useState(false);
 
   // Handle folder param from URL (when returning from code edit)
   useEffect(() => {
@@ -224,6 +227,38 @@ export default function DashboardPage() {
       alert('שגיאה ביצירת הקוד. נסה שוב.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleWordCloudCreate = async (url: string, title?: string) => {
+    if (!user) return;
+
+    setAddingWordCloud(true);
+
+    try {
+      // Create QR code with wordcloud link
+      const newCode = await createQRCode(user.id, title || 'ענן מילים', [
+        {
+          url,
+          type: 'wordcloud',
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+          title: title,
+        },
+      ]);
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setWordCloudModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating wordcloud code:', error);
+      alert('שגיאה ביצירת הקוד. נסה שוב.');
+    } finally {
+      setAddingWordCloud(false);
     }
   };
 
@@ -709,6 +744,7 @@ export default function DashboardPage() {
                   onFileSelect={handleFileSelect}
                   onLinkAdd={handleLinkAdd}
                   onRiddleCreate={() => setRiddleModalOpen(true)}
+                  onWordCloudCreate={() => setWordCloudModalOpen(true)}
                   disabled={uploading}
                 />
               </div>
@@ -1165,6 +1201,14 @@ export default function DashboardPage() {
         onClose={() => setRiddleModalOpen(false)}
         onSave={handleRiddleCreate}
         loading={addingRiddle}
+      />
+
+      {/* WordCloud Modal */}
+      <WordCloudModal
+        isOpen={wordCloudModalOpen}
+        onClose={() => setWordCloudModalOpen(false)}
+        onSave={handleWordCloudCreate}
+        loading={addingWordCloud}
       />
     </div>
   );

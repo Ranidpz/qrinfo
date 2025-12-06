@@ -170,6 +170,7 @@ export default function AnalyticsPage() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userRole={user?.role}
+        userId={user?.id}
       />
 
       <main className="pt-2 md:pt-16 md:mr-64">

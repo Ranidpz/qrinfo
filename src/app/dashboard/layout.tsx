@@ -32,6 +32,7 @@ export default function DashboardLayout({
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userRole={user?.role}
+        userId={user?.id}
         user={user ? {
           displayName: user.displayName,
           email: user.email,

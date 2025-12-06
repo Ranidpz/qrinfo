@@ -25,17 +25,20 @@ import {
   ChevronUp,
   ScrollText,
   Pencil,
+  Camera,
+  Images,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode } from '@/lib/db';
 import { subscribeToCodeViews } from '@/lib/analytics';
-import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent } from '@/types';
+import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, QRSign } from '@/types';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import ScheduleModal from '@/components/modals/ScheduleModal';
 import MediaLinkModal from '@/components/modals/MediaLinkModal';
 import AddLinkModal from '@/components/modals/AddLinkModal';
 import RiddleModal from '@/components/modals/RiddleModal';
+import SignEditorWidget from '@/components/code/SignEditorWidget';
 import { clsx } from 'clsx';
 
 // Custom Tooltip component for styled tooltips
@@ -107,6 +110,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
   // Widgets state
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
+  const [qrSign, setQrSign] = useState<QRSign | undefined>(undefined);
 
   // Collapse states with localStorage persistence
   const [qrExpanded, setQrExpanded] = useState(true);
@@ -157,6 +161,7 @@ export default function CodeEditPage({ params }: PageProps) {
         setCode(codeData);
         setTitle(codeData.title);
         setWhatsappGroupLink(codeData.widgets?.whatsapp?.groupLink || '');
+        setQrSign(codeData.widgets?.qrSign);
 
         // Load folder info if code is in a folder
         if (codeData.folderId && user) {
@@ -327,13 +332,79 @@ export default function CodeEditPage({ params }: PageProps) {
     if (!code || !qrCanvasRef.current) return;
 
     // Get the hidden high-res canvas
-    const canvas = qrCanvasRef.current.querySelector('canvas');
-    if (!canvas) return;
+    const sourceCanvas = qrCanvasRef.current.querySelector('canvas');
+    if (!sourceCanvas) return;
+
+    // Create a new canvas to draw on (with sign overlay)
+    const downloadCanvas = document.createElement('canvas');
+    const ctx = downloadCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const size = sourceCanvas.width;
+    downloadCanvas.width = size;
+    downloadCanvas.height = size;
+
+    // Draw QR code
+    ctx.drawImage(sourceCanvas, 0, 0);
+
+    // Draw sign overlay if enabled
+    if (qrSign?.enabled && qrSign.value) {
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const signRadius = size * 0.125; // 25% of QR / 2
+
+      // Draw background circle
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, signRadius, 0, Math.PI * 2);
+      ctx.fillStyle = qrSign.backgroundColor;
+      ctx.fill();
+
+      // Draw content
+      ctx.fillStyle = qrSign.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      if (qrSign.type === 'text') {
+        const fontSize = signRadius * (qrSign.value.length <= 2 ? 0.9 : 0.6);
+        ctx.font = `bold ${fontSize}px Assistant, Arial, sans-serif`;
+        ctx.fillText(qrSign.value, centerX, centerY);
+      } else if (qrSign.type === 'emoji') {
+        const fontSize = signRadius * 1.1;
+        ctx.font = `${fontSize}px Arial, sans-serif`;
+        ctx.fillText(qrSign.value, centerX, centerY);
+      } else if (qrSign.type === 'icon') {
+        // Import icon paths dynamically
+        const { ICON_PATHS } = require('@/lib/iconPaths');
+        const iconData = ICON_PATHS[qrSign.value];
+        if (iconData) {
+          const iconSize = signRadius * 1.3;
+          ctx.save();
+          ctx.translate(centerX - iconSize / 2, centerY - iconSize / 2);
+          ctx.scale(iconSize / 24, iconSize / 24);
+          ctx.strokeStyle = qrSign.color;
+          ctx.fillStyle = qrSign.color;
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+
+          const paths = iconData.path.split(' M').map((p: string, i: number) => i === 0 ? p : 'M' + p);
+          paths.forEach((pathStr: string) => {
+            const path = new Path2D(pathStr);
+            if (iconData.fill) {
+              ctx.fill(path);
+            } else {
+              ctx.stroke(path);
+            }
+          });
+          ctx.restore();
+        }
+      }
+    }
 
     // Create download link
     const link = document.createElement('a');
     link.download = `${code.title}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.href = downloadCanvas.toDataURL('image/png');
     link.click();
   };
 
@@ -807,6 +878,29 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  const handleSaveQRSign = async (sign: QRSign | undefined) => {
+    if (!code) return;
+
+    try {
+      const updatedWidgets: CodeWidgets = {
+        ...code.widgets,
+      };
+
+      if (sign?.enabled) {
+        updatedWidgets.qrSign = sign;
+      } else {
+        delete updatedWidgets.qrSign;
+      }
+
+      await updateQRCode(code.id, { widgets: updatedWidgets });
+      setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
+      setQrSign(sign);
+    } catch (error) {
+      console.error('Error saving QR sign:', error);
+      alert('שגיאה בשמירת הסימן. נסה שוב.');
+    }
+  };
+
   // Get the current media for link modal
   const currentMediaForLink = code?.media.find((m) => m.id === linkModal.mediaId);
 
@@ -935,12 +1029,46 @@ export default function CodeEditPage({ params }: PageProps) {
             <div className="space-y-6">
               {/* QR Code */}
               <div ref={qrRef} className="flex justify-center p-4 bg-white rounded-xl">
-                <QRCodeSVG
-                  value={viewUrl}
-                  size={220}
-                  level="H"
-                  marginSize={1}
-                />
+                <div className="relative inline-block">
+                  <QRCodeSVG
+                    value={viewUrl}
+                    size={220}
+                    level="H"
+                    marginSize={1}
+                  />
+                  {qrSign?.enabled && qrSign.value && (
+                    <div
+                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center shadow-md"
+                      style={{
+                        width: 55,
+                        height: 55,
+                        backgroundColor: qrSign.backgroundColor,
+                      }}
+                    >
+                      {qrSign.type === 'icon' ? (
+                        (() => {
+                          const LucideIcons = require('lucide-react');
+                          const IconComponent = LucideIcons[qrSign.value];
+                          return IconComponent ? (
+                            <IconComponent size={30} color={qrSign.color} strokeWidth={2.5} />
+                          ) : null;
+                        })()
+                      ) : (
+                        <span
+                          style={{
+                            color: qrSign.color,
+                            fontFamily: 'var(--font-assistant), Arial, sans-serif',
+                            fontSize: qrSign.type === 'emoji' ? 30 : (qrSign.value.length <= 2 ? 24 : 16),
+                            fontWeight: qrSign.type === 'text' ? 700 : 400,
+                            lineHeight: 1,
+                          }}
+                        >
+                          {qrSign.value}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Hidden high-res QR for download */}
@@ -1044,7 +1172,10 @@ export default function CodeEditPage({ params }: PageProps) {
 
             {/* Collapsible content */}
             {widgetsExpanded && (
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 space-y-4">
+                {/* QR Sign Widget */}
+                <SignEditorWidget sign={qrSign} onSave={handleSaveQRSign} />
+
                 {/* WhatsApp Group Link Widget */}
                 <div className="space-y-2">
                   <label className="text-xs text-text-secondary flex items-center gap-2">
@@ -1074,6 +1205,44 @@ export default function CodeEditPage({ params }: PageProps) {
                     הכפתור יופיע לצופה אחרי שנייה עם אנימציה
                   </p>
                 </div>
+
+                {/* Gallery Link - show if any riddle has gallery enabled */}
+                {code.media.some(m => m.type === 'riddle' && m.riddleContent?.galleryEnabled) && (
+                  <div className="space-y-2 pt-3 border-t border-border">
+                    <label className="text-xs text-text-secondary flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-accent" />
+                      גלריית סלפי
+                    </label>
+                    <div className="flex items-center gap-2 p-3 bg-bg-secondary rounded-lg">
+                      <Images className="w-4 h-4 text-text-secondary flex-shrink-0" />
+                      <span className="text-sm text-text-primary truncate flex-1" dir="ltr">
+                        {typeof window !== 'undefined' ? `${window.location.origin}/gallery/${code.shortId}` : `/gallery/${code.shortId}`}
+                      </span>
+                      <button
+                        onClick={() => {
+                          const galleryUrl = `${window.location.origin}/gallery/${code.shortId}`;
+                          navigator.clipboard.writeText(galleryUrl);
+                        }}
+                        className="p-1.5 rounded hover:bg-bg-hover transition-colors"
+                        title="העתק לינק לגלריה"
+                      >
+                        <Copy className="w-4 h-4 text-text-secondary" />
+                      </button>
+                      <a
+                        href={`/gallery/${code.shortId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded hover:bg-bg-hover transition-colors"
+                        title="פתח גלריה"
+                      >
+                        <ExternalLink className="w-4 h-4 text-text-secondary" />
+                      </a>
+                    </div>
+                    <p className="text-xs text-text-secondary">
+                      {code.userGallery?.length || 0} תמונות בגלריה
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
