@@ -47,6 +47,7 @@ export default function RiddleModal({
   const [customTextColor, setCustomTextColor] = useState('');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]); // Track existing images that weren't deleted
   const [galleryEnabled, setGalleryEnabled] = useState(false);
   const [allowAnonymous, setAllowAnonymous] = useState(true);
   const [error, setError] = useState('');
@@ -60,8 +61,9 @@ export default function RiddleModal({
         setBackgroundColor(initialContent.backgroundColor);
         setTextColor(initialContent.textColor);
         setYoutubeUrl(initialContent.youtubeUrl || '');
-        // For existing images, we show them as previews
+        // For existing images, we show them as previews and track them
         setImagePreviews(initialContent.images || []);
+        setExistingImages(initialContent.images || []);
         setGalleryEnabled(initialContent.galleryEnabled || false);
         setAllowAnonymous(initialContent.allowAnonymous ?? true);
       } else {
@@ -71,6 +73,7 @@ export default function RiddleModal({
         setTextColor('#ffffff');
         setYoutubeUrl('');
         setImagePreviews([]);
+        setExistingImages([]);
         setGalleryEnabled(false);
         setAllowAnonymous(true);
       }
@@ -83,7 +86,6 @@ export default function RiddleModal({
 
   // Generate previews for newly added files
   useEffect(() => {
-    const existingPreviews = initialContent?.images || [];
     const newPreviews: string[] = [];
 
     imageFiles.forEach((file) => {
@@ -91,12 +93,12 @@ export default function RiddleModal({
       newPreviews.push(url);
     });
 
-    setImagePreviews([...existingPreviews, ...newPreviews]);
+    setImagePreviews([...existingImages, ...newPreviews]);
 
     return () => {
       newPreviews.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [imageFiles, initialContent?.images]);
+  }, [imageFiles, existingImages]);
 
   if (!isOpen) return null;
 
@@ -109,13 +111,10 @@ export default function RiddleModal({
   };
 
   const handleRemoveImage = (index: number) => {
-    const existingCount = initialContent?.images?.length || 0;
+    const existingCount = existingImages.length;
     if (index < existingCount) {
-      // Removing an existing image (from initialContent)
-      // We'll handle this by keeping track of which to remove
-      const newExisting = [...(initialContent?.images || [])];
-      newExisting.splice(index, 1);
-      setImagePreviews([...newExisting, ...imageFiles.map((f) => URL.createObjectURL(f))]);
+      // Removing an existing image - update existingImages state
+      setExistingImages((prev) => prev.filter((_, i) => i !== index));
     } else {
       // Removing a newly added file
       const fileIndex = index - existingCount;
@@ -153,7 +152,7 @@ export default function RiddleModal({
       backgroundColor,
       textColor,
       youtubeUrl: youtubeUrl.trim() || undefined,
-      images: initialContent?.images || [],
+      images: existingImages, // Use the tracked existing images (after deletions)
       galleryEnabled,
       allowAnonymous,
     };

@@ -81,6 +81,8 @@ function getMediaLabel(type: MediaType): string {
       return 'לינק';
     case 'wordcloud':
       return 'ענן מילים';
+    case 'riddle':
+      return 'כתב חידה';
     default:
       return 'מדיה';
   }
@@ -274,6 +276,8 @@ export default function CodeCard({
               <QRCodeSVG value={viewUrl} size={40} level="L" bgColor="transparent" fgColor="currentColor" className="text-text-primary" />
             ) : mediaType === 'pdf' ? (
               <FileText className="w-6 h-6 text-red-500" />
+            ) : mediaType === 'riddle' ? (
+              <img src="/media/riddle.jpg" alt={title} className="w-full h-full object-cover" />
             ) : thumbnail ? (
               <img src={thumbnail} alt={title} className="w-full h-full object-cover" />
             ) : (
@@ -429,6 +433,12 @@ export default function CodeCard({
               <span className="text-xs text-text-secondary truncate max-w-[80%] px-2">{fileName}</span>
             )}
           </div>
+        ) : mediaType === 'riddle' ? (
+          <img
+            src="/media/riddle.jpg"
+            alt={title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
         ) : thumbnail ? (
           <img
             src={thumbnail}

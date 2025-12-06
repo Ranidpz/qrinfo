@@ -25,6 +25,7 @@ export default async function GalleryPage({ params }: GalleryPageProps) {
         ownerId={code.ownerId}
         title={code.title}
         initialImages={code.userGallery || []}
+        initialSettings={code.gallerySettings}
       />
     );
   } catch (error) {

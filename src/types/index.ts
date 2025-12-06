@@ -24,6 +24,19 @@ export interface UserGalleryImage {
   uploadedAt: Date;
 }
 
+// Gallery display mode
+export type GalleryDisplayMode = 'static' | 'scroll' | 'shuffle';
+
+// Gallery settings (saved per QR code)
+export interface GallerySettings {
+  displayMode: GalleryDisplayMode;
+  displayLimit: number; // 0 = all, or 10/20/50/100
+  gridColumns: number;  // 2-6
+  headerHidden: boolean;
+  showNames?: boolean;  // Show uploader names on images
+  fadeEffect?: boolean; // Subtle fade-in effect on images (video-like motion)
+}
+
 // Schedule for media
 export interface MediaSchedule {
   enabled: boolean;
@@ -85,6 +98,7 @@ export interface QRCode {
   isGlobal?: boolean; // Whether the code is globally featured (admin only)
   folderId?: string; // Optional folder assignment
   userGallery?: UserGalleryImage[]; // Selfies uploaded by viewers
+  gallerySettings?: GallerySettings; // Display settings for gallery page
   createdAt: Date;
   updatedAt: Date;
 }

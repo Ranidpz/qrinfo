@@ -32,11 +32,12 @@ export function generateShortId(length: number = 6): string {
 export async function createQRCode(
   ownerId: string,
   title: string,
-  media: Omit<MediaItem, 'id' | 'createdAt'>[]
+  media: Omit<MediaItem, 'id' | 'createdAt'>[],
+  folderId?: string | null
 ): Promise<QRCode> {
   const shortId = generateShortId();
 
-  const codeData = {
+  const codeData: Record<string, unknown> = {
     shortId,
     ownerId,
     collaborators: [],
@@ -52,6 +53,11 @@ export async function createQRCode(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
+
+  // Add folderId if provided
+  if (folderId) {
+    codeData.folderId = folderId;
+  }
 
   const docRef = await addDoc(collection(db, 'codes'), codeData);
 
@@ -71,7 +77,8 @@ export async function createQRCode(
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
-  };
+    folderId: folderId || undefined,
+  } as QRCode;
 }
 
 // Get QR code by ID

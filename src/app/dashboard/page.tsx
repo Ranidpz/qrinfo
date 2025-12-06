@@ -172,7 +172,7 @@ export default function DashboardPage() {
 
       const uploadData = await uploadResponse.json();
 
-      // Create QR code in Firestore
+      // Create QR code in Firestore (in current folder if inside one)
       const newCode = await createQRCode(user.id, file.name, [
         {
           url: uploadData.url,
@@ -181,7 +181,7 @@ export default function DashboardPage() {
           order: 0,
           uploadedBy: user.id,
         },
-      ]);
+      ], currentFolderId);
 
       // Update user storage
       await updateUserStorage(user.id, uploadData.size);
@@ -206,7 +206,7 @@ export default function DashboardPage() {
     setUploading(true);
 
     try {
-      // Create QR code with link
+      // Create QR code with link (in current folder if inside one)
       const newCode = await createQRCode(user.id, 'לינק חדש', [
         {
           url,
@@ -215,7 +215,7 @@ export default function DashboardPage() {
           order: 0,
           uploadedBy: user.id,
         },
-      ]);
+      ], currentFolderId);
 
       // Add to list
       setCodes((prev) => [newCode, ...prev]);
@@ -236,7 +236,7 @@ export default function DashboardPage() {
     setAddingWordCloud(true);
 
     try {
-      // Create QR code with wordcloud link
+      // Create QR code with wordcloud link (in current folder if inside one)
       const newCode = await createQRCode(user.id, title || 'ענן מילים', [
         {
           url,
@@ -246,7 +246,7 @@ export default function DashboardPage() {
           uploadedBy: user.id,
           title: title,
         },
-      ]);
+      ], currentFolderId);
 
       // Add to list
       setCodes((prev) => [newCode, ...prev]);
@@ -297,7 +297,7 @@ export default function DashboardPage() {
         images: uploadedImages,
       };
 
-      // Create QR code with riddle
+      // Create QR code with riddle (in current folder if inside one)
       const newCode = await createQRCode(user.id, content.title, [
         {
           url: '', // Riddle doesn't have a direct URL
@@ -308,7 +308,7 @@ export default function DashboardPage() {
           title: content.title,
           riddleContent: riddleContent,
         },
-      ]);
+      ], currentFolderId);
 
       // Update user storage for images
       if (totalImageSize > 0) {
@@ -548,6 +548,8 @@ export default function DashboardPage() {
 
     try {
       // Create new code with same media (just references, not copies)
+      // Duplicate into the same folder as the original code
+      const codeWithFolder = code as QRCodeType & { folderId?: string };
       const newCode = await createQRCode(
         user.id,
         `${code.title} (עותק)`,
@@ -557,7 +559,8 @@ export default function DashboardPage() {
           size: 0, // Don't count storage again since it's same file
           order: m.order,
           uploadedBy: user.id,
-        }))
+        })),
+        codeWithFolder.folderId || currentFolderId
       );
 
       // Add to list

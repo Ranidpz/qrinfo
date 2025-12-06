@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, ScrollText, Cloud, Gamepad2 } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2 } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 
@@ -265,8 +265,12 @@ export default function MediaUploader({
         /* Riddle creation */
         <div className="space-y-4">
           <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
-            <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center">
-              <ScrollText className="w-7 h-7 text-accent" />
+            <div className="w-20 h-20 rounded-xl overflow-hidden">
+              <img
+                src="/media/riddle.jpg"
+                alt="כתב חידה"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="text-center">
               <h3 className="text-lg font-medium text-text-primary mb-1">

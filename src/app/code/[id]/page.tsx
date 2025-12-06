@@ -809,6 +809,30 @@ export default function CodeEditPage({ params }: PageProps) {
 
     setAddingRiddle(true);
     try {
+      // Get the original images from the existing riddle (if editing)
+      const existingRiddle = editingRiddleId
+        ? code.media.find(m => m.id === editingRiddleId)?.riddleContent
+        : null;
+      const originalImages = existingRiddle?.images || [];
+
+      // Find images that were removed (in original but not in content.images)
+      const removedImages = originalImages.filter(
+        (url) => !content.images?.includes(url)
+      );
+
+      // Delete removed images from Vercel Blob
+      for (const imageUrl of removedImages) {
+        try {
+          await fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: imageUrl }),
+          });
+        } catch (error) {
+          console.error('Failed to delete image from blob:', error);
+        }
+      }
+
       let uploadedImageUrls: string[] = [...(content.images || [])];
       let totalImageSize = 0;
 

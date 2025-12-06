@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { UserGalleryImage } from '@/types';
-import { X, Trash2, Settings, Loader2, ImageIcon } from 'lucide-react';
-import { onSnapshot, doc } from 'firebase/firestore';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { UserGalleryImage, GallerySettings, GalleryDisplayMode } from '@/types';
+import { X, Trash2, Settings, Loader2, ImageIcon, Play, Shuffle } from 'lucide-react';
+import { onSnapshot, doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -13,6 +13,34 @@ interface GalleryClientProps {
   ownerId: string;
   title: string;
   initialImages: UserGalleryImage[];
+  initialSettings?: GallerySettings;
+}
+
+const DEFAULT_SETTINGS: GallerySettings = {
+  displayMode: 'static',
+  displayLimit: 0,
+  gridColumns: 3,
+  headerHidden: false,
+  showNames: false,
+  fadeEffect: false,
+};
+
+// Get adjacent slots (up, down, left, right) for a given slot
+function getAdjacentSlots(slotIndex: number, totalSlots: number, columns: number): number[] {
+  const adjacent: number[] = [];
+  const row = Math.floor(slotIndex / columns);
+  const col = slotIndex % columns;
+
+  // Up
+  if (row > 0) adjacent.push(slotIndex - columns);
+  // Down
+  if (slotIndex + columns < totalSlots) adjacent.push(slotIndex + columns);
+  // Left
+  if (col > 0) adjacent.push(slotIndex - 1);
+  // Right
+  if (col < columns - 1) adjacent.push(slotIndex + 1);
+
+  return adjacent;
 }
 
 export default function GalleryClient({
@@ -21,31 +49,81 @@ export default function GalleryClient({
   ownerId,
   title,
   initialImages,
+  initialSettings,
 }: GalleryClientProps) {
   const { user } = useAuth();
   const isOwner = user?.id === ownerId;
 
+  // Merge initial settings with defaults
+  const settings = { ...DEFAULT_SETTINGS, ...initialSettings };
+
   const [images, setImages] = useState<UserGalleryImage[]>(initialImages);
   const [lightboxImage, setLightboxImage] = useState<UserGalleryImage | null>(null);
-  const [gridColumns, setGridColumns] = useState(3);
+  const [gridColumns, setGridColumns] = useState(settings.gridColumns);
   const [newImageIds, setNewImageIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [displayLimit, setDisplayLimit] = useState<number>(0); // 0 = all images
-  const [autoScroll, setAutoScroll] = useState(false);
-  const previousImagesRef = useRef<Set<string>>(new Set(initialImages.map(img => img.id)));
-  const galleryRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef<number | null>(null);
+  const [displayLimit, setDisplayLimit] = useState<number>(settings.displayLimit);
+  const [displayMode, setDisplayMode] = useState<GalleryDisplayMode>(settings.displayMode);
+  const [headerHidden, setHeaderHidden] = useState(settings.headerHidden);
+  const [showNames, setShowNames] = useState(settings.showNames ?? false);
+  const [fadeEffect, setFadeEffect] = useState(settings.fadeEffect ?? false);
+  const [showHint, setShowHint] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
 
-  // Real-time updates from Firestore
+  // Shuffle mode state
+  const [fadingOutSlot, setFadingOutSlot] = useState<number | null>(null);
+  const [visibleSlots, setVisibleSlots] = useState<Map<number, UserGalleryImage>>(new Map());
+  const [animatingSlot, setAnimatingSlot] = useState<number | null>(null);
+
+  const previousImagesRef = useRef<Set<string>>(new Set(initialImages.map(img => img.id)));
+  const shuffleIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track images currently assigned in shuffle mode (slot -> imageId)
+  const currentlyAssignedRef = useRef<Map<number, string>>(new Map());
+
+  // Track last image shown in each slot (to prevent returning to same slot)
+  const lastImageInSlotRef = useRef<Map<number, string>>(new Map());
+
+  // Track loaded images to hide spinners
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+
+  // Edit name state
+  const [editingName, setEditingName] = useState<string>('');
+  const [savingName, setSavingName] = useState(false);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Calculate grid rows based on screen aspect ratio (safe for SSR)
+  const [gridRows, setGridRows] = useState(4);
+
+  useEffect(() => {
+    const calculateGridRows = () => {
+      // Calculate how many rows fit the screen height with square cells
+      const cellWidth = window.innerWidth / gridColumns;
+      const rows = Math.floor(window.innerHeight / cellWidth);
+      setGridRows(Math.max(rows, 2)); // Minimum 2 rows
+    };
+    calculateGridRows();
+    window.addEventListener('resize', calculateGridRows);
+    return () => window.removeEventListener('resize', calculateGridRows);
+  }, [gridColumns]);
+
+  // Total grid cells = columns * rows (fills screen exactly)
+  const gridSize = gridColumns * gridRows;
+
+  // Track if settings were loaded from Firebase (to avoid overwriting with initial values)
+  const settingsLoadedRef = useRef(false);
+
+  // Real-time updates from Firestore (images AND settings)
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'codes', codeId), (docSnap) => {
       if (!docSnap.exists()) return;
 
       const data = docSnap.data();
+
+      // Update gallery images
       const gallery = (data.userGallery || []) as Array<{
         id: string;
         url: string;
@@ -53,7 +131,6 @@ export default function GalleryClient({
         uploadedAt: { toDate?: () => Date } | Date;
       }>;
 
-      // Convert to UserGalleryImage format
       const newImages: UserGalleryImage[] = gallery.map((img) => ({
         id: img.id,
         url: img.url,
@@ -63,12 +140,10 @@ export default function GalleryClient({
           : new Date(img.uploadedAt as unknown as string),
       }));
 
-      // Sort by uploadedAt descending (newest first)
       newImages.sort((a, b) =>
         new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
       );
 
-      // Find new images for animation
       const newIds = new Set<string>();
       newImages.forEach((img) => {
         if (!previousImagesRef.current.has(img.id)) {
@@ -78,55 +153,191 @@ export default function GalleryClient({
 
       if (newIds.size > 0) {
         setNewImageIds(newIds);
-        // Remove animation class after animation completes
         setTimeout(() => {
           setNewImageIds(new Set());
         }, 600);
       }
 
-      // Update previous images ref
       previousImagesRef.current = new Set(newImages.map(img => img.id));
-
       setImages(newImages);
+
+      // Update gallery settings from Firebase (only if not currently saving)
+      if (!savingSettings) {
+        const fbSettings = data.gallerySettings as GallerySettings | undefined;
+        if (fbSettings) {
+          setDisplayMode(fbSettings.displayMode ?? DEFAULT_SETTINGS.displayMode);
+          setDisplayLimit(fbSettings.displayLimit ?? DEFAULT_SETTINGS.displayLimit);
+          setGridColumns(fbSettings.gridColumns ?? DEFAULT_SETTINGS.gridColumns);
+          setHeaderHidden(fbSettings.headerHidden ?? DEFAULT_SETTINGS.headerHidden);
+          setShowNames(fbSettings.showNames ?? DEFAULT_SETTINGS.showNames ?? false);
+          setFadeEffect(fbSettings.fadeEffect ?? DEFAULT_SETTINGS.fadeEffect ?? false);
+          settingsLoadedRef.current = true;
+        }
+      }
     });
 
     return () => unsubscribe();
-  }, [codeId]);
+  }, [codeId, savingSettings]);
 
-  // Auto-scroll effect
+  // Scroll mode uses CSS animation - no JS scroll needed
+
+  // Get image for a slot - checks adjacent slots to prevent same image next to each other
+  const getImageForSlot = useCallback((
+    slotIndex: number,
+    excludeImageId?: string // Don't use this image (e.g., the one being replaced)
+  ): UserGalleryImage | null => {
+    const displayImages = displayLimit > 0 ? images.slice(0, displayLimit) : images;
+    if (displayImages.length === 0) return null;
+
+    // Get IDs of images in adjacent slots
+    const adjacentSlots = getAdjacentSlots(slotIndex, gridSize, gridColumns);
+    const adjacentImageIds = new Set<string>();
+    adjacentSlots.forEach(adj => {
+      const imgId = currentlyAssignedRef.current.get(adj);
+      if (imgId) adjacentImageIds.add(imgId);
+    });
+
+    // Find images that can be used (not in adjacent slots, not the excluded one)
+    const validImages = displayImages.filter(img =>
+      img.id !== excludeImageId && !adjacentImageIds.has(img.id)
+    );
+
+    if (validImages.length > 0) {
+      return validImages[Math.floor(Math.random() * validImages.length)];
+    }
+
+    // Fallback: any image except the excluded one
+    const fallbackImages = displayImages.filter(img => img.id !== excludeImageId);
+    if (fallbackImages.length > 0) {
+      return fallbackImages[Math.floor(Math.random() * fallbackImages.length)];
+    }
+
+    return displayImages[0];
+  }, [images, displayLimit, gridSize, gridColumns]);
+
+  // Shuffle mode effect - fills grid then swaps images
   useEffect(() => {
-    if (!autoScroll || !scrollContainerRef.current || images.length === 0) {
-      if (autoScrollRef.current) {
-        cancelAnimationFrame(autoScrollRef.current);
-        autoScrollRef.current = null;
+    if (displayMode !== 'shuffle' || images.length === 0) {
+      if (shuffleIntervalRef.current) {
+        clearInterval(shuffleIntervalRef.current);
+        shuffleIntervalRef.current = null;
       }
+      setVisibleSlots(new Map());
+      setFadingOutSlot(null);
+      currentlyAssignedRef.current = new Map();
       return;
     }
 
-    const container = scrollContainerRef.current;
-    const scrollSpeed = 0.5; // pixels per frame
+    // Reset state when entering shuffle mode
+    currentlyAssignedRef.current = new Map();
+    setVisibleSlots(new Map());
 
-    const scroll = () => {
-      if (!container) return;
+    let phase: 'filling' | 'swapping' = 'filling';
 
-      container.scrollTop += scrollSpeed;
+    const runInterval = () => {
+      if (phase === 'filling') {
+        // Find empty slots
+        const emptySlots: number[] = [];
+        for (let i = 0; i < gridSize; i++) {
+          if (!currentlyAssignedRef.current.has(i)) {
+            emptySlots.push(i);
+          }
+        }
 
-      // When reaching near the bottom, reset to top for loop
-      if (container.scrollTop >= container.scrollHeight - container.clientHeight - 10) {
-        container.scrollTop = 0;
+        if (emptySlots.length === 0) {
+          // Grid is full, switch to swapping phase
+          phase = 'swapping';
+          // Restart interval with longer delay for swapping
+          if (shuffleIntervalRef.current) {
+            clearInterval(shuffleIntervalRef.current);
+          }
+          shuffleIntervalRef.current = setInterval(runInterval, 2500);
+          return;
+        }
+
+        // Pick random empty slot and fill it
+        const slotToFill = emptySlots[Math.floor(Math.random() * emptySlots.length)];
+        const image = getImageForSlot(slotToFill);
+
+        if (image) {
+          currentlyAssignedRef.current.set(slotToFill, image.id);
+          setVisibleSlots(prev => {
+            const updated = new Map(prev);
+            updated.set(slotToFill, image);
+            return updated;
+          });
+          setAnimatingSlot(slotToFill);
+          setTimeout(() => setAnimatingSlot(null), 300);
+        }
+      } else {
+        // Swapping phase - replace a random image
+        const slotToReplace = Math.floor(Math.random() * gridSize);
+        const currentImageId = currentlyAssignedRef.current.get(slotToReplace);
+        const newImage = getImageForSlot(slotToReplace, currentImageId);
+
+        if (newImage && newImage.id !== currentImageId) {
+          // Start fade out
+          setFadingOutSlot(slotToReplace);
+
+          // After fade out, replace with new image
+          setTimeout(() => {
+            currentlyAssignedRef.current.set(slotToReplace, newImage.id);
+            setVisibleSlots(prev => {
+              const updated = new Map(prev);
+              updated.set(slotToReplace, newImage);
+              return updated;
+            });
+            setFadingOutSlot(null);
+            setAnimatingSlot(slotToReplace);
+            setTimeout(() => setAnimatingSlot(null), 300);
+          }, 300);
+        }
       }
-
-      autoScrollRef.current = requestAnimationFrame(scroll);
     };
 
-    autoScrollRef.current = requestAnimationFrame(scroll);
+    // Start with fast filling interval
+    shuffleIntervalRef.current = setInterval(runInterval, 300);
 
     return () => {
-      if (autoScrollRef.current) {
-        cancelAnimationFrame(autoScrollRef.current);
+      if (shuffleIntervalRef.current) {
+        clearInterval(shuffleIntervalRef.current);
       }
     };
-  }, [autoScroll, images.length]);
+  }, [displayMode, images, displayLimit, gridSize, gridColumns, getImageForSlot]);
+
+  // Handle save edited name
+  const handleSaveName = async () => {
+    if (!lightboxImage || !isOwner || savingName) return;
+    if (editingName === lightboxImage.uploaderName) return;
+
+    setSavingName(true);
+    try {
+      const codeRef = doc(db, 'codes', codeId);
+      const updatedGallery = images.map(img =>
+        img.id === lightboxImage.id
+          ? { ...img, uploaderName: editingName || 'אנונימי' }
+          : img
+      );
+
+      await updateDoc(codeRef, {
+        userGallery: updatedGallery.map(img => ({
+          id: img.id,
+          url: img.url,
+          uploaderName: img.uploaderName,
+          uploadedAt: img.uploadedAt instanceof Date
+            ? Timestamp.fromDate(img.uploadedAt)
+            : img.uploadedAt,
+        })),
+      });
+
+      // Update local state
+      setLightboxImage(prev => prev ? { ...prev, uploaderName: editingName || 'אנונימי' } : null);
+    } catch (error) {
+      console.error('Error saving name:', error);
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   // Handle delete image
   const handleDeleteImage = async (image: UserGalleryImage) => {
@@ -135,24 +346,41 @@ export default function GalleryClient({
     setDeleting(image.id);
 
     try {
-      const response = await fetch('/api/gallery', {
+      // First, get fresh data from Firestore to avoid stale state issues
+      const codeRef = doc(db, 'codes', codeId);
+      const codeSnap = await getDoc(codeRef);
+
+      if (!codeSnap.exists()) {
+        throw new Error('Code not found');
+      }
+
+      const currentData = codeSnap.data();
+      const currentGallery = (currentData.userGallery || []) as Array<{
+        id: string;
+        url: string;
+        uploaderName: string;
+        uploadedAt: unknown;
+      }>;
+
+      // Filter out the image to delete
+      const updatedGallery = currentGallery.filter(img => img.id !== image.id);
+
+      // Delete from Vercel Blob
+      await fetch('/api/gallery', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          codeId,
-          imageId: image.id,
           imageUrl: image.url,
-          userId: user?.id,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete image');
-      }
+      // Update Firestore with filtered gallery
+      await updateDoc(codeRef, {
+        userGallery: updatedGallery,
+      });
 
-      // Close lightbox if viewing deleted image
       if (lightboxImage?.id === image.id) {
         setLightboxImage(null);
       }
@@ -163,6 +391,96 @@ export default function GalleryClient({
     }
   };
 
+  // Save settings to Firebase (only for owner)
+  const saveSettings = useCallback(async (newSettings: Partial<GallerySettings>) => {
+    if (!isOwner) return;
+
+    setSavingSettings(true);
+    try {
+      const codeRef = doc(db, 'codes', codeId);
+      await updateDoc(codeRef, {
+        gallerySettings: {
+          displayMode,
+          displayLimit,
+          gridColumns,
+          headerHidden,
+          showNames,
+          fadeEffect,
+          ...newSettings,
+        },
+      });
+    } catch (error) {
+      console.error('Error saving gallery settings:', error);
+    } finally {
+      setSavingSettings(false);
+    }
+  }, [isOwner, codeId, displayMode, displayLimit, gridColumns, headerHidden, showNames, fadeEffect]);
+
+  // Update settings with auto-save
+  const updateDisplayMode = (mode: GalleryDisplayMode) => {
+    setDisplayMode(mode);
+    if (isOwner) saveSettings({ displayMode: mode });
+  };
+
+  const updateDisplayLimit = (limit: number) => {
+    setDisplayLimit(limit);
+    if (isOwner) saveSettings({ displayLimit: limit });
+  };
+
+  const updateGridColumns = (cols: number) => {
+    setGridColumns(cols);
+    if (isOwner) saveSettings({ gridColumns: cols });
+  };
+
+  const toggleHeader = useCallback(() => {
+    setHeaderHidden(prev => {
+      const newValue = !prev;
+      if (isOwner) saveSettings({ headerHidden: newValue });
+      return newValue;
+    });
+  }, [isOwner, saveSettings]);
+
+  const toggleShowNames = useCallback(() => {
+    setShowNames(prev => {
+      const newValue = !prev;
+      if (isOwner) saveSettings({ showNames: newValue });
+      return newValue;
+    });
+  }, [isOwner, saveSettings]);
+
+  const toggleFadeEffect = useCallback(() => {
+    setFadeEffect(prev => {
+      const newValue = !prev;
+      if (isOwner) saveSettings({ fadeEffect: newValue });
+      return newValue;
+    });
+  }, [isOwner, saveSettings]);
+
+  // Keyboard shortcut for header toggle (Ctrl/Cmd)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === 'Control') {
+        // Wait for keyup to trigger
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Toggle on Ctrl/Cmd release (not while typing in inputs)
+      if (e.key === 'Control' || e.key === 'Meta') {
+        const activeElement = document.activeElement;
+        if (activeElement?.tagName !== 'INPUT' && activeElement?.tagName !== 'TEXTAREA') {
+          toggleHeader();
+          setShowHint(false);
+        }
+      }
+    };
+
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [toggleHeader]);
+
   // Handle delete all images
   const handleDeleteAllImages = async () => {
     if (!isOwner || deletingAll || images.length === 0) return;
@@ -171,21 +489,39 @@ export default function GalleryClient({
     setShowDeleteAllConfirm(false);
 
     try {
-      // Delete all images one by one
-      for (const image of images) {
+      // First, get fresh data from Firestore
+      const codeRef = doc(db, 'codes', codeId);
+      const codeSnap = await getDoc(codeRef);
+
+      if (!codeSnap.exists()) {
+        throw new Error('Code not found');
+      }
+
+      const currentData = codeSnap.data();
+      const currentGallery = (currentData.userGallery || []) as Array<{
+        id: string;
+        url: string;
+        uploaderName: string;
+        uploadedAt: unknown;
+      }>;
+
+      // Delete all images from Vercel Blob
+      for (const image of currentGallery) {
         await fetch('/api/gallery', {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            codeId,
-            imageId: image.id,
             imageUrl: image.url,
-            userId: user?.id,
           }),
         });
       }
+
+      // Clear the gallery in Firestore
+      await updateDoc(codeRef, {
+        userGallery: [],
+      });
 
       setLightboxImage(null);
     } catch (error) {
@@ -195,99 +531,395 @@ export default function GalleryClient({
     }
   };
 
+  // Get images to display based on mode
+  const getDisplayImages = () => {
+    const limitedImages = displayLimit > 0 ? images.slice(0, displayLimit) : images;
+    return limitedImages;
+  };
+
+  // Handle image load
+  const handleImageLoad = (imageId: string) => {
+    setLoadedImages(prev => {
+      const newSet = new Set(prev);
+      newSet.add(imageId);
+      return newSet;
+    });
+  };
+
+  // Open lightbox with name editing initialized
+  const openLightbox = (image: UserGalleryImage) => {
+    setLightboxImage(image);
+    setEditingName(image.uploaderName);
+  };
+
+  // Render grid based on mode
+  const renderGrid = () => {
+    const displayImages = getDisplayImages();
+
+    if (displayMode === 'shuffle') {
+      // Use gridSize to fill the entire screen
+      const slots = Array.from({ length: gridSize }, (_, i) => i);
+
+      return (
+        <div
+          className="grid gap-0 h-screen overflow-hidden"
+          style={{
+            gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+            gridTemplateRows: `repeat(${gridRows}, 1fr)`,
+          }}
+        >
+          {slots.map((slotIndex) => {
+            const image = visibleSlots.get(slotIndex);
+            const isAnimating = animatingSlot === slotIndex;
+            const isFadingOut = fadingOutSlot === slotIndex;
+
+            return (
+              <div
+                key={slotIndex}
+                className="relative overflow-hidden bg-gray-800"
+              >
+                {/* Empty slot with spinner */}
+                {!image && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white/20 animate-spin" />
+                  </div>
+                )}
+                {/* Image loading spinner */}
+                {image && !loadedImages.has(image.id) && (
+                  <div className="absolute inset-0 flex items-center justify-center z-0">
+                    <Loader2 className="w-6 h-6 text-white/30 animate-spin" />
+                  </div>
+                )}
+                {image && (
+                  <button
+                    onClick={() => openLightbox(image)}
+                    className={`w-full h-full focus:outline-none relative z-10 transition-opacity duration-300 ${
+                      isFadingOut ? 'opacity-0' : isAnimating ? 'animate-quickFadeIn' : 'opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={image.url}
+                      alt={image.uploaderName}
+                      className={`w-full h-full object-cover ${fadeEffect ? 'fade-effect-image' : ''}`}
+                      onLoad={() => handleImageLoad(image.id)}
+                    />
+                    {/* Name badge */}
+                    {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
+                      <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full">
+                        <span className="text-sm text-white font-medium">{image.uploaderName}</span>
+                      </div>
+                    )}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Static mode
+    if (displayMode === 'static') {
+      return (
+        <div
+          className="grid gap-1 p-1"
+          style={{
+            gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+          }}
+        >
+          {displayImages.map((image, index) => (
+            <button
+              key={image.id}
+              onClick={() => openLightbox(image)}
+              className={`relative aspect-square overflow-hidden bg-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                newImageIds.has(image.id) ? 'animate-bounceIn' : 'animate-staggerIn'
+              }`}
+              style={{
+                animationDelay: newImageIds.has(image.id) ? '0ms' : `${index * 50}ms`,
+              }}
+            >
+              {!loadedImages.has(image.id) && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-white/30 animate-spin" />
+                </div>
+              )}
+              <img
+                src={image.url}
+                alt={image.uploaderName}
+                className={`w-full h-full object-cover relative z-10 ${fadeEffect ? 'fade-effect-image' : ''}`}
+                loading="lazy"
+                onLoad={() => handleImageLoad(image.id)}
+              />
+              {/* Name badge - always visible when enabled */}
+              {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
+                <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
+                  <span className="text-sm text-white font-medium">{image.uploaderName}</span>
+                </div>
+              )}
+              {/* Hover overlay - only when showNames is off */}
+              {!showNames && (
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 hover:opacity-100 transition-opacity z-20">
+                  <p className="text-xs text-white truncate">{image.uploaderName}</p>
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    // Scroll mode - CSS marquee-style infinite scroll
+    // Calculate animation duration based on number of images
+    const animationDuration = Math.max(displayImages.length * 3, 20); // minimum 20s
+
+    return (
+      <div className="h-screen overflow-hidden">
+        <div
+          className="scroll-container"
+          style={{
+            animation: `scrollUp ${animationDuration}s linear infinite`,
+          }}
+        >
+          {/* First set */}
+          <div
+            className="grid gap-1 p-1"
+            style={{
+              gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+            }}
+          >
+            {displayImages.map((image) => (
+              <button
+                key={image.id}
+                onClick={() => openLightbox(image)}
+                className="relative aspect-square overflow-hidden bg-white/10 focus:outline-none"
+              >
+                {!loadedImages.has(image.id) && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white/30 animate-spin" />
+                  </div>
+                )}
+                <img
+                  src={image.url}
+                  alt={image.uploaderName}
+                  className={`w-full h-full object-cover relative z-10 ${fadeEffect ? 'fade-effect-image' : ''}`}
+                  loading="eager"
+                  onLoad={() => handleImageLoad(image.id)}
+                />
+                {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
+                  <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
+                    <span className="text-sm text-white font-medium">{image.uploaderName}</span>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+          {/* Second set for seamless loop */}
+          <div
+            className="grid gap-1 p-1"
+            style={{
+              gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+            }}
+          >
+            {displayImages.map((image) => (
+              <button
+                key={`${image.id}-dup`}
+                onClick={() => openLightbox(image)}
+                className="relative aspect-square overflow-hidden bg-white/10 focus:outline-none"
+              >
+                {!loadedImages.has(image.id) && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white/30 animate-spin" />
+                  </div>
+                )}
+                <img
+                  src={image.url}
+                  alt={image.uploaderName}
+                  className={`w-full h-full object-cover relative z-10 ${fadeEffect ? 'fade-effect-image' : ''}`}
+                  loading="eager"
+                />
+                {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
+                  <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
+                    <span className="text-sm text-white font-medium">{image.uploaderName}</span>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
-      ref={scrollContainerRef}
-      className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white overflow-y-auto"
+      className={`min-h-screen bg-gradient-to-br from-gray-900 to-black text-white ${
+        displayMode === 'scroll' ? 'h-screen overflow-hidden' : 'overflow-y-auto'
+      }`}
     >
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-black/80 backdrop-blur-sm border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold">{title}</h1>
+      {/* Header - can be hidden */}
+      {!headerHidden && (
+        <div className="sticky top-0 z-30 bg-black/80 backdrop-blur-sm border-b border-white/10">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <h1 className="text-lg font-semibold">{title}</h1>
 
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Settings Panel */}
-        {showSettings && (
-          <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
-            {/* First row: Image count, Grid size, Delete all */}
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-white/60 whitespace-nowrap">
-                {images.length} תמונות
-              </span>
-
-              <div className="flex-1 flex items-center gap-2">
-                <span className="text-xs text-white/40">רשת:</span>
-                <input
-                  type="range"
-                  min="2"
-                  max="6"
-                  value={gridColumns}
-                  onChange={(e) => setGridColumns(Number(e.target.value))}
-                  className="flex-1 h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <span className="text-xs text-white/40 w-4">{gridColumns}</span>
-              </div>
-
-              {/* Delete all button (owner only) */}
-              {isOwner && images.length > 0 && (
-                <button
-                  onClick={() => setShowDeleteAllConfirm(true)}
-                  disabled={deletingAll}
-                  className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
-                  title="מחק הכל"
-                >
-                  {deletingAll ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                </button>
+            <div className="flex items-center gap-2">
+              {savingSettings && (
+                <Loader2 className="w-4 h-4 animate-spin text-white/40" />
               )}
-            </div>
-
-            {/* Second row: Display limit + Auto-scroll */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-white/40">הצג:</span>
-                <div className="flex gap-1">
-                  {[0, 10, 20, 50, 100].map((limit) => (
-                    <button
-                      key={limit}
-                      onClick={() => setDisplayLimit(limit)}
-                      className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                        displayLimit === limit
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white/10 text-white/60 hover:bg-white/20'
-                      }`}
-                    >
-                      {limit === 0 ? 'הכל' : limit}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Auto-scroll toggle */}
               <button
-                onClick={() => setAutoScroll(!autoScroll)}
-                className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                  autoScroll
-                    ? 'bg-green-500 text-white'
-                    : 'bg-white/10 text-white/60 hover:bg-white/20'
-                }`}
+                onClick={() => setShowSettings(!showSettings)}
+                className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}
               >
-                {autoScroll ? '⏸ עצור גלילה' : '▶ גלילה אוטומטית'}
+                <Settings className="w-5 h-5" />
               </button>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Settings Panel with smooth animation */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-out ${
+              showSettings ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+              {/* Row 1: Delete all (left) and Display limit (right) */}
+              <div className="flex items-center justify-between">
+                {isOwner && images.length > 0 ? (
+                  <button
+                    onClick={() => setShowDeleteAllConfirm(true)}
+                    disabled={deletingAll}
+                    className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                    title="מחק הכל"
+                  >
+                    {deletingAll ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    {[0, 10, 20, 50, 100].map((limit) => (
+                      <button
+                        key={limit}
+                        onClick={() => updateDisplayLimit(limit)}
+                        className={`px-2.5 py-1 text-sm rounded-lg transition-colors ${
+                          displayLimit === limit
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white/10 text-white/60 hover:bg-white/20'
+                        }`}
+                      >
+                        {limit === 0 ? 'הכל' : limit}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-sm text-white/50">הצג אחרונות</span>
+                </div>
+              </div>
+
+              {/* Row 2: Grid size and image count */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-white/60 whitespace-nowrap">
+                  {images.length} תמונות
+                </span>
+                <div className="flex-1 flex items-center gap-2">
+                  <span className="text-sm text-white/50 w-4">{gridColumns}</span>
+                  <input
+                    type="range"
+                    min="2"
+                    max="6"
+                    value={gridColumns}
+                    onChange={(e) => updateGridColumns(Number(e.target.value))}
+                    className="w-24 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                  <span className="text-sm text-white/50">רשת</span>
+                </div>
+              </div>
+
+              {/* Row 3: Display mode + Show names toggle + Fade effect toggle */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {/* Display mode buttons */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => updateDisplayMode('static')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg transition-colors ${
+                      displayMode === 'static'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    רגיל
+                  </button>
+                  <button
+                    onClick={() => updateDisplayMode('scroll')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg transition-colors ${
+                      displayMode === 'scroll'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    גלילה
+                  </button>
+                  <button
+                    onClick={() => updateDisplayMode('shuffle')}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg transition-colors ${
+                      displayMode === 'shuffle'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    <Shuffle className="w-3.5 h-3.5" />
+                    הופעה
+                  </button>
+                </div>
+
+                {/* Toggles */}
+                <div className="flex items-center gap-4">
+                  {/* Show names toggle */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={toggleShowNames}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
+                        showNames ? 'bg-blue-500' : 'bg-white/20'
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
+                          showNames ? 'right-0.5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-xs text-white/50">שמות</span>
+                  </div>
+
+                  {/* Fade effect toggle */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={toggleFadeEffect}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
+                        fadeEffect ? 'bg-blue-500' : 'bg-white/20'
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
+                          fadeEffect ? 'right-0.5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-xs text-white/50">תנועה</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grid */}
       {images.length === 0 ? (
@@ -307,54 +939,29 @@ export default function GalleryClient({
           </a>
         </div>
       ) : (
-        <div
-          ref={galleryRef}
-          className="grid gap-1 p-1"
-          style={{
-            gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
-          }}
-        >
-          {(displayLimit > 0 ? images.slice(0, displayLimit) : images).map((image, index) => (
-            <button
-              key={image.id}
-              onClick={() => setLightboxImage(image)}
-              className={`relative aspect-square overflow-hidden bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                newImageIds.has(image.id) ? 'animate-bounceIn' : 'animate-staggerIn'
-              }`}
-              style={{
-                animationDelay: newImageIds.has(image.id) ? '0ms' : `${index * 50}ms`,
-              }}
-            >
-              <img
-                src={image.url}
-                alt={image.uploaderName}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-              {/* Name overlay on hover */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 hover:opacity-100 transition-opacity">
-                <p className="text-xs text-white truncate">{image.uploaderName}</p>
-              </div>
-            </button>
-          ))}
-        </div>
+        renderGrid()
       )}
 
       {/* Lightbox */}
       {lightboxImage && (
         <div
           className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
-          onClick={() => setLightboxImage(null)}
+          onClick={() => {
+            handleSaveName();
+            setLightboxImage(null);
+          }}
         >
-          {/* Close button */}
           <button
-            onClick={() => setLightboxImage(null)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSaveName();
+              setLightboxImage(null);
+            }}
             className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10"
           >
             <X className="w-6 h-6" />
           </button>
 
-          {/* Delete button (owner only) */}
           {isOwner && (
             <button
               onClick={(e) => {
@@ -372,7 +979,6 @@ export default function GalleryClient({
             </button>
           )}
 
-          {/* Image */}
           <img
             src={lightboxImage.url}
             alt={lightboxImage.uploaderName}
@@ -380,9 +986,32 @@ export default function GalleryClient({
             onClick={(e) => e.stopPropagation()}
           />
 
-          {/* Info */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm">
-            <p className="text-white text-sm">{lightboxImage.uploaderName}</p>
+          {/* Name display/edit at bottom */}
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isOwner ? (
+              <input
+                ref={editInputRef}
+                type="text"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onBlur={handleSaveName}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveName();
+                    editInputRef.current?.blur();
+                  }
+                }}
+                placeholder="הזן שם..."
+                className="bg-transparent text-white text-sm text-center outline-none min-w-[100px] placeholder:text-white/50"
+                dir="rtl"
+              />
+            ) : (
+              <p className="text-white text-sm">{lightboxImage.uploaderName}</p>
+            )}
+            {savingName && <Loader2 className="w-4 h-4 animate-spin text-white inline-block mr-2" />}
           </div>
         </div>
       )}
@@ -394,7 +1023,7 @@ export default function GalleryClient({
           onClick={() => setShowDeleteAllConfirm(false)}
         >
           <div
-            className="bg-gray-900 border border-white/10 rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4"
+            className="bg-gray-900 border border-white/10 rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center">
@@ -412,18 +1041,33 @@ export default function GalleryClient({
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteAllConfirm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
               >
                 ביטול
               </button>
               <button
                 onClick={handleDeleteAllImages}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
               >
                 מחק הכל
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Keyboard shortcut hint */}
+      {showHint && isOwner && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-black/90 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg">
+          <span className="text-sm text-white/80">
+            לחץ על <kbd className="px-2 py-0.5 bg-white/20 rounded text-white font-mono text-xs mx-1">Ctrl</kbd> להסתרת/הצגת התפריט
+          </span>
+          <button
+            onClick={() => setShowHint(false)}
+            className="p-1 rounded hover:bg-white/20 text-white/60 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -462,6 +1106,58 @@ export default function GalleryClient({
         .animate-staggerIn {
           opacity: 0;
           animation: staggerIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes quickFadeIn {
+          0% {
+            opacity: 0;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+        .animate-quickFadeIn {
+          animation: quickFadeIn 0.3s ease-out;
+        }
+
+        @keyframes scrollUp {
+          0% {
+            transform: translateY(0);
+          }
+          100% {
+            transform: translateY(-50%);
+          }
+        }
+        .scroll-container {
+          will-change: transform;
+        }
+
+        /* Subtle video-like Ken Burns motion effect */
+        @keyframes subtleMotion {
+          0% {
+            transform: scale(1) translate(0, 0);
+          }
+          100% {
+            transform: scale(1.08) translate(-1%, -1%);
+          }
+        }
+        .fade-effect-image {
+          animation: subtleMotion 12s ease-in-out infinite alternate;
+          will-change: transform;
         }
       `}</style>
     </div>

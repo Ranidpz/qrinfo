@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { RiddleContent } from '@/types';
-import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle } from 'lucide-react';
-import { doc, updateDoc, arrayUnion, serverTimestamp, increment, Timestamp } from 'firebase/firestore';
+import { useState, useRef, useEffect } from 'react';
+import { RiddleContent, UserGalleryImage } from '@/types';
+import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2 } from 'lucide-react';
+import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface RiddleViewerProps {
@@ -72,9 +72,138 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // My uploaded images state (stored in sessionStorage by image ID)
+  const [myUploadedImages, setMyUploadedImages] = useState<UserGalleryImage[]>([]);
+  const [allGalleryImages, setAllGalleryImages] = useState<UserGalleryImage[]>([]);
+  const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
+  const [fadingOutImageId, setFadingOutImageId] = useState<string | null>(null);
+
+  // Max images per user
+  const MAX_USER_IMAGES = 3;
+
+  // Load my uploaded image IDs from sessionStorage on mount
+  useEffect(() => {
+    if (!codeId) return;
+    const storageKey = `gallery_uploads_${codeId}`;
+    const savedIds = sessionStorage.getItem(storageKey);
+    if (savedIds) {
+      const ids = JSON.parse(savedIds) as string[];
+      // Filter allGalleryImages to get my uploads, but keep fading out images
+      const myImages = allGalleryImages.filter(img => ids.includes(img.id));
+      // Only update if not currently fading out (to prevent jump)
+      if (!fadingOutImageId) {
+        setMyUploadedImages(myImages);
+      } else {
+        // Keep the fading image in the list until animation completes
+        const fadingImage = myUploadedImages.find(img => img.id === fadingOutImageId);
+        if (fadingImage && !myImages.find(img => img.id === fadingOutImageId)) {
+          setMyUploadedImages([...myImages, fadingImage]);
+        } else {
+          setMyUploadedImages(myImages);
+        }
+      }
+    }
+  }, [codeId, allGalleryImages, fadingOutImageId]);
+
+  // Listen to gallery images from Firestore
+  useEffect(() => {
+    if (!codeId) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'codes', codeId), (docSnap) => {
+      if (!docSnap.exists()) return;
+
+      const data = docSnap.data();
+      const gallery = (data.userGallery || []) as Array<{
+        id: string;
+        url: string;
+        uploaderName: string;
+        uploadedAt: { toDate?: () => Date } | Date;
+      }>;
+
+      const images: UserGalleryImage[] = gallery.map((img) => ({
+        id: img.id,
+        url: img.url,
+        uploaderName: img.uploaderName,
+        uploadedAt: img.uploadedAt && typeof (img.uploadedAt as { toDate?: () => Date }).toDate === 'function'
+          ? (img.uploadedAt as { toDate: () => Date }).toDate()
+          : new Date(img.uploadedAt as unknown as string),
+      }));
+
+      setAllGalleryImages(images);
+    });
+
+    return () => unsubscribe();
+  }, [codeId]);
+
+  // Save uploaded image ID to sessionStorage
+  const saveUploadedImageId = (imageId: string) => {
+    if (!codeId) return;
+    const storageKey = `gallery_uploads_${codeId}`;
+    const savedIds = sessionStorage.getItem(storageKey);
+    const ids = savedIds ? JSON.parse(savedIds) as string[] : [];
+    if (!ids.includes(imageId)) {
+      ids.push(imageId);
+      sessionStorage.setItem(storageKey, JSON.stringify(ids));
+    }
+  };
+
+  // Remove image ID from sessionStorage
+  const removeUploadedImageId = (imageId: string) => {
+    if (!codeId) return;
+    const storageKey = `gallery_uploads_${codeId}`;
+    const savedIds = sessionStorage.getItem(storageKey);
+    if (savedIds) {
+      const ids = (JSON.parse(savedIds) as string[]).filter(id => id !== imageId);
+      sessionStorage.setItem(storageKey, JSON.stringify(ids));
+    }
+  };
+
+  // Handle delete my uploaded image
+  const handleDeleteMyImage = async (image: UserGalleryImage) => {
+    if (!codeId || !ownerId || deletingImageId) return;
+
+    setDeletingImageId(image.id);
+
+    try {
+      // Delete from Vercel Blob
+      await fetch('/api/gallery', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: image.url }),
+      });
+
+      // Remove from Firestore
+      const codeRef = doc(db, 'codes', codeId);
+      const currentGallery = allGalleryImages.filter(img => img.id !== image.id);
+      await updateDoc(codeRef, {
+        userGallery: currentGallery.map(img => ({
+          id: img.id,
+          url: img.url,
+          uploaderName: img.uploaderName,
+          uploadedAt: Timestamp.fromDate(new Date(img.uploadedAt)),
+        })),
+      });
+
+      // Remove from sessionStorage
+      removeUploadedImageId(image.id);
+
+      // Start fade-out animation, then remove from display
+      setFadingOutImageId(image.id);
+      setTimeout(() => {
+        setFadingOutImageId(null);
+        setMyUploadedImages(prev => prev.filter(img => img.id !== image.id));
+      }, 300); // Match animation duration
+    } catch (error) {
+      console.error('Error deleting image:', error);
+    } finally {
+      setDeletingImageId(null);
+    }
+  };
+
   const youtubeId = content.youtubeUrl ? extractYoutubeId(content.youtubeUrl) : null;
   const hasImages = content.images && content.images.length > 0;
   const galleryEnabled = content.galleryEnabled && codeId;
+  const canUploadMore = myUploadedImages.length < MAX_USER_IMAGES;
 
   const openLightbox = (index: number) => {
     setCurrentImageIndex(index);
@@ -167,6 +296,18 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
       await updateDoc(ownerRef, {
         storageUsed: increment(data.image.size),
       });
+
+      // Save the image ID to sessionStorage
+      saveUploadedImageId(data.image.id);
+
+      // Add to myUploadedImages immediately (no need to wait for Firestore listener)
+      const newImage: UserGalleryImage = {
+        id: data.image.id,
+        url: data.image.url,
+        uploaderName: data.image.uploaderName,
+        uploadedAt: new Date(),
+      };
+      setMyUploadedImages(prev => [...prev, newImage]);
 
       setUploadStatus('success');
 
@@ -361,32 +502,68 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
         onChange={handleFileSelect}
       />
 
-      {/* Floating Camera Button */}
+      {/* Floating Camera Button and My Gallery */}
       {galleryEnabled && (
-        <button
-          onClick={handleCameraClick}
-          disabled={uploading}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-6 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-        >
-          {uploading ? (
-            <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
-          ) : uploadStatus === 'success' ? (
-            <Check className="w-5 h-5 text-green-500" />
-          ) : uploadStatus === 'error' ? (
-            <AlertCircle className="w-5 h-5 text-red-500" />
-          ) : (
-            <Camera className="w-5 h-5 text-gray-600" />
+        <div className="fixed bottom-4 left-0 right-0 z-40 flex flex-col items-center gap-2 px-4">
+          {/* My Uploaded Images Gallery - Full width on mobile */}
+          {myUploadedImages.length > 0 && (
+            <div className="w-full max-w-md flex justify-center gap-2 bg-black/50 backdrop-blur-sm rounded-2xl p-2">
+              {myUploadedImages.map((img) => (
+                <div
+                  key={img.id}
+                  className={`relative flex-1 max-w-[100px] transition-all duration-300 ${
+                    fadingOutImageId === img.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100'
+                  }`}
+                >
+                  <img
+                    src={img.url}
+                    alt=""
+                    className="w-full aspect-square rounded-xl object-cover border-2 border-white/30"
+                  />
+                  <button
+                    onClick={() => handleDeleteMyImage(img)}
+                    disabled={deletingImageId === img.id || fadingOutImageId === img.id}
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg disabled:opacity-50"
+                  >
+                    {deletingImageId === img.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3 h-3" />
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
-          <span className="text-sm font-medium text-gray-700">
-            {uploading
-              ? 'מעלה...'
-              : uploadStatus === 'success'
-              ? 'הועלה!'
-              : uploadStatus === 'error'
-              ? 'שגיאה'
-              : 'צלמו כאן'}
-          </span>
-        </button>
+
+          {/* Camera Button */}
+          <button
+            onClick={handleCameraClick}
+            disabled={uploading || !canUploadMore}
+            className="flex items-center gap-2 px-6 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+          >
+            {uploading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
+            ) : uploadStatus === 'success' ? (
+              <Check className="w-5 h-5 text-green-500" />
+            ) : uploadStatus === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-red-500" />
+            ) : (
+              <Camera className="w-5 h-5 text-gray-600" />
+            )}
+            <span className="text-sm font-medium text-gray-700">
+              {uploading
+                ? 'מעלה...'
+                : uploadStatus === 'success'
+                ? 'הועלה!'
+                : uploadStatus === 'error'
+                ? 'שגיאה'
+                : !canUploadMore
+                ? 'הגעת למקסימום'
+                : 'צלמו כאן'}
+            </span>
+          </button>
+        </div>
       )}
 
       {/* Name Input Modal */}
