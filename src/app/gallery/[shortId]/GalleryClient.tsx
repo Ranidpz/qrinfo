@@ -1106,7 +1106,7 @@ export default function GalleryClient({
                       <Play className="w-5 h-5" />
                     </button>
                   </Tooltip>
-                  <Tooltip text="מצב הופעה">
+                  <Tooltip text="מצב רנדומלי">
                     <button
                       onClick={() => updateDisplayMode('shuffle')}
                       className={`p-2 rounded-lg transition-colors ${
