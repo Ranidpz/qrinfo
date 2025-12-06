@@ -2,10 +2,22 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam';
 
 // Riddle content structure
 export interface RiddleContent {
+  title: string;
+  content: string; // Supports emojis, line breaks, WhatsApp-style formatting
+  backgroundColor: string;
+  textColor: string;
+  youtubeUrl?: string; // YouTube video URL for embedding
+  images?: string[]; // Array of uploaded image URLs
+  galleryEnabled?: boolean; // Allow users to upload selfies
+  allowAnonymous?: boolean; // Allow anonymous uploads (no name required)
+}
+
+// Selfiebeam content structure (same as RiddleContent for now, may diverge later)
+export interface SelfiebeamContent {
   title: string;
   content: string; // Supports emojis, line breaks, WhatsApp-style formatting
   backgroundColor: string;
@@ -62,6 +74,7 @@ export interface MediaItem {
   linkUrl?: string;     // Optional external link for the media
   linkTitle?: string;   // Display name for the link button
   riddleContent?: RiddleContent; // Content for riddle type
+  selfiebeamContent?: SelfiebeamContent; // Content for selfiebeam type
   createdAt: Date;
 }
 

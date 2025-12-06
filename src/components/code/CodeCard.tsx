@@ -83,6 +83,8 @@ function getMediaLabel(type: MediaType): string {
       return 'ענן מילים';
     case 'riddle':
       return 'כתב חידה';
+    case 'selfiebeam':
+      return 'סלפי בים';
     default:
       return 'מדיה';
   }
@@ -278,6 +280,8 @@ export default function CodeCard({
               <FileText className="w-6 h-6 text-red-500" />
             ) : mediaType === 'riddle' ? (
               <img src="/media/riddle.jpg" alt={title} className="w-full h-full object-cover" />
+            ) : mediaType === 'selfiebeam' ? (
+              <img src="/media/SELFIEBEAM.jpg" alt={title} className="w-full h-full object-cover" />
             ) : thumbnail ? (
               <img src={thumbnail} alt={title} className="w-full h-full object-cover" />
             ) : (
@@ -436,6 +440,12 @@ export default function CodeCard({
         ) : mediaType === 'riddle' ? (
           <img
             src="/media/riddle.jpg"
+            alt={title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : mediaType === 'selfiebeam' ? (
+          <img
+            src="/media/SELFIEBEAM.jpg"
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />

@@ -11,7 +11,8 @@ import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
 import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
-import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent } from '@/types';
+import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
+import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
@@ -61,6 +62,8 @@ export default function DashboardPage() {
   const [addingRiddle, setAddingRiddle] = useState(false);
   const [wordCloudModalOpen, setWordCloudModalOpen] = useState(false);
   const [addingWordCloud, setAddingWordCloud] = useState(false);
+  const [selfiebeamModalOpen, setSelfiebeamModalOpen] = useState(false);
+  const [addingSelfiebeam, setAddingSelfiebeam] = useState(false);
 
   // Handle folder param from URL (when returning from code edit)
   useEffect(() => {
@@ -327,6 +330,74 @@ export default function DashboardPage() {
       alert('שגיאה ביצירת כתב החידה. נסה שוב.');
     } finally {
       setAddingRiddle(false);
+    }
+  };
+
+  const handleSelfiebeamCreate = async (content: SelfiebeamContent, imageFiles: File[]) => {
+    if (!user) return;
+
+    setAddingSelfiebeam(true);
+
+    try {
+      // Upload images if any
+      const uploadedImages: string[] = [];
+      let totalImageSize = 0;
+
+      for (const file of imageFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', user.id);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload image');
+        }
+
+        const uploadData = await uploadResponse.json();
+        uploadedImages.push(uploadData.url);
+        totalImageSize += uploadData.size;
+      }
+
+      // Create selfiebeam content with uploaded image URLs
+      const selfiebeamContent: SelfiebeamContent = {
+        ...content,
+        images: uploadedImages,
+      };
+
+      // Create QR code with selfiebeam (in current folder if inside one)
+      const newCode = await createQRCode(user.id, content.title, [
+        {
+          url: '', // Selfiebeam doesn't have a direct URL
+          type: 'selfiebeam',
+          size: totalImageSize,
+          order: 0,
+          uploadedBy: user.id,
+          title: content.title,
+          selfiebeamContent: selfiebeamContent,
+        },
+      ], currentFolderId);
+
+      // Update user storage for images
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+        await refreshUser();
+      }
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setSelfiebeamModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating selfiebeam:', error);
+      alert('שגיאה ביצירת סלפי בים. נסה שוב.');
+    } finally {
+      setAddingSelfiebeam(false);
     }
   };
 
@@ -770,6 +841,7 @@ export default function DashboardPage() {
                   onLinkAdd={handleLinkAdd}
                   onRiddleCreate={() => setRiddleModalOpen(true)}
                   onWordCloudCreate={() => setWordCloudModalOpen(true)}
+                  onSelfiebeamCreate={() => setSelfiebeamModalOpen(true)}
                   disabled={uploading}
                 />
               </div>
@@ -1234,6 +1306,14 @@ export default function DashboardPage() {
         onClose={() => setWordCloudModalOpen(false)}
         onSave={handleWordCloudCreate}
         loading={addingWordCloud}
+      />
+
+      {/* Selfiebeam Modal */}
+      <SelfiebeamModal
+        isOpen={selfiebeamModalOpen}
+        onClose={() => setSelfiebeamModalOpen(false)}
+        onSave={handleSelfiebeamCreate}
+        loading={addingSelfiebeam}
       />
     </div>
   );

@@ -34,13 +34,14 @@ import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode } from '@/lib/db';
 import { subscribeToCodeViews } from '@/lib/analytics';
-import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, QRSign } from '@/types';
+import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign } from '@/types';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import ScheduleModal from '@/components/modals/ScheduleModal';
 import MediaLinkModal from '@/components/modals/MediaLinkModal';
 import AddLinkModal from '@/components/modals/AddLinkModal';
 import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
+import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QRSignModal from '@/components/modals/QRSignModal';
 import WhatsAppWidgetModal from '@/components/modals/WhatsAppWidgetModal';
 import { clsx } from 'clsx';
@@ -115,6 +116,11 @@ export default function CodeEditPage({ params }: PageProps) {
   // WordCloud modal state
   const [wordCloudModalOpen, setWordCloudModalOpen] = useState(false);
   const [addingWordCloud, setAddingWordCloud] = useState(false);
+
+  // Selfiebeam modal state
+  const [selfiebeamModalOpen, setSelfiebeamModalOpen] = useState(false);
+  const [addingSelfiebeam, setAddingSelfiebeam] = useState(false);
+  const [editingSelfiebeamId, setEditingSelfiebeamId] = useState<string | null>(null);
 
   // Widget modals state
   const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
@@ -914,6 +920,117 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  // Handler for adding or editing a selfiebeam
+  const handleSaveSelfiebeam = async (content: SelfiebeamContent, imageFiles: File[]) => {
+    if (!code || !user) return;
+
+    setAddingSelfiebeam(true);
+    try {
+      // Get the original images from the existing selfiebeam (if editing)
+      const existingSelfiebeam = editingSelfiebeamId
+        ? code.media.find(m => m.id === editingSelfiebeamId)?.selfiebeamContent
+        : null;
+      const originalImages = existingSelfiebeam?.images || [];
+
+      // Find images that were removed (in original but not in content.images)
+      const removedImages = originalImages.filter(
+        (url) => !content.images?.includes(url)
+      );
+
+      // Delete removed images from Vercel Blob
+      for (const imageUrl of removedImages) {
+        try {
+          await fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: imageUrl }),
+          });
+        } catch (error) {
+          console.error('Failed to delete image from blob:', error);
+        }
+      }
+
+      let uploadedImageUrls: string[] = [...(content.images || [])];
+      let totalImageSize = 0;
+
+      // Upload any new images
+      for (const file of imageFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', user.id);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Image upload failed');
+        }
+
+        const uploadData = await uploadResponse.json();
+        uploadedImageUrls.push(uploadData.url);
+        totalImageSize += uploadData.size;
+      }
+
+      let updatedMedia: MediaItem[];
+
+      if (editingSelfiebeamId) {
+        // Update existing selfiebeam
+        const existingMedia = code.media.find(m => m.id === editingSelfiebeamId);
+        const oldSize = existingMedia?.size || 0;
+
+        updatedMedia = code.media.map((m) =>
+          m.id === editingSelfiebeamId
+            ? {
+                ...m,
+                title: content.title,
+                size: oldSize + totalImageSize,
+                selfiebeamContent: {
+                  ...content,
+                  images: uploadedImageUrls,
+                },
+              }
+            : m
+        );
+      } else {
+        // Create new selfiebeam media item
+        const newMedia: MediaItem = {
+          id: `media_${Date.now()}`,
+          url: '', // Selfiebeam doesn't have a direct URL
+          type: 'selfiebeam',
+          size: totalImageSize,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: content.title,
+          selfiebeamContent: {
+            ...content,
+            images: uploadedImageUrls,
+          },
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+      }
+
+      await updateQRCode(code.id, { media: updatedMedia });
+
+      // Update user storage if images were uploaded
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+        await refreshUser();
+      }
+
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      setSelfiebeamModalOpen(false);
+      setEditingSelfiebeamId(null);
+    } catch (error) {
+      console.error('Error saving selfiebeam:', error);
+      alert('שגיאה בשמירת סלפי בים. נסה שוב.');
+    } finally {
+      setAddingSelfiebeam(false);
+    }
+  };
+
   const handleSaveWhatsappWidget = async (groupLink: string | undefined) => {
     if (!code) return;
 
@@ -1389,6 +1506,16 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
 
+                {/* Selfiebeam Button */}
+                <Tooltip text="סלפי בים">
+                  <button
+                    onClick={() => setSelfiebeamModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
                 {/* Minigames Button - Coming Soon */}
                 <Tooltip text="מיניגיימס - בקרוב">
                   <button
@@ -1474,6 +1601,13 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <ScrollText className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: media.riddleContent?.textColor || '#fff' }} />
                       </div>
+                    ) : media.type === 'selfiebeam' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ backgroundColor: media.selfiebeamContent?.backgroundColor || '#1a1a2e' }}
+                      >
+                        <Camera className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: media.selfiebeamContent?.textColor || '#fff' }} />
+                      </div>
                     ) : (
                       <img
                         src={media.url}
@@ -1487,11 +1621,11 @@ export default function CodeEditPage({ params }: PageProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-text-primary">
-                        {media.type === 'link' ? 'לינק' : media.type === 'riddle' ? (media.riddleContent?.title || 'כתב חידה') : media.type === 'wordcloud' ? 'ענן מילים' : media.type.toUpperCase()}
+                        {media.type === 'link' ? 'לינק' : media.type === 'riddle' ? (media.riddleContent?.title || 'כתב חידה') : media.type === 'selfiebeam' ? (media.selfiebeamContent?.title || 'סלפי בים') : media.type === 'wordcloud' ? 'ענן מילים' : media.type.toUpperCase()}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
                     </div>
-                    {media.type !== 'riddle' && (
+                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && (
                       <p className="text-xs text-text-secondary truncate mt-1 hidden sm:block" dir="ltr">
                         {media.url}
                       </p>
@@ -1554,8 +1688,42 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
-                  {/* Replace button - not for links or riddles */}
-                  {media.type !== 'link' && media.type !== 'riddle' && (
+                  {/* Edit button for selfiebeam */}
+                  {media.type === 'selfiebeam' && (
+                    <Tooltip text="ערוך">
+                      <button
+                        onClick={() => {
+                          setEditingSelfiebeamId(media.id);
+                          setSelfiebeamModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Gallery button for selfiebeam with gallery enabled */}
+                  {media.type === 'selfiebeam' && media.selfiebeamContent?.galleryEnabled && (
+                    <Tooltip text={`גלריית סלפי (${code.userGallery?.length || 0})`}>
+                      <a
+                        href={`/gallery/${code.shortId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-lg hover:bg-bg-hover text-accent relative"
+                      >
+                        <Camera className="w-4 h-4" />
+                        {(code.userGallery?.length || 0) > 0 && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                            {code.userGallery!.length > 9 ? '9+' : code.userGallery!.length}
+                          </span>
+                        )}
+                      </a>
+                    </Tooltip>
+                  )}
+
+                  {/* Replace button - not for links, riddles, or selfiebeams */}
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && (
                     <Tooltip text="החלף קובץ">
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -1724,6 +1892,18 @@ export default function CodeEditPage({ params }: PageProps) {
         onClose={() => setWordCloudModalOpen(false)}
         onSave={handleAddWordCloud}
         loading={addingWordCloud}
+      />
+
+      {/* Selfiebeam Modal */}
+      <SelfiebeamModal
+        isOpen={selfiebeamModalOpen}
+        onClose={() => {
+          setSelfiebeamModalOpen(false);
+          setEditingSelfiebeamId(null);
+        }}
+        onSave={handleSaveSelfiebeam}
+        loading={addingSelfiebeam}
+        initialContent={editingSelfiebeamId ? code?.media.find(m => m.id === editingSelfiebeamId)?.selfiebeamContent : undefined}
       />
 
       {/* QR Sign Modal */}

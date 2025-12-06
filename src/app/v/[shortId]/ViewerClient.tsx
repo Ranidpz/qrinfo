@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { MediaItem, CodeWidgets, LinkSource } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import RiddleViewer from '@/components/viewer/RiddleViewer';
+import SelfiebeamViewer from '@/components/viewer/SelfiebeamViewer';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -662,6 +663,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isLink = media.length === 1 && currentMedia?.type === 'link';
   const isRiddle = media.length === 1 && currentMedia?.type === 'riddle';
   const isWordCloud = media.length === 1 && currentMedia?.type === 'wordcloud';
+  const isSelfiebeam = media.length === 1 && currentMedia?.type === 'selfiebeam';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages;
@@ -773,6 +775,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                 <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
                   {item.type === 'riddle' && item.riddleContent ? (
                     <RiddleViewer content={item.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+                  ) : item.type === 'selfiebeam' && item.selfiebeamContent ? (
+                    <SelfiebeamViewer content={item.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
                   ) : item.type === 'pdf' ? (
                     <PDFFlipBookViewer url={item.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
                   ) : item.type === 'video' ? (
@@ -888,6 +892,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           </div>
         ) : isRiddle && currentMedia.riddleContent ? (
           <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+        ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
+          <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
         ) : isAllImages && hasMultipleMedia ? (

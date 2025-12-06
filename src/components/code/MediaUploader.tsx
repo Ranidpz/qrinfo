@@ -9,6 +9,7 @@ interface MediaUploaderProps {
   onLinkAdd?: (url: string) => void;
   onRiddleCreate?: () => void;
   onWordCloudCreate?: () => void;
+  onSelfiebeamCreate?: () => void;
   maxSize?: number; // bytes
   accept?: string[];
   disabled?: boolean;
@@ -19,11 +20,12 @@ export default function MediaUploader({
   onLinkAdd,
   onRiddleCreate,
   onWordCloudCreate,
+  onSelfiebeamCreate,
   maxSize = 5 * 1024 * 1024, // 5MB default
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'minigames'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'minigames'>('upload');
   const [linkUrl, setLinkUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,7 +124,7 @@ export default function MediaUploader({
                 : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
             )}
           >
-            העלאת תוכן
+            מדיה
           </button>
           {onLinkAdd && (
             <button
@@ -161,6 +163,19 @@ export default function MediaUploader({
               )}
             >
               ענן מילים
+            </button>
+          )}
+          {onSelfiebeamCreate && (
+            <button
+              onClick={() => setActiveTab('selfiebeam')}
+              className={clsx(
+                'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
+                activeTab === 'selfiebeam'
+                  ? 'bg-accent text-white'
+                  : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
+              )}
+            >
+              סלפי בים
             </button>
           )}
           <button
@@ -311,6 +326,34 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             צור ענן מילים
+          </button>
+        </div>
+      ) : activeTab === 'selfiebeam' ? (
+        /* Selfiebeam creation */
+        <div className="space-y-4">
+          <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
+            <div className="w-20 h-20 rounded-xl overflow-hidden">
+              <img
+                src="/media/SELFIEBEAM.jpg"
+                alt="סלפי בים"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-text-primary mb-1">
+                סלפי בים
+              </h3>
+              <p className="text-sm text-text-secondary">
+                קיר סלפי לאירועים - צור דף נחיתה עם גלריית סלפי משותפת
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onSelfiebeamCreate}
+            disabled={disabled}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            צור סלפי בים
           </button>
         </div>
       ) : activeTab === 'minigames' ? (
