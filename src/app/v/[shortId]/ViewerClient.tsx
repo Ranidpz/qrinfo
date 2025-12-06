@@ -180,15 +180,8 @@ const PDFFlipBookViewer = memo(({
   }, []);
 
   if (pages.length === 0) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
-        <div className="text-white text-center">
-          <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-lg">טוען את הספר...</p>
-          <p className="text-sm text-white/60 mt-2">אנא המתן</p>
-        </div>
-      </div>
-    );
+    // Return empty div - main LoadingSpinner handles loading state
+    return <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black" />;
   }
 
   return (

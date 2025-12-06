@@ -1,9 +1,41 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { UserGalleryImage, GallerySettings, GalleryDisplayMode } from '@/types';
 import { X, Trash2, Settings, Loader2, ImageIcon, Play, Shuffle } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
+
+// Styled tooltip component that appears immediately on hover
+// position: 'below' (default) or 'above'
+function Tooltip({ children, text, position = 'below' }: { children: ReactNode; text: string; position?: 'below' | 'above' }) {
+  if (position === 'above') {
+    return (
+      <div className="relative group/tooltip">
+        {children}
+        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-black text-white text-xs rounded-lg shadow-xl whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-100 border border-white/20" style={{ zIndex: 9999 }}>
+          {text}
+          {/* Arrow pointing down */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+            <div className="border-4 border-transparent border-t-black" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative group/tooltip">
+      {children}
+      <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1.5 bg-black text-white text-xs rounded-lg shadow-xl whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-100 border border-white/20" style={{ zIndex: 9999 }}>
+        {text}
+        {/* Arrow pointing up */}
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[-1px]">
+          <div className="border-4 border-transparent border-b-black" />
+        </div>
+      </div>
+    </div>
+  );
+}
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -79,10 +111,11 @@ export default function GalleryClient({
   const [showHint, setShowHint] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
 
-  // Track which images have been seen (for NEW badge)
-  const [seenImages, setSeenImages] = useState<Set<string>>(() => {
+  // Track which images have been displayed (for NEW badge)
+  // An image shows NEW badge until it's been displayed once in the grid
+  const [displayedImages, setDisplayedImages] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(`gallery-seen-${codeId}`);
+      const stored = localStorage.getItem(`gallery-displayed-${codeId}`);
       return stored ? new Set(JSON.parse(stored)) : new Set();
     }
     return new Set();
@@ -102,8 +135,13 @@ export default function GalleryClient({
   // Track last image shown in each slot (to prevent returning to same slot)
   const lastImageInSlotRef = useRef<Map<number, string>>(new Map());
 
-  // Track loaded images to hide spinners
-  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  // Ref to hold current images for shuffle mode (so effect doesn't re-run on image changes)
+  const imagesRef = useRef<UserGalleryImage[]>(initialImages);
+
+  // Track loaded images to hide spinners - use ref to persist across re-renders
+  // Initialize with all initial images as "loaded" since they come from server
+  const loadedImagesRef = useRef<Set<string>>(new Set(initialImages.map(img => img.id)));
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(() => new Set(initialImages.map(img => img.id)));
 
   // Edit name state
   const [editingName, setEditingName] = useState<string>('');
@@ -173,7 +211,41 @@ export default function GalleryClient({
         }, 600);
       }
 
-      previousImagesRef.current = new Set(newImages.map(img => img.id));
+      // Detect deleted images and remove them from shuffle grid
+      const currentImageIds = new Set(newImages.map(img => img.id));
+      const deletedIds: string[] = [];
+      previousImagesRef.current.forEach(id => {
+        if (!currentImageIds.has(id)) {
+          deletedIds.push(id);
+        }
+      });
+
+      // Remove deleted images from visible slots
+      if (deletedIds.length > 0) {
+        deletedIds.forEach(deletedId => {
+          // Find and clear slots with deleted images
+          currentlyAssignedRef.current.forEach((imgId, slotIndex) => {
+            if (imgId === deletedId) {
+              currentlyAssignedRef.current.delete(slotIndex);
+            }
+          });
+        });
+        // Update visible slots to remove deleted images
+        setVisibleSlots(prev => {
+          const updated = new Map(prev);
+          deletedIds.forEach(deletedId => {
+            updated.forEach((img, slotIndex) => {
+              if (img.id === deletedId) {
+                updated.delete(slotIndex);
+              }
+            });
+          });
+          return updated;
+        });
+      }
+
+      previousImagesRef.current = currentImageIds;
+      imagesRef.current = newImages;
       setImages(newImages);
 
       // Update gallery settings from Firebase (only if not currently saving)
@@ -204,7 +276,9 @@ export default function GalleryClient({
     slotIndex: number,
     excludeImageId?: string // Don't use this image (e.g., the one being replaced)
   ): UserGalleryImage | null => {
-    const displayImages = displayLimit > 0 ? images.slice(0, displayLimit) : images;
+    // Use ref to get current images (avoids re-running effect on image changes)
+    const currentImages = imagesRef.current;
+    const displayImages = displayLimit > 0 ? currentImages.slice(0, displayLimit) : currentImages;
     if (displayImages.length === 0) return null;
 
     // Get IDs of images in adjacent slots
@@ -231,24 +305,44 @@ export default function GalleryClient({
     }
 
     return displayImages[0];
-  }, [images, displayLimit, gridSize, gridColumns]);
+  }, [displayLimit, gridSize, gridColumns]);
+
+  // Track if shuffle mode was already initialized
+  const shuffleInitializedRef = useRef(false);
+
+  // Track if we have images (to trigger effect once when images arrive)
+  const hasImages = images.length > 0;
 
   // Shuffle mode effect - fills grid then swaps images
   useEffect(() => {
-    if (displayMode !== 'shuffle' || images.length === 0) {
+    // Use ref to check images (not state, to avoid re-running on every image change)
+    if (displayMode !== 'shuffle' || !hasImages) {
       if (shuffleIntervalRef.current) {
         clearInterval(shuffleIntervalRef.current);
         shuffleIntervalRef.current = null;
       }
-      setVisibleSlots(new Map());
-      setFadingOutSlot(null);
-      currentlyAssignedRef.current = new Map();
+      // Only reset if we're leaving shuffle mode
+      if (displayMode !== 'shuffle') {
+        setVisibleSlots(new Map());
+        setFadingOutSlot(null);
+        currentlyAssignedRef.current = new Map();
+        shuffleInitializedRef.current = false;
+      }
       return;
     }
 
-    // Reset state when entering shuffle mode
-    currentlyAssignedRef.current = new Map();
-    setVisibleSlots(new Map());
+    // Only reset state when ENTERING shuffle mode for the first time
+    // Don't reset if images just updated while already in shuffle mode
+    if (!shuffleInitializedRef.current) {
+      currentlyAssignedRef.current = new Map();
+      setVisibleSlots(new Map());
+      shuffleInitializedRef.current = true;
+    }
+
+    // If interval is already running, don't start another one
+    if (shuffleIntervalRef.current) {
+      return;
+    }
 
     let phase: 'filling' | 'swapping' = 'filling';
 
@@ -319,9 +413,57 @@ export default function GalleryClient({
     return () => {
       if (shuffleIntervalRef.current) {
         clearInterval(shuffleIntervalRef.current);
+        shuffleIntervalRef.current = null;
       }
     };
-  }, [displayMode, images, displayLimit, gridSize, gridColumns, getImageForSlot]);
+  }, [displayMode, hasImages, displayLimit, gridSize, gridColumns, getImageForSlot]);
+
+  // Add new images to the grid immediately when they arrive (in shuffle mode)
+  useEffect(() => {
+    if (displayMode !== 'shuffle' || newImageIds.size === 0) return;
+
+    // Get the new images that just arrived
+    const newImagesArr = images.filter(img => newImageIds.has(img.id));
+    if (newImagesArr.length === 0) return;
+
+    // Add each new image to an empty slot or replace a random one
+    newImagesArr.forEach((newImage, index) => {
+      // Delay each image slightly for a nice staggered effect
+      setTimeout(() => {
+        // Find empty slots first
+        const emptySlots: number[] = [];
+        for (let i = 0; i < gridSize; i++) {
+          if (!currentlyAssignedRef.current.has(i)) {
+            emptySlots.push(i);
+          }
+        }
+
+        let targetSlot: number;
+        if (emptySlots.length > 0) {
+          // Use an empty slot
+          targetSlot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
+        } else {
+          // Replace a random slot
+          targetSlot = Math.floor(Math.random() * gridSize);
+          // Start fade out on current image
+          setFadingOutSlot(targetSlot);
+        }
+
+        // After a short delay (for fade out if replacing), add the new image
+        setTimeout(() => {
+          currentlyAssignedRef.current.set(targetSlot, newImage.id);
+          setVisibleSlots(prev => {
+            const updated = new Map(prev);
+            updated.set(targetSlot, newImage);
+            return updated;
+          });
+          setFadingOutSlot(null);
+          setAnimatingSlot(targetSlot);
+          setTimeout(() => setAnimatingSlot(null), 300);
+        }, emptySlots.length > 0 ? 0 : 300);
+      }, index * 500); // Stagger new images by 500ms
+    });
+  }, [newImageIds, displayMode, images, gridSize]);
 
   // Handle save edited name
   const handleSaveName = async () => {
@@ -495,21 +637,24 @@ export default function GalleryClient({
     if (isOwner) saveSettings({ nameSize: value });
   }, [isOwner, saveSettings]);
 
-  // Mark images as seen when displayed
-  const markImageAsSeen = useCallback((imageId: string) => {
-    setSeenImages(prev => {
-      if (prev.has(imageId)) return prev;
-      const newSet = new Set(prev);
-      newSet.add(imageId);
-      localStorage.setItem(`gallery-seen-${codeId}`, JSON.stringify([...newSet]));
-      return newSet;
-    });
+  // Mark image as displayed - removes NEW badge after delay and saves to localStorage
+  const markImageAsDisplayed = useCallback((imageId: string) => {
+    // Delay marking as displayed so NEW badge stays visible for a few seconds
+    setTimeout(() => {
+      setDisplayedImages(prev => {
+        if (prev.has(imageId)) return prev;
+        const newSet = new Set(prev);
+        newSet.add(imageId);
+        localStorage.setItem(`gallery-displayed-${codeId}`, JSON.stringify([...newSet]));
+        return newSet;
+      });
+    }, 5000); // Keep NEW badge for 5 seconds
   }, [codeId]);
 
-  // Check if image is new (not seen before)
+  // Check if image is new (not displayed yet)
   const isNewImage = useCallback((imageId: string) => {
-    return !seenImages.has(imageId);
-  }, [seenImages]);
+    return !displayedImages.has(imageId);
+  }, [displayedImages]);
 
   // Keyboard shortcut for header toggle (Ctrl/Cmd)
   useEffect(() => {
@@ -592,11 +737,12 @@ export default function GalleryClient({
     return limitedImages;
   };
 
-  // Handle image load
+  // Handle image load - persist to ref so it survives re-renders
   const handleImageLoad = (imageId: string) => {
+    loadedImagesRef.current.add(imageId);
     setLoadedImages(prev => {
-      const newSet = new Set(prev);
-      newSet.add(imageId);
+      if (prev.has(imageId)) return prev;
+      const newSet = new Set(loadedImagesRef.current);
       return newSet;
     });
   };
@@ -663,7 +809,7 @@ export default function GalleryClient({
                       style={{ borderRadius: `${borderRadius}%` }}
                       onLoad={() => {
                         handleImageLoad(image.id);
-                        markImageAsSeen(image.id);
+                        markImageAsDisplayed(image.id);
                       }}
                     />
                     {/* NEW badge */}
@@ -724,7 +870,7 @@ export default function GalleryClient({
                 loading="lazy"
                 onLoad={() => {
                   handleImageLoad(image.id);
-                  markImageAsSeen(image.id);
+                  markImageAsDisplayed(image.id);
                 }}
               />
               {/* NEW badge */}
@@ -795,7 +941,7 @@ export default function GalleryClient({
                   loading="eager"
                   onLoad={() => {
                     handleImageLoad(image.id);
-                    markImageAsSeen(image.id);
+                    markImageAsDisplayed(image.id);
                   }}
                 />
                 {/* NEW badge */}
@@ -900,72 +1046,78 @@ export default function GalleryClient({
               <div className="flex items-center justify-between flex-wrap gap-2">
                 {/* Delete button */}
                 {isOwner && images.length > 0 ? (
-                  <button
-                    onClick={() => setShowDeleteAllConfirm(true)}
-                    disabled={deletingAll}
-                    className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
-                    title="מחק הכל"
-                  >
-                    {deletingAll ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-5 h-5" />
-                    )}
-                  </button>
+                  <Tooltip text="מחק את כל התמונות">
+                    <button
+                      onClick={() => setShowDeleteAllConfirm(true)}
+                      disabled={deletingAll}
+                      className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                    >
+                      {deletingAll ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-5 h-5" />
+                      )}
+                    </button>
+                  </Tooltip>
                 ) : (
                   <div className="w-9" />
                 )}
 
                 {/* Grid size slider */}
-                <div className="flex items-center gap-2" title="גודל רשת">
-                  <input
-                    type="range"
-                    min="2"
-                    max="6"
-                    value={gridColumns}
-                    onChange={(e) => updateGridColumns(Number(e.target.value))}
-                    className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  />
-                  <span className="text-sm text-white/60 w-3">{gridColumns}</span>
-                </div>
+                <Tooltip text="גודל הרשת">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="2"
+                      max="6"
+                      value={gridColumns}
+                      onChange={(e) => updateGridColumns(Number(e.target.value))}
+                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <span className="text-sm text-white/60 w-3">{gridColumns}</span>
+                  </div>
+                </Tooltip>
 
                 <div className="w-px h-5 bg-white/20" />
 
                 {/* Display mode buttons - icons only with tooltips */}
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => updateDisplayMode('static')}
-                    title="רגיל"
-                    className={`p-2 rounded-lg transition-colors ${
-                      displayMode === 'static'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white/10 text-white/60 hover:bg-white/20'
-                    }`}
-                  >
-                    <ImageIcon className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => updateDisplayMode('scroll')}
-                    title="גלילה"
-                    className={`p-2 rounded-lg transition-colors ${
-                      displayMode === 'scroll'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white/10 text-white/60 hover:bg-white/20'
-                    }`}
-                  >
-                    <Play className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => updateDisplayMode('shuffle')}
-                    title="הופעה"
-                    className={`p-2 rounded-lg transition-colors ${
-                      displayMode === 'shuffle'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white/10 text-white/60 hover:bg-white/20'
-                    }`}
-                  >
-                    <Shuffle className="w-5 h-5" />
-                  </button>
+                  <Tooltip text="תצוגה רגילה">
+                    <button
+                      onClick={() => updateDisplayMode('static')}
+                      className={`p-2 rounded-lg transition-colors ${
+                        displayMode === 'static'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      }`}
+                    >
+                      <ImageIcon className="w-5 h-5" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip text="גלילה אוטומטית">
+                    <button
+                      onClick={() => updateDisplayMode('scroll')}
+                      className={`p-2 rounded-lg transition-colors ${
+                        displayMode === 'scroll'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      }`}
+                    >
+                      <Play className="w-5 h-5" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip text="מצב הופעה">
+                    <button
+                      onClick={() => updateDisplayMode('shuffle')}
+                      className={`p-2 rounded-lg transition-colors ${
+                        displayMode === 'shuffle'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white/10 text-white/60 hover:bg-white/20'
+                      }`}
+                    >
+                      <Shuffle className="w-5 h-5" />
+                    </button>
+                  </Tooltip>
                 </div>
 
                 <div className="w-px h-5 bg-white/20" />
@@ -973,111 +1125,123 @@ export default function GalleryClient({
                 {/* Toggles */}
                 <div className="flex items-center gap-3">
                   {/* Show names toggle */}
-                  <div className="flex items-center gap-1.5" title="הצגת שמות">
-                    <button
-                      onClick={toggleShowNames}
-                      className={`relative w-10 h-5 rounded-full transition-colors ${
-                        showNames ? 'bg-blue-500' : 'bg-white/20'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
-                          showNames ? 'right-0.5' : 'left-0.5'
+                  <Tooltip text="הצג שמות על התמונות">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={toggleShowNames}
+                        className={`relative w-10 h-5 rounded-full transition-colors ${
+                          showNames ? 'bg-blue-500' : 'bg-white/20'
                         }`}
-                      />
-                    </button>
-                    <span className="text-sm text-white/60">שמות</span>
-                  </div>
+                      >
+                        <div
+                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
+                            showNames ? 'right-0.5' : 'left-0.5'
+                          }`}
+                        />
+                      </button>
+                      <span className="text-sm text-white/60">שמות</span>
+                    </div>
+                  </Tooltip>
 
                   {/* Fade effect toggle */}
-                  <div className="flex items-center gap-1.5" title="אפקט תנועה">
-                    <button
-                      onClick={toggleFadeEffect}
-                      className={`relative w-10 h-5 rounded-full transition-colors ${
-                        fadeEffect ? 'bg-blue-500' : 'bg-white/20'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
-                          fadeEffect ? 'right-0.5' : 'left-0.5'
+                  <Tooltip text="אפקט תנועה קלה">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={toggleFadeEffect}
+                        className={`relative w-10 h-5 rounded-full transition-colors ${
+                          fadeEffect ? 'bg-blue-500' : 'bg-white/20'
                         }`}
-                      />
-                    </button>
-                    <span className="text-sm text-white/60">תנועה</span>
-                  </div>
+                      >
+                        <div
+                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
+                            fadeEffect ? 'right-0.5' : 'left-0.5'
+                          }`}
+                        />
+                      </button>
+                      <span className="text-sm text-white/60">תנועה</span>
+                    </div>
+                  </Tooltip>
 
                   {/* NEW badge toggle */}
-                  <div className="flex items-center gap-1.5" title="באדג' חדש">
-                    <button
-                      onClick={toggleShowNewBadge}
-                      className={`relative w-10 h-5 rounded-full transition-colors ${
-                        showNewBadge ? 'bg-blue-500' : 'bg-white/20'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
-                          showNewBadge ? 'right-0.5' : 'left-0.5'
+                  <Tooltip text="הצג תג NEW על תמונות חדשות">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={toggleShowNewBadge}
+                        className={`relative w-10 h-5 rounded-full transition-colors ${
+                          showNewBadge ? 'bg-blue-500' : 'bg-white/20'
                         }`}
-                      />
-                    </button>
-                    <span className="text-sm text-white/60">NEW</span>
-                  </div>
+                      >
+                        <div
+                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
+                            showNewBadge ? 'right-0.5' : 'left-0.5'
+                          }`}
+                        />
+                      </button>
+                      <span className="text-sm text-white/60">NEW</span>
+                    </div>
+                  </Tooltip>
                 </div>
 
                 <div className="w-px h-5 bg-white/20" />
 
                 {/* Display limit */}
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    {[0, 10, 20, 50, 100].map((limit) => (
-                      <button
-                        key={limit}
-                        onClick={() => updateDisplayLimit(limit)}
-                        className={`px-2 py-1 text-sm rounded-lg transition-colors ${
-                          displayLimit === limit
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-white/10 text-white/60 hover:bg-white/20'
-                        }`}
-                      >
-                        {limit === 0 ? 'הכל' : limit}
-                      </button>
-                    ))}
+                <Tooltip text="כמות תמונות להצגה">
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      {[0, 10, 20, 50, 100].map((limit) => (
+                        <button
+                          key={limit}
+                          onClick={() => updateDisplayLimit(limit)}
+                          className={`px-2 py-1 text-sm rounded-lg transition-colors ${
+                            displayLimit === limit
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-white/10 text-white/60 hover:bg-white/20'
+                          }`}
+                        >
+                          {limit === 0 ? 'הכל' : limit}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-sm text-white/60">אחרונות</span>
                   </div>
-                  <span className="text-sm text-white/60">אחרונות</span>
-                </div>
+                </Tooltip>
               </div>
 
               {/* Row 2: Border radius + Name size sliders */}
               <div className="flex items-center justify-center flex-wrap gap-4">
                 {/* Border radius slider */}
-                <div className="flex items-center gap-2" title="עיגול פינות">
-                  <span className="text-sm text-white/60">עיגול</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    value={borderRadius}
-                    onChange={(e) => updateBorderRadius(Number(e.target.value))}
-                    className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  />
-                  <span className="text-sm text-white/60 w-6">{borderRadius}%</span>
-                </div>
+                <Tooltip text="עיגול פינות התמונות" position="above">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white/60">עיגול</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      value={borderRadius}
+                      onChange={(e) => updateBorderRadius(Number(e.target.value))}
+                      className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <span className="text-sm text-white/60 w-6">{borderRadius}%</span>
+                  </div>
+                </Tooltip>
 
                 <div className="w-px h-5 bg-white/20" />
 
                 {/* Name size slider */}
-                <div className="flex items-center gap-2" title="גודל טקסט שמות">
-                  <span className="text-sm text-white/60">טקסט</span>
-                  <input
-                    type="range"
-                    min="10"
-                    max="24"
-                    value={nameSize}
-                    onChange={(e) => updateNameSize(Number(e.target.value))}
-                    className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  />
-                  <span className="text-sm text-white/60 w-6">{nameSize}px</span>
-                </div>
+                <Tooltip text="גודל הטקסט של השמות" position="above">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white/60">טקסט</span>
+                    <input
+                      type="range"
+                      min="10"
+                      max="24"
+                      value={nameSize}
+                      onChange={(e) => updateNameSize(Number(e.target.value))}
+                      className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <span className="text-sm text-white/60 w-6">{nameSize}px</span>
+                  </div>
+                </Tooltip>
 
                 <div className="w-px h-5 bg-white/20" />
 
