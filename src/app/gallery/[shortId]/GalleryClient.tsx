@@ -782,13 +782,109 @@ export default function GalleryClient({
             }`}
           >
             <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
-              {/* Row 1: Delete all (left) and Display limit (right) */}
+              {/* Row 1: Grid size + Display mode + Toggles - centered */}
+              <div className="flex items-center justify-center flex-wrap gap-3">
+                {/* Grid size */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/50">רשת</span>
+                  <input
+                    type="range"
+                    min="2"
+                    max="6"
+                    value={gridColumns}
+                    onChange={(e) => updateGridColumns(Number(e.target.value))}
+                    className="w-16 h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                  <span className="text-xs text-white/50 w-3">{gridColumns}</span>
+                </div>
+
+                <div className="w-px h-4 bg-white/20" />
+
+                {/* Display mode buttons */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => updateDisplayMode('static')}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                      displayMode === 'static'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    <ImageIcon className="w-3 h-3" />
+                    רגיל
+                  </button>
+                  <button
+                    onClick={() => updateDisplayMode('scroll')}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                      displayMode === 'scroll'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    <Play className="w-3 h-3" />
+                    גלילה
+                  </button>
+                  <button
+                    onClick={() => updateDisplayMode('shuffle')}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                      displayMode === 'shuffle'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    <Shuffle className="w-3 h-3" />
+                    הופעה
+                  </button>
+                </div>
+
+                <div className="w-px h-4 bg-white/20" />
+
+                {/* Toggles */}
+                <div className="flex items-center gap-3">
+                  {/* Show names toggle */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={toggleShowNames}
+                      className={`relative w-8 h-4 rounded-full transition-colors ${
+                        showNames ? 'bg-blue-500' : 'bg-white/20'
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all duration-200 ${
+                          showNames ? 'right-0.5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-xs text-white/50">שמות</span>
+                  </div>
+
+                  {/* Fade effect toggle */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={toggleFadeEffect}
+                      className={`relative w-8 h-4 rounded-full transition-colors ${
+                        fadeEffect ? 'bg-blue-500' : 'bg-white/20'
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all duration-200 ${
+                          fadeEffect ? 'right-0.5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-xs text-white/50">תנועה</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Delete (left) + Image count (center) + Display limit (right) */}
               <div className="flex items-center justify-between">
+                {/* Delete button - left side */}
                 {isOwner && images.length > 0 ? (
                   <button
                     onClick={() => setShowDeleteAllConfirm(true)}
                     disabled={deletingAll}
-                    className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
                     title="מחק הכל"
                   >
                     {deletingAll ? (
@@ -798,16 +894,23 @@ export default function GalleryClient({
                     )}
                   </button>
                 ) : (
-                  <div />
+                  <div className="w-8" />
                 )}
 
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
+                {/* Image count - center */}
+                <span className="text-xs text-white/50">
+                  {images.length} תמונות
+                </span>
+
+                {/* Display limit - right side */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-white/50">הצג</span>
+                  <div className="flex gap-0.5">
                     {[0, 10, 20, 50, 100].map((limit) => (
                       <button
                         key={limit}
                         onClick={() => updateDisplayLimit(limit)}
-                        className={`px-2.5 py-1 text-sm rounded-lg transition-colors ${
+                        className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
                           displayLimit === limit
                             ? 'bg-blue-500 text-white'
                             : 'bg-white/10 text-white/60 hover:bg-white/20'
@@ -816,103 +919,6 @@ export default function GalleryClient({
                         {limit === 0 ? 'הכל' : limit}
                       </button>
                     ))}
-                  </div>
-                  <span className="text-sm text-white/50">הצג אחרונות</span>
-                </div>
-              </div>
-
-              {/* Row 2: Grid size and image count */}
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-white/60 whitespace-nowrap">
-                  {images.length} תמונות
-                </span>
-                <div className="flex-1 flex items-center gap-2">
-                  <span className="text-sm text-white/50 w-4">{gridColumns}</span>
-                  <input
-                    type="range"
-                    min="2"
-                    max="6"
-                    value={gridColumns}
-                    onChange={(e) => updateGridColumns(Number(e.target.value))}
-                    className="w-24 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  />
-                  <span className="text-sm text-white/50">רשת</span>
-                </div>
-              </div>
-
-              {/* Row 3: Display mode + Show names toggle + Fade effect toggle */}
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                {/* Display mode buttons */}
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => updateDisplayMode('static')}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg transition-colors ${
-                      displayMode === 'static'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white/10 text-white/60 hover:bg-white/20'
-                    }`}
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    רגיל
-                  </button>
-                  <button
-                    onClick={() => updateDisplayMode('scroll')}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg transition-colors ${
-                      displayMode === 'scroll'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white/10 text-white/60 hover:bg-white/20'
-                    }`}
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    גלילה
-                  </button>
-                  <button
-                    onClick={() => updateDisplayMode('shuffle')}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg transition-colors ${
-                      displayMode === 'shuffle'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white/10 text-white/60 hover:bg-white/20'
-                    }`}
-                  >
-                    <Shuffle className="w-3.5 h-3.5" />
-                    הופעה
-                  </button>
-                </div>
-
-                {/* Toggles */}
-                <div className="flex items-center gap-4">
-                  {/* Show names toggle */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={toggleShowNames}
-                      className={`relative w-10 h-5 rounded-full transition-colors ${
-                        showNames ? 'bg-blue-500' : 'bg-white/20'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
-                          showNames ? 'right-0.5' : 'left-0.5'
-                        }`}
-                      />
-                    </button>
-                    <span className="text-xs text-white/50">שמות</span>
-                  </div>
-
-                  {/* Fade effect toggle */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={toggleFadeEffect}
-                      className={`relative w-10 h-5 rounded-full transition-colors ${
-                        fadeEffect ? 'bg-blue-500' : 'bg-white/20'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
-                          fadeEffect ? 'right-0.5' : 'left-0.5'
-                        }`}
-                      />
-                    </button>
-                    <span className="text-xs text-white/50">תנועה</span>
                   </div>
                 </div>
               </div>
