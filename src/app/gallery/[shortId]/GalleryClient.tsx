@@ -23,6 +23,9 @@ const DEFAULT_SETTINGS: GallerySettings = {
   headerHidden: false,
   showNames: false,
   fadeEffect: false,
+  borderRadius: 0,
+  nameSize: 14,
+  showNewBadge: false,
 };
 
 // Get adjacent slots (up, down, left, right) for a given slot
@@ -70,8 +73,20 @@ export default function GalleryClient({
   const [headerHidden, setHeaderHidden] = useState(settings.headerHidden);
   const [showNames, setShowNames] = useState(settings.showNames ?? false);
   const [fadeEffect, setFadeEffect] = useState(settings.fadeEffect ?? false);
+  const [borderRadius, setBorderRadius] = useState(settings.borderRadius ?? 0);
+  const [nameSize, setNameSize] = useState(settings.nameSize ?? 14);
+  const [showNewBadge, setShowNewBadge] = useState(settings.showNewBadge ?? false);
   const [showHint, setShowHint] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Track which images have been seen (for NEW badge)
+  const [seenImages, setSeenImages] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`gallery-seen-${codeId}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    }
+    return new Set();
+  });
 
   // Shuffle mode state
   const [fadingOutSlot, setFadingOutSlot] = useState<number | null>(null);
@@ -171,6 +186,9 @@ export default function GalleryClient({
           setHeaderHidden(fbSettings.headerHidden ?? DEFAULT_SETTINGS.headerHidden);
           setShowNames(fbSettings.showNames ?? DEFAULT_SETTINGS.showNames ?? false);
           setFadeEffect(fbSettings.fadeEffect ?? DEFAULT_SETTINGS.fadeEffect ?? false);
+          setBorderRadius(fbSettings.borderRadius ?? DEFAULT_SETTINGS.borderRadius ?? 0);
+          setNameSize(fbSettings.nameSize ?? DEFAULT_SETTINGS.nameSize ?? 14);
+          setShowNewBadge(fbSettings.showNewBadge ?? DEFAULT_SETTINGS.showNewBadge ?? false);
           settingsLoadedRef.current = true;
         }
       }
@@ -406,6 +424,9 @@ export default function GalleryClient({
           headerHidden,
           showNames,
           fadeEffect,
+          borderRadius,
+          nameSize,
+          showNewBadge,
           ...newSettings,
         },
       });
@@ -414,7 +435,7 @@ export default function GalleryClient({
     } finally {
       setSavingSettings(false);
     }
-  }, [isOwner, codeId, displayMode, displayLimit, gridColumns, headerHidden, showNames, fadeEffect]);
+  }, [isOwner, codeId, displayMode, displayLimit, gridColumns, headerHidden, showNames, fadeEffect, borderRadius, nameSize, showNewBadge]);
 
   // Update settings with auto-save
   const updateDisplayMode = (mode: GalleryDisplayMode) => {
@@ -455,6 +476,40 @@ export default function GalleryClient({
       return newValue;
     });
   }, [isOwner, saveSettings]);
+
+  const toggleShowNewBadge = useCallback(() => {
+    setShowNewBadge(prev => {
+      const newValue = !prev;
+      if (isOwner) saveSettings({ showNewBadge: newValue });
+      return newValue;
+    });
+  }, [isOwner, saveSettings]);
+
+  const updateBorderRadius = useCallback((value: number) => {
+    setBorderRadius(value);
+    if (isOwner) saveSettings({ borderRadius: value });
+  }, [isOwner, saveSettings]);
+
+  const updateNameSize = useCallback((value: number) => {
+    setNameSize(value);
+    if (isOwner) saveSettings({ nameSize: value });
+  }, [isOwner, saveSettings]);
+
+  // Mark images as seen when displayed
+  const markImageAsSeen = useCallback((imageId: string) => {
+    setSeenImages(prev => {
+      if (prev.has(imageId)) return prev;
+      const newSet = new Set(prev);
+      newSet.add(imageId);
+      localStorage.setItem(`gallery-seen-${codeId}`, JSON.stringify([...newSet]));
+      return newSet;
+    });
+  }, [codeId]);
+
+  // Check if image is new (not seen before)
+  const isNewImage = useCallback((imageId: string) => {
+    return !seenImages.has(imageId);
+  }, [seenImages]);
 
   // Keyboard shortcut for header toggle (Ctrl/Cmd)
   useEffect(() => {
@@ -577,6 +632,10 @@ export default function GalleryClient({
               <div
                 key={slotIndex}
                 className="relative overflow-hidden bg-gray-800"
+                style={{
+                  borderRadius: `${borderRadius}%`,
+                  border: borderRadius > 0 ? '3px solid black' : 'none',
+                }}
               >
                 {/* Empty slot with spinner */}
                 {!image && (
@@ -601,12 +660,24 @@ export default function GalleryClient({
                       src={image.url}
                       alt={image.uploaderName}
                       className={`w-full h-full object-cover ${fadeEffect ? 'fade-effect-image' : ''}`}
-                      onLoad={() => handleImageLoad(image.id)}
+                      style={{ borderRadius: `${borderRadius}%` }}
+                      onLoad={() => {
+                        handleImageLoad(image.id);
+                        markImageAsSeen(image.id);
+                      }}
                     />
+                    {/* NEW badge */}
+                    {showNewBadge && isNewImage(image.id) && (
+                      <div className="absolute top-2 left-2 z-30">
+                        <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-sm shadow-lg transform -rotate-12">
+                          NEW
+                        </span>
+                      </div>
+                    )}
                     {/* Name badge */}
                     {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
                       <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full">
-                        <span className="text-sm text-white font-medium">{image.uploaderName}</span>
+                        <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
                       </div>
                     )}
                   </button>
@@ -636,6 +707,8 @@ export default function GalleryClient({
               }`}
               style={{
                 animationDelay: newImageIds.has(image.id) ? '0ms' : `${index * 50}ms`,
+                borderRadius: `${borderRadius}%`,
+                border: borderRadius > 0 ? '3px solid black' : 'none',
               }}
             >
               {!loadedImages.has(image.id) && (
@@ -647,19 +720,31 @@ export default function GalleryClient({
                 src={image.url}
                 alt={image.uploaderName}
                 className={`w-full h-full object-cover relative z-10 ${fadeEffect ? 'fade-effect-image' : ''}`}
+                style={{ borderRadius: `${borderRadius}%` }}
                 loading="lazy"
-                onLoad={() => handleImageLoad(image.id)}
+                onLoad={() => {
+                  handleImageLoad(image.id);
+                  markImageAsSeen(image.id);
+                }}
               />
+              {/* NEW badge */}
+              {showNewBadge && isNewImage(image.id) && (
+                <div className="absolute top-2 left-2 z-30">
+                  <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-sm shadow-lg transform -rotate-12">
+                    NEW
+                  </span>
+                </div>
+              )}
               {/* Name badge - always visible when enabled */}
               {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
                 <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
-                  <span className="text-sm text-white font-medium">{image.uploaderName}</span>
+                  <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
                 </div>
               )}
               {/* Hover overlay - only when showNames is off */}
               {!showNames && (
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 hover:opacity-100 transition-opacity z-20">
-                  <p className="text-xs text-white truncate">{image.uploaderName}</p>
+                  <p className="text-white truncate" style={{ fontSize: `${nameSize - 2}px` }}>{image.uploaderName}</p>
                 </div>
               )}
             </button>
@@ -692,6 +777,10 @@ export default function GalleryClient({
                 key={image.id}
                 onClick={() => openLightbox(image)}
                 className="relative aspect-square overflow-hidden bg-white/10 focus:outline-none"
+                style={{
+                  borderRadius: `${borderRadius}%`,
+                  border: borderRadius > 0 ? '3px solid black' : 'none',
+                }}
               >
                 {!loadedImages.has(image.id) && (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -702,12 +791,24 @@ export default function GalleryClient({
                   src={image.url}
                   alt={image.uploaderName}
                   className={`w-full h-full object-cover relative z-10 ${fadeEffect ? 'fade-effect-image' : ''}`}
+                  style={{ borderRadius: `${borderRadius}%` }}
                   loading="eager"
-                  onLoad={() => handleImageLoad(image.id)}
+                  onLoad={() => {
+                    handleImageLoad(image.id);
+                    markImageAsSeen(image.id);
+                  }}
                 />
+                {/* NEW badge */}
+                {showNewBadge && isNewImage(image.id) && (
+                  <div className="absolute top-2 left-2 z-30">
+                    <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-sm shadow-lg transform -rotate-12">
+                      NEW
+                    </span>
+                  </div>
+                )}
                 {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
                   <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
-                    <span className="text-sm text-white font-medium">{image.uploaderName}</span>
+                    <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
                   </div>
                 )}
               </button>
@@ -725,6 +826,10 @@ export default function GalleryClient({
                 key={`${image.id}-dup`}
                 onClick={() => openLightbox(image)}
                 className="relative aspect-square overflow-hidden bg-white/10 focus:outline-none"
+                style={{
+                  borderRadius: `${borderRadius}%`,
+                  border: borderRadius > 0 ? '3px solid black' : 'none',
+                }}
               >
                 {!loadedImages.has(image.id) && (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -735,11 +840,20 @@ export default function GalleryClient({
                   src={image.url}
                   alt={image.uploaderName}
                   className={`w-full h-full object-cover relative z-10 ${fadeEffect ? 'fade-effect-image' : ''}`}
+                  style={{ borderRadius: `${borderRadius}%` }}
                   loading="eager"
                 />
+                {/* NEW badge */}
+                {showNewBadge && isNewImage(image.id) && (
+                  <div className="absolute top-2 left-2 z-30">
+                    <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-sm shadow-lg transform -rotate-12">
+                      NEW
+                    </span>
+                  </div>
+                )}
                 {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
                   <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
-                    <span className="text-sm text-white font-medium">{image.uploaderName}</span>
+                    <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
                   </div>
                 )}
               </button>
@@ -778,139 +892,148 @@ export default function GalleryClient({
           {/* Settings Panel with smooth animation */}
           <div
             className={`overflow-hidden transition-all duration-300 ease-out ${
-              showSettings ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+              showSettings ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
             }`}
           >
             <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
-              {/* Row 1: Grid size + Display mode + Toggles - centered */}
-              <div className="flex items-center justify-center flex-wrap gap-3">
-                {/* Grid size */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-white/50">רשת</span>
+              {/* Row 1: All controls in one line */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                {/* Delete button */}
+                {isOwner && images.length > 0 ? (
+                  <button
+                    onClick={() => setShowDeleteAllConfirm(true)}
+                    disabled={deletingAll}
+                    className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                    title="מחק הכל"
+                  >
+                    {deletingAll ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-5 h-5" />
+                    )}
+                  </button>
+                ) : (
+                  <div className="w-9" />
+                )}
+
+                {/* Grid size slider */}
+                <div className="flex items-center gap-2" title="גודל רשת">
                   <input
                     type="range"
                     min="2"
                     max="6"
                     value={gridColumns}
                     onChange={(e) => updateGridColumns(Number(e.target.value))}
-                    className="w-16 h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
                   />
-                  <span className="text-xs text-white/50 w-3">{gridColumns}</span>
+                  <span className="text-sm text-white/60 w-3">{gridColumns}</span>
                 </div>
 
-                <div className="w-px h-4 bg-white/20" />
+                <div className="w-px h-5 bg-white/20" />
 
-                {/* Display mode buttons */}
+                {/* Display mode buttons - icons only with tooltips */}
                 <div className="flex gap-1">
                   <button
                     onClick={() => updateDisplayMode('static')}
-                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                    title="רגיל"
+                    className={`p-2 rounded-lg transition-colors ${
                       displayMode === 'static'
                         ? 'bg-blue-500 text-white'
                         : 'bg-white/10 text-white/60 hover:bg-white/20'
                     }`}
                   >
-                    <ImageIcon className="w-3 h-3" />
-                    רגיל
+                    <ImageIcon className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => updateDisplayMode('scroll')}
-                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                    title="גלילה"
+                    className={`p-2 rounded-lg transition-colors ${
                       displayMode === 'scroll'
                         ? 'bg-blue-500 text-white'
                         : 'bg-white/10 text-white/60 hover:bg-white/20'
                     }`}
                   >
-                    <Play className="w-3 h-3" />
-                    גלילה
+                    <Play className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => updateDisplayMode('shuffle')}
-                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                    title="הופעה"
+                    className={`p-2 rounded-lg transition-colors ${
                       displayMode === 'shuffle'
                         ? 'bg-blue-500 text-white'
                         : 'bg-white/10 text-white/60 hover:bg-white/20'
                     }`}
                   >
-                    <Shuffle className="w-3 h-3" />
-                    הופעה
+                    <Shuffle className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="w-px h-4 bg-white/20" />
+                <div className="w-px h-5 bg-white/20" />
 
                 {/* Toggles */}
                 <div className="flex items-center gap-3">
                   {/* Show names toggle */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" title="הצגת שמות">
                     <button
                       onClick={toggleShowNames}
-                      className={`relative w-8 h-4 rounded-full transition-colors ${
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
                         showNames ? 'bg-blue-500' : 'bg-white/20'
                       }`}
                     >
                       <div
-                        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all duration-200 ${
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
                           showNames ? 'right-0.5' : 'left-0.5'
                         }`}
                       />
                     </button>
-                    <span className="text-xs text-white/50">שמות</span>
+                    <span className="text-sm text-white/60">שמות</span>
                   </div>
 
                   {/* Fade effect toggle */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" title="אפקט תנועה">
                     <button
                       onClick={toggleFadeEffect}
-                      className={`relative w-8 h-4 rounded-full transition-colors ${
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
                         fadeEffect ? 'bg-blue-500' : 'bg-white/20'
                       }`}
                     >
                       <div
-                        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all duration-200 ${
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
                           fadeEffect ? 'right-0.5' : 'left-0.5'
                         }`}
                       />
                     </button>
-                    <span className="text-xs text-white/50">תנועה</span>
+                    <span className="text-sm text-white/60">תנועה</span>
+                  </div>
+
+                  {/* NEW badge toggle */}
+                  <div className="flex items-center gap-1.5" title="באדג' חדש">
+                    <button
+                      onClick={toggleShowNewBadge}
+                      className={`relative w-10 h-5 rounded-full transition-colors ${
+                        showNewBadge ? 'bg-blue-500' : 'bg-white/20'
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
+                          showNewBadge ? 'right-0.5' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-sm text-white/60">NEW</span>
                   </div>
                 </div>
-              </div>
 
-              {/* Row 2: Delete (left) + Image count (center) + Display limit (right) */}
-              <div className="flex items-center justify-between">
-                {/* Delete button - left side */}
-                {isOwner && images.length > 0 ? (
-                  <button
-                    onClick={() => setShowDeleteAllConfirm(true)}
-                    disabled={deletingAll}
-                    className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
-                    title="מחק הכל"
-                  >
-                    {deletingAll ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </button>
-                ) : (
-                  <div className="w-8" />
-                )}
+                <div className="w-px h-5 bg-white/20" />
 
-                {/* Image count - center */}
-                <span className="text-xs text-white/50">
-                  {images.length} תמונות
-                </span>
-
-                {/* Display limit - right side */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-white/50">הצג</span>
-                  <div className="flex gap-0.5">
+                {/* Display limit */}
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
                     {[0, 10, 20, 50, 100].map((limit) => (
                       <button
                         key={limit}
                         onClick={() => updateDisplayLimit(limit)}
-                        className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
+                        className={`px-2 py-1 text-sm rounded-lg transition-colors ${
                           displayLimit === limit
                             ? 'bg-blue-500 text-white'
                             : 'bg-white/10 text-white/60 hover:bg-white/20'
@@ -920,7 +1043,48 @@ export default function GalleryClient({
                       </button>
                     ))}
                   </div>
+                  <span className="text-sm text-white/60">אחרונות</span>
                 </div>
+              </div>
+
+              {/* Row 2: Border radius + Name size sliders */}
+              <div className="flex items-center justify-center flex-wrap gap-4">
+                {/* Border radius slider */}
+                <div className="flex items-center gap-2" title="עיגול פינות">
+                  <span className="text-sm text-white/60">עיגול</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    value={borderRadius}
+                    onChange={(e) => updateBorderRadius(Number(e.target.value))}
+                    className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                  <span className="text-sm text-white/60 w-6">{borderRadius}%</span>
+                </div>
+
+                <div className="w-px h-5 bg-white/20" />
+
+                {/* Name size slider */}
+                <div className="flex items-center gap-2" title="גודל טקסט שמות">
+                  <span className="text-sm text-white/60">טקסט</span>
+                  <input
+                    type="range"
+                    min="10"
+                    max="24"
+                    value={nameSize}
+                    onChange={(e) => updateNameSize(Number(e.target.value))}
+                    className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                  <span className="text-sm text-white/60 w-6">{nameSize}px</span>
+                </div>
+
+                <div className="w-px h-5 bg-white/20" />
+
+                {/* Image count */}
+                <span className="text-sm text-white/50">
+                  {images.length} תמונות
+                </span>
               </div>
             </div>
           </div>

@@ -35,6 +35,9 @@ export interface GallerySettings {
   headerHidden: boolean;
   showNames?: boolean;  // Show uploader names on images
   fadeEffect?: boolean; // Subtle fade-in effect on images (video-like motion)
+  borderRadius?: number; // Image border radius 0-50 (percentage)
+  nameSize?: number; // Name text size 10-20 (pixels)
+  showNewBadge?: boolean; // Show NEW badge on first-time displayed images
 }
 
 // Schedule for media
