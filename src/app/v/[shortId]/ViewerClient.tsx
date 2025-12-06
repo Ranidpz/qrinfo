@@ -668,6 +668,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isVideo = media.length === 1 && currentMedia?.type === 'video';
   const isLink = media.length === 1 && currentMedia?.type === 'link';
   const isRiddle = media.length === 1 && currentMedia?.type === 'riddle';
+  const isWordCloud = media.length === 1 && currentMedia?.type === 'wordcloud';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages;
@@ -798,6 +799,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                       title={title}
                       sandbox="allow-scripts allow-same-origin"
                     />
+                  ) : item.type === 'wordcloud' ? (
+                    <iframe
+                      src={item.url}
+                      className="w-full h-full"
+                      title={item.title || 'ענן מילים'}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    />
                   ) : (
                     // Image or gif
                     <TransformWrapper
@@ -912,6 +920,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             className="w-full h-full"
             title={title}
             sandbox="allow-scripts allow-same-origin"
+          />
+        ) : isWordCloud ? (
+          <iframe
+            src={currentMedia.url}
+            className="w-full h-full"
+            title={currentMedia.title || 'ענן מילים'}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
         ) : (
           // Single image - use ImageGalleryViewer for link button support

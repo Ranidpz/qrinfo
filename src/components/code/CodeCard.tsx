@@ -72,6 +72,8 @@ function getMediaLabel(type: MediaType): string {
       return 'PDF';
     case 'link':
       return 'לינק';
+    case 'wordcloud':
+      return 'ענן מילים';
     default:
       return 'מדיה';
   }
