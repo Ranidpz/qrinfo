@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, ScrollText, Cloud } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, ScrollText, Cloud, Gamepad2 } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 
@@ -23,7 +23,7 @@ export default function MediaUploader({
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'minigames'>('upload');
   const [linkUrl, setLinkUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -163,6 +163,17 @@ export default function MediaUploader({
               ענן מילים
             </button>
           )}
+          <button
+            onClick={() => setActiveTab('minigames')}
+            className={clsx(
+              'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
+              activeTab === 'minigames'
+                ? 'bg-accent text-white'
+                : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
+            )}
+          >
+            מיניגיימס
+          </button>
         </div>
       )}
 
@@ -296,6 +307,29 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             צור ענן מילים
+          </button>
+        </div>
+      ) : activeTab === 'minigames' ? (
+        /* Minigames - coming soon */
+        <div className="space-y-4">
+          <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
+            <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center">
+              <Gamepad2 className="w-7 h-7 text-accent" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-text-primary mb-1">
+                מיניגיימס
+              </h3>
+              <p className="text-sm text-text-secondary">
+                5 משחקים מאתגרים מהטלפון עם לוח תוצאות ענק על מסכי הענק באירוע
+              </p>
+            </div>
+          </div>
+          <button
+            disabled
+            className="btn w-full bg-bg-secondary text-text-secondary cursor-not-allowed"
+          >
+            בקרוב מאוד
           </button>
         </div>
       ) : null}

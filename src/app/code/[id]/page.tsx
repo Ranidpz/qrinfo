@@ -27,6 +27,8 @@ import {
   Pencil,
   Camera,
   Images,
+  Cloud,
+  Gamepad2,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,6 +40,7 @@ import ScheduleModal from '@/components/modals/ScheduleModal';
 import MediaLinkModal from '@/components/modals/MediaLinkModal';
 import AddLinkModal from '@/components/modals/AddLinkModal';
 import RiddleModal from '@/components/modals/RiddleModal';
+import WordCloudModal from '@/components/modals/WordCloudModal';
 import SignEditorWidget from '@/components/code/SignEditorWidget';
 import { clsx } from 'clsx';
 
@@ -108,9 +111,12 @@ export default function CodeEditPage({ params }: PageProps) {
   const [addingRiddle, setAddingRiddle] = useState(false);
   const [editingRiddleId, setEditingRiddleId] = useState<string | null>(null);
 
+  // WordCloud modal state
+  const [wordCloudModalOpen, setWordCloudModalOpen] = useState(false);
+  const [addingWordCloud, setAddingWordCloud] = useState(false);
+
   // Widgets state
   const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
-  const [qrSign, setQrSign] = useState<QRSign | undefined>(undefined);
 
   // Collapse states with localStorage persistence
   const [qrExpanded, setQrExpanded] = useState(true);
@@ -161,7 +167,6 @@ export default function CodeEditPage({ params }: PageProps) {
         setCode(codeData);
         setTitle(codeData.title);
         setWhatsappGroupLink(codeData.widgets?.whatsapp?.groupLink || '');
-        setQrSign(codeData.widgets?.qrSign);
 
         // Load folder info if code is in a folder
         if (codeData.folderId && user) {
@@ -348,7 +353,8 @@ export default function CodeEditPage({ params }: PageProps) {
     ctx.drawImage(sourceCanvas, 0, 0);
 
     // Draw sign overlay if enabled
-    if (qrSign?.enabled && qrSign.value) {
+    const sign = code.widgets?.qrSign;
+    if (sign?.enabled && sign.value) {
       const centerX = size / 2;
       const centerY = size / 2;
       const signRadius = size * 0.125; // 25% of QR / 2
@@ -356,33 +362,33 @@ export default function CodeEditPage({ params }: PageProps) {
       // Draw background circle
       ctx.beginPath();
       ctx.arc(centerX, centerY, signRadius, 0, Math.PI * 2);
-      ctx.fillStyle = qrSign.backgroundColor;
+      ctx.fillStyle = sign.backgroundColor;
       ctx.fill();
 
       // Draw content
-      ctx.fillStyle = qrSign.color;
+      ctx.fillStyle = sign.color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      if (qrSign.type === 'text') {
-        const fontSize = signRadius * (qrSign.value.length <= 2 ? 0.9 : 0.6);
+      if (sign.type === 'text') {
+        const fontSize = signRadius * (sign.value.length <= 2 ? 0.9 : 0.6);
         ctx.font = `bold ${fontSize}px Assistant, Arial, sans-serif`;
-        ctx.fillText(qrSign.value, centerX, centerY);
-      } else if (qrSign.type === 'emoji') {
+        ctx.fillText(sign.value, centerX, centerY);
+      } else if (sign.type === 'emoji') {
         const fontSize = signRadius * 1.1;
         ctx.font = `${fontSize}px Arial, sans-serif`;
-        ctx.fillText(qrSign.value, centerX, centerY);
-      } else if (qrSign.type === 'icon') {
+        ctx.fillText(sign.value, centerX, centerY);
+      } else if (sign.type === 'icon') {
         // Import icon paths dynamically
         const { ICON_PATHS } = require('@/lib/iconPaths');
-        const iconData = ICON_PATHS[qrSign.value];
+        const iconData = ICON_PATHS[sign.value];
         if (iconData) {
           const iconSize = signRadius * 1.3;
           ctx.save();
           ctx.translate(centerX - iconSize / 2, centerY - iconSize / 2);
           ctx.scale(iconSize / 24, iconSize / 24);
-          ctx.strokeStyle = qrSign.color;
-          ctx.fillStyle = qrSign.color;
+          ctx.strokeStyle = sign.color;
+          ctx.fillStyle = sign.color;
           ctx.lineWidth = 2;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
@@ -767,6 +773,35 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  // Handler for adding a wordcloud as media
+  const handleAddWordCloud = async (linkUrl: string, title?: string) => {
+    if (!code || !user) return;
+
+    setAddingWordCloud(true);
+    try {
+      const newMedia: MediaItem = {
+        id: `media_${Date.now()}`,
+        url: linkUrl,
+        type: 'wordcloud',
+        size: 0,
+        order: code.media.length,
+        uploadedBy: user.id,
+        title: title,
+        createdAt: new Date(),
+      };
+
+      const updatedMedia = [...code.media, newMedia];
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      setWordCloudModalOpen(false);
+    } catch (error) {
+      console.error('Error adding wordcloud:', error);
+      alert('שגיאה בהוספת ענן המילים. נסה שוב.');
+    } finally {
+      setAddingWordCloud(false);
+    }
+  };
+
   // Handler for adding or editing a riddle
   const handleSaveRiddle = async (content: RiddleContent, imageFiles: File[]) => {
     if (!code || !user) return;
@@ -886,7 +921,7 @@ export default function CodeEditPage({ params }: PageProps) {
         ...code.widgets,
       };
 
-      if (sign?.enabled) {
+      if (sign && sign.value) {
         updatedWidgets.qrSign = sign;
       } else {
         delete updatedWidgets.qrSign;
@@ -894,7 +929,6 @@ export default function CodeEditPage({ params }: PageProps) {
 
       await updateQRCode(code.id, { widgets: updatedWidgets });
       setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
-      setQrSign(sign);
     } catch (error) {
       console.error('Error saving QR sign:', error);
       alert('שגיאה בשמירת הסימן. נסה שוב.');
@@ -970,9 +1004,9 @@ export default function CodeEditPage({ params }: PageProps) {
         {/* QR Code & Links */}
         <div className="card space-y-4">
           {/* Collapsible QR Section Header with title and views */}
-          <button
+          <div
             onClick={handleQrToggle}
-            className="w-full flex items-center justify-between"
+            className="w-full flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -1022,7 +1056,7 @@ export default function CodeEditPage({ params }: PageProps) {
             ) : (
               <ChevronDown className="w-5 h-5 text-text-secondary flex-shrink-0" />
             )}
-          </button>
+          </div>
 
           {/* Collapsible QR Content */}
           {qrExpanded && (
@@ -1036,34 +1070,34 @@ export default function CodeEditPage({ params }: PageProps) {
                     level="H"
                     marginSize={1}
                   />
-                  {qrSign?.enabled && qrSign.value && (
+                  {code.widgets?.qrSign?.enabled && code.widgets.qrSign.value && (
                     <div
                       className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center shadow-md"
                       style={{
                         width: 55,
                         height: 55,
-                        backgroundColor: qrSign.backgroundColor,
+                        backgroundColor: code.widgets.qrSign.backgroundColor,
                       }}
                     >
-                      {qrSign.type === 'icon' ? (
+                      {code.widgets.qrSign.type === 'icon' ? (
                         (() => {
                           const LucideIcons = require('lucide-react');
-                          const IconComponent = LucideIcons[qrSign.value];
+                          const IconComponent = LucideIcons[code.widgets.qrSign.value];
                           return IconComponent ? (
-                            <IconComponent size={30} color={qrSign.color} strokeWidth={2.5} />
+                            <IconComponent size={30} color={code.widgets.qrSign.color} strokeWidth={2.5} />
                           ) : null;
                         })()
                       ) : (
                         <span
                           style={{
-                            color: qrSign.color,
+                            color: code.widgets.qrSign.color,
                             fontFamily: 'var(--font-assistant), Arial, sans-serif',
-                            fontSize: qrSign.type === 'emoji' ? 30 : (qrSign.value.length <= 2 ? 24 : 16),
-                            fontWeight: qrSign.type === 'text' ? 700 : 400,
+                            fontSize: code.widgets.qrSign.type === 'emoji' ? 30 : (code.widgets.qrSign.value.length <= 2 ? 24 : 16),
+                            fontWeight: code.widgets.qrSign.type === 'text' ? 700 : 400,
                             lineHeight: 1,
                           }}
                         >
-                          {qrSign.value}
+                          {code.widgets.qrSign.value}
                         </span>
                       )}
                     </div>
@@ -1174,7 +1208,7 @@ export default function CodeEditPage({ params }: PageProps) {
             {widgetsExpanded && (
               <div className="mt-3 space-y-4">
                 {/* QR Sign Widget */}
-                <SignEditorWidget sign={qrSign} onSave={handleSaveQRSign} />
+                <SignEditorWidget sign={code.widgets?.qrSign} onSave={handleSaveQRSign} />
 
                 {/* WhatsApp Group Link Widget */}
                 <div className="space-y-2">
@@ -1343,6 +1377,26 @@ export default function CodeEditPage({ params }: PageProps) {
                     className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
                   >
                     <ScrollText className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
+                {/* Add WordCloud Button */}
+                <Tooltip text="ענן מילים">
+                  <button
+                    onClick={() => setWordCloudModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <Cloud className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
+                {/* Minigames Button - Coming Soon */}
+                <Tooltip text="מיניגיימס - בקרוב">
+                  <button
+                    disabled
+                    className="p-2 rounded-lg bg-bg-secondary text-text-secondary cursor-not-allowed opacity-50 flex items-center justify-center"
+                  >
+                    <Gamepad2 className="w-4 h-4" />
                   </button>
                 </Tooltip>
 
@@ -1643,6 +1697,14 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveRiddle}
         loading={addingRiddle}
         initialContent={editingRiddleId ? code?.media.find(m => m.id === editingRiddleId)?.riddleContent : undefined}
+      />
+
+      {/* WordCloud Modal */}
+      <WordCloudModal
+        isOpen={wordCloudModalOpen}
+        onClose={() => setWordCloudModalOpen(false)}
+        onSave={handleAddWordCloud}
+        loading={addingWordCloud}
       />
     </div>
   );
