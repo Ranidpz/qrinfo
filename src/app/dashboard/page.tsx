@@ -704,15 +704,37 @@ export default function DashboardPage() {
             opacity: 0;
             animation: fadeIn 0.6s ease-out 0.8s forwards;
           }
+          .q-letter {
+            background: linear-gradient(135deg, #3b82f6, #60a5fa, #3b82f6);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            display: inline-block;
+            transition: all 0.3s ease;
+            cursor: default;
+          }
+          .q-letter:hover {
+            animation: shimmer 1.5s ease-in-out infinite;
+            filter: brightness(1.3);
+            transform: scale(1.1);
+          }
+          @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
         `}</style>
-        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-accent dark:text-white mb-4 tracking-tight">
-          One Code. Endless Experiences.
+        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-accent dark:text-white mb-4 tracking-tight" dir="ltr">
+          <span className="text-lg sm:text-xl md:text-2xl font-normal text-text-secondary align-middle">The</span> <span className="q-letter">Q</span> - One Code. Endless Experiences
         </h1>
         <div className="hero-divider flex justify-center mb-4">
           <div className="hero-divider-line h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
         </div>
         <p className="hero-subtitle text-sm sm:text-base md:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-          מבידור, הדרכות, הגרלות ומיפוי מסעות במרחב – יוצרים קוד, מדפיסים ומעדכנים את חווית הלקוח בזמן אמת
+          תמונות, וידאו, PDF, כתב חידה, ענן מילים, מיני-גיימס, גלריית סלפי ועוד
+          <br />
+          <span className="text-accent font-medium">קוד בטוח להדפסה וללא פרסומות</span>
         </p>
       </div>
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 import { APP_VERSION } from '@/lib/version';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -47,6 +47,7 @@ const navItems: NavItem[] = [
 
 export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, user, onSignOut }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { signInWithGoogle } = useAuth();
 
@@ -240,18 +241,24 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
           ) : (
             <div className="mb-4">
               <button
-                onClick={async () => {
-                  try {
-                    await signInWithGoogle();
+                onClick={() => {
+                  // Check if terms already accepted
+                  const termsAccepted = localStorage.getItem('terms_accepted') === 'true';
+                  if (termsAccepted) {
+                    // Sign in directly
+                    signInWithGoogle()
+                      .then(() => onClose())
+                      .catch((error) => console.error('Login error:', error));
+                  } else {
+                    // Redirect to login page for terms acceptance
+                    router.push('/login');
                     onClose();
-                  } catch (error) {
-                    console.error('Login error:', error);
                   }
                 }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors"
               >
                 <LogIn className="w-4 h-4" />
-                <span>התחבר</span>
+                <span>התחברו</span>
               </button>
             </div>
           )}
