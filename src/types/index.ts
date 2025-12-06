@@ -59,6 +59,7 @@ export interface QRSign {
   value: string;           // 1-4 letters / emoji / icon name
   color: string;           // Sign color (hex)
   backgroundColor: string; // Background color (hex)
+  scale?: number;          // Size scale 0.5-1.5 (default 1.0)
 }
 
 // Widgets configuration

@@ -71,7 +71,7 @@ export default function SignEditorWidget({ sign, onSave }: SignEditorWidgetProps
     }
   };
 
-  // Render the preview of the sign
+  // Render the preview of the sign - matches QR overlay styling
   const renderPreview = () => {
     if (!localSign.value) {
       return <span className="text-gray-400 text-xs">תצוגה מקדימה</span>;
@@ -80,17 +80,22 @@ export default function SignEditorWidget({ sign, onSave }: SignEditorWidgetProps
     if (localSign.type === 'icon') {
       const IconComponent = LucideIcons[localSign.value as keyof typeof LucideIcons] as LucideIcon;
       if (IconComponent) {
-        return <IconComponent size={24} color={localSign.color} strokeWidth={2.5} />;
+        return <IconComponent size={30} color={localSign.color} strokeWidth={2.5} />;
       }
     }
+
+    // Match the QR overlay text styling exactly
+    const isEmoji = localSign.type === 'emoji';
+    const fontSize = isEmoji ? 30 : (localSign.value.length <= 2 ? 24 : 16);
+    const fontWeight = isEmoji ? 400 : 700;
 
     return (
       <span
         style={{
           color: localSign.color,
           fontFamily: 'var(--font-assistant), Arial, sans-serif',
-          fontSize: localSign.value.length <= 2 ? 18 : 14,
-          fontWeight: 600,
+          fontSize,
+          fontWeight,
           lineHeight: 1,
         }}
       >
@@ -160,7 +165,8 @@ export default function SignEditorWidget({ sign, onSave }: SignEditorWidgetProps
               const hasEmoji = /\p{Emoji}/u.test(val);
               updateSign({
                 type: hasEmoji ? 'emoji' : 'text',
-                value: val
+                value: val,
+                enabled: val.length > 0 ? true : localSign.enabled, // Auto-enable when typing
               });
             }}
             placeholder="A, QR, 🎁..."
@@ -180,7 +186,7 @@ export default function SignEditorWidget({ sign, onSave }: SignEditorWidgetProps
               return (
                 <button
                   key={name}
-                  onClick={() => updateSign({ type: 'icon', value: name })}
+                  onClick={() => updateSign({ type: 'icon', value: name, enabled: true })}
                   title={ICON_LABELS[name] || name}
                   className={`p-2.5 rounded-lg transition-colors flex items-center justify-center ${
                     localSign.value === name && localSign.type === 'icon'
@@ -196,11 +202,15 @@ export default function SignEditorWidget({ sign, onSave }: SignEditorWidgetProps
         </div>
       )}
 
-      {/* Preview */}
+      {/* Preview - matches QR overlay size (55px) */}
       <div className="flex items-center justify-center py-2">
         <div
-          className="w-12 h-12 rounded-full flex items-center justify-center border border-border"
-          style={{ backgroundColor: localSign.backgroundColor }}
+          className="rounded-full flex items-center justify-center border border-border shadow-md"
+          style={{
+            width: 55,
+            height: 55,
+            backgroundColor: localSign.backgroundColor
+          }}
         >
           {renderPreview()}
         </div>

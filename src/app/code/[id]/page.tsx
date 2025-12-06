@@ -11,7 +11,6 @@ import {
   ExternalLink,
   Plus,
   GripVertical,
-  Image,
   Video,
   FileText,
   Loader2,
@@ -26,9 +25,10 @@ import {
   ScrollText,
   Pencil,
   Camera,
-  Images,
   Cloud,
   Gamepad2,
+  QrCode,
+  MessageCircle,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,7 +41,8 @@ import MediaLinkModal from '@/components/modals/MediaLinkModal';
 import AddLinkModal from '@/components/modals/AddLinkModal';
 import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
-import SignEditorWidget from '@/components/code/SignEditorWidget';
+import QRSignModal from '@/components/modals/QRSignModal';
+import WhatsAppWidgetModal from '@/components/modals/WhatsAppWidgetModal';
 import { clsx } from 'clsx';
 
 // Custom Tooltip component for styled tooltips
@@ -115,8 +116,9 @@ export default function CodeEditPage({ params }: PageProps) {
   const [wordCloudModalOpen, setWordCloudModalOpen] = useState(false);
   const [addingWordCloud, setAddingWordCloud] = useState(false);
 
-  // Widgets state
-  const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
+  // Widget modals state
+  const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
 
   // Collapse states with localStorage persistence
   const [qrExpanded, setQrExpanded] = useState(true);
@@ -166,7 +168,6 @@ export default function CodeEditPage({ params }: PageProps) {
 
         setCode(codeData);
         setTitle(codeData.title);
-        setWhatsappGroupLink(codeData.widgets?.whatsapp?.groupLink || '');
 
         // Load folder info if code is in a folder
         if (codeData.folderId && user) {
@@ -889,19 +890,17 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
-  const handleSaveWhatsappWidget = async () => {
+  const handleSaveWhatsappWidget = async (groupLink: string | undefined) => {
     if (!code) return;
 
     try {
-      // Firebase doesn't accept undefined values, so we need to build the object carefully
       const updatedWidgets: CodeWidgets = {
         ...code.widgets,
       };
 
-      if (whatsappGroupLink) {
-        updatedWidgets.whatsapp = { enabled: true, groupLink: whatsappGroupLink };
+      if (groupLink) {
+        updatedWidgets.whatsapp = { enabled: true, groupLink };
       } else {
-        // Remove the whatsapp widget by setting it to null (Firebase accepts null to delete fields)
         delete updatedWidgets.whatsapp;
       }
 
@@ -937,21 +936,6 @@ export default function CodeEditPage({ params }: PageProps) {
 
   // Get the current media for link modal
   const currentMediaForLink = code?.media.find((m) => m.id === linkModal.mediaId);
-
-  const getMediaIcon = (type: MediaItem['type']) => {
-    switch (type) {
-      case 'video':
-        return <Video className="w-5 h-5" />;
-      case 'pdf':
-        return <FileText className="w-5 h-5" />;
-      case 'link':
-        return <LinkIcon className="w-5 h-5" />;
-      case 'riddle':
-        return <ScrollText className="w-5 h-5" />;
-      default:
-        return <Image className="w-5 h-5" />;
-    }
-  };
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -1187,16 +1171,7 @@ export default function CodeEditPage({ params }: PageProps) {
               onClick={handleWidgetsToggle}
               className="w-full flex items-center justify-between text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
             >
-              <div className="flex items-center gap-2">
-                <span>ווידג׳טים</span>
-                {code.widgets?.whatsapp?.enabled && code.widgets?.whatsapp?.groupLink && (
-                  <div className="w-5 h-5 rounded-full bg-[#25D366] flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-                    </svg>
-                  </div>
-                )}
-              </div>
+              <span>ווידג׳טים</span>
               {widgetsExpanded ? (
                 <ChevronUp className="w-4 h-4" />
               ) : (
@@ -1204,79 +1179,79 @@ export default function CodeEditPage({ params }: PageProps) {
               )}
             </button>
 
-            {/* Collapsible content */}
+            {/* Collapsible content - Widget buttons grid */}
             {widgetsExpanded && (
-              <div className="mt-3 space-y-4">
-                {/* QR Sign Widget */}
-                <SignEditorWidget sign={code.widgets?.qrSign} onSave={handleSaveQRSign} />
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                {/* QR Sign Widget Button */}
+                <button
+                  onClick={() => setQrSignModalOpen(true)}
+                  className={clsx(
+                    "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
+                    code.widgets?.qrSign?.enabled
+                      ? "bg-accent/10 border-accent text-accent"
+                      : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
+                  )}
+                >
+                  <div className={clsx(
+                    "w-10 h-10 rounded-full flex items-center justify-center",
+                    code.widgets?.qrSign?.enabled ? "bg-accent/20" : "bg-bg-hover"
+                  )}>
+                    {code.widgets?.qrSign?.enabled && code.widgets.qrSign.value ? (
+                      code.widgets.qrSign.type === 'icon' ? (
+                        (() => {
+                          const LucideIcons = require('lucide-react');
+                          const IconComponent = LucideIcons[code.widgets.qrSign.value];
+                          return IconComponent ? (
+                            <IconComponent size={20} className="text-accent" />
+                          ) : <QrCode className="w-5 h-5" />;
+                        })()
+                      ) : (
+                        <span className="text-sm font-bold">{code.widgets.qrSign.value}</span>
+                      )
+                    ) : (
+                      <QrCode className="w-5 h-5" />
+                    )}
+                  </div>
+                  <span className="text-sm font-medium">סימן QR</span>
+                  <span className={clsx(
+                    "text-xs px-2 py-0.5 rounded-full",
+                    code.widgets?.qrSign?.enabled
+                      ? "bg-accent/20 text-accent"
+                      : "bg-bg-hover text-text-secondary"
+                  )}>
+                    {code.widgets?.qrSign?.enabled ? 'פעיל' : 'כבוי'}
+                  </span>
+                </button>
 
-                {/* WhatsApp Group Link Widget */}
-                <div className="space-y-2">
-                  <label className="text-xs text-text-secondary flex items-center gap-2">
-                    <svg className="w-4 h-4 text-[#25D366]" viewBox="0 0 24 24" fill="currentColor">
+                {/* WhatsApp Widget Button */}
+                <button
+                  onClick={() => setWhatsappModalOpen(true)}
+                  className={clsx(
+                    "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
+                    code.widgets?.whatsapp?.enabled
+                      ? "bg-[#25D366]/10 border-[#25D366] text-[#25D366]"
+                      : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
+                  )}
+                >
+                  <div className={clsx(
+                    "w-10 h-10 rounded-full flex items-center justify-center",
+                    code.widgets?.whatsapp?.enabled ? "bg-[#25D366]/20" : "bg-bg-hover"
+                  )}>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                     </svg>
-                    קישור לקבוצת WhatsApp
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={whatsappGroupLink}
-                      onChange={(e) => setWhatsappGroupLink(e.target.value)}
-                      placeholder="https://chat.whatsapp.com/..."
-                      className="flex-1 px-3 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
-                      dir="ltr"
-                    />
-                    <button
-                      onClick={handleSaveWhatsappWidget}
-                      disabled={whatsappGroupLink === (code.widgets?.whatsapp?.groupLink || '')}
-                      className="px-3 py-2 bg-[#25D366] text-white rounded-lg hover:bg-[#20BD5A] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Save className="w-4 h-4" />
-                    </button>
                   </div>
-                  <p className="text-xs text-text-secondary">
-                    הכפתור יופיע לצופה אחרי שנייה עם אנימציה
-                  </p>
-                </div>
+                  <span className="text-sm font-medium">WhatsApp</span>
+                  <span className={clsx(
+                    "text-xs px-2 py-0.5 rounded-full",
+                    code.widgets?.whatsapp?.enabled
+                      ? "bg-[#25D366]/20 text-[#25D366]"
+                      : "bg-bg-hover text-text-secondary"
+                  )}>
+                    {code.widgets?.whatsapp?.enabled ? 'פעיל' : 'כבוי'}
+                  </span>
+                </button>
 
-                {/* Gallery Link - show if any riddle has gallery enabled */}
-                {code.media.some(m => m.type === 'riddle' && m.riddleContent?.galleryEnabled) && (
-                  <div className="space-y-2 pt-3 border-t border-border">
-                    <label className="text-xs text-text-secondary flex items-center gap-2">
-                      <Camera className="w-4 h-4 text-accent" />
-                      גלריית סלפי
-                    </label>
-                    <div className="flex items-center gap-2 p-3 bg-bg-secondary rounded-lg">
-                      <Images className="w-4 h-4 text-text-secondary flex-shrink-0" />
-                      <span className="text-sm text-text-primary truncate flex-1" dir="ltr">
-                        {typeof window !== 'undefined' ? `${window.location.origin}/gallery/${code.shortId}` : `/gallery/${code.shortId}`}
-                      </span>
-                      <button
-                        onClick={() => {
-                          const galleryUrl = `${window.location.origin}/gallery/${code.shortId}`;
-                          navigator.clipboard.writeText(galleryUrl);
-                        }}
-                        className="p-1.5 rounded hover:bg-bg-hover transition-colors"
-                        title="העתק לינק לגלריה"
-                      >
-                        <Copy className="w-4 h-4 text-text-secondary" />
-                      </button>
-                      <a
-                        href={`/gallery/${code.shortId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded hover:bg-bg-hover transition-colors"
-                        title="פתח גלריה"
-                      >
-                        <ExternalLink className="w-4 h-4 text-text-secondary" />
-                      </a>
-                    </div>
-                    <p className="text-xs text-text-secondary">
-                      {code.userGallery?.length || 0} תמונות בגלריה
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -1487,15 +1462,16 @@ export default function CodeEditPage({ params }: PageProps) {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      {getMediaIcon(media.type)}
                       <span className="text-sm font-medium text-text-primary">
-                        {media.type === 'link' ? 'לינק' : media.type === 'riddle' ? 'כתב חידה' : media.type.toUpperCase()}
+                        {media.type === 'link' ? 'לינק' : media.type === 'riddle' ? (media.riddleContent?.title || 'כתב חידה') : media.type === 'wordcloud' ? 'ענן מילים' : media.type.toUpperCase()}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
                     </div>
-                    <p className="text-xs text-text-secondary truncate mt-1 hidden sm:block" dir="ltr">
-                      {media.type === 'riddle' ? media.riddleContent?.title || '' : media.url}
-                    </p>
+                    {media.type !== 'riddle' && (
+                      <p className="text-xs text-text-secondary truncate mt-1 hidden sm:block" dir="ltr">
+                        {media.url}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {media.size > 0 && (
                         <span className="text-xs text-text-secondary">
@@ -1532,6 +1508,25 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Gallery button for riddle with gallery enabled */}
+                  {media.type === 'riddle' && media.riddleContent?.galleryEnabled && (
+                    <Tooltip text={`גלריית סלפי (${code.userGallery?.length || 0})`}>
+                      <a
+                        href={`/gallery/${code.shortId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-lg hover:bg-bg-hover text-accent relative"
+                      >
+                        <Camera className="w-4 h-4" />
+                        {(code.userGallery?.length || 0) > 0 && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                            {code.userGallery!.length > 9 ? '9+' : code.userGallery!.length}
+                          </span>
+                        )}
+                      </a>
                     </Tooltip>
                   )}
 
@@ -1705,6 +1700,22 @@ export default function CodeEditPage({ params }: PageProps) {
         onClose={() => setWordCloudModalOpen(false)}
         onSave={handleAddWordCloud}
         loading={addingWordCloud}
+      />
+
+      {/* QR Sign Modal */}
+      <QRSignModal
+        isOpen={qrSignModalOpen}
+        onClose={() => setQrSignModalOpen(false)}
+        onSave={handleSaveQRSign}
+        currentSign={code.widgets?.qrSign}
+      />
+
+      {/* WhatsApp Widget Modal */}
+      <WhatsAppWidgetModal
+        isOpen={whatsappModalOpen}
+        onClose={() => setWhatsappModalOpen(false)}
+        onSave={handleSaveWhatsappWidget}
+        currentGroupLink={code.widgets?.whatsapp?.groupLink}
       />
     </div>
   );

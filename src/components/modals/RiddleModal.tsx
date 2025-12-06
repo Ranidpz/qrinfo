@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users } from 'lucide-react';
+import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users, Pipette } from 'lucide-react';
 import { RiddleContent } from '@/types';
 
 interface RiddleModalProps {
@@ -12,39 +12,23 @@ interface RiddleModalProps {
   initialContent?: RiddleContent;
 }
 
-// Preset color palettes
+// Preset color palettes - 6 colors each
 const backgroundColors = [
   '#1a1a2e', // Dark blue
-  '#16213e', // Navy
-  '#0f3460', // Deep blue
-  '#1e3a5f', // Ocean
   '#1a1a1a', // Almost black
-  '#2d2d2d', // Dark gray
-  '#3d3d3d', // Gray
-  '#4a4a4a', // Medium gray
-  '#f5f5f5', // Light gray
   '#ffffff', // White
   '#fef3c7', // Cream
   '#dbeafe', // Light blue
-  '#d1fae5', // Mint
   '#fce7f3', // Pink
-  '#f3e8ff', // Lavender
-  '#fed7aa', // Peach
 ];
 
 const textColors = [
   '#ffffff', // White
-  '#f8f8f8', // Off-white
-  '#e5e5e5', // Light gray
-  '#a0a0a0', // Gray
   '#1a1a1a', // Almost black
-  '#000000', // Black
   '#3b82f6', // Blue
   '#22c55e', // Green
-  '#f59e0b', // Amber
   '#ef4444', // Red
   '#8b5cf6', // Purple
-  '#ec4899', // Pink
 ];
 
 export default function RiddleModal({
@@ -237,39 +221,43 @@ export default function RiddleModal({
               <label className="text-sm font-medium text-text-primary">
                 צבע רקע
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2">
                 {backgroundColors.map((color) => (
                   <button
                     key={color}
-                    onClick={() => setBackgroundColor(color)}
+                    onClick={() => {
+                      setBackgroundColor(color);
+                      setCustomBgColor('');
+                    }}
                     className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                      backgroundColor === color
+                      backgroundColor === color && !customBgColor
                         ? 'border-accent scale-110'
-                        : 'border-transparent hover:border-border'
+                        : 'border-border hover:border-text-secondary'
                     }`}
                     style={{ backgroundColor: color }}
                     title={color}
                   />
                 ))}
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  type="color"
-                  value={customBgColor || backgroundColor}
-                  onChange={(e) => {
-                    setCustomBgColor(e.target.value);
-                    setBackgroundColor(e.target.value);
-                  }}
-                  className="w-8 h-8 rounded cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                  placeholder="#000000"
-                  className="input flex-1 text-xs"
-                  dir="ltr"
-                />
+                {/* Custom Color Picker */}
+                <label
+                  className={`relative w-8 h-8 rounded-lg border-2 cursor-pointer flex items-center justify-center transition-all ${
+                    customBgColor && !backgroundColors.includes(backgroundColor)
+                      ? 'border-accent scale-110'
+                      : 'border-border hover:border-text-secondary'
+                  }`}
+                  style={{ backgroundColor: customBgColor || '#e5e5e5' }}
+                >
+                  <Pipette className="w-4 h-4 text-text-secondary" />
+                  <input
+                    type="color"
+                    value={customBgColor || backgroundColor}
+                    onChange={(e) => {
+                      setCustomBgColor(e.target.value);
+                      setBackgroundColor(e.target.value);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                </label>
               </div>
             </div>
 
@@ -278,39 +266,43 @@ export default function RiddleModal({
               <label className="text-sm font-medium text-text-primary">
                 צבע טקסט
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2">
                 {textColors.map((color) => (
                   <button
                     key={color}
-                    onClick={() => setTextColor(color)}
+                    onClick={() => {
+                      setTextColor(color);
+                      setCustomTextColor('');
+                    }}
                     className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                      textColor === color
+                      textColor === color && !customTextColor
                         ? 'border-accent scale-110'
-                        : 'border-transparent hover:border-border'
+                        : 'border-border hover:border-text-secondary'
                     }`}
                     style={{ backgroundColor: color }}
                     title={color}
                   />
                 ))}
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  type="color"
-                  value={customTextColor || textColor}
-                  onChange={(e) => {
-                    setCustomTextColor(e.target.value);
-                    setTextColor(e.target.value);
-                  }}
-                  className="w-8 h-8 rounded cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={textColor}
-                  onChange={(e) => setTextColor(e.target.value)}
-                  placeholder="#ffffff"
-                  className="input flex-1 text-xs"
-                  dir="ltr"
-                />
+                {/* Custom Color Picker */}
+                <label
+                  className={`relative w-8 h-8 rounded-lg border-2 cursor-pointer flex items-center justify-center transition-all ${
+                    customTextColor && !textColors.includes(textColor)
+                      ? 'border-accent scale-110'
+                      : 'border-border hover:border-text-secondary'
+                  }`}
+                  style={{ backgroundColor: customTextColor || '#e5e5e5' }}
+                >
+                  <Pipette className="w-4 h-4 text-text-secondary" />
+                  <input
+                    type="color"
+                    value={customTextColor || textColor}
+                    onChange={(e) => {
+                      setCustomTextColor(e.target.value);
+                      setTextColor(e.target.value);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                </label>
               </div>
             </div>
           </div>

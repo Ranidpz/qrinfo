@@ -59,6 +59,7 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
         const signRadius = downloadSize * 0.125; // 25% of QR / 2
+        const scale = sign.scale ?? 1.0;
 
         // Draw background circle
         ctx.beginPath();
@@ -72,18 +73,19 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
         ctx.textBaseline = 'middle';
 
         if (sign.type === 'text') {
-          const fontSize = signRadius * (sign.value.length <= 2 ? 0.9 : 0.6);
+          const baseFontSize = signRadius * (sign.value.length === 1 ? 1.1 : sign.value.length === 2 ? 0.9 : 0.6);
+          const fontSize = baseFontSize * scale;
           ctx.font = `bold ${fontSize}px Assistant, Arial, sans-serif`;
           ctx.fillText(sign.value, centerX, centerY);
         } else if (sign.type === 'emoji') {
-          const fontSize = signRadius * 1.1;
+          const fontSize = signRadius * 1.1 * scale;
           ctx.font = `${fontSize}px Arial, sans-serif`;
           ctx.fillText(sign.value, centerX, centerY);
         } else if (sign.type === 'icon') {
           // Draw icon using Path2D
           const iconData = ICON_PATHS[sign.value];
           if (iconData) {
-            const iconSize = signRadius * 1.3;
+            const iconSize = signRadius * 1.3 * scale;
             ctx.save();
             ctx.translate(centerX - iconSize / 2, centerY - iconSize / 2);
             ctx.scale(iconSize / 24, iconSize / 24);
@@ -122,6 +124,7 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
     if (!sign?.enabled || !sign.value) return null;
 
     const overlaySize = size * 0.25;
+    const scale = sign.scale ?? 1.0;
 
     return (
       <div
@@ -136,7 +139,7 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
           (() => {
             const IconComponent = LucideIcons[sign.value as keyof typeof LucideIcons] as LucideIcon;
             return IconComponent ? (
-              <IconComponent size={overlaySize * 0.55} color={sign.color} strokeWidth={2.5} />
+              <IconComponent size={overlaySize * 0.55 * scale} color={sign.color} strokeWidth={2.5} />
             ) : null;
           })()
         ) : (
@@ -144,9 +147,13 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
             style={{
               color: sign.color,
               fontFamily: 'var(--font-assistant), Arial, sans-serif',
-              fontSize: sign.type === 'emoji' ? overlaySize * 0.55 : overlaySize * (sign.value.length <= 2 ? 0.45 : 0.3),
+              fontSize: (sign.type === 'emoji'
+                ? overlaySize * 0.55
+                : overlaySize * (sign.value.length === 1 ? 0.6 : sign.value.length === 2 ? 0.45 : 0.3)) * scale,
               fontWeight: sign.type === 'text' ? 700 : 400,
               lineHeight: 1,
+              display: 'block',
+              marginTop: '-0.1em',
             }}
           >
             {sign.value}

@@ -65,7 +65,8 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
         const notifs = await getNotifications();
         setNotifications(notifs);
       } catch (error) {
-        console.error('Error loading notifications:', error);
+        // Silently fail - notifications are optional and may have permission issues
+        // console.error('Error loading notifications:', error);
       }
     }
     loadNotifications();

@@ -779,7 +779,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
               {media.map((item, index) => (
                 <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
                   {item.type === 'riddle' && item.riddleContent ? (
-                    <RiddleViewer content={item.riddleContent} codeId={codeId} shortId={shortId} />
+                    <RiddleViewer content={item.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
                   ) : item.type === 'pdf' ? (
                     <PDFFlipBookViewer url={item.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
                   ) : item.type === 'video' ? (
@@ -894,7 +894,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             </div>
           </div>
         ) : isRiddle && currentMedia.riddleContent ? (
-          <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} />
+          <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
         ) : isAllImages && hasMultipleMedia ? (

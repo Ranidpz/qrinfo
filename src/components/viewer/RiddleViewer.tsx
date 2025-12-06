@@ -3,11 +3,14 @@
 import { useState, useRef } from 'react';
 import { RiddleContent } from '@/types';
 import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle } from 'lucide-react';
+import { doc, updateDoc, arrayUnion, serverTimestamp, increment, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface RiddleViewerProps {
   content: RiddleContent;
   codeId?: string;
   shortId?: string;
+  ownerId?: string;
 }
 
 // Format text with WhatsApp-style formatting
@@ -57,7 +60,7 @@ async function compressImage(file: File): Promise<Blob> {
   });
 }
 
-export default function RiddleViewer({ content, codeId, shortId }: RiddleViewerProps) {
+export default function RiddleViewer({ content, codeId, shortId, ownerId }: RiddleViewerProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -119,7 +122,7 @@ export default function RiddleViewer({ content, codeId, shortId }: RiddleViewerP
 
   // Handle gallery upload
   const handleUpload = async (file: File, name: string) => {
-    if (!codeId) return;
+    if (!codeId || !ownerId) return;
 
     setUploading(true);
     setShowNameModal(false);
@@ -133,9 +136,10 @@ export default function RiddleViewer({ content, codeId, shortId }: RiddleViewerP
       const formData = new FormData();
       formData.append('file', compressedBlob, `selfie_${Date.now()}.webp`);
       formData.append('codeId', codeId);
+      formData.append('ownerId', ownerId);
       formData.append('uploaderName', name || 'אנונימי');
 
-      // Upload
+      // Upload to Vercel Blob
       const response = await fetch('/api/gallery', {
         method: 'POST',
         body: formData,
@@ -144,6 +148,25 @@ export default function RiddleViewer({ content, codeId, shortId }: RiddleViewerP
       if (!response.ok) {
         throw new Error('Upload failed');
       }
+
+      const data = await response.json();
+
+      // Update Firestore with the new gallery image (client-side to use auth)
+      const codeRef = doc(db, 'codes', codeId);
+      await updateDoc(codeRef, {
+        userGallery: arrayUnion({
+          id: data.image.id,
+          url: data.image.url,
+          uploaderName: data.image.uploaderName,
+          uploadedAt: Timestamp.now(),
+        }),
+      });
+
+      // Update owner's storage used
+      const ownerRef = doc(db, 'users', ownerId);
+      await updateDoc(ownerRef, {
+        storageUsed: increment(data.image.size),
+      });
 
       setUploadStatus('success');
 
@@ -361,19 +384,9 @@ export default function RiddleViewer({ content, codeId, shortId }: RiddleViewerP
               ? 'הועלה!'
               : uploadStatus === 'error'
               ? 'שגיאה'
-              : 'צלם סלפי'}
+              : 'צלמו כאן'}
           </span>
         </button>
-      )}
-
-      {/* Gallery Link - Only show if gallery is enabled */}
-      {galleryEnabled && shortId && (
-        <a
-          href={`/gallery/${shortId}`}
-          className="fixed bottom-6 right-6 z-40 px-4 py-2 rounded-full bg-white/90 shadow-lg text-sm font-medium text-gray-700 hover:bg-white transition-colors"
-        >
-          צפה בגלריה
-        </a>
       )}
 
       {/* Name Input Modal */}

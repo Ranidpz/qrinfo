@@ -7,13 +7,20 @@ import { clsx } from 'clsx';
 import { MediaType, CodeWidgets, ViewMode } from '@/types';
 
 // Custom Tooltip component for instant display
-function Tooltip({ children, text }: { children: React.ReactNode; text: string }) {
+function Tooltip({ children, text, position = 'top' }: { children: React.ReactNode; text: string; position?: 'top' | 'bottom' }) {
+  const isTop = position === 'top';
   return (
     <div className="relative group/tooltip">
       {children}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-opacity duration-100 z-[100] pointer-events-none">
+      <div className={clsx(
+        "absolute left-1/2 -translate-x-1/2 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-75 z-[100] pointer-events-none shadow-lg",
+        isTop ? "bottom-full mb-2" : "top-full mt-2"
+      )}>
         {text}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+        <div className={clsx(
+          "absolute left-1/2 -translate-x-1/2 border-4 border-transparent",
+          isTop ? "top-full border-t-gray-900" : "bottom-full border-b-gray-900"
+        )} />
       </div>
     </div>
   );
@@ -151,6 +158,17 @@ export default function CodeCard({
     requestAnimationFrame(animate);
   }, [views]);
 
+  // Format full date and time for tooltip
+  const formatFullDateTime = (date: Date): string => {
+    return date.toLocaleString('he-IL', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   // Format relative time in Hebrew
   const formatRelativeTime = (date: Date): string => {
     const now = new Date();
@@ -163,6 +181,7 @@ export default function CodeCard({
     if (diffMins < 60) return `לפני ${diffMins} דקות`;
     if (diffHours < 24) return `לפני ${diffHours} שעות`;
     if (diffDays < 7) return `לפני ${diffDays} ימים`;
+    // Show date and time for older items
     return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
   };
 
@@ -541,10 +560,12 @@ export default function CodeCard({
 
           {/* Last updated */}
           {updatedAt && (
-            <div className="flex items-center gap-1 text-text-secondary" title={updatedAt.toLocaleString('he-IL')}>
-              <Clock className="w-3 h-3" />
-              <span>{formatRelativeTime(updatedAt)}</span>
-            </div>
+            <Tooltip text={formatFullDateTime(updatedAt)} position="top">
+              <div className="flex items-center gap-1 text-text-secondary cursor-help">
+                <Clock className="w-3 h-3" />
+                <span>{formatRelativeTime(updatedAt)}</span>
+              </div>
+            </Tooltip>
           )}
         </div>
 

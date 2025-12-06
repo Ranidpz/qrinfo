@@ -276,6 +276,7 @@ export async function updateQRCode(
       if (m.schedule) (mediaItem as Record<string, unknown>).schedule = m.schedule;
       if (m.linkUrl) (mediaItem as Record<string, unknown>).linkUrl = m.linkUrl;
       if (m.linkTitle) (mediaItem as Record<string, unknown>).linkTitle = m.linkTitle;
+      if (m.riddleContent) (mediaItem as Record<string, unknown>).riddleContent = m.riddleContent;
       return mediaItem;
     });
   }
