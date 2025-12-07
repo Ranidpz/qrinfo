@@ -20,6 +20,19 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
+// Tooltip component
+function Tooltip({ children, text }: { children: React.ReactNode; text: string }) {
+  return (
+    <div className="relative group">
+      {children}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
+        {text}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+      </div>
+    </div>
+  );
+}
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -174,51 +187,52 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
               );
             })}
           </ul>
-
-          {/* Theme Toggle */}
-          <div className="mt-6 pt-4 border-t border-border">
-            <button
-              onClick={toggleTheme}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
-              <span>{theme === 'dark' ? 'מצב יום' : 'מצב לילה'}</span>
-            </button>
-          </div>
         </nav>
 
         {/* User section & Footer */}
         <div className="p-4 border-t border-border">
-          {/* Action Buttons Row - WhatsApp & Notifications */}
+          {/* Action Buttons Row - Theme, Notifications, WhatsApp */}
           <div className="flex items-center justify-center gap-3 mb-4">
+            {/* Theme Toggle Button */}
+            <Tooltip text={theme === 'dark' ? 'מעבר למצב יום' : 'מעבר למצב לילה'}>
+              <button
+                onClick={toggleTheme}
+                className="p-2.5 rounded-full bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="w-5 h-5 text-purple-500" />
+                ) : (
+                  <Moon className="w-5 h-5 text-purple-500" />
+                )}
+              </button>
+            </Tooltip>
+
             {/* Notifications Button */}
-            <button
-              onClick={() => setShowNotificationsModal(true)}
-              className="relative p-2.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
-              title="התראות"
-            >
-              <Bell className="w-5 h-5 text-blue-500" />
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {notifications.length > 9 ? '9+' : notifications.length}
-                </span>
-              )}
-            </button>
+            <Tooltip text="עדכונים והודעות מערכת">
+              <button
+                onClick={() => setShowNotificationsModal(true)}
+                className="relative p-2.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
+              >
+                <Bell className="w-5 h-5 text-blue-500" />
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {notifications.length > 9 ? '9+' : notifications.length}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
 
             {/* WhatsApp Support Button */}
-            <a
-              href="https://wa.me/972773006306"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2.5 rounded-full bg-green-500/10 hover:bg-green-500/20 transition-colors"
-              title="תמיכה בווטסאפ"
-            >
-              <WhatsAppIcon className="w-5 h-5 text-green-500" />
-            </a>
+            <Tooltip text="צור קשר לתמיכה בווטסאפ">
+              <a
+                href="https://wa.me/972773006306"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2.5 rounded-full bg-green-500/10 hover:bg-green-500/20 transition-colors"
+              >
+                <WhatsAppIcon className="w-5 h-5 text-green-500" />
+              </a>
+            </Tooltip>
           </div>
 
           {/* User Info or Login Button */}
