@@ -648,40 +648,35 @@ export async function deleteNotification(notificationId: string): Promise<void> 
   await deleteDoc(doc(db, 'notifications', notificationId));
 }
 
-// Check if a version notification already exists
-export async function getVersionNotification(version: string): Promise<Notification | null> {
-  const q = query(
-    collection(db, 'notifications'),
-    where('isVersionUpdate', '==', true),
-    where('version', '==', version)
-  );
-
-  const snapshot = await getDocs(q);
-
-  if (snapshot.empty) {
-    return null;
-  }
-
-  const docSnap = snapshot.docs[0];
-  const data = docSnap.data();
-  return {
-    id: docSnap.id,
-    title: data.title,
-    message: data.message,
-    createdBy: data.createdBy,
-    createdAt: data.createdAt?.toDate() || new Date(),
-  };
-}
-
 // Create a version update notification (only if doesn't exist)
+// Uses localStorage to track which versions have been notified to avoid duplicates
+const VERSION_NOTIFIED_KEY = 'qr_version_notified';
+
 export async function createVersionNotification(
   version: string,
   highlights: string[]
 ): Promise<Notification | null> {
-  // Check if notification for this version already exists
-  const existing = await getVersionNotification(version);
-  if (existing) {
-    return null; // Already exists
+  // Check localStorage first to avoid duplicate notifications
+  if (typeof window !== 'undefined') {
+    const notifiedVersions = localStorage.getItem(VERSION_NOTIFIED_KEY);
+    const versions = notifiedVersions ? JSON.parse(notifiedVersions) : [];
+    if (versions.includes(version)) {
+      return null; // Already created notification for this version
+    }
+  }
+
+  // Also check Firestore to be safe (simple title check)
+  const allNotifs = await getNotifications();
+  const exists = allNotifs.some(n => n.title === `גרסה ${version}`);
+  if (exists) {
+    // Mark as notified in localStorage even if we found it in Firestore
+    if (typeof window !== 'undefined') {
+      const notifiedVersions = localStorage.getItem(VERSION_NOTIFIED_KEY);
+      const versions = notifiedVersions ? JSON.parse(notifiedVersions) : [];
+      versions.push(version);
+      localStorage.setItem(VERSION_NOTIFIED_KEY, JSON.stringify(versions));
+    }
+    return null;
   }
 
   const title = `גרסה ${version}`;
@@ -697,6 +692,14 @@ export async function createVersionNotification(
   };
 
   const docRef = await addDoc(collection(db, 'notifications'), notificationData);
+
+  // Mark as notified in localStorage
+  if (typeof window !== 'undefined') {
+    const notifiedVersions = localStorage.getItem(VERSION_NOTIFIED_KEY);
+    const versions = notifiedVersions ? JSON.parse(notifiedVersions) : [];
+    versions.push(version);
+    localStorage.setItem(VERSION_NOTIFIED_KEY, JSON.stringify(versions));
+  }
 
   return {
     id: docRef.id,
