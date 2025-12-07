@@ -167,7 +167,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
       {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-l border-border z-50 transition-transform duration-300 flex flex-col overflow-y-auto pb-safe',
+          'fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-l border-border z-40 transition-transform duration-300 flex flex-col overflow-y-auto pb-safe',
           // Mobile: slide in/out
           isOpen ? 'translate-x-0' : 'translate-x-full',
           // Desktop: always visible
