@@ -18,6 +18,14 @@ export default async function GalleryPage({ params }: GalleryPageProps) {
       notFound();
     }
 
+    // Extract company logos from selfiebeam/riddle media items
+    const companyLogos: string[] = [];
+    for (const media of code.media) {
+      if (media.type === 'selfiebeam' && media.selfiebeamContent?.companyLogos) {
+        companyLogos.push(...media.selfiebeamContent.companyLogos);
+      }
+    }
+
     return (
       <GalleryClient
         codeId={code.id}
@@ -26,6 +34,7 @@ export default async function GalleryPage({ params }: GalleryPageProps) {
         title={code.title}
         initialImages={code.userGallery || []}
         initialSettings={code.gallerySettings}
+        companyLogos={companyLogos}
       />
     );
   } catch (error) {

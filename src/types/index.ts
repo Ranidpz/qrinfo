@@ -26,6 +26,7 @@ export interface SelfiebeamContent {
   images?: string[]; // Array of uploaded image URLs
   galleryEnabled?: boolean; // Allow users to upload selfies
   allowAnonymous?: boolean; // Allow anonymous uploads (no name required)
+  companyLogos?: string[]; // Company logos to display in gallery mixed with selfies
 }
 
 // User gallery image (selfies uploaded by viewers)

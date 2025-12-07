@@ -46,6 +46,7 @@ interface GalleryClientProps {
   title: string;
   initialImages: UserGalleryImage[];
   initialSettings?: GallerySettings;
+  companyLogos?: string[]; // Company logos to display mixed with selfies
 }
 
 const DEFAULT_SETTINGS: GallerySettings = {
@@ -85,6 +86,7 @@ export default function GalleryClient({
   title,
   initialImages,
   initialSettings,
+  companyLogos = [],
 }: GalleryClientProps) {
   const { user } = useAuth();
   const isOwner = user?.id === ownerId;
@@ -169,6 +171,17 @@ export default function GalleryClient({
 
   // Total grid cells = columns * rows (fills screen exactly)
   const gridSize = gridColumns * gridRows;
+
+  // Convert company logos to UserGalleryImage format for display
+  const logoImages: UserGalleryImage[] = companyLogos.map((url, index) => ({
+    id: `logo_${index}`,
+    url,
+    uploaderName: '', // No name for logos
+    uploadedAt: new Date(0), // Oldest date so they don't affect sorting
+  }));
+
+  // Check if an image is a company logo (not deletable)
+  const isCompanyLogo = (imageId: string) => imageId.startsWith('logo_');
 
   // Track if settings were loaded from Firebase (to avoid overwriting with initial values)
   const settingsLoadedRef = useRef(false);
@@ -282,7 +295,10 @@ export default function GalleryClient({
   ): UserGalleryImage | null => {
     // Use ref to get current images (avoids re-running effect on image changes)
     const currentImages = imagesRef.current;
-    const displayImages = displayLimit > 0 ? currentImages.slice(0, displayLimit) : currentImages;
+    const baseImages = displayLimit > 0 ? currentImages.slice(0, displayLimit) : currentImages;
+
+    // Include logos in the available images for shuffle mode
+    const displayImages = [...baseImages, ...logoImages];
     if (displayImages.length === 0) return null;
 
     // Get IDs of images in adjacent slots
@@ -309,7 +325,7 @@ export default function GalleryClient({
     }
 
     return displayImages[0];
-  }, [displayLimit, gridSize, gridColumns]);
+  }, [displayLimit, gridSize, gridColumns, logoImages]);
 
   // Track if shuffle mode was already initialized
   const shuffleInitializedRef = useRef(false);
@@ -735,14 +751,38 @@ export default function GalleryClient({
     }
   };
 
-  // Get images to display based on mode
-  const getDisplayImages = () => {
+  // Get images to display based on mode, with logos mixed in
+  const getDisplayImages = (): UserGalleryImage[] => {
+    let baseImages: UserGalleryImage[];
     if (displayLimit > 0) {
       // Specific limit selected (10, 20, 50, 100)
-      return images.slice(0, displayLimit);
+      baseImages = images.slice(0, displayLimit);
+    } else {
+      // "All" mode - use pagination to avoid loading thousands at once
+      baseImages = images.slice(0, paginationLimit);
     }
-    // "All" mode - use pagination to avoid loading thousands at once
-    return images.slice(0, paginationLimit);
+
+    // If no logos, return images as-is
+    if (logoImages.length === 0) {
+      return baseImages;
+    }
+
+    // Mix logos into the images at regular intervals
+    // Logos repeat cyclically every N images (where N = number of logos * spacing)
+    const mixedImages: UserGalleryImage[] = [];
+    const logoSpacing = Math.max(3, Math.floor(baseImages.length / (logoImages.length * 2))); // At least every 3 images
+    let logoIndex = 0;
+
+    for (let i = 0; i < baseImages.length; i++) {
+      // Insert logo at regular intervals
+      if (i > 0 && i % logoSpacing === 0 && logoImages.length > 0) {
+        mixedImages.push(logoImages[logoIndex % logoImages.length]);
+        logoIndex++;
+      }
+      mixedImages.push(baseImages[i]);
+    }
+
+    return mixedImages;
   };
 
   // Check if there are more images to load (for "all" mode)
@@ -1079,45 +1119,9 @@ export default function GalleryClient({
             }`}
           >
             <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
-              {/* Row 1: All controls in one line */}
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                {/* Delete button */}
-                {isOwner && images.length > 0 ? (
-                  <Tooltip text="מחק את כל התמונות">
-                    <button
-                      onClick={() => setShowDeleteAllConfirm(true)}
-                      disabled={deletingAll}
-                      className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
-                    >
-                      {deletingAll ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-5 h-5" />
-                      )}
-                    </button>
-                  </Tooltip>
-                ) : (
-                  <div className="w-9" />
-                )}
-
-                {/* Grid size slider */}
-                <Tooltip text="גודל הרשת">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min="2"
-                      max="6"
-                      value={gridColumns}
-                      onChange={(e) => updateGridColumns(Number(e.target.value))}
-                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                    <span className="text-sm text-white/60 w-3">{gridColumns}</span>
-                  </div>
-                </Tooltip>
-
-                <div className="w-px h-5 bg-white/20" />
-
-                {/* Display mode buttons - icons only with tooltips */}
+              {/* Row 1: Display mode + Grid columns + Toggles */}
+              <div className="flex items-center justify-center flex-wrap gap-3">
+                {/* Display mode buttons */}
                 <div className="flex gap-1">
                   <Tooltip text="תצוגה רגילה">
                     <button
@@ -1159,9 +1163,26 @@ export default function GalleryClient({
 
                 <div className="w-px h-5 bg-white/20" />
 
+                {/* Grid columns slider */}
+                <Tooltip text="מספר עמודות">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white/60">עמודות</span>
+                    <input
+                      type="range"
+                      min="2"
+                      max="6"
+                      value={gridColumns}
+                      onChange={(e) => updateGridColumns(Number(e.target.value))}
+                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <span className="text-sm text-white/60 w-3">{gridColumns}</span>
+                  </div>
+                </Tooltip>
+
+                <div className="w-px h-5 bg-white/20" />
+
                 {/* Toggles */}
                 <div className="flex items-center gap-3">
-                  {/* Show names toggle */}
                   <Tooltip text="הצג שמות על התמונות">
                     <div className="flex items-center gap-1.5">
                       <button
@@ -1180,7 +1201,6 @@ export default function GalleryClient({
                     </div>
                   </Tooltip>
 
-                  {/* Fade effect toggle */}
                   <Tooltip text="אפקט תנועה קלה">
                     <div className="flex items-center gap-1.5">
                       <button
@@ -1199,7 +1219,6 @@ export default function GalleryClient({
                     </div>
                   </Tooltip>
 
-                  {/* NEW badge toggle */}
                   <Tooltip text="הצג תג NEW על תמונות חדשות">
                     <div className="flex items-center gap-1.5">
                       <button
@@ -1218,12 +1237,14 @@ export default function GalleryClient({
                     </div>
                   </Tooltip>
                 </div>
+              </div>
 
-                <div className="w-px h-5 bg-white/20" />
-
-                {/* Display limit */}
-                <Tooltip text="כמות תמונות להצגה">
+              {/* Row 2: Display limit + Sliders + Image count + Delete */}
+              <div className="flex items-center justify-center flex-wrap gap-3">
+                {/* Display limit buttons */}
+                <Tooltip text="כמות תמונות להצגה" position="above">
                   <div className="flex items-center gap-2">
+                    <span className="text-sm text-white/60">אחרונות</span>
                     <div className="flex gap-1">
                       {[0, 10, 20, 50, 100].map((limit) => (
                         <button
@@ -1239,13 +1260,11 @@ export default function GalleryClient({
                         </button>
                       ))}
                     </div>
-                    <span className="text-sm text-white/60">אחרונות</span>
                   </div>
                 </Tooltip>
-              </div>
 
-              {/* Row 2: Border radius + Name size sliders */}
-              <div className="flex items-center justify-center flex-wrap gap-4">
+                <div className="w-px h-5 bg-white/20" />
+
                 {/* Border radius slider */}
                 <Tooltip text="עיגול פינות התמונות" position="above">
                   <div className="flex items-center gap-2">
@@ -1256,25 +1275,23 @@ export default function GalleryClient({
                       max="50"
                       value={borderRadius}
                       onChange={(e) => updateBorderRadius(Number(e.target.value))}
-                      className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
                     />
                     <span className="text-sm text-white/60 w-6">{borderRadius}%</span>
                   </div>
                 </Tooltip>
 
-                <div className="w-px h-5 bg-white/20" />
-
                 {/* Name size slider */}
                 <Tooltip text="גודל הטקסט של השמות" position="above">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">טקסט</span>
+                    <span className="text-sm text-white/60">שמות</span>
                     <input
                       type="range"
                       min="10"
-                      max="24"
+                      max="48"
                       value={nameSize}
                       onChange={(e) => updateNameSize(Number(e.target.value))}
-                      className="w-20 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
                     />
                     <span className="text-sm text-white/60 w-6">{nameSize}px</span>
                   </div>
@@ -1282,10 +1299,27 @@ export default function GalleryClient({
 
                 <div className="w-px h-5 bg-white/20" />
 
-                {/* Image count */}
-                <span className="text-sm text-white/50">
-                  {images.length} תמונות
-                </span>
+                {/* Image count + Delete button together */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-white/50">
+                    {images.length} תמונות
+                  </span>
+                  {isOwner && images.length > 0 && (
+                    <Tooltip text="מחק את כל התמונות" position="above">
+                      <button
+                        onClick={() => setShowDeleteAllConfirm(true)}
+                        disabled={deletingAll}
+                        className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        {deletingAll ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -114,6 +114,9 @@ export default function CodeEditPage({ params }: PageProps) {
     mediaId: string | null;
   }>({ isOpen: false, file: null, mediaId: null });
 
+  // File drag-drop state for adding new media (drag over media list area)
+  const [isDraggingOverMediaArea, setIsDraggingOverMediaArea] = useState(false);
+
   // Link modal state
   const [linkModal, setLinkModal] = useState<{ isOpen: boolean; mediaId: string | null }>({
     isOpen: false,
@@ -664,6 +667,60 @@ export default function CodeEditPage({ params }: PageProps) {
     setReplaceConfirmModal({ isOpen: false, file: null, mediaId: null });
   };
 
+  // Handlers for dragging files over the media list area to ADD new media
+  const handleMediaAreaDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingOverMediaArea(true);
+    }
+  };
+
+  const handleMediaAreaDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set to false if we're leaving the container (not entering a child)
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setIsDraggingOverMediaArea(false);
+    }
+  };
+
+  const handleMediaAreaDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOverMediaArea(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length === 0) return;
+
+    const file = files[0];
+
+    // Validate file type
+    const validTypes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'video/mp4', 'video/webm',
+      'application/pdf'
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      alert('סוג קובץ לא נתמך');
+      return;
+    }
+
+    // Validate file size (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('הקובץ גדול מדי. מקסימום 5MB');
+      return;
+    }
+
+    // Add new media (not replace)
+    handleAddMedia(file);
+  };
+
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     if (!code || draggedIndex === null || draggedIndex === dropIndex) {
@@ -1063,20 +1120,26 @@ export default function CodeEditPage({ params }: PageProps) {
   };
 
   // Handler for adding or editing a selfiebeam
-  const handleSaveSelfiebeam = async (content: SelfiebeamContent, imageFiles: File[]) => {
+  const handleSaveSelfiebeam = async (content: SelfiebeamContent, imageFiles: File[], logoFiles: File[]) => {
     if (!code || !user) return;
 
     setAddingSelfiebeam(true);
     try {
-      // Get the original images from the existing selfiebeam (if editing)
+      // Get the original images and logos from the existing selfiebeam (if editing)
       const existingSelfiebeam = editingSelfiebeamId
         ? code.media.find(m => m.id === editingSelfiebeamId)?.selfiebeamContent
         : null;
       const originalImages = existingSelfiebeam?.images || [];
+      const originalLogos = existingSelfiebeam?.companyLogos || [];
 
       // Find images that were removed (in original but not in content.images)
       const removedImages = originalImages.filter(
         (url) => !content.images?.includes(url)
+      );
+
+      // Find logos that were removed
+      const removedLogos = originalLogos.filter(
+        (url) => !content.companyLogos?.includes(url)
       );
 
       // Delete removed images from Vercel Blob
@@ -1092,7 +1155,21 @@ export default function CodeEditPage({ params }: PageProps) {
         }
       }
 
+      // Delete removed logos from Vercel Blob
+      for (const logoUrl of removedLogos) {
+        try {
+          await fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: logoUrl }),
+          });
+        } catch (error) {
+          console.error('Failed to delete logo from blob:', error);
+        }
+      }
+
       let uploadedImageUrls: string[] = [...(content.images || [])];
+      let uploadedLogoUrls: string[] = [...(content.companyLogos || [])];
       let totalImageSize = 0;
 
       // Upload any new images
@@ -1115,6 +1192,26 @@ export default function CodeEditPage({ params }: PageProps) {
         totalImageSize += uploadData.size;
       }
 
+      // Upload any new logos
+      for (const file of logoFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', user.id);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Logo upload failed');
+        }
+
+        const uploadData = await uploadResponse.json();
+        uploadedLogoUrls.push(uploadData.url);
+        totalImageSize += uploadData.size;
+      }
+
       let updatedMedia: MediaItem[];
 
       // Build selfiebeamContent without undefined values for Firebase
@@ -1126,6 +1223,7 @@ export default function CodeEditPage({ params }: PageProps) {
         images: uploadedImageUrls.length > 0 ? uploadedImageUrls : [],
         galleryEnabled: content.galleryEnabled || false,
         allowAnonymous: content.allowAnonymous ?? true,
+        companyLogos: uploadedLogoUrls.length > 0 ? uploadedLogoUrls : [],
       };
       if (content.youtubeUrl) {
         selfiebeamContent.youtubeUrl = content.youtubeUrl;
@@ -1734,8 +1832,16 @@ export default function CodeEditPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Media items */}
-          <div className="space-y-3">
+          {/* Media items - entire area is drag-drop zone for adding new media */}
+          <div
+            className={clsx(
+              "space-y-3 min-h-[200px] p-3 -m-3 rounded-xl transition-all",
+              isDraggingOverMediaArea && "ring-2 ring-dashed ring-accent bg-accent/5"
+            )}
+            onDragOver={handleMediaAreaDragOver}
+            onDragLeave={handleMediaAreaDragLeave}
+            onDrop={handleMediaAreaDrop}
+          >
             {code.media.map((media, index) => (
               <div
                 key={media.id}
@@ -1993,9 +2099,12 @@ export default function CodeEditPage({ params }: PageProps) {
             ))}
 
             {code.media.length === 0 && (
-              <div className="text-center py-12 text-text-secondary">
+              <div className={clsx(
+                "text-center py-12 text-text-secondary border-2 border-dashed rounded-xl transition-all",
+                isDraggingOverMediaArea ? "border-accent bg-accent/10" : "border-border"
+              )}>
                 <p>אין מדיה בקוד זה</p>
-                <p className="text-sm mt-1">הוסף תמונה, וידאו, PDF או לינק</p>
+                <p className="text-sm mt-1">גררו קובץ לכאן או לחצו על + להוספה</p>
               </div>
             )}
           </div>

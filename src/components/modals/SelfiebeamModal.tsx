@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users, Pipette } from 'lucide-react';
+import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users, Pipette, Building2 } from 'lucide-react';
 import { SelfiebeamContent } from '@/types';
 
 interface SelfiebeamModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (content: SelfiebeamContent, imageFiles: File[]) => Promise<void>;
+  onSave: (content: SelfiebeamContent, imageFiles: File[], logoFiles: File[]) => Promise<void>;
   loading?: boolean;
   initialContent?: SelfiebeamContent;
 }
@@ -50,8 +50,13 @@ export default function SelfiebeamModal({
   const [existingImages, setExistingImages] = useState<string[]>([]); // Track existing images that weren't deleted
   const [galleryEnabled, setGalleryEnabled] = useState(false);
   const [allowAnonymous, setAllowAnonymous] = useState(true);
+  const [logoFiles, setLogoFiles] = useState<File[]>([]);
+  const [logoPreviews, setLogoPreviews] = useState<string[]>([]);
+  const [existingLogos, setExistingLogos] = useState<string[]>([]);
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -66,6 +71,9 @@ export default function SelfiebeamModal({
         setExistingImages(initialContent.images || []);
         setGalleryEnabled(initialContent.galleryEnabled || false);
         setAllowAnonymous(initialContent.allowAnonymous ?? true);
+        // For existing logos
+        setLogoPreviews(initialContent.companyLogos || []);
+        setExistingLogos(initialContent.companyLogos || []);
       } else {
         setTitle('');
         setContent('');
@@ -76,15 +84,18 @@ export default function SelfiebeamModal({
         setExistingImages([]);
         setGalleryEnabled(false);
         setAllowAnonymous(true);
+        setLogoPreviews([]);
+        setExistingLogos([]);
       }
       setImageFiles([]);
+      setLogoFiles([]);
       setError('');
       setCustomBgColor('');
       setCustomTextColor('');
     }
   }, [isOpen, initialContent]);
 
-  // Generate previews for newly added files
+  // Generate previews for newly added image files
   useEffect(() => {
     const newPreviews: string[] = [];
 
@@ -99,6 +110,22 @@ export default function SelfiebeamModal({
       newPreviews.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [imageFiles, existingImages]);
+
+  // Generate previews for newly added logo files
+  useEffect(() => {
+    const newPreviews: string[] = [];
+
+    logoFiles.forEach((file) => {
+      const url = URL.createObjectURL(file);
+      newPreviews.push(url);
+    });
+
+    setLogoPreviews([...existingLogos, ...newPreviews]);
+
+    return () => {
+      newPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [logoFiles, existingLogos]);
 
   if (!isOpen) return null;
 
@@ -120,6 +147,40 @@ export default function SelfiebeamModal({
       const fileIndex = index - existingCount;
       setImageFiles((prev) => prev.filter((_, i) => i !== fileIndex));
     }
+  };
+
+  const handleAddLogos = (files: FileList | null) => {
+    if (!files) return;
+    const newFiles = Array.from(files).filter((file) =>
+      file.type.startsWith('image/')
+    );
+    setLogoFiles((prev) => [...prev, ...newFiles]);
+  };
+
+  const handleRemoveLogo = (index: number) => {
+    const existingCount = existingLogos.length;
+    if (index < existingCount) {
+      setExistingLogos((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      const fileIndex = index - existingCount;
+      setLogoFiles((prev) => prev.filter((_, i) => i !== fileIndex));
+    }
+  };
+
+  const handleLogoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingLogo(true);
+  };
+
+  const handleLogoDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingLogo(false);
+  };
+
+  const handleLogoDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingLogo(false);
+    handleAddLogos(e.dataTransfer.files);
   };
 
   const extractYoutubeId = (url: string): string | null => {
@@ -155,9 +216,10 @@ export default function SelfiebeamModal({
       images: existingImages, // Use the tracked existing images (after deletions)
       galleryEnabled,
       allowAnonymous,
+      companyLogos: existingLogos, // Use tracked existing logos (after deletions)
     };
 
-    await onSave(selfiebeamContent, imageFiles);
+    await onSave(selfiebeamContent, imageFiles, logoFiles);
   };
 
   const youtubeId = extractYoutubeId(youtubeUrl);
@@ -431,6 +493,66 @@ export default function SelfiebeamModal({
             />
             <p className="text-xs text-text-secondary">
               התמונות יישמרו בספריית התמונות וייספרו באחסון שלך
+            </p>
+          </div>
+
+          {/* Company Logos */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-accent" />
+              לוגו חברה
+              <span className="text-text-secondary font-normal">(יוצג בגלריה)</span>
+            </label>
+
+            {/* Logo Grid */}
+            {logoPreviews.length > 0 && (
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                {logoPreviews.map((preview, index) => (
+                  <div
+                    key={index}
+                    className="relative aspect-square rounded-lg overflow-hidden bg-bg-secondary border border-border"
+                  >
+                    <img
+                      src={preview}
+                      alt=""
+                      className="w-full h-full object-contain p-1"
+                    />
+                    <button
+                      onClick={() => handleRemoveLogo(index)}
+                      className="absolute top-1 right-1 p-1 rounded-full bg-danger text-white hover:bg-danger/80 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Drag & Drop Logo Upload Area */}
+            <div
+              onDragOver={handleLogoDragOver}
+              onDragLeave={handleLogoDragLeave}
+              onDrop={handleLogoDrop}
+              onClick={() => logoInputRef.current?.click()}
+              className={`w-full flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
+                isDraggingLogo
+                  ? 'border-accent bg-accent/10'
+                  : 'border-border hover:border-accent hover:text-accent text-text-secondary'
+              }`}
+            >
+              <Building2 className="w-6 h-6" />
+              <span className="text-sm">גרור לוגו לכאן או לחץ להוספה</span>
+            </div>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => handleAddLogos(e.target.files)}
+            />
+            <p className="text-xs text-text-secondary">
+              הלוגו יוצג בגלריה יחד עם תמונות המשתמשים ויחזור על עצמו באופן מחזורי
             </p>
           </div>
 

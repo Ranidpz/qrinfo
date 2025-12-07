@@ -1,0 +1,216 @@
+{
+  "common": {
+    "save": "שמור",
+    "saving": "שומר...",
+    "cancel": "ביטול",
+    "delete": "מחק",
+    "deleteForever": "מחק לצמיתות",
+    "edit": "ערוך",
+    "close": "סגור",
+    "back": "חזור",
+    "add": "הוסף",
+    "adding": "הוספה...",
+    "create": "צור",
+    "creating": "יוצר...",
+    "search": "חיפוש...",
+    "loading": "טוען...",
+    "publish": "פרסם",
+    "copy": "העתק",
+    "copied": "הועתק",
+    "next": "הבא",
+    "previous": "הקודם",
+    "all": "הכל",
+    "error": "שגיאה",
+    "success": "הצלחה"
+  },
+  "auth": {
+    "signIn": "התחבר",
+    "signOut": "התנתק",
+    "signInWithGoogle": "התחברו עם Google",
+    "signInToCreate": "התחברו כדי ליצור חוויה",
+    "signInRequired": "התחבר כדי ליצור חוויה",
+    "signInNow": "התחברו עכשיו",
+    "signInError": "שגיאה בהתחברות. נסה שוב.",
+    "agreeAndSignIn": "מסכים ומתחבר עם Google",
+    "bySigningIn": "בלחיצה על התחבר אתה מסכים ל",
+    "termsOfService": "תנאי השימוש"
+  },
+  "navigation": {
+    "dashboard": "דשבורד",
+    "analytics": "אנליטיקס",
+    "userManagement": "ניהול משתמשים",
+    "closeMenu": "סגור תפריט"
+  },
+  "sidebar": {
+    "themeLight": "מעבר למצב יום",
+    "themeDark": "מעבר למצב לילה",
+    "notifications": "עדכונים והודעות מערכת",
+    "whatsappSupport": "צור קשר לתמיכה בווטסאפ",
+    "noNotifications": "אין התראות"
+  },
+  "notifications": {
+    "title": "התראות",
+    "addNotification": "הוסף התראה",
+    "deleteNotification": "מחק התראה",
+    "notificationTitle": "כותרת ההתראה",
+    "notificationContent": "תוכן ההתראה",
+    "noNotifications": "אין התראות"
+  },
+  "dashboard": {
+    "title": "The Q - One Code. Endless Experiences",
+    "subtitle": "תמונות, וידאו, PDF, כתב חידה, ענן מילים, מיני-גיימס, גלריית סלפי ועוד",
+    "safeCode": "קוד בטוח להדפסה וללא פרסומות",
+    "createNew": "יצירת חוויה חדשה",
+    "creatingCode": "יוצר קוד חדש...",
+    "experiences": "חוויות",
+    "newExperience": "חוויה חדשה",
+    "createExperienceToOrganize": "צור חוויה חדשה לארגון התוכן",
+    "noGlobalExperiences": "אין חוויות גלובליות כרגע",
+    "emptyExperience": "החוויה ריקה",
+    "noCodes": "אין קודים עדיין",
+    "signInToCreate": "התחבר כדי ליצור חוויות משלך",
+    "dragCodesToExperience": "גרור קודים לכאן כדי להוסיף אותם לחוויה",
+    "uploadOrAddLink": "העלה תוכן או הוסף לינק ליצירת הקוד הראשון שלך",
+    "dropHereToDashboard": "שחרר כאן להעברה לדשבורד",
+    "codes": "קודים",
+    "clickToEditName": "לחץ לעריכת שם",
+    "editName": "ערוך שם",
+    "myQ": "My Q"
+  },
+  "features": {
+    "realTimeChange": "שינוי בזמן אמת",
+    "scheduledExperiences": "תזמון חוויות",
+    "liveAnalytics": "אנליטיקס חי"
+  },
+  "login": {
+    "tagline": "One QR. Endless Experiences.",
+    "description": "תמונות, וידאו, PDF, כתב חידה, ענן מילים, מיני-גיימס, גלריית סלפי ועוד",
+    "safeCode": "קוד בטוח להדפסה וללא פרסומות",
+    "freeCode": "קוד QR בחינם",
+    "freeStorage": "אחסון חינם",
+    "suitableFor": "מתאים ל:",
+    "useCases": "מלונות • תערוכות • הפקות • וחוויות"
+  },
+  "terms": {
+    "title": "תנאי שימוש",
+    "whatIsQueue": "מהי Queue?",
+    "whatIsQueueDesc": "Queue היא מערכת ליצירת קודי QR דינמיים המאפשרת לשנות את התוכן מאחורי הקוד בכל עת, לתזמן חוויות, ולצפות בנתוני שימוש בזמן אמת.",
+    "alphaVersion": "גרסת אלפא",
+    "alphaVersionDesc": "המערכת נמצאת כרגע בגרסת אלפא (Alpha). המשמעות היא שהמערכת עשויה להשתנות מעת לעת, פיצ'רים עשויים להתווסף או להשתנות, ויתכנו באגים או שינויים בלתי צפויים.",
+    "contentResponsibility": "אחריות על תכנים",
+    "contentResponsibilityDesc": "המשתמש אחראי באופן בלעדי על כל התכנים שהוא מעלה למערכת. אין להעלות תכנים פוגעניים, בלתי חוקיים, או תכנים המפרים זכויות יוצרים.",
+    "serviceRights": "השירות שומר לעצמו את הזכות להסיר תכנים לא הולמים ולחסום משתמשים המפרים את תנאי השימוש.",
+    "privacy": "פרטיות ונתונים",
+    "privacyDesc": "המערכת אוספת נתוני שימוש אנונימיים לצורך שיפור השירות והצגת אנליטיקס למשתמשים. אנו לא משתפים מידע אישי עם צדדים שלישיים.",
+    "liability": "הגבלת אחריות",
+    "liabilityDesc": "השירות מסופק \"כמות שהוא\" (AS IS) ללא אחריות מכל סוג. איננו אחראים לנזקים ישירים או עקיפים הנובעים משימוש בשירות.",
+    "termsChanges": "שינויים בתנאים",
+    "termsChangesDesc": "אנו שומרים לעצמנו את הזכות לעדכן תנאים אלו מעת לעת. המשך השימוש בשירות מהווה הסכמה לתנאים המעודכנים."
+  },
+  "modals": {
+    "deleteCode": "מחיקת קוד",
+    "deleteExperience": "מחיקת חוויה",
+    "aboutToDelete": "אתה עומד למחוק את",
+    "deleteWarning": "פעולה זו תסיר את כל המדיה שלו לצמיתות ולא ניתן לשחזר אותה!",
+    "typeToConfirm": "הקלידו {word} לאישור:",
+    "deleteConfirmWord": "מחיקה",
+    "deleteExperienceConfirm": "האם אתה בטוח שברצונך למחוק את החוויה \"{name}\"?",
+    "codesWillMoveToDashboard": "הקודים בחוויה יועברו לדשבורד.",
+    "transferOwnership": "העבר בעלות",
+    "riddle": "כתב חידה",
+    "wordCloud": "ענן מילים",
+    "selfiebeam": "סלפי בים",
+    "schedule": "תזמון הצגה",
+    "addLink": "הוסף לינק",
+    "replaceFile": "החלף קובץ",
+    "qrSign": "שלט QR"
+  },
+  "code": {
+    "duplicate": "שכפל קוד",
+    "duplicateSuffix": "(עותק)",
+    "copyLink": "העתק לינק",
+    "openInNewWindow": "פתח בחלון חדש",
+    "changeName": "שנה שם",
+    "deleteCode": "מחק קוד",
+    "deleteMedia": "מחק מדיה",
+    "deleteFolder": "מחק ספריה",
+    "codeName": "שם הקוד",
+    "enterName": "הזן שם...",
+    "newLink": "לינק חדש"
+  },
+  "media": {
+    "image": "תמונה",
+    "video": "וידאו",
+    "pdf": "PDF",
+    "link": "לינק",
+    "riddle": "כתב חידה",
+    "wordcloud": "ענן מילים",
+    "selfiebeam": "סלפי בים",
+    "minigames": "מיניגיימס",
+    "addFile": "הוסף קובץ",
+    "replaceFile": "החלף קובץ",
+    "removeLink": "הסר לינק"
+  },
+  "uploader": {
+    "enterUrl": "הזינו כתובת URL...",
+    "enterPageTitle": "הזן כותרת לדף...",
+    "nameOrNickname": "שם או כינוי...",
+    "anonymous": "אנונימי"
+  },
+  "analytics": {
+    "totalViews": "סה\"כ צפיות",
+    "dailyAverage": "ממוצע יומי",
+    "peakHour": "שעת שיא",
+    "topDevice": "מכשיר מוביל",
+    "vsYesterday": "לעומת אתמול"
+  },
+  "gallery": {
+    "gridSize": "גודל הרשת",
+    "subtleMotion": "אפקט תנועה קלה",
+    "showNames": "הצג שמות על התמונות",
+    "nameTextSize": "גודל הטקסט של השמות",
+    "autoScroll": "גלילה אוטומטית",
+    "randomMode": "מצב רנדומלי",
+    "showNewTag": "הצג תג NEW על תמונות חדשות",
+    "imagesToShow": "כמות תמונות להצגה",
+    "roundCorners": "עיגול פינות התמונות",
+    "deleteAllImages": "מחק את כל התמונות",
+    "normalView": "תצוגה רגילה",
+    "loadMoreImages": "טען עוד תמונות"
+  },
+  "widgets": {
+    "whatsappActive": "ווידג'ט WhatsApp פעיל",
+    "joinWhatsApp": "הצטרף לקבוצת WhatsApp"
+  },
+  "storage": {
+    "storage": "נפח אחסון",
+    "used": "בשימוש",
+    "remaining": "נותר"
+  },
+  "errors": {
+    "saveError": "שגיאה בשמירה. נסה שוב.",
+    "deleteError": "שגיאה במחיקה. נסה שוב.",
+    "uploadError": "שגיאה בהעלאת הקובץ. נסה שוב.",
+    "createCodeError": "שגיאה ביצירת הקוד. נסה שוב.",
+    "updateNameError": "שגיאה בעדכון השם. נסה שוב.",
+    "transferError": "שגיאה בהעברת הבעלות. נסה שוב.",
+    "createExperienceError": "שגיאה ביצירת החוויה. נסה שוב.",
+    "renameExperienceError": "שגיאה בשינוי שם החוויה. נסה שוב.",
+    "deleteExperienceError": "שגיאה במחיקת החוויה. נסה שוב.",
+    "moveCodeError": "שגיאה בהעברת הקוד. נסה שוב.",
+    "replaceFileError": "שגיאה בהחלפת הקובץ. נסה שוב.",
+    "duplicateError": "שגיאה בשכפול הקוד. נסה שוב.",
+    "globalStatusError": "שגיאה בשינוי סטטוס גלובלי. נסה שוב.",
+    "createRiddleError": "שגיאה ביצירת כתב החידה. נסה שוב.",
+    "createSelfiebeamError": "שגיאה ביצירת סלפי בים. נסה שוב."
+  },
+  "admin": {
+    "searchByNameOrEmail": "חיפוש לפי שם או אימייל...",
+    "searchUser": "חיפוש משתמש..."
+  },
+  "language": {
+    "hebrew": "עברית",
+    "english": "English",
+    "selectLanguage": "בחר שפה"
+  }
+}
