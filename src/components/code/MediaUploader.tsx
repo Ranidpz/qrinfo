@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2 } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 
@@ -110,104 +110,48 @@ export default function MediaUploader({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + sizes[i];
   };
 
+  // Tab button component for cleaner code
+  const TabButton = ({
+    tab,
+    label,
+    icon: Icon
+  }: {
+    tab: typeof activeTab;
+    label: string;
+    icon: React.ElementType;
+  }) => (
+    <button
+      onClick={() => setActiveTab(tab)}
+      className={clsx(
+        'flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors',
+        activeTab === tab
+          ? 'bg-accent text-white'
+          : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
+      )}
+    >
+      <Icon className="w-4 h-4" />
+      <span className="truncate">{label}</span>
+    </button>
+  );
+
   return (
-    <div className="card">
-      {/* Tab buttons */}
+    <div className="space-y-3">
+      {/* Tab buttons - 3 columns grid */}
       {(onLinkAdd || onRiddleCreate || onWordCloudCreate) && (
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setActiveTab('upload')}
-            className={clsx(
-              'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
-              activeTab === 'upload'
-                ? 'bg-accent text-white'
-                : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
-            )}
-          >
-            מדיה
-          </button>
-          {onLinkAdd && (
-            <button
-              onClick={() => setActiveTab('link')}
-              className={clsx(
-                'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
-                activeTab === 'link'
-                  ? 'bg-accent text-white'
-                  : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
-              )}
-            >
-              הוספת לינק
-            </button>
-          )}
-          {onRiddleCreate && (
-            <button
-              onClick={() => setActiveTab('riddle')}
-              className={clsx(
-                'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
-                activeTab === 'riddle'
-                  ? 'bg-accent text-white'
-                  : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
-              )}
-            >
-              כתב חידה
-            </button>
-          )}
-          {onWordCloudCreate && (
-            <button
-              onClick={() => setActiveTab('wordcloud')}
-              className={clsx(
-                'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
-                activeTab === 'wordcloud'
-                  ? 'bg-accent text-white'
-                  : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
-              )}
-            >
-              ענן מילים
-            </button>
-          )}
-          {onSelfiebeamCreate && (
-            <button
-              onClick={() => setActiveTab('selfiebeam')}
-              className={clsx(
-                'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
-                activeTab === 'selfiebeam'
-                  ? 'bg-accent text-white'
-                  : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
-              )}
-            >
-              סלפי בים
-            </button>
-          )}
-          <button
-            onClick={() => setActiveTab('minigames')}
-            className={clsx(
-              'flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors',
-              activeTab === 'minigames'
-                ? 'bg-accent text-white'
-                : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
-            )}
-          >
-            מיניגיימס
-          </button>
+        <div className="grid grid-cols-3 gap-2">
+          <TabButton tab="upload" label="מדיה" icon={Upload} />
+          {onLinkAdd && <TabButton tab="link" label="לינק" icon={Link} />}
+          {onRiddleCreate && <TabButton tab="riddle" label="כתב חידה" icon={FileText} />}
+          {onWordCloudCreate && <TabButton tab="wordcloud" label="ענן מילים" icon={Cloud} />}
+          {onSelfiebeamCreate && <TabButton tab="selfiebeam" label="סלפי בים" icon={Camera} />}
+          <TabButton tab="minigames" label="מיניגיימס" icon={Gamepad2} />
         </div>
       )}
 
       {activeTab === 'upload' ? (
         <>
-          {/* Upload area */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => !disabled && fileInputRef.current?.click()}
-            className={clsx(
-              'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all',
-              isDragging
-                ? 'border-accent bg-accent/10'
-                : 'border-border hover:border-accent/50',
-              disabled && 'opacity-50 cursor-not-allowed'
-            )}
-          >
+          {/* Mobile: Compact upload button */}
+          <div className="sm:hidden">
             <input
               ref={fileInputRef}
               type="file"
@@ -216,14 +160,54 @@ export default function MediaUploader({
               className="hidden"
               disabled={disabled}
             />
+            <button
+              onClick={() => !disabled && fileInputRef.current?.click()}
+              disabled={disabled}
+              className={clsx(
+                'w-full flex items-center justify-center gap-3 py-4 px-4 rounded-xl border-2 border-dashed transition-all',
+                'border-border hover:border-accent/50 hover:bg-accent/5',
+                disabled && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                <Upload className="w-5 h-5 text-accent" />
+              </div>
+              <div className="text-right">
+                <p className="font-medium text-text-primary">העלאת קובץ</p>
+                <p className="text-xs text-text-secondary">תמונה, וידאו או PDF (עד {formatBytes(maxSize)})</p>
+              </div>
+            </button>
+          </div>
 
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
-                <Upload className="w-8 h-8 text-accent" />
+          {/* Desktop: Full drag & drop area */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => !disabled && fileInputRef.current?.click()}
+            className={clsx(
+              'hidden sm:block border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all',
+              isDragging
+                ? 'border-accent bg-accent/10'
+                : 'border-border hover:border-accent/50',
+              disabled && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <input
+              type="file"
+              onChange={handleFileChange}
+              accept="image/*,video/*,.pdf"
+              className="hidden"
+              disabled={disabled}
+            />
+
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                <Upload className="w-6 h-6 text-accent" />
               </div>
 
               <div>
-                <h3 className="text-lg font-medium text-text-primary mb-1">
+                <h3 className="text-base font-medium text-text-primary mb-1">
                   העלאת תוכן
                 </h3>
                 <p className="text-sm text-text-secondary">
@@ -247,24 +231,22 @@ export default function MediaUploader({
               </div>
 
               <p className="text-xs text-text-secondary">
-                גודל מקסימלי: {formatBytes(maxSize)}
-                <br />
-                JPG, PNG, WebP, GIF, MP4, WebM, PDF
+                עד {formatBytes(maxSize)} · JPG, PNG, WebP, GIF, MP4, WebM, PDF
               </p>
             </div>
           </div>
         </>
       ) : activeTab === 'link' ? (
         /* Link input */
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 p-4 bg-bg-secondary rounded-xl">
-            <Link className="w-6 h-6 text-text-secondary" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+            <Link className="w-5 h-5 text-text-secondary flex-shrink-0" />
             <input
               type="url"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               placeholder="הזינו כתובת URL..."
-              className="input flex-1"
+              className="input flex-1 text-sm"
               dir="ltr"
             />
           </div>
@@ -278,21 +260,21 @@ export default function MediaUploader({
         </div>
       ) : activeTab === 'riddle' ? (
         /* Riddle creation */
-        <div className="space-y-4">
-          <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
-            <div className="w-20 h-20 rounded-xl overflow-hidden">
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
               <img
                 src="/media/riddle.jpg"
                 alt="כתב חידה"
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="text-center">
-              <h3 className="text-lg font-medium text-text-primary mb-1">
+            <div className="text-right">
+              <h3 className="font-medium text-text-primary mb-1">
                 כתב חידה
               </h3>
-              <p className="text-sm text-text-secondary">
-                צור דף נחיתה אינטראקטיבי עם טקסט, תמונות וסרטון יוטיוב
+              <p className="text-xs text-text-secondary">
+                דף נחיתה אינטראקטיבי עם טקסט, תמונות וסרטון
               </p>
             </div>
           </div>
@@ -306,17 +288,17 @@ export default function MediaUploader({
         </div>
       ) : activeTab === 'wordcloud' ? (
         /* Word Cloud creation */
-        <div className="space-y-4">
-          <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
-            <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center">
-              <Cloud className="w-7 h-7 text-accent" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+              <Cloud className="w-6 h-6 text-accent" />
             </div>
-            <div className="text-center">
-              <h3 className="text-lg font-medium text-text-primary mb-1">
+            <div className="text-right">
+              <h3 className="font-medium text-text-primary mb-1">
                 ענן מילים
               </h3>
-              <p className="text-sm text-text-secondary">
-                צור ענן מילים אינטראקטיבי לאירועים עם QuizyCloud
+              <p className="text-xs text-text-secondary">
+                ענן מילים אינטראקטיבי לאירועים עם QuizyCloud
               </p>
             </div>
           </div>
@@ -330,21 +312,21 @@ export default function MediaUploader({
         </div>
       ) : activeTab === 'selfiebeam' ? (
         /* Selfiebeam creation */
-        <div className="space-y-4">
-          <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
-            <div className="w-20 h-20 rounded-xl overflow-hidden">
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
               <img
                 src="/media/SELFIEBEAM.jpg"
                 alt="סלפי בים"
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="text-center">
-              <h3 className="text-lg font-medium text-text-primary mb-1">
+            <div className="text-right">
+              <h3 className="font-medium text-text-primary mb-1">
                 סלפי בים
               </h3>
-              <p className="text-sm text-text-secondary">
-                קיר סלפי לאירועים - צור דף נחיתה עם גלריית סלפי משותפת
+              <p className="text-xs text-text-secondary">
+                קיר סלפי לאירועים - גלריית סלפי משותפת
               </p>
             </div>
           </div>
@@ -358,17 +340,17 @@ export default function MediaUploader({
         </div>
       ) : activeTab === 'minigames' ? (
         /* Minigames - coming soon */
-        <div className="space-y-4">
-          <div className="flex flex-col items-center gap-4 p-6 bg-bg-secondary rounded-xl">
-            <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center">
-              <Gamepad2 className="w-7 h-7 text-accent" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+              <Gamepad2 className="w-6 h-6 text-accent" />
             </div>
-            <div className="text-center">
-              <h3 className="text-lg font-medium text-text-primary mb-1">
+            <div className="text-right">
+              <h3 className="font-medium text-text-primary mb-1">
                 מיניגיימס
               </h3>
-              <p className="text-sm text-text-secondary">
-                5 משחקים מאתגרים מהטלפון עם לוח תוצאות ענק על מסכי הענק באירוע
+              <p className="text-xs text-text-secondary">
+                5 משחקים מאתגרים עם לוח תוצאות על מסכי הענק
               </p>
             </div>
           </div>
@@ -383,7 +365,7 @@ export default function MediaUploader({
 
       {/* Error message */}
       {error && (
-        <p className="mt-3 text-sm text-danger text-center">{error}</p>
+        <p className="text-sm text-danger text-center">{error}</p>
       )}
     </div>
   );

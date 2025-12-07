@@ -975,6 +975,20 @@ export default function CodeEditPage({ params }: PageProps) {
 
       let updatedMedia: MediaItem[];
 
+      // Build selfiebeamContent without undefined values for Firebase
+      const selfiebeamContent: SelfiebeamContent = {
+        title: content.title,
+        content: content.content,
+        backgroundColor: content.backgroundColor,
+        textColor: content.textColor,
+        images: uploadedImageUrls.length > 0 ? uploadedImageUrls : [],
+        galleryEnabled: content.galleryEnabled || false,
+        allowAnonymous: content.allowAnonymous ?? true,
+      };
+      if (content.youtubeUrl) {
+        selfiebeamContent.youtubeUrl = content.youtubeUrl;
+      }
+
       if (editingSelfiebeamId) {
         // Update existing selfiebeam
         const existingMedia = code.media.find(m => m.id === editingSelfiebeamId);
@@ -986,10 +1000,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 ...m,
                 title: content.title,
                 size: oldSize + totalImageSize,
-                selfiebeamContent: {
-                  ...content,
-                  images: uploadedImageUrls,
-                },
+                selfiebeamContent,
               }
             : m
         );
@@ -1003,10 +1014,7 @@ export default function CodeEditPage({ params }: PageProps) {
           order: code.media.length,
           uploadedBy: user.id,
           title: content.title,
-          selfiebeamContent: {
-            ...content,
-            images: uploadedImageUrls,
-          },
+          selfiebeamContent,
           createdAt: new Date(),
         };
         updatedMedia = [...code.media, newMedia];

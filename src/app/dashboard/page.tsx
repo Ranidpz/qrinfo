@@ -362,11 +362,20 @@ export default function DashboardPage() {
         totalImageSize += uploadData.size;
       }
 
-      // Create selfiebeam content with uploaded image URLs
+      // Create selfiebeam content with uploaded image URLs (filter out undefined values for Firebase)
       const selfiebeamContent: SelfiebeamContent = {
-        ...content,
-        images: uploadedImages,
+        title: content.title,
+        content: content.content,
+        backgroundColor: content.backgroundColor,
+        textColor: content.textColor,
+        images: uploadedImages.length > 0 ? uploadedImages : [],
+        galleryEnabled: content.galleryEnabled || false,
+        allowAnonymous: content.allowAnonymous ?? true,
       };
+      // Only add youtubeUrl if it exists
+      if (content.youtubeUrl) {
+        selfiebeamContent.youtubeUrl = content.youtubeUrl;
+      }
 
       // Create QR code with selfiebeam (in current folder if inside one)
       const newCode = await createQRCode(user.id, content.title, [
