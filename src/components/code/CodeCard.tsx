@@ -263,8 +263,12 @@ export default function CodeCard({
           "group relative bg-bg-card border border-border rounded-lg hover:border-accent/50 transition-all",
           isDragging && "opacity-50 scale-95"
         )}
-        draggable={isOwner}
+        draggable={isOwner && !isEditing}
         onDragStart={(e) => {
+          if (isEditing) {
+            e.preventDefault();
+            return;
+          }
           e.dataTransfer.setData('text/plain', id);
           e.dataTransfer.effectAllowed = 'move';
           onDragStart?.();
@@ -399,8 +403,12 @@ export default function CodeCard({
         "group relative bg-bg-card border border-border rounded-xl hover:border-accent/50 transition-all",
         isDragging && "opacity-50 scale-95"
       )}
-      draggable={isOwner}
+      draggable={isOwner && !isEditing}
       onDragStart={(e) => {
+        if (isEditing) {
+          e.preventDefault();
+          return;
+        }
         e.dataTransfer.setData('text/plain', id);
         e.dataTransfer.effectAllowed = 'move';
         onDragStart?.();
