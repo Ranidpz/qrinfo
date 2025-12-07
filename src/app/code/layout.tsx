@@ -37,7 +37,7 @@ export default function CodeLayout({
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-bg-primary pt-16">
       <Header
         onMenuClick={() => setSidebarOpen(true)}
       />
@@ -55,7 +55,7 @@ export default function CodeLayout({
       />
 
       {/* Main content */}
-      <main className="md:mr-64 min-h-[calc(100vh-4rem)]">
+      <main className="md:mr-64 min-h-[calc(100vh-4rem)] relative z-0">
         <div className="p-4 md:p-6">
           {children}
         </div>
