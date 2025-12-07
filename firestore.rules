@@ -57,6 +57,14 @@ service cloud.firestore {
       );
     }
 
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Anyone authenticated can read notifications
+      allow read: if request.auth != null;
+      // Only admin can create, update, delete notifications
+      allow create, update, delete: if isAdmin();
+    }
+
     // Helper function to check if user is admin
     function isAdmin() {
       return request.auth != null &&
