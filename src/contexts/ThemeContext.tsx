@@ -18,13 +18,48 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    // Check localStorage first, then system preference
-    const stored = localStorage.getItem('theme') as Theme | null;
-    if (stored) {
-      setThemeState(stored);
-    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-      setThemeState('light');
-    }
+
+    // Function to sync theme from localStorage
+    const syncTheme = () => {
+      const stored = localStorage.getItem('theme') as Theme | null;
+      if (stored) {
+        setThemeState(stored);
+        // Also sync the DOM class immediately
+        if (stored === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        setThemeState('light');
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    // Initial sync
+    syncTheme();
+
+    // Sync when page becomes visible (handles back/forward navigation cache)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncTheme();
+      }
+    };
+
+    // Sync on pageshow (handles bfcache restoration)
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        syncTheme();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
   }, []);
 
   useEffect(() => {
