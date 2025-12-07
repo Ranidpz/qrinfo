@@ -25,7 +25,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 // Tooltip component
 function Tooltip({ children, text }: { children: React.ReactNode; text: string }) {
   return (
-    <div className="relative group/tooltip">
+    <div className="relative inline-flex group/tooltip">
       {children}
       <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
         {text}
@@ -250,7 +250,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                 href="https://wa.me/972773006306"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2.5 rounded-full bg-green-500/10 hover:bg-green-500/20 transition-colors"
+                className="block p-2.5 rounded-full bg-green-500/10 hover:bg-green-500/20 transition-colors"
               >
                 <WhatsAppIcon className="w-5 h-5 text-green-500" />
               </a>
