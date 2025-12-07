@@ -647,3 +647,62 @@ export async function getNotifications(): Promise<Notification[]> {
 export async function deleteNotification(notificationId: string): Promise<void> {
   await deleteDoc(doc(db, 'notifications', notificationId));
 }
+
+// Check if a version notification already exists
+export async function getVersionNotification(version: string): Promise<Notification | null> {
+  const q = query(
+    collection(db, 'notifications'),
+    where('isVersionUpdate', '==', true),
+    where('version', '==', version)
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const docSnap = snapshot.docs[0];
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    title: data.title,
+    message: data.message,
+    createdBy: data.createdBy,
+    createdAt: data.createdAt?.toDate() || new Date(),
+  };
+}
+
+// Create a version update notification (only if doesn't exist)
+export async function createVersionNotification(
+  version: string,
+  highlights: string[]
+): Promise<Notification | null> {
+  // Check if notification for this version already exists
+  const existing = await getVersionNotification(version);
+  if (existing) {
+    return null; // Already exists
+  }
+
+  const title = `גרסה ${version}`;
+  const message = highlights.join('\n');
+
+  const notificationData = {
+    title,
+    message,
+    createdBy: 'system',
+    createdAt: serverTimestamp(),
+    isVersionUpdate: true,
+    version,
+  };
+
+  const docRef = await addDoc(collection(db, 'notifications'), notificationData);
+
+  return {
+    id: docRef.id,
+    title,
+    message,
+    createdBy: 'system',
+    createdAt: new Date(),
+  };
+}
