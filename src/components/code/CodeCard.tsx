@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, ExternalLink, UserCog, User, Clock, Check, Files, MessageCircle } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { MediaType, CodeWidgets, ViewMode } from '@/types';
+import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
 
 // Custom Tooltip component for instant display
 function Tooltip({ children, text, position = 'top' }: { children: React.ReactNode; text: string; position?: 'top' | 'bottom' }) {
@@ -46,6 +47,7 @@ interface CodeCardProps {
   isDragging?: boolean;
   widgets?: CodeWidgets;
   viewMode?: ViewMode;
+  mediaCount?: number; // Total number of media items in this code
   onDelete?: () => void;
   onRefresh?: () => void;
   onReplaceFile?: (file: File) => void;
@@ -110,6 +112,7 @@ export default function CodeCard({
   isDragging = false,
   widgets,
   viewMode = 'grid',
+  mediaCount = 1,
   onDelete,
   onRefresh,
   onReplaceFile,
@@ -128,6 +131,11 @@ export default function CodeCard({
   const [isAnimating, setIsAnimating] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isFileDragOver, setIsFileDragOver] = useState(false);
+  const [replaceConfirmModal, setReplaceConfirmModal] = useState<{ isOpen: boolean; file: File | null }>({
+    isOpen: false,
+    file: null,
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrRef = useRef<HTMLDivElement>(null);
@@ -240,6 +248,54 @@ export default function CodeCard({
     e.target.value = '';
   };
 
+  // Handle file drag over card
+  const handleFileDragOver = (e: React.DragEvent) => {
+    // Only handle file drops, not card drags
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsFileDragOver(true);
+    }
+  };
+
+  const handleFileDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+  };
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileDragOver(false);
+
+    // Only handle file drops
+    if (!e.dataTransfer.types.includes('Files')) return;
+    if (!onReplaceFile || isGuest) return;
+
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'video/mp4', 'video/webm',
+      'application/pdf'
+    ];
+
+    if (!validTypes.includes(file.type)) return;
+
+    // Show confirmation modal
+    setReplaceConfirmModal({ isOpen: true, file });
+  };
+
+  const handleConfirmReplace = () => {
+    if (replaceConfirmModal.file) {
+      onReplaceFile?.(replaceConfirmModal.file);
+    }
+    setReplaceConfirmModal({ isOpen: false, file: null });
+  };
+
   // Get display info based on media type
   const getMediaInfo = () => {
     if (mediaType === 'link' && mediaUrl) {
@@ -258,10 +314,14 @@ export default function CodeCard({
   // List view - compact horizontal row
   if (viewMode === 'list') {
     return (
+      <>
       <div
         className={clsx(
-          "group relative bg-bg-card border border-border rounded-lg hover:border-accent/50 transition-all",
-          isDragging && "opacity-50 scale-95"
+          "group relative bg-bg-card border-2 rounded-lg transition-all",
+          isDragging && "opacity-50 scale-95",
+          isFileDragOver
+            ? "border-accent bg-accent/5"
+            : "border-border hover:border-accent/50"
         )}
         draggable={isOwner && !isEditing}
         onDragStart={(e) => {
@@ -274,7 +334,19 @@ export default function CodeCard({
           onDragStart?.();
         }}
         onDragEnd={() => onDragEnd?.()}
+        onDragOver={handleFileDragOver}
+        onDragLeave={handleFileDragLeave}
+        onDrop={handleFileDrop}
       >
+        {/* File drag overlay */}
+        {isFileDragOver && (
+          <div className="absolute inset-0 z-20 bg-accent/10 backdrop-blur-sm rounded-lg flex items-center justify-center pointer-events-none">
+            <div className="flex items-center gap-2 text-accent">
+              <Upload className="w-5 h-5" />
+              <span className="text-sm font-medium">שחרר להחלפה</span>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-3 p-3">
           {/* Small thumbnail/icon */}
           <a href={`/code/${id}`} className="flex-shrink-0 w-12 h-12 rounded-lg bg-bg-secondary overflow-hidden flex items-center justify-center">
@@ -393,15 +465,31 @@ export default function CodeCard({
         {/* Hidden file input */}
         <input ref={fileInputRef} type="file" accept="image/*,video/*,.pdf,.gif" onChange={handleFileChange} className="hidden" />
       </div>
+
+      {/* Replace media confirmation modal */}
+      <ReplaceMediaConfirm
+        isOpen={replaceConfirmModal.isOpen}
+        onClose={() => setReplaceConfirmModal({ isOpen: false, file: null })}
+        onConfirm={handleConfirmReplace}
+        currentMediaType={mediaType}
+        currentFileName={fileName}
+        newFileName={replaceConfirmModal.file?.name}
+        mediaCount={mediaCount}
+      />
+      </>
     );
   }
 
   // Grid view - original card layout
   return (
+    <>
     <div
       className={clsx(
-        "group relative bg-bg-card border border-border rounded-xl hover:border-accent/50 transition-all",
-        isDragging && "opacity-50 scale-95"
+        "group relative bg-bg-card border-2 rounded-xl transition-all",
+        isDragging && "opacity-50 scale-95",
+        isFileDragOver
+          ? "border-accent bg-accent/5 scale-[1.02]"
+          : "border-border hover:border-accent/50"
       )}
       draggable={isOwner && !isEditing}
       onDragStart={(e) => {
@@ -414,7 +502,19 @@ export default function CodeCard({
         onDragStart?.();
       }}
       onDragEnd={() => onDragEnd?.()}
+      onDragOver={handleFileDragOver}
+      onDragLeave={handleFileDragLeave}
+      onDrop={handleFileDrop}
     >
+      {/* File drag overlay */}
+      {isFileDragOver && (
+        <div className="absolute inset-0 z-20 bg-accent/10 backdrop-blur-sm rounded-xl flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-2 text-accent">
+            <Upload className="w-8 h-8" />
+            <span className="text-sm font-medium">שחרר להחלפה</span>
+          </div>
+        </div>
+      )}
       {/* Thumbnail / Preview - QR Code for links, media preview for others */}
       <a href={`/code/${id}`} className="block aspect-[4/3] relative overflow-hidden rounded-t-xl bg-bg-secondary">
         {mediaType === 'link' ? (
@@ -706,5 +806,17 @@ export default function CodeCard({
         </div>
       )}
     </div>
+
+    {/* Replace media confirmation modal */}
+    <ReplaceMediaConfirm
+      isOpen={replaceConfirmModal.isOpen}
+      onClose={() => setReplaceConfirmModal({ isOpen: false, file: null })}
+      onConfirm={handleConfirmReplace}
+      currentMediaType={mediaType}
+      currentFileName={fileName}
+      newFileName={replaceConfirmModal.file?.name}
+      mediaCount={mediaCount}
+    />
+    </>
   );
 }

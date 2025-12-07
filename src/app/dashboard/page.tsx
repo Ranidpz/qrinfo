@@ -610,6 +610,7 @@ export default function DashboardPage() {
         size: uploadData.size,
         order: 0,
         uploadedBy: user.id,
+        filename: uploadData.filename,
         createdAt: new Date(),
       };
 
@@ -619,12 +620,8 @@ export default function DashboardPage() {
       await updateUserStorage(user.id, uploadData.size);
       await refreshUser();
 
-      // Update local state
-      setCodes((prev) =>
-        prev.map((c) =>
-          c.id === codeId ? { ...c, media: [newMedia], updatedAt: new Date() } : c
-        )
-      );
+      // Navigate to the code edit page
+      router.push(`/code/${codeId}`);
     } catch (error) {
       console.error('Error replacing file:', error);
       alert('שגיאה בהחלפת הקובץ. נסה שוב.');
@@ -1166,8 +1163,9 @@ export default function DashboardPage() {
               thumbnail={code.media[0]?.type !== 'link' ? code.media[0]?.url : undefined}
               mediaType={code.media[0]?.type || 'image'}
               mediaUrl={code.media[0]?.url}
-              fileName={code.media[0]?.title}
+              fileName={code.media[0]?.filename || code.media[0]?.title}
               fileSize={code.media[0]?.size}
+              mediaCount={code.media.length}
               views={totalViews[code.id] ?? code.views}
               views24h={views24h[code.id] || 0}
               updatedAt={code.updatedAt}

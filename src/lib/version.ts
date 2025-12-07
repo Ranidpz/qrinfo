@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -10,6 +10,17 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  {
+    version: '1.3.0',
+    date: '2025-12-07',
+    highlights: [
+      'גרירת קבצים על כרטיסים וקודים - החלפה מהירה',
+      'שם קובץ מקורי נשמר ומוצג',
+      'מספר עמודים ב-PDF מוצג אוטומטית',
+      'תזמון חכם - מילוי אוטומטי של תאריכים ושעות',
+      'צבע ירוק/אדום לסטטוס תזמון פעיל/לא פעיל',
+    ],
+  },
   {
     version: '1.2.0',
     date: '2025-12-07',

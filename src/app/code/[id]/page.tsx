@@ -44,7 +44,21 @@ import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QRSignModal from '@/components/modals/QRSignModal';
 import WhatsAppWidgetModal from '@/components/modals/WhatsAppWidgetModal';
+import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
 import { clsx } from 'clsx';
+
+// Helper function to get PDF page count
+async function getPdfPageCount(url: string): Promise<number> {
+  try {
+    const pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+    const pdf = await pdfjsLib.getDocument(url).promise;
+    return pdf.numPages;
+  } catch (error) {
+    console.error('Error getting PDF page count:', error);
+    return 0;
+  }
+}
 
 // Custom Tooltip component for styled tooltips
 function Tooltip({ children, text }: { children: React.ReactNode; text: string }) {
@@ -91,6 +105,14 @@ export default function CodeEditPage({ params }: PageProps) {
   // Drag and drop state for media reordering
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // File drag-drop state for replacing media
+  const [fileDragOverMediaId, setFileDragOverMediaId] = useState<string | null>(null);
+  const [replaceConfirmModal, setReplaceConfirmModal] = useState<{
+    isOpen: boolean;
+    file: File | null;
+    mediaId: string | null;
+  }>({ isOpen: false, file: null, mediaId: null });
 
   // Link modal state
   const [linkModal, setLinkModal] = useState<{ isOpen: boolean; mediaId: string | null }>({
@@ -244,6 +266,41 @@ export default function CodeEditPage({ params }: PageProps) {
       unsubscribe();
     };
   }, [code?.id]);
+
+  // Load page count for PDFs that don't have it stored
+  useEffect(() => {
+    if (!code) return;
+
+    const loadMissingPageCounts = async () => {
+      const pdfsWithoutPageCount = code.media.filter(
+        m => m.type === 'pdf' && !m.pageCount
+      );
+
+      if (pdfsWithoutPageCount.length === 0) return;
+
+      const updatedMedia = [...code.media];
+      let hasUpdates = false;
+
+      for (const pdf of pdfsWithoutPageCount) {
+        const pageCount = await getPdfPageCount(pdf.url);
+        if (pageCount > 0) {
+          const index = updatedMedia.findIndex(m => m.id === pdf.id);
+          if (index !== -1) {
+            updatedMedia[index] = { ...updatedMedia[index], pageCount };
+            hasUpdates = true;
+          }
+        }
+      }
+
+      if (hasUpdates) {
+        // Update in database and local state
+        await updateQRCode(code.id, { media: updatedMedia });
+        setCode(prev => prev ? { ...prev, media: updatedMedia } : null);
+      }
+    };
+
+    loadMissingPageCounts();
+  }, [code?.id, code?.media.length]);
 
   const handleSave = async () => {
     if (!code) return;
@@ -538,6 +595,75 @@ export default function CodeEditPage({ params }: PageProps) {
     touchStartIndex.current = null;
   };
 
+  // File drag-drop handlers for replacing media items
+  const handleFileDragOver = (e: React.DragEvent, mediaId: string, mediaType: string) => {
+    // Only handle file drags, not internal reordering
+    if (e.dataTransfer.types.includes('Files')) {
+      // Don't allow dropping on links, riddles, selfiebeams, or wordclouds
+      if (mediaType === 'link' || mediaType === 'riddle' || mediaType === 'selfiebeam' || mediaType === 'wordcloud') {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      setFileDragOverMediaId(mediaId);
+    }
+  };
+
+  const handleFileDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFileDragOverMediaId(null);
+  };
+
+  const handleFileDrop = (e: React.DragEvent, mediaId: string, mediaType: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFileDragOverMediaId(null);
+
+    // Don't allow dropping on links, riddles, selfiebeams, or wordclouds
+    if (mediaType === 'link' || mediaType === 'riddle' || mediaType === 'selfiebeam' || mediaType === 'wordcloud') {
+      return;
+    }
+
+    const files = e.dataTransfer.files;
+    if (files.length === 0) return;
+
+    const file = files[0];
+
+    // Validate file type
+    const validTypes = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'video/mp4', 'video/webm',
+      'application/pdf'
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      alert('סוג קובץ לא נתמך');
+      return;
+    }
+
+    // Validate file size (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('הקובץ גדול מדי. מקסימום 5MB');
+      return;
+    }
+
+    // Show confirmation modal
+    setReplaceConfirmModal({
+      isOpen: true,
+      file,
+      mediaId,
+    });
+  };
+
+  const handleConfirmReplace = () => {
+    if (replaceConfirmModal.file && replaceConfirmModal.mediaId) {
+      handleReplaceMedia(replaceConfirmModal.mediaId, replaceConfirmModal.file);
+    }
+    setReplaceConfirmModal({ isOpen: false, file: null, mediaId: null });
+  };
+
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     if (!code || draggedIndex === null || draggedIndex === dropIndex) {
@@ -591,6 +717,12 @@ export default function CodeEditPage({ params }: PageProps) {
 
       const uploadData = await uploadResponse.json();
 
+      // Get PDF page count if it's a PDF file
+      let pageCount: number | undefined;
+      if (uploadData.type === 'pdf') {
+        pageCount = await getPdfPageCount(uploadData.url);
+      }
+
       // Add to media array
       const newMedia: MediaItem = {
         id: `media_${Date.now()}`,
@@ -599,6 +731,8 @@ export default function CodeEditPage({ params }: PageProps) {
         size: uploadData.size,
         order: code.media.length,
         uploadedBy: user.id,
+        filename: uploadData.filename,
+        pageCount,
         createdAt: new Date(),
       };
 
@@ -659,6 +793,12 @@ export default function CodeEditPage({ params }: PageProps) {
         await refreshUser();
       }
 
+      // Get PDF page count if it's a PDF file
+      let pageCount: number | undefined;
+      if (uploadData.type === 'pdf') {
+        pageCount = await getPdfPageCount(uploadData.url);
+      }
+
       // Update media in array
       const updatedMedia = code.media.map((m) =>
         m.id === mediaId
@@ -668,6 +808,8 @@ export default function CodeEditPage({ params }: PageProps) {
               type: uploadData.type,
               size: uploadData.size,
               uploadedBy: user.id,
+              filename: uploadData.filename,
+              pageCount,
             }
           : m
       );
@@ -1110,6 +1252,30 @@ export default function CodeEditPage({ params }: PageProps) {
       parts.push(`-${schedule.endTime}`);
     }
     return parts.join(' ');
+  };
+
+  // Check if schedule is currently active
+  const isScheduleActive = (schedule?: MediaSchedule): boolean | null => {
+    if (!schedule?.enabled) return null; // No schedule
+
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    const { startDate, endDate, startTime, endTime } = schedule;
+
+    // Check date range
+    if (startDate && now < startDate) return false;
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (now > endOfDay) return false;
+    }
+
+    // Check time range
+    if (startTime && currentTime < startTime) return false;
+    if (endTime && currentTime > endTime) return false;
+
+    return true;
   };
 
   if (loading) {
@@ -1576,16 +1742,28 @@ export default function CodeEditPage({ params }: PageProps) {
                 data-index={index}
                 draggable
                 onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={(e) => handleDragOver(e, index)}
+                onDragOver={(e) => {
+                  handleDragOver(e, index);
+                  handleFileDragOver(e, media.id, media.type);
+                }}
+                onDragLeave={handleFileDragLeave}
                 onDragEnd={handleDragEnd}
-                onDrop={(e) => handleDrop(e, index)}
+                onDrop={(e) => {
+                  // Check if it's a file drop or reordering drop
+                  if (e.dataTransfer.types.includes('Files') && e.dataTransfer.files.length > 0) {
+                    handleFileDrop(e, media.id, media.type);
+                  } else {
+                    handleDrop(e, index);
+                  }
+                }}
                 onTouchStart={(e) => handleTouchStart(e, index)}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 className={clsx(
                   'media-item flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-bg-secondary rounded-xl group transition-all duration-200',
                   draggedIndex === index && 'opacity-50 scale-[0.98]',
-                  dragOverIndex === index && 'ring-2 ring-accent ring-offset-2 ring-offset-bg-primary'
+                  dragOverIndex === index && 'ring-2 ring-accent ring-offset-2 ring-offset-bg-primary',
+                  fileDragOverMediaId === media.id && 'ring-2 ring-amber-500 ring-offset-2 ring-offset-bg-primary bg-amber-500/10'
                 )}
               >
                 {/* Top row: drag handle, thumbnail, info */}
@@ -1633,9 +1811,9 @@ export default function CodeEditPage({ params }: PageProps) {
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
                     </div>
-                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && (
-                      <p className="text-xs text-text-secondary truncate mt-1 hidden sm:block" dir="ltr">
-                        {media.url}
+                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.filename && (
+                      <p className="text-xs text-text-secondary truncate mt-1" dir="ltr">
+                        {media.filename}
                       </p>
                     )}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -1644,12 +1822,20 @@ export default function CodeEditPage({ params }: PageProps) {
                           {formatBytes(media.size)}
                         </span>
                       )}
-                      {media.schedule?.enabled && (
-                        <span className="text-xs text-accent flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span className="hidden sm:inline">{formatSchedule(media.schedule)}</span>
+                      {media.type === 'pdf' && media.pageCount && media.pageCount > 0 && (
+                        <span className="text-xs text-text-secondary">
+                          {media.pageCount} {media.pageCount === 1 ? 'עמוד' : 'עמודים'}
                         </span>
                       )}
+                      {media.schedule?.enabled && (() => {
+                        const active = isScheduleActive(media.schedule);
+                        return (
+                          <span className={`text-xs flex items-center gap-1 ${active ? 'text-green-500' : 'text-red-500'}`}>
+                            <Clock className="w-3 h-3" />
+                            <span className="hidden sm:inline">{formatSchedule(media.schedule)}</span>
+                          </span>
+                        );
+                      })()}
                       {media.linkUrl && (
                         <span className="text-xs text-accent flex items-center gap-1">
                           <LinkIcon className="w-3 h-3" />
@@ -1928,6 +2114,17 @@ export default function CodeEditPage({ params }: PageProps) {
         onClose={() => setWhatsappModalOpen(false)}
         onSave={handleSaveWhatsappWidget}
         currentGroupLink={code.widgets?.whatsapp?.groupLink}
+      />
+
+      {/* Replace Media Confirmation Modal */}
+      <ReplaceMediaConfirm
+        isOpen={replaceConfirmModal.isOpen}
+        onClose={() => setReplaceConfirmModal({ isOpen: false, file: null, mediaId: null })}
+        onConfirm={handleConfirmReplace}
+        currentMediaType={code.media.find(m => m.id === replaceConfirmModal.mediaId)?.type}
+        currentFileName={code.media.find(m => m.id === replaceConfirmModal.mediaId)?.filename}
+        newFileName={replaceConfirmModal.file?.name}
+        mediaCount={code.media.length}
       />
     </div>
   );

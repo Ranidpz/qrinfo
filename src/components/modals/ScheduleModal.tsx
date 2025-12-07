@@ -11,6 +11,25 @@ interface ScheduleModalProps {
   currentSchedule?: MediaSchedule;
 }
 
+// Helper to get current time rounded to next 5 minutes
+const getCurrentTimeRounded = (): string => {
+  const now = new Date();
+  const minutes = Math.ceil(now.getMinutes() / 5) * 5;
+  now.setMinutes(minutes);
+  now.setSeconds(0);
+  return now.toTimeString().slice(0, 5);
+};
+
+// Helper to get end of day time
+const getEndOfDayTime = (): string => {
+  return '23:59';
+};
+
+// Helper to get today's date in input format
+const getTodayDate = (): string => {
+  return new Date().toISOString().split('T')[0];
+};
+
 export default function ScheduleModal({
   isOpen,
   onClose,
@@ -41,6 +60,23 @@ export default function ScheduleModal({
 
   const formatDateForInput = (date: Date): string => {
     return date.toISOString().split('T')[0];
+  };
+
+  // When start date is selected, auto-set end date and times
+  const handleStartDateChange = (value: string) => {
+    setStartDate(value);
+    if (value && !endDate) {
+      // Set end date to same day
+      setEndDate(value);
+    }
+    if (value && !startTime) {
+      // Set start time to current time (rounded)
+      setStartTime(getCurrentTimeRounded());
+    }
+    if (value && !endTime) {
+      // Set end time to end of day
+      setEndTime(getEndOfDayTime());
+    }
   };
 
   const handleSave = () => {
@@ -123,17 +159,20 @@ export default function ScheduleModal({
                   <input
                     type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                    min={getTodayDate()}
                     className="input w-full text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-text-secondary mb-1">עד תאריך</label>
+                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>עד תאריך</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="input w-full text-sm"
+                    min={startDate || getTodayDate()}
+                    disabled={!startDate}
+                    className={`input w-full text-sm ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
@@ -141,34 +180,36 @@ export default function ScheduleModal({
 
             {/* Time range */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-text-secondary">
+              <div className={`flex items-center gap-2 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>
                 <Clock className="w-4 h-4" />
                 <span className="text-sm font-medium">טווח שעות (יומי)</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-text-secondary mb-1">משעה</label>
+                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>משעה</label>
                   <input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="input w-full text-sm"
+                    disabled={!startDate}
+                    className={`input w-full text-sm ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-text-secondary mb-1">עד שעה</label>
+                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>עד שעה</label>
                   <input
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="input w-full text-sm"
+                    disabled={!startDate}
+                    className={`input w-full text-sm ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
             </div>
 
             <p className="text-xs text-text-secondary">
-              המדיה תוצג רק בטווח התאריכים והשעות שנבחרו
+              {!startDate ? 'בחר תאריך התחלה כדי להגדיר את התזמון' : 'המדיה תוצג רק בטווח התאריכים והשעות שנבחרו'}
             </p>
           </div>
         )}

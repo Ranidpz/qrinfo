@@ -314,10 +314,13 @@ export async function updateQRCode(
       };
       // Only add optional fields if they exist
       if (m.title) (mediaItem as Record<string, unknown>).title = m.title;
+      if (m.filename) (mediaItem as Record<string, unknown>).filename = m.filename;
+      if (m.pageCount) (mediaItem as Record<string, unknown>).pageCount = m.pageCount;
       if (m.schedule) (mediaItem as Record<string, unknown>).schedule = m.schedule;
       if (m.linkUrl) (mediaItem as Record<string, unknown>).linkUrl = m.linkUrl;
       if (m.linkTitle) (mediaItem as Record<string, unknown>).linkTitle = m.linkTitle;
       if (m.riddleContent) (mediaItem as Record<string, unknown>).riddleContent = m.riddleContent;
+      if (m.selfiebeamContent) (mediaItem as Record<string, unknown>).selfiebeamContent = m.selfiebeamContent;
       return mediaItem;
     });
   }

@@ -338,6 +338,252 @@ const PDFFlipBookViewer = memo(({
 });
 PDFFlipBookViewer.displayName = 'PDFFlipBookViewer';
 
+// Multi-PDF Viewer - combines all pages from multiple PDFs into one swiper
+const MultiPDFViewer = memo(({
+  pdfUrls,
+  title,
+  onLoad,
+  onLinkClick
+}: {
+  pdfUrls: string[];
+  title: string;
+  onLoad: () => void;
+  onLinkClick?: (linkUrl: string, source: LinkSource) => void;
+}) => {
+  const [pages, setPages] = useState<PDFPageData[]>([]);
+  const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
+  const [currentPage, setCurrentPage] = useState(0);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const swiperRef = useRef<SwiperType | null>(null);
+
+  // Load all PDFs and combine pages
+  useEffect(() => {
+    const loadAllPDFs = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+        const allPagesData: PDFPageData[] = [];
+        const deviceScale = Math.min(window.devicePixelRatio || 1, 3);
+        const scale = 2 * deviceScale;
+        let dimensionsSet = false;
+
+        for (const url of pdfUrls) {
+          try {
+            const pdf = await pdfjsLib.getDocument(url).promise;
+
+            // Get first page dimensions (from first PDF only)
+            if (!dimensionsSet) {
+              const firstPage = await pdf.getPage(1);
+              const viewport = firstPage.getViewport({ scale: 1 });
+              setPageDimensions({ width: viewport.width, height: viewport.height });
+              dimensionsSet = true;
+            }
+
+            // Render all pages from this PDF
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const pageViewport = page.getViewport({ scale });
+
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d')!;
+              canvas.width = pageViewport.width;
+              canvas.height = pageViewport.height;
+
+              await page.render({ canvasContext: context, viewport: pageViewport, canvas }).promise;
+              const imageData = canvas.toDataURL('image/webp', 0.92);
+
+              // Extract link annotations
+              const pageLinks: PDFAnnotation[] = [];
+              try {
+                const annotations = await page.getAnnotations();
+                const pageVp = page.getViewport({ scale: 1 });
+                for (const annotation of annotations) {
+                  if (annotation.subtype === 'Link' && annotation.url) {
+                    const rect = annotation.rect;
+                    pageLinks.push({
+                      url: annotation.url,
+                      rect: {
+                        x: rect[0],
+                        y: pageVp.height - rect[3],
+                        width: rect[2] - rect[0],
+                        height: rect[3] - rect[1],
+                      },
+                    });
+                  }
+                }
+              } catch {
+                // Ignore annotation errors
+              }
+
+              allPagesData.push({ image: imageData, annotations: pageLinks });
+            }
+          } catch (error) {
+            console.error('Error loading PDF:', url, error);
+          }
+        }
+
+        setPages(allPagesData);
+        onLoad();
+      } catch (error) {
+        console.error('Error loading PDFs:', error);
+        onLoad();
+      }
+    };
+
+    loadAllPDFs();
+  }, [pdfUrls, onLoad]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && swiperRef.current) {
+        swiperRef.current.slideNext();
+      }
+      if (e.key === 'ArrowRight' && swiperRef.current) {
+        swiperRef.current.slidePrev();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  if (pages.length === 0) {
+    return <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black" />;
+  }
+
+  return (
+    <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
+      <Swiper
+        modules={[Virtual]}
+        onSwiper={(swiper) => { swiperRef.current = swiper; }}
+        onSlideChange={(swiper) => setCurrentPage(swiper.activeIndex)}
+        dir="rtl"
+        slidesPerView={1}
+        spaceBetween={0}
+        speed={300}
+        resistance={true}
+        resistanceRatio={0.85}
+        touchRatio={1}
+        threshold={10}
+        cssMode={false}
+        allowTouchMove={!isZoomed}
+        virtual
+        className="w-full h-full"
+        style={{ direction: 'rtl' }}
+      >
+        {pages.map((page, index) => (
+          <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
+            <TransformWrapper
+              initialScale={1}
+              minScale={1}
+              maxScale={5}
+              centerOnInit={true}
+              wheel={{ disabled: false, step: 0.1 }}
+              pinch={{ step: 5 }}
+              panning={{ disabled: !isZoomed }}
+              doubleClick={{ mode: 'toggle', step: 2 }}
+              onTransformed={(ref) => {
+                const zoomed = ref.state.scale > 1.05;
+                setIsZoomed(zoomed);
+                if (swiperRef.current) {
+                  swiperRef.current.allowTouchMove = !zoomed;
+                }
+              }}
+            >
+              {() => (
+                <TransformComponent
+                  wrapperStyle={{ width: '100%', height: '100%' }}
+                  contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <div className="relative max-w-full max-h-full flex items-center justify-center">
+                    <img
+                      src={page.image}
+                      alt={`${title} - עמוד ${index + 1}`}
+                      className="max-w-full max-h-[100vh] object-contain select-none"
+                      draggable={false}
+                      style={{
+                        transform: 'translateZ(0)',
+                        backfaceVisibility: 'hidden',
+                      }}
+                    />
+                    {/* PDF Link Annotations */}
+                    {page.annotations.map((annotation, idx) => (
+                      <a
+                        key={idx}
+                        href={annotation.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute cursor-pointer hover:bg-blue-500/20 active:bg-blue-500/30 transition-colors z-50"
+                        style={{
+                          left: `${(annotation.rect.x / pageDimensions.width) * 100}%`,
+                          top: `${(annotation.rect.y / pageDimensions.height) * 100}%`,
+                          width: `${(annotation.rect.width / pageDimensions.width) * 100}%`,
+                          height: `${(annotation.rect.height / pageDimensions.height) * 100}%`,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLinkClick?.(annotation.url, 'pdf');
+                        }}
+                      />
+                    ))}
+                  </div>
+                </TransformComponent>
+              )}
+            </TransformWrapper>
+          </SwiperSlide>
+        ))}
+      </Swiper>
+
+      {/* Page dots indicator */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+        {pages.length <= 10 ? (
+          pages.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => swiperRef.current?.slideTo(index)}
+              className={`rounded-full transition-all duration-200 ${
+                index === currentPage
+                  ? 'w-6 h-2 bg-white'
+                  : 'w-2 h-2 bg-white/40 hover:bg-white/60'
+              }`}
+            />
+          ))
+        ) : (
+          <div className="px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
+            <span className="text-white/90 text-sm font-medium">
+              {currentPage + 1} / {pages.length}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation arrows - only on desktop */}
+      <div className="hidden md:block">
+        {currentPage > 0 && (
+          <button
+            onClick={() => swiperRef.current?.slidePrev()}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
+            aria-label="הקודם"
+          >
+            <ChevronRight className="w-6 h-6 text-white" />
+          </button>
+        )}
+        {currentPage < pages.length - 1 && (
+          <button
+            onClick={() => swiperRef.current?.slideNext()}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
+            aria-label="הבא"
+          >
+            <ChevronLeft className="w-6 h-6 text-white" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+MultiPDFViewer.displayName = 'MultiPDFViewer';
+
 // Image Gallery Viewer with Swiper - smooth swipe and pinch-to-zoom
 const ImageGalleryViewer = memo(({
   mediaItems,
@@ -657,6 +903,9 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   // Check if all media are images/gifs (for backward compatibility with old image gallery behavior)
   const isAllImages = media.length > 0 && media.every(m => m.type === 'image' || m.type === 'gif');
 
+  // Check if all media are PDFs (for combined PDF viewing)
+  const isAllPDFs = media.length > 0 && media.every(m => m.type === 'pdf');
+
   // For single media detection
   const isPDF = media.length === 1 && currentMedia?.type === 'pdf';
   const isVideo = media.length === 1 && currentMedia?.type === 'video';
@@ -666,7 +915,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isSelfiebeam = media.length === 1 && currentMedia?.type === 'selfiebeam';
 
   // Check if we need the mixed media swiper (multiple items with different types)
-  const needsMixedSwiper = hasMultipleMedia && !isAllImages;
+  const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
 
   // Preload media
   useEffect(() => {
@@ -896,6 +1145,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
+        ) : isAllPDFs && hasMultipleMedia ? (
+          <MultiPDFViewer pdfUrls={media.map(m => m.url)} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
         ) : isAllImages && hasMultipleMedia ? (
           <ImageGalleryViewer
             mediaItems={media}

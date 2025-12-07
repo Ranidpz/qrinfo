@@ -70,6 +70,8 @@ export interface MediaItem {
   order: number;
   uploadedBy: string; // User ID
   title?: string;
+  filename?: string;   // Original filename
+  pageCount?: number;  // Number of pages (for PDF files)
   schedule?: MediaSchedule;
   linkUrl?: string;     // Optional external link for the media
   linkTitle?: string;   // Display name for the link button
