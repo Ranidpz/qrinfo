@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Sparkles } from 'lucide-react';
+import { X, Zap } from 'lucide-react';
 import { APP_VERSION, getLatestUpdate, hasNewVersion } from '@/lib/version';
 
 const LAST_SEEN_VERSION_KEY = 'qr_last_seen_version';
@@ -43,19 +43,26 @@ export default function UpdateNotification() {
         isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
       }`}
     >
-      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl shadow-2xl p-5 text-white">
+      <div className="bg-bg-card border border-border rounded-xl shadow-lg p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-yellow-300" />
-            <span className="font-bold text-lg">גרסה {update.version}</span>
-            <span className="bg-yellow-400 text-yellow-900 text-xs px-2 py-0.5 rounded-full font-bold">
-              חדש!
-            </span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-accent" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-text-primary text-lg">גרסה {update.version}</span>
+                <span className="bg-success text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                  חדש
+                </span>
+              </div>
+              <span className="text-text-secondary text-sm">{update.date}</span>
+            </div>
           </div>
           <button
             onClick={handleDismiss}
-            className="text-white/70 hover:text-white transition-colors p-1"
+            className="text-text-secondary hover:text-text-primary transition-colors p-2 hover:bg-bg-hover rounded-lg"
             aria-label="סגור"
           >
             <X className="w-5 h-5" />
@@ -63,10 +70,11 @@ export default function UpdateNotification() {
         </div>
 
         {/* Highlights */}
-        <ul className="space-y-2 mb-4">
+        <ul className="space-y-3 mb-6">
           {update.highlights.map((highlight, index) => (
-            <li key={index} className="text-sm text-white/90 flex items-start gap-2">
-              <span className="text-base leading-5">{highlight}</span>
+            <li key={index} className="flex items-start gap-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2 shrink-0" />
+              <span className="text-text-primary text-base leading-relaxed">{highlight}</span>
             </li>
           ))}
         </ul>
@@ -74,9 +82,9 @@ export default function UpdateNotification() {
         {/* CTA Button */}
         <button
           onClick={handleDismiss}
-          className="w-full bg-white text-indigo-700 font-semibold py-2.5 px-4 rounded-xl hover:bg-indigo-50 transition-colors"
+          className="w-full btn btn-primary py-3 text-base"
         >
-          מעולה, הבנתי! 👍
+          הבנתי, תודה!
         </button>
       </div>
     </div>
