@@ -3,6 +3,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users, Pipette } from 'lucide-react';
 import { RiddleContent } from '@/types';
+import DOMPurify from 'isomorphic-dompurify';
+
+// Format text with WhatsApp-style formatting (with XSS protection)
+function formatContent(text: string): string {
+  // First sanitize the input to remove any malicious HTML
+  const sanitized = DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
+  // Then apply formatting
+  const formatted = sanitized
+    .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+    .replace(/_([^_]+)_/g, '<em>$1</em>')
+    .replace(/~([^~]+)~/g, '<del>$1</del>');
+  // Sanitize again to ensure only our tags are present
+  return DOMPurify.sanitize(formatted, { ALLOWED_TAGS: ['strong', 'em', 'del'] });
+}
 
 interface RiddleModalProps {
   isOpen: boolean;
@@ -342,10 +356,7 @@ export default function RiddleModal({
                 className="whitespace-pre-wrap"
                 style={{ color: textColor }}
                 dangerouslySetInnerHTML={{
-                  __html: (content || 'תוכן ההודעה יופיע כאן...')
-                    .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
-                    .replace(/_([^_]+)_/g, '<em>$1</em>')
-                    .replace(/~([^~]+)~/g, '<del>$1</del>'),
+                  __html: formatContent(content || 'תוכן ההודעה יופיע כאן...'),
                 }}
               />
             </div>

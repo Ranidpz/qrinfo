@@ -111,6 +111,10 @@ export default function GalleryClient({
   const [showHint, setShowHint] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // Pagination state for "all" mode - load 50 at a time
+  const PAGINATION_SIZE = 50;
+  const [paginationLimit, setPaginationLimit] = useState(PAGINATION_SIZE);
+
   // Track which images have been displayed (for NEW badge)
   // An image shows NEW badge until it's been displayed once in the grid
   const [displayedImages, setDisplayedImages] = useState<Set<string>>(() => {
@@ -733,9 +737,28 @@ export default function GalleryClient({
 
   // Get images to display based on mode
   const getDisplayImages = () => {
-    const limitedImages = displayLimit > 0 ? images.slice(0, displayLimit) : images;
-    return limitedImages;
+    if (displayLimit > 0) {
+      // Specific limit selected (10, 20, 50, 100)
+      return images.slice(0, displayLimit);
+    }
+    // "All" mode - use pagination to avoid loading thousands at once
+    return images.slice(0, paginationLimit);
   };
+
+  // Check if there are more images to load (for "all" mode)
+  const hasMoreImages = displayLimit === 0 && images.length > paginationLimit;
+
+  // Load more images
+  const loadMoreImages = () => {
+    setPaginationLimit(prev => prev + PAGINATION_SIZE);
+  };
+
+  // Reset pagination when display limit changes
+  useEffect(() => {
+    if (displayLimit > 0) {
+      setPaginationLimit(PAGINATION_SIZE);
+    }
+  }, [displayLimit]);
 
   // Handle image load - persist to ref so it survives re-renders
   const handleImageLoad = (imageId: string) => {
@@ -838,12 +861,13 @@ export default function GalleryClient({
     // Static mode
     if (displayMode === 'static') {
       return (
-        <div
-          className="grid gap-1 p-1"
-          style={{
-            gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
-          }}
-        >
+        <div>
+          <div
+            className="grid gap-1 p-1"
+            style={{
+              gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+            }}
+          >
           {displayImages.map((image, index) => (
             <button
               key={image.id}
@@ -895,6 +919,19 @@ export default function GalleryClient({
               )}
             </button>
           ))}
+          </div>
+          {/* Load More Button for "all" mode */}
+          {hasMoreImages && (
+            <div className="flex justify-center py-6">
+              <button
+                onClick={loadMoreImages}
+                className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors flex items-center gap-2"
+              >
+                <span>טען עוד תמונות</span>
+                <span className="text-white/60">({images.length - paginationLimit} נותרו)</span>
+              </button>
+            </div>
+          )}
         </div>
       );
     }

@@ -1,8 +1,26 @@
 import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`upload:${clientIp}`, RATE_LIMITS.UPLOAD);
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too many upload requests. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimit.resetTime.toString(),
+          }
+        }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const userId = formData.get('userId') as string;
@@ -86,6 +104,17 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`delete:${clientIp}`, RATE_LIMITS.DELETE);
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too many delete requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const { url } = await request.json();
 
     if (!url) {

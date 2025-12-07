@@ -123,10 +123,10 @@ export default function MediaUploader({
     <button
       onClick={() => setActiveTab(tab)}
       className={clsx(
-        'flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors',
+        'flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-lg text-xs font-medium transition-all border',
         activeTab === tab
-          ? 'bg-accent text-white'
-          : 'bg-bg-secondary text-text-secondary hover:text-text-primary'
+          ? 'bg-accent text-white border-accent shadow-md'
+          : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50 hover:text-accent'
       )}
     >
       <Icon className="w-4 h-4" />

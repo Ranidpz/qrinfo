@@ -1,10 +1,28 @@
 import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
 // POST: Upload a gallery image to Vercel Blob
 // Note: Firestore update is done client-side to avoid permission issues
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`gallery:${clientIp}`, RATE_LIMITS.GALLERY_UPLOAD);
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'יותר מדי העלאות. נסה שוב בעוד דקה.' },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimit.resetTime.toString(),
+          }
+        }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const codeId = formData.get('codeId') as string;
@@ -69,6 +87,17 @@ export async function POST(request: NextRequest) {
 // Note: Firestore update is done client-side
 export async function DELETE(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`gallery-delete:${clientIp}`, RATE_LIMITS.DELETE);
+
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'יותר מדי בקשות מחיקה. נסה שוב בעוד דקה.' },
+        { status: 429 }
+      );
+    }
+
     const { imageUrl } = await request.json();
 
     if (!imageUrl) {

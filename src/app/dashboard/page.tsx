@@ -805,7 +805,7 @@ export default function DashboardPage() {
             100% { background-position: 0% 50%; }
           }
         `}</style>
-        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-accent dark:text-white mb-4 tracking-tight" dir="ltr">
+        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-gray-800 dark:text-white mb-4 tracking-tight" dir="ltr">
           <span className="text-lg sm:text-xl md:text-2xl font-normal text-text-secondary align-middle">The</span> <span className="q-letter">Q</span> - One Code. Endless Experiences
         </h1>
         <div className="hero-divider flex justify-center mb-4">

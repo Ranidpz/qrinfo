@@ -5,6 +5,8 @@ import { SelfiebeamContent, UserGalleryImage } from '@/types';
 import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2 } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import DOMPurify from 'isomorphic-dompurify';
+import { queuedUpload } from '@/lib/uploadQueue';
 
 interface SelfiebeamViewerProps {
   content: SelfiebeamContent;
@@ -13,12 +15,17 @@ interface SelfiebeamViewerProps {
   ownerId?: string;
 }
 
-// Format text with WhatsApp-style formatting
+// Format text with WhatsApp-style formatting (with XSS protection)
 function formatContent(text: string): string {
-  return text
+  // First sanitize the input to remove any malicious HTML
+  const sanitized = DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
+  // Then apply formatting
+  const formatted = sanitized
     .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
     .replace(/_([^_]+)_/g, '<em>$1</em>')
     .replace(/~([^~]+)~/g, '<del>$1</del>');
+  // Sanitize again to ensure only our tags are present
+  return DOMPurify.sanitize(formatted, { ALLOWED_TAGS: ['strong', 'em', 'del'] });
 }
 
 // Extract YouTube video ID from various URL formats
@@ -268,17 +275,20 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       formData.append('ownerId', ownerId);
       formData.append('uploaderName', name || 'אנונימי');
 
-      // Upload to Vercel Blob
-      const response = await fetch('/api/gallery', {
-        method: 'POST',
-        body: formData,
-      });
+      // Upload to Vercel Blob using queue (handles retries automatically)
+      const data = await queuedUpload(formData, '/api/gallery') as {
+        success: boolean;
+        image: {
+          id: string;
+          url: string;
+          uploaderName: string;
+          size: number;
+        };
+      };
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error('Upload failed');
       }
-
-      const data = await response.json();
 
       // Update Firestore with the new gallery image (client-side to use auth)
       const codeRef = doc(db, 'codes', codeId);

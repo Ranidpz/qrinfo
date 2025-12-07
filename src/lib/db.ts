@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   increment,
   Timestamp,
+  runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { QRCode, MediaItem, User, Folder, Notification } from '@/types';
@@ -324,6 +325,48 @@ export async function updateUserStorage(userId: string, bytesChange: number): Pr
   await updateDoc(doc(db, 'users', userId), {
     storageUsed: increment(bytesChange),
     updatedAt: serverTimestamp(),
+  });
+}
+
+// Check and update storage with transaction (prevents race conditions)
+// Returns true if storage was updated successfully, false if quota exceeded
+export async function checkAndUpdateStorage(
+  userId: string,
+  bytesToAdd: number
+): Promise<{ success: boolean; currentUsage: number; limit: number }> {
+  const userRef = doc(db, 'users', userId);
+
+  return runTransaction(db, async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+
+    const data = userDoc.data();
+    const currentUsage = data.storageUsed || 0;
+    const limit = data.storageLimit || 0;
+
+    // Check if adding bytes would exceed limit
+    if (currentUsage + bytesToAdd > limit) {
+      return {
+        success: false,
+        currentUsage,
+        limit,
+      };
+    }
+
+    // Update storage atomically
+    transaction.update(userRef, {
+      storageUsed: currentUsage + bytesToAdd,
+      updatedAt: serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      currentUsage: currentUsage + bytesToAdd,
+      limit,
+    };
   });
 }
 
