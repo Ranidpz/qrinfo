@@ -132,8 +132,11 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
       {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-l border-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col overflow-y-auto pb-safe',
-          isOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'
+          'fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-l border-border z-50 transition-transform duration-300 flex flex-col overflow-y-auto pb-safe',
+          // Mobile: slide in/out
+          isOpen ? 'translate-x-0' : 'translate-x-full',
+          // Desktop: always visible
+          'md:translate-x-0'
         )}
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
