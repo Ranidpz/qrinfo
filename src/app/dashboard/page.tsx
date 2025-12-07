@@ -806,9 +806,9 @@ export default function DashboardPage() {
           }
         `}</style>
         <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight" dir="ltr">
-          <span className="text-lg sm:text-xl md:text-2xl font-normal text-gray-500 dark:text-gray-400 align-middle">The</span>{' '}
+          <span className="text-lg sm:text-xl md:text-2xl font-normal align-middle" style={{ color: '#6b7280' }}>The</span>{' '}
           <span className="q-letter">Q</span>
-          <span className="text-gray-700 dark:text-white"> - One Code. Endless Experiences</span>
+          <span style={{ color: 'var(--text-title, #1f2937)' }}> - One Code. Endless Experiences</span>
         </h1>
         <div className="hero-divider flex justify-center mb-4">
           <div className="hero-divider-line h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
