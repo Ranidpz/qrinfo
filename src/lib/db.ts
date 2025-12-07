@@ -732,19 +732,18 @@ export async function createVersionNotification(
     if (versions.includes(version)) {
       return null; // Already created notification for this version
     }
+
+    // Mark as "in progress" immediately to prevent race conditions
+    // (multiple tabs or rapid page loads)
+    versions.push(version);
+    localStorage.setItem(VERSION_NOTIFIED_KEY, JSON.stringify(versions));
   }
 
   // Also check Firestore to be safe (simple title check)
   const allNotifs = await getNotifications();
   const exists = allNotifs.some(n => n.title === `גרסה ${version}`);
   if (exists) {
-    // Mark as notified in localStorage even if we found it in Firestore
-    if (typeof window !== 'undefined') {
-      const notifiedVersions = localStorage.getItem(VERSION_NOTIFIED_KEY);
-      const versions = notifiedVersions ? JSON.parse(notifiedVersions) : [];
-      versions.push(version);
-      localStorage.setItem(VERSION_NOTIFIED_KEY, JSON.stringify(versions));
-    }
+    // Already exists in Firestore, no need to create
     return null;
   }
 
@@ -761,14 +760,6 @@ export async function createVersionNotification(
   };
 
   const docRef = await addDoc(collection(db, 'notifications'), notificationData);
-
-  // Mark as notified in localStorage
-  if (typeof window !== 'undefined') {
-    const notifiedVersions = localStorage.getItem(VERSION_NOTIFIED_KEY);
-    const versions = notifiedVersions ? JSON.parse(notifiedVersions) : [];
-    versions.push(version);
-    localStorage.setItem(VERSION_NOTIFIED_KEY, JSON.stringify(versions));
-  }
 
   return {
     id: docRef.id,
