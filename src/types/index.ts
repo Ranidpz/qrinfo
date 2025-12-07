@@ -231,11 +231,15 @@ export interface LinkClickStats {
 
 // ============ NOTIFICATIONS ============
 
+// Supported locales for notifications
+export type NotificationLocale = 'he' | 'en' | 'all';
+
 // Admin notification/announcement
 export interface Notification {
   id: string;
   title: string;
   message: string;
   createdBy: string; // Admin user ID
+  locale: NotificationLocale; // Which locale to show this notification to ('all' for both)
   createdAt: Date;
 }

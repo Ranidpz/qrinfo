@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 interface StorageBarProps {
   used: number;  // bytes
   limit: number; // bytes
@@ -14,6 +16,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function StorageBar({ used, limit }: StorageBarProps) {
+  const t = useTranslations('storage');
   const percentage = Math.min((used / limit) * 100, 100);
   const remaining = limit - used;
 
@@ -28,16 +31,16 @@ export default function StorageBar({ used, limit }: StorageBarProps) {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-text-primary">נפח אחסון</span>
+        <span className="text-sm font-medium text-text-primary">{t('storage')}</span>
         <div className="w-3 h-3 rounded-full bg-accent animate-pulse" />
       </div>
 
       <div className="flex items-center gap-3 text-sm text-text-secondary mb-2">
         <span>
-          בשימוש: {formatBytes(used)} / {formatBytes(limit)}
+          {t('used')}: {formatBytes(used)} / {formatBytes(limit)}
         </span>
         <span className="text-accent">
-          נותר: {formatBytes(remaining)}
+          {t('remaining')}: {formatBytes(remaining)}
         </span>
       </div>
 

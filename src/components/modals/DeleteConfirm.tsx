@@ -2,6 +2,7 @@
 
 import { AlertTriangle, X } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 interface DeleteConfirmProps {
   isOpen: boolean;
@@ -17,7 +18,9 @@ export default function DeleteConfirm({
   title,
 }: DeleteConfirmProps) {
   const [inputValue, setInputValue] = useState('');
-  const confirmWord = 'מחיקה';
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
+  const confirmWord = t('deleteConfirmWord');
 
   if (!isOpen) return null;
 
@@ -46,7 +49,7 @@ export default function DeleteConfirm({
         {/* Close button */}
         <button
           onClick={handleClose}
-          className="absolute top-4 left-4 p-1 rounded-lg hover:bg-bg-hover transition-colors"
+          className="absolute top-4 start-4 p-1 rounded-lg hover:bg-bg-hover transition-colors"
         >
           <X className="w-5 h-5 text-text-secondary" />
         </button>
@@ -59,23 +62,23 @@ export default function DeleteConfirm({
 
           {/* Title */}
           <h2 className="text-xl font-bold text-text-primary text-center mb-2">
-            מחיקת קוד
+            {t('deleteCode')}
           </h2>
 
           {/* Message */}
           <div className="text-center text-text-secondary mb-6">
             <p className="mb-2">
-              אתה עומד למחוק את <strong className="text-text-primary">{title}</strong>
+              {t('aboutToDelete')} <strong className="text-text-primary">{title}</strong>
             </p>
             <p className="text-sm text-danger">
-              פעולה זו תסיר את כל המדיה שלו לצמיתות ולא ניתן לשחזר אותה!
+              {t('deleteWarning')}
             </p>
           </div>
 
           {/* Confirmation input */}
           <div className="mb-6">
             <label className="block text-sm text-text-secondary mb-2">
-              הקלידו <strong className="text-danger">{confirmWord}</strong> לאישור:
+              {t('typeToConfirm', { word: '' })} <strong className="text-danger">{confirmWord}</strong>
             </label>
             <input
               type="text"
@@ -93,14 +96,14 @@ export default function DeleteConfirm({
               onClick={handleClose}
               className="btn btn-secondary flex-1"
             >
-              ביטול
+              {tCommon('cancel')}
             </button>
             <button
               onClick={handleConfirm}
               disabled={inputValue !== confirmWord}
               className="btn btn-danger flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              מחק לצמיתות
+              {tCommon('deleteForever')}
             </button>
           </div>
         </div>

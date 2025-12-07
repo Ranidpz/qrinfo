@@ -6,6 +6,7 @@ import { QRSign, QRSignType } from '@/types';
 import { ICON_NAMES, ICON_LABELS } from '@/lib/iconPaths';
 import * as LucideIcons from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface QRSignModalProps {
   isOpen: boolean;
@@ -32,6 +33,9 @@ export default function QRSignModal({
   const [localSign, setLocalSign] = useState<QRSign>(currentSign || DEFAULT_SIGN);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'text' | 'icon'>('text');
+
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
 
   useEffect(() => {
     if (isOpen) {
@@ -129,7 +133,7 @@ export default function QRSignModal({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
             <QrCode className="w-5 h-5 text-accent" />
-            עיצוב הקוד - סימן QR
+            {t('qrSign')}
           </h2>
           <button
             onClick={onClose}
@@ -141,7 +145,7 @@ export default function QRSignModal({
 
         {/* Enable toggle */}
         <div className="flex items-center justify-between p-3 bg-bg-secondary rounded-lg">
-          <span className="text-sm font-medium text-text-primary">הפעל סימן</span>
+          <span className="text-sm font-medium text-text-primary">{t('qrSignEnable')}</span>
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
@@ -167,7 +171,7 @@ export default function QRSignModal({
             }`}
           >
             <Type size={16} />
-            טקסט
+            {t('qrSignText')}
           </button>
           <button
             onClick={() => {
@@ -181,14 +185,14 @@ export default function QRSignModal({
             }`}
           >
             <Grid3X3 size={16} />
-            אייקון
+            {t('qrSignIcon')}
           </button>
         </div>
 
         {/* Content based on tab */}
         {activeTab === 'text' ? (
           <div className="space-y-2">
-            <label className="text-sm text-text-secondary">טקסט (עד 4 תווים)</label>
+            <label className="text-sm text-text-secondary">{t('qrSignTextLabel')}</label>
             <input
               type="text"
               value={localSign.type === 'text' || localSign.type === 'emoji' ? localSign.value : ''}
@@ -211,7 +215,7 @@ export default function QRSignModal({
           </div>
         ) : (
           <div className="space-y-2">
-            <label className="text-sm text-text-secondary">בחר אייקון</label>
+            <label className="text-sm text-text-secondary">{t('qrSignSelectIcon')}</label>
             <div className="grid grid-cols-6 gap-2 max-h-[200px] overflow-y-auto p-1">
               {ICON_NAMES.map(name => {
                 const IconComponent = LucideIcons[name as keyof typeof LucideIcons] as LucideIcon;
@@ -249,13 +253,13 @@ export default function QRSignModal({
           >
             {renderPreview()}
           </div>
-          <span className="text-xs text-text-secondary">תצוגה מקדימה</span>
+          <span className="text-xs text-text-secondary">{t('qrSignPreview')}</span>
         </div>
 
         {/* Size slider */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm text-text-secondary">גודל הסימן</label>
+            <label className="text-sm text-text-secondary">{t('qrSignSize')}</label>
             <span className="text-xs text-text-secondary font-mono">
               {Math.round((localSign.scale ?? 1.0) * 100)}%
             </span>
@@ -270,15 +274,15 @@ export default function QRSignModal({
             className="w-full h-2 bg-bg-secondary rounded-lg appearance-none cursor-pointer accent-accent"
           />
           <div className="flex justify-between text-xs text-text-secondary">
-            <span>קטן</span>
-            <span>גדול</span>
+            <span>{t('qrSignSmall')}</span>
+            <span>{t('qrSignLarge')}</span>
           </div>
         </div>
 
         {/* Color pickers */}
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm text-text-secondary">צבע סימן</label>
+            <label className="text-sm text-text-secondary">{t('qrSignColor')}</label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -298,7 +302,7 @@ export default function QRSignModal({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-text-secondary">צבע רקע</label>
+            <label className="text-sm text-text-secondary">{t('qrSignBackgroundColor')}</label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -326,7 +330,7 @@ export default function QRSignModal({
               disabled={isSaving}
               className="btn bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-50"
             >
-              הסר סימן
+              {t('qrSignRemove')}
             </button>
           ) : (
             <div />
@@ -337,7 +341,7 @@ export default function QRSignModal({
               disabled={isSaving}
               className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover disabled:opacity-50"
             >
-              ביטול
+              {tCommon('cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -347,7 +351,7 @@ export default function QRSignModal({
               {isSaving ? (
                 <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                'שמור'
+                tCommon('save')
               )}
             </button>
           </div>

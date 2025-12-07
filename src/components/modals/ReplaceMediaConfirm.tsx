@@ -1,6 +1,7 @@
 'use client';
 
 import { X, AlertTriangle, FileText, Image, Video } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface ReplaceMediaConfirmProps {
   isOpen: boolean;
@@ -21,6 +22,9 @@ export default function ReplaceMediaConfirm({
   newFileName,
   mediaCount = 1,
 }: ReplaceMediaConfirmProps) {
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
+
   if (!isOpen) return null;
 
   const getMediaIcon = (type?: string) => {
@@ -50,7 +54,7 @@ export default function ReplaceMediaConfirm({
             <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
             </div>
-            <h2 className="text-lg font-bold text-text-primary">החלפת מדיה</h2>
+            <h2 className="text-lg font-bold text-text-primary">{t('replaceMedia')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -65,9 +69,8 @@ export default function ReplaceMediaConfirm({
           {mediaCount > 1 ? (
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
               <p className="text-text-primary text-sm">
-                <span className="font-semibold">שים לב:</span> בחוויה זו יש{' '}
-                <span className="font-semibold text-amber-500">{mediaCount} פריטי מדיה</span>.
-                הקובץ החדש ידרוס את הראשון שבהם.
+                <span className="font-semibold">{t('replaceMediaNote')}</span>{' '}
+                {t('replaceMediaMultiple', { count: mediaCount })}
               </p>
             </div>
           ) : null}
@@ -79,7 +82,7 @@ export default function ReplaceMediaConfirm({
                   {getMediaIcon(currentMediaType)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-text-secondary">קובץ נוכחי (יימחק)</p>
+                  <p className="text-xs text-text-secondary">{t('replaceMediaCurrent')}</p>
                   <p className="text-sm text-text-primary truncate" dir="ltr">
                     {currentFileName}
                   </p>
@@ -93,7 +96,7 @@ export default function ReplaceMediaConfirm({
                   <FileText className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-text-secondary">קובץ חדש</p>
+                  <p className="text-xs text-text-secondary">{t('replaceMediaNew')}</p>
                   <p className="text-sm text-text-primary truncate" dir="ltr">
                     {newFileName}
                   </p>
@@ -103,7 +106,7 @@ export default function ReplaceMediaConfirm({
           </div>
 
           <p className="text-sm text-text-secondary text-center">
-            האם אתה בטוח שברצונך להחליף את הקובץ?
+            {t('replaceMediaConfirm')}
           </p>
         </div>
 
@@ -113,7 +116,7 @@ export default function ReplaceMediaConfirm({
             onClick={onClose}
             className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex-1"
           >
-            ביטול
+            {tCommon('cancel')}
           </button>
           <button
             onClick={() => {
@@ -122,7 +125,7 @@ export default function ReplaceMediaConfirm({
             }}
             className="btn bg-amber-500 hover:bg-amber-600 text-white flex-1"
           >
-            החלף קובץ
+            {t('replaceMediaButton')}
           </button>
         </div>
       </div>

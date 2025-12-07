@@ -2,14 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2 } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { clsx } from 'clsx';
 import { APP_VERSION, getLatestUpdate } from '@/lib/version';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getNotifications, createNotification, deleteNotification, createVersionNotification } from '@/lib/db';
 import { Notification } from '@/types';
+import { intlLocales, type Locale } from '@/i18n/config';
+import LanguageSwitcher from './LanguageSwitcher';
 
 // WhatsApp icon component
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -43,26 +46,36 @@ interface SidebarProps {
     email: string;
   } | null;
   onSignOut?: () => void;
+  direction?: 'rtl' | 'ltr';
 }
 
 interface NavItem {
   href: string;
   icon: React.ElementType;
-  label: string;
+  labelKey: string;
   roles?: ('super_admin' | 'producer' | 'free')[];
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', icon: Home, label: 'דשבורד' },
-  { href: '/analytics', icon: BarChart3, label: 'אנליטיקס' },
-  { href: '/admin/users', icon: Users, label: 'ניהול משתמשים', roles: ['super_admin'] },
+  { href: '/dashboard', icon: Home, labelKey: 'dashboard' },
+  { href: '/analytics', icon: BarChart3, labelKey: 'analytics' },
+  { href: '/admin/users', icon: Users, labelKey: 'userManagement', roles: ['super_admin'] },
 ];
 
-export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, user, onSignOut }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, user, onSignOut, direction = 'rtl' }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const locale = useLocale() as Locale;
   const { theme, toggleTheme } = useTheme();
   const { signInWithGoogle } = useAuth();
+  const isRTL = direction === 'rtl';
+
+  // Translations
+  const t = useTranslations('navigation');
+  const tSidebar = useTranslations('sidebar');
+  const tAuth = useTranslations('auth');
+  const tCommon = useTranslations('common');
+  const tNotifications = useTranslations('notifications');
 
   // Notification state
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -80,24 +93,24 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
         const latestUpdate = getLatestUpdate();
         await createVersionNotification(latestUpdate.version, latestUpdate.highlights);
 
-        // Then load all notifications
-        const notifs = await getNotifications();
+        // Then load all notifications for current locale
+        const notifs = await getNotifications(locale);
         setNotifications(notifs);
       } catch (error) {
         // Silently fail - notifications are optional and may have permission issues
-        // console.error('Error loading notifications:', error);
       }
     }
     loadNotifications();
-  }, []);
+  }, [locale]);
 
-  // Handle create notification
+  // Handle create notification - creates for current locale
   const handleCreateNotification = async () => {
     if (!newTitle.trim() || !newMessage.trim() || !userId) return;
 
     setIsSaving(true);
     try {
-      const notification = await createNotification(newTitle, newMessage, userId);
+      // Create notification for the current locale
+      const notification = await createNotification(newTitle, newMessage, userId, locale);
       setNotifications([notification, ...notifications]);
       setNewTitle('');
       setNewMessage('');
@@ -119,9 +132,9 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
     }
   };
 
-  // Format date for display
+  // Format date for display based on locale
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('he-IL', {
+    return new Intl.DateTimeFormat(intlLocales[locale], {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -140,6 +153,13 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
     return item.roles.includes(userRole);
   });
 
+  // Check if path matches (accounting for locale prefix)
+  const isPathActive = (href: string) => {
+    // Remove locale prefix from pathname for comparison
+    const pathWithoutLocale = pathname.replace(/^\/(he|en)/, '');
+    return pathWithoutLocale === href || pathWithoutLocale.startsWith(href + '/');
+  };
+
   return (
     <>
       {/* Overlay for mobile */}
@@ -153,9 +173,11 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
       {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed right-0 top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-l border-border z-40 transition-transform duration-300 flex flex-col overflow-y-auto pb-safe',
+          'fixed top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-border z-40 transition-transform duration-300 flex flex-col overflow-y-auto pb-safe',
+          // Position: right for RTL, left for LTR
+          isRTL ? 'right-0 border-l' : 'left-0 border-r',
           // Mobile: slide in/out
-          isOpen ? 'translate-x-0' : 'translate-x-full',
+          isOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full'),
           // Desktop: always visible
           'md:translate-x-0'
         )}
@@ -164,8 +186,11 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
         {/* Close button for mobile */}
         <button
           onClick={onClose}
-          className="absolute top-4 left-4 p-2 rounded-lg hover:bg-bg-hover transition-colors md:hidden"
-          aria-label="סגור תפריט"
+          className={clsx(
+            "absolute top-4 p-2 rounded-lg hover:bg-bg-hover transition-colors md:hidden",
+            isRTL ? "right-4" : "left-4"
+          )}
+          aria-label={t('closeMenu')}
         >
           <X className="w-5 h-5 text-text-secondary" />
         </button>
@@ -173,7 +198,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
         <nav className="p-4 pt-16 md:pt-4 flex-1">
           <ul className="space-y-1">
             {filteredItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const isActive = isPathActive(item.href);
               const Icon = item.icon;
 
               return (
@@ -189,7 +214,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                     )}
                   >
                     <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey)}</span>
                   </Link>
                 </li>
               );
@@ -202,7 +227,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
           {/* Action Buttons Row - Theme, Notifications, WhatsApp */}
           <div className="flex items-center justify-center gap-3 mb-4">
             {/* Theme Toggle Button */}
-            <Tooltip text={theme === 'dark' ? 'מעבר למצב יום' : 'מעבר למצב לילה'}>
+            <Tooltip text={theme === 'dark' ? tSidebar('themeLight') : tSidebar('themeDark')}>
               <button
                 onClick={toggleTheme}
                 className="p-2.5 rounded-full bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
@@ -216,14 +241,14 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
             </Tooltip>
 
             {/* Notifications Button */}
-            <Tooltip text="עדכונים והודעות מערכת">
+            <Tooltip text={tSidebar('notifications')}>
               <button
                 onClick={() => setShowNotificationsModal(true)}
                 className="relative p-2.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
               >
                 <Bell className="w-5 h-5 text-blue-500" />
                 {totalNotificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -end-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                     {totalNotificationCount > 9 ? '9+' : totalNotificationCount}
                   </span>
                 )}
@@ -231,7 +256,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
             </Tooltip>
 
             {/* WhatsApp Support Button */}
-            <Tooltip text="צור קשר לתמיכה בווטסאפ">
+            <Tooltip text={tSidebar('whatsappSupport')}>
               <a
                 href="https://wa.me/972773006306"
                 target="_blank"
@@ -260,8 +285,12 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-danger bg-danger/10 hover:bg-danger/20 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
-                <span>התנתק</span>
+                <span>{tAuth('signOut')}</span>
               </button>
+              {/* Language Switcher */}
+              <div className="mt-2">
+                <LanguageSwitcher />
+              </div>
             </div>
           ) : (
             <div className="mb-4">
@@ -283,8 +312,12 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors"
               >
                 <LogIn className="w-4 h-4" />
-                <span>התחברו</span>
+                <span>{tAuth('signIn')}</span>
               </button>
+              {/* Language Switcher */}
+              <div className="mt-2">
+                <LanguageSwitcher />
+              </div>
             </div>
           )}
 
@@ -314,13 +347,13 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
           <div className="bg-bg-secondary rounded-xl max-w-md w-full max-h-[80vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-text-primary">התראות</h2>
+              <h2 className="text-lg font-semibold text-text-primary">{tNotifications('title')}</h2>
               <div className="flex items-center gap-2">
                 {userRole === 'super_admin' && (
                   <button
                     onClick={() => setShowNewNotificationForm(true)}
                     className="p-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors"
-                    title="הוסף התראה"
+                    title={tNotifications('addNotification')}
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -344,13 +377,13 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                   type="text"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="כותרת ההתראה"
+                  placeholder={tNotifications('notificationTitle')}
                   className="w-full px-3 py-2 rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-secondary mb-2"
                 />
                 <textarea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="תוכן ההתראה"
+                  placeholder={tNotifications('notificationContent')}
                   rows={3}
                   className="w-full px-3 py-2 rounded-lg bg-bg-primary border border-border text-text-primary placeholder:text-text-secondary resize-none mb-2"
                 />
@@ -360,7 +393,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                     disabled={isSaving || !newTitle.trim() || !newMessage.trim()}
                     className="flex-1 px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {isSaving ? 'שומר...' : 'פרסם'}
+                    {isSaving ? tCommon('saving') : tCommon('publish')}
                   </button>
                   <button
                     onClick={() => {
@@ -370,7 +403,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                     }}
                     className="px-4 py-2 rounded-lg bg-bg-hover text-text-secondary hover:bg-bg-primary transition-colors"
                   >
-                    ביטול
+                    {tCommon('cancel')}
                   </button>
                 </div>
               </div>
@@ -396,7 +429,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                       <button
                         onClick={() => handleDeleteNotification(notification.id)}
                         className="p-1.5 rounded-lg text-danger hover:bg-danger/10 transition-colors shrink-0"
-                        title="מחק התראה"
+                        title={tNotifications('deleteNotification')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -407,7 +440,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
 
               {/* Empty state */}
               {totalNotificationCount === 0 && (
-                <p className="text-center text-text-secondary py-8">אין התראות</p>
+                <p className="text-center text-text-secondary py-8">{tNotifications('noNotifications')}</p>
               )}
             </div>
           </div>

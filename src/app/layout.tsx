@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Assistant } from "next/font/google";
 import "./globals.css";
-import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,41 +20,41 @@ const assistant = Assistant({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://qr.playzones.app'),
-  title: "QR Playzones - מערכת קודי QR דינמיים",
-  description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
+  title: "The Q - Dynamic QR Codes",
+  description: "Create dynamic QR codes with advanced media display",
   icons: {
     icon: "/favicon.svg",
     apple: "/QLogo.jpg",
   },
   openGraph: {
-    title: "QR Playzones - תוכן QR דינמי",
-    description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
+    title: "The Q - Dynamic QR Codes",
+    description: "Create dynamic QR codes with advanced media display",
     images: [
       {
         url: "/QLogo.jpg",
         width: 512,
         height: 512,
-        alt: "QR Playzones Logo",
+        alt: "The Q Logo",
       },
     ],
-    siteName: "QR Playzones",
+    siteName: "The Q",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "QR Playzones - תוכן QR דינמי",
-    description: "צור קודי QR דינמיים עם תצוגת מדיה מתקדמת",
+    title: "The Q - Dynamic QR Codes",
+    description: "Create dynamic QR codes with advanced media display",
     images: ["/QLogo.jpg"],
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="he" dir="rtl" suppressHydrationWarning>
+    <html suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -74,9 +73,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${assistant.variable} antialiased`}
         suppressHydrationWarning
       >
-        <Providers>
-          {children}
-        </Providers>
+        {children}
       </body>
     </html>
   );

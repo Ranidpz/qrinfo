@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { QrCode, X, Clock, BarChart3, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTranslations } from 'next-intl';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +13,12 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showTerms, setShowTerms] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Translations
+  const t = useTranslations('login');
+  const tAuth = useTranslations('auth');
+  const tTerms = useTranslations('terms');
+  const tFeatures = useTranslations('features');
 
   // Check if user already accepted terms
   useEffect(() => {
@@ -41,7 +48,7 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err) {
       console.error(err);
-      setError('שגיאה בהתחברות. נסה שוב.');
+      setError(tAuth('signInError'));
     } finally {
       setLoading(false);
     }
@@ -61,7 +68,7 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err) {
       console.error(err);
-      setError('שגיאה בהתחברות. נסה שוב.');
+      setError(tAuth('signInError'));
     } finally {
       setLoading(false);
     }
@@ -124,14 +131,14 @@ export default function LoginPage() {
           <h1 className="text-5xl font-bold text-text-primary mb-3 title-fade-in" dir="ltr">
             <span className="text-2xl font-normal text-text-secondary align-middle">The</span> <span className="q-letter text-6xl">Q</span>
           </h1>
-          <p className="text-lg text-accent font-medium">One QR. Endless Experiences.</p>
+          <p className="text-lg text-accent font-medium">{t('tagline')}</p>
           <div className="flex justify-center my-3">
             <div className="w-32 h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
           </div>
           <p className="text-sm text-text-secondary">
-            תמונות, וידאו, PDF, כתב חידה, ענן מילים, מיני-גיימס, גלריית סלפי ועוד
+            {t('description')}
             <br />
-            <span className="text-accent font-medium">קוד בטוח להדפסה וללא פרסומות</span>
+            <span className="text-accent font-medium">{t('safeCode')}</span>
           </p>
         </div>
 
@@ -139,15 +146,15 @@ export default function LoginPage() {
         <div className="grid grid-cols-3 gap-2 mb-6">
           <div className="bg-bg-card/50 rounded-lg p-2 text-center">
             <RefreshCw className="w-4 h-4 text-accent mx-auto mb-1" />
-            <p className="text-[10px] text-text-secondary">שינוי בזמן אמת</p>
+            <p className="text-[10px] text-text-secondary">{tFeatures('realTimeChange')}</p>
           </div>
           <div className="bg-bg-card/50 rounded-lg p-2 text-center">
             <Clock className="w-4 h-4 text-accent mx-auto mb-1" />
-            <p className="text-[10px] text-text-secondary">תזמון חוויות</p>
+            <p className="text-[10px] text-text-secondary">{tFeatures('scheduledExperiences')}</p>
           </div>
           <div className="bg-bg-card/50 rounded-lg p-2 text-center">
             <BarChart3 className="w-4 h-4 text-accent mx-auto mb-1" />
-            <p className="text-[10px] text-text-secondary">אנליטיקס חי</p>
+            <p className="text-[10px] text-text-secondary">{tFeatures('liveAnalytics')}</p>
           </div>
         </div>
 
@@ -189,19 +196,19 @@ export default function LoginPage() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                התחברו עם Google
+                {tAuth('signInWithGoogle')}
               </>
             )}
           </button>
 
           {/* Info */}
           <p className="mt-6 text-xs text-text-secondary">
-            בלחיצה על התחבר אתה מסכים ל
+            {tAuth('bySigningIn')}{' '}
             <button
               onClick={() => setShowTerms(true)}
               className="text-accent hover:underline"
             >
-              תנאי השימוש
+              {tAuth('termsOfService')}
             </button>
           </p>
         </div>
@@ -210,19 +217,19 @@ export default function LoginPage() {
         <div className="mt-6 grid grid-cols-2 gap-3">
           <div className="bg-bg-card/50 rounded-lg p-3 text-center">
             <p className="text-2xl font-bold text-accent">1</p>
-            <p className="text-xs text-text-secondary">קוד QR בחינם</p>
+            <p className="text-xs text-text-secondary">{t('freeCode')}</p>
           </div>
           <div className="bg-bg-card/50 rounded-lg p-3 text-center">
             <p className="text-2xl font-bold text-accent">25MB</p>
-            <p className="text-xs text-text-secondary">אחסון חינם</p>
+            <p className="text-xs text-text-secondary">{t('freeStorage')}</p>
           </div>
         </div>
 
         {/* Use Cases */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-text-secondary mb-2">מתאים ל:</p>
+          <p className="text-xs text-text-secondary mb-2">{t('suitableFor')}</p>
           <p className="text-xs text-text-secondary/70">
-            מלונות • תערוכות • הפקות • וחוויות
+            {t('useCases')}
           </p>
         </div>
 
@@ -245,7 +252,7 @@ export default function LoginPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-bg-card border border-border rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-text-primary">תנאי שימוש</h3>
+              <h3 className="text-lg font-semibold text-text-primary">{tTerms('title')}</h3>
               <button
                 onClick={() => setShowTerms(false)}
                 className="p-1.5 rounded-lg hover:bg-bg-secondary transition-colors"
@@ -256,54 +263,34 @@ export default function LoginPage() {
 
             <div className="space-y-4 text-sm text-text-secondary leading-relaxed">
               <section>
-                <h4 className="font-semibold text-text-primary mb-2">מהי Queue?</h4>
-                <p>
-                  Queue היא מערכת ליצירת קודי QR דינמיים המאפשרת לשנות את התוכן מאחורי הקוד בכל עת,
-                  לתזמן חוויות, ולצפות בנתוני שימוש בזמן אמת.
-                </p>
+                <h4 className="font-semibold text-text-primary mb-2">{tTerms('whatIsQueue')}</h4>
+                <p>{tTerms('whatIsQueueDesc')}</p>
               </section>
 
               <section>
-                <h4 className="font-semibold text-text-primary mb-2">גרסת אלפא</h4>
-                <p>
-                  המערכת נמצאת כרגע בגרסת אלפא (Alpha). המשמעות היא שהמערכת עשויה להשתנות מעת לעת,
-                  פיצ&apos;רים עשויים להתווסף או להשתנות, ויתכנו באגים או שינויים בלתי צפויים.
-                </p>
+                <h4 className="font-semibold text-text-primary mb-2">{tTerms('alphaVersion')}</h4>
+                <p>{tTerms('alphaVersionDesc')}</p>
               </section>
 
               <section>
-                <h4 className="font-semibold text-text-primary mb-2">אחריות על תכנים</h4>
-                <p>
-                  המשתמש אחראי באופן בלעדי על כל התכנים שהוא מעלה למערכת.
-                  אין להעלות תכנים פוגעניים, בלתי חוקיים, או תכנים המפרים זכויות יוצרים.
-                </p>
-                <p className="mt-2">
-                  השירות שומר לעצמו את הזכות להסיר תכנים לא הולמים ולחסום משתמשים המפרים את תנאי השימוש.
-                </p>
+                <h4 className="font-semibold text-text-primary mb-2">{tTerms('contentResponsibility')}</h4>
+                <p>{tTerms('contentResponsibilityDesc')}</p>
+                <p className="mt-2">{tTerms('serviceRights')}</p>
               </section>
 
               <section>
-                <h4 className="font-semibold text-text-primary mb-2">פרטיות ונתונים</h4>
-                <p>
-                  המערכת אוספת נתוני שימוש אנונימיים לצורך שיפור השירות והצגת אנליטיקס למשתמשים.
-                  אנו לא משתפים מידע אישי עם צדדים שלישיים.
-                </p>
+                <h4 className="font-semibold text-text-primary mb-2">{tTerms('privacy')}</h4>
+                <p>{tTerms('privacyDesc')}</p>
               </section>
 
               <section>
-                <h4 className="font-semibold text-text-primary mb-2">הגבלת אחריות</h4>
-                <p>
-                  השירות מסופק &quot;כמות שהוא&quot; (AS IS) ללא אחריות מכל סוג.
-                  איננו אחראים לנזקים ישירים או עקיפים הנובעים משימוש בשירות.
-                </p>
+                <h4 className="font-semibold text-text-primary mb-2">{tTerms('liability')}</h4>
+                <p>{tTerms('liabilityDesc')}</p>
               </section>
 
               <section>
-                <h4 className="font-semibold text-text-primary mb-2">שינויים בתנאים</h4>
-                <p>
-                  אנו שומרים לעצמנו את הזכות לעדכן תנאים אלו מעת לעת.
-                  המשך השימוש בשירות מהווה הסכמה לתנאים המעודכנים.
-                </p>
+                <h4 className="font-semibold text-text-primary mb-2">{tTerms('termsChanges')}</h4>
+                <p>{tTerms('termsChangesDesc')}</p>
               </section>
             </div>
 
@@ -330,7 +317,7 @@ export default function LoginPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              מסכים ומתחבר עם Google
+              {tAuth('agreeAndSignIn')}
             </button>
           </div>
         </div>

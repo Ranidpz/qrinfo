@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { RefreshCw, Loader2, BarChart3, Radio } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import Header from '@/components/layout/Header';
-import Sidebar from '@/components/layout/Sidebar';
 import CodeSelector from '@/components/analytics/CodeSelector';
 import DateRangePicker from '@/components/analytics/DateRangePicker';
 import MetricsCards from '@/components/analytics/MetricsCards';
@@ -22,7 +20,7 @@ import {
   subscribeToLinkClicks,
   aggregateLinkClicks,
 } from '@/lib/analytics';
-import { QRCode, User, DateRangePreset, AnalyticsData, LinkClickStats } from '@/types';
+import { QRCode, User as UserType, DateRangePreset, AnalyticsData, LinkClickStats } from '@/types';
 
 const emptyAnalytics: AnalyticsData = {
   totalViews: 0,
@@ -44,9 +42,8 @@ export default function AnalyticsPage() {
   const router = useRouter();
 
   // State
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [codes, setCodes] = useState<QRCode[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<UserType[]>([]);
   const [selectedCodeIds, setSelectedCodeIds] = useState<string[]>([]);
   const [datePreset, setDatePreset] = useState<DateRangePreset>('month');
   const [customStart, setCustomStart] = useState<Date | undefined>();
@@ -157,24 +154,14 @@ export default function AnalyticsPage() {
   // Show loading while checking auth
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary">
-      <Header onMenuClick={() => setSidebarOpen(true)} />
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        userRole={user?.role}
-        userId={user?.id}
-      />
-
-      <main className="pt-2 md:pt-16 md:mr-64">
-        <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
+    <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -262,8 +249,6 @@ export default function AnalyticsPage() {
               <LinkClicksSection stats={linkClickStats} />
             </div>
           )}
-        </div>
-      </main>
     </div>
   );
 }

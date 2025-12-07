@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Cloud, ExternalLink } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface WordCloudModalProps {
   isOpen: boolean;
@@ -20,6 +21,9 @@ export default function WordCloudModal({
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
 
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
+
   useEffect(() => {
     if (isOpen) {
       setLinkUrl('');
@@ -34,7 +38,7 @@ export default function WordCloudModal({
     const trimmedUrl = linkUrl.trim();
 
     if (!trimmedUrl) {
-      setError('יש להזין כתובת לינק');
+      setError(t('wordCloudLinkRequired'));
       return;
     }
 
@@ -48,13 +52,13 @@ export default function WordCloudModal({
     try {
       new URL(finalUrl);
     } catch {
-      setError('כתובת הלינק אינה תקינה');
+      setError(t('wordCloudInvalidUrl'));
       return;
     }
 
     // Validate it's a QuizyCloud URL
     if (!finalUrl.includes('quizycloud.playzones.app')) {
-      setError('יש להזין לינק מ-QuizyCloud בלבד');
+      setError(t('wordCloudOnlyQuizyCloud'));
       return;
     }
 
@@ -79,7 +83,7 @@ export default function WordCloudModal({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
             <Cloud className="w-5 h-5 text-accent" />
-            ענן מילים
+            {t('wordCloud')}
           </h2>
           <button
             onClick={onClose}
@@ -91,7 +95,7 @@ export default function WordCloudModal({
 
         {/* Description */}
         <p className="text-sm text-text-secondary">
-          צור ענן מילים במערכת QuizyCloud והדבק את הלינק שקיבלת כאן.
+          {t('wordCloudDescription')}
         </p>
 
         {/* QuizyCloud Button */}
@@ -100,7 +104,7 @@ export default function WordCloudModal({
           className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-bg-secondary hover:bg-bg-hover rounded-xl text-text-primary font-medium transition-colors"
         >
           <ExternalLink className="w-4 h-4" />
-          פתח את QuizyCloud
+          {t('wordCloudOpenQuizyCloud')}
         </button>
 
         {/* Error */}
@@ -115,7 +119,7 @@ export default function WordCloudModal({
           {/* Link URL */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              לינק מ-QuizyCloud <span className="text-danger">*</span>
+              {t('wordCloudLinkLabel')} <span className="text-danger">{t('required')}</span>
             </label>
             <input
               type="url"
@@ -134,13 +138,13 @@ export default function WordCloudModal({
           {/* Title */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              כותרת <span className="text-text-secondary font-normal">(אופציונלי)</span>
+              {t('wordCloudTitleLabel')} <span className="text-text-secondary font-normal">({t('optional')})</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="ענן מילים לאירוע"
+              placeholder={t('wordCloudTitlePlaceholder')}
               className="input w-full"
             />
           </div>
@@ -153,7 +157,7 @@ export default function WordCloudModal({
             disabled={loading}
             className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover disabled:opacity-50"
           >
-            ביטול
+            {tCommon('cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -163,7 +167,7 @@ export default function WordCloudModal({
             {loading ? (
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              'הוסף'
+              tCommon('add')
             )}
           </button>
         </div>

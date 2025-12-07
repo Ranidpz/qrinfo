@@ -15,7 +15,7 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { QRCode, MediaItem, User, Folder, Notification } from '@/types';
+import { QRCode, MediaItem, User, Folder, Notification, NotificationLocale } from '@/types';
 
 // Generate a unique short ID for QR codes
 export function generateShortId(length: number = 6): string {
@@ -671,12 +671,14 @@ export async function moveCodeToFolder(
 export async function createNotification(
   title: string,
   message: string,
-  createdBy: string
+  createdBy: string,
+  locale: NotificationLocale = 'all'
 ): Promise<Notification> {
   const notificationData = {
     title,
     message,
     createdBy,
+    locale,
     createdAt: serverTimestamp(),
   };
 
@@ -687,12 +689,14 @@ export async function createNotification(
     title,
     message,
     createdBy,
+    locale,
     createdAt: new Date(),
   };
 }
 
-// Get all notifications (ordered by newest first)
-export async function getNotifications(): Promise<Notification[]> {
+// Get all notifications for a specific locale (ordered by newest first)
+// Returns notifications that match the locale OR have locale='all'
+export async function getNotifications(locale: 'he' | 'en' = 'he'): Promise<Notification[]> {
   const q = query(
     collection(db, 'notifications'),
     orderBy('createdAt', 'desc')
@@ -700,16 +704,19 @@ export async function getNotifications(): Promise<Notification[]> {
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      title: data.title,
-      message: data.message,
-      createdBy: data.createdBy,
-      createdAt: data.createdAt?.toDate() || new Date(),
-    };
-  });
+  return snapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        title: data.title,
+        message: data.message,
+        createdBy: data.createdBy,
+        locale: data.locale || 'all', // Default to 'all' for backwards compatibility
+        createdAt: data.createdAt?.toDate() || new Date(),
+      };
+    })
+    .filter((n) => n.locale === locale || n.locale === 'all');
 }
 
 // Delete notification (admin only)
@@ -717,20 +724,20 @@ export async function deleteNotification(notificationId: string): Promise<void> 
   await deleteDoc(doc(db, 'notifications', notificationId));
 }
 
-// Create a version update notification (only if doesn't exist)
+// Create version update notifications (creates one for each locale if doesn't exist)
 // Uses localStorage to track which versions have been notified to avoid duplicates
 const VERSION_NOTIFIED_KEY = 'qr_version_notified';
 
 export async function createVersionNotification(
   version: string,
-  highlights: string[]
-): Promise<Notification | null> {
+  highlights: { he: string[]; en: string[] }
+): Promise<void> {
   // Check localStorage first to avoid duplicate notifications
   if (typeof window !== 'undefined') {
     const notifiedVersions = localStorage.getItem(VERSION_NOTIFIED_KEY);
     const versions = notifiedVersions ? JSON.parse(notifiedVersions) : [];
     if (versions.includes(version)) {
-      return null; // Already created notification for this version
+      return; // Already created notifications for this version
     }
 
     // Mark as "in progress" immediately to prevent race conditions
@@ -739,33 +746,44 @@ export async function createVersionNotification(
     localStorage.setItem(VERSION_NOTIFIED_KEY, JSON.stringify(versions));
   }
 
-  // Also check Firestore to be safe (simple title check)
-  const allNotifs = await getNotifications();
-  const exists = allNotifs.some(n => n.title === `גרסה ${version}`);
-  if (exists) {
-    // Already exists in Firestore, no need to create
-    return null;
+  // Check Firestore for existing version notifications
+  const q = query(
+    collection(db, 'notifications'),
+    orderBy('createdAt', 'desc')
+  );
+  const snapshot = await getDocs(q);
+  const allNotifs = snapshot.docs.map((docSnap) => docSnap.data());
+
+  // Check if Hebrew version exists
+  const heExists = allNotifs.some(n => n.title === `גרסה ${version}` && n.locale === 'he');
+  // Check if English version exists
+  const enExists = allNotifs.some(n => n.title === `Version ${version}` && n.locale === 'en');
+
+  // Create Hebrew notification if doesn't exist
+  if (!heExists) {
+    const heNotificationData = {
+      title: `גרסה ${version}`,
+      message: highlights.he.join('\n'),
+      createdBy: 'system',
+      locale: 'he',
+      createdAt: serverTimestamp(),
+      isVersionUpdate: true,
+      version,
+    };
+    await addDoc(collection(db, 'notifications'), heNotificationData);
   }
 
-  const title = `גרסה ${version}`;
-  const message = highlights.join('\n');
-
-  const notificationData = {
-    title,
-    message,
-    createdBy: 'system',
-    createdAt: serverTimestamp(),
-    isVersionUpdate: true,
-    version,
-  };
-
-  const docRef = await addDoc(collection(db, 'notifications'), notificationData);
-
-  return {
-    id: docRef.id,
-    title,
-    message,
-    createdBy: 'system',
-    createdAt: new Date(),
-  };
+  // Create English notification if doesn't exist
+  if (!enExists) {
+    const enNotificationData = {
+      title: `Version ${version}`,
+      message: highlights.en.join('\n'),
+      createdBy: 'system',
+      locale: 'en',
+      createdAt: serverTimestamp(),
+      isVersionUpdate: true,
+      version,
+    };
+    await addDoc(collection(db, 'notifications'), enNotificationData);
+  }
 }

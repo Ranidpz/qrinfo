@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Link as LinkIcon, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface MediaLinkModalProps {
   isOpen: boolean;
@@ -20,6 +21,9 @@ export default function MediaLinkModal({
 }: MediaLinkModalProps) {
   const [linkUrl, setLinkUrl] = useState(currentLinkUrl || '');
   const [linkTitle, setLinkTitle] = useState(currentLinkTitle || '');
+
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
 
   // Update state when modal opens with new values
   useEffect(() => {
@@ -68,7 +72,7 @@ export default function MediaLinkModal({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
             <LinkIcon className="w-5 h-5 text-accent" />
-            לינק למדיה
+            {t('mediaLink')}
           </h2>
           <button
             onClick={onClose}
@@ -80,7 +84,7 @@ export default function MediaLinkModal({
 
         {/* Description */}
         <p className="text-sm text-text-secondary">
-          הוסף לינק שיופיע ככפתור כשהמשתמש יקליק על התמונה. המשתמש יוכל לבחור אם לפתוח את הלינק או להמשיך לצפות.
+          {t('mediaLinkDescription')}
         </p>
 
         {/* Form */}
@@ -88,7 +92,7 @@ export default function MediaLinkModal({
           {/* Link URL */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              כתובת הלינק
+              {t('mediaLinkUrl')}
             </label>
             <input
               type="url"
@@ -103,17 +107,17 @@ export default function MediaLinkModal({
           {/* Link Title */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              שם הכפתור <span className="text-text-secondary font-normal">(אופציונלי)</span>
+              {t('mediaLinkButtonName')} <span className="text-text-secondary font-normal">({t('optional')})</span>
             </label>
             <input
               type="text"
               value={linkTitle}
               onChange={(e) => setLinkTitle(e.target.value)}
-              placeholder="לחץ כאן לפרטים נוספים"
+              placeholder={t('mediaLinkButtonNamePlaceholder')}
               className="input w-full"
             />
             <p className="text-xs text-text-secondary">
-              אם לא יוזן שם, יוצג הדומיין של הלינק
+              {t('mediaLinkShowDomain')}
             </p>
           </div>
         </div>
@@ -124,7 +128,7 @@ export default function MediaLinkModal({
             <button
               onClick={handleRemoveLink}
               className="p-2.5 rounded-lg text-danger hover:bg-danger/10 transition-colors"
-              title="הסר לינק"
+              title={t('mediaLinkRemove')}
             >
               <Trash2 className="w-5 h-5" />
             </button>
@@ -134,13 +138,13 @@ export default function MediaLinkModal({
             onClick={onClose}
             className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover"
           >
-            ביטול
+            {tCommon('cancel')}
           </button>
           <button
             onClick={handleSave}
             className="btn bg-accent text-white hover:bg-accent-hover"
           >
-            שמור
+            {tCommon('save')}
           </button>
         </div>
       </div>

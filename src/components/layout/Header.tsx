@@ -1,6 +1,7 @@
 'use client';
 
 import { Menu, QrCode } from 'lucide-react';
+import { Link } from '@/i18n/navigation';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -23,11 +24,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <div className="hidden md:block" />
 
         {/* Left side - QR Icon */}
-        <a href="/dashboard" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
             <QrCode className="w-6 h-6 text-accent" />
           </div>
-        </a>
+        </Link>
       </div>
     </header>
   );

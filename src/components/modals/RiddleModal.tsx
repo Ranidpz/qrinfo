@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users, Pipette } from 'lucide-react';
 import { RiddleContent } from '@/types';
 import DOMPurify from 'isomorphic-dompurify';
+import { useTranslations } from 'next-intl';
 
 // Format text with WhatsApp-style formatting (with XSS protection)
 function formatContent(text: string): string {
@@ -66,6 +67,9 @@ export default function RiddleModal({
   const [allowAnonymous, setAllowAnonymous] = useState(true);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
 
   useEffect(() => {
     if (isOpen) {
@@ -151,12 +155,12 @@ export default function RiddleModal({
 
   const handleSave = async () => {
     if (!title.trim()) {
-      setError('יש להזין כותרת');
+      setError(t('riddleTitleRequired'));
       return;
     }
 
     if (youtubeUrl && !extractYoutubeId(youtubeUrl)) {
-      setError('כתובת יוטיוב אינה תקינה');
+      setError(t('riddleYoutubeError'));
       return;
     }
 
@@ -190,7 +194,7 @@ export default function RiddleModal({
         <div className="sticky top-0 z-10 bg-bg-card border-b border-border px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
             <FileText className="w-5 h-5 text-accent" />
-            כתב חידה
+            {t('riddle')}
           </h2>
           <button
             onClick={onClose}
@@ -212,7 +216,7 @@ export default function RiddleModal({
           {/* Title */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              כותרת <span className="text-danger">*</span>
+              {t('riddleTitle')} <span className="text-danger">{t('required')}</span>
             </label>
             <input
               type="text"
@@ -221,7 +225,7 @@ export default function RiddleModal({
                 setTitle(e.target.value);
                 setError('');
               }}
-              placeholder="הזן כותרת לדף..."
+              placeholder={t('riddleEnterTitle')}
               className="input w-full"
               autoFocus
             />
@@ -232,7 +236,7 @@ export default function RiddleModal({
             {/* Background Color */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-text-primary">
-                צבע רקע
+                {t('riddleBackgroundColor')}
               </label>
               <div className="flex items-center gap-2">
                 {backgroundColors.map((color) => (
@@ -277,7 +281,7 @@ export default function RiddleModal({
             {/* Text Color */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-text-primary">
-                צבע טקסט
+                {t('riddleTextColor')}
               </label>
               <div className="flex items-center gap-2">
                 {textColors.map((color) => (
@@ -323,24 +327,24 @@ export default function RiddleModal({
           {/* Content Textarea */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              תוכן
+              {t('riddleContent')}
             </label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="הזן את תוכן ההודעה...&#10;&#10;תומך בעיצוב:&#10;*טקסט מודגש*&#10;_טקסט נטוי_&#10;~טקסט מחוק~"
+              placeholder={t('riddleContentPlaceholder')}
               className="input w-full min-h-[150px] resize-y"
               rows={6}
             />
             <p className="text-xs text-text-secondary">
-              תומך בעיצוב WhatsApp: *מודגש* | _נטוי_ | ~מחוק~
+              {t('riddleWhatsappFormatting')}
             </p>
           </div>
 
           {/* Preview */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              תצוגה מקדימה
+              {t('riddlePreview')}
             </label>
             <div
               className="rounded-xl p-6 min-h-[120px]"
@@ -350,13 +354,13 @@ export default function RiddleModal({
                 className="text-xl font-bold mb-3"
                 style={{ color: textColor }}
               >
-                {title || 'כותרת'}
+                {title || t('riddleTitlePlaceholder')}
               </h3>
               <p
                 className="whitespace-pre-wrap"
                 style={{ color: textColor }}
                 dangerouslySetInnerHTML={{
-                  __html: formatContent(content || 'תוכן ההודעה יופיע כאן...'),
+                  __html: formatContent(content || t('riddleContentPreviewPlaceholder')),
                 }}
               />
             </div>
@@ -366,8 +370,8 @@ export default function RiddleModal({
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary flex items-center gap-2">
               <Youtube className="w-4 h-4 text-red-500" />
-              סרטון יוטיוב
-              <span className="text-text-secondary font-normal">(אופציונלי)</span>
+              {t('riddleYoutube')}
+              <span className="text-text-secondary font-normal">({t('optional')})</span>
             </label>
             <input
               type="text"
@@ -396,8 +400,8 @@ export default function RiddleModal({
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary flex items-center gap-2">
               <ImageIcon className="w-4 h-4 text-accent" />
-              תמונות
-              <span className="text-text-secondary font-normal">(אופציונלי)</span>
+              {t('riddleImages')}
+              <span className="text-text-secondary font-normal">({t('optional')})</span>
             </label>
 
             {/* Image Grid */}
@@ -415,7 +419,7 @@ export default function RiddleModal({
                     />
                     <button
                       onClick={() => handleRemoveImage(index)}
-                      className="absolute top-1 right-1 p-1 rounded-full bg-danger text-white hover:bg-danger/80 transition-colors"
+                      className="absolute top-1 end-1 p-1 rounded-full bg-danger text-white hover:bg-danger/80 transition-colors"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -430,7 +434,7 @@ export default function RiddleModal({
               className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-border rounded-lg text-text-secondary hover:border-accent hover:text-accent transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span>הוסף תמונות</span>
+              <span>{t('riddleAddImages')}</span>
             </button>
             <input
               ref={fileInputRef}
@@ -441,7 +445,7 @@ export default function RiddleModal({
               onChange={(e) => handleAddImages(e.target.files)}
             />
             <p className="text-xs text-text-secondary">
-              התמונות יישמרו בספריית התמונות וייספרו באחסון שלך
+              {t('riddleImagesSaved')}
             </p>
           </div>
 
@@ -449,13 +453,13 @@ export default function RiddleModal({
           <div className="space-y-3 p-4 bg-bg-secondary rounded-xl">
             <div className="flex items-center gap-3">
               <Camera className="w-5 h-5 text-accent" />
-              <h3 className="font-medium text-text-primary">גלריית סלפי</h3>
+              <h3 className="font-medium text-text-primary">{t('riddleSelfieGallery')}</h3>
             </div>
 
             {/* Enable Gallery Toggle */}
             <label className="flex items-center justify-between cursor-pointer">
               <span className="text-sm text-text-secondary">
-                אפשר למשתמשים להעלות סלפי
+                {t('riddleAllowSelfie')}
               </span>
               <button
                 type="button"
@@ -484,17 +488,15 @@ export default function RiddleModal({
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4 text-text-secondary" />
                   <span className="text-sm text-text-secondary">
-                    אפשר העלאה אנונימית (ללא שם)
+                    {t('riddleAllowAnonymous')}
                   </span>
                 </div>
               </label>
             )}
 
             {galleryEnabled && (
-              <p className="text-xs text-text-secondary">
-                המשתמשים יוכלו לצלם ולהעלות תמונות לגלריה משותפת.
-                <br />
-                התמונות יישמרו באחסון שלך ויופיעו בלינק הגלריה.
+              <p className="text-xs text-text-secondary whitespace-pre-line">
+                {t('riddleSelfieDescription')}
               </p>
             )}
           </div>
@@ -507,7 +509,7 @@ export default function RiddleModal({
             disabled={loading}
             className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover disabled:opacity-50"
           >
-            ביטול
+            {tCommon('cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -517,7 +519,7 @@ export default function RiddleModal({
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              'שמור'
+              tCommon('save')
             )}
           </button>
         </div>

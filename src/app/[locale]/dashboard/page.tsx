@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
@@ -17,11 +18,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
 import { clsx } from 'clsx';
+import { useTranslations } from 'next-intl';
 
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, refreshUser, signInWithGoogle } = useAuth();
+  const t = useTranslations('dashboard');
+  const tCommon = useTranslations('common');
+  const tAuth = useTranslations('auth');
+  const tModals = useTranslations('modals');
+  const tErrors = useTranslations('errors');
+  const tCode = useTranslations('code');
   const [codes, setCodes] = useState<QRCodeType[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -205,7 +213,7 @@ export default function DashboardPage() {
       router.push(`/code/${newCode.id}`);
     } catch (error) {
       console.error('Error creating code:', error);
-      alert('שגיאה ביצירת הקוד. נסה שוב.');
+      alert(tErrors('createCodeError'));
     } finally {
       setUploading(false);
     }
@@ -218,7 +226,7 @@ export default function DashboardPage() {
 
     try {
       // Create QR code with link (in current folder if inside one)
-      const newCode = await createQRCode(user.id, 'לינק חדש', [
+      const newCode = await createQRCode(user.id, tCode('newLink'), [
         {
           url,
           type: 'link',
@@ -235,7 +243,7 @@ export default function DashboardPage() {
       router.push(`/code/${newCode.id}`);
     } catch (error) {
       console.error('Error creating code:', error);
-      alert('שגיאה ביצירת הקוד. נסה שוב.');
+      alert(tErrors('createCodeError'));
     } finally {
       setUploading(false);
     }
@@ -248,7 +256,7 @@ export default function DashboardPage() {
 
     try {
       // Create QR code with wordcloud link (in current folder if inside one)
-      const newCode = await createQRCode(user.id, title || 'ענן מילים', [
+      const newCode = await createQRCode(user.id, title || tModals('wordCloud'), [
         {
           url,
           type: 'wordcloud',
@@ -267,7 +275,7 @@ export default function DashboardPage() {
       router.push(`/code/${newCode.id}`);
     } catch (error) {
       console.error('Error creating wordcloud code:', error);
-      alert('שגיאה ביצירת הקוד. נסה שוב.');
+      alert(tErrors('createCodeError'));
     } finally {
       setAddingWordCloud(false);
     }
@@ -335,7 +343,7 @@ export default function DashboardPage() {
       router.push(`/code/${newCode.id}`);
     } catch (error) {
       console.error('Error creating riddle:', error);
-      alert('שגיאה ביצירת כתב החידה. נסה שוב.');
+      alert(tErrors('createRiddleError'));
     } finally {
       setAddingRiddle(false);
     }
@@ -412,7 +420,7 @@ export default function DashboardPage() {
       router.push(`/code/${newCode.id}`);
     } catch (error) {
       console.error('Error creating selfiebeam:', error);
-      alert('שגיאה ביצירת סלפי בים. נסה שוב.');
+      alert(tErrors('createSelfiebeamError'));
     } finally {
       setAddingSelfiebeam(false);
     }
@@ -455,7 +463,7 @@ export default function DashboardPage() {
       setCodes((prev) => prev.filter((c) => c.id !== deleteModal.code?.id));
     } catch (error) {
       console.error('Error deleting code:', error);
-      alert('שגיאה במחיקת הקוד. נסה שוב.');
+      alert(tErrors('deleteError'));
     }
 
     setDeleteModal({ isOpen: false, code: null });
@@ -475,7 +483,7 @@ export default function DashboardPage() {
       );
     } catch (error) {
       console.error('Error updating title:', error);
-      alert('שגיאה בעדכון השם. נסה שוב.');
+      alert(tErrors('updateNameError'));
     }
   };
 
@@ -496,7 +504,7 @@ export default function DashboardPage() {
       setOwnerNames((prev) => ({ ...prev, [newOwnerId]: newOwnerName }));
     } catch (error) {
       console.error('Error transferring ownership:', error);
-      alert('שגיאה בהעברת הבעלות. נסה שוב.');
+      alert(tErrors('transferError'));
     }
   };
 
@@ -504,11 +512,11 @@ export default function DashboardPage() {
   const handleCreateFolder = async () => {
     if (!user) return;
     try {
-      const newFolder = await createFolder(user.id, 'חוויה חדשה');
+      const newFolder = await createFolder(user.id, t('newExperience'));
       setFolders((prev) => [newFolder, ...prev]);
     } catch (error) {
       console.error('Error creating folder:', error);
-      alert('שגיאה ביצירת החוויה. נסה שוב.');
+      alert(tErrors('createExperienceError'));
     }
   };
 
@@ -520,7 +528,7 @@ export default function DashboardPage() {
       );
     } catch (error) {
       console.error('Error renaming folder:', error);
-      alert('שגיאה בשינוי שם החוויה. נסה שוב.');
+      alert(tErrors('renameExperienceError'));
     }
   };
 
@@ -546,7 +554,7 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error deleting folder:', error);
-      alert('שגיאה במחיקת החוויה. נסה שוב.');
+      alert(tErrors('deleteExperienceError'));
     }
     setDeleteFolderModal({ isOpen: false, folder: null });
   };
@@ -561,7 +569,7 @@ export default function DashboardPage() {
       );
     } catch (error) {
       console.error('Error moving code:', error);
-      alert('שגיאה בהעברת הקוד. נסה שוב.');
+      alert(tErrors('moveCodeError'));
     }
     setDraggingCodeId(null);
     setDragOverFolderId(null);
@@ -624,7 +632,7 @@ export default function DashboardPage() {
       router.push(`/code/${codeId}`);
     } catch (error) {
       console.error('Error replacing file:', error);
-      alert('שגיאה בהחלפת הקובץ. נסה שוב.');
+      alert(tErrors('replaceFileError'));
     }
   };
 
@@ -638,7 +646,7 @@ export default function DashboardPage() {
       const codeWithFolder = code as QRCodeType & { folderId?: string };
       const newCode = await createQRCode(
         user.id,
-        `${code.title} (עותק)`,
+        `${code.title} ${tCode('duplicateSuffix')}`,
         code.media.map((m) => ({
           url: m.url,
           type: m.type,
@@ -653,7 +661,7 @@ export default function DashboardPage() {
       setCodes((prev) => [newCode, ...prev]);
     } catch (error) {
       console.error('Error duplicating code:', error);
-      alert('שגיאה בשכפול הקוד. נסה שוב.');
+      alert(tErrors('duplicateError'));
     }
   };
 
@@ -677,7 +685,7 @@ export default function DashboardPage() {
       );
     } catch (error) {
       console.error('Error toggling global status:', error);
-      alert('שגיאה בשינוי סטטוס גלובלי. נסה שוב.');
+      alert(tErrors('globalStatusError'));
     }
   };
 
@@ -837,9 +845,9 @@ export default function DashboardPage() {
           <div className="hero-divider-line h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
         </div>
         <p className="hero-subtitle text-sm sm:text-base md:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-          תמונות, וידאו, PDF, כתב חידה, ענן מילים, מיני-גיימס, גלריית סלפי ועוד
+          {t('subtitle')}
           <br />
-          <span className="text-accent font-medium">קוד בטוח להדפסה וללא פרסומות</span>
+          <span className="text-accent font-medium">{t('safeCode')}</span>
         </p>
       </div>
 
@@ -856,7 +864,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center gap-3">
               <Upload className="w-5 h-5 text-accent" />
-              <span className="font-medium text-text-primary">יצירת חוויה חדשה</span>
+              <span className="font-medium text-text-primary">{t('createNew')}</span>
             </div>
             <ChevronDown className={clsx(
               "w-5 h-5 text-text-secondary transition-transform duration-200",
@@ -888,14 +896,14 @@ export default function DashboardPage() {
           className="w-full bg-bg-card border border-border rounded-xl p-4 flex items-center justify-center gap-3 hover:bg-bg-secondary/50 transition-colors"
         >
           <Upload className="w-5 h-5 text-accent" />
-          <span className="font-medium text-text-primary">התחברו כדי ליצור חוויה</span>
+          <span className="font-medium text-text-primary">{tAuth('signInToCreate')}</span>
         </button>
       )}
 
       {uploading && (
         <div className="flex items-center justify-center gap-2 py-4 text-accent">
           <Loader2 className="w-5 h-5 animate-spin" />
-          <span>יוצר קוד חדש...</span>
+          <span>{t('creatingCode')}</span>
         </div>
       )}
 
@@ -927,14 +935,14 @@ export default function DashboardPage() {
             onDragLeave={() => setDragOverRoot(false)}
           >
             <Home className="w-6 h-6 text-accent" />
-            <span className="text-sm font-medium text-accent">שחרר כאן להעברה לדשבורד</span>
+            <span className="text-sm font-medium text-accent">{t('dropHereToDashboard')}</span>
           </div>
 
           <div className="flex-1 flex items-center gap-3 p-4 bg-bg-card border border-border rounded-xl">
             <button
               onClick={() => setCurrentFolderId(null)}
               className="p-2 rounded-lg bg-bg-secondary text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
-              title="חזור"
+              title={tCommon('back')}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -980,12 +988,12 @@ export default function DashboardPage() {
                     setFolderNameInput(currentFolder.name);
                     setEditingFolderName(true);
                   }}
-                  title="לחץ לעריכת שם"
+                  title={t('clickToEditName')}
                 >
                   {currentFolder.name}
                 </h2>
               )}
-              <p className="text-sm text-text-secondary">{filteredCodes.length} קודים</p>
+              <p className="text-sm text-text-secondary">{filteredCodes.length} {t('codes')}</p>
             </div>
             {!editingFolderName && (
               <button
@@ -994,7 +1002,7 @@ export default function DashboardPage() {
                   setEditingFolderName(true);
                 }}
                 className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
-                title="ערוך שם"
+                title={t('editName')}
               >
                 <Edit2 className="w-4 h-4" />
               </button>
@@ -1054,7 +1062,7 @@ export default function DashboardPage() {
                 filter === 'all' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
               )}
             >
-              הכל
+              {tCommon('all')}
             </button>
             <button
               onClick={() => setFilter('mine')}
@@ -1063,7 +1071,7 @@ export default function DashboardPage() {
                 filter === 'mine' ? 'bg-accent text-white' : 'text-text-secondary'
               )}
             >
-              My Q
+              {t('myQ')}
             </button>
           </div>
         )}
@@ -1073,7 +1081,7 @@ export default function DashboardPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
           <input
             type="text"
-            placeholder="חיפוש..."
+            placeholder={tCommon('search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="input pl-10 w-full"
@@ -1091,13 +1099,13 @@ export default function DashboardPage() {
       {user && !currentFolderId && displayFolders.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text-primary">חוויות</h2>
+            <h2 className="text-lg font-semibold text-text-primary">{t('experiences')}</h2>
             <button
               onClick={handleCreateFolder}
               className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-accent hover:bg-accent/10 rounded-lg transition-colors"
             >
               <FolderPlus className="w-4 h-4" />
-              חוויה חדשה
+              {t('newExperience')}
             </button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -1135,7 +1143,7 @@ export default function DashboardPage() {
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary hover:text-accent border border-dashed border-border hover:border-accent rounded-xl transition-colors w-full justify-center"
         >
           <FolderPlus className="w-5 h-5" />
-          צור חוויה חדשה לארגון התוכן
+          {t('createExperienceToOrganize')}
         </button>
       )}
 
@@ -1201,24 +1209,24 @@ export default function DashboardPage() {
           </div>
           <h3 className="text-lg font-medium text-text-primary mb-2">
             {!user
-              ? 'אין חוויות גלובליות כרגע'
+              ? t('noGlobalExperiences')
               : currentFolderId
-                ? 'החוויה ריקה'
-                : 'אין קודים עדיין'}
+                ? t('emptyExperience')
+                : t('noCodes')}
           </h3>
           <p className="text-text-secondary">
             {!user
-              ? 'התחבר כדי ליצור חוויות משלך'
+              ? t('signInToCreate')
               : currentFolderId
-                ? 'גרור קודים לכאן כדי להוסיף אותם לחוויה'
-                : 'העלה תוכן או הוסף לינק ליצירת הקוד הראשון שלך'}
+                ? t('dragCodesToExperience')
+                : t('uploadOrAddLink')}
           </p>
           {!user && (
             <button
               onClick={() => router.push('/login')}
               className="mt-4 px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent-hover transition-colors"
             >
-              התחברו עכשיו
+              {tAuth('signInNow')}
             </button>
           )}
         </div>
@@ -1245,24 +1253,24 @@ export default function DashboardPage() {
       {deleteFolderModal.isOpen && deleteFolderModal.folder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-bg-card border border-border rounded-xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-text-primary mb-2">מחיקת חוויה</h3>
+            <h3 className="text-lg font-semibold text-text-primary mb-2">{tModals('deleteExperience')}</h3>
             <p className="text-text-secondary mb-4">
-              האם אתה בטוח שברצונך למחוק את החוויה &quot;{deleteFolderModal.folder.name}&quot;?
+              {tModals('deleteExperienceConfirm', { name: deleteFolderModal.folder.name })}
               <br />
-              <span className="text-sm">הקודים בחוויה יועברו לדשבורד.</span>
+              <span className="text-sm">{tModals('codesWillMoveToDashboard')}</span>
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteFolderModal({ isOpen: false, folder: null })}
                 className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
               >
-                ביטול
+                {tCommon('cancel')}
               </button>
               <button
                 onClick={confirmDeleteFolder}
                 className="px-4 py-2 text-sm font-medium text-white bg-danger hover:bg-danger/90 rounded-lg transition-colors"
               >
-                מחק
+                {tCommon('delete')}
               </button>
             </div>
           </div>
@@ -1281,9 +1289,9 @@ export default function DashboardPage() {
       {showLoginModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-bg-card border border-border rounded-xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-text-primary mb-2 text-center">התחבר כדי ליצור חוויה</h3>
+            <h3 className="text-lg font-semibold text-text-primary mb-2 text-center">{tAuth('signInModalTitle')}</h3>
             <p className="text-text-secondary mb-6 text-center text-sm">
-              התחבר עם חשבון Google כדי ליצור ולנהל חוויות QR משלך
+              {tAuth('signInModalDescription')}
             </p>
 
             <button
@@ -1315,14 +1323,14 @@ export default function DashboardPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              התחבר עם Google
+              {tAuth('signInWithGoogle')}
             </button>
 
             <button
               onClick={() => setShowLoginModal(false)}
               className="w-full py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
             >
-              ביטול
+              {tCommon('cancel')}
             </button>
           </div>
         </div>

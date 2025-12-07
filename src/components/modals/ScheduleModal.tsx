@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Calendar, Clock } from 'lucide-react';
 import { MediaSchedule } from '@/types';
+import { useTranslations } from 'next-intl';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -41,6 +42,9 @@ export default function ScheduleModal({
   const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
 
   useEffect(() => {
     if (currentSchedule) {
@@ -119,7 +123,7 @@ export default function ScheduleModal({
       <div className="relative bg-bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-text-primary">תזמון מדיה</h2>
+          <h2 className="text-xl font-bold text-text-primary">{t('schedule')}</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-bg-secondary transition-colors"
@@ -130,7 +134,7 @@ export default function ScheduleModal({
 
         {/* Enable toggle */}
         <div className="flex items-center justify-between mb-6 p-4 bg-bg-secondary rounded-xl">
-          <span className="text-text-primary font-medium">הפעל תזמון</span>
+          <span className="text-text-primary font-medium">{t('scheduleEnable')}</span>
           <button
             onClick={() => setEnabled(!enabled)}
             className={`relative w-12 h-6 rounded-full transition-colors ${
@@ -139,7 +143,7 @@ export default function ScheduleModal({
           >
             <span
               className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                enabled ? 'right-1' : 'right-7'
+                enabled ? 'end-1' : 'start-1'
               }`}
             />
           </button>
@@ -151,11 +155,11 @@ export default function ScheduleModal({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-text-secondary">
                 <Calendar className="w-4 h-4" />
-                <span className="text-sm font-medium">טווח תאריכים</span>
+                <span className="text-sm font-medium">{t('scheduleDateRange')}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-text-secondary mb-1">מתאריך</label>
+                  <label className="block text-xs text-text-secondary mb-1">{t('scheduleFromDate')}</label>
                   <input
                     type="date"
                     value={startDate}
@@ -165,7 +169,7 @@ export default function ScheduleModal({
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>עד תאריך</label>
+                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleToDate')}</label>
                   <input
                     type="date"
                     value={endDate}
@@ -182,11 +186,11 @@ export default function ScheduleModal({
             <div className="space-y-3">
               <div className={`flex items-center gap-2 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>
                 <Clock className="w-4 h-4" />
-                <span className="text-sm font-medium">טווח שעות (יומי)</span>
+                <span className="text-sm font-medium">{t('scheduleTimeRange')}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>משעה</label>
+                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleFromTime')}</label>
                   <input
                     type="time"
                     value={startTime}
@@ -196,7 +200,7 @@ export default function ScheduleModal({
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>עד שעה</label>
+                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleToTime')}</label>
                   <input
                     type="time"
                     value={endTime}
@@ -209,7 +213,7 @@ export default function ScheduleModal({
             </div>
 
             <p className="text-xs text-text-secondary">
-              {!startDate ? 'בחר תאריך התחלה כדי להגדיר את התזמון' : 'המדיה תוצג רק בטווח התאריכים והשעות שנבחרו'}
+              {!startDate ? t('scheduleSelectStartDate') : t('scheduleMediaWillShow')}
             </p>
           </div>
         )}
@@ -220,13 +224,13 @@ export default function ScheduleModal({
             onClick={handleClear}
             className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex-1"
           >
-            נקה
+            {t('scheduleClear')}
           </button>
           <button
             onClick={handleSave}
             className="btn btn-primary flex-1"
           >
-            שמור
+            {tCommon('save')}
           </button>
         </div>
       </div>

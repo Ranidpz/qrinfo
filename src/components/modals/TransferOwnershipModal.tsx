@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, User, Loader2, UserCog } from 'lucide-react';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useTranslations } from 'next-intl';
 
 interface UserOption {
   id: string;
@@ -34,6 +35,9 @@ export default function TransferOwnershipModal({
   const [loading, setLoading] = useState(true);
   const [transferring, setTransferring] = useState(false);
 
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
+
   // Load all users on mount
   useEffect(() => {
     if (!isOpen) return;
@@ -52,7 +56,7 @@ export default function TransferOwnershipModal({
           if (doc.id !== currentOwnerId) {
             usersList.push({
               id: doc.id,
-              displayName: data.displayName || 'ללא שם',
+              displayName: data.displayName || t('noName'),
               email: data.email || '',
               role: data.role || 'free',
             });
@@ -69,7 +73,7 @@ export default function TransferOwnershipModal({
     };
 
     loadUsers();
-  }, [isOpen, currentOwnerId]);
+  }, [isOpen, currentOwnerId, t]);
 
   // Filter users based on search
   useEffect(() => {
@@ -104,11 +108,11 @@ export default function TransferOwnershipModal({
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'super_admin':
-        return <span className="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-400 rounded">מנהל-על</span>;
+        return <span className="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-400 rounded">{t('roleSuperAdmin')}</span>;
       case 'producer':
-        return <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 text-accent rounded">מפיק</span>;
+        return <span className="px-1.5 py-0.5 text-[10px] bg-accent/20 text-accent rounded">{t('roleProducer')}</span>;
       default:
-        return <span className="px-1.5 py-0.5 text-[10px] bg-gray-500/20 text-gray-400 rounded">חינמי</span>;
+        return <span className="px-1.5 py-0.5 text-[10px] bg-gray-500/20 text-gray-400 rounded">{t('roleFree')}</span>;
     }
   };
 
@@ -128,7 +132,7 @@ export default function TransferOwnershipModal({
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <UserCog className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-text-primary">העברת בעלות</h2>
+            <h2 className="text-lg font-semibold text-text-primary">{t('transferOwnership')}</h2>
           </div>
           <button
             onClick={onClose}
@@ -141,18 +145,18 @@ export default function TransferOwnershipModal({
         {/* Content */}
         <div className="p-4 flex-1 overflow-hidden flex flex-col">
           <p className="text-sm text-text-secondary mb-4">
-            העברת הקוד &quot;{codeTitle}&quot; למשתמש אחר
+            {t('transferCodeTo', { title: codeTitle })}
           </p>
 
           {/* Search */}
           <div className="relative mb-4">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+            <Search className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
             <input
               type="text"
-              placeholder="חיפוש משתמש..."
+              placeholder={t('searchUser')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pr-10 pl-4 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
+              className="w-full pe-10 ps-4 py-2 bg-bg-secondary border border-border rounded-lg text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent"
             />
           </div>
 
@@ -165,7 +169,7 @@ export default function TransferOwnershipModal({
             ) : filteredUsers.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-text-secondary">
                 <User className="w-8 h-8 mb-2 opacity-50" />
-                <p className="text-sm">לא נמצאו משתמשים</p>
+                <p className="text-sm">{t('noUsersFound')}</p>
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -173,8 +177,8 @@ export default function TransferOwnershipModal({
                   <button
                     key={user.id}
                     onClick={() => setSelectedUser(user)}
-                    className={`w-full p-3 text-right hover:bg-bg-hover transition-colors ${
-                      selectedUser?.id === user.id ? 'bg-accent/10 border-r-2 border-accent' : ''
+                    className={`w-full p-3 text-start hover:bg-bg-hover transition-colors ${
+                      selectedUser?.id === user.id ? 'bg-accent/10 border-s-2 border-accent' : ''
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -202,7 +206,7 @@ export default function TransferOwnershipModal({
           {/* Selected user preview */}
           {selectedUser && (
             <div className="mt-4 p-3 bg-accent/10 border border-accent/30 rounded-lg">
-              <p className="text-sm text-text-secondary mb-1">הבעלות תועבר ל:</p>
+              <p className="text-sm text-text-secondary mb-1">{t('ownershipWillTransferTo')}</p>
               <p className="text-text-primary font-medium">{selectedUser.displayName}</p>
               <p className="text-xs text-text-secondary" dir="ltr">{selectedUser.email}</p>
             </div>
@@ -215,7 +219,7 @@ export default function TransferOwnershipModal({
             onClick={onClose}
             className="flex-1 btn bg-bg-secondary text-text-primary hover:bg-bg-hover"
           >
-            ביטול
+            {tCommon('cancel')}
           </button>
           <button
             onClick={handleTransfer}
@@ -225,10 +229,10 @@ export default function TransferOwnershipModal({
             {transferring ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                מעביר...
+                {t('transferring')}
               </>
             ) : (
-              'העבר בעלות'
+              t('transfer')
             )}
           </button>
         </div>

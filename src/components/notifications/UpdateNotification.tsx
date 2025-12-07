@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Zap } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { APP_VERSION, getLatestUpdate, hasNewVersion } from '@/lib/version';
 
 const LAST_SEEN_VERSION_KEY = 'qr_last_seen_version';
@@ -9,6 +10,8 @@ const LAST_SEEN_VERSION_KEY = 'qr_last_seen_version';
 export default function UpdateNotification() {
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const locale = useLocale() as 'he' | 'en';
+  const t = useTranslations('common');
 
   useEffect(() => {
     // Check if user has seen this version
@@ -36,6 +39,11 @@ export default function UpdateNotification() {
   if (!isVisible) return null;
 
   const update = getLatestUpdate();
+  const highlights = update.highlights[locale];
+  const versionLabel = locale === 'he' ? 'גרסה' : 'Version';
+  const newLabel = locale === 'he' ? 'חדש' : 'New';
+  const gotItLabel = locale === 'he' ? 'הבנתי, תודה!' : 'Got it, thanks!';
+  const closeLabel = locale === 'he' ? 'סגור' : 'Close';
 
   return (
     <div
@@ -52,9 +60,9 @@ export default function UpdateNotification() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-text-primary text-lg">גרסה {update.version}</span>
+                <span className="font-semibold text-text-primary text-lg">{versionLabel} {update.version}</span>
                 <span className="bg-success text-white text-xs px-2 py-0.5 rounded-full font-medium">
-                  חדש
+                  {newLabel}
                 </span>
               </div>
               <span className="text-text-secondary text-sm">{update.date}</span>
@@ -63,7 +71,7 @@ export default function UpdateNotification() {
           <button
             onClick={handleDismiss}
             className="text-text-secondary hover:text-text-primary transition-colors p-2 hover:bg-bg-hover rounded-lg"
-            aria-label="סגור"
+            aria-label={closeLabel}
           >
             <X className="w-5 h-5" />
           </button>
@@ -71,7 +79,7 @@ export default function UpdateNotification() {
 
         {/* Highlights */}
         <ul className="space-y-3 mb-6">
-          {update.highlights.map((highlight, index) => (
+          {highlights.map((highlight, index) => (
             <li key={index} className="flex items-start gap-3">
               <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2 shrink-0" />
               <span className="text-text-primary text-base leading-relaxed">{highlight}</span>
@@ -84,7 +92,7 @@ export default function UpdateNotification() {
           onClick={handleDismiss}
           className="w-full btn btn-primary py-3 text-base"
         >
-          הבנתי, תודה!
+          {gotItLabel}
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
+import { useTranslations, useLocale } from 'next-intl';
 import { MediaType, CodeWidgets, ViewMode } from '@/types';
 import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
 
@@ -69,28 +70,7 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function getMediaLabel(type: MediaType): string {
-  switch (type) {
-    case 'image':
-      return 'תמונה';
-    case 'gif':
-      return 'GIF';
-    case 'video':
-      return 'וידאו';
-    case 'pdf':
-      return 'PDF';
-    case 'link':
-      return 'לינק';
-    case 'wordcloud':
-      return 'ענן מילים';
-    case 'riddle':
-      return 'כתב חידה';
-    case 'selfiebeam':
-      return 'סלפי בים';
-    default:
-      return 'מדיה';
-  }
-}
+// Removed - now using translations via useTranslations('media')
 
 export default function CodeCard({
   id,
@@ -125,6 +105,10 @@ export default function CodeCard({
   onDragStart,
   onDragEnd,
 }: CodeCardProps) {
+  const tMedia = useTranslations('media');
+  const tCard = useTranslations('card');
+  const locale = useLocale();
+
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const [displayViews, setDisplayViews] = useState(0);
@@ -140,6 +124,21 @@ export default function CodeCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrRef = useRef<HTMLDivElement>(null);
   const prevViewsRef = useRef(views);
+
+  // Get translated media label
+  const getMediaLabel = (type: MediaType): string => {
+    switch (type) {
+      case 'image': return tMedia('image');
+      case 'gif': return 'GIF';
+      case 'video': return tMedia('video');
+      case 'pdf': return tMedia('pdf');
+      case 'link': return tMedia('link');
+      case 'wordcloud': return tMedia('wordcloud');
+      case 'riddle': return tMedia('riddle');
+      case 'selfiebeam': return tMedia('selfiebeam');
+      default: return tMedia('image');
+    }
+  };
 
   // Animate counter on mount (from 0) and on view updates (from previous value)
   useEffect(() => {
@@ -172,7 +171,7 @@ export default function CodeCard({
 
   // Format full date and time for tooltip
   const formatFullDateTime = (date: Date): string => {
-    return date.toLocaleString('he-IL', {
+    return date.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -181,7 +180,7 @@ export default function CodeCard({
     });
   };
 
-  // Format relative time in Hebrew
+  // Format relative time with translations
   const formatRelativeTime = (date: Date): string => {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -189,12 +188,12 @@ export default function CodeCard({
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'עכשיו';
-    if (diffMins < 60) return `לפני ${diffMins} דקות`;
-    if (diffHours < 24) return `לפני ${diffHours} שעות`;
-    if (diffDays < 7) return `לפני ${diffDays} ימים`;
+    if (diffMins < 1) return tCard('now');
+    if (diffMins < 60) return tCard('minutesAgo', { count: diffMins });
+    if (diffHours < 24) return tCard('hoursAgo', { count: diffHours });
+    if (diffDays < 7) return tCard('daysAgo', { count: diffDays });
     // Show date and time for older items
-    return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { day: 'numeric', month: 'short' });
   };
 
   const viewUrl = typeof window !== 'undefined'
@@ -343,7 +342,7 @@ export default function CodeCard({
           <div className="absolute inset-0 z-20 bg-accent/10 backdrop-blur-sm rounded-lg flex items-center justify-center pointer-events-none">
             <div className="flex items-center gap-2 text-accent">
               <Upload className="w-5 h-5" />
-              <span className="text-sm font-medium">שחרר להחלפה</span>
+              <span className="text-sm font-medium">{tCard('dropToReplace')}</span>
             </div>
           </div>
         )}
@@ -511,7 +510,7 @@ export default function CodeCard({
         <div className="absolute inset-0 z-20 bg-accent/10 backdrop-blur-sm rounded-xl flex items-center justify-center pointer-events-none">
           <div className="flex flex-col items-center gap-2 text-accent">
             <Upload className="w-8 h-8" />
-            <span className="text-sm font-medium">שחרר להחלפה</span>
+            <span className="text-sm font-medium">{tCard('dropToReplace')}</span>
           </div>
         </div>
       )}
@@ -592,7 +591,7 @@ export default function CodeCard({
           {isGlobal && (
             <span className="px-2 py-0.5 text-xs font-medium bg-success/80 backdrop-blur-sm rounded text-white flex items-center gap-1">
               <Globe className="w-3 h-3" />
-              גלובלי
+              {tCard('global')}
             </span>
           )}
         </div>
@@ -600,7 +599,7 @@ export default function CodeCard({
         {/* Widget indicators at bottom - show when groupLink exists */}
         {widgets?.whatsapp?.groupLink && (
           <div className="absolute bottom-2 left-2 flex gap-1.5 z-10">
-            <Tooltip text="ווידג׳ט WhatsApp פעיל">
+            <Tooltip text={tCard('whatsappWidgetActive')}>
               <div className="w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg shadow-[#25D366]/30">
                 <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
@@ -632,7 +631,7 @@ export default function CodeCard({
               'font-medium text-text-primary truncate',
               isOwner && 'cursor-pointer hover:text-accent transition-colors'
             )}
-            title={isOwner ? 'לחץ לעריכה' : title}
+            title={isOwner ? tCard('clickToEdit') : title}
           >
             {title}
           </h3>
@@ -665,7 +664,7 @@ export default function CodeCard({
               )}>
                 {displayViews}
               </span>
-              <span className="text-text-secondary">צפיות</span>
+              <span className="text-text-secondary">{tCard('views')}</span>
             </div>
 
             {/* Views Tooltip */}
@@ -673,11 +672,11 @@ export default function CodeCard({
               <div className="absolute bottom-full left-0 mb-2 p-2.5 bg-bg-card border border-border rounded-lg shadow-xl z-[9999] whitespace-nowrap pointer-events-none">
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-6">
-                    <span className="text-text-secondary text-xs">סה״כ:</span>
+                    <span className="text-text-secondary text-xs">{tCard('total')}:</span>
                     <span className="text-text-primary font-semibold">{views}</span>
                   </div>
                   <div className="flex items-center justify-between gap-6">
-                    <span className="text-text-secondary text-xs">24 שעות:</span>
+                    <span className="text-text-secondary text-xs">{tCard('last24h')}:</span>
                     <span className="text-accent font-semibold">{views24h}</span>
                   </div>
                 </div>
@@ -710,7 +709,7 @@ export default function CodeCard({
                   onTransferOwnership();
                 }}
                 className="p-1 rounded text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
-                title="העבר בעלות"
+                title={tCard('transferOwnership')}
               >
                 <UserCog className="w-3.5 h-3.5" />
               </button>
@@ -733,7 +732,7 @@ export default function CodeCard({
         <div className="flex flex-wrap items-center gap-1 p-2 border-t border-border/50">
           {/* Delete - owner only */}
           {isOwner && (
-            <Tooltip text="מחק">
+            <Tooltip text={tCard('delete')}>
               <button
                 onClick={onDelete}
                 className="p-1.5 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors"
@@ -744,7 +743,7 @@ export default function CodeCard({
           )}
 
           {/* Replace file */}
-          <Tooltip text="החלף קובץ">
+          <Tooltip text={tCard('replaceFile')}>
             <button
               onClick={handleReplaceClick}
               className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
@@ -755,7 +754,7 @@ export default function CodeCard({
 
           {/* Duplicate - creates a copy */}
           {onDuplicate && (
-            <Tooltip text="שכפל קוד">
+            <Tooltip text={tCard('duplicateCode')}>
               <button
                 onClick={onDuplicate}
                 className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
@@ -767,7 +766,7 @@ export default function CodeCard({
 
           {/* Global toggle - super admin only */}
           {isSuperAdmin && onToggleGlobal && (
-            <Tooltip text={isGlobal ? 'הסר מגלובלי' : 'הפוך לגלובלי'}>
+            <Tooltip text={isGlobal ? tCard('removeGlobal') : tCard('makeGlobal')}>
               <button
                 onClick={onToggleGlobal}
                 className={clsx(
@@ -786,7 +785,7 @@ export default function CodeCard({
           <div className="flex-1 min-w-[8px]" />
 
           {/* Copy link - primary action */}
-          <Tooltip text={copied ? 'הועתק!' : 'העתק לינק'}>
+          <Tooltip text={copied ? tCard('copied') : tCard('copyLink')}>
             <button
               onClick={handleCopyClick}
               className={clsx(

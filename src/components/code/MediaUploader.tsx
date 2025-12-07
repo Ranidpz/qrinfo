@@ -3,6 +3,7 @@
 import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
+import { useTranslations } from 'next-intl';
 
 interface MediaUploaderProps {
   onFileSelect: (file: File) => void;
@@ -29,6 +30,9 @@ export default function MediaUploader({
   const [linkUrl, setLinkUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const t = useTranslations('uploader');
+  const tMedia = useTranslations('media');
 
   const handleDragOver = (e: DragEvent) => {
     e.preventDefault();
@@ -63,7 +67,7 @@ export default function MediaUploader({
 
     // Check file size
     if (file.size > maxSize) {
-      setError(`הקובץ גדול מדי. מקסימום ${formatBytes(maxSize)}`);
+      setError(`${t('fileTooLarge')} ${formatBytes(maxSize)}`);
       return;
     }
 
@@ -75,7 +79,7 @@ export default function MediaUploader({
     ];
 
     if (!validTypes.includes(file.type)) {
-      setError('סוג קובץ לא נתמך');
+      setError(t('unsupportedFileType'));
       return;
     }
 
@@ -98,7 +102,7 @@ export default function MediaUploader({
       onLinkAdd?.(url);
       setLinkUrl('');
     } catch {
-      setError('כתובת URL לא תקינה');
+      setError(t('invalidUrl'));
     }
   };
 
@@ -139,12 +143,12 @@ export default function MediaUploader({
       {/* Tab buttons - 3 columns grid */}
       {(onLinkAdd || onRiddleCreate || onWordCloudCreate) && (
         <div className="grid grid-cols-3 gap-2">
-          <TabButton tab="upload" label="מדיה" icon={Upload} />
-          {onLinkAdd && <TabButton tab="link" label="לינק" icon={Link} />}
-          {onRiddleCreate && <TabButton tab="riddle" label="כתב חידה" icon={FileText} />}
-          {onWordCloudCreate && <TabButton tab="wordcloud" label="ענן מילים" icon={Cloud} />}
-          {onSelfiebeamCreate && <TabButton tab="selfiebeam" label="סלפי בים" icon={Camera} />}
-          <TabButton tab="minigames" label="מיניגיימס" icon={Gamepad2} />
+          <TabButton tab="upload" label={tMedia('image')} icon={Upload} />
+          {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} />}
+          {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} />}
+          {onWordCloudCreate && <TabButton tab="wordcloud" label={tMedia('wordcloud')} icon={Cloud} />}
+          {onSelfiebeamCreate && <TabButton tab="selfiebeam" label={tMedia('selfiebeam')} icon={Camera} />}
+          <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} />
         </div>
       )}
 
@@ -172,9 +176,9 @@ export default function MediaUploader({
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
                 <Upload className="w-5 h-5 text-accent" />
               </div>
-              <div className="text-right">
-                <p className="font-medium text-text-primary">העלאת קובץ</p>
-                <p className="text-xs text-text-secondary">תמונה, וידאו או PDF (עד {formatBytes(maxSize)})</p>
+              <div className="text-start">
+                <p className="font-medium text-text-primary">{t('uploadFile')}</p>
+                <p className="text-xs text-text-secondary">{t('imageVideoOrPdf')} ({t('upTo')} {formatBytes(maxSize)})</p>
               </div>
             </button>
           </div>
@@ -208,30 +212,30 @@ export default function MediaUploader({
 
               <div>
                 <h3 className="text-base font-medium text-text-primary mb-1">
-                  העלאת תוכן
+                  {t('uploadContent')}
                 </h3>
                 <p className="text-sm text-text-secondary">
-                  גררו תוכן לכאן או לחצו לבחירה
+                  {t('dragOrClickToUpload')}
                 </p>
               </div>
 
               <div className="flex items-center gap-4 text-text-secondary">
                 <span className="flex items-center gap-1 text-xs">
                   <Image className="w-4 h-4" />
-                  תמונות
+                  {t('images')}
                 </span>
                 <span className="flex items-center gap-1 text-xs">
                   <Video className="w-4 h-4" />
-                  וידאו
+                  {tMedia('video')}
                 </span>
                 <span className="flex items-center gap-1 text-xs">
                   <FileText className="w-4 h-4" />
-                  PDF
+                  {tMedia('pdf')}
                 </span>
               </div>
 
               <p className="text-xs text-text-secondary">
-                עד {formatBytes(maxSize)} · JPG, PNG, WebP, GIF, MP4, WebM, PDF
+                {t('upTo')} {formatBytes(maxSize)} · JPG, PNG, WebP, GIF, MP4, WebM, PDF
               </p>
             </div>
           </div>
@@ -245,7 +249,7 @@ export default function MediaUploader({
               type="url"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
-              placeholder="הזינו כתובת URL..."
+              placeholder={t('enterUrl')}
               className="input flex-1 text-sm"
               dir="ltr"
             />
@@ -255,7 +259,7 @@ export default function MediaUploader({
             disabled={!linkUrl.trim()}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            צור חוויה
+            {t('createExperience')}
           </button>
         </div>
       ) : activeTab === 'riddle' ? (
@@ -265,16 +269,16 @@ export default function MediaUploader({
             <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
               <img
                 src="/media/riddle.jpg"
-                alt="כתב חידה"
+                alt={tMedia('riddle')}
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="text-right">
+            <div className="text-start">
               <h3 className="font-medium text-text-primary mb-1">
-                כתב חידה
+                {tMedia('riddle')}
               </h3>
               <p className="text-xs text-text-secondary">
-                דף נחיתה אינטראקטיבי עם טקסט, תמונות וסרטון
+                {t('riddleDescription')}
               </p>
             </div>
           </div>
@@ -283,7 +287,7 @@ export default function MediaUploader({
             disabled={disabled}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            צור כתב חידה
+            {t('createRiddle')}
           </button>
         </div>
       ) : activeTab === 'wordcloud' ? (
@@ -293,12 +297,12 @@ export default function MediaUploader({
             <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
               <Cloud className="w-6 h-6 text-accent" />
             </div>
-            <div className="text-right">
+            <div className="text-start">
               <h3 className="font-medium text-text-primary mb-1">
-                ענן מילים
+                {tMedia('wordcloud')}
               </h3>
               <p className="text-xs text-text-secondary">
-                ענן מילים אינטראקטיבי לאירועים עם QuizyCloud
+                {t('wordCloudDescription')}
               </p>
             </div>
           </div>
@@ -307,7 +311,7 @@ export default function MediaUploader({
             disabled={disabled}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            צור ענן מילים
+            {t('createWordCloud')}
           </button>
         </div>
       ) : activeTab === 'selfiebeam' ? (
@@ -317,16 +321,16 @@ export default function MediaUploader({
             <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
               <img
                 src="/media/SELFIEBEAM.jpg"
-                alt="סלפי בים"
+                alt={tMedia('selfiebeam')}
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="text-right">
+            <div className="text-start">
               <h3 className="font-medium text-text-primary mb-1">
-                סלפי בים
+                {tMedia('selfiebeam')}
               </h3>
               <p className="text-xs text-text-secondary">
-                קיר סלפי לאירועים - גלריית סלפי משותפת
+                {t('selfiebeamDescription')}
               </p>
             </div>
           </div>
@@ -335,7 +339,7 @@ export default function MediaUploader({
             disabled={disabled}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            צור סלפי בים
+            {t('createSelfiebeam')}
           </button>
         </div>
       ) : activeTab === 'minigames' ? (
@@ -345,12 +349,12 @@ export default function MediaUploader({
             <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
               <Gamepad2 className="w-6 h-6 text-accent" />
             </div>
-            <div className="text-right">
+            <div className="text-start">
               <h3 className="font-medium text-text-primary mb-1">
-                מיניגיימס
+                {tMedia('minigames')}
               </h3>
               <p className="text-xs text-text-secondary">
-                5 משחקים מאתגרים עם לוח תוצאות על מסכי הענק
+                {t('minigamesDescription')}
               </p>
             </div>
           </div>
@@ -358,7 +362,7 @@ export default function MediaUploader({
             disabled
             className="btn w-full bg-bg-secondary text-text-secondary cursor-not-allowed"
           >
-            בקרוב מאוד
+            {t('comingSoon')}
           </button>
         </div>
       ) : null}

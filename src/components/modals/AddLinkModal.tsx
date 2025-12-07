@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Link as LinkIcon } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface AddLinkModalProps {
   isOpen: boolean;
@@ -20,6 +21,9 @@ export default function AddLinkModal({
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
 
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
+
   useEffect(() => {
     if (isOpen) {
       setLinkUrl('');
@@ -34,7 +38,7 @@ export default function AddLinkModal({
     const trimmedUrl = linkUrl.trim();
 
     if (!trimmedUrl) {
-      setError('יש להזין כתובת לינק');
+      setError(t('addLinkUrlRequired'));
       return;
     }
 
@@ -48,7 +52,7 @@ export default function AddLinkModal({
     try {
       new URL(finalUrl);
     } catch {
-      setError('כתובת הלינק אינה תקינה');
+      setError(t('addLinkInvalidUrl'));
       return;
     }
 
@@ -69,7 +73,7 @@ export default function AddLinkModal({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
             <LinkIcon className="w-5 h-5 text-accent" />
-            הוספת לינק
+            {t('addLink')}
           </h2>
           <button
             onClick={onClose}
@@ -81,7 +85,7 @@ export default function AddLinkModal({
 
         {/* Description */}
         <p className="text-sm text-text-secondary">
-          הוסף לינק כפריט מדיה נפרד. הלינק יוצג כמדיה בתצוגה ויפנה את המשתמש לאתר החיצוני.
+          {t('addLinkDescription')}
         </p>
 
         {/* Error */}
@@ -96,7 +100,7 @@ export default function AddLinkModal({
           {/* Link URL */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              כתובת הלינק <span className="text-danger">*</span>
+              {t('addLinkUrl')} <span className="text-danger">{t('required')}</span>
             </label>
             <input
               type="url"
@@ -115,17 +119,17 @@ export default function AddLinkModal({
           {/* Title */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-text-primary">
-              כותרת <span className="text-text-secondary font-normal">(אופציונלי)</span>
+              {t('addLinkTitle')} <span className="text-text-secondary font-normal">({t('optional')})</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="לחץ כאן"
+              placeholder={t('addLinkTitlePlaceholder')}
               className="input w-full"
             />
             <p className="text-xs text-text-secondary">
-              אם לא תוזן כותרת, יוצג הדומיין של הלינק
+              {t('addLinkTitleNote')}
             </p>
           </div>
         </div>
@@ -137,7 +141,7 @@ export default function AddLinkModal({
             disabled={loading}
             className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover disabled:opacity-50"
           >
-            ביטול
+            {tCommon('cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -147,7 +151,7 @@ export default function AddLinkModal({
             {loading ? (
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              'הוסף'
+              tCommon('add')
             )}
           </button>
         </div>
