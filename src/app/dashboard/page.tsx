@@ -805,8 +805,10 @@ export default function DashboardPage() {
             100% { background-position: 0% 50%; }
           }
         `}</style>
-        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold text-gray-800 dark:text-white mb-4 tracking-tight" dir="ltr">
-          <span className="text-lg sm:text-xl md:text-2xl font-normal text-text-secondary align-middle">The</span> <span className="q-letter">Q</span> - One Code. Endless Experiences
+        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight" dir="ltr">
+          <span className="text-lg sm:text-xl md:text-2xl font-normal text-gray-500 dark:text-gray-400 align-middle">The</span>{' '}
+          <span className="q-letter">Q</span>
+          <span className="text-gray-700 dark:text-white"> - One Code. Endless Experiences</span>
         </h1>
         <div className="hero-divider flex justify-center mb-4">
           <div className="hero-divider-line h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
