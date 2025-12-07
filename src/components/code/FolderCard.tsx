@@ -124,7 +124,7 @@ export default function FolderCard({
               {folder.name}
             </span>
             {ownerName && (
-              <span className="text-xs text-text-secondary truncate max-w-full">
+              <span className="text-xs text-orange-500 font-medium truncate max-w-full">
                 {ownerName}
               </span>
             )}

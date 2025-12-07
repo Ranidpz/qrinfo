@@ -600,8 +600,8 @@ export default function CodeCard({
         {/* Owner badge - only show if ownerName exists */}
         {ownerName && (
           <div className="flex items-center gap-1.5 pt-2 border-t border-border">
-            <User className="w-3.5 h-3.5 text-text-secondary" />
-            <span className="text-xs text-text-secondary truncate flex-1">{ownerName}</span>
+            <User className={clsx("w-3.5 h-3.5", isOwner ? "text-text-secondary" : "text-orange-500")} />
+            <span className={clsx("text-xs truncate flex-1", isOwner ? "text-text-secondary" : "text-orange-500 font-medium")}>{ownerName}</span>
             {isSuperAdmin && onTransferOwnership && (
               <button
                 onClick={(e) => {
