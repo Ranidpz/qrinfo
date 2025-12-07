@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
-import UpdateNotification from '@/components/notifications/UpdateNotification';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardLayout({
@@ -47,9 +46,6 @@ export default function DashboardLayout({
           {children}
         </div>
       </main>
-
-      {/* Update notification */}
-      <UpdateNotification />
     </div>
   );
 }

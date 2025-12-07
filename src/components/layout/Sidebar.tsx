@@ -5,11 +5,13 @@ import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
-import { APP_VERSION } from '@/lib/version';
+import { APP_VERSION, getLatestUpdate, hasNewVersion } from '@/lib/version';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getNotifications, createNotification, deleteNotification } from '@/lib/db';
 import { Notification } from '@/types';
+
+const LAST_SEEN_VERSION_KEY = 'qr_last_seen_version';
 
 // WhatsApp icon component
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -72,6 +74,17 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
   const [newMessage, setNewMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Version update notification state
+  const [showVersionUpdate, setShowVersionUpdate] = useState(false);
+
+  // Check for new version on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const lastSeenVersion = localStorage.getItem(LAST_SEEN_VERSION_KEY);
+      setShowVersionUpdate(hasNewVersion(lastSeenVersion));
+    }
+  }, []);
+
   // Load notifications on mount
   useEffect(() => {
     async function loadNotifications() {
@@ -114,6 +127,12 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
     }
   };
 
+  // Handle dismiss version update notification
+  const handleDismissVersionUpdate = () => {
+    localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION);
+    setShowVersionUpdate(false);
+  };
+
   // Format date for display
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('he-IL', {
@@ -124,6 +143,9 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
       minute: '2-digit',
     }).format(date);
   };
+
+  // Calculate total notification count (including version update)
+  const totalNotificationCount = notifications.length + (showVersionUpdate ? 1 : 0);
 
   const filteredItems = navItems.filter(item => {
     if (!item.roles) return true;
@@ -214,9 +236,9 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                 className="relative p-2.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
               >
                 <Bell className="w-5 h-5 text-blue-500" />
-                {notifications.length > 0 && (
+                {totalNotificationCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {notifications.length > 9 ? '9+' : notifications.length}
+                    {totalNotificationCount > 9 ? '9+' : totalNotificationCount}
                   </span>
                 )}
               </button>
@@ -370,34 +392,70 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
 
             {/* Notifications List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {notifications.length === 0 ? (
-                <p className="text-center text-text-secondary py-8">אין התראות</p>
-              ) : (
-                notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className="p-3 rounded-lg bg-bg-card border border-border"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-text-primary">{notification.title}</h3>
-                        <p className="text-sm text-text-secondary mt-1 whitespace-pre-wrap">{notification.message}</p>
-                        <p className="text-xs text-text-secondary/60 mt-2">
-                          {formatDate(notification.createdAt)}
-                        </p>
+              {/* Version Update Notification */}
+              {showVersionUpdate && (
+                <div className="p-3 rounded-lg bg-accent/10 border border-accent/30">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium text-text-primary">גרסה {getLatestUpdate().version}</h3>
+                        <span className="bg-success text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                          חדש
+                        </span>
                       </div>
-                      {userRole === 'super_admin' && (
-                        <button
-                          onClick={() => handleDeleteNotification(notification.id)}
-                          className="p-1.5 rounded-lg text-danger hover:bg-danger/10 transition-colors shrink-0"
-                          title="מחק התראה"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <ul className="text-sm text-text-secondary space-y-1">
+                        {getLatestUpdate().highlights.map((highlight, index) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <span className="text-accent mt-1.5">•</span>
+                            <span>{highlight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-text-secondary/60 mt-2">
+                        {getLatestUpdate().date}
+                      </p>
                     </div>
+                    <button
+                      onClick={handleDismissVersionUpdate}
+                      className="p-1.5 rounded-lg text-text-secondary hover:bg-bg-hover transition-colors shrink-0"
+                      title="סמן כנקרא"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
-                ))
+                </div>
+              )}
+
+              {/* Regular notifications */}
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className="p-3 rounded-lg bg-bg-card border border-border"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-text-primary">{notification.title}</h3>
+                      <p className="text-sm text-text-secondary mt-1 whitespace-pre-wrap">{notification.message}</p>
+                      <p className="text-xs text-text-secondary/60 mt-2">
+                        {formatDate(notification.createdAt)}
+                      </p>
+                    </div>
+                    {userRole === 'super_admin' && (
+                      <button
+                        onClick={() => handleDeleteNotification(notification.id)}
+                        className="p-1.5 rounded-lg text-danger hover:bg-danger/10 transition-colors shrink-0"
+                        title="מחק התראה"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Empty state - only show if no version update AND no regular notifications */}
+              {totalNotificationCount === 0 && (
+                <p className="text-center text-text-secondary py-8">אין התראות</p>
               )}
             </div>
           </div>
