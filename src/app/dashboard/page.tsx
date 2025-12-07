@@ -14,7 +14,7 @@ import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserQRCodes, getGlobalQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
+import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
 import { clsx } from 'clsx';
 
@@ -86,22 +86,30 @@ export default function DashboardPage() {
     const loadData = async () => {
       try {
         if (user) {
-          // Logged in - load user's codes and folders
-          const [userCodes, userFolders] = await Promise.all([
-            getUserQRCodes(user.id),
-            getUserFolders(user.id),
-          ]);
-          setCodes(userCodes);
-          setFolders(userFolders);
-
-          // Load owner names for super admin
+          // Super admin - load ALL codes, ALL folders, and all users
           if (user.role === 'super_admin') {
-            const allUsers = await getAllUsers();
+            const [allCodes, allFoldersList, allUsers] = await Promise.all([
+              getAllQRCodes(),
+              getAllFolders(),
+              getAllUsers(),
+            ]);
+            setCodes(allCodes);
+            setFolders(allFoldersList);
+
+            // Build owner names map
             const names: Record<string, string> = {};
             allUsers.forEach((u) => {
               names[u.id] = u.displayName;
             });
             setOwnerNames(names);
+          } else {
+            // Regular user - load user's codes and folders
+            const [userCodes, userFolders] = await Promise.all([
+              getUserQRCodes(user.id),
+              getUserFolders(user.id),
+            ]);
+            setCodes(userCodes);
+            setFolders(userFolders);
           }
         } else {
           // Guest - load only global codes
@@ -475,11 +483,12 @@ export default function DashboardPage() {
     if (!transferModal.code) return;
 
     try {
-      const result = await transferCodeOwnership(transferModal.code.id, newOwnerId);
+      await transferCodeOwnership(transferModal.code.id, newOwnerId);
+      // Update only the ownerId - folder stays the same
       setCodes((prev) =>
         prev.map((c) =>
           c.id === transferModal.code?.id
-            ? { ...c, ownerId: newOwnerId, folderId: result.newFolderId }
+            ? { ...c, ownerId: newOwnerId }
             : c
         )
       );
@@ -675,10 +684,14 @@ export default function DashboardPage() {
     }
   };
 
+  // Get current folder for header
+  const currentFolder = currentFolderId ? folders.find((f) => f.id === currentFolderId) : null;
+
   const filteredCodes = codes.filter((code) => {
-    // Filter by folder (only for logged in users)
+    const codeWithFolder = code as QRCodeType & { folderId?: string };
+
+    // Filter by folder
     if (user) {
-      const codeWithFolder = code as QRCodeType & { folderId?: string };
       if (currentFolderId !== null) {
         // Inside a folder - show only codes in this folder
         if (codeWithFolder.folderId !== currentFolderId) {
@@ -703,26 +716,39 @@ export default function DashboardPage() {
       }
     }
 
-    // Filter by ownership based on user role (only for logged in users)
+    // Filter by ownership (My Q vs הכל)
     if (user && filter === 'mine') {
-      // "שלי" = only codes I created
+      // "My Q" = only codes I own
       if (code.ownerId !== user.id) {
         return false;
       }
     }
-    // "הכל" for admin = all codes from all users (already loaded in getUserQRCodes)
-    // "הכל" for regular user = my codes + codes shared with me
+    // "הכל" for super_admin = all codes
+    // "הכל" for regular user = my codes + codes shared with me (already filtered by getUserQRCodes)
 
     return true;
   });
 
-  // Get current folder for header
-  const currentFolder = currentFolderId ? folders.find((f) => f.id === currentFolderId) : null;
-
-  // Count codes in each folder
+  // Count codes in folder based on current filter
   const getCodesInFolder = (folderId: string) => {
-    return codes.filter((c) => (c as QRCodeType & { folderId?: string }).folderId === folderId).length;
+    return codes.filter((c) => {
+      const codeWithFolder = c as QRCodeType & { folderId?: string };
+      if (codeWithFolder.folderId !== folderId) return false;
+      // Apply same ownership filter
+      if (user && filter === 'mine' && c.ownerId !== user.id) return false;
+      return true;
+    }).length;
   };
+
+  // Filter folders based on the current filter (My Q vs הכל)
+  const displayFolders = folders.filter((folder) => {
+    // For "My Q" filter - show only user's own folders
+    if (user && filter === 'mine') {
+      return folder.ownerId === user.id;
+    }
+    // For "הכל" filter - show all folders (super admin sees all)
+    return true;
+  });
 
   if (loading) {
     return (
@@ -1065,7 +1091,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Folders Section - only show at root level for logged in users */}
-      {user && !currentFolderId && folders.length > 0 && (
+      {user && !currentFolderId && displayFolders.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-text-primary">חוויות</h2>
@@ -1078,13 +1104,14 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {folders.map((folder) => (
+            {displayFolders.map((folder) => (
               <FolderCard
                 key={folder.id}
                 folder={folder}
                 codesCount={getCodesInFolder(folder.id)}
                 isOpen={currentFolderId === folder.id}
                 isDragOver={dragOverFolderId === folder.id}
+                ownerName={user?.role === 'super_admin' && folder.ownerId !== user.id ? ownerNames[folder.ownerId] : undefined}
                 onOpen={() => setCurrentFolderId(folder.id)}
                 onDelete={() => handleDeleteFolder(folder)}
                 onRename={(newName) => handleRenameFolder(folder.id, newName)}

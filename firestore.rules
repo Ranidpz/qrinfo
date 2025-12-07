@@ -17,6 +17,7 @@ service cloud.firestore {
       allow create: if request.auth != null;
 
       // Owner, collaborators, or admin can update
+      // Special case: owner can transfer ownership to another user
       allow update: if request.auth != null && (
         resource.data.ownerId == request.auth.uid ||
         request.auth.uid in resource.data.collaborators ||
@@ -47,10 +48,8 @@ service cloud.firestore {
 
     // Folders collection
     match /folders/{folderId} {
-      allow read: if request.auth != null && (
-        resource.data.ownerId == request.auth.uid ||
-        isAdmin()
-      );
+      // Allow read for owner, admin, or any authenticated user (needed for ownership transfer)
+      allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && (
         resource.data.ownerId == request.auth.uid ||

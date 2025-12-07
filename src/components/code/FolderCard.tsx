@@ -10,6 +10,7 @@ interface FolderCardProps {
   codesCount: number;
   isOpen?: boolean;
   isDragOver?: boolean;
+  ownerName?: string;
   onOpen: () => void;
   onDelete?: () => void;
   onRename?: (newName: string) => void;
@@ -23,6 +24,7 @@ export default function FolderCard({
   codesCount,
   isOpen = false,
   isDragOver = false,
+  ownerName,
   onOpen,
   onDelete,
   onRename,
@@ -113,13 +115,20 @@ export default function FolderCard({
             />
           </div>
         ) : (
-          <span
-            className="text-sm font-medium text-text-primary text-center truncate max-w-full px-1"
-            onDoubleClick={handleDoubleClick}
-            title={folder.name}
-          >
-            {folder.name}
-          </span>
+          <div className="flex flex-col items-center">
+            <span
+              className="text-sm font-medium text-text-primary text-center truncate max-w-full px-1"
+              onDoubleClick={handleDoubleClick}
+              title={folder.name}
+            >
+              {folder.name}
+            </span>
+            {ownerName && (
+              <span className="text-xs text-text-secondary truncate max-w-full">
+                {ownerName}
+              </span>
+            )}
+          </div>
         )}
       </div>
 

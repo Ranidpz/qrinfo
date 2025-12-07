@@ -248,6 +248,39 @@ export async function getUserQRCodes(userId: string): Promise<QRCode[]> {
   return codes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
+// Get ALL QR codes (for super admin)
+export async function getAllQRCodes(): Promise<QRCode[]> {
+  const q = query(
+    collection(db, 'codes'),
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      shortId: data.shortId,
+      ownerId: data.ownerId,
+      collaborators: data.collaborators || [],
+      title: data.title,
+      media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
+        ...m,
+        id: m.id || `media_${Date.now()}_${index}`,
+        createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+      })),
+      widgets: data.widgets || {},
+      views: data.views || 0,
+      isActive: data.isActive ?? true,
+      isGlobal: data.isGlobal ?? false,
+      folderId: data.folderId || undefined,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    };
+  });
+}
+
 // Helper to remove undefined values from an object
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function removeUndefined(obj: Record<string, any>): Record<string, any> {
@@ -443,42 +476,47 @@ export function canDeleteCode(code: QRCode, userId: string, userRole: User['role
   return false;
 }
 
-// Transfer code ownership (admin only)
+// Transfer code ownership
+// When transferring, the code moves to the new owner
+// If the code is in a folder, we find or create a matching folder for the new owner
 export async function transferCodeOwnership(
   codeId: string,
   newOwnerId: string
-): Promise<{ newFolderId?: string }> {
-  // 1. Get the code to check if it has a folder
+): Promise<void> {
+  // Get the current code to check if it's in a folder
   const codeDoc = await getDoc(doc(db, 'codes', codeId));
-  if (!codeDoc.exists()) throw new Error('Code not found');
+  if (!codeDoc.exists()) {
+    throw new Error('Code not found');
+  }
 
   const codeData = codeDoc.data();
   const currentFolderId = codeData.folderId;
 
-  let newFolderId: string | undefined = undefined;
+  // If the code is in a folder, find or create a matching folder for the new owner
+  let newFolderId: string | null = null;
 
-  // 2. If code has a folder, handle folder transfer
   if (currentFolderId) {
-    // Get current folder details
-    const folderDoc = await getDoc(doc(db, 'folders', currentFolderId));
-    if (folderDoc.exists()) {
-      const folderData = folderDoc.data();
-      const folderName = folderData.name;
-      const folderColor = folderData.color;
+    // Get the current folder to get its name
+    const currentFolderDoc = await getDoc(doc(db, 'folders', currentFolderId));
 
-      // Check if new owner has a folder with same name
-      const existingFolderQuery = query(
+    if (currentFolderDoc.exists()) {
+      const currentFolderData = currentFolderDoc.data();
+      const folderName = currentFolderData.name;
+      const folderColor = currentFolderData.color;
+
+      // Check if new owner already has a folder with the same name
+      const newOwnerFoldersQuery = query(
         collection(db, 'folders'),
         where('ownerId', '==', newOwnerId),
         where('name', '==', folderName)
       );
-      const existingFolders = await getDocs(existingFolderQuery);
+      const existingFolders = await getDocs(newOwnerFoldersQuery);
 
       if (!existingFolders.empty) {
         // Use existing folder
         newFolderId = existingFolders.docs[0].id;
       } else {
-        // Create new folder for new owner
+        // Create a new folder for the new owner with the same name and color
         const newFolderRef = await addDoc(collection(db, 'folders'), {
           name: folderName,
           ownerId: newOwnerId,
@@ -491,14 +529,20 @@ export async function transferCodeOwnership(
     }
   }
 
-  // 3. Update the code with new owner and folder
-  await updateDoc(doc(db, 'codes', codeId), {
+  // Update the code with new owner and new folder (if applicable)
+  const updateData: Record<string, unknown> = {
     ownerId: newOwnerId,
-    folderId: newFolderId || null,
     updatedAt: serverTimestamp(),
-  });
+  };
 
-  return { newFolderId };
+  if (newFolderId !== null) {
+    updateData.folderId = newFolderId;
+  } else if (currentFolderId) {
+    // If there was a folder but we couldn't find/create a new one, remove the folder reference
+    updateData.folderId = null;
+  }
+
+  await updateDoc(doc(db, 'codes', codeId), updateData);
 }
 
 // ============ FOLDERS ============
@@ -534,6 +578,28 @@ export async function getUserFolders(userId: string): Promise<Folder[]> {
   const q = query(
     collection(db, 'folders'),
     where('ownerId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      name: data.name,
+      ownerId: data.ownerId,
+      color: data.color,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    };
+  });
+}
+
+// Get ALL folders (for super admin)
+export async function getAllFolders(): Promise<Folder[]> {
+  const q = query(
+    collection(db, 'folders'),
     orderBy('createdAt', 'desc')
   );
 

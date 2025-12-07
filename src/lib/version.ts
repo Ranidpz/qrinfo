@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -10,6 +10,16 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  {
+    version: '1.2.0',
+    date: '2025-12-07',
+    highlights: [
+      'העברת בעלות משופרת - תיקיות עוברות עם הקבצים',
+      'מנהל על רואה את כל התיקיות וקודים',
+      'סינון "My Q" לעומת "הכל" עובד נכון עם תיקיות',
+      'שם הבעלים מוצג על תיקיות של משתמשים אחרים',
+    ],
+  },
   {
     version: '1.1.0',
     date: '2025-12-07',
