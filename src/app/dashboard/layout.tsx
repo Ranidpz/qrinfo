@@ -24,7 +24,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary overflow-x-hidden">
+    <div className="min-h-screen bg-bg-primary overflow-x-hidden pt-16">
       <Header
         onMenuClick={() => setSidebarOpen(true)}
       />
