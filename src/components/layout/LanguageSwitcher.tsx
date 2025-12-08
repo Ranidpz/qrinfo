@@ -12,7 +12,13 @@ export default function LanguageSwitcher() {
   const pathname = usePathname();
   const t = useTranslations('language');
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Ensure component is mounted before rendering (prevents hydration issues)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -33,6 +39,16 @@ export default function LanguageSwitcher() {
   };
 
   const currentLanguageLabel = locale === 'he' ? 'עברית' : 'English';
+
+  // Don't render until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-500/10 text-indigo-500">
+        <Languages className="w-4 h-4" />
+        <span className="text-sm font-medium">—</span>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full" ref={dropdownRef}>

@@ -1,8 +1,8 @@
 'use client';
 
 import { MousePointer2, FileText, Image, MessageCircle } from 'lucide-react';
+import { useTranslations, useLocale } from 'next-intl';
 import { LinkClickStats, LinkSource } from '@/types';
-import { linkSourceLabels } from '@/lib/analytics';
 
 interface LinkClicksSectionProps {
   stats: LinkClickStats;
@@ -36,16 +36,30 @@ function formatUrl(url: string): string {
   }
 }
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('he-IL', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
+  const t = useTranslations('analytics');
+  const locale = useLocale();
+
+  // Format date based on locale
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  // Get source label based on translation
+  const getSourceLabel = (source: LinkSource): string => {
+    switch (source) {
+      case 'pdf': return t('pdfSource');
+      case 'media': return t('mediaSource');
+      case 'whatsapp': return t('whatsappSource');
+      default: return source;
+    }
+  };
+
   if (stats.totalClicks === 0) {
     return (
       <div className="card p-6">
@@ -53,11 +67,11 @@ export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
           <div className="p-2 rounded-lg bg-accent/10">
             <MousePointer2 className="w-5 h-5 text-accent" />
           </div>
-          <h3 className="text-lg font-semibold text-text-primary">קליקים על לינקים</h3>
+          <h3 className="text-lg font-semibold text-text-primary">{t('linkClicks')}</h3>
         </div>
         <div className="text-center py-8 text-text-secondary">
           <MousePointer2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>אין קליקים בטווח התאריכים הנבחר</p>
+          <p>{t('noClicksInRange')}</p>
         </div>
       </div>
     );
@@ -70,10 +84,10 @@ export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
           <div className="p-2 rounded-lg bg-accent/10">
             <MousePointer2 className="w-5 h-5 text-accent" />
           </div>
-          <h3 className="text-lg font-semibold text-text-primary">קליקים על לינקים</h3>
+          <h3 className="text-lg font-semibold text-text-primary">{t('linkClicks')}</h3>
         </div>
         <div className="text-sm text-text-secondary">
-          סה"כ: <span className="font-bold text-text-primary">{stats.totalClicks}</span>
+          {t('totalClicks')}: <span className="font-bold text-text-primary">{stats.totalClicks}</span>
         </div>
       </div>
 
@@ -81,10 +95,10 @@ export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-right py-3 px-2 text-sm font-medium text-text-secondary">סוג</th>
-              <th className="text-right py-3 px-2 text-sm font-medium text-text-secondary">לינק</th>
-              <th className="text-center py-3 px-2 text-sm font-medium text-text-secondary">קליקים</th>
-              <th className="text-right py-3 px-2 text-sm font-medium text-text-secondary">קליק אחרון</th>
+              <th className="text-right py-3 px-2 text-sm font-medium text-text-secondary">{t('type')}</th>
+              <th className="text-right py-3 px-2 text-sm font-medium text-text-secondary">{t('linkColumn')}</th>
+              <th className="text-center py-3 px-2 text-sm font-medium text-text-secondary">{t('clicks')}</th>
+              <th className="text-right py-3 px-2 text-sm font-medium text-text-secondary">{t('lastClickTime')}</th>
             </tr>
           </thead>
           <tbody>
@@ -97,7 +111,7 @@ export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
                     <div className={`inline-flex items-center gap-2 px-2 py-1 rounded-lg ${colors.bg}`}>
                       <Icon className={`w-4 h-4 ${colors.text}`} />
                       <span className={`text-xs font-medium ${colors.text}`}>
-                        {linkSourceLabels[item.source]}
+                        {getSourceLabel(item.source)}
                       </span>
                     </div>
                   </td>

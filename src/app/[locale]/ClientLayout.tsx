@@ -25,7 +25,7 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+      <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} direction={direction} />
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

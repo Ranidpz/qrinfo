@@ -7,6 +7,7 @@ import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'fi
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
 import { queuedUpload } from '@/lib/uploadQueue';
+import { getBrowserLocale, uploadTranslations } from '@/lib/publicTranslations';
 
 interface RiddleViewerProps {
   content: RiddleContent;
@@ -68,6 +69,14 @@ async function compressImage(file: File): Promise<Blob> {
 }
 
 export default function RiddleViewer({ content, codeId, shortId, ownerId }: RiddleViewerProps) {
+  // Get browser locale for translations
+  const [locale, setLocale] = useState<'he' | 'en'>('he');
+  const t = uploadTranslations[locale];
+
+  useEffect(() => {
+    setLocale(getBrowserLocale());
+  }, []);
+
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -273,7 +282,7 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
       formData.append('file', compressedBlob, `selfie_${Date.now()}.webp`);
       formData.append('codeId', codeId);
       formData.append('ownerId', ownerId);
-      formData.append('uploaderName', name || 'אנונימי');
+      formData.append('uploaderName', name || t.anonymous);
 
       // Upload to Vercel Blob using queue (handles retries automatically)
       const data = await queuedUpload(formData, '/api/gallery') as {
@@ -563,14 +572,14 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
             )}
             <span className="text-sm font-medium text-gray-700">
               {uploading
-                ? 'מעלה...'
+                ? t.uploading
                 : uploadStatus === 'success'
-                ? 'הועלה!'
+                ? t.uploaded
                 : uploadStatus === 'error'
-                ? 'שגיאה'
+                ? t.error
                 : !canUploadMore
-                ? 'הגעת למקסימום'
-                : 'צלמו כאן'}
+                ? t.maxReached
+                : t.takePhoto}
             </span>
           </button>
         </div>
@@ -581,16 +590,16 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
             <h3 className="text-lg font-semibold text-gray-800 text-center">
-              הזן את שמך
+              {t.enterYourName}
             </h3>
             <p className="text-sm text-gray-500 text-center">
-              השם יופיע ליד התמונה בגלריה
+              {t.nameWillAppear}
             </p>
             <input
               type="text"
               value={uploaderName}
               onChange={(e) => setUploaderName(e.target.value)}
-              placeholder="שם או כינוי..."
+              placeholder={t.nameOrNickname}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
               autoFocus
             />
@@ -602,14 +611,14 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
                 }}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
               >
-                ביטול
+                {t.cancel}
               </button>
               <button
                 onClick={handleNameSubmit}
                 disabled={!uploaderName.trim()}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                המשך
+                {t.continue}
               </button>
             </div>
           </div>

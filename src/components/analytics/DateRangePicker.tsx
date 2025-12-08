@@ -2,6 +2,7 @@
 
 import { clsx } from 'clsx';
 import { Calendar } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { DateRangePreset } from '@/types';
 
 interface DateRangePickerProps {
@@ -12,14 +13,6 @@ interface DateRangePickerProps {
   onCustomRangeChange: (start: Date, end: Date) => void;
 }
 
-const presetOptions: { value: DateRangePreset; label: string }[] = [
-  { value: 'today', label: 'היום' },
-  { value: 'week', label: 'שבוע' },
-  { value: 'month', label: 'חודש' },
-  { value: 'year', label: 'שנה' },
-  { value: 'custom', label: 'מותאם' },
-];
-
 export default function DateRangePicker({
   preset,
   customStart,
@@ -27,6 +20,16 @@ export default function DateRangePicker({
   onPresetChange,
   onCustomRangeChange,
 }: DateRangePickerProps) {
+  const t = useTranslations('analytics');
+
+  const presetOptions: { value: DateRangePreset; label: string }[] = [
+    { value: 'today', label: t('today') },
+    { value: 'week', label: t('week') },
+    { value: 'month', label: t('month') },
+    { value: 'year', label: t('year') },
+    { value: 'custom', label: t('custom') },
+  ];
+
   const formatDateForInput = (date: Date | undefined): string => {
     if (!date) return '';
     return date.toISOString().split('T')[0];
@@ -68,7 +71,7 @@ export default function DateRangePicker({
       {preset === 'custom' && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-text-secondary text-sm w-12 sm:hidden">מתאריך</span>
+            <span className="text-text-secondary text-sm w-12 sm:hidden">{t('fromDate')}</span>
             <div className="relative flex-1">
               <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
               <input
@@ -80,9 +83,9 @@ export default function DateRangePicker({
               />
             </div>
           </div>
-          <span className="text-text-secondary hidden sm:inline">עד</span>
+          <span className="text-text-secondary hidden sm:inline">{t('to')}</span>
           <div className="flex items-center gap-2">
-            <span className="text-text-secondary text-sm w-12 sm:hidden">עד תאריך</span>
+            <span className="text-text-secondary text-sm w-12 sm:hidden">{t('toDate')}</span>
             <div className="relative flex-1">
               <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
               <input

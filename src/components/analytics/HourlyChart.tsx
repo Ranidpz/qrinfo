@@ -9,6 +9,7 @@ import {
   Tooltip,
   Cell,
 } from 'recharts';
+import { useTranslations, useLocale } from 'next-intl';
 import { formatHour } from '@/lib/analytics';
 
 interface HourlyChartProps {
@@ -16,6 +17,9 @@ interface HourlyChartProps {
 }
 
 export default function HourlyChart({ data }: HourlyChartProps) {
+  const t = useTranslations('analytics');
+  const locale = useLocale();
+
   // Find peak hour for highlighting
   const maxViews = Math.max(...data.map((d) => d.views));
 
@@ -26,13 +30,14 @@ export default function HourlyChart({ data }: HourlyChartProps) {
   }));
 
   const hasData = data.some(d => d.views > 0);
+  const hourLabel = locale === 'he' ? 'שעה' : 'Hour';
 
   if (!hasData) {
     return (
       <div className="card p-6">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">צפיות לפי שעה ביום</h3>
+        <h3 className="text-lg font-semibold text-text-primary mb-4">{t('viewsByHour')}</h3>
         <div className="h-[250px] flex items-center justify-center">
-          <p className="text-text-secondary">אין נתונים להצגה</p>
+          <p className="text-text-secondary">{t('noData')}</p>
         </div>
       </div>
     );
@@ -40,7 +45,7 @@ export default function HourlyChart({ data }: HourlyChartProps) {
 
   return (
     <div className="card p-6">
-      <h3 className="text-lg font-semibold text-text-primary mb-4">צפיות לפי שעה ביום</h3>
+      <h3 className="text-lg font-semibold text-text-primary mb-4">{t('viewsByHour')}</h3>
       <div className="overflow-x-auto" dir="ltr">
         <BarChart width={500} height={250} data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -66,8 +71,8 @@ export default function HourlyChart({ data }: HourlyChartProps) {
               borderRadius: '8px',
               color: 'var(--text-primary)',
             }}
-            labelFormatter={(label) => `שעה ${label}`}
-            formatter={(value: number) => [value, 'צפיות']}
+            labelFormatter={(label) => `${hourLabel} ${label}`}
+            formatter={(value: number) => [value, t('views')]}
           />
           <Bar dataKey="views" radius={[4, 4, 0, 0]}>
             {chartData.map((entry, index) => (

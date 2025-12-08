@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use, useRef } from 'react';
 import { useRouter } from '@/i18n/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   ArrowRight,
   Save,
@@ -80,6 +81,12 @@ interface PageProps {
 export default function CodeEditPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const t = useTranslations('code');
+  const tCommon = useTranslations('common');
+  const tErrors = useTranslations('errors');
+  const tUploader = useTranslations('uploader');
+  const tMedia = useTranslations('media');
+  const locale = useLocale();
   const { user, refreshUser } = useAuth();
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCanvasRef = useRef<HTMLDivElement>(null);
@@ -314,7 +321,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, title } : null);
     } catch (error) {
       console.error('Error saving:', error);
-      alert('שגיאה בשמירה. נסה שוב.');
+      alert(tErrors('saveError'));
     } finally {
       setSaving(false);
     }
@@ -357,7 +364,7 @@ export default function CodeEditPage({ params }: PageProps) {
       }
     } catch (error) {
       console.error('Error deleting:', error);
-      alert('שגיאה במחיקה. נסה שוב.');
+      alert(tErrors('deleteError'));
     }
   };
 
@@ -488,7 +495,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Create new code with same media references (no actual file copy)
       const newCode = await createQRCode(
         user.id,
-        `${code.title} (עותק)`,
+        `${code.title} ${t('duplicateSuffix')}`,
         code.media.map((m) => ({
           url: m.url,
           type: m.type,
@@ -502,7 +509,7 @@ export default function CodeEditPage({ params }: PageProps) {
       router.push(`/code/${newCode.id}`);
     } catch (error) {
       console.error('Error duplicating code:', error);
-      alert('שגיאה בשכפול הקוד. נסה שוב.');
+      alert(tErrors('duplicateError'));
     }
   };
 
@@ -641,14 +648,14 @@ export default function CodeEditPage({ params }: PageProps) {
     ];
 
     if (!validTypes.includes(file.type)) {
-      alert('סוג קובץ לא נתמך');
+      alert(tUploader('unsupportedFileType'));
       return;
     }
 
     // Validate file size (5MB)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('הקובץ גדול מדי. מקסימום 5MB');
+      alert(tUploader('fileTooLarge') + ' 5MB');
       return;
     }
 
@@ -706,14 +713,14 @@ export default function CodeEditPage({ params }: PageProps) {
     ];
 
     if (!validTypes.includes(file.type)) {
-      alert('סוג קובץ לא נתמך');
+      alert(tUploader('unsupportedFileType'));
       return;
     }
 
     // Validate file size (5MB)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('הקובץ גדול מדי. מקסימום 5MB');
+      alert(tUploader('fileTooLarge') + ' 5MB');
       return;
     }
 
@@ -803,7 +810,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
     } catch (error) {
       console.error('Error adding media:', error);
-      alert('שגיאה בהעלאת הקובץ. נסה שוב.');
+      alert(tErrors('uploadError'));
     } finally {
       setUploading(false);
     }
@@ -875,7 +882,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
     } catch (error) {
       console.error('Error replacing media:', error);
-      alert('שגיאה בהחלפת הקובץ. נסה שוב.');
+      alert(tErrors('replaceFileError'));
     } finally {
       setReplacingMediaId(null);
     }
@@ -910,7 +917,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
     } catch (error) {
       console.error('Error removing media:', error);
-      alert('שגיאה במחיקת המדיה. נסה שוב.');
+      alert(tErrors('deleteError'));
     }
   };
 
@@ -928,7 +935,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
     } catch (error) {
       console.error('Error saving schedule:', error);
-      alert('שגיאה בשמירת התזמון. נסה שוב.');
+      alert(tErrors('saveError'));
     }
   };
 
@@ -946,7 +953,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
     } catch (error) {
       console.error('Error saving media link:', error);
-      alert('שגיאה בשמירת הלינק. נסה שוב.');
+      alert(tErrors('saveError'));
     }
   };
 
@@ -973,7 +980,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setAddLinkModalOpen(false);
     } catch (error) {
       console.error('Error adding link:', error);
-      alert('שגיאה בהוספת הלינק. נסה שוב.');
+      alert(tErrors('saveError'));
     } finally {
       setAddingLink(false);
     }
@@ -1002,7 +1009,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setWordCloudModalOpen(false);
     } catch (error) {
       console.error('Error adding wordcloud:', error);
-      alert('שגיאה בהוספת ענן המילים. נסה שוב.');
+      alert(tErrors('saveError'));
     } finally {
       setAddingWordCloud(false);
     }
@@ -1113,7 +1120,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setEditingRiddleId(null);
     } catch (error) {
       console.error('Error saving riddle:', error);
-      alert('שגיאה בשמירת כתב החידה. נסה שוב.');
+      alert(tErrors('createRiddleError'));
     } finally {
       setAddingRiddle(false);
     }
@@ -1273,7 +1280,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setEditingSelfiebeamId(null);
     } catch (error) {
       console.error('Error saving selfiebeam:', error);
-      alert('שגיאה בשמירת סלפי בים. נסה שוב.');
+      alert(tErrors('createSelfiebeamError'));
     } finally {
       setAddingSelfiebeam(false);
     }
@@ -1297,7 +1304,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
     } catch (error) {
       console.error('Error saving WhatsApp widget:', error);
-      alert('שגיאה בשמירת הווידג׳ט. נסה שוב.');
+      alert(tErrors('saveError'));
     }
   };
 
@@ -1319,7 +1326,7 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
     } catch (error) {
       console.error('Error saving QR sign:', error);
-      alert('שגיאה בשמירת הסימן. נסה שוב.');
+      alert(tErrors('saveError'));
     }
   };
 
@@ -1336,17 +1343,21 @@ export default function CodeEditPage({ params }: PageProps) {
 
   const formatSchedule = (schedule?: MediaSchedule): string => {
     if (!schedule?.enabled) return '';
+    const dateLocale = locale === 'he' ? 'he-IL' : 'en-US';
     const parts: string[] = [];
     if (schedule.startDate) {
-      parts.push(`מ-${schedule.startDate.toLocaleDateString('he-IL')}`);
+      const dateStr = schedule.startDate.toLocaleDateString(dateLocale);
+      parts.push(t('scheduleFrom', { date: dateStr }));
     }
     if (schedule.endDate) {
-      parts.push(`עד ${schedule.endDate.toLocaleDateString('he-IL')}`);
+      const dateStr = schedule.endDate.toLocaleDateString(dateLocale);
+      parts.push(t('scheduleTo', { date: dateStr }));
     }
-    if (schedule.startTime) {
+    if (schedule.startTime && schedule.endTime) {
+      parts.push(t('scheduleTime', { from: schedule.startTime, to: schedule.endTime }));
+    } else if (schedule.startTime) {
       parts.push(`${schedule.startTime}`);
-    }
-    if (schedule.endTime) {
+    } else if (schedule.endTime) {
       parts.push(`-${schedule.endTime}`);
     }
     return parts.join(' ');
@@ -1387,7 +1398,7 @@ export default function CodeEditPage({ params }: PageProps) {
   if (!code) {
     return (
       <div className="text-center py-20">
-        <p className="text-text-secondary">הקוד לא נמצא</p>
+        <p className="text-text-secondary">{t('codeNotFound')}</p>
       </div>
     );
   }
@@ -1416,7 +1427,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   }
                 }}
                 className="p-1.5 rounded-lg hover:bg-bg-secondary transition-colors flex-shrink-0"
-                title={folder ? `חזור ל${folder.name}` : 'חזור לדשבורד'}
+                title={folder ? t('backToFolder', { name: folder.name }) : t('backToDashboard')}
               >
                 <ArrowRight className="w-4 h-4 text-text-secondary" />
               </button>
@@ -1442,7 +1453,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   {views24h > 0 && (
                     <>
                       <span>|</span>
-                      <span className="text-accent">+{views24h} היום</span>
+                      <span className="text-accent">{t('todayViews', { count: views24h })}</span>
                     </>
                   )}
                 </div>
@@ -1522,7 +1533,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   <button
                     onClick={handleCopyLink}
                     className="p-1.5 rounded hover:bg-bg-hover transition-colors"
-                    title="העתק לינק"
+                    title={t('copyLink')}
                   >
                     <Copy className={clsx('w-4 h-4', linkCopied ? 'text-success' : 'text-text-secondary')} />
                   </button>
@@ -1531,14 +1542,14 @@ export default function CodeEditPage({ params }: PageProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 rounded hover:bg-bg-hover transition-colors"
-                    title="פתח בחלון חדש"
+                    title={t('openInNewWindow')}
                   >
                     <ExternalLink className="w-4 h-4 text-text-secondary" />
                   </a>
                 </div>
 
                 {linkCopied && (
-                  <p className="text-sm text-success text-center">הלינק הועתק!</p>
+                  <p className="text-sm text-success text-center">{tCommon('copied')}</p>
                 )}
               </div>
 
@@ -1551,20 +1562,20 @@ export default function CodeEditPage({ params }: PageProps) {
                   className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
                 >
                   <Eye className="w-4 h-4" />
-                  צפייה
+                  {t('view')}
                 </a>
                 <button
                   onClick={handleDownloadQR}
                   className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
                 >
                   <Printer className="w-4 h-4" />
-                  הדפסת QR
+                  {t('printQR')}
                 </button>
               </div>
 
               {/* Share buttons */}
               <div className="space-y-2">
-                <h3 className="text-sm font-medium text-text-secondary">שיתוף</h3>
+                <h3 className="text-sm font-medium text-text-secondary">{t('share')}</h3>
                 <button
                   onClick={handleShareWhatsApp}
                   className="btn bg-[#25D366] text-white hover:bg-[#20BD5A] flex items-center justify-center gap-2 w-full"
@@ -1584,7 +1595,7 @@ export default function CodeEditPage({ params }: PageProps) {
               onClick={handleWidgetsToggle}
               className="w-full flex items-center justify-between text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
             >
-              <span>ווידג׳טים</span>
+              <span>{t('widgets')}</span>
               {widgetsExpanded ? (
                 <ChevronUp className="w-4 h-4" />
               ) : (
@@ -1625,14 +1636,14 @@ export default function CodeEditPage({ params }: PageProps) {
                       <QrCode className="w-5 h-5" />
                     )}
                   </div>
-                  <span className="text-sm font-medium">סימן QR</span>
+                  <span className="text-sm font-medium">{t('qrSign')}</span>
                   <span className={clsx(
                     "text-xs px-2 py-0.5 rounded-full",
                     code.widgets?.qrSign?.enabled
                       ? "bg-accent/20 text-accent"
                       : "bg-bg-hover text-text-secondary"
                   )}>
-                    {code.widgets?.qrSign?.enabled ? 'פעיל' : 'כבוי'}
+                    {code.widgets?.qrSign?.enabled ? t('active') : t('inactive')}
                   </span>
                 </button>
 
@@ -1661,7 +1672,7 @@ export default function CodeEditPage({ params }: PageProps) {
                       ? "bg-[#25D366]/20 text-[#25D366]"
                       : "bg-bg-hover text-text-secondary"
                   )}>
-                    {code.widgets?.whatsapp?.enabled ? 'פעיל' : 'כבוי'}
+                    {code.widgets?.whatsapp?.enabled ? t('active') : t('inactive')}
                   </span>
                 </button>
 
@@ -1681,11 +1692,11 @@ export default function CodeEditPage({ params }: PageProps) {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="flex-1 text-lg font-semibold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1"
-                placeholder="שם הקוד"
+                placeholder={t('codeName')}
               />
               {/* Action buttons - hidden on mobile, shown on desktop */}
               <div className="hidden sm:flex items-center gap-2">
-                <Tooltip text="שמור שינויים">
+                <Tooltip text={t('saveChanges')}>
                   <button
                     onClick={handleSave}
                     disabled={saving || title === code.title}
@@ -1698,7 +1709,7 @@ export default function CodeEditPage({ params }: PageProps) {
                     )}
                   </button>
                 </Tooltip>
-                <Tooltip text="שכפל קוד">
+                <Tooltip text={t('duplicateCode')}>
                   <button
                     onClick={handleDuplicate}
                     className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors"
@@ -1707,7 +1718,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
                 {user && canDeleteCode(code, user.id, user.role) && (
-                  <Tooltip text="מחק קוד">
+                  <Tooltip text={t('deleteCode')}>
                     <button
                       onClick={() => setDeleteModal(true)}
                       className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
@@ -1720,7 +1731,7 @@ export default function CodeEditPage({ params }: PageProps) {
             </div>
             {/* Action buttons row - visible only on mobile */}
             <div className="flex sm:hidden items-center gap-2">
-              <Tooltip text="שמור שינויים">
+              <Tooltip text={t('saveChanges')}>
                 <button
                   onClick={handleSave}
                   disabled={saving || title === code.title}
@@ -1733,7 +1744,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   )}
                 </button>
               </Tooltip>
-              <Tooltip text="שכפל קוד">
+              <Tooltip text={t('duplicateCode')}>
                 <button
                   onClick={handleDuplicate}
                   className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors"
@@ -1742,7 +1753,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 </button>
               </Tooltip>
               {user && canDeleteCode(code, user.id, user.role) && (
-                <Tooltip text="מחק קוד">
+                <Tooltip text={t('deleteCode')}>
                   <button
                     onClick={() => setDeleteModal(true)}
                     className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
@@ -1753,13 +1764,13 @@ export default function CodeEditPage({ params }: PageProps) {
               )}
             </div>
             {/* Media count and add buttons */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
               <span className="text-sm text-text-secondary">
-                {code.media.length} פריטי מדיה
+                {t('mediaItems', { count: code.media.length })}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {/* Add Riddle Button */}
-                <Tooltip text="כתב חידה">
+                <Tooltip text={t('riddle')}>
                   <button
                     onClick={() => setRiddleModalOpen(true)}
                     className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
@@ -1769,7 +1780,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 </Tooltip>
 
                 {/* Add WordCloud Button */}
-                <Tooltip text="ענן מילים">
+                <Tooltip text={t('wordCloud')}>
                   <button
                     onClick={() => setWordCloudModalOpen(true)}
                     className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
@@ -1779,7 +1790,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 </Tooltip>
 
                 {/* Selfiebeam Button */}
-                <Tooltip text="סלפי בים">
+                <Tooltip text={t('selfiebeam')}>
                   <button
                     onClick={() => setSelfiebeamModalOpen(true)}
                     className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
@@ -1789,7 +1800,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 </Tooltip>
 
                 {/* Minigames Button - Coming Soon */}
-                <Tooltip text="מיניגיימס - בקרוב">
+                <Tooltip text={t('minigamesComingSoon')}>
                   <button
                     disabled
                     className="p-2 rounded-lg bg-bg-secondary text-text-secondary cursor-not-allowed opacity-50 flex items-center justify-center"
@@ -1799,7 +1810,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 </Tooltip>
 
                 {/* Add Link Button */}
-                <Tooltip text="הוסף לינק">
+                <Tooltip text={t('addLink')}>
                   <button
                     onClick={() => setAddLinkModalOpen(true)}
                     className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
@@ -1809,7 +1820,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 </Tooltip>
 
                 {/* Add Media Button */}
-                <Tooltip text="הוסף קובץ">
+                <Tooltip text={t('addFile')}>
                   <label className="p-2 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer flex items-center justify-center">
                     {uploading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1873,32 +1884,35 @@ export default function CodeEditPage({ params }: PageProps) {
                 )}
               >
                 {/* Top row: drag handle, thumbnail, info */}
-                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
                   <div className="drag-handle cursor-grab active:cursor-grabbing text-text-secondary hover:text-text-primary transition-colors touch-none">
                     <GripVertical className="w-5 h-5" />
                   </div>
 
-                  {/* Thumbnail */}
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-bg-primary flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {/* Thumbnail - hidden on mobile for non-image types */}
+                  <div className={clsx(
+                    "rounded-lg bg-bg-primary flex items-center justify-center overflow-hidden flex-shrink-0",
+                    media.type === 'image' ? "w-10 h-10 sm:w-16 sm:h-16" : "hidden sm:flex sm:w-16 sm:h-16"
+                  )}>
                     {media.type === 'link' ? (
-                      <LinkIcon className="w-5 h-5 sm:w-6 sm:h-6 text-text-secondary" />
+                      <LinkIcon className="w-6 h-6 text-text-secondary" />
                     ) : media.type === 'video' ? (
-                      <Video className="w-5 h-5 sm:w-6 sm:h-6 text-text-secondary" />
+                      <Video className="w-6 h-6 text-text-secondary" />
                     ) : media.type === 'pdf' ? (
-                      <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-text-secondary" />
+                      <FileText className="w-6 h-6 text-text-secondary" />
                     ) : media.type === 'riddle' ? (
                       <div
                         className="w-full h-full flex items-center justify-center"
                         style={{ backgroundColor: media.riddleContent?.backgroundColor || '#1a1a2e' }}
                       >
-                        <ScrollText className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: media.riddleContent?.textColor || '#fff' }} />
+                        <ScrollText className="w-6 h-6" style={{ color: media.riddleContent?.textColor || '#fff' }} />
                       </div>
                     ) : media.type === 'selfiebeam' ? (
                       <div
                         className="w-full h-full flex items-center justify-center"
                         style={{ backgroundColor: media.selfiebeamContent?.backgroundColor || '#1a1a2e' }}
                       >
-                        <Camera className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: media.selfiebeamContent?.textColor || '#fff' }} />
+                        <Camera className="w-6 h-6" style={{ color: media.selfiebeamContent?.textColor || '#fff' }} />
                       </div>
                     ) : (
                       <img
@@ -1913,16 +1927,16 @@ export default function CodeEditPage({ params }: PageProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-text-primary">
-                        {media.type === 'link' ? 'לינק' : media.type === 'riddle' ? (media.riddleContent?.title || 'כתב חידה') : media.type === 'selfiebeam' ? (media.selfiebeamContent?.title || 'סלפי בים') : media.type === 'wordcloud' ? 'ענן מילים' : media.type.toUpperCase()}
+                        {media.type === 'link' ? tMedia('link') : media.type === 'riddle' ? (media.riddleContent?.title || tMedia('riddle')) : media.type === 'selfiebeam' ? (media.selfiebeamContent?.title || tMedia('selfiebeam')) : media.type === 'wordcloud' ? tMedia('wordcloud') : media.type.toUpperCase()}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
                     </div>
                     {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.filename && (
-                      <p className="text-xs text-text-secondary truncate mt-1" dir="ltr">
+                      <p className="text-xs text-text-secondary truncate mt-0.5" dir="ltr">
                         {media.filename}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
                       {media.size > 0 && (
                         <span className="text-xs text-text-secondary">
                           {formatBytes(media.size)}
@@ -1930,22 +1944,22 @@ export default function CodeEditPage({ params }: PageProps) {
                       )}
                       {media.type === 'pdf' && media.pageCount && media.pageCount > 0 && (
                         <span className="text-xs text-text-secondary">
-                          {media.pageCount} {media.pageCount === 1 ? 'עמוד' : 'עמודים'}
+                          {media.pageCount} {media.pageCount === 1 ? t('page') : t('pages')}
                         </span>
                       )}
                       {media.schedule?.enabled && (() => {
                         const active = isScheduleActive(media.schedule);
                         return (
-                          <span className={`text-xs flex items-center gap-1 ${active ? 'text-green-500' : 'text-red-500'}`}>
-                            <Clock className="w-3 h-3" />
-                            <span className="hidden sm:inline">{formatSchedule(media.schedule)}</span>
+                          <span className={`text-[10px] sm:text-xs flex items-center gap-1 ${active ? 'text-green-500' : 'text-red-500'}`}>
+                            <Clock className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate max-w-[100px] sm:max-w-none">{formatSchedule(media.schedule)}</span>
                           </span>
                         );
                       })()}
                       {media.linkUrl && (
-                        <span className="text-xs text-accent flex items-center gap-1">
-                          <LinkIcon className="w-3 h-3" />
-                          <span className="hidden sm:inline">{media.linkTitle || new URL(media.linkUrl).hostname}</span>
+                        <span className="text-[10px] sm:text-xs text-accent flex items-center gap-1">
+                          <LinkIcon className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate max-w-[80px] sm:max-w-none">{media.linkTitle || new URL(media.linkUrl).hostname}</span>
                         </span>
                       )}
                     </div>
@@ -1956,7 +1970,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 <div className="flex items-center gap-1 justify-end border-t border-border/50 pt-2 sm:border-0 sm:pt-0">
                   {/* Edit button for riddle */}
                   {media.type === 'riddle' && (
-                    <Tooltip text="ערוך">
+                    <Tooltip text={t('edit')}>
                       <button
                         onClick={() => {
                           setEditingRiddleId(media.id);
@@ -1971,7 +1985,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
                   {/* Gallery button for riddle with gallery enabled */}
                   {media.type === 'riddle' && media.riddleContent?.galleryEnabled && (
-                    <Tooltip text={`גלריית סלפי (${code.userGallery?.length || 0})`}>
+                    <Tooltip text={t('selfieGallery', { count: code.userGallery?.length || 0 })}>
                       <a
                         href={`/gallery/${code.shortId}`}
                         target="_blank"
@@ -1990,7 +2004,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
                   {/* Edit button for selfiebeam */}
                   {media.type === 'selfiebeam' && (
-                    <Tooltip text="ערוך">
+                    <Tooltip text={t('edit')}>
                       <button
                         onClick={() => {
                           setEditingSelfiebeamId(media.id);
@@ -2005,7 +2019,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
                   {/* Gallery button for selfiebeam with gallery enabled */}
                   {media.type === 'selfiebeam' && media.selfiebeamContent?.galleryEnabled && (
-                    <Tooltip text={`גלריית סלפי (${code.userGallery?.length || 0})`}>
+                    <Tooltip text={t('selfieGallery', { count: code.userGallery?.length || 0 })}>
                       <a
                         href={`/gallery/${code.shortId}`}
                         target="_blank"
@@ -2024,7 +2038,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
                   {/* Replace button - not for links, riddles, or selfiebeams */}
                   {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && (
-                    <Tooltip text="החלף קובץ">
+                    <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -2046,7 +2060,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   )}
 
                   {/* Schedule button */}
-                  <Tooltip text="תזמון הצגה">
+                  <Tooltip text={t('scheduleDisplay')}>
                     <button
                       onClick={() => setScheduleModal({ isOpen: true, mediaId: media.id })}
                       className={clsx(
@@ -2060,7 +2074,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
                   {/* Link button - only for images/videos/pdfs */}
                   {media.type !== 'link' && (
-                    <Tooltip text={media.linkUrl ? 'ערוך לינק' : 'הוסף לינק'}>
+                    <Tooltip text={media.linkUrl ? t('editLink') : t('addLink')}>
                       <button
                         onClick={() => setLinkModal({ isOpen: true, mediaId: media.id })}
                         className={clsx(
@@ -2074,7 +2088,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   )}
 
                   {/* External link */}
-                  <Tooltip text="פתח בחלון חדש">
+                  <Tooltip text={t('openInNewWindow')}>
                     <a
                       href={media.url}
                       target="_blank"
@@ -2086,7 +2100,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   </Tooltip>
 
                   {/* Delete */}
-                  <Tooltip text="מחק מדיה">
+                  <Tooltip text={t('deleteMediaItem')}>
                     <button
                       onClick={() => setDeleteMediaModal({ isOpen: true, mediaId: media.id })}
                       className="p-2 rounded-lg hover:bg-danger/10 text-danger"
@@ -2098,13 +2112,20 @@ export default function CodeEditPage({ params }: PageProps) {
               </div>
             ))}
 
-            {code.media.length === 0 && (
+            {code.media.length === 0 ? (
               <div className={clsx(
                 "text-center py-12 text-text-secondary border-2 border-dashed rounded-xl transition-all",
                 isDraggingOverMediaArea ? "border-accent bg-accent/10" : "border-border"
               )}>
-                <p>אין מדיה בקוד זה</p>
-                <p className="text-sm mt-1">גררו קובץ לכאן או לחצו על + להוספה</p>
+                <p>{t('noMedia')}</p>
+                <p className="text-sm mt-1">{t('dragFileOrClick')}</p>
+              </div>
+            ) : (
+              <div className={clsx(
+                "text-center py-4 text-text-secondary/60 border-2 border-dashed rounded-xl transition-all mt-2",
+                isDraggingOverMediaArea ? "border-accent bg-accent/10 text-accent" : "border-border/50"
+              )}>
+                <p className="text-sm">{t('dragFileOrClick')}</p>
               </div>
             )}
           </div>
@@ -2140,18 +2161,18 @@ export default function CodeEditPage({ params }: PageProps) {
       {deleteMediaModal.isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-bg-card border border-border rounded-xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-text-primary mb-2">מחיקת מדיה</h3>
+            <h3 className="text-lg font-semibold text-text-primary mb-2">{t('deleteMediaTitle')}</h3>
             <p className="text-text-secondary mb-4">
-              האם אתה בטוח שברצונך למחוק את פריט המדיה הזה?
+              {t('deleteMediaConfirm')}
               <br />
-              <span className="text-sm text-danger">פעולה זו אינה ניתנת לביטול.</span>
+              <span className="text-sm text-danger">{t('cannotUndo')}</span>
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteMediaModal({ isOpen: false, mediaId: null })}
                 className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
               >
-                ביטול
+                {tCommon('cancel')}
               </button>
               <button
                 onClick={() => {
@@ -2162,7 +2183,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 }}
                 className="px-4 py-2 text-sm font-medium text-white bg-danger hover:bg-danger/90 rounded-lg transition-colors"
               >
-                מחק
+                {tCommon('delete')}
               </button>
             </div>
           </div>

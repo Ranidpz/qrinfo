@@ -1,39 +1,53 @@
 'use client';
 
 import { Eye, TrendingUp, Clock, Smartphone } from 'lucide-react';
+import { useTranslations, useLocale } from 'next-intl';
 import { AnalyticsData } from '@/types';
-import { formatHour, deviceLabels } from '@/lib/analytics';
+import { formatHour } from '@/lib/analytics';
 
 interface MetricsCardsProps {
   data: AnalyticsData;
 }
 
 export default function MetricsCards({ data }: MetricsCardsProps) {
+  const t = useTranslations('analytics');
+  const locale = useLocale();
+
+  // Device labels based on locale
+  const getDeviceLabel = (device: string) => {
+    switch (device) {
+      case 'desktop': return t('desktop');
+      case 'mobile': return t('mobile');
+      case 'tablet': return t('tablet');
+      default: return device;
+    }
+  };
+
   const metrics = [
     {
-      title: 'סה"כ צפיות',
-      value: data.totalViews.toLocaleString('he-IL'),
+      title: t('totalViews'),
+      value: data.totalViews.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US'),
       icon: Eye,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
     },
     {
-      title: 'ממוצע יומי',
-      value: data.dailyAverage.toLocaleString('he-IL'),
+      title: t('dailyAverage'),
+      value: data.dailyAverage.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US'),
       icon: TrendingUp,
       color: 'text-green-500',
       bgColor: 'bg-green-500/10',
     },
     {
-      title: 'שעת שיא',
+      title: t('peakHour'),
       value: formatHour(data.peakHour),
       icon: Clock,
       color: 'text-purple-500',
       bgColor: 'bg-purple-500/10',
     },
     {
-      title: 'מכשיר מוביל',
-      value: deviceLabels[data.topDevice] || data.topDevice,
+      title: t('topDevice'),
+      value: getDeviceLabel(data.topDevice),
       icon: Smartphone,
       color: 'text-orange-500',
       bgColor: 'bg-orange-500/10',

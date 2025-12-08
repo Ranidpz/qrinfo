@@ -431,7 +431,7 @@ export default function SelfiebeamModal({
                 setYoutubeUrl(e.target.value);
                 setError('');
               }}
-              placeholder="https://youtube.com/watch?v=... או https://youtu.be/..."
+              placeholder="https://youtube.com/watch?v=... or https://youtu.be/..."
               className="input w-full"
               dir="ltr"
             />

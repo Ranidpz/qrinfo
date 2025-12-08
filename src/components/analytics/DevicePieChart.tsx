@@ -1,7 +1,7 @@
 'use client';
 
 import { PieChart, Pie, Cell, Legend, Tooltip } from 'recharts';
-import { deviceLabels } from '@/lib/analytics';
+import { useTranslations } from 'next-intl';
 
 interface DevicePieChartProps {
   data: { device: string; views: number }[];
@@ -10,10 +10,22 @@ interface DevicePieChartProps {
 const COLORS = ['#3b82f6', '#8b5cf6', '#22c55e', '#f59e0b'];
 
 export default function DevicePieChart({ data }: DevicePieChartProps) {
-  // Format data with Hebrew labels
+  const t = useTranslations('analytics');
+
+  // Get device label based on translation
+  const getDeviceLabel = (device: string) => {
+    switch (device) {
+      case 'desktop': return t('desktop');
+      case 'mobile': return t('mobile');
+      case 'tablet': return t('tablet');
+      default: return device;
+    }
+  };
+
+  // Format data with translated labels
   const chartData = data.map((item) => ({
     ...item,
-    name: deviceLabels[item.device] || item.device,
+    name: getDeviceLabel(item.device),
   }));
 
   const total = data.reduce((sum, item) => sum + item.views, 0);
@@ -21,9 +33,9 @@ export default function DevicePieChart({ data }: DevicePieChartProps) {
   if (total === 0) {
     return (
       <div className="card p-6">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">התפלגות מכשירים</h3>
+        <h3 className="text-lg font-semibold text-text-primary mb-4">{t('deviceDistribution')}</h3>
         <div className="h-[250px] flex items-center justify-center">
-          <p className="text-text-secondary">אין נתונים להצגה</p>
+          <p className="text-text-secondary">{t('noData')}</p>
         </div>
       </div>
     );
@@ -31,7 +43,7 @@ export default function DevicePieChart({ data }: DevicePieChartProps) {
 
   return (
     <div className="card p-6">
-      <h3 className="text-lg font-semibold text-text-primary mb-4">התפלגות מכשירים</h3>
+      <h3 className="text-lg font-semibold text-text-primary mb-4">{t('deviceDistribution')}</h3>
       <div className="flex justify-center" dir="ltr">
         <PieChart width={300} height={250}>
           <Pie

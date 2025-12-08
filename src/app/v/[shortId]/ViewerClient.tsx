@@ -12,6 +12,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import type { Swiper as SwiperType } from 'swiper';
 import { incrementViews } from '@/lib/db';
 import { createLinkClick } from '@/lib/analytics';
+import { getBrowserLocale, viewerTranslations } from '@/lib/publicTranslations';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -94,17 +95,28 @@ const PDFFlipBookViewer = memo(({
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const swiperRef = useRef<SwiperType | null>(null);
+
+  // Get translations based on browser locale
+  const t = viewerTranslations[getBrowserLocale()];
 
   // Load PDF and convert to images with high resolution
   useEffect(() => {
     const loadPDF = async () => {
       try {
+        setLoadingMessage(t.loadingDocument);
+        setLoadingProgress(5);
+
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
+        setLoadingProgress(10);
         const pdf = await pdfjsLib.getDocument(url).promise;
         setTotalPages(pdf.numPages);
+        setLoadingProgress(15);
+        setLoadingMessage(t.processingPages.replace('{count}', String(pdf.numPages)));
 
         const pagesData: PDFPageData[] = [];
         // Higher scale for better zoom quality - use device pixel ratio
@@ -153,8 +165,16 @@ const PDFFlipBookViewer = memo(({
           }
 
           pagesData.push({ image: imageData, annotations: pageLinks });
+
+          // Update progress (15-95% for page rendering)
+          const progress = 15 + ((i / pdf.numPages) * 80);
+          setLoadingProgress(progress);
+          if (i === 1) setLoadingMessage(t.preparingDisplay);
+          else if (i > pdf.numPages / 2) setLoadingMessage(t.almostThere);
         }
 
+        setLoadingProgress(100);
+        setLoadingMessage(t.ready);
         setPages(pagesData);
         onLoad();
       } catch (error) {
@@ -164,7 +184,7 @@ const PDFFlipBookViewer = memo(({
     };
 
     loadPDF();
-  }, [url, onLoad]);
+  }, [url, onLoad, t]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -181,8 +201,8 @@ const PDFFlipBookViewer = memo(({
   }, []);
 
   if (pages.length === 0) {
-    // Return empty div - main LoadingSpinner handles loading state
-    return <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black" />;
+    // Show loading spinner while PDF is being processed
+    return <LoadingSpinner progress={loadingProgress} message={loadingMessage || t.loadingContent} />;
   }
 
   return (
@@ -354,20 +374,46 @@ const MultiPDFViewer = memo(({
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
   const [currentPage, setCurrentPage] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const swiperRef = useRef<SwiperType | null>(null);
+
+  // Get translations based on browser locale
+  const t = viewerTranslations[getBrowserLocale()];
 
   // Load all PDFs and combine pages
   useEffect(() => {
     const loadAllPDFs = async () => {
       try {
+        setLoadingMessage(t.loadingDocument);
+        setLoadingProgress(5);
+
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+        setLoadingProgress(10);
 
         const allPagesData: PDFPageData[] = [];
         const deviceScale = Math.min(window.devicePixelRatio || 1, 3);
         const scale = 2 * deviceScale;
         let dimensionsSet = false;
+        let totalPageCount = 0;
+        let processedPages = 0;
 
+        // First pass: count total pages for progress
+        for (const url of pdfUrls) {
+          try {
+            const pdf = await pdfjsLib.getDocument(url).promise;
+            totalPageCount += pdf.numPages;
+          } catch {
+            // Skip failed PDFs
+          }
+        }
+
+        setLoadingProgress(15);
+        setLoadingMessage(t.processingPages.replace('{count}', String(totalPageCount)));
+
+        // Second pass: render pages
         for (const url of pdfUrls) {
           try {
             const pdf = await pdfjsLib.getDocument(url).promise;
@@ -417,12 +463,21 @@ const MultiPDFViewer = memo(({
               }
 
               allPagesData.push({ image: imageData, annotations: pageLinks });
+
+              // Update progress
+              processedPages++;
+              const progress = 15 + ((processedPages / totalPageCount) * 80);
+              setLoadingProgress(progress);
+              if (processedPages === 1) setLoadingMessage(t.preparingDisplay);
+              else if (processedPages > totalPageCount / 2) setLoadingMessage(t.almostThere);
             }
           } catch (error) {
             console.error('Error loading PDF:', url, error);
           }
         }
 
+        setLoadingProgress(100);
+        setLoadingMessage(t.ready);
         setPages(allPagesData);
         onLoad();
       } catch (error) {
@@ -432,7 +487,7 @@ const MultiPDFViewer = memo(({
     };
 
     loadAllPDFs();
-  }, [pdfUrls, onLoad]);
+  }, [pdfUrls, onLoad, t]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -449,7 +504,8 @@ const MultiPDFViewer = memo(({
   }, []);
 
   if (pages.length === 0) {
-    return <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black" />;
+    // Show loading spinner while PDFs are being processed
+    return <LoadingSpinner progress={loadingProgress} message={loadingMessage || t.loadingContent} />;
   }
 
   return (
@@ -860,9 +916,20 @@ const ImageGalleryViewer = memo(({
 ImageGalleryViewer.displayName = 'ImageGalleryViewer';
 
 export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId }: ViewerClientProps) {
+  // Get browser locale for translations
+  const [locale, setLocale] = useState<'he' | 'en'>('he');
+  const t = viewerTranslations[locale];
+
+  useEffect(() => {
+    const browserLocale = getBrowserLocale();
+    setLocale(browserLocale);
+    // Update initial loading message to match browser locale
+    setLoadMessage(viewerTranslations[browserLocale].loadingContent);
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
-  const [loadMessage, setLoadMessage] = useState('טוען תוכן...');
+  const [loadMessage, setLoadMessage] = useState(t.loadingContent);
   const [showContent, setShowContent] = useState(false);
   const loadedCount = useRef(0);
 
@@ -931,12 +998,12 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
       const progress = (loadedCount.current / totalItems) * 100;
       setLoadProgress(progress);
 
-      if (loadedCount.current === 1) setLoadMessage('מכין תצוגה...');
-      else if (progress > 50) setLoadMessage('כמעט שם...');
+      if (loadedCount.current === 1) setLoadMessage(t.preparingDisplay);
+      else if (progress > 50) setLoadMessage(t.almostThere);
 
       if (loadedCount.current >= totalItems) {
         setLoadProgress(100);
-        setLoadMessage('מוכן!');
+        setLoadMessage(t.ready);
         setTimeout(() => {
           setLoading(false);
           setTimeout(() => setShowContent(true), 100);
@@ -980,7 +1047,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   if (!currentMedia) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center text-white">
-        <p>אין תוכן להצגה</p>
+        <p>{t.noContent}</p>
       </div>
     );
   }

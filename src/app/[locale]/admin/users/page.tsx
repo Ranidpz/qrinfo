@@ -2,18 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { Search, Loader2, Shield, Crown, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User, UserRole, STORAGE_LIMITS } from '@/types';
 import { clsx } from 'clsx';
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: 'מנהל-על',
-  producer: 'מפיק',
-  free: 'חינם',
-};
 
 const ROLE_ICONS: Record<UserRole, React.ElementType> = {
   super_admin: Crown,
@@ -29,6 +24,8 @@ const ROLE_COLORS: Record<UserRole, string> = {
 
 export default function AdminUsersPage() {
   const router = useRouter();
+  const t = useTranslations('admin');
+  const locale = useLocale();
   const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +91,7 @@ export default function AdminUsersPage() {
       );
     } catch (error) {
       console.error('Error updating user role:', error);
-      alert('שגיאה בעדכון ההרשאה');
+      alert(t('roleUpdateError'));
     } finally {
       setUpdating(null);
     }
@@ -129,21 +126,21 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-text-primary">ניהול משתמשים</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-text-primary">{t('title')}</h1>
         <span className="text-sm text-text-secondary">
-          {users.length} משתמשים
+          {t('usersCount', { count: users.length })}
         </span>
       </div>
 
       {/* Search */}
       <div className="relative w-full sm:max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+        <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
         <input
           type="text"
-          placeholder="חיפוש לפי שם או אימייל..."
+          placeholder={t('searchByNameOrEmail')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="input pl-10 w-full"
+          className="input ps-10 w-full"
           list="users-autocomplete"
         />
         <datalist id="users-autocomplete">
@@ -176,7 +173,7 @@ export default function AdminUsersPage() {
                   <p className="font-medium text-text-primary truncate">
                     {u.displayName}
                     {isCurrentUser && (
-                      <span className="text-xs text-accent mr-2">(אתה)</span>
+                      <span className="text-xs text-accent mr-2">{t('you')}</span>
                     )}
                   </p>
                   <p className="text-sm text-text-secondary truncate">{u.email}</p>
@@ -201,9 +198,9 @@ export default function AdminUsersPage() {
                         isCurrentUser && 'opacity-50 cursor-not-allowed'
                       )}
                     >
-                      <option value="free">חינם</option>
-                      <option value="producer">מפיק</option>
-                      <option value="super_admin">מנהל-על</option>
+                      <option value="free">{t('roleFree')}</option>
+                      <option value="producer">{t('roleProducer')}</option>
+                      <option value="super_admin">{t('roleSuperAdmin')}</option>
                     </select>
                   )}
                 </div>
@@ -227,7 +224,7 @@ export default function AdminUsersPage() {
 
               {/* Join date */}
               <div className="text-xs text-text-secondary pt-2 border-t border-border">
-                הצטרף: {u.createdAt.toLocaleDateString('he-IL')}
+                {t('joined')}: {u.createdAt.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US')}
               </div>
             </div>
           );
@@ -241,16 +238,16 @@ export default function AdminUsersPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-right px-4 py-3 text-sm font-medium text-text-secondary">
-                  משתמש
+                  {t('user')}
                 </th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-text-secondary">
-                  הרשאה
+                  {t('role')}
                 </th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-text-secondary">
-                  אחסון
+                  {t('storageColumn')}
                 </th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-text-secondary">
-                  הצטרף
+                  {t('joined')}
                 </th>
               </tr>
             </thead>
@@ -272,7 +269,7 @@ export default function AdminUsersPage() {
                           <p className="font-medium text-text-primary">
                             {u.displayName}
                             {isCurrentUser && (
-                              <span className="text-xs text-accent mr-2">(אתה)</span>
+                              <span className="text-xs text-accent mr-2">{t('you')}</span>
                             )}
                           </p>
                           <p className="text-sm text-text-secondary">{u.email}</p>
@@ -296,9 +293,9 @@ export default function AdminUsersPage() {
                           )}
                           style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                         >
-                          <option value="free">חינם</option>
-                          <option value="producer">מפיק</option>
-                          <option value="super_admin">מנהל-על</option>
+                          <option value="free">{t('roleFree')}</option>
+                          <option value="producer">{t('roleProducer')}</option>
+                          <option value="super_admin">{t('roleSuperAdmin')}</option>
                         </select>
                       )}
                     </td>
@@ -325,7 +322,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-text-secondary">
-                      {u.createdAt.toLocaleDateString('he-IL')}
+                      {u.createdAt.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US')}
                     </td>
                   </tr>
                 );
@@ -337,7 +334,7 @@ export default function AdminUsersPage() {
 
       {filteredUsers.length === 0 && (
         <div className="text-center py-12 text-text-secondary">
-          לא נמצאו משתמשים
+          {t('noUsersFound')}
         </div>
       )}
     </div>

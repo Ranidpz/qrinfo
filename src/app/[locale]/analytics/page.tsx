@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { RefreshCw, Loader2, BarChart3, Radio } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
 import CodeSelector from '@/components/analytics/CodeSelector';
 import DateRangePicker from '@/components/analytics/DateRangePicker';
@@ -40,6 +41,7 @@ const emptyLinkClickStats: LinkClickStats = {
 export default function AnalyticsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const t = useTranslations('analytics');
 
   // State
   const [codes, setCodes] = useState<QRCode[]>([]);
@@ -168,11 +170,11 @@ export default function AnalyticsPage() {
               <div className="p-2 rounded-xl bg-accent/10">
                 <BarChart3 className="w-6 h-6 text-accent" />
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-text-primary">אנליטיקס</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary">{t('title')}</h1>
               {selectedCodeIds.length > 0 && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-500">
                   <Radio className="w-3 h-3 animate-pulse" />
-                  <span className="text-xs font-medium">חי</span>
+                  <span className="text-xs font-medium">{t('live')}</span>
                 </div>
               )}
             </div>
@@ -182,7 +184,7 @@ export default function AnalyticsPage() {
               className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-bg-secondary border border-border hover:bg-bg-hover transition-colors disabled:opacity-50 w-full sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 ${loadingData ? 'animate-spin' : ''}`} />
-              <span>רענון</span>
+              <span>{t('refresh')}</span>
             </button>
           </div>
 
@@ -191,7 +193,7 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
-                  בחירת קודים
+                  {t('selectCodes')}
                 </label>
                 <CodeSelector
                   codes={codes}
@@ -203,7 +205,7 @@ export default function AnalyticsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
-                  טווח תאריכים
+                  {t('dateRange')}
                 </label>
                 <DateRangePicker
                   preset={datePreset}
@@ -221,10 +223,10 @@ export default function AnalyticsPage() {
             <div className="card p-12 text-center">
               <BarChart3 className="w-16 h-16 text-text-secondary mx-auto mb-4 opacity-50" />
               <h2 className="text-xl font-semibold text-text-primary mb-2">
-                בחר קודים לצפייה באנליטיקס
+                {t('selectCodesPrompt')}
               </h2>
               <p className="text-text-secondary">
-                בחר קוד אחד או יותר מהרשימה למעלה כדי לראות את הסטטיסטיקות
+                {t('selectCodesDescription')}
               </p>
             </div>
           ) : loadingData ? (

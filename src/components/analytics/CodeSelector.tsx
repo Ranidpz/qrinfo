@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, X, Search } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useTranslations } from 'next-intl';
 import { QRCode, User } from '@/types';
 
 interface CodeSelectorProps {
@@ -20,6 +21,7 @@ export default function CodeSelector({
   isSuperAdmin,
   allUsers = [],
 }: CodeSelectorProps) {
+  const t = useTranslations('analytics');
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -46,14 +48,14 @@ export default function CodeSelector({
   const groupedCodes = isSuperAdmin
     ? filteredCodes.reduce((acc, code) => {
         const owner = allUsers.find((u) => u.id === code.ownerId);
-        const ownerName = owner?.displayName || owner?.email || 'לא ידוע';
+        const ownerName = owner?.displayName || owner?.email || t('unknown');
         if (!acc[ownerName]) {
           acc[ownerName] = [];
         }
         acc[ownerName].push(code);
         return acc;
       }, {} as Record<string, QRCode[]>)
-    : { 'הקודים שלי': filteredCodes };
+    : { [t('myCodes')]: filteredCodes };
 
   const toggleCode = (codeId: string) => {
     if (selectedIds.includes(codeId)) {
@@ -86,10 +88,10 @@ export default function CodeSelector({
       >
         <span className="text-text-primary">
           {selectedCount === 0
-            ? 'בחר קודים לניתוח'
+            ? t('selectCodesForAnalysis')
             : selectedCount === 1
-            ? codes.find((c) => c.id === selectedIds[0])?.title || 'קוד נבחר'
-            : `${selectedCount} קודים נבחרו`}
+            ? codes.find((c) => c.id === selectedIds[0])?.title || t('codeSelected')
+            : t('codesSelected', { count: selectedCount })}
         </span>
         <ChevronDown
           className={clsx(
@@ -110,7 +112,7 @@ export default function CodeSelector({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="חפש קוד..."
+                placeholder={t('searchCode')}
                 className="w-full pr-10 pl-4 py-2 rounded-lg bg-bg-primary border border-border text-sm focus:outline-none focus:border-accent"
               />
             </div>
@@ -122,14 +124,14 @@ export default function CodeSelector({
               onClick={selectAll}
               className="text-xs text-accent hover:underline"
             >
-              בחר הכל
+              {t('selectAllCodes')}
             </button>
             <span className="text-text-secondary">|</span>
             <button
               onClick={clearAll}
               className="text-xs text-text-secondary hover:text-text-primary"
             >
-              נקה בחירה
+              {t('clearSelection')}
             </button>
           </div>
 
@@ -166,7 +168,7 @@ export default function CodeSelector({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-text-primary truncate">{code.title}</p>
                       <p className="text-xs text-text-secondary">
-                        {code.shortId} · {code.views} צפיות
+                        {code.shortId} · {code.views} {t('views')}
                       </p>
                     </div>
                   </button>
@@ -176,7 +178,7 @@ export default function CodeSelector({
 
             {filteredCodes.length === 0 && (
               <div className="p-4 text-center text-text-secondary text-sm">
-                לא נמצאו קודים
+                {t('noCodesFound')}
               </div>
             )}
           </div>

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.3.1';
+export const APP_VERSION = '1.3.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,24 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  {
+    version: '1.3.2',
+    date: '2025-12-07',
+    highlights: {
+      he: [
+        'ממשק מותאם לסלולר - תצוגה משופרת בעורך הקוד',
+        'דפים ציבוריים מתורגמים לפי שפת הדפדפן',
+        'תיקון תזמון מדיה לסלולר',
+        'תיקון תפריט עברית/אנגלית בנייד',
+      ],
+      en: [
+        'Mobile-optimized interface - improved code editor display',
+        'Public pages translated by browser language',
+        'Fixed media scheduling for mobile',
+        'Fixed language menu on mobile',
+      ],
+    },
+  },
   {
     version: '1.3.1',
     date: '2025-12-07',

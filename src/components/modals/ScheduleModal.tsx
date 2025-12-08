@@ -120,24 +120,24 @@ export default function ScheduleModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-bg-card border border-border rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+      <div className="relative bg-bg-card border border-border rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-text-primary">{t('schedule')}</h2>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-bold text-text-primary">{t('schedule')}</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-bg-secondary transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-bg-secondary transition-colors"
           >
             <X className="w-5 h-5 text-text-secondary" />
           </button>
         </div>
 
         {/* Enable toggle */}
-        <div className="flex items-center justify-between mb-6 p-4 bg-bg-secondary rounded-xl">
-          <span className="text-text-primary font-medium">{t('scheduleEnable')}</span>
+        <div className="flex items-center justify-between mb-4 sm:mb-6 p-3 sm:p-4 bg-bg-secondary rounded-xl">
+          <span className="text-sm sm:text-base text-text-primary font-medium">{t('scheduleEnable')}</span>
           <button
             onClick={() => setEnabled(!enabled)}
-            className={`relative w-12 h-6 rounded-full transition-colors ${
+            className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${
               enabled ? 'bg-accent' : 'bg-border'
             }`}
           >
@@ -150,87 +150,87 @@ export default function ScheduleModal({
         </div>
 
         {enabled && (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {/* Date range */}
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               <div className="flex items-center gap-2 text-text-secondary">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm font-medium">{t('scheduleDateRange')}</span>
+                <Calendar className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium">{t('scheduleDateRange')}</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
-                  <label className="block text-xs text-text-secondary mb-1">{t('scheduleFromDate')}</label>
+                  <label className="block text-[10px] sm:text-xs text-text-secondary mb-1">{t('scheduleFromDate')}</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => handleStartDateChange(e.target.value)}
                     min={getTodayDate()}
-                    className="input w-full text-sm"
+                    className="input w-full text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2"
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleToDate')}</label>
+                  <label className={`block text-[10px] sm:text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleToDate')}</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     min={startDate || getTodayDate()}
                     disabled={!startDate}
-                    className={`input w-full text-sm ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`input w-full text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2 ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
             </div>
 
             {/* Time range */}
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               <div className={`flex items-center gap-2 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>
-                <Clock className="w-4 h-4" />
-                <span className="text-sm font-medium">{t('scheduleTimeRange')}</span>
+                <Clock className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium">{t('scheduleTimeRange')}</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
-                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleFromTime')}</label>
+                  <label className={`block text-[10px] sm:text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleFromTime')}</label>
                   <input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
                     disabled={!startDate}
-                    className={`input w-full text-sm ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`input w-full text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2 ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
                 <div>
-                  <label className={`block text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleToTime')}</label>
+                  <label className={`block text-[10px] sm:text-xs mb-1 ${!startDate ? 'text-text-secondary/50' : 'text-text-secondary'}`}>{t('scheduleToTime')}</label>
                   <input
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
                     disabled={!startDate}
-                    className={`input w-full text-sm ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`input w-full text-xs sm:text-sm px-2 py-1.5 sm:px-3 sm:py-2 ${!startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
             </div>
 
-            <p className="text-xs text-text-secondary">
+            <p className="text-[10px] sm:text-xs text-text-secondary">
               {!startDate ? t('scheduleSelectStartDate') : t('scheduleMediaWillShow')}
             </p>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleClear}
-            className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex-1"
-          >
-            {t('scheduleClear')}
-          </button>
+        <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
           <button
             onClick={handleSave}
-            className="btn btn-primary flex-1"
+            className="btn btn-primary flex-1 text-sm sm:text-base py-2 sm:py-2.5"
           >
             {tCommon('save')}
+          </button>
+          <button
+            onClick={handleClear}
+            className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex-1 text-sm sm:text-base py-2 sm:py-2.5"
+          >
+            {t('scheduleClear')}
           </button>
         </div>
       </div>

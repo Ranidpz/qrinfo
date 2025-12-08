@@ -724,6 +724,14 @@ export async function deleteNotification(notificationId: string): Promise<void> 
   await deleteDoc(doc(db, 'notifications', notificationId));
 }
 
+// Update notification (admin only)
+export async function updateNotification(
+  notificationId: string,
+  updates: { title?: string; message?: string }
+): Promise<void> {
+  await updateDoc(doc(db, 'notifications', notificationId), updates);
+}
+
 // Create version update notifications (creates one for each locale if doesn't exist)
 // Uses localStorage to track which versions have been notified to avoid duplicates
 const VERSION_NOTIFIED_KEY = 'qr_version_notified';

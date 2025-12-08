@@ -236,10 +236,10 @@ export function formatHour(hour: number): string {
   return `${hour.toString().padStart(2, '0')}:00`;
 }
 
-// Format date for display (Hebrew locale)
-export function formatDate(dateStr: string): string {
+// Format date for display (locale-aware)
+export function formatDate(dateStr: string, locale: string = 'he-IL'): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 }
 
 // Device type labels in Hebrew

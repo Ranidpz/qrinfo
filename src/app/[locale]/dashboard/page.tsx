@@ -1078,13 +1078,13 @@ export default function DashboardPage() {
 
         {/* Search - takes remaining space */}
         <div className="relative flex-1 min-w-0 order-2 sm:order-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
           <input
             type="text"
             placeholder={tCommon('search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="input pl-10 w-full"
+            className="input ps-10 w-full"
             list="codes-autocomplete"
           />
           <datalist id="codes-autocomplete">

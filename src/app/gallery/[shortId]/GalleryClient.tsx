@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { UserGalleryImage, GallerySettings, GalleryDisplayMode } from '@/types';
 import { X, Trash2, Settings, Loader2, ImageIcon, Play, Shuffle } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
+import { getBrowserLocale, galleryTranslations } from '@/lib/publicTranslations';
 
 // Styled tooltip component that appears immediately on hover
 // position: 'below' (default) or 'above'
@@ -88,6 +89,14 @@ export default function GalleryClient({
   initialSettings,
   companyLogos = [],
 }: GalleryClientProps) {
+  // Get browser locale for translations
+  const [locale, setLocale] = useState<'he' | 'en'>('he');
+  const t = galleryTranslations[locale];
+
+  useEffect(() => {
+    setLocale(getBrowserLocale());
+  }, []);
+
   const { user } = useAuth();
   const isOwner = user?.id === ownerId;
 
@@ -495,7 +504,7 @@ export default function GalleryClient({
       const codeRef = doc(db, 'codes', codeId);
       const updatedGallery = images.map(img =>
         img.id === lightboxImage.id
-          ? { ...img, uploaderName: editingName || 'אנונימי' }
+          ? { ...img, uploaderName: editingName || t.anonymous }
           : img
       );
 
@@ -511,7 +520,7 @@ export default function GalleryClient({
       });
 
       // Update local state
-      setLightboxImage(prev => prev ? { ...prev, uploaderName: editingName || 'אנונימי' } : null);
+      setLightboxImage(prev => prev ? { ...prev, uploaderName: editingName || t.anonymous } : null);
     } catch (error) {
       console.error('Error saving name:', error);
     } finally {
@@ -884,7 +893,7 @@ export default function GalleryClient({
                       </div>
                     )}
                     {/* Name badge */}
-                    {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
+                    {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
                       <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full">
                         <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
                       </div>
@@ -946,7 +955,7 @@ export default function GalleryClient({
                 </div>
               )}
               {/* Name badge - always visible when enabled */}
-              {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
+              {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
                 <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
                   <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
                 </div>
@@ -967,8 +976,8 @@ export default function GalleryClient({
                 onClick={loadMoreImages}
                 className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors flex items-center gap-2"
               >
-                <span>טען עוד תמונות</span>
-                <span className="text-white/60">({images.length - paginationLimit} נותרו)</span>
+                <span>{t.loadMoreImages}</span>
+                <span className="text-white/60">({images.length - paginationLimit} {t.remaining})</span>
               </button>
             </div>
           )}
@@ -1029,7 +1038,7 @@ export default function GalleryClient({
                     </span>
                   </div>
                 )}
-                {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
+                {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
                   <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
                     <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
                   </div>
@@ -1074,7 +1083,7 @@ export default function GalleryClient({
                     </span>
                   </div>
                 )}
-                {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && (
+                {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
                   <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
                     <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
                   </div>
@@ -1123,7 +1132,7 @@ export default function GalleryClient({
               <div className="flex items-center justify-center flex-wrap gap-3">
                 {/* Display mode buttons */}
                 <div className="flex gap-1">
-                  <Tooltip text="תצוגה רגילה">
+                  <Tooltip text={t.staticView}>
                     <button
                       onClick={() => updateDisplayMode('static')}
                       className={`p-2 rounded-lg transition-colors ${
@@ -1135,7 +1144,7 @@ export default function GalleryClient({
                       <ImageIcon className="w-5 h-5" />
                     </button>
                   </Tooltip>
-                  <Tooltip text="גלילה אוטומטית">
+                  <Tooltip text={t.autoScroll}>
                     <button
                       onClick={() => updateDisplayMode('scroll')}
                       className={`p-2 rounded-lg transition-colors ${
@@ -1147,7 +1156,7 @@ export default function GalleryClient({
                       <Play className="w-5 h-5" />
                     </button>
                   </Tooltip>
-                  <Tooltip text="מצב רנדומלי">
+                  <Tooltip text={t.shuffleMode}>
                     <button
                       onClick={() => updateDisplayMode('shuffle')}
                       className={`p-2 rounded-lg transition-colors ${
@@ -1164,9 +1173,9 @@ export default function GalleryClient({
                 <div className="w-px h-5 bg-white/20" />
 
                 {/* Grid columns slider */}
-                <Tooltip text="מספר עמודות">
+                <Tooltip text={t.columnCount}>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">עמודות</span>
+                    <span className="text-sm text-white/60">{t.columns}</span>
                     <input
                       type="range"
                       min="2"
@@ -1183,7 +1192,7 @@ export default function GalleryClient({
 
                 {/* Toggles */}
                 <div className="flex items-center gap-3">
-                  <Tooltip text="הצג שמות על התמונות">
+                  <Tooltip text={t.showNamesOnImages}>
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={toggleShowNames}
@@ -1197,11 +1206,11 @@ export default function GalleryClient({
                           }`}
                         />
                       </button>
-                      <span className="text-sm text-white/60">שמות</span>
+                      <span className="text-sm text-white/60">{t.showNames}</span>
                     </div>
                   </Tooltip>
 
-                  <Tooltip text="אפקט תנועה קלה">
+                  <Tooltip text={t.subtleMotion}>
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={toggleFadeEffect}
@@ -1215,11 +1224,11 @@ export default function GalleryClient({
                           }`}
                         />
                       </button>
-                      <span className="text-sm text-white/60">תנועה</span>
+                      <span className="text-sm text-white/60">{t.movement}</span>
                     </div>
                   </Tooltip>
 
-                  <Tooltip text="הצג תג NEW על תמונות חדשות">
+                  <Tooltip text={t.showNewBadge}>
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={toggleShowNewBadge}
@@ -1242,9 +1251,9 @@ export default function GalleryClient({
               {/* Row 2: Display limit + Sliders + Image count + Delete */}
               <div className="flex items-center justify-center flex-wrap gap-3">
                 {/* Display limit buttons */}
-                <Tooltip text="כמות תמונות להצגה" position="above">
+                <Tooltip text={t.imageCount} position="above">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">אחרונות</span>
+                    <span className="text-sm text-white/60">{t.latest}</span>
                     <div className="flex gap-1">
                       {[0, 10, 20, 50, 100].map((limit) => (
                         <button
@@ -1256,7 +1265,7 @@ export default function GalleryClient({
                               : 'bg-white/10 text-white/60 hover:bg-white/20'
                           }`}
                         >
-                          {limit === 0 ? 'הכל' : limit}
+                          {limit === 0 ? t.all : limit}
                         </button>
                       ))}
                     </div>
@@ -1266,9 +1275,9 @@ export default function GalleryClient({
                 <div className="w-px h-5 bg-white/20" />
 
                 {/* Border radius slider */}
-                <Tooltip text="עיגול פינות התמונות" position="above">
+                <Tooltip text={t.cornerRadius} position="above">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">עיגול</span>
+                    <span className="text-sm text-white/60">{t.roundCorners}</span>
                     <input
                       type="range"
                       min="0"
@@ -1282,9 +1291,9 @@ export default function GalleryClient({
                 </Tooltip>
 
                 {/* Name size slider */}
-                <Tooltip text="גודל הטקסט של השמות" position="above">
+                <Tooltip text={t.nameTextSize} position="above">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">שמות</span>
+                    <span className="text-sm text-white/60">{t.names}</span>
                     <input
                       type="range"
                       min="10"
@@ -1302,10 +1311,10 @@ export default function GalleryClient({
                 {/* Image count + Delete button together */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-white/50">
-                    {images.length} תמונות
+                    {images.length} {t.images}
                   </span>
                   {isOwner && images.length > 0 && (
-                    <Tooltip text="מחק את כל התמונות" position="above">
+                    <Tooltip text={t.deleteAllImages} position="above">
                       <button
                         onClick={() => setShowDeleteAllConfirm(true)}
                         disabled={deletingAll}
@@ -1332,15 +1341,15 @@ export default function GalleryClient({
           <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-4">
             <ImageIcon className="w-10 h-10 text-white/40" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">הגלריה ריקה</h2>
+          <h2 className="text-xl font-semibold mb-2">{t.galleryEmpty}</h2>
           <p className="text-white/60">
-            עדיין אין תמונות בגלריה הזו
+            {t.noImagesYet}
           </p>
           <a
             href={`/v/${shortId}`}
             className="mt-4 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors"
           >
-            חזרה לדף
+            {t.backToPage}
           </a>
         </div>
       ) : (
@@ -1409,9 +1418,9 @@ export default function GalleryClient({
                     editInputRef.current?.blur();
                   }
                 }}
-                placeholder="הזן שם..."
+                placeholder={t.enterName}
                 className="bg-transparent text-white text-sm text-center outline-none min-w-[100px] placeholder:text-white/50"
-                dir="rtl"
+                dir={locale === 'he' ? 'rtl' : 'ltr'}
               />
             ) : (
               <p className="text-white text-sm">{lightboxImage.uploaderName}</p>
@@ -1435,11 +1444,11 @@ export default function GalleryClient({
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
                 <Trash2 className="w-8 h-8 text-red-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white">מחק את כל הגלריה?</h3>
+              <h3 className="text-lg font-semibold text-white">{t.deleteAllGallery}</h3>
               <p className="text-sm text-white/60 mt-2">
-                פעולה זו תמחק את כל {images.length} התמונות בגלריה.
+                {t.deleteAllWarning.replace('{count}', String(images.length))}
                 <br />
-                לא ניתן לבטל פעולה זו.
+                {t.cannotUndo}
               </p>
             </div>
 
@@ -1448,13 +1457,13 @@ export default function GalleryClient({
                 onClick={() => setShowDeleteAllConfirm(false)}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
               >
-                ביטול
+                {t.cancel}
               </button>
               <button
                 onClick={handleDeleteAllImages}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
               >
-                מחק הכל
+                {t.deleteAll}
               </button>
             </div>
           </div>
@@ -1465,7 +1474,7 @@ export default function GalleryClient({
       {showHint && isOwner && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-black/90 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg">
           <span className="text-sm text-white/80">
-            לחץ על <kbd className="px-2 py-0.5 bg-white/20 rounded text-white font-mono text-xs mx-1">Ctrl</kbd> להסתרת/הצגת התפריט
+            {t.ctrlHint.replace('{key}', '')} <kbd className="px-2 py-0.5 bg-white/20 rounded text-white font-mono text-xs mx-1">Ctrl</kbd>
           </span>
           <button
             onClick={() => setShowHint(false)}

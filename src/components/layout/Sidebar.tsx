@@ -9,7 +9,7 @@ import { clsx } from 'clsx';
 import { APP_VERSION, getLatestUpdate } from '@/lib/version';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { getNotifications, createNotification, deleteNotification, createVersionNotification } from '@/lib/db';
+import { getNotifications, createNotification, deleteNotification, updateNotification, createVersionNotification } from '@/lib/db';
 import { Notification } from '@/types';
 import { intlLocales, type Locale } from '@/i18n/config';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -85,6 +85,11 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
   const [newMessage, setNewMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Inline editing state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<'title' | 'message' | null>(null);
+  const [editValue, setEditValue] = useState('');
+
   // Load notifications on mount and create version notification if needed
   useEffect(() => {
     async function loadNotifications() {
@@ -132,6 +137,64 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
     }
   };
 
+  // Start inline editing
+  const startEditing = (notification: Notification, field: 'title' | 'message') => {
+    setEditingId(notification.id);
+    setEditingField(field);
+    setEditValue(field === 'title' ? notification.title : notification.message);
+  };
+
+  // Save inline edit
+  const saveEdit = async () => {
+    if (!editingId || !editingField) return;
+
+    const trimmedValue = editValue.trim();
+    if (!trimmedValue) {
+      cancelEdit();
+      return;
+    }
+
+    try {
+      await updateNotification(editingId, { [editingField]: trimmedValue });
+      setNotifications(notifications.map(n =>
+        n.id === editingId
+          ? { ...n, [editingField]: trimmedValue }
+          : n
+      ));
+    } catch (error) {
+      console.error('Error updating notification:', error);
+    } finally {
+      cancelEdit();
+    }
+  };
+
+  // Cancel inline edit
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  // Handle key press for inline editing
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && editingField === 'title') {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  };
+
+  // Handle key press for textarea (message)
+  const handleMessageKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  };
+
   // Format date for display based on locale
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat(intlLocales[locale], {
@@ -173,7 +236,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
       {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-border z-40 transition-transform duration-300 flex flex-col overflow-y-auto pb-safe',
+          'fixed top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-border z-40 transition-transform duration-300 flex flex-col',
           // Position: right for RTL, left for LTR
           isRTL ? 'right-0 border-l' : 'left-0 border-r',
           // Mobile: slide in/out
@@ -181,7 +244,6 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
           // Desktop: always visible
           'md:translate-x-0'
         )}
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         {/* Close button for mobile */}
         <button
@@ -195,35 +257,37 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
           <X className="w-5 h-5 text-text-secondary" />
         </button>
 
-        <nav className="p-4 pt-16 md:pt-4 flex-1">
-          <ul className="space-y-1">
-            {filteredItems.map((item) => {
-              const isActive = isPathActive(item.href);
-              const Icon = item.icon;
+        {/* Scrollable content wrapper */}
+        <div className="flex-1 overflow-y-auto">
+          <nav className="p-4 pt-16 md:pt-4">
+            <ul className="space-y-1">
+              {filteredItems.map((item) => {
+                const isActive = isPathActive(item.href);
+                const Icon = item.icon;
 
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={onClose}
-                    className={clsx(
-                      'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
-                      isActive
-                        ? 'bg-accent text-white'
-                        : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-                    )}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{t(item.labelKey)}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onClose}
+                      className={clsx(
+                        'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                        isActive
+                          ? 'bg-accent text-white'
+                          : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                      )}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{t(item.labelKey)}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
 
-        {/* User section & Footer */}
-        <div className="p-4 border-t border-border">
+          {/* User section & Footer */}
+          <div className="p-4 border-t border-border pb-8">
           {/* Action Buttons Row - Theme, Notifications, WhatsApp */}
           <div className="flex items-center justify-center gap-3 mb-4">
             {/* Theme Toggle Button */}
@@ -338,6 +402,7 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
               v{APP_VERSION}
             </p>
           </div>
+          </div>
         </div>
       </aside>
 
@@ -419,8 +484,52 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-text-primary">{notification.title}</h3>
-                      <p className="text-sm text-text-secondary mt-1 whitespace-pre-wrap">{notification.message}</p>
+                      {/* Editable Title */}
+                      {editingId === notification.id && editingField === 'title' ? (
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={handleEditKeyDown}
+                          onBlur={saveEdit}
+                          autoFocus
+                          className="w-full font-medium text-text-primary bg-bg-primary border border-accent rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-accent"
+                        />
+                      ) : (
+                        <h3
+                          className={clsx(
+                            "font-medium text-text-primary",
+                            userRole === 'super_admin' && "cursor-pointer hover:bg-bg-hover rounded px-1 -mx-1 transition-colors"
+                          )}
+                          onClick={() => userRole === 'super_admin' && startEditing(notification, 'title')}
+                        >
+                          {notification.title}
+                        </h3>
+                      )}
+
+                      {/* Editable Message */}
+                      {editingId === notification.id && editingField === 'message' ? (
+                        <textarea
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={handleMessageKeyDown}
+                          onBlur={saveEdit}
+                          autoFocus
+                          rows={3}
+                          className="w-full text-sm text-text-secondary bg-bg-primary border border-accent rounded px-2 py-1 mt-1 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                        />
+                      ) : (
+                        <p
+                          className={clsx(
+                            "text-sm text-text-secondary mt-1 whitespace-pre-wrap",
+                            userRole === 'super_admin' && "cursor-pointer hover:bg-bg-hover rounded px-1 -mx-1 transition-colors"
+                          )}
+                          onClick={() => userRole === 'super_admin' && startEditing(notification, 'message')}
+                        >
+                          {notification.message}
+                        </p>
+                      )}
+
                       <p className="text-xs text-text-secondary/60 mt-2">
                         {formatDate(notification.createdAt)}
                       </p>
