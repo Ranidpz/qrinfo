@@ -35,6 +35,8 @@ export interface UserGalleryImage {
   url: string;
   uploaderName: string; // Name or "אנונימי"
   uploadedAt: Date;
+  // Gamification fields (optional for backwards compatibility)
+  visitorId?: string;  // Link to visitor document
 }
 
 // Gallery display mode
@@ -122,12 +124,21 @@ export interface QRCode {
   updatedAt: Date;
 }
 
+// Route configuration for gamification (folders can become routes)
+export interface RouteConfig {
+  isRoute: boolean;           // Is this folder a route?
+  routeTitle?: string;        // Display title for route
+  bonusThreshold?: number;    // Stations to complete for bonus (0 = all)
+  bonusXP?: number;           // XP bonus for completion
+}
+
 // Folder document
 export interface Folder {
   id: string;
   name: string;
   ownerId: string;
   color?: string; // Optional color for folder icon
+  routeConfig?: RouteConfig; // Optional route configuration for gamification
   createdAt: Date;
   updatedAt: Date;
 }
@@ -242,4 +253,65 @@ export interface Notification {
   createdBy: string; // Admin user ID
   locale: NotificationLocale; // Which locale to show this notification to ('all' for both)
   createdAt: Date;
+}
+
+// ============ GAMIFICATION / XP SYSTEM ============
+
+// XP Level definition
+export interface XPLevel {
+  name: string;      // Level name (Hebrew)
+  nameEn: string;    // Level name (English)
+  emoji: string;     // Badge emoji
+  minXP: number;     // Minimum XP for this level
+  maxXP: number;     // Maximum XP (exclusive, use Infinity for top level)
+}
+
+// XP Levels configuration
+export const XP_LEVELS: XPLevel[] = [
+  { name: 'מתחילים', nameEn: 'Beginner', emoji: '🌱', minXP: 0, maxXP: 50 },
+  { name: 'חוקרים', nameEn: 'Explorer', emoji: '🔍', minXP: 50, maxXP: 150 },
+  { name: 'מומחים', nameEn: 'Expert', emoji: '⭐', minXP: 150, maxXP: 300 },
+  { name: 'אלופים', nameEn: 'Champion', emoji: '👑', minXP: 300, maxXP: Infinity },
+];
+
+// XP action values
+export const XP_VALUES = {
+  SCAN_STATION: 10,      // First scan of a station in a route
+  UPLOAD_PHOTO: 25,      // Upload photo to any code
+  ROUTE_BONUS_BASE: 50,  // Default bonus for completing route
+} as const;
+
+// Visitor/Player document (stored in 'visitors' collection)
+export interface Visitor {
+  id: string;              // UUID from localStorage
+  nickname: string;        // Display name (2-20 chars)
+  consent: boolean;        // Has consented to photo publishing
+  consentTimestamp?: Date; // When consent was given
+  totalXP: number;         // Total accumulated XP across all routes
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Visitor progress per route (stored in 'visitorProgress' collection)
+// Document ID = `${visitorId}_${routeId}`
+export interface VisitorProgress {
+  id: string;                 // Document ID
+  visitorId: string;          // Reference to visitor
+  routeId: string;            // Folder ID (route)
+  xp: number;                 // XP earned in this route
+  visitedStations: string[];  // Array of codeIds visited
+  photosUploaded: number;     // Count of photos uploaded in route
+  bonusAwarded: boolean;      // Has received completion bonus
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Leaderboard entry (computed, not stored)
+export interface LeaderboardEntry {
+  rank: number;
+  visitorId: string;
+  nickname: string;
+  xp: number;
+  level: XPLevel;
+  photosUploaded: number;
 }

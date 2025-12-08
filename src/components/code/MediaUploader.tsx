@@ -118,21 +118,28 @@ export default function MediaUploader({
   const TabButton = ({
     tab,
     label,
-    icon: Icon
+    icon: Icon,
+    badge
   }: {
     tab: typeof activeTab;
     label: string;
     icon: React.ElementType;
+    badge?: string;
   }) => (
     <button
       onClick={() => setActiveTab(tab)}
       className={clsx(
-        'flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-lg text-xs font-medium transition-all border',
+        'relative flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-lg text-xs font-medium transition-all border',
         activeTab === tab
           ? 'bg-accent text-white border-accent shadow-md'
           : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50 hover:text-accent'
       )}
     >
+      {badge && (
+        <span className="absolute -top-1.5 -right-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-sm whitespace-nowrap">
+          {badge}
+        </span>
+      )}
       <Icon className="w-4 h-4" />
       <span className="truncate">{label}</span>
     </button>
@@ -145,7 +152,7 @@ export default function MediaUploader({
         <div className="grid grid-cols-3 gap-2">
           <TabButton tab="upload" label={tMedia('image')} icon={Upload} />
           {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} />}
-          {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} />}
+          {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} badge="XP" />}
           {onWordCloudCreate && <TabButton tab="wordcloud" label={tMedia('wordcloud')} icon={Cloud} />}
           {onSelfiebeamCreate && <TabButton tab="selfiebeam" label={tMedia('selfiebeam')} icon={Camera} />}
           <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} />

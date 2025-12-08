@@ -13,17 +13,18 @@ import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
 import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
-import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent } from '@/types';
+import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
 import { clsx } from 'clsx';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, refreshUser, signInWithGoogle } = useAuth();
+  const locale = useLocale() as 'he' | 'en';
   const t = useTranslations('dashboard');
   const tCommon = useTranslations('common');
   const tAuth = useTranslations('auth');
@@ -530,6 +531,13 @@ export default function DashboardPage() {
       console.error('Error renaming folder:', error);
       alert(tErrors('renameExperienceError'));
     }
+  };
+
+  const handleRouteConfigUpdate = (folderId: string, routeConfig: RouteConfig) => {
+    // Update local state immediately (DB is already updated by the modal)
+    setFolders((prev) =>
+      prev.map((f) => (f.id === folderId ? { ...f, routeConfig } : f))
+    );
   };
 
   const handleDeleteFolder = (folder: Folder) => {
@@ -1120,6 +1128,8 @@ export default function DashboardPage() {
                 onOpen={() => setCurrentFolderId(folder.id)}
                 onDelete={() => handleDeleteFolder(folder)}
                 onRename={(newName) => handleRenameFolder(folder.id, newName)}
+                onRouteConfigUpdate={handleRouteConfigUpdate}
+                locale={locale}
                 onDrop={() => {
                   if (draggingCodeId) {
                     handleMoveCodeToFolder(draggingCodeId, folder.id);

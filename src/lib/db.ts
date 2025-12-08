@@ -15,7 +15,20 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { QRCode, MediaItem, User, Folder, Notification, NotificationLocale } from '@/types';
+import {
+  QRCode,
+  MediaItem,
+  User,
+  Folder,
+  Notification,
+  NotificationLocale,
+  Visitor,
+  VisitorProgress,
+  RouteConfig,
+  XP_VALUES,
+  LeaderboardEntry,
+} from '@/types';
+import { getLevelForXP } from './xp';
 
 // Generate a unique short ID for QR codes
 export function generateShortId(length: number = 6): string {
@@ -593,6 +606,7 @@ export async function getUserFolders(userId: string): Promise<Folder[]> {
       name: data.name,
       ownerId: data.ownerId,
       color: data.color,
+      routeConfig: data.routeConfig,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
@@ -615,6 +629,7 @@ export async function getAllFolders(): Promise<Folder[]> {
       name: data.name,
       ownerId: data.ownerId,
       color: data.color,
+      routeConfig: data.routeConfig,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
@@ -794,4 +809,350 @@ export async function createVersionNotification(
     };
     await addDoc(collection(db, 'notifications'), enNotificationData);
   }
+}
+
+// ============ GAMIFICATION / XP SYSTEM ============
+
+// Get visitor by ID
+export async function getVisitor(visitorId: string): Promise<Visitor | null> {
+  const docSnap = await getDoc(doc(db, 'visitors', visitorId));
+
+  if (!docSnap.exists()) return null;
+
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    nickname: data.nickname,
+    consent: data.consent || false,
+    consentTimestamp: data.consentTimestamp?.toDate(),
+    totalXP: data.totalXP || 0,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+  };
+}
+
+// Create or get visitor (upsert)
+export async function getOrCreateVisitor(
+  visitorId: string,
+  nickname?: string
+): Promise<Visitor> {
+  const existing = await getVisitor(visitorId);
+  if (existing) return existing;
+
+  // Create new visitor
+  const visitorData = {
+    id: visitorId,
+    nickname: nickname || '',
+    consent: false,
+    totalXP: 0,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await updateDoc(doc(db, 'visitors', visitorId), visitorData).catch(async () => {
+    // Document doesn't exist, create it with setDoc
+    const { setDoc } = await import('firebase/firestore');
+    await setDoc(doc(db, 'visitors', visitorId), visitorData);
+  });
+
+  return {
+    id: visitorId,
+    nickname: nickname || '',
+    consent: false,
+    totalXP: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+// Update visitor profile
+export async function updateVisitor(
+  visitorId: string,
+  updates: Partial<Pick<Visitor, 'nickname' | 'consent'>>
+): Promise<void> {
+  const updateData: Record<string, unknown> = {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  };
+
+  // Add consent timestamp if consent is being set to true
+  if (updates.consent === true) {
+    updateData.consentTimestamp = serverTimestamp();
+  }
+
+  await updateDoc(doc(db, 'visitors', visitorId), updateData);
+}
+
+// Get visitor progress for a specific route
+export async function getVisitorProgress(
+  visitorId: string,
+  routeId: string
+): Promise<VisitorProgress | null> {
+  const progressId = `${visitorId}_${routeId}`;
+  const docSnap = await getDoc(doc(db, 'visitorProgress', progressId));
+
+  if (!docSnap.exists()) return null;
+
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    visitorId: data.visitorId,
+    routeId: data.routeId,
+    xp: data.xp || 0,
+    visitedStations: data.visitedStations || [],
+    photosUploaded: data.photosUploaded || 0,
+    bonusAwarded: data.bonusAwarded || false,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+  };
+}
+
+// Create or update visitor progress
+export async function updateVisitorProgress(
+  visitorId: string,
+  routeId: string,
+  updates: Partial<Pick<VisitorProgress, 'xp' | 'visitedStations' | 'photosUploaded' | 'bonusAwarded'>>
+): Promise<void> {
+  const progressId = `${visitorId}_${routeId}`;
+  const docRef = doc(db, 'visitorProgress', progressId);
+  const existing = await getDoc(docRef);
+
+  if (existing.exists()) {
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    });
+  } else {
+    // Create new progress document
+    const { setDoc } = await import('firebase/firestore');
+    await setDoc(docRef, {
+      id: progressId,
+      visitorId,
+      routeId,
+      xp: updates.xp || 0,
+      visitedStations: updates.visitedStations || [],
+      photosUploaded: updates.photosUploaded || 0,
+      bonusAwarded: updates.bonusAwarded || false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+}
+
+// Record station scan (adds XP if first visit)
+export async function recordStationScan(
+  visitorId: string,
+  routeId: string,
+  codeId: string
+): Promise<{ xpEarned: number; isFirstVisit: boolean; totalXP: number }> {
+  const progress = await getVisitorProgress(visitorId, routeId);
+
+  const visitedStations = progress?.visitedStations || [];
+  const isFirstVisit = !visitedStations.includes(codeId);
+
+  if (!isFirstVisit) {
+    return {
+      xpEarned: 0,
+      isFirstVisit: false,
+      totalXP: progress?.xp || 0,
+    };
+  }
+
+  // First visit - add XP
+  const xpEarned = XP_VALUES.SCAN_STATION;
+  const newXP = (progress?.xp || 0) + xpEarned;
+  const newVisitedStations = [...visitedStations, codeId];
+
+  await updateVisitorProgress(visitorId, routeId, {
+    xp: newXP,
+    visitedStations: newVisitedStations,
+  });
+
+  // Update visitor's total XP
+  await updateDoc(doc(db, 'visitors', visitorId), {
+    totalXP: increment(xpEarned),
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    xpEarned,
+    isFirstVisit: true,
+    totalXP: newXP,
+  };
+}
+
+// Record photo upload (adds XP)
+export async function recordPhotoUpload(
+  visitorId: string,
+  routeId: string
+): Promise<{ xpEarned: number; totalXP: number }> {
+  const progress = await getVisitorProgress(visitorId, routeId);
+
+  const xpEarned = XP_VALUES.UPLOAD_PHOTO;
+  const newXP = (progress?.xp || 0) + xpEarned;
+  const newPhotosUploaded = (progress?.photosUploaded || 0) + 1;
+
+  await updateVisitorProgress(visitorId, routeId, {
+    xp: newXP,
+    photosUploaded: newPhotosUploaded,
+  });
+
+  // Update visitor's total XP
+  await updateDoc(doc(db, 'visitors', visitorId), {
+    totalXP: increment(xpEarned),
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    xpEarned,
+    totalXP: newXP,
+  };
+}
+
+// Check and award route completion bonus
+export async function checkAndAwardRouteBonus(
+  visitorId: string,
+  routeId: string,
+  routeConfig: RouteConfig,
+  totalStations: number
+): Promise<{ bonusAwarded: boolean; bonusXP: number }> {
+  const progress = await getVisitorProgress(visitorId, routeId);
+
+  if (!progress || progress.bonusAwarded) {
+    return { bonusAwarded: false, bonusXP: 0 };
+  }
+
+  // Check if threshold is met
+  const threshold = routeConfig.bonusThreshold === 0
+    ? totalStations
+    : (routeConfig.bonusThreshold || totalStations);
+
+  if (progress.visitedStations.length < threshold) {
+    return { bonusAwarded: false, bonusXP: 0 };
+  }
+
+  // Award bonus
+  const bonusXP = routeConfig.bonusXP || XP_VALUES.ROUTE_BONUS_BASE;
+  const newXP = progress.xp + bonusXP;
+
+  await updateVisitorProgress(visitorId, routeId, {
+    xp: newXP,
+    bonusAwarded: true,
+  });
+
+  // Update visitor's total XP
+  await updateDoc(doc(db, 'visitors', visitorId), {
+    totalXP: increment(bonusXP),
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    bonusAwarded: true,
+    bonusXP,
+  };
+}
+
+// Get all codes in a route (folder with isRoute=true)
+export async function getRouteCodes(routeId: string): Promise<QRCode[]> {
+  const q = query(
+    collection(db, 'codes'),
+    where('folderId', '==', routeId)
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      shortId: data.shortId,
+      ownerId: data.ownerId,
+      collaborators: data.collaborators || [],
+      title: data.title,
+      media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
+        ...m,
+        id: m.id || `media_${Date.now()}_${index}`,
+        createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+      })),
+      widgets: data.widgets || {},
+      views: data.views || 0,
+      isActive: data.isActive ?? true,
+      folderId: data.folderId,
+      userGallery: (data.userGallery || []).map((img: Record<string, unknown>) => ({
+        ...img,
+        uploadedAt: (img.uploadedAt as Timestamp)?.toDate() || new Date(),
+      })),
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    };
+  });
+}
+
+// Get route leaderboard (top N visitors by XP)
+export async function getRouteLeaderboard(
+  routeId: string,
+  limit: number = 10
+): Promise<LeaderboardEntry[]> {
+  const { limit: firestoreLimit } = await import('firebase/firestore');
+
+  const q = query(
+    collection(db, 'visitorProgress'),
+    where('routeId', '==', routeId),
+    orderBy('xp', 'desc'),
+    firestoreLimit(limit)
+  );
+
+  const snapshot = await getDocs(q);
+
+  // Get visitor details for each progress entry
+  const entries: LeaderboardEntry[] = [];
+  let rank = 1;
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    const visitor = await getVisitor(data.visitorId);
+
+    if (visitor && visitor.nickname) {
+      entries.push({
+        rank,
+        visitorId: data.visitorId,
+        nickname: visitor.nickname,
+        xp: data.xp || 0,
+        level: getLevelForXP(data.xp || 0),
+        photosUploaded: data.photosUploaded || 0,
+      });
+      rank++;
+    }
+  }
+
+  return entries;
+}
+
+// Update folder route configuration
+export async function updateFolderRouteConfig(
+  folderId: string,
+  routeConfig: RouteConfig
+): Promise<void> {
+  await updateDoc(doc(db, 'folders', folderId), {
+    routeConfig,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Get folder by ID (including route config)
+export async function getFolder(folderId: string): Promise<Folder | null> {
+  const docSnap = await getDoc(doc(db, 'folders', folderId));
+
+  if (!docSnap.exists()) return null;
+
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    name: data.name,
+    ownerId: data.ownerId,
+    color: data.color,
+    routeConfig: data.routeConfig,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+  };
 }

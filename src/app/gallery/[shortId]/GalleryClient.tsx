@@ -1108,20 +1108,24 @@ export default function GalleryClient({
           <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <h1 className="text-lg font-semibold">{title}</h1>
 
-            <div className="flex items-center gap-2">
-              {savingSettings && (
-                <Loader2 className="w-4 h-4 animate-spin text-white/40" />
-              )}
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-            </div>
+            {/* Settings button - only for owner */}
+            {isOwner && (
+              <div className="flex items-center gap-2">
+                {savingSettings && (
+                  <Loader2 className="w-4 h-4 animate-spin text-white/40" />
+                )}
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Settings Panel with smooth animation */}
+          {/* Settings Panel with smooth animation - only for owner */}
+          {isOwner && (
           <div
             className={`overflow-hidden transition-all duration-300 ease-out ${
               showSettings ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
@@ -1332,6 +1336,7 @@ export default function GalleryClient({
               </div>
             </div>
           </div>
+          )}
         </div>
       )}
 

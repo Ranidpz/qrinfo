@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2 } from 'lucide-react';
+import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -236,12 +236,19 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
       {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed top-16 h-[calc(100vh-4rem)] w-64 bg-bg-secondary border-border z-40 transition-transform duration-300 flex flex-col',
+          'fixed w-64 bg-bg-secondary border-border z-50 transition-transform duration-300 flex flex-col',
+          // Always below header
+          'top-16 h-[calc(100vh-4rem)]',
           // Position: right for RTL, left for LTR
           isRTL ? 'right-0 border-l' : 'left-0 border-r',
-          // Mobile: slide in/out
-          isOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full'),
-          // Desktop: always visible
+          // Mobile: slide in/out - use visibility to fully hide when closed
+          isOpen
+            ? 'translate-x-0 visible'
+            : clsx(
+                isRTL ? 'translate-x-full' : '-translate-x-full',
+                'invisible md:visible'
+              ),
+          // Desktop: always visible and in place
           'md:translate-x-0'
         )}
       >

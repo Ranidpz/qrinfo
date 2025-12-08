@@ -1,19 +1,23 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { RiddleContent, UserGalleryImage } from '@/types';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { RiddleContent, UserGalleryImage, Visitor} from '@/types';
 import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2 } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
 import { queuedUpload } from '@/lib/uploadQueue';
 import { getBrowserLocale, uploadTranslations } from '@/lib/publicTranslations';
+import { getVisitorId } from '@/lib/xp';
+import { getVisitor, recordPhotoUpload, recordStationScan, getFolder } from '@/lib/db';
+import { RegistrationConsentModal, XPPopup, useXPPopup } from '@/components/gamification';
 
 interface RiddleViewerProps {
   content: RiddleContent;
   codeId?: string;
   shortId?: string;
   ownerId?: string;
+  folderId?: string; // For route/XP tracking
 }
 
 // Format text with WhatsApp-style formatting (with XSS protection)
@@ -68,7 +72,7 @@ async function compressImage(file: File): Promise<Blob> {
   });
 }
 
-export default function RiddleViewer({ content, codeId, shortId, ownerId }: RiddleViewerProps) {
+export default function RiddleViewer({ content, codeId, shortId, ownerId, folderId }: RiddleViewerProps) {
   // Get browser locale for translations
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = uploadTranslations[locale];
@@ -88,6 +92,13 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Gamification state
+  const [currentVisitor, setCurrentVisitor] = useState<Visitor | null>(null);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [isRoute, setIsRoute] = useState(false);
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const { popups, showPopup, removePopup } = useXPPopup();
+
   // My uploaded images state (stored in sessionStorage by image ID)
   const [myUploadedImages, setMyUploadedImages] = useState<UserGalleryImage[]>([]);
   const [allGalleryImages, setAllGalleryImages] = useState<UserGalleryImage[]>([]);
@@ -96,6 +107,40 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
 
   // Max images per user
   const MAX_USER_IMAGES = 3;
+
+  // Load visitor data and check route status on mount
+  useEffect(() => {
+    const loadVisitorAndRoute = async () => {
+      // Check for existing visitor
+      const visitorId = getVisitorId();
+      if (visitorId) {
+        const visitor = await getVisitor(visitorId);
+        if (visitor) {
+          setCurrentVisitor(visitor);
+        }
+      }
+
+      // Check if this code is part of a route
+      if (folderId) {
+        const folder = await getFolder(folderId);
+        if (folder?.routeConfig?.isRoute) {
+          setIsRoute(true);
+          // Record station scan for XP (if visitor exists and this is first visit)
+          if (visitorId && codeId) {
+            const result = await recordStationScan(visitorId, folderId, codeId);
+            if (result.xpEarned > 0) {
+              showPopup(result.xpEarned);
+              // Refresh visitor data
+              const updatedVisitor = await getVisitor(visitorId);
+              if (updatedVisitor) setCurrentVisitor(updatedVisitor);
+            }
+          }
+        }
+      }
+    };
+
+    loadVisitorAndRoute();
+  }, [folderId, codeId, showPopup]);
 
   // Load my uploaded image IDs from sessionStorage on mount
   useEffect(() => {
@@ -256,14 +301,41 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
 
     setSelectedFile(file);
 
+    // Check if visitor needs to register (for XP tracking)
+    if (!currentVisitor && isRoute) {
+      // Store the file and show registration modal
+      setPendingUploadFile(file);
+      setShowRegistrationModal(true);
+      return;
+    }
+
     // If anonymous is allowed, show name modal
     // Otherwise go straight to upload with empty name (will show as "אנונימי")
     if (!content.allowAnonymous) {
       setShowNameModal(true);
     } else {
-      handleUpload(file, '');
+      handleUpload(file, currentVisitor?.nickname || '');
     }
   };
+
+  // Handle registration completion
+  const handleRegistrationComplete = useCallback((visitor: Visitor) => {
+    setCurrentVisitor(visitor);
+    setShowRegistrationModal(false);
+
+    // If there's a pending upload, continue with it
+    if (pendingUploadFile) {
+      setSelectedFile(pendingUploadFile);
+      setPendingUploadFile(null);
+      // Continue to name modal or direct upload
+      if (!content.allowAnonymous) {
+        setShowNameModal(true);
+        setUploaderName(visitor.nickname);
+      } else {
+        handleUpload(pendingUploadFile, visitor.nickname);
+      }
+    }
+  }, [pendingUploadFile, content.allowAnonymous]);
 
   // Handle gallery upload
   const handleUpload = async (file: File, name: string) => {
@@ -283,6 +355,9 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
       formData.append('codeId', codeId);
       formData.append('ownerId', ownerId);
       formData.append('uploaderName', name || t.anonymous);
+      if (currentVisitor?.id) {
+        formData.append('visitorId', currentVisitor.id);
+      }
 
       // Upload to Vercel Blob using queue (handles retries automatically)
       const data = await queuedUpload(formData, '/api/gallery') as {
@@ -325,8 +400,20 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
         url: data.image.url,
         uploaderName: data.image.uploaderName,
         uploadedAt: new Date(),
+        visitorId: currentVisitor?.id,
       };
       setMyUploadedImages(prev => [...prev, newImage]);
+
+      // Record XP for photo upload (if visitor is registered and this is a route)
+      if (currentVisitor && folderId && isRoute) {
+        const result = await recordPhotoUpload(currentVisitor.id, folderId);
+        if (result.xpEarned > 0) {
+          showPopup(result.xpEarned);
+          // Refresh visitor data
+          const updatedVisitor = await getVisitor(currentVisitor.id);
+          if (updatedVisitor) setCurrentVisitor(updatedVisitor);
+        }
+      }
 
       setUploadStatus('success');
 
@@ -624,6 +711,29 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId }: Ridd
           </div>
         </div>
       )}
+
+      {/* Registration/Consent Modal for XP tracking */}
+      <RegistrationConsentModal
+        isOpen={showRegistrationModal}
+        onClose={() => {
+          setShowRegistrationModal(false);
+          setPendingUploadFile(null);
+          setSelectedFile(null);
+        }}
+        onComplete={handleRegistrationComplete}
+        locale={locale}
+        requireConsent={true}
+      />
+
+      {/* XP Popups */}
+      {popups.map((popup) => (
+        <XPPopup
+          key={popup.id}
+          xp={popup.xp}
+          locale={locale}
+          onComplete={() => removePopup(popup.id)}
+        />
+      ))}
     </div>
   );
 }

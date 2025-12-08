@@ -142,5 +142,111 @@ export const uploadTranslations = {
   },
 };
 
+// Gamification / XP system translations (gender-neutral Hebrew - plural form)
+export const gamificationTranslations = {
+  he: {
+    // Registration
+    enterNickname: 'בחרו כינוי',
+    nickname: 'כינוי',
+    nicknamePlaceholder: 'השם שיוצג בלידרבורד',
+    nicknameRequired: 'הכינוי הוא שדה חובה',
+    nicknameTooShort: 'הכינוי קצר מדי (מינימום 2 תווים)',
+    nicknameTooLong: 'הכינוי ארוך מדי (מקסימום 20 תווים)',
+
+    // Consent
+    consentTitle: 'הצטרפו למשחק!',
+    consentText: 'בהשתתפות במשחק והעלאת תמונות, הנכם מאשרים את הצגת התמונות על מסכי המתחם ובערוצי המדיה של המפעיל.',
+    agreeAndJoin: 'מסכימים ומצטרפים',
+    mustAgree: 'יש לאשר את התנאים כדי להמשיך',
+
+    // XP
+    yourXP: 'הנקודות שלכם',
+    xpEarned: 'קיבלתם',
+    totalXP: 'סה"כ נקודות',
+
+    // Levels (plural - gender neutral)
+    levelBeginner: 'מתחילים',
+    levelExplorer: 'חוקרים',
+    levelExpert: 'מומחים',
+    levelChampion: 'אלופים',
+
+    // Leaderboard
+    leaderboard: 'טבלת מובילים',
+    yourRank: 'המיקום שלכם',
+    noPlayers: 'עדיין אין משתתפים',
+    rank: 'מיקום',
+    player: 'שחקן',
+    points: 'נקודות',
+
+    // Route/Progress
+    stationsVisited: 'תחנות שביקרתם',
+    routeComplete: 'השלמתם את המסלול!',
+    bonusUnlocked: 'בונוס נפתח!',
+    progress: 'התקדמות',
+    outOf: 'מתוך',
+
+    // Actions
+    editNickname: 'ערכו את הכינוי',
+    saveChanges: 'שמרו שינויים',
+
+    // XP hints
+    firstScan: 'סריקה ראשונה!',
+    photoUploaded: 'תמונה הועלתה!',
+    xpToNextLevel: 'עוד {xp} XP לרמה הבאה',
+    maxLevelReached: 'הגעתם לרמה הגבוהה ביותר!',
+  },
+  en: {
+    // Registration
+    enterNickname: 'Choose a nickname',
+    nickname: 'Nickname',
+    nicknamePlaceholder: 'Your name on the leaderboard',
+    nicknameRequired: 'Nickname is required',
+    nicknameTooShort: 'Nickname too short (minimum 2 characters)',
+    nicknameTooLong: 'Nickname too long (maximum 20 characters)',
+
+    // Consent
+    consentTitle: 'Join the game!',
+    consentText: 'By participating and uploading photos, you agree to display them on venue screens and operator media channels.',
+    agreeAndJoin: 'Agree & Join',
+    mustAgree: 'You must agree to the terms to continue',
+
+    // XP
+    yourXP: 'Your XP',
+    xpEarned: 'You earned',
+    totalXP: 'Total XP',
+
+    // Levels
+    levelBeginner: 'Beginner',
+    levelExplorer: 'Explorer',
+    levelExpert: 'Expert',
+    levelChampion: 'Champion',
+
+    // Leaderboard
+    leaderboard: 'Leaderboard',
+    yourRank: 'Your rank',
+    noPlayers: 'No players yet',
+    rank: 'Rank',
+    player: 'Player',
+    points: 'Points',
+
+    // Route/Progress
+    stationsVisited: 'Stations visited',
+    routeComplete: 'Route complete!',
+    bonusUnlocked: 'Bonus unlocked!',
+    progress: 'Progress',
+    outOf: 'out of',
+
+    // Actions
+    editNickname: 'Edit nickname',
+    saveChanges: 'Save changes',
+
+    // XP hints
+    firstScan: 'First scan!',
+    photoUploaded: 'Photo uploaded!',
+    xpToNextLevel: '{xp} XP to next level',
+    maxLevelReached: 'Max level reached!',
+  },
+};
+
 // Hook for using translations in components (deprecated - use direct access instead)
 // Components should use: const t = translations[locale] where locale comes from getBrowserLocale()

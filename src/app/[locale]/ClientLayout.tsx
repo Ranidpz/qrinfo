@@ -24,7 +24,7 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
   }, [locale, direction]);
 
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-bg-primary overflow-x-hidden">
       <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} direction={direction} />
       <Sidebar
         isOpen={sidebarOpen}
@@ -36,7 +36,8 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
         direction={direction}
       />
       <main className={clsx(
-        "pt-16 min-h-screen",
+        "min-h-screen pt-16",
+        // Desktop: margin for sidebar
         isRTL ? "md:mr-64" : "md:ml-64"
       )}>
         <div className="p-4 sm:p-6">{children}</div>

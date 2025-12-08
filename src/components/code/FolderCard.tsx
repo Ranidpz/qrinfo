@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Folder as FolderIcon, Trash2, Edit2, Check, X } from 'lucide-react';
+import { Folder as FolderIcon, Trash2, Edit2, Settings, Route } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Folder } from '@/types';
+import { Folder, RouteConfig } from '@/types';
+import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
 
 interface FolderCardProps {
   folder: Folder;
@@ -11,9 +12,11 @@ interface FolderCardProps {
   isOpen?: boolean;
   isDragOver?: boolean;
   ownerName?: string;
+  locale?: 'he' | 'en';
   onOpen: () => void;
   onDelete?: () => void;
   onRename?: (newName: string) => void;
+  onRouteConfigUpdate?: (folderId: string, config: RouteConfig) => void;
   onDrop?: () => void;
   onDragOver?: (e: React.DragEvent) => void;
   onDragLeave?: () => void;
@@ -25,15 +28,18 @@ export default function FolderCard({
   isOpen = false,
   isDragOver = false,
   ownerName,
+  locale = 'he',
   onOpen,
   onDelete,
   onRename,
+  onRouteConfigUpdate,
   onDrop,
   onDragOver,
   onDragLeave,
 }: FolderCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(folder.name);
+  const [showRouteSettings, setShowRouteSettings] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -132,8 +138,32 @@ export default function FolderCard({
         )}
       </div>
 
+      {/* Route indicator */}
+      {folder.routeConfig?.isRoute && (
+        <div className="absolute top-2 right-2">
+          <div className="p-1 rounded-full bg-green-500/20" title="מסלול XP פעיל">
+            <Route className="w-3.5 h-3.5 text-green-400" />
+          </div>
+        </div>
+      )}
+
       {/* Actions - show on hover */}
       <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowRouteSettings(true);
+          }}
+          className={clsx(
+            "p-1.5 rounded-lg bg-bg-secondary transition-colors",
+            folder.routeConfig?.isRoute
+              ? "text-green-400 hover:text-green-300 hover:bg-green-500/10"
+              : "text-text-secondary hover:text-accent hover:bg-accent/10"
+          )}
+          title="הגדרות מסלול"
+        >
+          <Settings className="w-3.5 h-3.5" />
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -162,6 +192,15 @@ export default function FolderCard({
           <span className="text-accent font-medium text-sm">שחרר כאן</span>
         </div>
       )}
+
+      {/* Route Settings Modal */}
+      <RouteSettingsModal
+        folder={folder}
+        isOpen={showRouteSettings}
+        onClose={() => setShowRouteSettings(false)}
+        onSave={(config) => onRouteConfigUpdate?.(folder.id, config)}
+        locale={locale}
+      />
     </div>
   );
 }

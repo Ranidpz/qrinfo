@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.3.2';
+export const APP_VERSION = '1.4.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,62 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  {
+    version: '1.4.0',
+    date: '2025-12-08',
+    highlights: {
+      he: [
+        'מערכת XP וגיימיפיקציה לכתבי חידה!',
+        'מסלולים עם נקודות XP ורמות',
+        'לידרבורד בזמן אמת',
+        'באדג XP על כפתור כתב חידה',
+        'הגדרות מסלול על תיקיות',
+      ],
+      en: [
+        'XP and gamification system for riddles!',
+        'Routes with XP points and levels',
+        'Real-time leaderboard',
+        'XP badge on riddle button',
+        'Route settings on folders',
+      ],
+    },
+  },
+  {
+    version: '1.3.4',
+    date: '2025-12-08',
+    highlights: {
+      he: [
+        'לייאאוט מושלם RTL/LTR - האדר וסיידבר מותאמים לכל שפה',
+        'לוגו תמיד בצד הנגדי לסיידבר (מובייל ודסקטופ)',
+        'המבורגר תמיד בצד הסיידבר במובייל',
+        'תיקון רווח שחור במובייל עברית',
+      ],
+      en: [
+        'Perfect RTL/LTR layout - header and sidebar adapted per language',
+        'Logo always on opposite side of sidebar (mobile & desktop)',
+        'Hamburger always near sidebar on mobile',
+        'Fixed black gap on Hebrew mobile',
+      ],
+    },
+  },
+  {
+    version: '1.3.3',
+    date: '2025-12-08',
+    highlights: {
+      he: [
+        'תיקון לייאאוט RTL/LTR - סיידבר והאדר מותאמים לכל שפה',
+        'לוגו בהאדר בצד הנגדי לסיידבר בכל התצורות',
+        'תיקון רווח שחור במובייל עברית',
+        'המבורגר ליד הסיידבר בכל שפה',
+      ],
+      en: [
+        'Fixed RTL/LTR layout - sidebar and header adapted per language',
+        'Header logo on opposite side of sidebar in all views',
+        'Fixed black gap on Hebrew mobile',
+        'Hamburger menu near sidebar in all languages',
+      ],
+    },
+  },
   {
     version: '1.3.2',
     date: '2025-12-07',
