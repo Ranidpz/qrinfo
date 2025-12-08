@@ -14,9 +14,11 @@ export default function Header({ onMenuClick, direction = 'rtl' }: HeaderProps) 
 
   return (
     <header className={clsx(
-      "fixed top-0 left-0 right-0 z-50 h-16 bg-bg-secondary border-b border-border",
-      // On desktop, add margin to account for sidebar
-      isRTL ? "md:mr-64" : "md:ml-64"
+      "fixed top-0 z-50 h-16 bg-bg-secondary border-b border-border",
+      // On desktop, stop header where sidebar begins
+      isRTL
+        ? "left-0 right-0 md:right-64"
+        : "left-0 right-0 md:left-64"
     )}>
       <div className="flex items-center justify-between h-full px-4 md:px-6">
         {/* Menu button for mobile - appears at start (right in RTL, left in LTR) */}
