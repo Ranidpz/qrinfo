@@ -12,7 +12,7 @@ export default function AccessibilityPage() {
   const content = {
     he: {
       title: 'הצהרת נגישות',
-      lastUpdated: 'עודכן לאחרונה: דצמבר 2024',
+      lastUpdated: 'עודכן לאחרונה: דצמבר 2025',
       backToSite: 'חזרה לאתר',
       sections: [
         {
@@ -53,7 +53,7 @@ export default function AccessibilityPage() {
           title: 'פנייה בנושא נגישות',
           content: 'נתקלתם בבעיית נגישות? נשמח לשמוע ולסייע! ניתן לפנות אלינו בנושאי נגישות:',
           list: [
-            'דוא"ל: admin@playzone.co.il',
+            'דוא"ל: info@playzone.co.il',
             'נושא הפנייה: "בעיית נגישות"',
           ],
           note: 'אנא פרטו בפנייתכם את הבעיה שנתקלתם בה, כולל הדף בו התגלתה הבעיה, ואנו נשתדל לטפל בה בהקדם האפשרי.',
@@ -61,14 +61,14 @@ export default function AccessibilityPage() {
         {
           title: 'רכז נגישות',
           content: 'שם: צוות Playzone',
-          email: 'admin@playzone.co.il',
+          email: 'info@playzone.co.il',
         },
       ],
       copyright: '© {year} The Q By Playzone. כל הזכויות שמורות.',
     },
     en: {
       title: 'Accessibility Statement',
-      lastUpdated: 'Last updated: December 2024',
+      lastUpdated: 'Last updated: December 2025',
       backToSite: 'Back to site',
       sections: [
         {
@@ -109,7 +109,7 @@ export default function AccessibilityPage() {
           title: 'Accessibility Inquiries',
           content: 'Encountered an accessibility issue? We would love to hear from you and help! You can contact us regarding accessibility:',
           list: [
-            'Email: admin@playzone.co.il',
+            'Email: info@playzone.co.il',
             'Subject: "Accessibility Issue"',
           ],
           note: 'Please describe the issue you encountered in your inquiry, including the page where the issue was found, and we will try to address it as soon as possible.',
@@ -117,7 +117,7 @@ export default function AccessibilityPage() {
         {
           title: 'Accessibility Coordinator',
           content: 'Name: Playzone Team',
-          email: 'admin@playzone.co.il',
+          email: 'info@playzone.co.il',
         },
       ],
       copyright: '© {year} The Q By Playzone. All rights reserved.',

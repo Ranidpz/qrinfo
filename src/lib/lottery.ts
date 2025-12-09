@@ -236,7 +236,7 @@ export async function claimPrize(
       prizeName: selectedPrize.name,
       prizeNameEn: selectedPrize.nameEn,
       prizeRarity: selectedPrize.rarity,
-      prizeImageUrl: selectedPrize.imageUrl,
+      prizeImageUrl: selectedPrize.imageUrl || '',
       openedAt: serverTimestamp(),
       redeemed: false,
     };

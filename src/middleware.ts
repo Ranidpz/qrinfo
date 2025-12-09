@@ -15,9 +15,11 @@ export const config = {
   // - Static files
   // - Public viewer pages (v/[shortId])
   // - Gallery pages
+  // - Lobby pages (standalone TV display)
+  // - Packs pages (prize opening)
   matcher: [
     // Match all pathnames except for
-    // - … if they start with `/api`, `/_next`, `/v/`, `/gallery/` or contain a dot
-    '/((?!api|_next|v/|gallery/|.*\\..*).*)',
+    // - … if they start with `/api`, `/_next`, `/v/`, `/gallery/`, `/lobby/`, `/packs/` or contain a dot
+    '/((?!api|_next|v/|gallery/|lobby/|packs/|.*\\..*).*)',
   ],
 };

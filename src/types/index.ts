@@ -132,6 +132,7 @@ export interface RouteConfig {
   bonusXP?: number;           // XP bonus for completion
   prizesEnabled?: boolean;    // Enable pack/prize system for this route
   lobbyDisplayEnabled?: boolean; // Show epic/legendary wins on lobby screen
+  routeStartUrl?: string;     // URL where visitors can start the route (shown to non-participants)
 }
 
 // Folder document

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -13,6 +13,7 @@ import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
 import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
+import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
@@ -65,6 +66,7 @@ export default function DashboardPage() {
   });
   const [dragOverRoot, setDragOverRoot] = useState(false);
   const [editingFolderName, setEditingFolderName] = useState(false);
+  const [showFolderRouteSettings, setShowFolderRouteSettings] = useState(false);
   const [folderNameInput, setFolderNameInput] = useState('');
   const [uploadSectionCollapsed, setUploadSectionCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -973,8 +975,8 @@ export default function DashboardPage() {
               <FolderIcon className="w-6 h-6" />
             </div>
             <div className="flex-1">
-              {editingFolderName ? (
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                {editingFolderName ? (
                   <input
                     type="text"
                     value={folderNameInput}
@@ -1000,21 +1002,48 @@ export default function DashboardPage() {
                     autoFocus
                     className="text-lg font-semibold bg-bg-secondary border border-accent rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
                   />
-                </div>
-              ) : (
-                <h2
-                  className="text-lg font-semibold text-text-primary cursor-pointer hover:text-accent transition-colors"
-                  onClick={() => {
-                    setFolderNameInput(currentFolder.name);
-                    setEditingFolderName(true);
-                  }}
-                  title={t('clickToEditName')}
-                >
-                  {currentFolder.name}
-                </h2>
-              )}
+                ) : (
+                  <h2
+                    className="text-lg font-semibold text-text-primary cursor-pointer hover:text-accent transition-colors"
+                    onClick={() => {
+                      setFolderNameInput(currentFolder.name);
+                      setEditingFolderName(true);
+                    }}
+                    title={t('clickToEditName')}
+                  >
+                    {currentFolder.name}
+                  </h2>
+                )}
+                {/* Route indicator badge */}
+                {currentFolder.routeConfig?.isRoute && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs font-medium">
+                    <Route className="w-3 h-3" />
+                    מסלול XP
+                  </span>
+                )}
+                {/* Prizes indicator badge */}
+                {currentFolder.routeConfig?.prizesEnabled && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium">
+                    <Gift className="w-3 h-3" />
+                    פרסים
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-text-secondary">{filteredCodes.length} {t('codes')}</p>
             </div>
+            {/* Route Settings Button */}
+            <button
+              onClick={() => setShowFolderRouteSettings(true)}
+              className={clsx(
+                "p-2 rounded-lg transition-colors",
+                currentFolder.routeConfig?.isRoute
+                  ? "text-green-400 hover:text-green-300 bg-green-500/10 hover:bg-green-500/20"
+                  : "text-text-secondary hover:text-accent hover:bg-accent/10"
+              )}
+              title="הגדרות מסלול"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             {!editingFolderName && (
               <button
                 onClick={() => {
@@ -1098,13 +1127,13 @@ export default function DashboardPage() {
 
         {/* Search - takes remaining space */}
         <div className="relative flex-1 min-w-0 order-2 sm:order-1">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+          <Search className="absolute start-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
           <input
             type="text"
             placeholder={tCommon('search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="input ps-10 w-full"
+            className="input ps-12 w-full"
             list="codes-autocomplete"
           />
           <datalist id="codes-autocomplete">
@@ -1382,6 +1411,17 @@ export default function DashboardPage() {
         onSave={handleSelfiebeamCreate}
         loading={addingSelfiebeam}
       />
+
+      {/* Route Settings Modal for current folder */}
+      {currentFolder && (
+        <RouteSettingsModal
+          folder={currentFolder}
+          isOpen={showFolderRouteSettings}
+          onClose={() => setShowFolderRouteSettings(false)}
+          onSave={(config) => handleRouteConfigUpdate(currentFolder.id, config)}
+          locale={locale as 'he' | 'en'}
+        />
+      )}
     </div>
   );
 }

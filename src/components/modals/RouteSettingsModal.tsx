@@ -42,6 +42,9 @@ const translations = {
     noPrizes: 'אין פרסים',
     viewLobby: 'צפה במסך לובי',
     prizeGuide: 'מדריך מערכת הפרסים',
+    routeStartUrl: 'לינק התחלת מסלול',
+    routeStartUrlDesc: 'לינק לקוד הראשון במסלול (יוצג למי שסורק את ה-QR בלובי)',
+    routeStartUrlPlaceholder: 'למשל: /v/abc123',
   },
   en: {
     title: 'Route Settings',
@@ -69,6 +72,9 @@ const translations = {
     noPrizes: 'No prizes',
     viewLobby: 'View Lobby Screen',
     prizeGuide: 'Prize System Guide',
+    routeStartUrl: 'Route Start Link',
+    routeStartUrlDesc: 'Link to first code (shown to lobby QR scanners)',
+    routeStartUrlPlaceholder: 'e.g., /v/abc123',
   },
 };
 
@@ -88,6 +94,7 @@ export default function RouteSettingsModal({
   const [bonusThreshold, setBonusThreshold] = useState(folder.routeConfig?.bonusThreshold || 0);
   const [prizesEnabled, setPrizesEnabled] = useState(folder.routeConfig?.prizesEnabled || false);
   const [lobbyDisplayEnabled, setLobbyDisplayEnabled] = useState(folder.routeConfig?.lobbyDisplayEnabled || false);
+  const [routeStartUrl, setRouteStartUrl] = useState(folder.routeConfig?.routeStartUrl || '');
   const [saving, setSaving] = useState(false);
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [showPrizeModal, setShowPrizeModal] = useState(false);
@@ -101,6 +108,7 @@ export default function RouteSettingsModal({
     setBonusThreshold(folder.routeConfig?.bonusThreshold || 0);
     setPrizesEnabled(folder.routeConfig?.prizesEnabled || false);
     setLobbyDisplayEnabled(folder.routeConfig?.lobbyDisplayEnabled || false);
+    setRouteStartUrl(folder.routeConfig?.routeStartUrl || '');
   }, [folder]);
 
   // Load prizes when modal opens
@@ -120,6 +128,7 @@ export default function RouteSettingsModal({
         bonusThreshold,
         prizesEnabled,
         lobbyDisplayEnabled,
+        routeStartUrl: routeStartUrl || undefined,
       };
 
       await updateFolderRouteConfig(folder.id, config);
@@ -146,8 +155,8 @@ export default function RouteSettingsModal({
     >
       <div
         className={`
-          relative w-full max-w-md bg-bg-card border border-border rounded-xl shadow-xl
-          p-6 space-y-5
+          relative w-full max-w-2xl bg-bg-card border border-border rounded-xl shadow-xl
+          p-6 space-y-4 max-h-[90vh] overflow-y-auto
           ${isRTL ? 'text-right' : 'text-left'}
         `}
         dir={isRTL ? 'rtl' : 'ltr'}
@@ -235,59 +244,56 @@ export default function RouteSettingsModal({
               />
             </div>
 
-            {/* Bonus XP */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-yellow-500" />
-                <label className="text-sm font-medium text-text-primary">
-                  {t.bonusXP}
-                </label>
+            {/* Bonus Settings - Side by Side */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Bonus XP */}
+              <div className="p-3 rounded-lg bg-bg-tertiary space-y-2">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-yellow-500" />
+                  <label className="text-sm font-medium text-text-primary">{t.bonusXP}</label>
+                </div>
+                <p className="text-xs text-text-secondary leading-tight">{t.bonusXPDesc}</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    step="10"
+                    value={bonusXP}
+                    onChange={(e) => setBonusXP(Number(e.target.value))}
+                    className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to ${isRTL ? 'left' : 'right'}, #3b82f6 0%, #3b82f6 ${(bonusXP / 200) * 100}%, #374151 ${(bonusXP / 200) * 100}%, #374151 100%)`
+                    }}
+                  />
+                  <span className="w-14 text-center font-bold text-accent text-sm">{bonusXP} XP</span>
+                </div>
               </div>
-              <p className="text-xs text-text-secondary">{t.bonusXPDesc}</p>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="0"
-                  max="200"
-                  step="10"
-                  value={bonusXP}
-                  onChange={(e) => setBonusXP(Number(e.target.value))}
-                  className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to ${isRTL ? 'left' : 'right'}, #3b82f6 0%, #3b82f6 ${(bonusXP / 200) * 100}%, #374151 ${(bonusXP / 200) * 100}%, #374151 100%)`
-                  }}
-                />
-                <span className="w-16 text-center font-bold text-accent">
-                  {bonusXP} XP
-                </span>
-              </div>
-            </div>
 
-            {/* Bonus Threshold */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-blue-500" />
-                <label className="text-sm font-medium text-text-primary">
-                  {t.bonusThreshold}
-                </label>
-              </div>
-              <p className="text-xs text-text-secondary">{t.bonusThresholdDesc}</p>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="0"
-                  max="20"
-                  step="1"
-                  value={bonusThreshold}
-                  onChange={(e) => setBonusThreshold(Number(e.target.value))}
-                  className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to ${isRTL ? 'left' : 'right'}, #3b82f6 0%, #3b82f6 ${(bonusThreshold / 20) * 100}%, #374151 ${(bonusThreshold / 20) * 100}%, #374151 100%)`
-                  }}
-                />
-                <span className="w-16 text-center font-medium text-text-primary">
-                  {bonusThreshold === 0 ? t.allStations : bonusThreshold}
-                </span>
+              {/* Bonus Threshold */}
+              <div className="p-3 rounded-lg bg-bg-tertiary space-y-2">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-blue-500" />
+                  <label className="text-sm font-medium text-text-primary">{t.bonusThreshold}</label>
+                </div>
+                <p className="text-xs text-text-secondary leading-tight">{t.bonusThresholdDesc}</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    step="1"
+                    value={bonusThreshold}
+                    onChange={(e) => setBonusThreshold(Number(e.target.value))}
+                    className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to ${isRTL ? 'left' : 'right'}, #3b82f6 0%, #3b82f6 ${(bonusThreshold / 20) * 100}%, #374151 ${(bonusThreshold / 20) * 100}%, #374151 100%)`
+                    }}
+                  />
+                  <span className="w-14 text-center font-medium text-text-primary text-sm">
+                    {bonusThreshold === 0 ? t.allStations : bonusThreshold}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -335,10 +341,26 @@ export default function RouteSettingsModal({
                 <p className="text-xs text-text-secondary">{t.enablePrizesDesc}</p>
               </div>
 
-              {/* Lobby Display Toggle (only show when prizes enabled) */}
+              {/* Prize Actions Grid (only show when prizes enabled) */}
               {prizesEnabled && (
-                <div className="p-3 rounded-lg bg-bg-tertiary space-y-2">
-                  <div className="flex items-center justify-between">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Manage Prizes Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPrizeModal(true)}
+                    className="flex items-center justify-between p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Gift className="w-4 h-4 text-purple-400" />
+                      <span className="text-sm font-medium text-purple-300">{t.managePrizes}</span>
+                    </div>
+                    <span className="text-xs text-purple-400">
+                      {prizes.length > 0 ? t.prizesCount.replace('{count}', String(prizes.length)) : t.noPrizes}
+                    </span>
+                  </button>
+
+                  {/* Lobby Display Toggle */}
+                  <div className="p-3 rounded-lg bg-bg-tertiary flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Monitor className="w-4 h-4 text-text-secondary" />
                       <span className="text-sm text-text-primary">{t.lobbyDisplay}</span>
@@ -350,54 +372,44 @@ export default function RouteSettingsModal({
                         e.stopPropagation();
                         setLobbyDisplayEnabled(!lobbyDisplayEnabled);
                       }}
-                      className={`
-                        relative w-10 h-5 rounded-full transition-colors cursor-pointer
-                        ${lobbyDisplayEnabled ? 'bg-purple-500' : 'bg-bg-secondary'}
-                      `}
+                      className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${lobbyDisplayEnabled ? 'bg-purple-500' : 'bg-bg-secondary'}`}
                     >
-                      <div
-                        className={`
-                          absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 pointer-events-none
-                          ${lobbyDisplayEnabled ? (isRTL ? 'left-0.5' : 'right-0.5') : (isRTL ? 'right-0.5' : 'left-0.5')}
-                        `}
-                      />
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 pointer-events-none ${lobbyDisplayEnabled ? (isRTL ? 'left-0.5' : 'right-0.5') : (isRTL ? 'right-0.5' : 'left-0.5')}`} />
                     </button>
                   </div>
-                  <p className="text-xs text-text-secondary">{t.lobbyDisplayDesc}</p>
-                  {lobbyDisplayEnabled && (
-                    <a
-                      href={`/lobby/${folder.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
-                    >
-                      {t.viewLobby}
-                      <ChevronRight className="w-3 h-3" />
-                    </a>
-                  )}
                 </div>
               )}
 
-              {/* Manage Prizes Button */}
-              {prizesEnabled && (
-                <button
-                  type="button"
-                  onClick={() => setShowPrizeModal(true)}
-                  className="w-full flex items-center justify-between p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 transition-colors"
+              {/* Route Start URL (show when lobby enabled) */}
+              {prizesEnabled && lobbyDisplayEnabled && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-text-primary">
+                    {t.routeStartUrl}
+                  </label>
+                  <input
+                    type="text"
+                    value={routeStartUrl}
+                    onChange={(e) => setRouteStartUrl(e.target.value)}
+                    placeholder={t.routeStartUrlPlaceholder}
+                    className={`w-full px-4 py-2.5 rounded-lg border border-border bg-bg-secondary focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-text-primary placeholder-text-secondary ${isRTL ? 'text-right' : 'text-left'}`}
+                    dir="ltr"
+                  />
+                  <p className="text-xs text-text-secondary">{t.routeStartUrlDesc}</p>
+                </div>
+              )}
+
+              {/* Lobby Link (show when enabled) */}
+              {prizesEnabled && lobbyDisplayEnabled && (
+                <a
+                  href={`/lobby/${folder.id}?locale=${locale}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 p-3 rounded-lg bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 hover:from-purple-600/30 hover:to-pink-600/30 transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    <Gift className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm font-medium text-purple-300">{t.managePrizes}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-purple-400">
-                      {prizes.length > 0
-                        ? t.prizesCount.replace('{count}', String(prizes.length))
-                        : t.noPrizes}
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-purple-400" />
-                  </div>
-                </button>
+                  <Monitor className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm font-medium text-purple-300">{t.viewLobby}</span>
+                  <ChevronRight className="w-4 h-4 text-purple-400" />
+                </a>
               )}
             </div>
           </div>

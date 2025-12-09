@@ -46,6 +46,7 @@ import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QRSignModal from '@/components/modals/QRSignModal';
 import WhatsAppWidgetModal from '@/components/modals/WhatsAppWidgetModal';
 import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
+import MobilePreviewModal from '@/components/modals/MobilePreviewModal';
 import { clsx } from 'clsx';
 
 // Helper function to get PDF page count
@@ -157,6 +158,9 @@ export default function CodeEditPage({ params }: PageProps) {
   // Widget modals state
   const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+
+  // Mobile preview modal state
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
 
   // Collapse states with localStorage persistence
   const [qrExpanded, setQrExpanded] = useState(true);
@@ -1555,15 +1559,13 @@ export default function CodeEditPage({ params }: PageProps) {
 
               {/* Quick actions */}
               <div className="grid grid-cols-2 gap-3">
-                <a
-                  href={viewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => setMobilePreviewOpen(true)}
                   className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
                 >
                   <Eye className="w-4 h-4" />
                   {t('view')}
-                </a>
+                </button>
                 <button
                   onClick={handleDownloadQR}
                   className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
@@ -2255,6 +2257,14 @@ export default function CodeEditPage({ params }: PageProps) {
         currentFileName={code.media.find(m => m.id === replaceConfirmModal.mediaId)?.filename}
         newFileName={replaceConfirmModal.file?.name}
         mediaCount={code.media.length}
+      />
+
+      {/* Mobile Preview Modal */}
+      <MobilePreviewModal
+        isOpen={mobilePreviewOpen}
+        onClose={() => setMobilePreviewOpen(false)}
+        url={viewUrl}
+        title={code.title}
       />
     </div>
   );

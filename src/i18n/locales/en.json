@@ -138,8 +138,8 @@
     "riddleTitleRequired": "Title is required",
     "riddleEnterTitle": "Enter page title...",
     "riddleContent": "Content",
-    "riddleContentPlaceholder": "Enter message content...\n\nSupports formatting:\n*bold text*\n_italic text_\n~strikethrough~",
-    "riddleWhatsappFormatting": "Supports WhatsApp formatting: *bold* | _italic_ | ~strikethrough~",
+    "riddleContentPlaceholder": "Enter message content...\n\nSupports formatting:\n*bold* | _italic_ | ~strikethrough~\n- bullet point\n1. numbered list\n# header\n[text](link)",
+    "riddleWhatsappFormatting": "*bold* | _italic_ | ~strikethrough~ | - bullets | 1. numbers | # header | [text](link)",
     "riddleBackgroundColor": "Background Color",
     "riddleTextColor": "Text Color",
     "riddlePreview": "Preview",
@@ -224,7 +224,9 @@
     "addLinkTitlePlaceholder": "Click here",
     "addLinkTitleNote": "If no title is entered, the link domain will be displayed",
     "optional": "optional",
-    "required": "*"
+    "required": "*",
+    "mobilePreview": "Mobile Preview",
+    "openInNewTab": "Open in new tab"
   },
   "code": {
     "duplicate": "Duplicate Code",
@@ -543,5 +545,22 @@
     "winner": "Winner!",
     "won": "won:",
     "viewLobby": "View Lobby Screen"
+  },
+  "qOrderModal": {
+    "subtitle": "Smart Ordering System",
+    "description": "Simple ordering page for small businesses - one QR on the table = menu + order + payment",
+    "feature1": "No app needed - scan and order",
+    "feature2": "No fees - direct PayPal or your own payment processor",
+    "feature3": "Real-time analytics on bestsellers"
+  },
+  "qTagModal": {
+    "subtitle": "Digital tag for event or venue entry",
+    "description": "Smart event registration - custom landing page for signup",
+    "feature1": "Register with selfie and photo or anonymous",
+    "feature2": "QR scan at entrance for check-in - date and time",
+    "feature3": "Set up and redeem perks at stations with additional scan",
+    "feature4": "Documentation and analytics on visitors and usage",
+    "feature5": "Animated gallery screen of visitors (optional)",
+    "contact": "For details and early registration"
   }
 }

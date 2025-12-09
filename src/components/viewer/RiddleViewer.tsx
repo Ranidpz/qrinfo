@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { RiddleContent, UserGalleryImage, Visitor, PendingPack, PackOpening } from '@/types';
-import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Star, User, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Star, User, Pencil, Plus } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
@@ -23,17 +23,98 @@ interface RiddleViewerProps {
   folderId?: string; // For route/XP tracking
 }
 
-// Format text with WhatsApp-style formatting (with XSS protection)
+// Format text with enhanced formatting (with XSS protection)
+// Simple approach - let the browser handle RTL naturally
 function formatContent(text: string): string {
   // First sanitize the input to remove any malicious HTML
   const sanitized = DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
-  // Then apply formatting
-  const formatted = sanitized
+
+  // Helper to wrap content with alignment
+  const wrapWithAlign = (content: string, align: 'right' | 'left' | 'center', extraClasses = '') => {
+    const alignClass = align === 'right' ? 'text-right' : align === 'left' ? 'text-left' : 'text-center';
+    const dir = align === 'right' ? 'rtl' : align === 'left' ? 'ltr' : undefined;
+    return `<div class="${alignClass} ${extraClasses}" ${dir ? `dir="${dir}"` : ''}>${content}</div>`;
+  };
+
+  // Process line by line for block-level formatting
+  const lines = sanitized.split('\n');
+  const formattedLines = lines.map(line => {
+    // Empty line = paragraph break
+    if (line.trim() === '') {
+      return '<div class="h-4"></div>';
+    }
+
+    // Check for alignment prefix: >> (right/RTL), << (left/LTR), >< (center)
+    let align: 'right' | 'left' | 'center' | null = null;
+    if (line.startsWith('>> ')) {
+      align = 'right';
+      line = line.slice(3);
+    } else if (line.startsWith('<< ')) {
+      align = 'left';
+      line = line.slice(3);
+    } else if (line.startsWith('>< ')) {
+      align = 'center';
+      line = line.slice(3);
+    }
+
+    // Headers: # ## ###
+    if (line.startsWith('### ')) {
+      const content = line.slice(4);
+      return align
+        ? wrapWithAlign(content, align, 'text-lg font-bold mt-4 mb-2')
+        : `<div class="text-lg font-bold mt-4 mb-2">${content}</div>`;
+    }
+    if (line.startsWith('## ')) {
+      const content = line.slice(3);
+      return align
+        ? wrapWithAlign(content, align, 'text-xl font-bold mt-4 mb-2')
+        : `<div class="text-xl font-bold mt-4 mb-2">${content}</div>`;
+    }
+    if (line.startsWith('# ')) {
+      const content = line.slice(2);
+      return align
+        ? wrapWithAlign(content, align, 'text-2xl font-bold mt-4 mb-2')
+        : `<div class="text-2xl font-bold mt-4 mb-2">${content}</div>`;
+    }
+
+    // Bullet points: • or - at start of line - replace with colored bullet
+    if (line.match(/^[•\-]\s/)) {
+      const content = `<span class="text-blue-400">• </span>${line.slice(2)}`;
+      return align
+        ? wrapWithAlign(content, align, 'my-1')
+        : `<div class="my-1">${content}</div>`;
+    }
+
+    // Numbered lists: 1. 2. 3. etc - color the number
+    const numberedMatch = line.match(/^(\d+)\.\s(.+)$/);
+    if (numberedMatch) {
+      const content = `<span class="text-blue-400 font-bold">${numberedMatch[1]}. </span>${numberedMatch[2]}`;
+      return align
+        ? wrapWithAlign(content, align, 'my-1')
+        : `<div class="my-1">${content}</div>`;
+    }
+
+    // Regular line
+    return align ? wrapWithAlign(line, align) : `<div>${line}</div>`;
+  }).join('');
+
+  // Apply inline formatting
+  let formatted = formattedLines
+    // Bold: *text*
     .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+    // Italic: _text_
     .replace(/_([^_]+)_/g, '<em>$1</em>')
-    .replace(/~([^~]+)~/g, '<del>$1</del>');
+    // Strikethrough: ~text~
+    .replace(/~([^~]+)~/g, '<del>$1</del>')
+    // Links: [text](url) or plain URLs
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline hover:text-blue-300">$1</a>')
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline hover:text-blue-300">$1</a>');
+
   // Sanitize again to ensure only our tags are present
-  return DOMPurify.sanitize(formatted, { ALLOWED_TAGS: ['strong', 'em', 'del'] });
+  return DOMPurify.sanitize(formatted, {
+    ALLOWED_TAGS: ['strong', 'em', 'del', 'a', 'div', 'span'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class']
+  });
 }
 
 // Extract YouTube video ID from various URL formats
@@ -93,6 +174,7 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [controlsExpanded, setControlsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Gamification state
@@ -582,7 +664,7 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
       style={{ backgroundColor: content.backgroundColor }}
     >
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 pb-24 overflow-y-auto">
         <div className="w-full max-w-2xl mx-auto space-y-6">
           {/* Title */}
           <h1
@@ -597,6 +679,7 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
             <div
               className="text-base sm:text-lg leading-relaxed whitespace-pre-wrap text-center"
               style={{ color: content.textColor }}
+              dir="auto"
               dangerouslySetInnerHTML={{ __html: formatContent(content.content) }}
             />
           )}
@@ -735,109 +818,145 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
         onChange={handleFileSelect}
       />
 
-      {/* Floating Camera Button and My Gallery */}
+      {/* Floating Action Button (FAB) - Collapsible Controls */}
       {galleryEnabled && (
-        <div className="fixed bottom-4 left-0 right-0 z-40 flex flex-col items-center gap-2 px-4">
-          {/* My Uploaded Images Gallery - Full width on mobile */}
-          {myUploadedImages.length > 0 && (
-            <div className="w-full max-w-md flex justify-center gap-2 bg-black/50 backdrop-blur-sm rounded-2xl p-2">
-              {myUploadedImages.map((img) => (
-                <div
-                  key={img.id}
-                  className={`relative flex-1 max-w-[100px] transition-all duration-300 ${
-                    fadingOutImageId === img.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100'
-                  }`}
-                >
-                  <img
-                    src={img.url}
-                    alt=""
-                    className="w-full aspect-square rounded-xl object-cover border-2 border-white/30"
-                  />
-                  <button
-                    onClick={() => handleDeleteMyImage(img)}
-                    disabled={deletingImageId === img.id || fadingOutImageId === img.id}
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg disabled:opacity-50"
-                  >
-                    {deletingImageId === img.id ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3 h-3" />
-                    )}
-                  </button>
-                </div>
-              ))}
-            </div>
+        <>
+          {/* Backdrop when expanded */}
+          {controlsExpanded && (
+            <div
+              className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+              onClick={() => setControlsExpanded(false)}
+            />
           )}
 
-          {/* Visitor Badge - show when registered */}
-          {currentVisitor && isRoute && (
-            <button
-              onClick={handleEditNickname}
-              className="flex items-center gap-2 px-3 py-2 rounded-full bg-slate-800/80 backdrop-blur-sm border border-white/20 shadow-lg hover:bg-slate-700/80 transition-all w-full max-w-md"
+          {/* Collapsible Controls Container */}
+          <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+            {/* Expanded Controls */}
+            <div
+              className={`flex flex-col items-end gap-3 transition-all duration-300 origin-bottom-right ${
+                controlsExpanded
+                  ? 'opacity-100 scale-100 translate-y-0'
+                  : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
+              }`}
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
-                <User className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-white font-medium text-sm truncate flex-1 text-right">
-                {currentVisitor.nickname}
-              </span>
-              <Pencil className="w-4 h-4 text-white/60 flex-shrink-0" />
-            </button>
-          )}
-
-          {/* Pending Packs Badge - show above action bar */}
-          {pendingPacks.length > 0 && prizesEnabled && (
-            <div className="w-full max-w-md flex justify-center mb-2">
-              <PendingPacksBadge
-                pendingPacks={pendingPacks}
-                onClick={handleOpenPack}
-                locale={locale}
-              />
-            </div>
-          )}
-
-          {/* Bottom Action Bar */}
-          <div className="flex items-center gap-2 w-full max-w-md">
-            {/* XP Info Button (green star) - only show when route is active */}
-            {isRoute && (
-              <button
-                onClick={() => setShowInstructionsModal(true)}
-                className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg hover:shadow-xl transition-all animate-pulse"
-                title={gamificationTranslations[locale].gameInstructions}
-              >
-                <Star className="w-6 h-6 fill-current" />
-              </button>
-            )}
-
-            {/* Camera Button */}
-            <button
-              onClick={handleCameraClick}
-              disabled={uploading || !canUploadMore}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-            >
-              {uploading ? (
-                <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
-              ) : uploadStatus === 'success' ? (
-                <Check className="w-5 h-5 text-green-500" />
-              ) : uploadStatus === 'error' ? (
-                <AlertCircle className="w-5 h-5 text-red-500" />
-              ) : (
-                <Camera className="w-5 h-5 text-gray-600" />
+              {/* Pending Packs Badge */}
+              {pendingPacks.length > 0 && prizesEnabled && (
+                <PendingPacksBadge
+                  pendingPacks={pendingPacks}
+                  onClick={handleOpenPack}
+                  locale={locale}
+                />
               )}
-              <span className="text-sm font-medium text-gray-700">
-                {uploading
-                  ? t.uploading
-                  : uploadStatus === 'success'
-                  ? t.uploaded
-                  : uploadStatus === 'error'
-                  ? t.error
-                  : !canUploadMore
-                  ? t.maxReached
-                  : gamificationTranslations[locale].takePhotoHere}
-              </span>
+
+              {/* My Uploaded Images Gallery */}
+              {myUploadedImages.length > 0 && (
+                <div className="flex gap-2 bg-black/60 backdrop-blur-sm rounded-2xl p-2">
+                  {myUploadedImages.map((img) => (
+                    <div
+                      key={img.id}
+                      className={`relative transition-all duration-300 ${
+                        fadingOutImageId === img.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100'
+                      }`}
+                    >
+                      <img
+                        src={img.url}
+                        alt=""
+                        className="w-16 h-16 rounded-xl object-cover border-2 border-white/30"
+                      />
+                      <button
+                        onClick={() => handleDeleteMyImage(img)}
+                        disabled={deletingImageId === img.id || fadingOutImageId === img.id}
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg disabled:opacity-50"
+                      >
+                        {deletingImageId === img.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Visitor Badge - show when registered */}
+              {currentVisitor && isRoute && (
+                <button
+                  onClick={handleEditNickname}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/90 backdrop-blur-sm border border-white/20 shadow-lg hover:bg-slate-700/90 transition-all"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-white font-medium text-sm">
+                    {currentVisitor.nickname}
+                  </span>
+                  <Pencil className="w-4 h-4 text-white/60 flex-shrink-0" />
+                </button>
+              )}
+
+              {/* XP Info Button (green star) - only show when route is active */}
+              {isRoute && (
+                <button
+                  onClick={() => setShowInstructionsModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg hover:shadow-xl transition-all"
+                  title={gamificationTranslations[locale].gameInstructions}
+                >
+                  <Star className="w-5 h-5 fill-current" />
+                  <span className="text-sm font-medium">{gamificationTranslations[locale].howToPlay}</span>
+                </button>
+              )}
+
+              {/* Camera Button */}
+              <button
+                onClick={handleCameraClick}
+                disabled={uploading || !canUploadMore}
+                className="flex items-center gap-2 px-5 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+              >
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
+                ) : uploadStatus === 'success' ? (
+                  <Check className="w-5 h-5 text-green-500" />
+                ) : uploadStatus === 'error' ? (
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                ) : (
+                  <Camera className="w-5 h-5 text-gray-600" />
+                )}
+                <span className="text-sm font-medium text-gray-700">
+                  {uploading
+                    ? t.uploading
+                    : uploadStatus === 'success'
+                    ? t.uploaded
+                    : uploadStatus === 'error'
+                    ? t.error
+                    : !canUploadMore
+                    ? t.maxReached
+                    : gamificationTranslations[locale].takePhotoHere}
+                </span>
+              </button>
+            </div>
+
+            {/* Main FAB Toggle Button */}
+            <button
+              onClick={() => setControlsExpanded(!controlsExpanded)}
+              className={`w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center ${
+                controlsExpanded
+                  ? 'bg-slate-800 text-white rotate-45'
+                  : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
+              }`}
+            >
+              {controlsExpanded ? (
+                <Plus className="w-7 h-7" />
+              ) : uploading ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : myUploadedImages.length > 0 ? (
+                <Camera className="w-6 h-6" />
+              ) : (
+                <Camera className="w-6 h-6" />
+              )}
             </button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Name Input Modal */}

@@ -3,11 +3,25 @@
 import { useState, useEffect } from 'react';
 import { Accessibility, Plus, Minus, Eye, RotateCcw, X, FileText } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 
 export default function AccessibilityButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [fontSize, setFontSize] = useState(100);
   const [highContrast, setHighContrast] = useState(false);
+  const locale = useLocale();
+  const isHebrew = locale === 'he';
+
+  const labels = {
+    settings: isHebrew ? 'הגדרות נגישות' : 'Accessibility Settings',
+    fontSize: isHebrew ? 'גודל טקסט' : 'Text Size',
+    decreaseText: isHebrew ? 'הקטנת טקסט' : 'Decrease text',
+    increaseText: isHebrew ? 'הגדלת טקסט' : 'Increase text',
+    highContrast: isHebrew ? 'ניגודיות גבוהה' : 'High Contrast',
+    reset: isHebrew ? 'איפוס הגדרות' : 'Reset Settings',
+    statement: isHebrew ? 'הצהרת נגישות' : 'Accessibility Statement',
+    close: isHebrew ? 'סגור' : 'Close',
+  };
 
   // Load saved preferences
   useEffect(() => {
@@ -59,8 +73,8 @@ export default function AccessibilityButton() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-20 left-4 z-50 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110"
-        aria-label="הגדרות נגישות"
-        title="נגישות"
+        aria-label={labels.settings}
+        title={labels.settings}
       >
         <Accessibility className="w-6 h-6" />
       </button>
@@ -75,17 +89,17 @@ export default function AccessibilityButton() {
           />
 
           {/* Panel */}
-          <div className="fixed bottom-20 left-4 z-50 w-72 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden" dir="rtl">
+          <div className="fixed bottom-20 left-4 z-50 w-72 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden" dir={isHebrew ? 'rtl' : 'ltr'}>
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-900">
               <div className="flex items-center gap-2">
                 <Accessibility className="w-5 h-5 text-blue-400" />
-                <span className="font-semibold text-white">הגדרות נגישות</span>
+                <span className="font-semibold text-white">{labels.settings}</span>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1 text-gray-400 hover:text-white transition-colors"
-                aria-label="סגור"
+                aria-label={labels.close}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -95,13 +109,13 @@ export default function AccessibilityButton() {
             <div className="p-4 space-y-4">
               {/* Font Size */}
               <div>
-                <label className="block text-sm text-gray-300 mb-2">גודל טקסט</label>
+                <label className="block text-sm text-gray-300 mb-2">{labels.fontSize}</label>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => adjustFontSize(-10)}
                     disabled={fontSize <= 80}
                     className="p-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                    aria-label="הקטן טקסט"
+                    aria-label={labels.decreaseText}
                   >
                     <Minus className="w-4 h-4 text-white" />
                   </button>
@@ -112,7 +126,7 @@ export default function AccessibilityButton() {
                     onClick={() => adjustFontSize(10)}
                     disabled={fontSize >= 150}
                     className="p-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                    aria-label="הגדל טקסט"
+                    aria-label={labels.increaseText}
                   >
                     <Plus className="w-4 h-4 text-white" />
                   </button>
@@ -131,7 +145,7 @@ export default function AccessibilityButton() {
                 >
                   <div className="flex items-center gap-2">
                     <Eye className="w-4 h-4" />
-                    <span>ניגודיות גבוהה</span>
+                    <span>{labels.highContrast}</span>
                   </div>
                   <div className={`w-10 h-6 rounded-full transition-colors ${
                     highContrast ? 'bg-blue-400' : 'bg-gray-600'
@@ -149,17 +163,17 @@ export default function AccessibilityButton() {
                 className="w-full flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>איפוס הגדרות</span>
+                <span>{labels.reset}</span>
               </button>
 
               {/* Accessibility Statement Link */}
               <Link
-                href="/accessibility"
+                href={`/${locale}/accessibility`}
                 className="w-full flex items-center justify-center gap-2 p-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
                 onClick={() => setIsOpen(false)}
               >
                 <FileText className="w-4 h-4" />
-                <span>הצהרת נגישות</span>
+                <span>{labels.statement}</span>
               </Link>
             </div>
           </div>

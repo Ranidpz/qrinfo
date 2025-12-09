@@ -6,17 +6,98 @@ import { RiddleContent } from '@/types';
 import DOMPurify from 'isomorphic-dompurify';
 import { useTranslations } from 'next-intl';
 
-// Format text with WhatsApp-style formatting (with XSS protection)
+// Format text with enhanced formatting (with XSS protection)
+// Simple approach - let the browser handle RTL naturally
 function formatContent(text: string): string {
   // First sanitize the input to remove any malicious HTML
   const sanitized = DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
-  // Then apply formatting
-  const formatted = sanitized
+
+  // Helper to wrap content with alignment
+  const wrapWithAlign = (content: string, align: 'right' | 'left' | 'center', extraClasses = '') => {
+    const alignClass = align === 'right' ? 'text-right' : align === 'left' ? 'text-left' : 'text-center';
+    const dir = align === 'right' ? 'rtl' : align === 'left' ? 'ltr' : undefined;
+    return `<div class="${alignClass} ${extraClasses}" ${dir ? `dir="${dir}"` : ''}>${content}</div>`;
+  };
+
+  // Process line by line for block-level formatting
+  const lines = sanitized.split('\n');
+  const formattedLines = lines.map(line => {
+    // Empty line = paragraph break
+    if (line.trim() === '') {
+      return '<div class="h-4"></div>';
+    }
+
+    // Check for alignment prefix: >> (right/RTL), << (left/LTR), >< (center)
+    let align: 'right' | 'left' | 'center' | null = null;
+    if (line.startsWith('>> ')) {
+      align = 'right';
+      line = line.slice(3);
+    } else if (line.startsWith('<< ')) {
+      align = 'left';
+      line = line.slice(3);
+    } else if (line.startsWith('>< ')) {
+      align = 'center';
+      line = line.slice(3);
+    }
+
+    // Headers: # ## ###
+    if (line.startsWith('### ')) {
+      const content = line.slice(4);
+      return align
+        ? wrapWithAlign(content, align, 'text-lg font-bold mt-4 mb-2')
+        : `<div class="text-lg font-bold mt-4 mb-2">${content}</div>`;
+    }
+    if (line.startsWith('## ')) {
+      const content = line.slice(3);
+      return align
+        ? wrapWithAlign(content, align, 'text-xl font-bold mt-4 mb-2')
+        : `<div class="text-xl font-bold mt-4 mb-2">${content}</div>`;
+    }
+    if (line.startsWith('# ')) {
+      const content = line.slice(2);
+      return align
+        ? wrapWithAlign(content, align, 'text-2xl font-bold mt-4 mb-2')
+        : `<div class="text-2xl font-bold mt-4 mb-2">${content}</div>`;
+    }
+
+    // Bullet points: • or - at start of line - replace with colored bullet
+    if (line.match(/^[•\-]\s/)) {
+      const content = `<span class="text-blue-400">• </span>${line.slice(2)}`;
+      return align
+        ? wrapWithAlign(content, align, 'my-1')
+        : `<div class="my-1">${content}</div>`;
+    }
+
+    // Numbered lists: 1. 2. 3. etc - color the number
+    const numberedMatch = line.match(/^(\d+)\.\s(.+)$/);
+    if (numberedMatch) {
+      const content = `<span class="text-blue-400 font-bold">${numberedMatch[1]}. </span>${numberedMatch[2]}`;
+      return align
+        ? wrapWithAlign(content, align, 'my-1')
+        : `<div class="my-1">${content}</div>`;
+    }
+
+    // Regular line
+    return align ? wrapWithAlign(line, align) : `<div>${line}</div>`;
+  }).join('');
+
+  // Apply inline formatting
+  let formatted = formattedLines
+    // Bold: *text*
     .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+    // Italic: _text_
     .replace(/_([^_]+)_/g, '<em>$1</em>')
-    .replace(/~([^~]+)~/g, '<del>$1</del>');
+    // Strikethrough: ~text~
+    .replace(/~([^~]+)~/g, '<del>$1</del>')
+    // Links: [text](url) or plain URLs
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline hover:text-blue-300">$1</a>')
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 underline hover:text-blue-300">$1</a>');
+
   // Sanitize again to ensure only our tags are present
-  return DOMPurify.sanitize(formatted, { ALLOWED_TAGS: ['strong', 'em', 'del'] });
+  return DOMPurify.sanitize(formatted, {
+    ALLOWED_TAGS: ['strong', 'em', 'del', 'a', 'div', 'span'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class']
+  });
 }
 
 interface RiddleModalProps {
@@ -359,6 +440,7 @@ export default function RiddleModal({
               <p
                 className="whitespace-pre-wrap"
                 style={{ color: textColor }}
+                dir="auto"
                 dangerouslySetInnerHTML={{
                   __html: formatContent(content || t('riddleContentPreviewPlaceholder')),
                 }}
