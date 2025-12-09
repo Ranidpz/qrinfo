@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.5.1';
+export const APP_VERSION = '1.5.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,18 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  {
+    version: '1.5.2',
+    date: '2025-12-09',
+    highlights: {
+      he: [
+        'תיקון באנר עוגיות - תמיכה בעברית ואנגלית',
+      ],
+      en: [
+        'Fixed cookie consent banner - Hebrew and English support',
+      ],
+    },
+  },
   {
     version: '1.5.1',
     date: '2025-12-09',
