@@ -35,7 +35,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    // Default based on screen size - list for mobile, grid for desktop
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768 ? 'list' : 'grid';
+    }
+    return 'grid';
+  });
   const [filter, setFilter] = useState<FilterOption>('mine');
   const [gridSize, setGridSize] = useState(4);
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; code: QRCodeType | null }>({
@@ -73,6 +79,12 @@ export default function DashboardPage() {
   const [addingWordCloud, setAddingWordCloud] = useState(false);
   const [selfiebeamModalOpen, setSelfiebeamModalOpen] = useState(false);
   const [addingSelfiebeam, setAddingSelfiebeam] = useState(false);
+
+  // Set initial view mode based on screen size (list for mobile, grid for desktop)
+  useEffect(() => {
+    const isMobile = window.innerWidth < 768;
+    setViewMode(isMobile ? 'list' : 'grid');
+  }, []);
 
   // Handle folder param from URL (when returning from code edit)
   useEffect(() => {
@@ -1189,6 +1201,7 @@ export default function DashboardPage() {
               updatedAt={code.updatedAt}
               isOwner={user?.id === code.ownerId}
               isGlobal={code.isGlobal}
+              isInRoute={code.folderId ? folders.find(f => f.id === code.folderId)?.routeConfig?.isRoute : false}
               isGuest={!user}
               widgets={code.widgets}
               viewMode={viewMode}

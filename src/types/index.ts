@@ -130,6 +130,8 @@ export interface RouteConfig {
   routeTitle?: string;        // Display title for route
   bonusThreshold?: number;    // Stations to complete for bonus (0 = all)
   bonusXP?: number;           // XP bonus for completion
+  prizesEnabled?: boolean;    // Enable pack/prize system for this route
+  lobbyDisplayEnabled?: boolean; // Show epic/legendary wins on lobby screen
 }
 
 // Folder document
@@ -288,8 +290,18 @@ export interface Visitor {
   consent: boolean;        // Has consented to photo publishing
   consentTimestamp?: Date; // When consent was given
   totalXP: number;         // Total accumulated XP across all routes
+  pendingPackCount?: number;  // Number of unopened packs
+  lastLevelNotified?: number; // Last level minXP where pack was awarded
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Station visit record (for detailed XP breakdown)
+export interface StationVisit {
+  codeId: string;
+  title: string;
+  xpEarned: number;
+  visitedAt: Date;
 }
 
 // Visitor progress per route (stored in 'visitorProgress' collection)
@@ -298,8 +310,9 @@ export interface VisitorProgress {
   id: string;                 // Document ID
   visitorId: string;          // Reference to visitor
   routeId: string;            // Folder ID (route)
+  nickname?: string;          // Cached nickname for leaderboard display
   xp: number;                 // XP earned in this route
-  visitedStations: string[];  // Array of codeIds visited
+  visitedStations: StationVisit[];  // Array of station visits with details
   photosUploaded: number;     // Count of photos uploaded in route
   bonusAwarded: boolean;      // Has received completion bonus
   createdAt: Date;
@@ -314,4 +327,80 @@ export interface LeaderboardEntry {
   xp: number;
   level: XPLevel;
   photosUploaded: number;
+  visitedStations?: StationVisit[];  // Detailed station visits
+  updatedAt?: Date;
+}
+
+// ============ PACK / PRIZE SYSTEM ============
+
+// Prize rarity levels
+export type PrizeRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+// Default drop rates by rarity (percentage)
+export const DEFAULT_DROP_RATES: Record<PrizeRarity, number> = {
+  common: 70,
+  rare: 20,
+  epic: 8,
+  legendary: 2,
+};
+
+// Rarity display configuration
+export const RARITY_CONFIG: Record<PrizeRarity, {
+  color: string;
+  bgColor: string;
+  emoji: string;
+  name: string;
+  nameEn: string;
+}> = {
+  common: { color: '#6B7280', bgColor: '#F3F4F6', emoji: '⚪', name: 'רגיל', nameEn: 'Common' },
+  rare: { color: '#3B82F6', bgColor: '#DBEAFE', emoji: '🔵', name: 'נדיר', nameEn: 'Rare' },
+  epic: { color: '#8B5CF6', bgColor: '#EDE9FE', emoji: '🟣', name: 'אפי', nameEn: 'Epic' },
+  legendary: { color: '#F59E0B', bgColor: '#FEF3C7', emoji: '🌟', name: 'אגדי', nameEn: 'Legendary' },
+};
+
+// Prize document (stored in 'prizes' collection)
+export interface Prize {
+  id: string;
+  routeId: string;              // The route this prize belongs to
+  name: string;                 // Hebrew name
+  nameEn: string;               // English name
+  description?: string;         // Optional description
+  rarity: PrizeRarity;
+  dropRate: number;             // Percentage (e.g., 70 for 70%)
+  totalAvailable: number;       // Total inventory
+  claimed: number;              // How many have been claimed
+  imageUrl?: string;            // Prize image
+  isActive: boolean;            // Can be disabled without deletion
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Reason for receiving a pack
+export type PackTrigger = 'level_up' | 'route_complete' | 'achievement';
+
+// Pending pack (unopened) - stored in 'pendingPacks' collection
+export interface PendingPack {
+  id: string;                   // Document ID
+  visitorId: string;
+  routeId: string;
+  reason: PackTrigger;
+  levelReached?: number;        // minXP of level reached (if level_up)
+  earnedAt: Date;
+  opened: boolean;
+}
+
+// Pack opening record - stored in 'packOpenings' collection
+export interface PackOpening {
+  id: string;
+  visitorId: string;
+  visitorNickname: string;      // Cached for lobby display
+  routeId: string;
+  prizeId: string;
+  prizeName: string;            // Cached Hebrew name
+  prizeNameEn: string;          // Cached English name
+  prizeRarity: PrizeRarity;
+  prizeImageUrl?: string;
+  openedAt: Date;
+  redeemed: boolean;            // Has the prize been redeemed?
+  redeemedAt?: Date;
 }

@@ -28,6 +28,8 @@ export default function XPPopup({
   className = '',
 }: XPPopupProps) {
   const [phase, setPhase] = useState<'enter' | 'show' | 'exit'>('enter');
+  const isNegative = xp < 0;
+  const absXP = Math.abs(xp);
 
   // Generate stars once on mount
   const stars = useMemo(() => generateStars(8), []);
@@ -72,8 +74,8 @@ export default function XPPopup({
           <div
             key={star.id}
             className={`
-              absolute text-yellow-400
-              ${phase === 'show' || phase === 'exit' ? 'animate-star-burst' : 'opacity-0'}
+              absolute ${isNegative ? 'text-red-400' : 'text-yellow-400'}
+              ${phase === 'show' || phase === 'exit' ? (isNegative ? 'animate-star-fall' : 'animate-star-burst') : 'opacity-0'}
             `}
             style={{
               left: `${star.left}%`,
@@ -83,7 +85,7 @@ export default function XPPopup({
               animationDuration: `${star.duration}s`,
             }}
           >
-            ✦
+            {isNegative ? '💔' : '✦'}
           </div>
         ))}
       </div>
@@ -92,16 +94,21 @@ export default function XPPopup({
       <div
         className={`
           relative px-8 py-4 rounded-2xl
-          bg-gradient-to-br from-emerald-400 via-green-500 to-emerald-600
+          ${isNegative
+            ? 'bg-gradient-to-br from-red-400 via-rose-500 to-red-600 shadow-red-500/30 border-red-300/50'
+            : 'bg-gradient-to-br from-emerald-400 via-green-500 to-emerald-600 shadow-emerald-500/30 border-emerald-300/50'
+          }
           text-white font-bold text-2xl
-          shadow-2xl shadow-emerald-500/30
-          border-2 border-emerald-300/50
+          shadow-2xl
+          border-2
           transition-all duration-500 ease-out
           ${phase === 'enter'
             ? 'opacity-0 scale-50'
             : phase === 'show'
               ? 'opacity-100 scale-100'
-              : 'opacity-0 scale-110 -translate-y-12'
+              : isNegative
+                ? 'opacity-0 scale-90 translate-y-12'
+                : 'opacity-0 scale-110 -translate-y-12'
           }
         `}
       >
@@ -109,13 +116,22 @@ export default function XPPopup({
         <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/20" />
 
         {/* Sparkle decorations */}
-        <span className="absolute -top-2 -left-2 text-xl animate-pulse">✨</span>
-        <span className="absolute -top-1 -right-3 text-lg animate-pulse" style={{ animationDelay: '0.3s' }}>⭐</span>
-        <span className="absolute -bottom-2 -right-1 text-xl animate-pulse" style={{ animationDelay: '0.6s' }}>✨</span>
+        {isNegative ? (
+          <>
+            <span className="absolute -top-2 -left-2 text-xl animate-pulse">😢</span>
+            <span className="absolute -bottom-2 -right-1 text-xl animate-pulse" style={{ animationDelay: '0.3s' }}>📉</span>
+          </>
+        ) : (
+          <>
+            <span className="absolute -top-2 -left-2 text-xl animate-pulse">✨</span>
+            <span className="absolute -top-1 -right-3 text-lg animate-pulse" style={{ animationDelay: '0.3s' }}>⭐</span>
+            <span className="absolute -bottom-2 -right-1 text-xl animate-pulse" style={{ animationDelay: '0.6s' }}>✨</span>
+          </>
+        )}
 
         {/* XP text */}
         <span className="relative z-10 drop-shadow-lg">
-          +{formatXP(xp, locale)} XP
+          {isNegative ? '-' : '+'}{formatXP(absXP, locale)} XP
         </span>
       </div>
 
@@ -136,8 +152,27 @@ export default function XPPopup({
           }
         }
 
+        @keyframes star-fall {
+          0% {
+            opacity: 0;
+            transform: translateY(0) scale(0);
+          }
+          20% {
+            opacity: 1;
+            transform: translateY(10px) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(60px) scale(0.5);
+          }
+        }
+
         .animate-star-burst {
           animation: star-burst 1s ease-out forwards;
+        }
+
+        .animate-star-fall {
+          animation: star-fall 1s ease-out forwards;
         }
       `}</style>
     </div>

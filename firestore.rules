@@ -22,7 +22,7 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid ||
         request.auth.uid in resource.data.collaborators ||
         isAdmin()
-      ) || isViewIncrement();
+      ) || isViewIncrement() || isGalleryUpdate();
 
       // Only owner or admin can delete
       allow delete: if request.auth != null && (
@@ -46,10 +46,41 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Folders collection
-    match /folders/{folderId} {
-      // Allow read for owner, admin, or any authenticated user (needed for ownership transfer)
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Anyone authenticated can read notifications
       allow read: if request.auth != null;
+      // Only admin can create, update, delete notifications
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Visitors collection (gamification - anonymous users)
+    match /visitors/{visitorId} {
+      // Anyone can read (for leaderboard)
+      allow read: if true;
+      // Anyone can create their visitor profile
+      allow create: if request.resource.data.id == visitorId
+                    && request.resource.data.nickname is string
+                    && request.resource.data.nickname.size() >= 2
+                    && request.resource.data.nickname.size() <= 20;
+      // Anyone can update their own visitor (nickname changes only, XP updated via progress)
+      allow update: if request.resource.data.id == visitorId;
+    }
+
+    // VisitorProgress collection (gamification - route progress)
+    match /visitorProgress/{progressId} {
+      // Anyone can read (for leaderboard)
+      allow read: if true;
+      // Anyone can create progress for themselves
+      allow create: if true;
+      // Anyone can update progress (XP increases only enforced in app logic)
+      allow update: if true;
+    }
+
+    // Folders collection - allow public read for route checking
+    match /folders/{folderId} {
+      // Allow public read (needed for gamification route checking)
+      allow read: if true;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && (
         resource.data.ownerId == request.auth.uid ||
@@ -57,12 +88,36 @@ service cloud.firestore {
       );
     }
 
-    // Notifications collection
-    match /notifications/{notificationId} {
-      // Anyone authenticated can read notifications
-      allow read: if request.auth != null;
-      // Only admin can create, update, delete notifications
-      allow create, update, delete: if isAdmin();
+    // Prizes collection (pack/reward system)
+    match /prizes/{prizeId} {
+      // Anyone can read (needed for lottery)
+      allow read: if true;
+      // Only route owner or admin can manage prizes
+      allow create, update, delete: if request.auth != null && isAdmin();
+    }
+
+    // PendingPacks collection (unopened packs)
+    match /pendingPacks/{packId} {
+      // Anyone can read (visitor checks their packs)
+      allow read: if true;
+      // System creates packs (via app logic)
+      allow create: if true;
+      // Anyone can mark as opened
+      allow update: if true;
+      // No delete
+      allow delete: if false;
+    }
+
+    // PackOpenings collection (opened pack history)
+    match /packOpenings/{openingId} {
+      // Anyone can read (for lobby display)
+      allow read: if true;
+      // System creates openings
+      allow create: if true;
+      // Only admin can update (mark as redeemed)
+      allow update: if isAdmin();
+      // No delete
+      allow delete: if false;
     }
 
     // Helper function to check if user is admin
@@ -74,6 +129,11 @@ service cloud.firestore {
     // Helper function to check if this is just a view count increment
     function isViewIncrement() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']);
+    }
+
+    // Helper function to check if this is just a userGallery update (for anonymous uploads)
+    function isGalleryUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userGallery']);
     }
   }
 }

@@ -181,7 +181,7 @@ export default function RegistrationConsentModal({
               className={`
                 w-full px-4 py-3 rounded-lg border border-gray-200
                 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent
-                text-base
+                text-base text-gray-900 placeholder-gray-400 bg-white
                 ${isRTL ? 'text-right' : 'text-left'}
               `}
               maxLength={20}

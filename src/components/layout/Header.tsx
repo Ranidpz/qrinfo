@@ -13,7 +13,7 @@ export default function Header({ onMenuClick, direction = 'rtl' }: HeaderProps) 
   const isRTL = direction === 'rtl';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 h-16 bg-bg-secondary border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-bg-secondary border-b border-border">
       <div className={clsx(
         "flex items-center justify-between h-full px-4 md:px-6",
         !isRTL && "flex-row-reverse"
@@ -32,11 +32,7 @@ export default function Header({ onMenuClick, direction = 'rtl' }: HeaderProps) 
         {/* RTL: logo on LEFT (opposite sidebar on right), LTR: logo on RIGHT (opposite sidebar on left) */}
         <Link
           href="/dashboard"
-          className={clsx(
-            "flex items-center gap-2",
-            // On desktop, push logo to opposite side of sidebar
-            isRTL ? "md:mr-auto" : "md:ml-auto"
-          )}
+          className="flex items-center gap-2 md:ms-auto"
         >
           <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
             <QrCode className="w-6 h-6 text-accent" />

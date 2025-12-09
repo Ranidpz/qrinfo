@@ -1,16 +1,19 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { RiddleContent, UserGalleryImage, Visitor} from '@/types';
-import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2 } from 'lucide-react';
+import { RiddleContent, UserGalleryImage, Visitor, PendingPack, PackOpening } from '@/types';
+import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Star, User, Pencil } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
 import { queuedUpload } from '@/lib/uploadQueue';
-import { getBrowserLocale, uploadTranslations } from '@/lib/publicTranslations';
-import { getVisitorId } from '@/lib/xp';
-import { getVisitor, recordPhotoUpload, recordStationScan, getFolder } from '@/lib/db';
+import { getBrowserLocale, uploadTranslations, gamificationTranslations } from '@/lib/publicTranslations';
+import { getVisitorId, getLevelForXP, getProgressToNextLevel, formatXP, getLevelName } from '@/lib/xp';
+import { getVisitor, recordPhotoUpload, recordStationScan, getFolder, removePhotoXP, updateVisitor } from '@/lib/db';
+import { getPendingPacks } from '@/lib/lottery';
 import { RegistrationConsentModal, XPPopup, useXPPopup } from '@/components/gamification';
+import PackOpeningModal from '@/components/gamification/PackOpeningModal';
+import PendingPacksBadge from '@/components/gamification/PendingPacksBadge';
 
 interface RiddleViewerProps {
   content: RiddleContent;
@@ -97,7 +100,17 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [isRoute, setIsRoute] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
+  const [showEditNicknameModal, setShowEditNicknameModal] = useState(false);
+  const [editingNickname, setEditingNickname] = useState('');
+  const [savingNickname, setSavingNickname] = useState(false);
   const { popups, showPopup, removePopup } = useXPPopup();
+
+  // Pack opening state
+  const [pendingPacks, setPendingPacks] = useState<PendingPack[]>([]);
+  const [selectedPack, setSelectedPack] = useState<PendingPack | null>(null);
+  const [showPackModal, setShowPackModal] = useState(false);
+  const [prizesEnabled, setPrizesEnabled] = useState(false);
 
   // My uploaded images state (stored in sessionStorage by image ID)
   const [myUploadedImages, setMyUploadedImages] = useState<UserGalleryImage[]>([]);
@@ -111,6 +124,8 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
   // Load visitor data and check route status on mount
   useEffect(() => {
     const loadVisitorAndRoute = async () => {
+      console.log('[RiddleViewer] Loading route data. folderId:', folderId, 'codeId:', codeId);
+
       // Check for existing visitor
       const visitorId = getVisitorId();
       if (visitorId) {
@@ -123,16 +138,31 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
       // Check if this code is part of a route
       if (folderId) {
         const folder = await getFolder(folderId);
+        console.log('[RiddleViewer] Folder data:', folder?.name, 'isRoute:', folder?.routeConfig?.isRoute);
         if (folder?.routeConfig?.isRoute) {
           setIsRoute(true);
+          console.log('[RiddleViewer] Route is ACTIVE!');
+
+          // Check if prizes are enabled for this route
+          if (folder.routeConfig.prizesEnabled) {
+            setPrizesEnabled(true);
+          }
+
           // Record station scan for XP (if visitor exists and this is first visit)
           if (visitorId && codeId) {
-            const result = await recordStationScan(visitorId, folderId, codeId);
+            const result = await recordStationScan(visitorId, folderId, codeId, content.title);
             if (result.xpEarned > 0) {
               showPopup(result.xpEarned);
               // Refresh visitor data
               const updatedVisitor = await getVisitor(visitorId);
               if (updatedVisitor) setCurrentVisitor(updatedVisitor);
+            }
+
+            // Check for level-up pack award
+            if (result.leveledUp && result.packAwarded) {
+              // Fetch pending packs to show notification
+              const packs = await getPendingPacks(visitorId, folderId);
+              setPendingPacks(packs);
             }
           }
         }
@@ -141,6 +171,18 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
 
     loadVisitorAndRoute();
   }, [folderId, codeId, showPopup]);
+
+  // Fetch pending packs when visitor changes
+  useEffect(() => {
+    const fetchPendingPacks = async () => {
+      if (currentVisitor && folderId && prizesEnabled) {
+        const packs = await getPendingPacks(currentVisitor.id, folderId);
+        setPendingPacks(packs);
+      }
+    };
+
+    fetchPendingPacks();
+  }, [currentVisitor, folderId, prizesEnabled]);
 
   // Load my uploaded image IDs from sessionStorage on mount
   useEffect(() => {
@@ -244,6 +286,18 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
           uploadedAt: Timestamp.fromDate(new Date(img.uploadedAt)),
         })),
       });
+
+      // Remove XP for photo deletion (if visitor is registered and this is a route)
+      if (currentVisitor && folderId && isRoute) {
+        const result = await removePhotoXP(currentVisitor.id, folderId);
+        if (result.xpRemoved > 0) {
+          // Show negative XP popup
+          showPopup(-result.xpRemoved);
+          // Refresh visitor data
+          const updatedVisitor = await getVisitor(currentVisitor.id);
+          if (updatedVisitor) setCurrentVisitor(updatedVisitor);
+        }
+      }
 
       // Remove from sessionStorage
       removeUploadedImageId(image.id);
@@ -385,11 +439,15 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
         }),
       });
 
-      // Update owner's storage used
-      const ownerRef = doc(db, 'users', ownerId);
-      await updateDoc(ownerRef, {
-        storageUsed: increment(data.image.size),
-      });
+      // Update owner's storage used (may fail for anonymous users, non-blocking)
+      try {
+        const ownerRef = doc(db, 'users', ownerId);
+        await updateDoc(ownerRef, {
+          storageUsed: increment(data.image.size),
+        });
+      } catch (storageError) {
+        console.log('Storage tracking skipped (anonymous user):', storageError);
+      }
 
       // Save the image ID to sessionStorage
       saveUploadedImageId(data.image.id);
@@ -412,6 +470,13 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
           // Refresh visitor data
           const updatedVisitor = await getVisitor(currentVisitor.id);
           if (updatedVisitor) setCurrentVisitor(updatedVisitor);
+        }
+
+        // Check for level-up pack award
+        if (result.leveledUp && result.packAwarded) {
+          // Fetch pending packs to show notification
+          const packs = await getPendingPacks(currentVisitor.id, folderId);
+          setPendingPacks(packs);
         }
       }
 
@@ -446,6 +511,68 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
   const handleNameSubmit = () => {
     if (selectedFile) {
       handleUpload(selectedFile, uploaderName);
+    }
+  };
+
+  // Handle opening edit nickname modal
+  const handleEditNickname = () => {
+    if (currentVisitor) {
+      setEditingNickname(currentVisitor.nickname);
+      setShowEditNicknameModal(true);
+    }
+  };
+
+  // Handle saving nickname
+  const handleSaveNickname = async () => {
+    if (!currentVisitor || !editingNickname.trim() || savingNickname) return;
+
+    setSavingNickname(true);
+    try {
+      const trimmedNickname = editingNickname.trim();
+      // Update visitor collection
+      await updateVisitor(currentVisitor.id, { nickname: trimmedNickname });
+
+      // Also update visitorProgress so leaderboard shows updated name immediately
+      if (folderId) {
+        const progressId = `${currentVisitor.id}_${folderId}`;
+        try {
+          await updateDoc(doc(db, 'visitorProgress', progressId), { nickname: trimmedNickname });
+        } catch (progressError) {
+          // Progress might not exist yet, that's ok
+          console.log('Could not update progress nickname:', progressError);
+        }
+      }
+
+      // Refresh visitor data
+      const updatedVisitor = await getVisitor(currentVisitor.id);
+      if (updatedVisitor) setCurrentVisitor(updatedVisitor);
+      setShowEditNicknameModal(false);
+    } catch (error) {
+      console.error('Error updating nickname:', error);
+    } finally {
+      setSavingNickname(false);
+    }
+  };
+
+  // Handle opening pending packs
+  const handleOpenPack = () => {
+    if (pendingPacks.length > 0) {
+      setSelectedPack(pendingPacks[0]);
+      setShowPackModal(true);
+    }
+  };
+
+  // Handle pack opened
+  const handlePackOpened = async (opening: PackOpening) => {
+    console.log('[RiddleViewer] Pack opened:', opening);
+    // Remove the opened pack from pending list
+    setPendingPacks(prev => prev.filter(p => p.id !== selectedPack?.id));
+    setSelectedPack(null);
+
+    // Refresh visitor data (pendingPackCount updated)
+    if (currentVisitor) {
+      const updatedVisitor = await getVisitor(currentVisitor.id);
+      if (updatedVisitor) setCurrentVisitor(updatedVisitor);
     }
   };
 
@@ -642,33 +769,74 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
             </div>
           )}
 
-          {/* Camera Button */}
-          <button
-            onClick={handleCameraClick}
-            disabled={uploading || !canUploadMore}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-          >
-            {uploading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
-            ) : uploadStatus === 'success' ? (
-              <Check className="w-5 h-5 text-green-500" />
-            ) : uploadStatus === 'error' ? (
-              <AlertCircle className="w-5 h-5 text-red-500" />
-            ) : (
-              <Camera className="w-5 h-5 text-gray-600" />
+          {/* Visitor Badge - show when registered */}
+          {currentVisitor && isRoute && (
+            <button
+              onClick={handleEditNickname}
+              className="flex items-center gap-2 px-3 py-2 rounded-full bg-slate-800/80 backdrop-blur-sm border border-white/20 shadow-lg hover:bg-slate-700/80 transition-all w-full max-w-md"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center flex-shrink-0">
+                <User className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-white font-medium text-sm truncate flex-1 text-right">
+                {currentVisitor.nickname}
+              </span>
+              <Pencil className="w-4 h-4 text-white/60 flex-shrink-0" />
+            </button>
+          )}
+
+          {/* Pending Packs Badge - show above action bar */}
+          {pendingPacks.length > 0 && prizesEnabled && (
+            <div className="w-full max-w-md flex justify-center mb-2">
+              <PendingPacksBadge
+                pendingPacks={pendingPacks}
+                onClick={handleOpenPack}
+                locale={locale}
+              />
+            </div>
+          )}
+
+          {/* Bottom Action Bar */}
+          <div className="flex items-center gap-2 w-full max-w-md">
+            {/* XP Info Button (green star) - only show when route is active */}
+            {isRoute && (
+              <button
+                onClick={() => setShowInstructionsModal(true)}
+                className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg hover:shadow-xl transition-all animate-pulse"
+                title={gamificationTranslations[locale].gameInstructions}
+              >
+                <Star className="w-6 h-6 fill-current" />
+              </button>
             )}
-            <span className="text-sm font-medium text-gray-700">
-              {uploading
-                ? t.uploading
-                : uploadStatus === 'success'
-                ? t.uploaded
-                : uploadStatus === 'error'
-                ? t.error
-                : !canUploadMore
-                ? t.maxReached
-                : t.takePhoto}
-            </span>
-          </button>
+
+            {/* Camera Button */}
+            <button
+              onClick={handleCameraClick}
+              disabled={uploading || !canUploadMore}
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+            >
+              {uploading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
+              ) : uploadStatus === 'success' ? (
+                <Check className="w-5 h-5 text-green-500" />
+              ) : uploadStatus === 'error' ? (
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              ) : (
+                <Camera className="w-5 h-5 text-gray-600" />
+              )}
+              <span className="text-sm font-medium text-gray-700">
+                {uploading
+                  ? t.uploading
+                  : uploadStatus === 'success'
+                  ? t.uploaded
+                  : uploadStatus === 'error'
+                  ? t.error
+                  : !canUploadMore
+                  ? t.maxReached
+                  : gamificationTranslations[locale].takePhotoHere}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -725,6 +893,215 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
         requireConsent={true}
       />
 
+      {/* Game Instructions Modal */}
+      {showInstructionsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowInstructionsModal(false)}
+        >
+          <div
+            className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 space-y-5 border border-white/10"
+            onClick={(e) => e.stopPropagation()}
+            dir={locale === 'he' ? 'rtl' : 'ltr'}
+          >
+            {/* Header */}
+            <div className="text-center space-y-2">
+              <div className="text-4xl mb-2">🎮</div>
+              <h3 className="text-xl font-bold text-white">
+                {gamificationTranslations[locale].howToPlay}
+              </h3>
+            </div>
+
+            {/* Instructions */}
+            <div className="space-y-4">
+              {/* Step 1 */}
+              <div className="flex items-start gap-3 bg-white/5 rounded-xl p-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <span className="text-lg">🔍</span>
+                </div>
+                <div className="text-start">
+                  <p className="text-white/90 text-sm font-medium">
+                    {gamificationTranslations[locale].findTheCode}
+                  </p>
+                  <p className="text-white/60 text-xs">
+                    {gamificationTranslations[locale].scanAndFollow}
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex items-start gap-3 bg-white/5 rounded-xl p-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <span className="text-lg">📸</span>
+                </div>
+                <div className="text-start">
+                  <p className="text-white/90 text-sm font-medium">
+                    {gamificationTranslations[locale].uploadYourSelfie}
+                  </p>
+                  <p className="text-white/60 text-xs">
+                    {gamificationTranslations[locale].toEarnPoints}
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex items-start gap-3 bg-white/5 rounded-xl p-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <span className="text-lg">🏆</span>
+                </div>
+                <div className="text-start">
+                  <p className="text-white/90 text-sm font-medium">
+                    {gamificationTranslations[locale].earnPoints}
+                  </p>
+                  <p className="text-white/60 text-xs">
+                    {gamificationTranslations[locale].toOpenPacks}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* XP Values */}
+            <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl p-4 border border-emerald-500/20">
+              <h4 className="text-sm font-semibold text-emerald-400 mb-3 text-center">
+                {gamificationTranslations[locale].scoring}
+              </h4>
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="bg-white/5 rounded-lg p-2">
+                  <div className="text-emerald-400 font-bold">+10 XP</div>
+                  <div className="text-white/60 text-xs">
+                    {gamificationTranslations[locale].stationScan}
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-2">
+                  <div className="text-emerald-400 font-bold">+25 XP</div>
+                  <div className="text-white/60 text-xs">
+                    {gamificationTranslations[locale].eachPhoto}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowInstructionsModal(false)}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-white font-semibold shadow-lg hover:shadow-emerald-500/25 transition-all"
+            >
+              {gamificationTranslations[locale].gotItLetsPlay}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Nickname Modal */}
+      {showEditNicknameModal && currentVisitor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowEditNicknameModal(false)}
+          style={{ touchAction: 'none' }}
+        >
+          <div
+            className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl shadow-2xl w-full max-w-sm p-6 space-y-5 border border-white/10"
+            onClick={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            dir={locale === 'he' ? 'rtl' : 'ltr'}
+            style={{ touchAction: 'auto', userSelect: 'text', WebkitUserSelect: 'text' }}
+          >
+            {/* Header with Level Badge */}
+            <div className="text-center space-y-2">
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-4xl shadow-lg shadow-emerald-500/30">
+                {getLevelForXP(currentVisitor.totalXP).emoji}
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                {gamificationTranslations[locale].myProfile}
+              </h3>
+            </div>
+
+            {/* Player Stats */}
+            <div className="bg-white/5 rounded-2xl p-4 space-y-3 border border-white/10">
+              {/* Level */}
+              <div className="flex items-center justify-between">
+                <span className="text-white/60 text-sm">
+                  {gamificationTranslations[locale].level}
+                </span>
+                <span className="text-white font-semibold flex items-center gap-2">
+                  <span>{getLevelForXP(currentVisitor.totalXP).emoji}</span>
+                  <span>{getLevelName(getLevelForXP(currentVisitor.totalXP), locale)}</span>
+                </span>
+              </div>
+
+              {/* XP */}
+              <div className="flex items-center justify-between">
+                <span className="text-white/60 text-sm">
+                  {gamificationTranslations[locale].points}
+                </span>
+                <span className="text-emerald-400 font-bold text-lg">
+                  {formatXP(currentVisitor.totalXP, locale)} XP
+                </span>
+              </div>
+
+              {/* Progress Bar to Next Level */}
+              {getLevelForXP(currentVisitor.totalXP).maxXP !== Infinity && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/40">
+                      {gamificationTranslations[locale].toNextLevel}
+                    </span>
+                    <span className="text-white/60">
+                      {getProgressToNextLevel(currentVisitor.totalXP)}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full transition-all duration-500 ${locale === 'he' ? 'mr-auto' : 'ml-0'}`}
+                      style={{ width: `${getProgressToNextLevel(currentVisitor.totalXP)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Name Input */}
+            <div className="space-y-2 text-start">
+              <label className="text-white/60 text-sm block">
+                {gamificationTranslations[locale].myNameOnLeaderboard}
+              </label>
+              <input
+                type="text"
+                value={editingNickname}
+                onChange={(e) => setEditingNickname(e.target.value)}
+                placeholder={gamificationTranslations[locale].enterName}
+                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 text-start select-text"
+                autoFocus
+                maxLength={20}
+                dir={locale === 'he' ? 'rtl' : 'ltr'}
+                style={{ touchAction: 'auto', userSelect: 'text', WebkitUserSelect: 'text' }}
+              />
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEditNicknameModal(false)}
+                className="flex-1 py-3 rounded-xl bg-white/10 text-white/80 font-medium hover:bg-white/20 transition-all"
+              >
+                {t.cancel}
+              </button>
+              <button
+                onClick={handleSaveNickname}
+                disabled={!editingNickname.trim() || savingNickname}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-white font-semibold shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {savingNickname ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  gamificationTranslations[locale].save
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* XP Popups */}
       {popups.map((popup) => (
         <XPPopup
@@ -734,6 +1111,20 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
           onComplete={() => removePopup(popup.id)}
         />
       ))}
+
+      {/* Pack Opening Modal */}
+      {selectedPack && (
+        <PackOpeningModal
+          pendingPack={selectedPack}
+          isOpen={showPackModal}
+          onClose={() => {
+            setShowPackModal(false);
+            setSelectedPack(null);
+          }}
+          onOpened={handlePackOpened}
+          locale={locale}
+        />
+      )}
     </div>
   );
 }

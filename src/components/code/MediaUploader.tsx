@@ -119,43 +119,48 @@ export default function MediaUploader({
     tab,
     label,
     icon: Icon,
-    badge
+    badge,
+    tooltip
   }: {
     tab: typeof activeTab;
     label: string;
     icon: React.ElementType;
     badge?: string;
+    tooltip?: string;
   }) => (
-    <button
-      onClick={() => setActiveTab(tab)}
-      className={clsx(
-        'relative flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-lg text-xs font-medium transition-all border',
-        activeTab === tab
-          ? 'bg-accent text-white border-accent shadow-md'
-          : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50 hover:text-accent'
-      )}
-    >
+    <div className="relative">
       {badge && (
-        <span className="absolute -top-1.5 -right-1 px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-sm whitespace-nowrap">
-          {badge}
+        <span className="absolute -top-1 -right-1 sm:-top-2 sm:-left-2 sm:right-auto z-20 px-1.5 sm:px-3 py-0.5 text-[10px] sm:text-[15px] font-bold rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg whitespace-nowrap animate-pulse border border-white/20">
+          ✨{badge}
         </span>
       )}
-      <Icon className="w-4 h-4" />
-      <span className="truncate">{label}</span>
-    </button>
+      <button
+        onClick={() => setActiveTab(tab)}
+        title={tooltip}
+        className={clsx(
+          'w-full flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-lg text-xs font-medium transition-all border',
+          activeTab === tab
+            ? 'bg-accent text-white border-accent shadow-md'
+            : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50 hover:text-accent'
+        )}
+      >
+        <Icon className="w-4 h-4" />
+        <span className="truncate">{label}</span>
+      </button>
+    </div>
   );
 
   return (
     <div className="space-y-3">
       {/* Tab buttons - 3 columns grid */}
       {(onLinkAdd || onRiddleCreate || onWordCloudCreate) && (
-        <div className="grid grid-cols-3 gap-2">
-          <TabButton tab="upload" label={tMedia('image')} icon={Upload} />
-          {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} />}
-          {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} badge="XP" />}
-          {onWordCloudCreate && <TabButton tab="wordcloud" label={tMedia('wordcloud')} icon={Cloud} />}
-          {onSelfiebeamCreate && <TabButton tab="selfiebeam" label={tMedia('selfiebeam')} icon={Camera} />}
-          <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} />
+        <div className="grid grid-cols-3 gap-2 overflow-visible pt-3">
+          <TabButton tab="upload" label={tMedia('image')} icon={Upload} tooltip={t('tooltipUpload')} />
+          {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} tooltip={t('tooltipLink')} />}
+          {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} badge="XP" tooltip={t('tooltipRiddle')} />}
+          {onWordCloudCreate && <TabButton tab="wordcloud" label={tMedia('wordcloud')} icon={Cloud} tooltip={t('tooltipWordcloud')} />}
+          {onSelfiebeamCreate && <TabButton tab="selfiebeam" label={tMedia('selfiebeam')} icon={Camera} tooltip={t('tooltipSelfiebeam')} />}
+          <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} tooltip={t('tooltipMinigames')} />
         </div>
       )}
 

@@ -21,7 +21,8 @@
     "previous": "Previous",
     "all": "All",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "comingSoon": "Coming Soon!"
   },
   "auth": {
     "signIn": "Sign In",
@@ -41,6 +42,9 @@
     "dashboard": "Dashboard",
     "analytics": "Analytics",
     "userManagement": "User Management",
+    "qtag": "Q.Tag",
+    "qOrder": "Q.Order",
+    "comingSoon": "Coming Soon!",
     "closeMenu": "Close menu"
   },
   "sidebar": {
@@ -307,7 +311,13 @@
     "selfiebeamDescription": "Selfie wall for events - shared selfie gallery",
     "createSelfiebeam": "Create Selfiebeam",
     "minigamesDescription": "5 challenging games with leaderboard on big screens",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "tooltipUpload": "Upload image, video or PDF",
+    "tooltipLink": "Add link to external website",
+    "tooltipRiddle": "Interactive page with scoring route and XP for gamification experience",
+    "tooltipWordcloud": "Interactive word cloud for events",
+    "tooltipSelfiebeam": "Shared selfie wall for events",
+    "tooltipMinigames": "Challenging games - coming soon"
   },
   "analytics": {
     "title": "Analytics",
@@ -476,5 +486,62 @@
     "hebrew": "עברית",
     "english": "English",
     "selectLanguage": "Select Language"
+  },
+  "packs": {
+    "title": "Packs",
+    "pendingPacks": "Pending Packs",
+    "openPack": "Open Pack",
+    "opening": "Opening...",
+    "noPacks": "No pending packs",
+    "congratulations": "Congratulations!",
+    "youWon": "You won:",
+    "tapToOpen": "Tap to open",
+    "claimPrize": "Claim Prize",
+    "recentWinners": "Recent Winners",
+    "noWinnersYet": "No winners yet",
+    "levelUp": "Level Up!",
+    "routeComplete": "Route Complete!",
+    "packEarned": "You earned a pack!",
+    "error": "Error opening pack"
+  },
+  "prizes": {
+    "title": "Prizes",
+    "managePrizes": "Manage Prizes",
+    "enablePrizes": "Enable Prize System",
+    "enableLobbyDisplay": "Show wins on lobby screen",
+    "addPrize": "Add Prize",
+    "editPrize": "Edit Prize",
+    "deletePrize": "Delete Prize",
+    "name": "Prize Name",
+    "nameEn": "English Name",
+    "description": "Description",
+    "rarity": "Rarity",
+    "dropRate": "Drop Rate",
+    "totalAvailable": "Total Available",
+    "claimed": "Claimed",
+    "remaining": "Remaining",
+    "image": "Image",
+    "active": "Active",
+    "inactive": "Inactive",
+    "common": "Common",
+    "rare": "Rare",
+    "epic": "Epic",
+    "legendary": "Legendary",
+    "dropRateSum": "Total Drop Rate",
+    "dropRateSumError": "Drop rates must sum to 100%",
+    "noPrizes": "No prizes",
+    "addFirstPrize": "Add your first prize",
+    "prizeStats": "Statistics",
+    "totalPrizes": "Total Prizes",
+    "totalClaimed": "Total Claimed",
+    "totalRemaining": "Total Remaining",
+    "lowStock": "Low Stock",
+    "outOfStock": "Out of Stock"
+  },
+  "lobby": {
+    "title": "Lobby Screen",
+    "winner": "Winner!",
+    "won": "won:",
+    "viewLobby": "View Lobby Screen"
   }
 }

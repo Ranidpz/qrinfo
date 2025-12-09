@@ -35,6 +35,7 @@ export default async function GalleryPage({ params }: GalleryPageProps) {
         initialImages={code.userGallery || []}
         initialSettings={code.gallerySettings}
         companyLogos={companyLogos}
+        folderId={code.folderId}
       />
     );
   } catch (error) {

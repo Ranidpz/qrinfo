@@ -2,6 +2,9 @@ import { notFound } from 'next/navigation';
 import { getQRCodeByShortId } from '@/lib/db';
 import ViewerClient from './ViewerClient';
 
+// Force dynamic to prevent caching - always fetch fresh data
+export const dynamic = 'force-dynamic';
+
 interface ViewerPageProps {
   params: Promise<{
     shortId: string;
@@ -13,6 +16,9 @@ export default async function ViewerPage({ params }: ViewerPageProps) {
 
   try {
     const code = await getQRCodeByShortId(shortId);
+
+    // Debug logging
+    console.log('[ViewerPage] Code loaded:', code?.title, 'folderId:', code?.folderId);
 
     if (!code || !code.isActive) {
       notFound();
@@ -49,6 +55,7 @@ export default async function ViewerPage({ params }: ViewerPageProps) {
         codeId={code.id}
         shortId={code.shortId}
         ownerId={code.ownerId}
+        folderId={code.folderId}
       />
     );
   } catch (error) {

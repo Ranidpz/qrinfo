@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -42,6 +42,7 @@ interface CodeCardProps {
   updatedAt?: Date;
   isOwner?: boolean;
   isGlobal?: boolean;
+  isInRoute?: boolean; // Whether this code is in a route-enabled folder
   isGuest?: boolean; // Hide action buttons for guests
   ownerName?: string;
   isSuperAdmin?: boolean;
@@ -86,6 +87,7 @@ export default function CodeCard({
   updatedAt,
   isOwner = true,
   isGlobal = false,
+  isInRoute = false,
   isGuest = false,
   ownerName,
   isSuperAdmin = false,
@@ -418,6 +420,12 @@ export default function CodeCard({
             {isGlobal && (
               <span className="px-2 py-0.5 text-xs font-medium bg-success/20 rounded text-success flex items-center gap-1">
                 <Globe className="w-3 h-3" />
+              </span>
+            )}
+            {isInRoute && (
+              <span className="px-2 py-0.5 text-xs font-medium bg-emerald-500/20 rounded text-emerald-400 flex items-center gap-1" title="מסלול XP פעיל">
+                <Route className="w-3 h-3" />
+                XP
               </span>
             )}
             {widgets?.whatsapp?.groupLink && (

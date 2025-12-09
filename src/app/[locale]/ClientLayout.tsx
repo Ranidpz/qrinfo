@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
+import CookieConsent from '@/components/legal/CookieConsent';
+import AccessibilityButton from '@/components/legal/AccessibilityButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { clsx } from 'clsx';
 
@@ -42,6 +44,14 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
       )}>
         <div className="p-4 sm:p-6">{children}</div>
       </main>
+
+      {/* Legal components - only show for logged in users (dashboard area) */}
+      {user && (
+        <>
+          <CookieConsent />
+          <AccessibilityButton />
+        </>
+      )}
     </div>
   );
 }

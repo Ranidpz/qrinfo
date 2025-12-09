@@ -24,6 +24,7 @@ interface ViewerClientProps {
   codeId: string;
   shortId: string;
   ownerId: string;
+  folderId?: string; // For route/XP tracking
 }
 
 // Loading spinner with percentage
@@ -915,7 +916,7 @@ const ImageGalleryViewer = memo(({
 });
 ImageGalleryViewer.displayName = 'ImageGalleryViewer';
 
-export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId }: ViewerClientProps) {
+export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId, folderId }: ViewerClientProps) {
   // Get browser locale for translations
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = viewerTranslations[locale];
@@ -1090,7 +1091,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
               {media.map((item, index) => (
                 <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
                   {item.type === 'riddle' && item.riddleContent ? (
-                    <RiddleViewer content={item.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+                    <RiddleViewer content={item.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} folderId={folderId} />
                   ) : item.type === 'selfiebeam' && item.selfiebeamContent ? (
                     <SelfiebeamViewer content={item.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
                   ) : item.type === 'pdf' ? (
@@ -1207,7 +1208,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             </div>
           </div>
         ) : isRiddle && currentMedia.riddleContent ? (
-          <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+          <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} folderId={folderId} />
         ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isPDF ? (

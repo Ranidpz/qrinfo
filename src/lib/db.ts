@@ -26,7 +26,11 @@ import {
   VisitorProgress,
   RouteConfig,
   XP_VALUES,
+  XP_LEVELS,
   LeaderboardEntry,
+  Prize,
+  PendingPack,
+  PackTrigger,
 } from '@/types';
 import { getLevelForXP } from './xp';
 
@@ -145,6 +149,14 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
   const docSnap = querySnapshot.docs[0];
   const data = docSnap.data();
 
+  // Debug logging
+  console.log('[getQRCodeByShortId] Raw data from Firestore:', {
+    id: docSnap.id,
+    title: data.title,
+    folderId: data.folderId,
+    hasFolder: !!data.folderId,
+  });
+
   return {
     id: docSnap.id,
     shortId: data.shortId,
@@ -159,6 +171,7 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
     widgets: data.widgets || {},
     views: data.views || 0,
     isActive: data.isActive ?? true,
+    folderId: data.folderId, // For route/XP tracking
     userGallery: (data.userGallery || []).map((img: Record<string, unknown>) => ({
       ...img,
       uploadedAt: (img.uploadedAt as Timestamp)?.toDate() || new Date(),
@@ -917,9 +930,14 @@ export async function updateVisitorProgress(
   const docRef = doc(db, 'visitorProgress', progressId);
   const existing = await getDoc(docRef);
 
+  // Always fetch the visitor to get the latest nickname
+  const visitor = await getVisitor(visitorId);
+  const nickname = visitor?.nickname || 'Player';
+
   if (existing.exists()) {
     await updateDoc(docRef, {
       ...updates,
+      nickname, // Always sync nickname from visitor
       updatedAt: serverTimestamp(),
     });
   } else {
@@ -929,6 +947,7 @@ export async function updateVisitorProgress(
       id: progressId,
       visitorId,
       routeId,
+      nickname,
       xp: updates.xp || 0,
       visitedStations: updates.visitedStations || [],
       photosUploaded: updates.photosUploaded || 0,
@@ -943,25 +962,46 @@ export async function updateVisitorProgress(
 export async function recordStationScan(
   visitorId: string,
   routeId: string,
-  codeId: string
-): Promise<{ xpEarned: number; isFirstVisit: boolean; totalXP: number }> {
+  codeId: string,
+  codeTitle?: string
+): Promise<{
+  xpEarned: number;
+  isFirstVisit: boolean;
+  totalXP: number;
+  leveledUp?: boolean;
+  packAwarded?: boolean;
+}> {
   const progress = await getVisitorProgress(visitorId, routeId);
+  const previousXP = progress?.xp || 0;
 
+  // visitedStations is now an array of StationVisit objects
   const visitedStations = progress?.visitedStations || [];
-  const isFirstVisit = !visitedStations.includes(codeId);
+  // Check if already visited by looking at codeId
+  const isFirstVisit = !visitedStations.some(
+    (station) => typeof station === 'object' ? station.codeId === codeId : station === codeId
+  );
 
   if (!isFirstVisit) {
     return {
       xpEarned: 0,
       isFirstVisit: false,
-      totalXP: progress?.xp || 0,
+      totalXP: previousXP,
     };
   }
 
   // First visit - add XP
   const xpEarned = XP_VALUES.SCAN_STATION;
-  const newXP = (progress?.xp || 0) + xpEarned;
-  const newVisitedStations = [...visitedStations, codeId];
+  const newXP = previousXP + xpEarned;
+
+  // Create new station visit record
+  const newStationVisit = {
+    codeId,
+    title: codeTitle || 'תחנה',
+    xpEarned,
+    visitedAt: new Date(),
+  };
+
+  const newVisitedStations = [...visitedStations, newStationVisit];
 
   await updateVisitorProgress(visitorId, routeId, {
     xp: newXP,
@@ -974,10 +1014,15 @@ export async function recordStationScan(
     updatedAt: serverTimestamp(),
   });
 
+  // Check for level-up and award pack
+  const levelUpResult = await checkAndAwardLevelUpPack(visitorId, previousXP, newXP, routeId);
+
   return {
     xpEarned,
     isFirstVisit: true,
     totalXP: newXP,
+    leveledUp: levelUpResult.leveledUp,
+    packAwarded: levelUpResult.packAwarded,
   };
 }
 
@@ -985,11 +1030,17 @@ export async function recordStationScan(
 export async function recordPhotoUpload(
   visitorId: string,
   routeId: string
-): Promise<{ xpEarned: number; totalXP: number }> {
+): Promise<{
+  xpEarned: number;
+  totalXP: number;
+  leveledUp?: boolean;
+  packAwarded?: boolean;
+}> {
   const progress = await getVisitorProgress(visitorId, routeId);
+  const previousXP = progress?.xp || 0;
 
   const xpEarned = XP_VALUES.UPLOAD_PHOTO;
-  const newXP = (progress?.xp || 0) + xpEarned;
+  const newXP = previousXP + xpEarned;
   const newPhotosUploaded = (progress?.photosUploaded || 0) + 1;
 
   await updateVisitorProgress(visitorId, routeId, {
@@ -1003,8 +1054,45 @@ export async function recordPhotoUpload(
     updatedAt: serverTimestamp(),
   });
 
+  // Check for level-up and award pack
+  const levelUpResult = await checkAndAwardLevelUpPack(visitorId, previousXP, newXP, routeId);
+
   return {
     xpEarned,
+    totalXP: newXP,
+    leveledUp: levelUpResult.leveledUp,
+    packAwarded: levelUpResult.packAwarded,
+  };
+}
+
+// Remove XP when a photo is deleted
+export async function removePhotoXP(
+  visitorId: string,
+  routeId: string
+): Promise<{ xpRemoved: number; totalXP: number }> {
+  const progress = await getVisitorProgress(visitorId, routeId);
+
+  if (!progress || progress.photosUploaded <= 0) {
+    return { xpRemoved: 0, totalXP: progress?.xp || 0 };
+  }
+
+  const xpToRemove = XP_VALUES.UPLOAD_PHOTO;
+  const newXP = Math.max(0, (progress.xp || 0) - xpToRemove);
+  const newPhotosUploaded = Math.max(0, (progress.photosUploaded || 0) - 1);
+
+  await updateVisitorProgress(visitorId, routeId, {
+    xp: newXP,
+    photosUploaded: newPhotosUploaded,
+  });
+
+  // Update visitor's total XP (decrement)
+  await updateDoc(doc(db, 'visitors', visitorId), {
+    totalXP: increment(-xpToRemove),
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    xpRemoved: xpToRemove,
     totalXP: newXP,
   };
 }
@@ -1015,7 +1103,7 @@ export async function checkAndAwardRouteBonus(
   routeId: string,
   routeConfig: RouteConfig,
   totalStations: number
-): Promise<{ bonusAwarded: boolean; bonusXP: number }> {
+): Promise<{ bonusAwarded: boolean; bonusXP: number; packAwarded?: boolean }> {
   const progress = await getVisitorProgress(visitorId, routeId);
 
   if (!progress || progress.bonusAwarded) {
@@ -1046,9 +1134,17 @@ export async function checkAndAwardRouteBonus(
     updatedAt: serverTimestamp(),
   });
 
+  // Award pack for route completion if prizes are enabled
+  let packAwarded = false;
+  if (routeConfig.prizesEnabled) {
+    await createPendingPack(visitorId, routeId, 'route_complete');
+    packAwarded = true;
+  }
+
   return {
     bonusAwarded: true,
     bonusXP,
+    packAwarded,
   };
 }
 
@@ -1155,4 +1251,179 @@ export async function getFolder(folderId: string): Promise<Folder | null> {
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };
+}
+
+// ============ PACK / PRIZE SYSTEM ============
+
+// Check if visitor leveled up and award a pack if prizes are enabled
+export async function checkAndAwardLevelUpPack(
+  visitorId: string,
+  previousXP: number,
+  newXP: number,
+  routeId: string
+): Promise<{ leveledUp: boolean; newLevel: typeof XP_LEVELS[0] | null; packAwarded: boolean }> {
+  const previousLevel = getLevelForXP(previousXP);
+  const newLevel = getLevelForXP(newXP);
+
+  // Check if level increased
+  if (newLevel.minXP <= previousLevel.minXP) {
+    return { leveledUp: false, newLevel: null, packAwarded: false };
+  }
+
+  // Get route config to check if prizes are enabled
+  const folder = await getFolder(routeId);
+  if (!folder?.routeConfig?.prizesEnabled) {
+    return { leveledUp: true, newLevel, packAwarded: false };
+  }
+
+  // Check if we already awarded a pack for this level
+  const visitor = await getVisitor(visitorId);
+  if (visitor?.lastLevelNotified && visitor.lastLevelNotified >= newLevel.minXP) {
+    return { leveledUp: true, newLevel, packAwarded: false };
+  }
+
+  // Award the pack
+  await createPendingPack(visitorId, routeId, 'level_up', newLevel.minXP);
+
+  // Update visitor's last level notified
+  await updateDoc(doc(db, 'visitors', visitorId), {
+    lastLevelNotified: newLevel.minXP,
+    updatedAt: serverTimestamp(),
+  });
+
+  return { leveledUp: true, newLevel, packAwarded: true };
+}
+
+// Create a pending pack for a visitor
+export async function createPendingPack(
+  visitorId: string,
+  routeId: string,
+  reason: PackTrigger,
+  levelReached?: number
+): Promise<PendingPack> {
+  const packRef = await addDoc(collection(db, 'pendingPacks'), {
+    visitorId,
+    routeId,
+    reason,
+    levelReached: levelReached || null,
+    earnedAt: serverTimestamp(),
+    opened: false,
+  });
+
+  // Increment visitor's pending pack count
+  await updateDoc(doc(db, 'visitors', visitorId), {
+    pendingPackCount: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    id: packRef.id,
+    visitorId,
+    routeId,
+    reason,
+    levelReached,
+    earnedAt: new Date(),
+    opened: false,
+  };
+}
+
+// Get pending pack count for a visitor
+export async function getPendingPackCount(visitorId: string): Promise<number> {
+  const visitor = await getVisitor(visitorId);
+  return visitor?.pendingPackCount || 0;
+}
+
+// ============ PRIZE CRUD ============
+
+// Create a new prize
+export async function createPrize(
+  routeId: string,
+  prize: Omit<Prize, 'id' | 'routeId' | 'claimed' | 'createdAt' | 'updatedAt'>
+): Promise<Prize> {
+  const prizeRef = await addDoc(collection(db, 'prizes'), {
+    ...prize,
+    routeId,
+    claimed: 0,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    id: prizeRef.id,
+    ...prize,
+    routeId,
+    claimed: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+// Update a prize
+export async function updatePrize(
+  prizeId: string,
+  updates: Partial<Omit<Prize, 'id' | 'createdAt'>>
+): Promise<void> {
+  await updateDoc(doc(db, 'prizes', prizeId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Delete a prize
+export async function deletePrize(prizeId: string): Promise<void> {
+  await deleteDoc(doc(db, 'prizes', prizeId));
+}
+
+// Get all prizes for a route
+export async function getRoutePrizes(routeId: string): Promise<Prize[]> {
+  const q = query(
+    collection(db, 'prizes'),
+    where('routeId', '==', routeId)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    } as Prize;
+  });
+}
+
+// Get prize statistics for a route
+export async function getRoutePrizeStats(routeId: string): Promise<{
+  total: number;
+  claimed: number;
+  remaining: number;
+  byRarity: Record<string, { total: number; claimed: number; remaining: number }>;
+}> {
+  const prizes = await getRoutePrizes(routeId);
+
+  const stats = {
+    total: 0,
+    claimed: 0,
+    remaining: 0,
+    byRarity: {} as Record<string, { total: number; claimed: number; remaining: number }>,
+  };
+
+  for (const prize of prizes) {
+    if (!prize.isActive) continue;
+
+    stats.total += prize.totalAvailable;
+    stats.claimed += prize.claimed;
+    stats.remaining += prize.totalAvailable - prize.claimed;
+
+    if (!stats.byRarity[prize.rarity]) {
+      stats.byRarity[prize.rarity] = { total: 0, claimed: 0, remaining: 0 };
+    }
+
+    stats.byRarity[prize.rarity].total += prize.totalAvailable;
+    stats.byRarity[prize.rarity].claimed += prize.claimed;
+    stats.byRarity[prize.rarity].remaining += prize.totalAvailable - prize.claimed;
+  }
+
+  return stats;
 }

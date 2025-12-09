@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { UserGalleryImage, GallerySettings, GalleryDisplayMode } from '@/types';
 import { X, Trash2, Settings, Loader2, ImageIcon, Play, Shuffle } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
@@ -39,6 +39,9 @@ function Tooltip({ children, text, position = 'below' }: { children: ReactNode; 
 }
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { getVisitorId } from '@/lib/xp';
+import { getFolder } from '@/lib/db';
+import LiveLeaderboard from '@/components/gamification/LiveLeaderboard';
 
 interface GalleryClientProps {
   codeId: string;
@@ -48,6 +51,7 @@ interface GalleryClientProps {
   initialImages: UserGalleryImage[];
   initialSettings?: GallerySettings;
   companyLogos?: string[]; // Company logos to display mixed with selfies
+  folderId?: string;
 }
 
 const DEFAULT_SETTINGS: GallerySettings = {
@@ -88,6 +92,7 @@ export default function GalleryClient({
   initialImages,
   initialSettings,
   companyLogos = [],
+  folderId,
 }: GalleryClientProps) {
   // Get browser locale for translations
   const [locale, setLocale] = useState<'he' | 'en'>('he');
@@ -121,6 +126,44 @@ export default function GalleryClient({
   const [showNewBadge, setShowNewBadge] = useState(settings.showNewBadge ?? false);
   const [showHint, setShowHint] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Gamification state - simplified to avoid render loops
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [isRouteEnabled, setIsRouteEnabled] = useState(false);
+  const [routeTitle, setRouteTitle] = useState<string>('');
+  const [currentVisitorId, setCurrentVisitorId] = useState<string | null>(null);
+
+  // Check if folder is a route - run once on mount only
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkRoute = async () => {
+      if (!folderId) return;
+
+      try {
+        const folder = await getFolder(folderId);
+        if (isMounted && folder?.routeConfig?.isRoute) {
+          setIsRouteEnabled(true);
+          setRouteTitle(folder.routeConfig?.routeTitle || folder.name);
+
+          // Get visitor ID for leaderboard highlighting
+          const vid = getVisitorId();
+          if (vid) {
+            setCurrentVisitorId(vid);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking route:', err);
+      }
+    };
+
+    checkRoute();
+
+    return () => {
+      isMounted = false;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Pagination state for "all" mode - load 50 at a time
   const PAGINATION_SIZE = 50;
@@ -181,13 +224,14 @@ export default function GalleryClient({
   // Total grid cells = columns * rows (fills screen exactly)
   const gridSize = gridColumns * gridRows;
 
-  // Convert company logos to UserGalleryImage format for display
-  const logoImages: UserGalleryImage[] = companyLogos.map((url, index) => ({
-    id: `logo_${index}`,
-    url,
-    uploaderName: '', // No name for logos
-    uploadedAt: new Date(0), // Oldest date so they don't affect sorting
-  }));
+  // Convert company logos to UserGalleryImage format for display (memoized to prevent re-renders)
+  const logoImages = useMemo<UserGalleryImage[]>(() =>
+    companyLogos.map((url, index) => ({
+      id: `logo_${index}`,
+      url,
+      uploaderName: '', // No name for logos
+      uploadedAt: new Date(0), // Oldest date so they don't affect sorting
+    })), [companyLogos]);
 
   // Check if an image is a company logo (not deletable)
   const isCompanyLogo = (imageId: string) => imageId.startsWith('logo_');
@@ -1471,6 +1515,81 @@ export default function GalleryClient({
                 {t.deleteAll}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leaderboard toggle button (only if route is active) - Gaming style */}
+      {isRouteEnabled && (
+        <button
+          onClick={() => setShowLeaderboard(!showLeaderboard)}
+          className={`
+            fixed z-40 p-3 rounded-xl shadow-lg transition-all duration-300
+            ${locale === 'he' ? 'left-4' : 'right-4'}
+            ${showLeaderboard
+              ? 'bg-gradient-to-br from-amber-400 to-yellow-500 shadow-[0_0_20px_rgba(251,191,36,0.4)]'
+              : 'bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600/50 shadow-[0_0_15px_rgba(0,0,0,0.3)]'
+            }
+            hover:scale-110 hover:shadow-[0_0_25px_rgba(251,191,36,0.5)]
+          `}
+          style={{ top: '50%', transform: 'translateY(-50%)' }}
+          title={locale === 'he' ? 'לידרבורד' : 'Leaderboard'}
+        >
+          <span className={`text-xl ${showLeaderboard ? '' : 'animate-pulse'}`}>🏆</span>
+        </button>
+      )}
+
+      {/* Leaderboard panel - Glassmorphism style */}
+      {isRouteEnabled && showLeaderboard && (
+        <div
+          className={`
+            fixed top-0 z-40 h-full w-96
+            bg-black/40 backdrop-blur-xl
+            shadow-[0_0_50px_rgba(0,0,0,0.3)]
+            border-slate-500/20
+            transform transition-transform duration-300 ease-in-out overflow-y-auto
+            ${locale === 'he' ? 'left-0 border-r' : 'right-0 border-l'}
+          `}
+        >
+          {/* Subtle gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-black/20 pointer-events-none" />
+
+          <div className="relative p-5">
+            {/* Close button */}
+            <button
+              onClick={() => setShowLeaderboard(false)}
+              className={`
+                absolute top-4 p-2.5 rounded-full
+                bg-white/10 hover:bg-white/20
+                backdrop-blur-sm border border-white/20
+                transition-all duration-200 hover:scale-110
+                ${locale === 'he' ? 'left-4' : 'right-4'}
+              `}
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+
+            {/* Route title */}
+            <div className="mb-6 mt-2" dir={locale === 'he' ? 'rtl' : 'ltr'}>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-3xl">🎮</span>
+                <h2 className="text-2xl font-black text-white drop-shadow-lg">
+                  {routeTitle}
+                </h2>
+              </div>
+              <p className="text-xs text-white/50 uppercase tracking-widest">
+                {locale === 'he' ? 'מסלול פעיל' : 'Active Route'}
+              </p>
+            </div>
+
+            {/* Leaderboard */}
+            <LiveLeaderboard
+              routeId={folderId!}
+              locale={locale}
+              maxEntries={10}
+              currentVisitorId={currentVisitorId || undefined}
+              isAdmin={isOwner}
+            />
           </div>
         </div>
       )}

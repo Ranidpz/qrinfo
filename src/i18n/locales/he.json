@@ -21,7 +21,8 @@
     "previous": "הקודם",
     "all": "הכל",
     "error": "שגיאה",
-    "success": "הצלחה"
+    "success": "הצלחה",
+    "comingSoon": "בקרוב!"
   },
   "auth": {
     "signIn": "התחבר",
@@ -41,6 +42,9 @@
     "dashboard": "דשבורד",
     "analytics": "אנליטיקס",
     "userManagement": "ניהול משתמשים",
+    "qtag": "Q.Tag",
+    "qOrder": "Q.Order",
+    "comingSoon": "בקרוב!",
     "closeMenu": "סגור תפריט"
   },
   "sidebar": {
@@ -307,7 +311,13 @@
     "selfiebeamDescription": "קיר סלפי לאירועים - גלריית סלפי משותפת",
     "createSelfiebeam": "צור סלפי בים",
     "minigamesDescription": "5 משחקים מאתגרים עם לוח תוצאות על מסכי הענק",
-    "comingSoon": "בקרוב מאוד"
+    "comingSoon": "בקרוב מאוד",
+    "tooltipUpload": "העלה תמונה, וידאו או PDF",
+    "tooltipLink": "הוסף לינק לאתר חיצוני",
+    "tooltipRiddle": "דף אינטראקטיבי עם מסלול ניקוד וצבירת XP לחוויית גיימיפיקציה",
+    "tooltipWordcloud": "ענן מילים אינטראקטיבי לאירועים",
+    "tooltipSelfiebeam": "קיר סלפי משותף לאירועים",
+    "tooltipMinigames": "משחקים מאתגרים - בקרוב"
   },
   "analytics": {
     "title": "אנליטיקס",
@@ -476,5 +486,62 @@
     "hebrew": "עברית",
     "english": "English",
     "selectLanguage": "בחר שפה"
+  },
+  "packs": {
+    "title": "חבילות",
+    "pendingPacks": "חבילות ממתינות",
+    "openPack": "פתח חבילה",
+    "opening": "פותח...",
+    "noPacks": "אין חבילות ממתינות",
+    "congratulations": "מזל טוב!",
+    "youWon": "זכית ב:",
+    "tapToOpen": "הקש לפתיחה",
+    "claimPrize": "קבל פרס",
+    "recentWinners": "זוכים אחרונים",
+    "noWinnersYet": "אין זוכים עדיין",
+    "levelUp": "עלית רמה!",
+    "routeComplete": "השלמת את המסלול!",
+    "packEarned": "קיבלת חבילה!",
+    "error": "שגיאה בפתיחת החבילה"
+  },
+  "prizes": {
+    "title": "פרסים",
+    "managePrizes": "ניהול פרסים",
+    "enablePrizes": "הפעל מערכת פרסים",
+    "enableLobbyDisplay": "הצג זכיות על מסך לובי",
+    "addPrize": "הוסף פרס",
+    "editPrize": "ערוך פרס",
+    "deletePrize": "מחק פרס",
+    "name": "שם הפרס",
+    "nameEn": "שם באנגלית",
+    "description": "תיאור",
+    "rarity": "נדירות",
+    "dropRate": "סיכוי זכייה",
+    "totalAvailable": "כמות במלאי",
+    "claimed": "חולקו",
+    "remaining": "נותרו",
+    "image": "תמונה",
+    "active": "פעיל",
+    "inactive": "לא פעיל",
+    "common": "רגיל",
+    "rare": "נדיר",
+    "epic": "אפי",
+    "legendary": "אגדי",
+    "dropRateSum": "סה\"כ סיכויים",
+    "dropRateSumError": "סכום הסיכויים חייב להיות 100%",
+    "noPrizes": "אין פרסים",
+    "addFirstPrize": "הוסף את הפרס הראשון",
+    "prizeStats": "סטטיסטיקות",
+    "totalPrizes": "סה\"כ פרסים",
+    "totalClaimed": "סה\"כ חולקו",
+    "totalRemaining": "סה\"כ נותרו",
+    "lowStock": "מלאי נמוך",
+    "outOfStock": "אזל מהמלאי"
+  },
+  "lobby": {
+    "title": "מסך לובי",
+    "winner": "זוכה!",
+    "won": "זכה ב:",
+    "viewLobby": "צפה במסך לובי"
   }
 }

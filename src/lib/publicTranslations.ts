@@ -194,6 +194,34 @@ export const gamificationTranslations = {
     photoUploaded: 'תמונה הועלתה!',
     xpToNextLevel: 'עוד {xp} XP לרמה הבאה',
     maxLevelReached: 'הגעתם לרמה הגבוהה ביותר!',
+
+    // Errors
+    loadError: 'שגיאה בטעינת הנתונים',
+
+    // Instructions Modal
+    howToPlay: 'איך משחקים?',
+    findTheCode: 'מצאו את הקוד',
+    scanAndFollow: 'סרקו אותו ועקבו אחר ההוראות',
+    uploadYourSelfie: 'העלו סלפי שלכם עם הקוד',
+    toEarnPoints: 'לצבירת ניקוד והוכחת ביצוע',
+    earnPoints: 'צברו נקודות!',
+    toOpenPacks: 'לפתיחת חבילות מול לוח התוצאות שבאתר',
+    scoring: 'ניקוד',
+    stationScan: 'סריקת תחנה',
+    eachPhoto: 'כל תמונה',
+    gotItLetsPlay: 'הבנתי, בואו נשחק!',
+
+    // Profile Modal
+    myProfile: 'הפרופיל שלי',
+    level: 'רמה',
+    toNextLevel: 'לרמה הבאה',
+    myNameOnLeaderboard: 'השם שלי בלידרבורד',
+    enterName: 'הכניסו שם',
+    save: 'שמור',
+
+    // Action Bar
+    takePhotoHere: 'צלמו כאן',
+    gameInstructions: 'הוראות משחק',
   },
   en: {
     // Registration
@@ -245,6 +273,34 @@ export const gamificationTranslations = {
     photoUploaded: 'Photo uploaded!',
     xpToNextLevel: '{xp} XP to next level',
     maxLevelReached: 'Max level reached!',
+
+    // Errors
+    loadError: 'Error loading data',
+
+    // Instructions Modal
+    howToPlay: 'How to Play?',
+    findTheCode: 'Find the code',
+    scanAndFollow: 'Scan it and follow the instructions',
+    uploadYourSelfie: 'Upload your selfie with the code',
+    toEarnPoints: 'To earn points and prove completion',
+    earnPoints: 'Earn points!',
+    toOpenPacks: 'To open packs against the leaderboard on the site',
+    scoring: 'Scoring',
+    stationScan: 'Station scan',
+    eachPhoto: 'Each photo',
+    gotItLetsPlay: "Got it, let's play!",
+
+    // Profile Modal
+    myProfile: 'My Profile',
+    level: 'Level',
+    toNextLevel: 'To next level',
+    myNameOnLeaderboard: 'My name on leaderboard',
+    enterName: 'Enter name',
+    save: 'Save',
+
+    // Action Bar
+    takePhotoHere: 'Take Photo',
+    gameInstructions: 'Game instructions',
   },
 };
 

@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Route, Trophy, Target, Sparkles } from 'lucide-react';
-import { Folder, RouteConfig } from '@/types';
-import { updateFolderRouteConfig } from '@/lib/db';
+import { X, Route, Trophy, Target, Sparkles, Gift, Monitor, ChevronRight, HelpCircle } from 'lucide-react';
+import { Folder, RouteConfig, Prize } from '@/types';
+import { updateFolderRouteConfig, getRoutePrizes } from '@/lib/db';
+import PrizeManagementModal from './PrizeManagementModal';
+import PrizeSystemGuideModal from './PrizeSystemGuideModal';
 
 interface RouteSettingsModalProps {
   folder: Folder;
@@ -29,6 +31,17 @@ const translations = {
     cancel: 'ביטול',
     routeActive: 'המסלול פעיל',
     routeInactive: 'המסלול לא פעיל',
+    // Prize system
+    prizesSection: 'מערכת פרסים',
+    enablePrizes: 'הפעל מערכת פרסים',
+    enablePrizesDesc: 'כשמופעל, מבקרים מקבלים חבילות עם פרסים בעליית רמה והשלמת מסלול',
+    lobbyDisplay: 'הצגה על מסך לובי',
+    lobbyDisplayDesc: 'הצג זכיות אפיות ואגדיות על מסך גדול בלובי',
+    managePrizes: 'נהל פרסים',
+    prizesCount: '{count} פרסים',
+    noPrizes: 'אין פרסים',
+    viewLobby: 'צפה במסך לובי',
+    prizeGuide: 'מדריך מערכת הפרסים',
   },
   en: {
     title: 'Route Settings',
@@ -45,6 +58,17 @@ const translations = {
     cancel: 'Cancel',
     routeActive: 'Route is active',
     routeInactive: 'Route is not active',
+    // Prize system
+    prizesSection: 'Prize System',
+    enablePrizes: 'Enable Prize System',
+    enablePrizesDesc: 'When enabled, visitors receive packs with prizes on level up and route completion',
+    lobbyDisplay: 'Lobby Display',
+    lobbyDisplayDesc: 'Show epic and legendary wins on big screen in lobby',
+    managePrizes: 'Manage Prizes',
+    prizesCount: '{count} prizes',
+    noPrizes: 'No prizes',
+    viewLobby: 'View Lobby Screen',
+    prizeGuide: 'Prize System Guide',
   },
 };
 
@@ -62,7 +86,12 @@ export default function RouteSettingsModal({
   const [routeTitle, setRouteTitle] = useState(folder.routeConfig?.routeTitle || folder.name);
   const [bonusXP, setBonusXP] = useState(folder.routeConfig?.bonusXP || 50);
   const [bonusThreshold, setBonusThreshold] = useState(folder.routeConfig?.bonusThreshold || 0);
+  const [prizesEnabled, setPrizesEnabled] = useState(folder.routeConfig?.prizesEnabled || false);
+  const [lobbyDisplayEnabled, setLobbyDisplayEnabled] = useState(folder.routeConfig?.lobbyDisplayEnabled || false);
   const [saving, setSaving] = useState(false);
+  const [prizes, setPrizes] = useState<Prize[]>([]);
+  const [showPrizeModal, setShowPrizeModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
 
   // Reset form when folder changes
   useEffect(() => {
@@ -70,7 +99,16 @@ export default function RouteSettingsModal({
     setRouteTitle(folder.routeConfig?.routeTitle || folder.name);
     setBonusXP(folder.routeConfig?.bonusXP || 50);
     setBonusThreshold(folder.routeConfig?.bonusThreshold || 0);
+    setPrizesEnabled(folder.routeConfig?.prizesEnabled || false);
+    setLobbyDisplayEnabled(folder.routeConfig?.lobbyDisplayEnabled || false);
   }, [folder]);
+
+  // Load prizes when modal opens
+  useEffect(() => {
+    if (isOpen && folder.id) {
+      getRoutePrizes(folder.id).then(setPrizes).catch(console.error);
+    }
+  }, [isOpen, folder.id]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -80,6 +118,8 @@ export default function RouteSettingsModal({
         routeTitle: routeTitle || folder.name,
         bonusXP,
         bonusThreshold,
+        prizesEnabled,
+        lobbyDisplayEnabled,
       };
 
       await updateFolderRouteConfig(folder.id, config);
@@ -92,12 +132,17 @@ export default function RouteSettingsModal({
     }
   };
 
+  const handlePrizesUpdated = () => {
+    // Refresh prizes list
+    getRoutePrizes(folder.id).then(setPrizes).catch(console.error);
+  };
+
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={onClose}
     >
       <div
         className={`
@@ -106,6 +151,7 @@ export default function RouteSettingsModal({
           ${isRTL ? 'text-right' : 'text-left'}
         `}
         dir={isRTL ? 'rtl' : 'ltr'}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
         <button
@@ -137,15 +183,20 @@ export default function RouteSettingsModal({
               <span className="font-medium text-text-primary">{t.enableRoute}</span>
             </div>
             <button
-              onClick={() => setIsRoute(!isRoute)}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsRoute(!isRoute);
+              }}
               className={`
-                relative w-12 h-6 rounded-full transition-colors
+                relative w-12 h-6 rounded-full transition-colors cursor-pointer
                 ${isRoute ? 'bg-accent' : 'bg-bg-tertiary'}
               `}
             >
               <div
                 className={`
-                  absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-200
+                  absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-200 pointer-events-none
                   ${isRoute ? (isRTL ? 'left-1' : 'right-1') : (isRTL ? 'right-1' : 'left-1')}
                 `}
               />
@@ -201,7 +252,10 @@ export default function RouteSettingsModal({
                   step="10"
                   value={bonusXP}
                   onChange={(e) => setBonusXP(Number(e.target.value))}
-                  className="flex-1 h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer accent-accent"
+                  className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to ${isRTL ? 'left' : 'right'}, #3b82f6 0%, #3b82f6 ${(bonusXP / 200) * 100}%, #374151 ${(bonusXP / 200) * 100}%, #374151 100%)`
+                  }}
                 />
                 <span className="w-16 text-center font-bold text-accent">
                   {bonusXP} XP
@@ -226,12 +280,125 @@ export default function RouteSettingsModal({
                   step="1"
                   value={bonusThreshold}
                   onChange={(e) => setBonusThreshold(Number(e.target.value))}
-                  className="flex-1 h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer accent-accent"
+                  className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to ${isRTL ? 'left' : 'right'}, #3b82f6 0%, #3b82f6 ${(bonusThreshold / 20) * 100}%, #374151 ${(bonusThreshold / 20) * 100}%, #374151 100%)`
+                  }}
                 />
                 <span className="w-16 text-center font-medium text-text-primary">
                   {bonusThreshold === 0 ? t.allStations : bonusThreshold}
                 </span>
               </div>
+            </div>
+
+            {/* Prize System Section */}
+            <div className="pt-4 border-t border-border space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Gift className="w-5 h-5 text-purple-500" />
+                  <h3 className="font-medium text-text-primary">{t.prizesSection}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGuideModal(true)}
+                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span>{t.prizeGuide}</span>
+                </button>
+              </div>
+
+              {/* Enable Prizes Toggle */}
+              <div className="p-3 rounded-lg bg-bg-tertiary space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-primary">{t.enablePrizes}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPrizesEnabled(!prizesEnabled);
+                    }}
+                    className={`
+                      relative w-10 h-5 rounded-full transition-colors cursor-pointer
+                      ${prizesEnabled ? 'bg-purple-500' : 'bg-bg-secondary'}
+                    `}
+                  >
+                    <div
+                      className={`
+                        absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 pointer-events-none
+                        ${prizesEnabled ? (isRTL ? 'left-0.5' : 'right-0.5') : (isRTL ? 'right-0.5' : 'left-0.5')}
+                      `}
+                    />
+                  </button>
+                </div>
+                <p className="text-xs text-text-secondary">{t.enablePrizesDesc}</p>
+              </div>
+
+              {/* Lobby Display Toggle (only show when prizes enabled) */}
+              {prizesEnabled && (
+                <div className="p-3 rounded-lg bg-bg-tertiary space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="w-4 h-4 text-text-secondary" />
+                      <span className="text-sm text-text-primary">{t.lobbyDisplay}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setLobbyDisplayEnabled(!lobbyDisplayEnabled);
+                      }}
+                      className={`
+                        relative w-10 h-5 rounded-full transition-colors cursor-pointer
+                        ${lobbyDisplayEnabled ? 'bg-purple-500' : 'bg-bg-secondary'}
+                      `}
+                    >
+                      <div
+                        className={`
+                          absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 pointer-events-none
+                          ${lobbyDisplayEnabled ? (isRTL ? 'left-0.5' : 'right-0.5') : (isRTL ? 'right-0.5' : 'left-0.5')}
+                        `}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-xs text-text-secondary">{t.lobbyDisplayDesc}</p>
+                  {lobbyDisplayEnabled && (
+                    <a
+                      href={`/lobby/${folder.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
+                    >
+                      {t.viewLobby}
+                      <ChevronRight className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Manage Prizes Button */}
+              {prizesEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setShowPrizeModal(true)}
+                  className="w-full flex items-center justify-between p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-purple-400" />
+                    <span className="text-sm font-medium text-purple-300">{t.managePrizes}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-purple-400">
+                      {prizes.length > 0
+                        ? t.prizesCount.replace('{count}', String(prizes.length))
+                        : t.noPrizes}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-purple-400" />
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -264,6 +431,24 @@ export default function RouteSettingsModal({
           }
         `}</style>
       </div>
+
+      {/* Prize Management Modal */}
+      {showPrizeModal && (
+        <PrizeManagementModal
+          routeId={folder.id}
+          isOpen={showPrizeModal}
+          onClose={() => setShowPrizeModal(false)}
+          onUpdate={handlePrizesUpdated}
+          locale={locale}
+        />
+      )}
+
+      {/* Prize System Guide Modal */}
+      <PrizeSystemGuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+        locale={locale}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.5.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,96 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  {
+    version: '1.5.0',
+    date: '2025-12-09',
+    highlights: {
+      he: [
+        'מערכת פרסים והגרלות - פאקים עם פרסים!',
+        'מסך לובי להצגת זוכים',
+        'דפים משפטיים - נגישות ופרטיות',
+        'באדג XP משופר עם גדלים רספונסיביים',
+        'טולטיפים על כפתורי יצירת חוויה',
+      ],
+      en: [
+        'Prize and lottery system - packs with prizes!',
+        'Lobby screen for displaying winners',
+        'Legal pages - accessibility and privacy',
+        'Improved XP badge with responsive sizes',
+        'Tooltips on experience creation buttons',
+      ],
+    },
+  },
+  {
+    version: '1.4.5',
+    date: '2025-12-08',
+    highlights: {
+      he: [
+        'תיקון הרשאות Firebase למבקרים וגיימיפיקציה',
+        'תיקון צבע טקסט במודל הרשמה',
+      ],
+      en: [
+        'Fixed Firebase permissions for visitors and gamification',
+        'Fixed text color in registration modal',
+      ],
+    },
+  },
+  {
+    version: '1.4.4',
+    date: '2025-12-08',
+    highlights: {
+      he: [
+        'תיקון קריטי: folderId עובר נכון לתצוגת חידה',
+        'באדג XP על כרטיס קוד שנמצא במסלול',
+        'אינדיקטור "מסלול XP פעיל" בתצוגת חידה',
+      ],
+      en: [
+        'Critical fix: folderId correctly passed to riddle viewer',
+        'XP badge on code card when in route',
+        '"XP Route Active" indicator in riddle view',
+      ],
+    },
+  },
+  {
+    version: '1.4.3',
+    date: '2025-12-08',
+    highlights: {
+      he: [
+        'תיקון מערכת XP - גיימיפיקציה עובדת בכתבי חידה במסלולים',
+        'סליידרים משופרים בהגדרות מסלול',
+      ],
+      en: [
+        'Fixed XP system - gamification works in riddles on routes',
+        'Improved sliders in route settings',
+      ],
+    },
+  },
+  {
+    version: '1.4.2',
+    date: '2025-12-08',
+    highlights: {
+      he: [
+        'תצוגת רשימה אוטומטית במובייל, גריד בדסקטופ',
+      ],
+      en: [
+        'Automatic list view on mobile, grid on desktop',
+      ],
+    },
+  },
+  {
+    version: '1.4.1',
+    date: '2025-12-08',
+    highlights: {
+      he: [
+        'תיקון תצוגת האדר מעל הסיידבר בדסקטופ',
+        'שיפור מיקום לוגו עם תמיכה בכיוון RTL/LTR',
+      ],
+      en: [
+        'Fixed header display above sidebar on desktop',
+        'Improved logo positioning with RTL/LTR support',
+      ],
+    },
+  },
   {
     version: '1.4.0',
     date: '2025-12-08',

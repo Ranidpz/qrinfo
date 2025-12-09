@@ -49,24 +49,24 @@ export default function XPBar({
                 >
                   {level.emoji}
                 </span>
-                <span className="font-semibold bg-gradient-to-r from-amber-600 to-yellow-500 bg-clip-text text-transparent">
+                <span className="font-semibold bg-gradient-to-r from-amber-300 to-yellow-200 bg-clip-text text-transparent">
                   {levelName}
                 </span>
               </>
             )}
           </div>
-          <span className="font-bold text-gray-700">
+          <span className="font-bold text-white/90">
             {formatXP(xp, locale)} XP
           </span>
         </div>
       )}
 
-      {/* Progress bar with game-like styling */}
+      {/* Progress bar with glass styling */}
       <div
         className={`
           relative w-full rounded-full overflow-hidden
-          bg-gradient-to-b from-gray-200 to-gray-300
-          shadow-inner
+          bg-white/10 backdrop-blur-sm
+          shadow-inner border border-white/10
           ${sizes.bar}
         `}
       >
@@ -115,7 +115,7 @@ export default function XPBar({
 
       {/* Next level hint */}
       {!isMaxLevel && showLabel && (
-        <div className={`${sizes.text} text-gray-400 text-center`}>
+        <div className={`${sizes.text} text-white/50 text-center`}>
           {locale === 'he'
             ? `עוד ${formatXP(level.maxXP - xp, locale)} XP לרמה הבאה`
             : `${formatXP(level.maxXP - xp, locale)} XP to next level`}
@@ -124,7 +124,7 @@ export default function XPBar({
 
       {/* Max level celebration */}
       {isMaxLevel && showLabel && (
-        <div className={`${sizes.text} text-center font-medium bg-gradient-to-r from-amber-500 to-yellow-500 bg-clip-text text-transparent`}>
+        <div className={`${sizes.text} text-center font-medium bg-gradient-to-r from-amber-300 to-yellow-200 bg-clip-text text-transparent`}>
           {locale === 'he' ? '🏆 הגעתם לפסגה!' : '🏆 You reached the top!'}
         </div>
       )}

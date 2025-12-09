@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode } from 'lucide-react';
+import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -54,11 +54,15 @@ interface NavItem {
   icon: React.ElementType;
   labelKey: string;
   roles?: ('super_admin' | 'producer' | 'free')[];
+  badge?: string;      // Badge translation key (uses tCommon)
+  disabled?: boolean;  // Prevents navigation
 }
 
 const navItems: NavItem[] = [
   { href: '/dashboard', icon: Home, labelKey: 'dashboard' },
   { href: '/analytics', icon: BarChart3, labelKey: 'analytics' },
+  { href: '#qtag', icon: Ticket, labelKey: 'qtag', badge: 'comingSoon', disabled: true },
+  { href: '#qorder', icon: ShoppingCart, labelKey: 'qOrder', badge: 'comingSoon', disabled: true },
   { href: '/admin/users', icon: Users, labelKey: 'userManagement', roles: ['super_admin'] },
 ];
 
@@ -269,24 +273,36 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
           <nav className="p-4 pt-16 md:pt-4">
             <ul className="space-y-1">
               {filteredItems.map((item) => {
-                const isActive = isPathActive(item.href);
+                const isActive = !item.disabled && isPathActive(item.href);
                 const Icon = item.icon;
 
                 return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={onClose}
-                      className={clsx(
-                        'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
-                        isActive
-                          ? 'bg-accent text-white'
-                          : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-                      )}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span>{t(item.labelKey)}</span>
-                    </Link>
+                  <li key={item.labelKey}>
+                    {item.disabled ? (
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary opacity-60 cursor-not-allowed">
+                        <Icon className="w-5 h-5" />
+                        <span>{t(item.labelKey)}</span>
+                        {item.badge && (
+                          <span className="ms-auto px-2 py-0.5 text-[10px] font-bold rounded-full bg-gradient-to-r from-purple-500 to-blue-500 text-white whitespace-nowrap">
+                            {tCommon(item.badge)}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={onClose}
+                        className={clsx(
+                          'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                          isActive
+                            ? 'bg-accent text-white'
+                            : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                        )}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{t(item.labelKey)}</span>
+                      </Link>
+                    )}
                   </li>
                 );
               })}
