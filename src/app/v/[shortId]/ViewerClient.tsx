@@ -1041,7 +1041,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
 
   const handleMediaLoad = useCallback(() => {}, []);
 
-  if (loading) {
+  if (loading || !showContent) {
     return <LoadingSpinner progress={loadProgress} message={loadMessage} />;
   }
 
@@ -1054,14 +1054,14 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   }
 
   return (
-    <div className={`min-h-screen bg-black relative overflow-hidden ${showContent ? 'animate-fadeIn' : 'opacity-0'}`}>
+    <div className="min-h-screen bg-black relative overflow-hidden animate-fadeIn">
       <style jsx global>{`
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
         }
         .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out forwards;
+          animation: fadeIn 0.3s ease-out forwards;
         }
       `}</style>
 

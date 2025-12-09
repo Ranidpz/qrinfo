@@ -1,6 +1,7 @@
 'use client';
 
-import { X, ExternalLink, Smartphone } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, ExternalLink, Smartphone, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface MobilePreviewModalProps {
@@ -17,6 +18,23 @@ export default function MobilePreviewModal({
   title,
 }: MobilePreviewModalProps) {
   const t = useTranslations('modals');
+  const [isLoading, setIsLoading] = useState(true);
+  const [showSpinner, setShowSpinner] = useState(false);
+
+  // Reset loading state when URL changes or modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setIsLoading(true);
+      setShowSpinner(false);
+
+      // Show spinner after 1 second if still loading
+      const timer = setTimeout(() => {
+        setShowSpinner(true);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, url]);
 
   if (!isOpen) return null;
 
@@ -69,12 +87,19 @@ export default function MobilePreviewModal({
             {/* Phone inner bezel */}
             <div className="relative bg-black rounded-[2.5rem] overflow-hidden">
               {/* Screen */}
-              <div className="relative w-[375px] h-[667px] bg-white overflow-hidden rounded-[2.3rem]">
+              <div className="relative w-[375px] h-[667px] bg-black overflow-hidden rounded-[2.3rem]">
+                {/* Loading spinner - shows after 1 second */}
+                {isLoading && showSpinner && (
+                  <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
+                    <Loader2 className="w-8 h-8 text-white/70 animate-spin" />
+                  </div>
+                )}
                 <iframe
                   src={previewUrl}
                   className="w-full h-full border-0"
                   title={title || 'Mobile Preview'}
                   allow="autoplay; fullscreen"
+                  onLoad={() => setIsLoading(false)}
                 />
               </div>
 
