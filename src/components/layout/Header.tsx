@@ -1,8 +1,9 @@
 'use client';
 
-import { Menu, QrCode } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { clsx } from 'clsx';
+import Image from 'next/image';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -28,15 +29,19 @@ export default function Header({ onMenuClick, direction = 'rtl' }: HeaderProps) 
           <Menu className="w-5 h-5 text-text-primary" />
         </button>
 
-        {/* QR Icon - always visible, on opposite side of sidebar */}
+        {/* Logo - always visible, on opposite side of sidebar */}
         {/* RTL: logo on LEFT (opposite sidebar on right), LTR: logo on RIGHT (opposite sidebar on left) */}
         <Link
           href="/dashboard"
           className="flex items-center gap-2 md:ms-auto"
         >
-          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-            <QrCode className="w-6 h-6 text-accent" />
-          </div>
+          <Image
+            src="/theQ.png"
+            alt="The Q"
+            width={40}
+            height={40}
+            className="rounded-lg"
+          />
         </Link>
       </div>
     </header>

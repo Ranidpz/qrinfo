@@ -24,14 +24,14 @@ export const metadata: Metadata = {
   description: "Create dynamic QR codes with advanced media display",
   icons: {
     icon: "/favicon.svg",
-    apple: "/QLogo.jpg",
+    apple: "/theQ.png",
   },
   openGraph: {
     title: "The Q - Dynamic QR Codes",
     description: "Create dynamic QR codes with advanced media display",
     images: [
       {
-        url: "/QLogo.jpg",
+        url: "/theQ.png",
         width: 512,
         height: 512,
         alt: "The Q Logo",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "The Q - Dynamic QR Codes",
     description: "Create dynamic QR codes with advanced media display",
-    images: ["/QLogo.jpg"],
+    images: ["/theQ.png"],
   },
 };
 

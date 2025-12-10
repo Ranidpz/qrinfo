@@ -87,10 +87,10 @@ export async function generateMetadata({ params }: ViewerPageProps) {
         type: 'website',
         images: [
           {
-            url: `${baseUrl}/QLogo.jpg`,
+            url: `${baseUrl}/theQ.png`,
             width: 800,
             height: 600,
-            alt: 'QR.info Logo',
+            alt: 'The Q Logo',
           },
         ],
       },
@@ -98,7 +98,7 @@ export async function generateMetadata({ params }: ViewerPageProps) {
         card: 'summary_large_image',
         title: code.title,
         description: 'תוכן QR דינמי',
-        images: [`${baseUrl}/QLogo.jpg`],
+        images: [`${baseUrl}/theQ.png`],
       },
     };
   } catch {

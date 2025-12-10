@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import { QrCode, X, Clock, BarChart3, RefreshCw } from 'lucide-react';
+import { X, Clock, BarChart3, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 
 export default function LoginPage() {
@@ -88,32 +89,19 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo & Hero */}
         <div className="text-center mb-8">
-          {/* QR Icon - large with bounce-in animation */}
-          <div className="w-32 h-32 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-6 animate-logo-bounce-in">
-            <QrCode className="w-20 h-20 text-accent" />
+          {/* Logo - large with bounce-in animation */}
+          <div className="w-32 h-32 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-logo-bounce-in">
+            <Image
+              src="/theQ.png"
+              alt="The Q"
+              width={128}
+              height={128}
+              className="rounded-2xl"
+              priority
+            />
           </div>
 
           <style jsx>{`
-            .q-letter {
-              background: linear-gradient(135deg, #3b82f6, #60a5fa, #3b82f6);
-              background-size: 200% 200%;
-              -webkit-background-clip: text;
-              background-clip: text;
-              color: transparent;
-              display: inline-block;
-              transition: all 0.3s ease;
-              cursor: default;
-            }
-            .q-letter:hover {
-              animation: shimmer 1.5s ease-in-out infinite;
-              filter: brightness(1.3);
-              transform: scale(1.1);
-            }
-            @keyframes shimmer {
-              0% { background-position: 0% 50%; }
-              50% { background-position: 100% 50%; }
-              100% { background-position: 0% 50%; }
-            }
             .title-fade-in {
               animation: titleFadeIn 1.5s ease-out 0.3s both;
             }
@@ -128,8 +116,15 @@ export default function LoginPage() {
               }
             }
           `}</style>
-          <h1 className="text-5xl font-bold text-text-primary mb-3 title-fade-in" dir="ltr">
-            <span className="text-2xl font-normal text-text-secondary align-middle">The</span> <span className="q-letter text-6xl">Q</span>
+          <h1 className="text-5xl font-bold text-text-primary mb-3 title-fade-in flex items-center justify-center gap-2" dir="ltr">
+            <span className="text-2xl font-normal text-text-secondary">The</span>
+            <Image
+              src="/theQ.png"
+              alt="Q"
+              width={56}
+              height={56}
+              className="inline-block"
+            />
           </h1>
           <p className="text-lg text-accent font-medium">{t('tagline')}</p>
           <div className="flex justify-center my-3">

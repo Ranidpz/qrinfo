@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { SelfiebeamContent, UserGalleryImage } from '@/types';
-import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Plus } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
@@ -167,6 +167,7 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [controlsExpanded, setControlsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // My uploaded images state (stored in sessionStorage by image ID)
@@ -448,8 +449,8 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       className="min-h-screen w-full flex flex-col"
       style={{ backgroundColor: content.backgroundColor }}
     >
-      {/* Main Content - extra bottom padding for scrolling past fixed controls */}
-      <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 pb-[800px] overflow-y-auto">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 pb-24 overflow-y-auto">
         <div className="w-full max-w-2xl mx-auto space-y-6">
           {/* Title */}
           <h1
@@ -603,68 +604,106 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
         onChange={handleFileSelect}
       />
 
-      {/* Floating Camera Button and My Gallery */}
+      {/* Floating Action Button (FAB) - Collapsible Controls */}
       {galleryEnabled && (
-        <div className="fixed bottom-4 left-0 right-0 z-40 flex flex-col items-center gap-2 px-4">
-          {/* My Uploaded Images Gallery - Full width on mobile */}
-          {myUploadedImages.length > 0 && (
-            <div className="w-full max-w-md flex justify-center gap-2 bg-black/50 backdrop-blur-sm rounded-2xl p-2">
-              {myUploadedImages.map((img) => (
-                <div
-                  key={img.id}
-                  className={`relative flex-1 max-w-[100px] transition-all duration-300 ${
-                    fadingOutImageId === img.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100'
-                  }`}
-                >
-                  <img
-                    src={img.url}
-                    alt=""
-                    className="w-full aspect-square rounded-xl object-cover border-2 border-white/30"
-                  />
-                  <button
-                    onClick={() => handleDeleteMyImage(img)}
-                    disabled={deletingImageId === img.id || fadingOutImageId === img.id}
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg disabled:opacity-50"
-                  >
-                    {deletingImageId === img.id ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3 h-3" />
-                    )}
-                  </button>
-                </div>
-              ))}
-            </div>
+        <>
+          {/* Backdrop when expanded */}
+          {controlsExpanded && (
+            <div
+              className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+              onClick={() => setControlsExpanded(false)}
+            />
           )}
 
-          {/* Camera Button */}
-          <button
-            onClick={handleCameraClick}
-            disabled={uploading || !canUploadMore}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-          >
-            {uploading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
-            ) : uploadStatus === 'success' ? (
-              <Check className="w-5 h-5 text-green-500" />
-            ) : uploadStatus === 'error' ? (
-              <AlertCircle className="w-5 h-5 text-red-500" />
-            ) : (
-              <Camera className="w-5 h-5 text-gray-600" />
-            )}
-            <span className="text-sm font-medium text-gray-700">
-              {uploading
-                ? t.uploading
-                : uploadStatus === 'success'
-                ? t.uploaded
-                : uploadStatus === 'error'
-                ? t.error
-                : !canUploadMore
-                ? t.maxReached
-                : t.takePhoto}
-            </span>
-          </button>
-        </div>
+          {/* Collapsible Controls Container */}
+          <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+            {/* Expanded Controls */}
+            <div
+              className={`flex flex-col items-end gap-3 transition-all duration-300 origin-bottom-right ${
+                controlsExpanded
+                  ? 'opacity-100 scale-100 translate-y-0'
+                  : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
+              }`}
+            >
+              {/* My Uploaded Images Gallery */}
+              {myUploadedImages.length > 0 && (
+                <div className="flex gap-2 bg-black/60 backdrop-blur-sm rounded-2xl p-2">
+                  {myUploadedImages.map((img) => (
+                    <div
+                      key={img.id}
+                      className={`relative transition-all duration-300 ${
+                        fadingOutImageId === img.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100'
+                      }`}
+                    >
+                      <img
+                        src={img.url}
+                        alt=""
+                        className="w-16 h-16 rounded-xl object-cover border-2 border-white/30"
+                      />
+                      <button
+                        onClick={() => handleDeleteMyImage(img)}
+                        disabled={deletingImageId === img.id || fadingOutImageId === img.id}
+                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg disabled:opacity-50"
+                      >
+                        {deletingImageId === img.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Camera Button */}
+              <button
+                onClick={handleCameraClick}
+                disabled={uploading || !canUploadMore}
+                className="flex items-center gap-2 px-5 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
+              >
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
+                ) : uploadStatus === 'success' ? (
+                  <Check className="w-5 h-5 text-green-500" />
+                ) : uploadStatus === 'error' ? (
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                ) : (
+                  <Camera className="w-5 h-5 text-gray-600" />
+                )}
+                <span className="text-sm font-medium text-gray-700">
+                  {uploading
+                    ? t.uploading
+                    : uploadStatus === 'success'
+                    ? t.uploaded
+                    : uploadStatus === 'error'
+                    ? t.error
+                    : !canUploadMore
+                    ? t.maxReached
+                    : t.takePhoto}
+                </span>
+              </button>
+            </div>
+
+            {/* Main FAB Toggle Button */}
+            <button
+              onClick={() => setControlsExpanded(!controlsExpanded)}
+              className={`w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center ${
+                controlsExpanded
+                  ? 'bg-slate-800 text-white rotate-45'
+                  : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
+              }`}
+            >
+              {controlsExpanded ? (
+                <Plus className="w-7 h-7" />
+              ) : uploading ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <Camera className="w-6 h-6" />
+              )}
+            </button>
+          </div>
+        </>
       )}
 
       {/* Name Input Modal */}
