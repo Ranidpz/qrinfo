@@ -20,6 +20,24 @@ export default function MobilePreviewModal({
   const t = useTranslations('modals');
   const [isLoading, setIsLoading] = useState(true);
   const [showSpinner, setShowSpinner] = useState(false);
+  const [scale, setScale] = useState(1);
+
+  // Calculate scale based on viewport height
+  useEffect(() => {
+    const calculateScale = () => {
+      const viewportHeight = window.innerHeight;
+      const phoneHeight = 733; // Total phone frame height (667 + padding + bezel)
+      const headerAndUrlHeight = 120; // Approximate height for header and URL bar
+      const availableHeight = viewportHeight - headerAndUrlHeight - 40; // 40px for padding
+
+      const newScale = Math.min(1, availableHeight / phoneHeight);
+      setScale(Math.max(0.5, newScale)); // Minimum scale of 0.5
+    };
+
+    calculateScale();
+    window.addEventListener('resize', calculateScale);
+    return () => window.removeEventListener('resize', calculateScale);
+  }, []);
 
   // Reset loading state when URL changes or modal opens
   useEffect(() => {
@@ -42,7 +60,7 @@ export default function MobilePreviewModal({
   const previewUrl = `${url}?utm_source=preview`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -50,16 +68,16 @@ export default function MobilePreviewModal({
       />
 
       {/* Modal Content */}
-      <div className="relative z-10 flex flex-col items-center gap-4 max-h-[90vh]">
+      <div className="relative z-10 flex flex-col items-center gap-2 sm:gap-4 max-h-[98vh] overflow-hidden">
         {/* Header with title and close button */}
-        <div className="flex items-center gap-4 text-white">
+        <div className="flex items-center gap-2 sm:gap-4 text-white flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Smartphone className="w-5 h-5" />
-            <span className="font-medium">{t('mobilePreview')}</span>
+            <Smartphone className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="font-medium text-sm sm:text-base">{t('mobilePreview')}</span>
             {title && (
               <>
-                <span className="text-white/50">•</span>
-                <span className="text-white/70">{title}</span>
+                <span className="text-white/50 hidden sm:inline">•</span>
+                <span className="text-white/70 hidden sm:inline">{title}</span>
               </>
             )}
           </div>
@@ -67,21 +85,24 @@ export default function MobilePreviewModal({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
             title={t('openInNewTab')}
           >
             <ExternalLink className="w-4 h-4" />
           </a>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
-        {/* Phone Frame */}
-        <div className="relative">
+        {/* Phone Frame - Responsive scaling */}
+        <div
+          className="relative origin-top transition-transform duration-200"
+          style={{ transform: `scale(${scale})` }}
+        >
           {/* Phone outer frame - iPhone style */}
           <div className="relative bg-gray-900 rounded-[3rem] p-3 shadow-2xl shadow-black/50">
             {/* Phone inner bezel */}
@@ -115,9 +136,12 @@ export default function MobilePreviewModal({
           <div className="absolute left-[-3px] top-48 w-1 h-14 bg-gray-700 rounded-l-sm" />
         </div>
 
-        {/* URL Display */}
-        <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg text-white/70 text-sm">
-          <span className="font-mono" dir="ltr">{url}</span>
+        {/* URL Display - hidden on very small screens */}
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/10 rounded-lg text-white/70 text-xs sm:text-sm flex-shrink-0"
+          style={{ marginTop: scale < 1 ? `${(1 - scale) * -350}px` : '0' }}
+        >
+          <span className="font-mono truncate max-w-[250px] sm:max-w-none" dir="ltr">{url}</span>
         </div>
       </div>
     </div>
