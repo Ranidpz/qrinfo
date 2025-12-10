@@ -25,14 +25,14 @@
     "comingSoon": "בקרוב!"
   },
   "auth": {
-    "signIn": "התחבר",
+    "signIn": "התחברו",
     "signOut": "התנתק",
     "signInWithGoogle": "התחברו עם Google",
     "signInToCreate": "התחברו כדי ליצור חוויה",
     "signInRequired": "התחבר כדי ליצור חוויה",
     "signInNow": "התחברו עכשיו",
     "signInError": "שגיאה בהתחברות. נסה שוב.",
-    "agreeAndSignIn": "מסכים ומתחבר עם Google",
+    "agreeAndSignIn": "מסכימים",
     "bySigningIn": "בלחיצה על התחבר אתה מסכים ל",
     "termsOfService": "תנאי השימוש",
     "signInModalTitle": "התחבר כדי ליצור חוויה",

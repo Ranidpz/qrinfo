@@ -38,9 +38,9 @@ export default function Header({ onMenuClick, direction = 'rtl' }: HeaderProps) 
           <Image
             src="/theQ.png"
             alt="The Q"
-            width={40}
-            height={40}
-            className="rounded-lg"
+            width={48}
+            height={48}
+            className="rounded-lg transition-transform duration-200 hover:scale-110"
           />
         </Link>
       </div>

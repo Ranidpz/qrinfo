@@ -101,31 +101,6 @@ export default function LoginPage() {
             />
           </div>
 
-          <style jsx>{`
-            .title-fade-in {
-              animation: titleFadeIn 1.5s ease-out 0.3s both;
-            }
-            @keyframes titleFadeIn {
-              0% {
-                opacity: 0;
-                transform: translateY(10px);
-              }
-              100% {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
-          `}</style>
-          <h1 className="text-5xl font-bold text-text-primary mb-3 title-fade-in flex items-center justify-center gap-2" dir="ltr">
-            <span className="text-2xl font-normal text-text-secondary">The</span>
-            <Image
-              src="/theQ.png"
-              alt="Q"
-              width={56}
-              height={56}
-              className="inline-block"
-            />
-          </h1>
           <p className="text-lg text-accent font-medium">{t('tagline')}</p>
           <div className="flex justify-center my-3">
             <div className="w-32 h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />

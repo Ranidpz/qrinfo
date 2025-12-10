@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
+import Image from 'next/image';
 import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
@@ -837,31 +838,17 @@ export default function DashboardPage() {
             opacity: 0;
             animation: fadeIn 0.6s ease-out 0.8s forwards;
           }
-          .q-letter {
-            background: linear-gradient(135deg, #3b82f6, #60a5fa, #3b82f6);
-            background-size: 200% 200%;
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            display: inline-block;
-            transition: all 0.3s ease;
-            cursor: default;
-          }
-          .q-letter:hover {
-            animation: shimmer 1.5s ease-in-out infinite;
-            filter: brightness(1.3);
-            transform: scale(1.1);
-          }
-          @keyframes shimmer {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-        `}</style>
-        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight" dir="ltr">
-          <span className="text-lg sm:text-xl md:text-2xl font-normal align-middle" style={{ color: '#6b7280' }}>The</span>{' '}
-          <span className="q-letter">Q</span>
-          <span style={{ color: 'var(--text-title, #1f2937)' }}> - One Code. Endless Experiences</span>
+          `}</style>
+        <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight flex items-center justify-center gap-2 flex-wrap" dir="ltr">
+          <span className="text-lg sm:text-xl md:text-2xl font-normal" style={{ color: '#6b7280' }}>The</span>
+          <Image
+            src="/theQ.png"
+            alt="Q"
+            width={80}
+            height={80}
+            className="inline-block transition-transform duration-300 hover:scale-110 cursor-pointer"
+          />
+          <span style={{ color: 'var(--text-title, #1f2937)' }}>- One Code. Endless Experiences</span>
         </h1>
         <div className="hero-divider flex justify-center mb-4">
           <div className="hero-divider-line h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
