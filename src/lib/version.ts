@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.5.2';
+export const APP_VERSION = '1.7.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,81 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  {
+    version: '1.7.0',
+    date: '2025-12-11',
+    isNew: true,
+    highlights: {
+      he: [
+        'Q.Vote - מערכת הצבעות דיגיטלית עם דף נחיתה מעוצב',
+        'לוח שבועי - תכנון ימים ושעות עם RSVP',
+        'דף נחיתה מותאם אישית עם תמונה, כותרת וכפתור',
+        'תצוגת טלפון בזמן אמת בעורך המיתוג',
+        'דחיסת תמונות אוטומטית ל-WebP',
+        'Analytics משופר עם סקשן RSVP',
+      ],
+      en: [
+        'Q.Vote - Digital voting system with branded landing page',
+        'Weekly Calendar - Day/time planning with RSVP',
+        'Custom landing page with image, title and button',
+        'Real-time phone preview in branding editor',
+        'Automatic image compression to WebP',
+        'Improved Analytics with RSVP section',
+      ],
+    },
+  },
+  {
+    version: '1.6.3',
+    date: '2025-12-10',
+    highlights: {
+      he: [
+        'מודל תצוגה מקדימה רספונסיבי במובייל',
+      ],
+      en: [
+        'Responsive mobile preview modal',
+      ],
+    },
+  },
+  {
+    version: '1.6.2',
+    date: '2025-12-10',
+    highlights: {
+      he: [
+        'שיפורים בלוגו ודף התחברות',
+      ],
+      en: [
+        'Logo and login page improvements',
+      ],
+    },
+  },
+  {
+    version: '1.6.1',
+    date: '2025-12-10',
+    highlights: {
+      he: [
+        'תיקון הבהוב מסך לבן בטעינת PDF',
+        'עדכון לוגו לtheQ',
+      ],
+      en: [
+        'Fix white screen flash during PDF loading',
+        'Update logo to theQ',
+      ],
+    },
+  },
+  {
+    version: '1.6.0',
+    date: '2025-12-10',
+    highlights: {
+      he: [
+        'מסך לובי משופר',
+        'דף פאקים חדש',
+      ],
+      en: [
+        'Improved lobby screen',
+        'New packs page',
+      ],
+    },
+  },
   {
     version: '1.5.2',
     date: '2025-12-09',
