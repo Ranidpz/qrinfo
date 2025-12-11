@@ -62,15 +62,15 @@ export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
 
   if (stats.totalClicks === 0) {
     return (
-      <div className="card p-6">
-        <div className="flex items-center gap-3 mb-4">
+      <div className="h-full flex flex-col min-h-0">
+        <div className="flex items-center gap-3 mb-4 shrink-0">
           <div className="p-2 rounded-lg bg-accent/10">
             <MousePointer2 className="w-5 h-5 text-accent" />
           </div>
           <h3 className="text-lg font-semibold text-text-primary">{t('linkClicks')}</h3>
         </div>
-        <div className="text-center py-8 text-text-secondary">
-          <MousePointer2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+        <div className="flex-1 flex flex-col items-center justify-center text-text-secondary">
+          <MousePointer2 className="w-12 h-12 mb-3 opacity-30" />
           <p>{t('noClicksInRange')}</p>
         </div>
       </div>
@@ -78,8 +78,8 @@ export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
   }
 
   return (
-    <div className="card p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-accent/10">
             <MousePointer2 className="w-5 h-5 text-accent" />
@@ -91,9 +91,9 @@ export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full">
-          <thead>
+          <thead className="sticky top-0 bg-bg-card">
             <tr className="border-b border-border">
               <th className="text-right py-3 px-2 text-sm font-medium text-text-secondary">{t('type')}</th>
               <th className="text-right py-3 px-2 text-sm font-medium text-text-secondary">{t('linkColumn')}</th>
@@ -143,3 +143,4 @@ export default function LinkClicksSection({ stats }: LinkClicksSectionProps) {
     </div>
   );
 }
+

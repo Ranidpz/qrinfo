@@ -14,8 +14,12 @@ import TransferOwnershipModal from '@/components/modals/TransferOwnershipModal';
 import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
+import QVoteModal from '@/components/modals/QVoteModal';
+import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig } from '@/types';
+import { QVoteConfig } from '@/types/qvote';
+import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
@@ -82,6 +86,10 @@ export default function DashboardPage() {
   const [addingWordCloud, setAddingWordCloud] = useState(false);
   const [selfiebeamModalOpen, setSelfiebeamModalOpen] = useState(false);
   const [addingSelfiebeam, setAddingSelfiebeam] = useState(false);
+  const [qvoteModalOpen, setQvoteModalOpen] = useState(false);
+  const [addingQVote, setAddingQVote] = useState(false);
+  const [weeklyCalModalOpen, setWeeklyCalModalOpen] = useState(false);
+  const [addingWeeklyCal, setAddingWeeklyCal] = useState(false);
 
   // Set initial view mode based on screen size (list for mobile, grid for desktop)
   useEffect(() => {
@@ -442,6 +450,146 @@ export default function DashboardPage() {
     }
   };
 
+  const handleQVoteCreate = async (config: QVoteConfig, landingImageFile?: File) => {
+    if (!user) return;
+
+    setAddingQVote(true);
+
+    try {
+      let landingImageUrl: string | undefined;
+      let totalImageSize = 0;
+
+      // Upload landing image if provided
+      if (landingImageFile) {
+        const formData = new FormData();
+        formData.append('file', landingImageFile);
+        formData.append('userId', user.id);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload landing image');
+        }
+
+        const uploadData = await uploadResponse.json();
+        landingImageUrl = uploadData.url;
+        totalImageSize += uploadData.size;
+      }
+
+      // Clean up config for Firestore (remove undefined values)
+      const cleanConfig = {
+        formFields: config.formFields.map(f => ({
+          id: f.id,
+          label: f.label,
+          labelEn: f.labelEn || '',
+          placeholder: f.placeholder || '',
+          placeholderEn: f.placeholderEn || '',
+          required: f.required,
+          order: f.order,
+        })),
+        categories: config.categories.map(c => ({
+          id: c.id,
+          name: c.name,
+          nameEn: c.nameEn || '',
+          order: c.order,
+          isActive: c.isActive,
+        })),
+        currentPhase: config.currentPhase,
+        enableFinals: config.enableFinals,
+        schedule: {},
+        scheduleMode: config.scheduleMode,
+        maxPhotosPerCandidate: config.maxPhotosPerCandidate,
+        maxSelectionsPerVoter: config.maxSelectionsPerVoter,
+        showVoteCount: config.showVoteCount,
+        showNames: config.showNames,
+        enableCropping: config.enableCropping,
+        allowSelfRegistration: config.allowSelfRegistration,
+        gamification: {
+          enabled: config.gamification.enabled,
+          xpPerVote: config.gamification.xpPerVote,
+          xpForPackThreshold: config.gamification.xpForPackThreshold,
+        },
+        branding: {
+          colors: {
+            background: config.branding.colors.background,
+            text: config.branding.colors.text,
+            buttonBackground: config.branding.colors.buttonBackground,
+            buttonText: config.branding.colors.buttonText,
+          },
+          landingImage: landingImageUrl || '',
+        },
+        messages: {},
+      };
+
+      // Create QR code with Q.Vote (in current folder if inside one)
+      const newCode = await createQRCode(user.id, 'Q.Vote', [
+        {
+          url: '',
+          type: 'qvote',
+          size: totalImageSize,
+          order: 0,
+          uploadedBy: user.id,
+          title: 'Q.Vote',
+          qvoteConfig: cleanConfig,
+        },
+      ], currentFolderId);
+
+      // Update user storage for images
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+        await refreshUser();
+      }
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setQvoteModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating Q.Vote:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQVote(false);
+    }
+  };
+
+  const handleWeeklyCalCreate = async (config: WeeklyCalendarConfig) => {
+    if (!user) return;
+
+    setAddingWeeklyCal(true);
+
+    try {
+      // Create QR code with weekly calendar (in current folder if inside one)
+      const newCode = await createQRCode(user.id, 'לוח פעילות', [
+        {
+          url: '', // Weekly calendar doesn't have a direct URL
+          type: 'weeklycal',
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+          title: 'לוח פעילות',
+          weeklycalConfig: config,
+        },
+      ], currentFolderId);
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setWeeklyCalModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating weekly calendar:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingWeeklyCal(false);
+    }
+  };
+
   const handleDelete = (code: QRCodeType) => {
     setDeleteModal({ isOpen: true, code });
   };
@@ -676,6 +824,22 @@ export default function DashboardPage() {
           size: 0, // Don't count storage again since it's same file
           order: m.order,
           uploadedBy: user.id,
+          title: m.title,
+          filename: m.filename,
+          pageCount: m.pageCount,
+          linkUrl: m.linkUrl,
+          linkTitle: m.linkTitle,
+          // Deep copy of nested objects to avoid reference issues
+          riddleContent: m.riddleContent ? {
+            ...m.riddleContent,
+            images: m.riddleContent.images ? [...m.riddleContent.images] : undefined,
+          } : undefined,
+          selfiebeamContent: m.selfiebeamContent ? {
+            ...m.selfiebeamContent,
+            images: m.selfiebeamContent.images ? [...m.selfiebeamContent.images] : undefined,
+            companyLogos: m.selfiebeamContent.companyLogos ? [...m.selfiebeamContent.companyLogos] : undefined,
+          } : undefined,
+          schedule: m.schedule ? { ...m.schedule } : undefined,
         })),
         codeWithFolder.folderId || currentFolderId
       );
@@ -788,7 +952,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Section */}
+      {/* Hero Section - hide when inside a folder */}
+      {!currentFolderId && (
       <div className="text-center py-8 sm:py-10">
         <style jsx>{`
           @keyframes bounceIn {
@@ -808,6 +973,14 @@ export default function DashboardPage() {
             }
           }
           @keyframes fadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+          @keyframes logoFadeIn {
             from {
               opacity: 0;
             }
@@ -844,9 +1017,9 @@ export default function DashboardPage() {
           <Image
             src="/theQ.png"
             alt="Q"
-            width={80}
-            height={80}
-            className="inline-block transition-transform duration-300 hover:scale-110 cursor-pointer"
+            width={160}
+            height={160}
+            className="inline-block transition-transform duration-300 hover:scale-110 cursor-pointer opacity-0 animate-[logoFadeIn_0.4s_ease-out_0.4s_forwards]"
           />
           <span style={{ color: 'var(--text-title, #1f2937)' }}>- One Code. Endless Experiences</span>
         </h1>
@@ -859,6 +1032,7 @@ export default function DashboardPage() {
           <span className="text-accent font-medium">{t('safeCode')}</span>
         </p>
       </div>
+      )}
 
       {/* Upload Section - Collapsible (only for logged in users) */}
       {user ? (
@@ -893,6 +1067,8 @@ export default function DashboardPage() {
                   onRiddleCreate={() => setRiddleModalOpen(true)}
                   onWordCloudCreate={() => setWordCloudModalOpen(true)}
                   onSelfiebeamCreate={() => setSelfiebeamModalOpen(true)}
+                  onQVoteCreate={() => setQvoteModalOpen(true)}
+                  onWeeklyCalendarCreate={() => setWeeklyCalModalOpen(true)}
                   disabled={uploading}
                 />
               </div>
@@ -1397,6 +1573,50 @@ export default function DashboardPage() {
         onClose={() => setSelfiebeamModalOpen(false)}
         onSave={handleSelfiebeamCreate}
         loading={addingSelfiebeam}
+      />
+
+      {/* Q.Vote Modal */}
+      <QVoteModal
+        isOpen={qvoteModalOpen}
+        onClose={() => setQvoteModalOpen(false)}
+        onSave={handleQVoteCreate}
+        loading={addingQVote}
+      />
+
+      {/* Weekly Calendar Modal */}
+      <WeeklyCalendarModal
+        isOpen={weeklyCalModalOpen}
+        onClose={() => setWeeklyCalModalOpen(false)}
+        onSave={handleWeeklyCalCreate}
+        onUploadCellImage={async (file: File) => {
+          if (!user) return null;
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('userId', user.id);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            if (res.ok) {
+              const { url } = await res.json();
+              return url;
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        }}
+        onDeleteCellImage={async (url: string) => {
+          try {
+            const res = await fetch('/api/upload', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+            });
+            return res.ok;
+          } catch {
+            return false;
+          }
+        }}
+        loading={addingWeeklyCal}
       />
 
       {/* Route Settings Modal for current folder */}

@@ -77,6 +77,20 @@ export default function SignEditorWidget({ sign, onSave }: SignEditorWidgetProps
       return <span className="text-gray-400 text-xs">תצוגה מקדימה</span>;
     }
 
+    if (localSign.type === 'logo') {
+      return (
+        <img
+          src={localSign.value}
+          alt="Logo"
+          style={{
+            width: 35,
+            height: 35,
+            objectFit: 'contain',
+          }}
+        />
+      );
+    }
+
     if (localSign.type === 'icon') {
       const IconComponent = LucideIcons[localSign.value as keyof typeof LucideIcons] as LucideIcon;
       if (IconComponent) {
@@ -179,7 +193,7 @@ export default function SignEditorWidget({ sign, onSave }: SignEditorWidgetProps
         </div>
       ) : (
         <div className="space-y-2">
-          <label className="text-sm text-text-secondary">בחר אייקון</label>
+          <label className="text-sm text-text-secondary">בחרו אייקון</label>
           <div className="grid grid-cols-5 gap-2 max-h-[140px] overflow-y-auto p-1">
             {ICON_NAMES.map(name => {
               const IconComponent = LucideIcons[name as keyof typeof LucideIcons] as LucideIcon;

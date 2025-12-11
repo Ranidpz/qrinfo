@@ -23,6 +23,8 @@ import {
   Folder as FolderIcon,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   ScrollText,
   Pencil,
   Camera,
@@ -30,12 +32,33 @@ import {
   Gamepad2,
   QrCode,
   MessageCircle,
+  Vote,
+  CalendarDays,
+  Smartphone,
+  LayoutGrid,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode } from '@/lib/db';
+import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode, getSiblingCodes } from '@/lib/db';
 import { subscribeToCodeViews } from '@/lib/analytics';
-import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign } from '@/types';
+import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign, LandingPageConfig } from '@/types';
+import { QVoteConfig } from '@/types/qvote';
+import { WeeklyCalendarConfig } from '@/types/weeklycal';
+
+// Helper function to remove undefined values from an object (Firestore doesn't accept undefined)
+function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const result = {} as T;
+  for (const key in obj) {
+    const value = obj[key];
+    if (value === undefined) continue;
+    if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+      result[key] = removeUndefined(value as Record<string, unknown>) as T[typeof key];
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import ScheduleModal from '@/components/modals/ScheduleModal';
 import MediaLinkModal from '@/components/modals/MediaLinkModal';
@@ -43,10 +66,14 @@ import AddLinkModal from '@/components/modals/AddLinkModal';
 import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
+import QVoteModal from '@/components/modals/QVoteModal';
+import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import QRSignModal from '@/components/modals/QRSignModal';
 import WhatsAppWidgetModal from '@/components/modals/WhatsAppWidgetModal';
 import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
 import MobilePreviewModal from '@/components/modals/MobilePreviewModal';
+import LandingPageModal from '@/components/modals/LandingPageModal';
+import { shouldShowLandingPage } from '@/lib/landingPage';
 import { clsx } from 'clsx';
 
 // Helper function to get PDF page count
@@ -155,12 +182,51 @@ export default function CodeEditPage({ params }: PageProps) {
   const [addingSelfiebeam, setAddingSelfiebeam] = useState(false);
   const [editingSelfiebeamId, setEditingSelfiebeamId] = useState<string | null>(null);
 
+  // Q.Vote modal state
+  const [qvoteModalOpen, setQvoteModalOpen] = useState(false);
+  const [editingQVoteId, setEditingQVoteId] = useState<string | null>(null);
+  const [addingQVote, setAddingQVote] = useState(false);
+
+  // Weekly Calendar modal state
+  const [weeklyCalModalOpen, setWeeklyCalModalOpen] = useState(false);
+  const [editingWeeklyCalId, setEditingWeeklyCalId] = useState<string | null>(null);
+  const [addingWeeklyCal, setAddingWeeklyCal] = useState(false);
+
   // Widget modals state
   const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
 
   // Mobile preview modal state
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+
+  // Landing page modal state
+  const [landingPageModalOpen, setLandingPageModalOpen] = useState(false);
+
+  // Create separate experience modal state
+  const [createSeparateModal, setCreateSeparateModal] = useState<{
+    isOpen: boolean;
+    mediaId: string | null;
+    loading: boolean;
+  }>({ isOpen: false, mediaId: null, loading: false });
+
+  // Sibling codes navigation state
+  const [siblingCodes, setSiblingCodes] = useState<QRCodeType[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+
+  // Read slide direction from sessionStorage and clear after animation
+  useEffect(() => {
+    const slideDir = sessionStorage.getItem('codeSlideDirection');
+    if (slideDir === 'left' || slideDir === 'right') {
+      setSlideDirection(slideDir);
+      sessionStorage.removeItem('codeSlideDirection');
+      // Clear animation after it completes
+      const timer = setTimeout(() => {
+        setSlideDirection(null);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [id]); // Run when code id changes
 
   // Collapse states with localStorage persistence
   const [qrExpanded, setQrExpanded] = useState(true);
@@ -217,6 +283,19 @@ export default function CodeEditPage({ params }: PageProps) {
           const codeFolder = userFolders.find(f => f.id === codeData.folderId);
           if (codeFolder) {
             setFolder(codeFolder);
+          }
+        }
+
+        // Load sibling codes for navigation (in separate try-catch to not break main flow)
+        if (user) {
+          try {
+            const siblings = await getSiblingCodes(user.id, codeData.folderId);
+            setSiblingCodes(siblings);
+            const idx = siblings.findIndex(c => c.id === codeData.id);
+            setCurrentIndex(idx >= 0 ? idx : 0);
+          } catch (siblingError) {
+            console.error('Error loading sibling codes:', siblingError);
+            // Don't redirect - just skip navigation feature
           }
         }
       } catch (error) {
@@ -329,6 +408,25 @@ export default function CodeEditPage({ params }: PageProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Navigation functions for sibling codes
+  const navigateToPrevCode = () => {
+    if (siblingCodes.length <= 1) return;
+    const prevIndex = currentIndex === 0
+      ? siblingCodes.length - 1
+      : currentIndex - 1;
+    sessionStorage.setItem('codeSlideDirection', 'right');
+    router.push(`/code/${siblingCodes[prevIndex].id}`);
+  };
+
+  const navigateToNextCode = () => {
+    if (siblingCodes.length <= 1) return;
+    const nextIndex = currentIndex === siblingCodes.length - 1
+      ? 0
+      : currentIndex + 1;
+    sessionStorage.setItem('codeSlideDirection', 'left');
+    router.push(`/code/${siblingCodes[nextIndex].id}`);
   };
 
   const handleDelete = async () => {
@@ -514,6 +612,75 @@ export default function CodeEditPage({ params }: PageProps) {
     } catch (error) {
       console.error('Error duplicating code:', error);
       alert(tErrors('duplicateError'));
+    }
+  };
+
+  // Create separate experience from a single media item
+  const handleCreateSeparateExperience = async (deleteFromOriginal: boolean) => {
+    if (!code || !user || !createSeparateModal.mediaId) return;
+
+    const media = code.media.find(m => m.id === createSeparateModal.mediaId);
+    if (!media) return;
+
+    setCreateSeparateModal(prev => ({ ...prev, loading: true }));
+
+    try {
+      // Determine the title based on media type
+      let newTitle = '';
+      if (media.type === 'riddle' && media.riddleContent?.title) {
+        newTitle = media.riddleContent.title;
+      } else if (media.type === 'selfiebeam' && media.selfiebeamContent?.title) {
+        newTitle = media.selfiebeamContent.title;
+      } else if (media.type === 'weeklycal') {
+        newTitle = tMedia('weeklycal') || 'לוח פעילות';
+      } else if (media.type === 'qvote') {
+        newTitle = 'Q.Vote';
+      } else if (media.title) {
+        newTitle = media.title;
+      } else if (media.filename) {
+        newTitle = media.filename;
+      } else {
+        newTitle = media.type.toUpperCase();
+      }
+
+      // Build media data object, only including defined fields
+      const mediaData: Record<string, unknown> = {
+        url: media.url || '',
+        type: media.type,
+        size: 0, // Don't count storage again since it's same file
+        order: 0,
+        uploadedBy: user.id,
+      };
+
+      // Only add optional fields if they exist
+      if (media.filename) mediaData.filename = media.filename;
+      if (media.title) mediaData.title = media.title;
+      if (media.linkUrl) mediaData.linkUrl = media.linkUrl;
+      if (media.linkTitle) mediaData.linkTitle = media.linkTitle;
+      if (media.riddleContent) mediaData.riddleContent = media.riddleContent;
+      if (media.selfiebeamContent) mediaData.selfiebeamContent = media.selfiebeamContent;
+      if (media.weeklycalConfig) mediaData.weeklycalConfig = media.weeklycalConfig;
+      if (media.qvoteConfig) mediaData.qvoteConfig = media.qvoteConfig;
+
+      // Create new code with just this media item
+      const newCode = await createQRCode(
+        user.id,
+        newTitle,
+        [mediaData as Omit<MediaItem, 'id' | 'createdAt'>]
+      );
+
+      // If deleteFromOriginal, remove the media from current code
+      if (deleteFromOriginal) {
+        const updatedMedia = code.media.filter(m => m.id !== createSeparateModal.mediaId);
+        await updateQRCode(code.id, { media: updatedMedia });
+      }
+
+      // Navigate to the new code
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating separate experience:', error);
+      alert(tErrors('createCodeError'));
+      setCreateSeparateModal({ isOpen: false, mediaId: null, loading: false });
     }
   };
 
@@ -1290,6 +1457,243 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  // Handler for adding/editing Q.Vote
+  const handleSaveQVote = async (config: QVoteConfig, landingImageFile?: File) => {
+    if (!code || !user) return;
+
+    setAddingQVote(true);
+    try {
+      let landingImageUrl: string | undefined;
+      let totalImageSize = 0;
+
+      // Upload landing image if provided
+      if (landingImageFile) {
+        const formData = new FormData();
+        formData.append('file', landingImageFile);
+        formData.append('userId', user.id);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload landing image');
+        }
+
+        const uploadData = await uploadResponse.json();
+        landingImageUrl = uploadData.url;
+        totalImageSize += uploadData.size;
+      }
+
+      // Create Q.Vote config with uploaded image URL (remove undefined values for Firestore)
+      const qvoteConfig = removeUndefined({
+        ...config,
+        branding: {
+          ...config.branding,
+          landingImage: landingImageUrl || config.branding.landingImage,
+          // Save image metadata if new image was uploaded
+          ...(landingImageFile && landingImageUrl ? {
+            landingImageName: landingImageFile.name,
+            landingImageSize: totalImageSize,
+          } : {}),
+        },
+      }) as QVoteConfig;
+
+      let updatedMedia: MediaItem[];
+
+      if (editingQVoteId) {
+        // Editing existing Q.Vote
+        updatedMedia = code.media.map((m) =>
+          m.id === editingQVoteId
+            ? { ...m, qvoteConfig, updatedAt: new Date() }
+            : m
+        );
+      } else {
+        // Create new Q.Vote media item
+        const newMediaId = `media_${Date.now()}`;
+        const newMedia: MediaItem = {
+          id: newMediaId,
+          url: '',
+          type: 'qvote',
+          size: totalImageSize,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: 'Q.Vote',
+          qvoteConfig,
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+        // Set editing ID so subsequent saves update this item instead of creating new ones
+        setEditingQVoteId(newMediaId);
+      }
+
+      await updateQRCode(code.id, { media: updatedMedia });
+
+      // Update user storage if images were uploaded
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+        await refreshUser();
+      }
+
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      // Don't close modal - user will close it manually with X button
+    } catch (error) {
+      console.error('Error saving Q.Vote:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQVote(false);
+    }
+  };
+
+  // Handler for adding/editing Weekly Calendar
+  const handleSaveWeeklyCal = async (config: WeeklyCalendarConfig, landingImageFile?: File, dayBgImageFile?: File) => {
+    if (!code || !user) return;
+
+    setAddingWeeklyCal(true);
+    try {
+      let finalConfig = { ...config };
+
+      // Get existing media item to check for old images to delete
+      const existingMedia = editingWeeklyCalId
+        ? code.media.find(m => m.id === editingWeeklyCalId)
+        : null;
+      const existingConfig = existingMedia?.weeklycalConfig;
+
+      // Check if landing image was deleted (old exists but new is undefined/empty)
+      const oldLandingUrl = existingConfig?.branding?.landing?.splashImageUrl;
+      const newLandingUrl = config.branding?.landing?.splashImageUrl;
+      if (oldLandingUrl && !newLandingUrl && oldLandingUrl.includes('blob.vercel-storage.com')) {
+        fetch('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: oldLandingUrl }),
+        }).catch(console.error);
+      }
+
+      // Upload landing image if provided
+      if (landingImageFile) {
+        // Delete old landing image if exists (being replaced)
+        if (oldLandingUrl && oldLandingUrl.includes('blob.vercel-storage.com')) {
+          fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: oldLandingUrl }),
+          }).catch(console.error);
+        }
+
+        const formData = new FormData();
+        formData.append('file', landingImageFile);
+        formData.append('userId', user.id);
+        formData.append('codeId', code.id);
+        formData.append('folder', 'weeklycal');
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const { url } = await uploadRes.json();
+          finalConfig = {
+            ...finalConfig,
+            branding: {
+              ...finalConfig.branding,
+              landing: {
+                ...finalConfig.branding.landing,
+                splashImageUrl: url,
+              },
+            },
+          };
+        }
+      }
+
+      // Check if day background image was deleted
+      const oldDayBgUrl = existingConfig?.branding?.dayBackgroundImageUrl;
+      const newDayBgUrl = config.branding?.dayBackgroundImageUrl;
+      if (oldDayBgUrl && !newDayBgUrl && oldDayBgUrl.includes('blob.vercel-storage.com')) {
+        fetch('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: oldDayBgUrl }),
+        }).catch(console.error);
+      }
+
+      // Upload day background image if provided
+      if (dayBgImageFile) {
+        // Delete old day background image if exists (being replaced)
+        if (oldDayBgUrl && oldDayBgUrl.includes('blob.vercel-storage.com')) {
+          fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: oldDayBgUrl }),
+          }).catch(console.error);
+        }
+
+        const formData = new FormData();
+        formData.append('file', dayBgImageFile);
+        formData.append('userId', user.id);
+        formData.append('codeId', code.id);
+        formData.append('folder', 'weeklycal');
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const { url } = await uploadRes.json();
+          finalConfig = {
+            ...finalConfig,
+            branding: {
+              ...finalConfig.branding,
+              dayBackgroundImageUrl: url,
+            },
+          };
+        }
+      }
+
+      if (editingWeeklyCalId) {
+        // Editing existing Weekly Calendar
+        const updatedMedia = code.media.map((m) =>
+          m.id === editingWeeklyCalId
+            ? { ...m, weeklycalConfig: finalConfig, updatedAt: new Date() }
+            : m
+        );
+
+        await updateQRCode(code.id, { media: updatedMedia });
+        setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+        // Don't reset editingWeeklyCalId - keep it so subsequent saves update the same item
+      } else {
+        // Create new Weekly Calendar media item
+        const newMediaId = `media_${Date.now()}`;
+        const newMedia: MediaItem = {
+          id: newMediaId,
+          url: '',
+          type: 'weeklycal',
+          size: 0,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: 'לוח פעילות',
+          weeklycalConfig: finalConfig,
+          createdAt: new Date(),
+        };
+
+        const updatedMedia = [...code.media, newMedia];
+        await updateQRCode(code.id, { media: updatedMedia });
+        setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+        // Set editing ID so subsequent saves update this item instead of creating new ones
+        setEditingWeeklyCalId(newMediaId);
+      }
+      // Don't close modal - user will close it manually with X button
+    } catch (error) {
+      console.error('Error saving weekly calendar:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingWeeklyCal(false);
+    }
+  };
+
   const handleSaveWhatsappWidget = async (groupLink: string | undefined) => {
     if (!code) return;
 
@@ -1330,6 +1734,24 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
     } catch (error) {
       console.error('Error saving QR sign:', error);
+      alert(tErrors('saveError'));
+    }
+  };
+
+  const handleTogglePWAEncourage = async () => {
+    if (!code) return;
+
+    try {
+      const currentEnabled = code.widgets?.pwaEncourage?.enabled !== false; // Default is true
+      const updatedWidgets: CodeWidgets = {
+        ...code.widgets,
+        pwaEncourage: { enabled: !currentEnabled },
+      };
+
+      await updateQRCode(code.id, { widgets: updatedWidgets });
+      setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
+    } catch (error) {
+      console.error('Error toggling PWA encourage:', error);
       alert(tErrors('saveError'));
     }
   };
@@ -1389,6 +1811,47 @@ export default function CodeEditPage({ params }: PageProps) {
     if (endTime && currentTime > endTime) return false;
 
     return true;
+  };
+
+  // Check if landing page button should show (mixed media types)
+  const shouldShowLandingPageButton = code && shouldShowLandingPage(code.media);
+
+  // Handle save landing page config
+  const handleSaveLandingPage = async (config: LandingPageConfig, backgroundImageFile?: File) => {
+    if (!code || !user) return;
+
+    let finalConfig = { ...config };
+
+    // Upload background image if provided
+    if (backgroundImageFile) {
+      // Delete old image if exists
+      const oldUrl = code.landingPageConfig?.backgroundImageUrl;
+      if (oldUrl && oldUrl.includes('blob.vercel-storage.com')) {
+        fetch('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: oldUrl }),
+        }).catch(console.error);
+      }
+
+      const formData = new FormData();
+      formData.append('file', backgroundImageFile);
+      formData.append('userId', user.id);
+      formData.append('folder', 'landing');
+
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (uploadRes.ok) {
+        const { url } = await uploadRes.json();
+        finalConfig.backgroundImageUrl = url;
+      }
+    }
+
+    await updateQRCode(code.id, { landingPageConfig: finalConfig });
+    setCode(prev => prev ? { ...prev, landingPageConfig: finalConfig } : null);
   };
 
   if (loading) {
@@ -1482,38 +1945,52 @@ export default function CodeEditPage({ params }: PageProps) {
                     level="H"
                     marginSize={1}
                   />
-                  {code.widgets?.qrSign?.enabled && code.widgets.qrSign.value && (
-                    <div
-                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center shadow-md"
-                      style={{
-                        width: 55,
-                        height: 55,
-                        backgroundColor: code.widgets.qrSign.backgroundColor,
-                      }}
-                    >
-                      {code.widgets.qrSign.type === 'icon' ? (
-                        (() => {
-                          const LucideIcons = require('lucide-react');
-                          const IconComponent = LucideIcons[code.widgets.qrSign.value];
-                          return IconComponent ? (
-                            <IconComponent size={30} color={code.widgets.qrSign.color} strokeWidth={2.5} />
-                          ) : null;
-                        })()
-                      ) : (
-                        <span
-                          style={{
-                            color: code.widgets.qrSign.color,
-                            fontFamily: 'var(--font-assistant), Arial, sans-serif',
-                            fontSize: code.widgets.qrSign.type === 'emoji' ? 30 : (code.widgets.qrSign.value.length <= 2 ? 24 : 16),
-                            fontWeight: code.widgets.qrSign.type === 'text' ? 700 : 400,
-                            lineHeight: 1,
-                          }}
-                        >
-                          {code.widgets.qrSign.value}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {code.widgets?.qrSign?.enabled && code.widgets.qrSign.value && (() => {
+                    const scale = code.widgets.qrSign.scale ?? 1.0;
+                    const containerSize = 55; // Fixed - don't scale container to preserve QR readability
+                    return (
+                      <div
+                        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center shadow-md overflow-hidden"
+                        style={{
+                          width: containerSize,
+                          height: containerSize,
+                          backgroundColor: code.widgets.qrSign.backgroundColor,
+                        }}
+                      >
+                        {code.widgets.qrSign.type === 'logo' ? (
+                          <img
+                            src={code.widgets.qrSign.value}
+                            alt="Logo"
+                            style={{
+                              width: containerSize * 0.7 * scale,
+                              height: containerSize * 0.7 * scale,
+                              objectFit: 'contain',
+                            }}
+                          />
+                        ) : code.widgets.qrSign.type === 'icon' ? (
+                          (() => {
+                            const LucideIcons = require('lucide-react');
+                            const IconComponent = LucideIcons[code.widgets.qrSign.value];
+                            return IconComponent ? (
+                              <IconComponent size={containerSize * 0.55 * scale} color={code.widgets.qrSign.color} strokeWidth={2.5} />
+                            ) : null;
+                          })()
+                        ) : (
+                          <span
+                            style={{
+                              color: code.widgets.qrSign.color,
+                              fontFamily: 'var(--font-assistant), Arial, sans-serif',
+                              fontSize: (code.widgets.qrSign.type === 'emoji' ? containerSize * 0.55 : (code.widgets.qrSign.value.length <= 2 ? containerSize * 0.45 : containerSize * 0.3)) * scale,
+                              fontWeight: code.widgets.qrSign.type === 'text' ? 700 : 400,
+                              lineHeight: 1,
+                            }}
+                          >
+                            {code.widgets.qrSign.value}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1607,75 +2084,111 @@ export default function CodeEditPage({ params }: PageProps) {
 
             {/* Collapsible content - Widget buttons grid */}
             {widgetsExpanded && (
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-3 gap-2">
                 {/* QR Sign Widget Button */}
                 <button
                   onClick={() => setQrSignModalOpen(true)}
                   className={clsx(
-                    "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
+                    "group relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-all",
                     code.widgets?.qrSign?.enabled
-                      ? "bg-accent/10 border-accent text-accent"
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-500"
                       : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
                   )}
                 >
                   <div className={clsx(
-                    "w-10 h-10 rounded-full flex items-center justify-center",
-                    code.widgets?.qrSign?.enabled ? "bg-accent/20" : "bg-bg-hover"
+                    "w-7 h-7 rounded-full flex items-center justify-center",
+                    code.widgets?.qrSign?.enabled ? "bg-emerald-500/20" : "bg-bg-hover"
                   )}>
                     {code.widgets?.qrSign?.enabled && code.widgets.qrSign.value ? (
-                      code.widgets.qrSign.type === 'icon' ? (
+                      code.widgets.qrSign.type === 'logo' ? (
+                        <img
+                          src={code.widgets.qrSign.value}
+                          alt="Logo"
+                          className="w-4 h-4 object-contain"
+                        />
+                      ) : code.widgets.qrSign.type === 'icon' ? (
                         (() => {
                           const LucideIcons = require('lucide-react');
                           const IconComponent = LucideIcons[code.widgets.qrSign.value];
                           return IconComponent ? (
-                            <IconComponent size={20} className="text-accent" />
-                          ) : <QrCode className="w-5 h-5" />;
+                            <IconComponent size={14} className="text-emerald-500" />
+                          ) : <QrCode className="w-3.5 h-3.5" />;
                         })()
                       ) : (
-                        <span className="text-sm font-bold">{code.widgets.qrSign.value}</span>
+                        <span className="text-[10px] font-bold">{code.widgets.qrSign.value}</span>
                       )
                     ) : (
-                      <QrCode className="w-5 h-5" />
+                      <QrCode className="w-3.5 h-3.5" />
                     )}
                   </div>
-                  <span className="text-sm font-medium">{t('qrSign')}</span>
-                  <span className={clsx(
-                    "text-xs px-2 py-0.5 rounded-full",
-                    code.widgets?.qrSign?.enabled
-                      ? "bg-accent/20 text-accent"
-                      : "bg-bg-hover text-text-secondary"
-                  )}>
-                    {code.widgets?.qrSign?.enabled ? t('active') : t('inactive')}
-                  </span>
+                  <span className="text-[11px] font-medium">{t('qrSign')}</span>
+                  {/* Styled Tooltip with status */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className={clsx("w-1.5 h-1.5 rounded-full", code.widgets?.qrSign?.enabled ? "bg-emerald-500" : "bg-gray-500")} />
+                      <span>{code.widgets?.qrSign?.enabled ? t('active') : t('inactive')}</span>
+                    </div>
+                    <div className="mt-0.5 text-gray-300">{t('qrSignTooltip')}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
                 </button>
 
                 {/* WhatsApp Widget Button */}
                 <button
                   onClick={() => setWhatsappModalOpen(true)}
                   className={clsx(
-                    "flex flex-col items-center gap-2 p-4 rounded-xl border transition-all",
+                    "group relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-all",
                     code.widgets?.whatsapp?.enabled
-                      ? "bg-[#25D366]/10 border-[#25D366] text-[#25D366]"
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-500"
                       : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
                   )}
                 >
                   <div className={clsx(
-                    "w-10 h-10 rounded-full flex items-center justify-center",
-                    code.widgets?.whatsapp?.enabled ? "bg-[#25D366]/20" : "bg-bg-hover"
+                    "w-7 h-7 rounded-full flex items-center justify-center",
+                    code.widgets?.whatsapp?.enabled ? "bg-emerald-500/20" : "bg-bg-hover"
                   )}>
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                     </svg>
                   </div>
-                  <span className="text-sm font-medium">WhatsApp</span>
-                  <span className={clsx(
-                    "text-xs px-2 py-0.5 rounded-full",
-                    code.widgets?.whatsapp?.enabled
-                      ? "bg-[#25D366]/20 text-[#25D366]"
-                      : "bg-bg-hover text-text-secondary"
+                  <span className="text-[11px] font-medium">WhatsApp</span>
+                  {/* Styled Tooltip with status */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className={clsx("w-1.5 h-1.5 rounded-full", code.widgets?.whatsapp?.enabled ? "bg-emerald-500" : "bg-gray-500")} />
+                      <span>{code.widgets?.whatsapp?.enabled ? t('active') : t('inactive')}</span>
+                    </div>
+                    <div className="mt-0.5 text-gray-300">{t('whatsappTooltip')}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
+                </button>
+
+                {/* PWA Encourage Toggle Button */}
+                <button
+                  onClick={handleTogglePWAEncourage}
+                  className={clsx(
+                    "group relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-all",
+                    code.widgets?.pwaEncourage?.enabled !== false
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-500"
+                      : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
+                  )}
+                >
+                  <div className={clsx(
+                    "w-7 h-7 rounded-full flex items-center justify-center",
+                    code.widgets?.pwaEncourage?.enabled !== false ? "bg-emerald-500/20" : "bg-bg-hover"
                   )}>
-                    {code.widgets?.whatsapp?.enabled ? t('active') : t('inactive')}
-                  </span>
+                    <Smartphone className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-medium">{t('pwaEncourage')}</span>
+                  {/* Styled Tooltip with status */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className={clsx("w-1.5 h-1.5 rounded-full", code.widgets?.pwaEncourage?.enabled !== false ? "bg-emerald-500" : "bg-gray-500")} />
+                      <span>{code.widgets?.pwaEncourage?.enabled !== false ? t('active') : t('inactive')}</span>
+                    </div>
+                    <div className="mt-0.5 text-gray-300">{t('pwaEncourageTooltip')}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
                 </button>
 
               </div>
@@ -1684,11 +2197,34 @@ export default function CodeEditPage({ params }: PageProps) {
         </div>
 
         {/* Media List */}
-        <div className="lg:col-span-2 card space-y-4">
+        <div className={clsx(
+          "lg:col-span-2 card space-y-4",
+          slideDirection === 'left' && "animate-slide-left",
+          slideDirection === 'right' && "animate-slide-right"
+        )}>
           {/* Header with title edit, action buttons and media count */}
           <div className="flex flex-col gap-3">
             {/* Title edit row - title only on mobile, title + buttons on desktop */}
             <div className="flex items-center gap-2">
+              {/* Navigation arrows */}
+              {siblingCodes.length > 1 && (
+                <div className="flex items-center">
+                  <button
+                    onClick={navigateToNextCode}
+                    className="p-1.5 rounded-lg hover:bg-bg-secondary transition-colors"
+                    title={t('nextCode')}
+                  >
+                    <ChevronRight className="w-4 h-4 text-text-secondary" />
+                  </button>
+                  <button
+                    onClick={navigateToPrevCode}
+                    className="p-1.5 rounded-lg hover:bg-bg-secondary transition-colors"
+                    title={t('prevCode')}
+                  >
+                    <ChevronLeft className="w-4 h-4 text-text-secondary" />
+                  </button>
+                </div>
+              )}
               <input
                 type="text"
                 value={title}
@@ -1767,9 +2303,31 @@ export default function CodeEditPage({ params }: PageProps) {
             </div>
             {/* Media count and add buttons */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
-              <span className="text-sm text-text-secondary">
-                {t('mediaItems', { count: code.media.length })}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-text-secondary">
+                  {t('mediaItems', { count: code.media.length })}
+                </span>
+                {/* Landing Page Config Button - show when mixed types */}
+                {shouldShowLandingPageButton && (
+                  <button
+                    onClick={() => setLandingPageModalOpen(true)}
+                    className={clsx(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                      code?.landingPageConfig?.enabled
+                        ? "bg-accent text-white"
+                        : "bg-amber-500/10 text-amber-600 border border-amber-500/30 hover:bg-amber-500/20"
+                    )}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                    {locale === 'he' ? 'עמוד נחיתה' : 'Landing Page'}
+                    {!code?.landingPageConfig?.enabled && (
+                      <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-full">
+                        {locale === 'he' ? 'מומלץ' : 'Recommended'}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {/* Add Riddle Button */}
                 <Tooltip text={t('riddle')}>
@@ -1798,6 +2356,26 @@ export default function CodeEditPage({ params }: PageProps) {
                     className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
                   >
                     <Camera className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
+                {/* Q.Vote Button */}
+                <Tooltip text="Q.Vote">
+                  <button
+                    onClick={() => setQvoteModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <Vote className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
+                {/* Weekly Calendar Button */}
+                <Tooltip text={tMedia('weeklycal')}>
+                  <button
+                    onClick={() => setWeeklyCalModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <CalendarDays className="w-4 h-4" />
                   </button>
                 </Tooltip>
 
@@ -1892,10 +2470,29 @@ export default function CodeEditPage({ params }: PageProps) {
                   </div>
 
                   {/* Thumbnail - hidden on mobile for non-image types */}
-                  <div className={clsx(
-                    "rounded-lg bg-bg-primary flex items-center justify-center overflow-hidden flex-shrink-0",
-                    media.type === 'image' ? "w-10 h-10 sm:w-16 sm:h-16" : "hidden sm:flex sm:w-16 sm:h-16"
-                  )}>
+                  <div
+                    className={clsx(
+                      "rounded-lg bg-bg-primary flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-accent/50 transition-all",
+                      media.type === 'image' ? "w-10 h-10 sm:w-16 sm:h-16" : "hidden sm:flex sm:w-16 sm:h-16"
+                    )}
+                    onClick={() => {
+                      if (media.type === 'riddle') {
+                        setEditingRiddleId(media.id);
+                        setRiddleModalOpen(true);
+                      } else if (media.type === 'selfiebeam') {
+                        setEditingSelfiebeamId(media.id);
+                        setSelfiebeamModalOpen(true);
+                      } else if (media.type === 'weeklycal') {
+                        setEditingWeeklyCalId(media.id);
+                        setWeeklyCalModalOpen(true);
+                      } else if (media.type === 'qvote') {
+                        setEditingQVoteId(media.id);
+                        setQvoteModalOpen(true);
+                      } else {
+                        window.open(media.url, '_blank');
+                      }
+                    }}
+                  >
                     {media.type === 'link' ? (
                       <LinkIcon className="w-6 h-6 text-text-secondary" />
                     ) : media.type === 'video' ? (
@@ -1916,6 +2513,20 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Camera className="w-6 h-6" style={{ color: media.selfiebeamContent?.textColor || '#fff' }} />
                       </div>
+                    ) : media.type === 'weeklycal' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ backgroundColor: media.weeklycalConfig?.branding?.landing?.backgroundColor || '#1a1a2e' }}
+                      >
+                        <CalendarDays className="w-6 h-6" style={{ color: media.weeklycalConfig?.branding?.landing?.textColor || '#fff' }} />
+                      </div>
+                    ) : media.type === 'qvote' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ backgroundColor: '#1a1a2e' }}
+                      >
+                        <Vote className="w-6 h-6 text-white" />
+                      </div>
                     ) : (
                       <img
                         src={media.url}
@@ -1929,11 +2540,17 @@ export default function CodeEditPage({ params }: PageProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-text-primary">
-                        {media.type === 'link' ? tMedia('link') : media.type === 'riddle' ? (media.riddleContent?.title || tMedia('riddle')) : media.type === 'selfiebeam' ? (media.selfiebeamContent?.title || tMedia('selfiebeam')) : media.type === 'wordcloud' ? tMedia('wordcloud') : media.type.toUpperCase()}
+                        {media.type === 'link' ? tMedia('link')
+                          : media.type === 'riddle' ? (media.riddleContent?.title || tMedia('riddle'))
+                          : media.type === 'selfiebeam' ? (media.selfiebeamContent?.title || tMedia('selfiebeam'))
+                          : media.type === 'wordcloud' ? tMedia('wordcloud')
+                          : media.type === 'weeklycal' ? (tMedia('weeklycal') || 'לוח פעילות')
+                          : media.type === 'qvote' ? 'Q.Vote'
+                          : media.type.toUpperCase()}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
                     </div>
-                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.filename && (
+                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.filename && (
                       <p className="text-xs text-text-secondary truncate mt-0.5" dir="ltr">
                         {media.filename}
                       </p>
@@ -2019,6 +2636,36 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
+                  {/* Edit button for weeklycal */}
+                  {media.type === 'weeklycal' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingWeeklyCalId(media.id);
+                          setWeeklyCalModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Edit button for qvote */}
+                  {media.type === 'qvote' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingQVoteId(media.id);
+                          setQvoteModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
                   {/* Gallery button for selfiebeam with gallery enabled */}
                   {media.type === 'selfiebeam' && media.selfiebeamContent?.galleryEnabled && (
                     <Tooltip text={t('selfieGallery', { count: code.userGallery?.length || 0 })}>
@@ -2038,8 +2685,8 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
-                  {/* Replace button - not for links, riddles, or selfiebeams */}
-                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && (
+                  {/* Replace button - not for links, riddles, selfiebeams, weeklycal, or qvote */}
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && (
                     <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -2099,6 +2746,16 @@ export default function CodeEditPage({ params }: PageProps) {
                     >
                       <ExternalLink className="w-4 h-4" />
                     </a>
+                  </Tooltip>
+
+                  {/* Create separate experience */}
+                  <Tooltip text={t('createSeparateExperience')}>
+                    <button
+                      onClick={() => setCreateSeparateModal({ isOpen: true, mediaId: media.id, loading: false })}
+                      className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                    >
+                      <QrCode className="w-4 h-4" />
+                    </button>
                   </Tooltip>
 
                   {/* Delete */}
@@ -2192,6 +2849,66 @@ export default function CodeEditPage({ params }: PageProps) {
         </div>
       )}
 
+      {/* Create separate experience confirmation modal */}
+      {createSeparateModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-bg-card border border-border rounded-xl p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-accent/10 rounded-lg">
+                <QrCode className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="text-lg font-semibold text-text-primary">{t('createSeparateExperienceTitle')}</h3>
+            </div>
+            <p className="text-text-secondary mb-6">
+              {t('createSeparateExperienceConfirm')}
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => handleCreateSeparateExperience(false)}
+                disabled={createSeparateModal.loading}
+                className="w-full px-4 py-3 text-sm font-medium text-white bg-accent hover:bg-accent/90 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {createSeparateModal.loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {tCommon('creating')}
+                  </>
+                ) : (
+                  <>
+                    <CopyPlus className="w-4 h-4" />
+                    {t('createSeparateExperienceDuplicate')}
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => handleCreateSeparateExperience(true)}
+                disabled={createSeparateModal.loading}
+                className="w-full px-4 py-3 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {createSeparateModal.loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {tCommon('creating')}
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="w-4 h-4" />
+                    {t('createSeparateExperienceMove')}
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setCreateSeparateModal({ isOpen: false, mediaId: null, loading: false })}
+                disabled={createSeparateModal.loading}
+                className="w-full px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
+              >
+                {t('createSeparateExperienceCancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Link Modal */}
       <AddLinkModal
         isOpen={addLinkModalOpen}
@@ -2232,6 +2949,65 @@ export default function CodeEditPage({ params }: PageProps) {
         initialContent={editingSelfiebeamId ? code?.media.find(m => m.id === editingSelfiebeamId)?.selfiebeamContent : undefined}
       />
 
+      {/* Q.Vote Modal */}
+      <QVoteModal
+        isOpen={qvoteModalOpen}
+        onClose={() => {
+          setQvoteModalOpen(false);
+          setEditingQVoteId(null);
+        }}
+        onSave={handleSaveQVote}
+        loading={addingQVote}
+        initialConfig={editingQVoteId ? code?.media.find(m => m.id === editingQVoteId)?.qvoteConfig : undefined}
+        shortId={code.shortId}
+      />
+
+      {/* Weekly Calendar Modal */}
+      <WeeklyCalendarModal
+        isOpen={weeklyCalModalOpen}
+        onClose={() => {
+          setWeeklyCalModalOpen(false);
+          setEditingWeeklyCalId(null);
+        }}
+        onSave={handleSaveWeeklyCal}
+        onUploadCellImage={async (file: File) => {
+          if (!user || !code) return null;
+          try {
+            const formData = new FormData();
+            // Rename file to include code ID in path
+            const ext = file.name.split('.').pop() || 'jpg';
+            const newFileName = `${code.id}_${Date.now()}.${ext}`;
+            const renamedFile = new File([file], newFileName, { type: file.type });
+            formData.append('file', renamedFile);
+            formData.append('userId', user.id);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            if (res.ok) {
+              const { url, filename } = await res.json();
+              return url;
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        }}
+        onDeleteCellImage={async (url: string) => {
+          try {
+            const res = await fetch('/api/upload', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+            });
+            return res.ok;
+          } catch {
+            return false;
+          }
+        }}
+        loading={addingWeeklyCal}
+        initialConfig={editingWeeklyCalId ? code?.media.find(m => m.id === editingWeeklyCalId)?.weeklycalConfig : undefined}
+        shortId={code.shortId}
+        codeId={code.id}
+      />
+
       {/* QR Sign Modal */}
       <QRSignModal
         isOpen={qrSignModalOpen}
@@ -2265,6 +3041,16 @@ export default function CodeEditPage({ params }: PageProps) {
         onClose={() => setMobilePreviewOpen(false)}
         url={viewUrl}
         title={code.title}
+      />
+
+      {/* Landing Page Modal */}
+      <LandingPageModal
+        isOpen={landingPageModalOpen}
+        onClose={() => setLandingPageModalOpen(false)}
+        onSave={handleSaveLandingPage}
+        initialConfig={code.landingPageConfig}
+        shortId={code.shortId}
+        mediaItems={code.media}
       />
     </div>
   );

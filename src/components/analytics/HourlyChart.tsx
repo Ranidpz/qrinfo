@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   Cell,
+  ResponsiveContainer,
 } from 'recharts';
 import { useTranslations, useLocale } from 'next-intl';
 import { formatHour } from '@/lib/analytics';
@@ -34,9 +35,9 @@ export default function HourlyChart({ data }: HourlyChartProps) {
 
   if (!hasData) {
     return (
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">{t('viewsByHour')}</h3>
-        <div className="h-[250px] flex items-center justify-center">
+      <div className="h-full flex flex-col min-h-0">
+        <h3 className="text-lg font-semibold text-text-primary mb-4 shrink-0">{t('viewsByHour')}</h3>
+        <div className="flex-1 min-h-0 flex items-center justify-center">
           <p className="text-text-secondary">{t('noData')}</p>
         </div>
       </div>
@@ -44,45 +45,47 @@ export default function HourlyChart({ data }: HourlyChartProps) {
   }
 
   return (
-    <div className="card p-6">
-      <h3 className="text-lg font-semibold text-text-primary mb-4">{t('viewsByHour')}</h3>
-      <div className="overflow-x-auto" dir="ltr">
-        <BarChart width={500} height={250} data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-          <XAxis
-            dataKey="displayHour"
-            stroke="var(--text-secondary)"
-            fontSize={10}
-            tickLine={false}
-            axisLine={{ stroke: 'var(--border)' }}
-            interval={2}
-          />
-          <YAxis
-            stroke="var(--text-secondary)"
-            fontSize={12}
-            tickLine={false}
-            axisLine={{ stroke: 'var(--border)' }}
-            allowDecimals={false}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              color: 'var(--text-primary)',
-            }}
-            labelFormatter={(label) => `${hourLabel} ${label}`}
-            formatter={(value: number) => [value, t('views')]}
-          />
-          <Bar dataKey="views" radius={[4, 4, 0, 0]}>
-            {chartData.map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={entry.views === maxViews && maxViews > 0 ? '#22c55e' : '#3b82f6'}
-              />
-            ))}
-          </Bar>
-        </BarChart>
+    <div className="h-full flex flex-col min-h-0">
+      <h3 className="text-lg font-semibold text-text-primary mb-4 shrink-0">{t('viewsByHour')}</h3>
+      <div className="flex-1 min-h-0" dir="ltr">
+        <ResponsiveContainer width="100%" height="100%" debounce={50} minHeight={150}>
+          <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis
+              dataKey="displayHour"
+              stroke="var(--text-secondary)"
+              fontSize={10}
+              tickLine={false}
+              axisLine={{ stroke: 'var(--border)' }}
+              interval={2}
+            />
+            <YAxis
+              stroke="var(--text-secondary)"
+              fontSize={12}
+              tickLine={false}
+              axisLine={{ stroke: 'var(--border)' }}
+              allowDecimals={false}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+              }}
+              labelFormatter={(label) => `${hourLabel} ${label}`}
+              formatter={(value: number) => [value, t('views')]}
+            />
+            <Bar dataKey="views" radius={[4, 4, 0, 0]}>
+              {chartData.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={entry.views === maxViews && maxViews > 0 ? '#22c55e' : '#3b82f6'}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

@@ -1,11 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
-import { MediaItem, CodeWidgets, LinkSource } from '@/types';
+import { ChevronLeft, ChevronRight, ExternalLink, ArrowLeft } from 'lucide-react';
+import { MediaItem, CodeWidgets, LinkSource, LandingPageConfig, DEFAULT_LANDING_PAGE_CONFIG } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import RiddleViewer from '@/components/viewer/RiddleViewer';
 import SelfiebeamViewer from '@/components/viewer/SelfiebeamViewer';
+import QVoteViewer from '@/components/viewer/QVoteViewer';
+import WeeklyCalendarViewer from '@/components/viewer/WeeklyCalendarViewer';
+import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
+import LandingPageViewer from '@/components/viewer/LandingPageViewer';
+import { shouldShowLandingPage } from '@/lib/landingPage';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Virtual } from 'swiper/modules';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -25,6 +30,7 @@ interface ViewerClientProps {
   shortId: string;
   ownerId: string;
   folderId?: string; // For route/XP tracking
+  landingPageConfig?: LandingPageConfig; // Landing page configuration for mixed media
 }
 
 // Loading spinner with percentage
@@ -916,7 +922,7 @@ const ImageGalleryViewer = memo(({
 });
 ImageGalleryViewer.displayName = 'ImageGalleryViewer';
 
-export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId, folderId }: ViewerClientProps) {
+export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId, folderId, landingPageConfig }: ViewerClientProps) {
   // Get browser locale for translations
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = viewerTranslations[locale];
@@ -965,6 +971,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const swiperRef = useRef<SwiperType | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
 
+  // Landing page state
+  const [showLandingPage, setShowLandingPage] = useState(true);
+  const [activeViewer, setActiveViewer] = useState<{
+    type: string;
+    media: MediaItem | MediaItem[];
+  } | null>(null);
+
   const currentMedia = media[currentIndex] || media[0];
   const hasMultipleMedia = media.length > 1;
 
@@ -981,9 +994,21 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isRiddle = media.length === 1 && currentMedia?.type === 'riddle';
   const isWordCloud = media.length === 1 && currentMedia?.type === 'wordcloud';
   const isSelfiebeam = media.length === 1 && currentMedia?.type === 'selfiebeam';
+  const isQVote = media.length === 1 && currentMedia?.type === 'qvote';
+  const isWeeklyCal = media.length === 1 && currentMedia?.type === 'weeklycal';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
+
+  // Determine if landing page should show
+  const shouldUseLandingPage = (() => {
+    // Only for mixed media
+    if (!needsMixedSwiper) return false;
+    // If explicitly disabled, don't show
+    if (landingPageConfig?.enabled === false) return false;
+    // If enabled or auto-detect (default enabled)
+    return shouldShowLandingPage(media);
+  })();
 
   // Preload media
   useEffect(() => {
@@ -1055,6 +1080,9 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden animate-fadeIn">
+      {/* PWA Install Banner */}
+      <PWAInstallBanner shortId={shortId} enabled={widgets?.pwaEncourage?.enabled !== false} />
+
       <style jsx global>{`
         @keyframes fadeIn {
           from { opacity: 0; }
@@ -1067,7 +1095,107 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
 
       {/* Content based on type */}
       <div className="w-full h-screen">
-        {needsMixedSwiper ? (
+        {/* Landing Page for mixed media */}
+        {shouldUseLandingPage && showLandingPage && !activeViewer ? (
+          <LandingPageViewer
+            config={landingPageConfig || DEFAULT_LANDING_PAGE_CONFIG}
+            media={media}
+            title={title}
+            codeId={codeId}
+            shortId={shortId}
+            ownerId={ownerId}
+            folderId={folderId}
+            onOpenViewer={(mediaOrItems, viewerType) => {
+              setActiveViewer({ type: viewerType, media: mediaOrItems });
+              setShowLandingPage(false);
+            }}
+          />
+        ) : activeViewer ? (
+          // Active viewer from landing page
+          <div className="w-full h-full relative">
+            {/* Back button */}
+            <button
+              onClick={() => {
+                setActiveViewer(null);
+                setShowLandingPage(true);
+              }}
+              className="fixed top-4 start-4 z-50 p-3 rounded-full bg-black/50 text-white backdrop-blur-sm hover:bg-black/70 transition-colors"
+              style={{ direction: 'ltr' }}
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+
+            {/* Render viewer based on type */}
+            {activeViewer.type === 'album' && Array.isArray(activeViewer.media) && (
+              <ImageGalleryViewer
+                mediaItems={activeViewer.media}
+                title={title}
+                onLoad={handleMediaLoad}
+                onLinkClick={trackLinkClick}
+              />
+            )}
+            {activeViewer.type === 'pdf' && !Array.isArray(activeViewer.media) && (
+              <PDFFlipBookViewer
+                url={activeViewer.media.url}
+                title={title}
+                onLoad={handleMediaLoad}
+                onLinkClick={trackLinkClick}
+              />
+            )}
+            {activeViewer.type === 'video' && !Array.isArray(activeViewer.media) && (
+              <div className="w-full h-full flex items-center justify-center bg-black">
+                <video
+                  src={activeViewer.media.url}
+                  className="max-w-full max-h-full"
+                  controls
+                  autoPlay
+                  playsInline
+                />
+              </div>
+            )}
+            {activeViewer.type === 'link' && !Array.isArray(activeViewer.media) && (
+              <iframe
+                src={activeViewer.media.url}
+                className="w-full h-full"
+                title={title}
+                sandbox="allow-scripts allow-same-origin"
+              />
+            )}
+            {activeViewer.type === 'riddle' && !Array.isArray(activeViewer.media) && activeViewer.media.riddleContent && (
+              <RiddleViewer
+                content={activeViewer.media.riddleContent}
+                codeId={codeId}
+                shortId={shortId}
+                ownerId={ownerId}
+                folderId={folderId}
+              />
+            )}
+            {activeViewer.type === 'selfiebeam' && !Array.isArray(activeViewer.media) && activeViewer.media.selfiebeamContent && (
+              <SelfiebeamViewer
+                content={activeViewer.media.selfiebeamContent}
+                codeId={codeId}
+                shortId={shortId}
+                ownerId={ownerId}
+              />
+            )}
+            {activeViewer.type === 'qvote' && !Array.isArray(activeViewer.media) && activeViewer.media.qvoteConfig && (
+              <QVoteViewer
+                config={activeViewer.media.qvoteConfig}
+                codeId={codeId}
+                mediaId={activeViewer.media.id}
+                shortId={shortId}
+              />
+            )}
+            {activeViewer.type === 'weeklycal' && !Array.isArray(activeViewer.media) && activeViewer.media.weeklycalConfig && (
+              <WeeklyCalendarViewer
+                config={activeViewer.media.weeklycalConfig}
+                codeId={codeId}
+                shortId={shortId}
+                ownerId={ownerId}
+              />
+            )}
+          </div>
+        ) : needsMixedSwiper ? (
           // Mixed media types - use swiper to navigate between all types
           <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative">
             <Swiper
@@ -1211,6 +1339,10 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} folderId={folderId} />
         ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+        ) : isQVote && currentMedia.qvoteConfig ? (
+          <QVoteViewer config={currentMedia.qvoteConfig} codeId={codeId} mediaId={currentMedia.id} shortId={shortId} />
+        ) : isWeeklyCal && currentMedia.weeklycalConfig ? (
+          <WeeklyCalendarViewer config={currentMedia.weeklycalConfig} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
         ) : isAllPDFs && hasMultipleMedia ? (

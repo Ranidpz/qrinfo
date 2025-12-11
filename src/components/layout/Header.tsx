@@ -40,7 +40,7 @@ export default function Header({ onMenuClick, direction = 'rtl' }: HeaderProps) 
             alt="The Q"
             width={48}
             height={48}
-            className="rounded-lg transition-transform duration-200 hover:scale-110"
+            className="rounded-lg transition-transform duration-200 hover:scale-110 animate-logo-fade-in"
           />
         </Link>
       </div>

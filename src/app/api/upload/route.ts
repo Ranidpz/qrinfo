@@ -24,6 +24,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const userId = formData.get('userId') as string;
+    const codeId = formData.get('codeId') as string | null;
+    const folder = formData.get('folder') as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -69,7 +71,18 @@ export async function POST(request: NextRequest) {
     // Generate unique filename with user folder structure
     const timestamp = Date.now();
     const extension = file.name.split('.').pop() || 'bin';
-    const filename = `${userId}/${timestamp}_${Math.random().toString(36).substring(7)}.${extension}`;
+    const randomSuffix = Math.random().toString(36).substring(7);
+
+    // If codeId is provided, save in code folder (for storage tracking)
+    // Otherwise save directly in user folder
+    let filename: string;
+    if (codeId && folder) {
+      filename = `${userId}/${codeId}/${folder}/${timestamp}_${randomSuffix}.${extension}`;
+    } else if (codeId) {
+      filename = `${userId}/${codeId}/${timestamp}_${randomSuffix}.${extension}`;
+    } else {
+      filename = `${userId}/${timestamp}_${randomSuffix}.${extension}`;
+    }
 
     // Upload to Vercel Blob
     const blob = await put(filename, file, {

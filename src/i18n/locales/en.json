@@ -170,6 +170,10 @@
     "wordCloudTitlePlaceholder": "Word cloud for event",
     "qrSign": "QR Code Design - Sign",
     "qrSignEnable": "Enable Sign",
+    "qrSignLogo": "Logo",
+    "qrSignUploadLogo": "Drag logo here or click to upload",
+    "qrSignLogoInstructions": "Upload PNG with transparent background for best results. Large images will be resized automatically.",
+    "qrSignResetLogo": "Reset to default logo",
     "qrSignText": "Text",
     "qrSignIcon": "Icon",
     "qrSignTextLabel": "Text (up to 4 characters)",
@@ -249,7 +253,11 @@
     "share": "Share",
     "widgets": "Widgets",
     "qrSign": "QR Sign",
-    "whatsappWidget": "WhatsApp Widget",
+    "qrSignTooltip": "Add a custom sign/logo in the center of the QR code",
+    "whatsappWidget": "WhatsApp",
+    "whatsappTooltip": "Add a WhatsApp group join button for viewers",
+    "pwaEncourage": "Install",
+    "pwaEncourageTooltip": "Show app installation banner on every scan",
     "active": "Active",
     "inactive": "Inactive",
     "saveChanges": "Save changes",
@@ -272,11 +280,19 @@
     "deleteMediaTitle": "Delete Media",
     "deleteMediaConfirm": "Are you sure you want to delete this media item?",
     "cannotUndo": "This action cannot be undone.",
+    "createSeparateExperience": "Create separate experience",
+    "createSeparateExperienceTitle": "Create Separate Experience",
+    "createSeparateExperienceConfirm": "What would you like to do with this item?",
+    "createSeparateExperienceDuplicate": "Duplicate and open new",
+    "createSeparateExperienceMove": "Move to new experience",
+    "createSeparateExperienceCancel": "Cancel",
     "page": "page",
     "pages": "pages",
     "scheduleFrom": "From {date}",
     "scheduleTo": "To {date}",
-    "scheduleTime": "{from} - {to}"
+    "scheduleTime": "{from} - {to}",
+    "nextCode": "Next code",
+    "prevCode": "Previous code"
   },
   "media": {
     "image": "Image",
@@ -286,6 +302,7 @@
     "riddle": "Riddle",
     "wordcloud": "Word Cloud",
     "selfiebeam": "Selfiebeam",
+    "weeklycal": "Weekly Calendar",
     "minigames": "Mini Games",
     "addFile": "Add File",
     "replaceFile": "Replace File",
@@ -319,7 +336,13 @@
     "tooltipRiddle": "Interactive page with scoring route and XP for gamification experience",
     "tooltipWordcloud": "Interactive word cloud for events",
     "tooltipSelfiebeam": "Shared selfie wall for events",
-    "tooltipMinigames": "Challenging games - coming soon"
+    "tooltipMinigames": "Challenging games - coming soon",
+    "weeklyCalDescription": "Create a weekly schedule with activities and events",
+    "createWeeklyCal": "Create Weekly Calendar",
+    "tooltipWeeklyCal": "Weekly schedule for events and hotels",
+    "qvoteDescription": "Create a digital voting experience for events",
+    "createQVote": "Create Q.Vote",
+    "tooltipQVote": "Interactive voting for events"
   },
   "analytics": {
     "title": "Analytics",
@@ -371,7 +394,8 @@
     "pdfSource": "PDF",
     "mediaSource": "Media",
     "whatsappSource": "WhatsApp",
-    "noClicksInRange": "No clicks in the selected date range"
+    "noClicksInRange": "No clicks in the selected date range",
+    "resetLayout": "Reset Layout"
   },
   "gallery": {
     "gridSize": "Grid Size",

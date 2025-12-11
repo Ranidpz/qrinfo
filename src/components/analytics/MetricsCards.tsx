@@ -55,20 +55,20 @@ export default function MetricsCards({ data }: MetricsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="h-full grid grid-cols-2 gap-3 sm:gap-4 content-start">
       {metrics.map((metric) => {
         const Icon = metric.icon;
         return (
           <div
             key={metric.title}
-            className="card p-4 flex items-center gap-4"
+            className="bg-bg-secondary rounded-xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4"
           >
-            <div className={`p-3 rounded-xl ${metric.bgColor}`}>
-              <Icon className={`w-6 h-6 ${metric.color}`} />
+            <div className={`p-2 sm:p-3 rounded-xl ${metric.bgColor} shrink-0`}>
+              <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${metric.color}`} />
             </div>
-            <div>
-              <p className="text-sm text-text-secondary">{metric.title}</p>
-              <p className="text-2xl font-bold text-text-primary" dir="ltr">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-text-secondary truncate">{metric.title}</p>
+              <p className="text-xl sm:text-2xl font-bold text-text-primary" dir="ltr">
                 {metric.value}
               </p>
             </div>

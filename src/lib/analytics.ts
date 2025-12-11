@@ -605,3 +605,191 @@ export const linkSourceLabels: Record<LinkSource, string> = {
   media: 'מדיה',
   whatsapp: 'WhatsApp',
 };
+
+// ============ RSVP Analytics for Weekly Calendar ============
+
+export interface RSVPRegistration {
+  id: string;
+  codeId: string;
+  cellId: string;
+  weekStartDate: string;
+  visitorId: string;
+  nickname?: string;
+  count: number; // Number of attendees
+  registeredAt: Date;
+}
+
+export interface CellInfo {
+  title?: string;
+  time?: string; // e.g., "10:00 - 11:00"
+  dayIndex?: number;
+}
+
+export interface RSVPStats {
+  totalRegistrations: number; // Number of registrations (people who confirmed)
+  totalAttendees: number; // Sum of all expected attendees
+  registrationsByCell: {
+    cellId: string;
+    cellTitle?: string;
+    cellTime?: string;
+    cellDayIndex?: number;
+    registrations: number;
+    attendees: number;
+    weekStartDate: string;
+  }[];
+  registrationsByWeek: {
+    weekStartDate: string;
+    registrations: number;
+    attendees: number;
+  }[];
+  recentRegistrations: RSVPRegistration[];
+}
+
+// Empty stats for initialization
+export const emptyRSVPStats: RSVPStats = {
+  totalRegistrations: 0,
+  totalAttendees: 0,
+  registrationsByCell: [],
+  registrationsByWeek: [],
+  recentRegistrations: [],
+};
+
+// Subscribe to real-time RSVP registrations for Weekly Calendar codes
+export function subscribeToRSVPRegistrations(
+  codeIds: string[],
+  onData: (registrations: RSVPRegistration[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  if (codeIds.length === 0) {
+    onData([]);
+    return () => {};
+  }
+
+  const allRegistrations = new Map<string, RSVPRegistration>();
+  const unsubscribes: Unsubscribe[] = [];
+
+  // Process in chunks of 30 (Firestore 'in' limit)
+  const chunks = [];
+  for (let i = 0; i < codeIds.length; i += 30) {
+    chunks.push(codeIds.slice(i, i + 30));
+  }
+
+  // For each codeId, subscribe to its cellRegistrations subcollection
+  codeIds.forEach((codeId) => {
+    const registrationsRef = collection(db, 'codes', codeId, 'cellRegistrations');
+
+    const unsubscribe = onSnapshot(
+      registrationsRef,
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data();
+          const registration: RSVPRegistration = {
+            id: change.doc.id,
+            codeId: data.codeId,
+            cellId: data.cellId,
+            weekStartDate: data.weekStartDate,
+            visitorId: data.visitorId,
+            nickname: data.nickname,
+            count: data.count || 1,
+            registeredAt: data.registeredAt?.toDate?.() || new Date(),
+          };
+
+          if (change.type === 'added' || change.type === 'modified') {
+            allRegistrations.set(change.doc.id, registration);
+          } else if (change.type === 'removed') {
+            allRegistrations.delete(change.doc.id);
+          }
+        });
+
+        // Convert map to sorted array and send to callback
+        const sortedRegistrations = Array.from(allRegistrations.values()).sort(
+          (a, b) => b.registeredAt.getTime() - a.registeredAt.getTime()
+        );
+        onData(sortedRegistrations);
+      },
+      (error) => {
+        console.error('Error in RSVP subscription:', error);
+        onError?.(error);
+      }
+    );
+
+    unsubscribes.push(unsubscribe);
+  });
+
+  return () => {
+    unsubscribes.forEach((unsub) => unsub());
+  };
+}
+
+// Aggregate RSVP stats from registrations
+export function aggregateRSVPStats(
+  registrations: RSVPRegistration[],
+  cellInfoMap?: Record<string, CellInfo>
+): RSVPStats {
+  const totalRegistrations = registrations.length;
+  const totalAttendees = registrations.reduce((sum, reg) => sum + reg.count, 0);
+
+  // Group by cellId
+  const byCellMap = new Map<string, { registrations: number; attendees: number; weekStartDate: string }>();
+  registrations.forEach((reg) => {
+    const existing = byCellMap.get(reg.cellId);
+    if (existing) {
+      existing.registrations++;
+      existing.attendees += reg.count;
+    } else {
+      byCellMap.set(reg.cellId, {
+        registrations: 1,
+        attendees: reg.count,
+        weekStartDate: reg.weekStartDate,
+      });
+    }
+  });
+
+  // Convert to array and sort by attendees
+  const registrationsByCell = Array.from(byCellMap.entries())
+    .map(([cellId, data]) => {
+      const cellInfo = cellInfoMap?.[cellId];
+      return {
+        cellId,
+        cellTitle: cellInfo?.title,
+        cellTime: cellInfo?.time,
+        cellDayIndex: cellInfo?.dayIndex,
+        ...data,
+      };
+    })
+    .sort((a, b) => b.attendees - a.attendees);
+
+  // Group by week
+  const byWeekMap = new Map<string, { registrations: number; attendees: number }>();
+  registrations.forEach((reg) => {
+    const existing = byWeekMap.get(reg.weekStartDate);
+    if (existing) {
+      existing.registrations++;
+      existing.attendees += reg.count;
+    } else {
+      byWeekMap.set(reg.weekStartDate, {
+        registrations: 1,
+        attendees: reg.count,
+      });
+    }
+  });
+
+  // Convert to array and sort by date
+  const registrationsByWeek = Array.from(byWeekMap.entries())
+    .map(([weekStartDate, data]) => ({
+      weekStartDate,
+      ...data,
+    }))
+    .sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate));
+
+  // Recent registrations (last 10)
+  const recentRegistrations = registrations.slice(0, 10);
+
+  return {
+    totalRegistrations,
+    totalAttendees,
+    registrationsByCell,
+    registrationsByWeek,
+    recentRegistrations,
+  };
+}

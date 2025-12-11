@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal';
 
 // Riddle content structure
 export interface RiddleContent {
@@ -55,6 +55,44 @@ export interface GallerySettings {
   showNewBadge?: boolean; // Show NEW badge on first-time displayed images
 }
 
+// Landing page button style
+export type LandingPageButtonStyle = 'solid' | 'outline' | 'glass';
+
+// Landing page button layout
+export type LandingPageButtonLayout = 'list' | 'grid';
+
+// Landing page configuration for mixed media codes
+export interface LandingPageConfig {
+  enabled: boolean;
+  // Background
+  backgroundColor: string;
+  backgroundImageUrl?: string;
+  backgroundBlur?: boolean;          // Apply blur to background image
+  imageOverlayOpacity?: number;      // 0-100, overlay darkness for text readability
+  // Content
+  title?: string;
+  subtitle?: string;
+  // Button styling
+  buttonColor: string;
+  buttonTextColor: string;
+  buttonStyle?: LandingPageButtonStyle;
+  buttonLayout?: LandingPageButtonLayout;
+  // Custom button titles (mediaId -> custom title)
+  buttonTitles?: Record<string, string>;
+}
+
+// Default landing page configuration
+export const DEFAULT_LANDING_PAGE_CONFIG: LandingPageConfig = {
+  enabled: true,
+  backgroundColor: '#1a1a2e',
+  backgroundBlur: false,
+  imageOverlayOpacity: 40,
+  buttonColor: '#3b82f6',
+  buttonTextColor: '#ffffff',
+  buttonStyle: 'solid',
+  buttonLayout: 'list',
+};
+
 // Schedule for media
 export interface MediaSchedule {
   enabled: boolean;
@@ -80,11 +118,13 @@ export interface MediaItem {
   linkTitle?: string;   // Display name for the link button
   riddleContent?: RiddleContent; // Content for riddle type
   selfiebeamContent?: SelfiebeamContent; // Content for selfiebeam type
+  qvoteConfig?: import('./qvote').QVoteConfig; // Configuration for qvote type
+  weeklycalConfig?: import('./weeklycal').WeeklyCalendarConfig; // Configuration for weekly calendar type
   createdAt: Date;
 }
 
 // QR Sign types
-export type QRSignType = 'text' | 'emoji' | 'icon';
+export type QRSignType = 'text' | 'emoji' | 'icon' | 'logo';
 
 // QR Sign configuration for center overlay
 export interface QRSign {
@@ -103,6 +143,9 @@ export interface CodeWidgets {
     enabled: boolean;
     groupLink: string;
   };
+  pwaEncourage?: {
+    enabled: boolean; // Default true - encourage app installation on scan
+  };
 }
 
 // QR Code document
@@ -120,6 +163,7 @@ export interface QRCode {
   folderId?: string; // Optional folder assignment
   userGallery?: UserGalleryImage[]; // Selfies uploaded by viewers
   gallerySettings?: GallerySettings; // Display settings for gallery page
+  landingPageConfig?: LandingPageConfig; // Landing page configuration for mixed media
   createdAt: Date;
   updatedAt: Date;
 }
@@ -330,6 +374,31 @@ export interface LeaderboardEntry {
   photosUploaded: number;
   visitedStations?: StationVisit[];  // Detailed station visits
   updatedAt?: Date;
+}
+
+// ============ ANALYTICS GRID LAYOUT ============
+
+// Analytics section identifiers
+export type AnalyticsSectionId = 'metrics' | 'views' | 'hourly' | 'linkClicks' | 'rsvp';
+
+// Layout item for react-grid-layout
+export interface AnalyticsLayoutItem {
+  i: string;       // Section ID
+  x: number;       // X position in grid units (0-2 for 3-column grid)
+  y: number;       // Y position in grid units
+  w: number;       // Width in grid units (1-3)
+  h: number;       // Height in grid units
+  minW?: number;   // Minimum width
+  maxW?: number;   // Maximum width
+  minH?: number;   // Minimum height
+  maxH?: number;   // Maximum height
+}
+
+// Layouts for different breakpoints
+export interface AnalyticsLayouts {
+  lg: AnalyticsLayoutItem[];  // Desktop (>=1200px)
+  md: AnalyticsLayoutItem[];  // Tablet (>=996px)
+  sm: AnalyticsLayoutItem[];  // Small tablet (>=768px)
 }
 
 // ============ PACK / PRIZE SYSTEM ============

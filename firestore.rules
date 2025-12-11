@@ -29,6 +29,47 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid ||
         isAdmin()
       );
+
+      // Q.Vote Candidates subcollection
+      match /candidates/{candidateId} {
+        // Anyone can read candidates (for voting page)
+        allow read: if true;
+        // Anyone can create a candidate (self-registration)
+        allow create: if true;
+        // Only owner or admin can update/delete candidates
+        allow update, delete: if request.auth != null && (
+          get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+
+      // Q.Vote Votes subcollection
+      match /votes/{voteId} {
+        // Anyone can read votes (to check if already voted)
+        allow read: if true;
+        // Anyone can create a vote (anonymous voting)
+        allow create: if true;
+        // Only admin can update/delete votes
+        allow update, delete: if isAdmin();
+      }
+
+      // Weekly Calendar RSVP registrations subcollection
+      match /cellRegistrations/{registrationId} {
+        // Anyone can read registrations (for calendar display)
+        allow read: if true;
+        // Anyone can create a registration (anonymous RSVP)
+        allow create: if true;
+        // User can update their own registration (visitorId must match) or owner/admin can manage
+        allow update: if
+          request.resource.data.visitorId == resource.data.visitorId ||
+          (request.auth != null && (
+            get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+            isAdmin()
+          ));
+        // Anyone can delete a registration (document ID contains visitorId which is the secret)
+        // The API validates visitorId before calling delete
+        allow delete: if true;
+      }
     }
 
     // ViewLogs collection - IMPORTANT: Allow anyone to create (for anonymous QR scanning)
@@ -43,6 +84,21 @@ service cloud.firestore {
       );
 
       // No one can update or delete view logs
+      allow update, delete: if false;
+    }
+
+    // LinkClicks collection - for tracking link clicks in QR codes
+    match /linkClicks/{clickId} {
+      // Anyone can create a link click (when clicking links in viewer)
+      allow create: if true;
+
+      // Only owner of the code or admin can read link clicks
+      allow read: if request.auth != null && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // No one can update or delete link clicks
       allow update, delete: if false;
     }
 

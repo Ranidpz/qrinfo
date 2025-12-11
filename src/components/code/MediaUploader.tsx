@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -11,6 +11,8 @@ interface MediaUploaderProps {
   onRiddleCreate?: () => void;
   onWordCloudCreate?: () => void;
   onSelfiebeamCreate?: () => void;
+  onQVoteCreate?: () => void;
+  onWeeklyCalendarCreate?: () => void;
   maxSize?: number; // bytes
   accept?: string[];
   disabled?: boolean;
@@ -22,11 +24,13 @@ export default function MediaUploader({
   onRiddleCreate,
   onWordCloudCreate,
   onSelfiebeamCreate,
+  onQVoteCreate,
+  onWeeklyCalendarCreate,
   maxSize = 5 * 1024 * 1024, // 5MB default
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'minigames'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'minigames'>('upload');
   const [linkUrl, setLinkUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -152,14 +156,16 @@ export default function MediaUploader({
 
   return (
     <div className="space-y-3">
-      {/* Tab buttons - 3 columns grid */}
+      {/* Tab buttons - 4 columns grid on desktop, 3 on mobile */}
       {(onLinkAdd || onRiddleCreate || onWordCloudCreate) && (
-        <div className="grid grid-cols-3 gap-2 overflow-visible pt-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2 overflow-visible pt-3">
           <TabButton tab="upload" label={tMedia('image')} icon={Upload} tooltip={t('tooltipUpload')} />
           {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} tooltip={t('tooltipLink')} />}
           {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} badge="XP" tooltip={t('tooltipRiddle')} />}
           {onWordCloudCreate && <TabButton tab="wordcloud" label={tMedia('wordcloud')} icon={Cloud} tooltip={t('tooltipWordcloud')} />}
           {onSelfiebeamCreate && <TabButton tab="selfiebeam" label={tMedia('selfiebeam')} icon={Camera} tooltip={t('tooltipSelfiebeam')} />}
+          {onQVoteCreate && <TabButton tab="qvote" label="Q.Vote" icon={Vote} badge="NEW" tooltip={t('tooltipQVote') || 'Create a voting experience'} />}
+          {onWeeklyCalendarCreate && <TabButton tab="weeklycal" label={tMedia('weeklycal') || 'Weekly'} icon={CalendarDays} tooltip={t('tooltipWeeklyCal') || 'Create a weekly schedule'} />}
           <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} tooltip={t('tooltipMinigames')} />
         </div>
       )}
@@ -352,6 +358,54 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createSelfiebeam')}
+          </button>
+        </div>
+      ) : activeTab === 'qvote' ? (
+        /* Q.Vote creation */
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+              <Vote className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-start">
+              <h3 className="font-medium text-text-primary mb-1">
+                Q.Vote
+              </h3>
+              <p className="text-xs text-text-secondary">
+                {t('qvoteDescription') || 'Create a digital voting experience for events'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onQVoteCreate}
+            disabled={disabled}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            {t('createQVote') || 'Create Q.Vote'}
+          </button>
+        </div>
+      ) : activeTab === 'weeklycal' ? (
+        /* Weekly Calendar creation */
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center flex-shrink-0">
+              <CalendarDays className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-start">
+              <h3 className="font-medium text-text-primary mb-1">
+                {tMedia('weeklycal') || 'Weekly Calendar'}
+              </h3>
+              <p className="text-xs text-text-secondary">
+                {t('weeklyCalDescription') || 'Create a weekly schedule with activities and events'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onWeeklyCalendarCreate}
+            disabled={disabled}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            {t('createWeeklyCal') || 'Create Weekly Calendar'}
           </button>
         </div>
       ) : activeTab === 'minigames' ? (

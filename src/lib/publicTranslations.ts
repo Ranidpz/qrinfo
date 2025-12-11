@@ -74,7 +74,7 @@ export const galleryTranslations = {
     cornerRadius: 'עיגול פינות התמונות',
     nameTextSize: 'גודל הטקסט של השמות',
     deleteAllImages: 'מחק את כל התמונות',
-    enterName: 'הזן שם...',
+    enterName: 'הזינו שם...',
   },
   en: {
     anonymous: 'Anonymous',
@@ -120,7 +120,7 @@ export const uploadTranslations = {
     error: 'שגיאה',
     maxReached: 'הגעת למקסימום',
     takePhoto: 'צלמו כאן',
-    enterYourName: 'הזן את שמך',
+    enterYourName: 'הזינו את שמכם',
     nameWillAppear: 'השם יופיע ליד התמונה בגלריה',
     nameOrNickname: 'שם או כינוי...',
     cancel: 'ביטול',

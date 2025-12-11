@@ -56,6 +56,7 @@ export default async function ViewerPage({ params }: ViewerPageProps) {
         shortId={code.shortId}
         ownerId={code.ownerId}
         folderId={code.folderId}
+        landingPageConfig={code.landingPageConfig}
       />
     );
   } catch (error) {

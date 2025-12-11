@@ -72,7 +72,27 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        if (sign.type === 'text') {
+        if (sign.type === 'logo') {
+          // Draw logo image
+          const logoImg = new Image();
+          logoImg.onload = () => {
+            const logoSize = signRadius * 1.5 * scale;
+            ctx.drawImage(
+              logoImg,
+              centerX - logoSize / 2,
+              centerY - logoSize / 2,
+              logoSize,
+              logoSize
+            );
+            // Download after logo is loaded
+            const link = document.createElement('a');
+            link.download = `qr-${shortId}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+          };
+          logoImg.src = sign.value;
+          return; // Exit early, download happens in onload
+        } else if (sign.type === 'text') {
           const baseFontSize = signRadius * (sign.value.length === 1 ? 1.1 : sign.value.length === 2 ? 0.9 : 0.6);
           const fontSize = baseFontSize * scale;
           ctx.font = `bold ${fontSize}px Assistant, Arial, sans-serif`;
@@ -123,19 +143,29 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
   const renderSignOverlay = () => {
     if (!sign?.enabled || !sign.value) return null;
 
-    const overlaySize = size * 0.25;
     const scale = sign.scale ?? 1.0;
+    const overlaySize = size * 0.25; // Fixed container size
 
     return (
       <div
-        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center shadow-md"
+        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center shadow-md overflow-hidden"
         style={{
           width: overlaySize,
           height: overlaySize,
           backgroundColor: sign.backgroundColor,
         }}
       >
-        {sign.type === 'icon' ? (
+        {sign.type === 'logo' ? (
+          <img
+            src={sign.value}
+            alt="Logo"
+            style={{
+              width: overlaySize * 0.7 * scale,
+              height: overlaySize * 0.7 * scale,
+              objectFit: 'contain',
+            }}
+          />
+        ) : sign.type === 'icon' ? (
           (() => {
             const IconComponent = LucideIcons[sign.value as keyof typeof LucideIcons] as LucideIcon;
             return IconComponent ? (

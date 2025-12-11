@@ -55,6 +55,16 @@ export async function createQRCode(
 ): Promise<QRCode> {
   const shortId = generateShortId();
 
+  // Default QR sign with theQ logo
+  const defaultQRSign = {
+    enabled: true,
+    type: 'logo',
+    value: '/theQ.png',
+    color: '#000000',
+    backgroundColor: '#ffffff',
+    scale: 1.0,
+  };
+
   const codeData: Record<string, unknown> = {
     shortId,
     ownerId,
@@ -65,7 +75,9 @@ export async function createQRCode(
       id: `media_${Date.now()}_${index}`,
       createdAt: Timestamp.now(),
     })),
-    widgets: {},
+    widgets: {
+      qrSign: defaultQRSign,
+    },
     views: 0,
     isActive: true,
     createdAt: serverTimestamp(),
@@ -90,7 +102,16 @@ export async function createQRCode(
       id: `media_${Date.now()}_${index}`,
       createdAt: new Date(),
     })) as MediaItem[],
-    widgets: {},
+    widgets: {
+      qrSign: {
+        enabled: true,
+        type: 'logo',
+        value: '/theQ.png',
+        color: '#000000',
+        backgroundColor: '#ffffff',
+        scale: 1.0,
+      },
+    },
     views: 0,
     isActive: true,
     createdAt: new Date(),
@@ -134,6 +155,8 @@ export async function getQRCode(id: string): Promise<QRCode | null> {
       ...img,
       uploadedAt: (img.uploadedAt as Timestamp)?.toDate() || new Date(),
     })),
+    gallerySettings: data.gallerySettings,
+    landingPageConfig: data.landingPageConfig,
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };
@@ -176,6 +199,8 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
       ...img,
       uploadedAt: (img.uploadedAt as Timestamp)?.toDate() || new Date(),
     })),
+    gallerySettings: data.gallerySettings,
+    landingPageConfig: data.landingPageConfig,
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };
@@ -209,6 +234,7 @@ export async function getGlobalQRCodes(): Promise<QRCode[]> {
       isActive: data.isActive ?? true,
       isGlobal: true,
       folderId: data.folderId || undefined,
+      landingPageConfig: data.landingPageConfig,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
@@ -263,6 +289,7 @@ export async function getUserQRCodes(userId: string): Promise<QRCode[]> {
       isActive: data.isActive ?? true,
       isGlobal: data.isGlobal ?? false,
       folderId: data.folderId || undefined,
+      landingPageConfig: data.landingPageConfig,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     });
@@ -301,6 +328,7 @@ export async function getAllQRCodes(): Promise<QRCode[]> {
       isActive: data.isActive ?? true,
       isGlobal: data.isGlobal ?? false,
       folderId: data.folderId || undefined,
+      landingPageConfig: data.landingPageConfig,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };
@@ -322,7 +350,7 @@ function removeUndefined(obj: Record<string, any>): Record<string, any> {
 // Update QR code
 export async function updateQRCode(
   id: string,
-  updates: Partial<Pick<QRCode, 'title' | 'media' | 'widgets' | 'collaborators' | 'isActive' | 'isGlobal'>>
+  updates: Partial<Pick<QRCode, 'title' | 'media' | 'widgets' | 'collaborators' | 'isActive' | 'isGlobal' | 'landingPageConfig'>>
 ): Promise<void> {
   // Convert media createdAt to Firestore Timestamp if present and remove undefined values
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -347,6 +375,8 @@ export async function updateQRCode(
       if (m.linkTitle) (mediaItem as Record<string, unknown>).linkTitle = m.linkTitle;
       if (m.riddleContent) (mediaItem as Record<string, unknown>).riddleContent = m.riddleContent;
       if (m.selfiebeamContent) (mediaItem as Record<string, unknown>).selfiebeamContent = m.selfiebeamContent;
+      if (m.qvoteConfig) (mediaItem as Record<string, unknown>).qvoteConfig = m.qvoteConfig;
+      if (m.weeklycalConfig) (mediaItem as Record<string, unknown>).weeklycalConfig = m.weeklycalConfig;
       return mediaItem;
     });
   }
@@ -1146,6 +1176,64 @@ export async function checkAndAwardRouteBonus(
     bonusXP,
     packAwarded,
   };
+}
+
+// Get sibling codes (codes in the same folder, or main folder if no folderId)
+export async function getSiblingCodes(
+  userId: string,
+  folderId: string | null | undefined
+): Promise<QRCode[]> {
+  let q;
+
+  if (folderId) {
+    // Get codes in the specified folder (no orderBy to avoid index requirement)
+    q = query(
+      collection(db, 'codes'),
+      where('folderId', '==', folderId)
+    );
+  } else {
+    // Get codes owned by user without a folder (main folder)
+    q = query(
+      collection(db, 'codes'),
+      where('ownerId', '==', userId)
+    );
+  }
+
+  const snapshot = await getDocs(q);
+
+  const codes = snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      shortId: data.shortId,
+      ownerId: data.ownerId,
+      collaborators: data.collaborators || [],
+      title: data.title,
+      media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
+        ...m,
+        id: m.id || `media_${Date.now()}_${index}`,
+        createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+      })),
+      widgets: data.widgets || {},
+      views: data.views || 0,
+      isActive: data.isActive ?? true,
+      folderId: data.folderId,
+      userGallery: (data.userGallery || []).map((img: Record<string, unknown>) => ({
+        ...img,
+        uploadedAt: (img.uploadedAt as Timestamp)?.toDate() || new Date(),
+      })),
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    };
+  });
+
+  // Filter and sort client-side
+  let filteredCodes = folderId
+    ? codes
+    : codes.filter(code => !code.folderId);
+
+  // Sort by createdAt desc (newest first)
+  return filteredCodes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
 // Get all codes in a route (folder with isRoute=true)

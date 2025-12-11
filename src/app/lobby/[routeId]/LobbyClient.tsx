@@ -24,7 +24,7 @@ const translations = {
     scanForPrizes: 'סרקו לפתיחת פרסים',
     winner: 'יש לנו זוכה!',
     copied: 'הועתק!',
-    clickToCopy: 'לחץ להעתקה',
+    clickToCopy: 'לחצו להעתקה',
   },
   en: {
     loading: 'Loading...',

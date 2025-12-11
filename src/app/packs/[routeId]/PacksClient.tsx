@@ -20,7 +20,7 @@ const translations = {
     prizesDisabled: 'מערכת הפרסים לא פעילה במסלול זה',
     yourPacks: 'החבילות שלך',
     packsWaiting: 'חבילות מחכות!',
-    tapToOpen: 'לחץ על חבילה לפתיחה',
+    tapToOpen: 'לחצו על חבילה לפתיחה',
     noPacks: 'אין לך חבילות כרגע',
     howToGet: 'איך מקבלים חבילות?',
     step1: 'סרקו את הקודים במסלול',

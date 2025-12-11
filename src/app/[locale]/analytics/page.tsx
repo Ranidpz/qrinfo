@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { RefreshCw, Loader2, BarChart3, Radio } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -10,8 +10,9 @@ import DateRangePicker from '@/components/analytics/DateRangePicker';
 import MetricsCards from '@/components/analytics/MetricsCards';
 import ViewsChart from '@/components/analytics/ViewsChart';
 import HourlyChart from '@/components/analytics/HourlyChart';
-import DevicePieChart from '@/components/analytics/DevicePieChart';
 import LinkClicksSection from '@/components/analytics/LinkClicksSection';
+import RSVPAnalyticsSection from '@/components/analytics/RSVPAnalyticsSection';
+import AnalyticsGridLayout from '@/components/analytics/AnalyticsGridLayout';
 import { getUserQRCodes, getAllUsers } from '@/lib/db';
 import {
   getDateRange,
@@ -20,7 +21,13 @@ import {
   subscribeToViewLogs,
   subscribeToLinkClicks,
   aggregateLinkClicks,
+  subscribeToRSVPRegistrations,
+  aggregateRSVPStats,
+  emptyRSVPStats,
+  RSVPStats,
+  CellInfo,
 } from '@/lib/analytics';
+import type { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { QRCode, User as UserType, DateRangePreset, AnalyticsData, LinkClickStats } from '@/types';
 
 const emptyAnalytics: AnalyticsData = {
@@ -52,8 +59,15 @@ export default function AnalyticsPage() {
   const [customEnd, setCustomEnd] = useState<Date | undefined>();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>(emptyAnalytics);
   const [linkClickStats, setLinkClickStats] = useState<LinkClickStats>(emptyLinkClickStats);
+  const [rsvpStats, setRSVPStats] = useState<RSVPStats>(emptyRSVPStats);
   const [loading, setLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
+
+  // Check if any selected code is a Weekly Calendar code
+  const selectedWeeklyCalendarCodes = codes
+    .filter(code => selectedCodeIds.includes(code.id))
+    .filter(code => code.media.some(m => m.type === 'weeklycal'))
+    .map(code => code.id);
 
   const isSuperAdmin = user?.role === 'super_admin';
 
@@ -94,6 +108,7 @@ export default function AnalyticsPage() {
     if (selectedCodeIds.length === 0) {
       setAnalyticsData(emptyAnalytics);
       setLinkClickStats(emptyLinkClickStats);
+      setRSVPStats(emptyRSVPStats);
       setLoadingData(false);
       return;
     }
@@ -137,6 +152,63 @@ export default function AnalyticsPage() {
       unsubscribeClicks();
     };
   }, [selectedCodeIds, datePreset, customStart, customEnd]);
+
+  // Build cell info map from selected Weekly Calendar codes
+  const cellInfoMap = useMemo(() => {
+    const infoMap: Record<string, CellInfo> = {};
+
+    codes
+      .filter(code => selectedWeeklyCalendarCodes.includes(code.id))
+      .forEach(code => {
+        const weeklycalMedia = code.media.find(m => m.type === 'weeklycal');
+        const config = weeklycalMedia?.weeklycalConfig as WeeklyCalendarConfig | undefined;
+        if (!config) return;
+
+        // Extract cell info from all weeks
+        config.weeks.forEach(week => {
+          week.cells.forEach(cell => {
+            // Find the time slot for this cell
+            const timeSlot = week.timeSlots[cell.startSlotIndex];
+            const endSlotIndex = cell.startSlotIndex + (cell.rowSpan || 1) - 1;
+            const endTimeSlot = week.timeSlots[endSlotIndex];
+
+            infoMap[cell.id] = {
+              title: cell.title,
+              time: timeSlot && endTimeSlot
+                ? `${timeSlot.startTime} - ${endTimeSlot.endTime}`
+                : timeSlot?.startTime,
+              dayIndex: cell.dayIndex,
+            };
+          });
+        });
+      });
+
+    return infoMap;
+  }, [codes, selectedWeeklyCalendarCodes]);
+
+  // Subscribe to RSVP registrations for Weekly Calendar codes
+  useEffect(() => {
+    if (selectedWeeklyCalendarCodes.length === 0) {
+      setRSVPStats(emptyRSVPStats);
+      return;
+    }
+
+    // Subscribe to real-time RSVP registrations
+    const unsubscribeRSVP = subscribeToRSVPRegistrations(
+      selectedWeeklyCalendarCodes,
+      (registrations) => {
+        const stats = aggregateRSVPStats(registrations, cellInfoMap);
+        setRSVPStats(stats);
+      },
+      (error) => {
+        console.error('Error in RSVP subscription:', error);
+      }
+    );
+
+    return () => {
+      unsubscribeRSVP();
+    };
+  }, [selectedWeeklyCalendarCodes.join(','), cellInfoMap]);
 
   // With real-time listeners, this just provides visual feedback
   // The data updates automatically
@@ -234,22 +306,40 @@ export default function AnalyticsPage() {
               <Loader2 className="w-8 h-8 animate-spin text-accent" />
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* Metrics Cards */}
-              <MetricsCards data={analyticsData} />
-
-              {/* Main Chart */}
-              <ViewsChart data={analyticsData.viewsByDay} />
-
-              {/* Secondary Charts */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <HourlyChart data={analyticsData.viewsByHour} />
-                <DevicePieChart data={analyticsData.viewsByDevice} />
-              </div>
-
-              {/* Link Clicks Section */}
-              <LinkClicksSection stats={linkClickStats} />
-            </div>
+            <AnalyticsGridLayout
+              sections={[
+                {
+                  id: 'metrics',
+                  component: <MetricsCards data={analyticsData} />,
+                  title: t('totalViews'),
+                  visible: true,
+                },
+                {
+                  id: 'views',
+                  component: <ViewsChart data={analyticsData.viewsByDay} />,
+                  title: t('viewsOverTime'),
+                  visible: true,
+                },
+                {
+                  id: 'hourly',
+                  component: <HourlyChart data={analyticsData.viewsByHour} />,
+                  title: t('viewsByHour'),
+                  visible: true,
+                },
+                {
+                  id: 'linkClicks',
+                  component: <LinkClicksSection stats={linkClickStats} />,
+                  title: t('linkClicks'),
+                  visible: true,
+                },
+                {
+                  id: 'rsvp',
+                  component: <RSVPAnalyticsSection stats={rsvpStats} />,
+                  title: 'RSVP',
+                  visible: selectedWeeklyCalendarCodes.length > 0,
+                },
+              ]}
+            />
           )}
     </div>
   );
