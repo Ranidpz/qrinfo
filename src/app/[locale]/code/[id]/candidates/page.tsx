@@ -25,6 +25,8 @@ import {
   Search,
   Upload,
   Plus,
+  Camera,
+  Edit3,
 } from 'lucide-react';
 
 export default function QVoteCandidatesPage() {
@@ -54,6 +56,20 @@ export default function QVoteCandidatesPage() {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const bulkUploadRef = useRef<HTMLInputElement>(null);
+
+  // Manual add state (boomerang - 2 photos)
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [manualPhotos, setManualPhotos] = useState<File[]>([]);
+  const [manualPhotoPreviews, setManualPhotoPreviews] = useState<string[]>([]);
+  const [manualCandidateName, setManualCandidateName] = useState('');
+  const [addingManually, setAddingManually] = useState(false);
+  const [currentPhotoSlot, setCurrentPhotoSlot] = useState<number>(0);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit photo state
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [editPhotoIndex, setEditPhotoIndex] = useState<number>(0);
+  const editPhotoInputRef = useRef<HTMLInputElement>(null);
 
   // Load code and candidates
   useEffect(() => {
@@ -335,6 +351,165 @@ export default function QVoteCandidatesPage() {
 
     setUploadingImages(false);
     setUploadProgress({ current: 0, total: 0 });
+  };
+
+  // Manual add handlers
+  const openCameraForSlot = (slot: number) => {
+    setCurrentPhotoSlot(slot);
+    cameraInputRef.current?.click();
+  };
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const preview = event.target?.result as string;
+
+      // Update the specific slot
+      setManualPhotos((prev) => {
+        const newPhotos = [...prev];
+        newPhotos[currentPhotoSlot] = file;
+        return newPhotos;
+      });
+      setManualPhotoPreviews((prev) => {
+        const newPreviews = [...prev];
+        newPreviews[currentPhotoSlot] = preview;
+        return newPreviews;
+      });
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+  };
+
+  const resetManualAdd = () => {
+    setShowAddModal(false);
+    setManualPhotos([]);
+    setManualPhotoPreviews([]);
+    setManualCandidateName('');
+    setCurrentPhotoSlot(0);
+  };
+
+  const handleManualSubmit = async () => {
+    if (manualPhotos.length === 0) return;
+    if (addingManually) return;
+
+    setAddingManually(true);
+    try {
+      // Upload all photos
+      const uploadedPhotos = [];
+      for (let i = 0; i < manualPhotos.length; i++) {
+        const file = manualPhotos[i];
+        if (!file) continue;
+
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('codeId', codeId);
+
+        const response = await fetch('/api/qvote/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        uploadedPhotos.push({
+          id: data.id,
+          url: data.url,
+          thumbnailUrl: data.thumbnailUrl || data.url,
+          order: i,
+          uploadedAt: new Date(),
+        });
+      }
+
+      if (uploadedPhotos.length === 0) {
+        throw new Error('No photos uploaded');
+      }
+
+      // Create candidate
+      const candidateName = manualCandidateName || (isRTL ? 'מועמד חדש' : 'New Candidate');
+      const candidate = await createCandidate(codeId, {
+        source: 'producer',
+        name: candidateName,
+        formData: { name: candidateName },
+        photos: uploadedPhotos,
+        isApproved: true,
+        isFinalist: false,
+        isHidden: false,
+        displayOrder: candidates.length,
+      });
+
+      setCandidates((prev) => [...prev, candidate]);
+      resetManualAdd();
+    } catch (error) {
+      console.error('Error adding candidate manually:', error);
+    } finally {
+      setAddingManually(false);
+    }
+  };
+
+  // Edit photo handlers
+  const startEditPhoto = (candidate: Candidate, photoIndex: number) => {
+    setEditingCandidate(candidate);
+    setEditPhotoIndex(photoIndex);
+    editPhotoInputRef.current?.click();
+  };
+
+  const handleEditPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingCandidate) return;
+
+    setUpdating(editingCandidate.id);
+    try {
+      // Upload new photo
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+      formDataUpload.append('codeId', codeId);
+
+      const response = await fetch('/api/qvote/upload', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+
+      // Update candidate's photos array
+      const newPhotos = [...editingCandidate.photos];
+      newPhotos[editPhotoIndex] = {
+        id: data.id,
+        url: data.url,
+        thumbnailUrl: data.thumbnailUrl || data.url,
+        order: editPhotoIndex,
+        uploadedAt: new Date(),
+      };
+
+      await updateCandidate(codeId, editingCandidate.id, { photos: newPhotos });
+
+      // Update local state
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === editingCandidate.id ? { ...c, photos: newPhotos } : c
+        )
+      );
+    } catch (error) {
+      console.error('Error updating photo:', error);
+    } finally {
+      setUpdating(null);
+      setEditingCandidate(null);
+      setEditPhotoIndex(0);
+      if (editPhotoInputRef.current) {
+        editPhotoInputRef.current.value = '';
+      }
+    }
   };
 
   // Stats
@@ -620,13 +795,22 @@ export default function QVoteCandidatesPage() {
                     : 'Each image will create a new candidate (auto-approved)'}
                 </p>
               </div>
-              <button
-                onClick={() => bulkUploadRef.current?.click()}
-                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                {isRTL ? 'בחרו תמונות' : 'Select images'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => bulkUploadRef.current?.click()}
+                  className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {isRTL ? 'בחרו תמונות' : 'Select images'}
+                </button>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  {isRTL ? 'הוספה ידנית' : 'Add Manually'}
+                </button>
+              </div>
             </div>
           )}
           <input
@@ -685,20 +869,29 @@ export default function QVoteCandidatesPage() {
                   className="w-4 h-4 rounded border-border text-accent focus:ring-accent shrink-0"
                 />
 
-                {/* Photo */}
-                <div className="w-16 h-16 rounded-lg overflow-hidden bg-bg-hover shrink-0">
+                {/* Photo - Click to edit */}
+                <button
+                  onClick={() => startEditPhoto(candidate, 0)}
+                  className="w-16 h-16 rounded-lg overflow-hidden bg-bg-hover shrink-0 relative group"
+                  title={isRTL ? 'לחץ להחלפת תמונה' : 'Click to replace photo'}
+                >
                   {candidate.photos[0] ? (
-                    <img
-                      src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
+                    <>
+                      <img
+                        src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Edit3 className="w-4 h-4 text-white" />
+                      </div>
+                    </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <ImageIcon className="w-6 h-6 text-text-secondary" />
                     </div>
                   )}
-                </div>
+                </button>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
@@ -831,6 +1024,131 @@ export default function QVoteCandidatesPage() {
           </div>
         </div>
       </footer>
+
+      {/* Hidden inputs for camera/file */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCameraCapture}
+      />
+      <input
+        ref={editPhotoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleEditPhotoSelect}
+      />
+
+      {/* Manual Add Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={resetManualAdd}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-bg-card border border-border rounded-2xl w-full max-w-md shadow-xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-semibold text-text-primary">
+                {isRTL ? 'הוספת מועמד' : 'Add Candidate'}
+              </h2>
+              <button
+                onClick={resetManualAdd}
+                className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              {/* Name input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-primary">
+                  {isRTL ? 'שם המועמד' : 'Candidate Name'}
+                </label>
+                <input
+                  type="text"
+                  value={manualCandidateName}
+                  onChange={(e) => setManualCandidateName(e.target.value)}
+                  placeholder={isRTL ? 'הזינו שם...' : 'Enter name...'}
+                  className="w-full px-3 py-2 rounded-lg bg-bg-secondary border border-border text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent/50"
+                />
+              </div>
+
+              {/* Photo slots (2 for boomerang) */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-primary">
+                  {isRTL ? 'תמונות (2 לבומרנג)' : 'Photos (2 for boomerang)'}
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[0, 1].map((slot) => (
+                    <button
+                      key={slot}
+                      onClick={() => openCameraForSlot(slot)}
+                      className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-accent/50 overflow-hidden transition-colors relative group"
+                    >
+                      {manualPhotoPreviews[slot] ? (
+                        <>
+                          <img
+                            src={manualPhotoPreviews[slot]}
+                            alt={`Photo ${slot + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Camera className="w-6 h-6 text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-text-secondary">
+                          <Camera className="w-8 h-8 mb-2" />
+                          <span className="text-xs">
+                            {isRTL ? `תמונה ${slot + 1}` : `Photo ${slot + 1}`}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-text-secondary text-center">
+                  {isRTL ? 'לחצו על ריבוע לצילום' : 'Tap a square to capture'}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border flex gap-2">
+              <button
+                onClick={resetManualAdd}
+                className="flex-1 py-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors"
+              >
+                {isRTL ? 'ביטול' : 'Cancel'}
+              </button>
+              <button
+                onClick={handleManualSubmit}
+                disabled={manualPhotos.filter(Boolean).length === 0 || addingManually}
+                className="flex-1 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {addingManually ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    {isRTL ? 'הוסף' : 'Add'}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
