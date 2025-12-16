@@ -36,6 +36,7 @@ import {
   CalendarDays,
   Smartphone,
   LayoutGrid,
+  Users,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -2653,17 +2654,27 @@ export default function CodeEditPage({ params }: PageProps) {
 
                   {/* Edit button for qvote */}
                   {media.type === 'qvote' && (
-                    <Tooltip text={t('edit')}>
-                      <button
-                        onClick={() => {
-                          setEditingQVoteId(media.id);
-                          setQvoteModalOpen(true);
-                        }}
-                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    </Tooltip>
+                    <>
+                      <Tooltip text={t('edit')}>
+                        <button
+                          onClick={() => {
+                            setEditingQVoteId(media.id);
+                            setQvoteModalOpen(true);
+                          }}
+                          className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip text={locale === 'he' ? 'ניהול מועמדים' : 'Manage Candidates'}>
+                        <a
+                          href={`/${locale}/code/${code.id}/candidates`}
+                          className="p-2 rounded-lg hover:bg-bg-hover text-accent relative"
+                        >
+                          <Users className="w-4 h-4" />
+                        </a>
+                      </Tooltip>
+                    </>
                   )}
 
                   {/* Gallery button for selfiebeam with gallery enabled */}
