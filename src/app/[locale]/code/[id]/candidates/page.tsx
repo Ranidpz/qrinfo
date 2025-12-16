@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus } from '@/lib/qvote';
+import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, createCandidate } from '@/lib/qvote';
 import { Candidate, QVoteConfig } from '@/types/qvote';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -22,6 +22,9 @@ import {
   X,
   Vote,
   ExternalLink,
+  Search,
+  Upload,
+  Plus,
 } from 'lucide-react';
 
 export default function QVoteCandidatesPage() {
@@ -40,6 +43,17 @@ export default function QVoteCandidatesPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'finalists'>('all');
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Bulk upload state
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const bulkUploadRef = useRef<HTMLInputElement>(null);
 
   // Load code and candidates
   useEffect(() => {
@@ -87,18 +101,44 @@ export default function QVoteCandidatesPage() {
   // Check authorization
   const isAuthorized = user && code && (code.ownerId === user.id || user.role === 'super_admin');
 
-  // Filter candidates
+  // Search helper - get searchable text from candidate
+  const getCandidateSearchText = useCallback((candidate: Candidate): string => {
+    const parts = [
+      candidate.name || '',
+      ...Object.values(candidate.formData || {}).map(v => String(v)),
+    ];
+    return parts.join(' ').toLowerCase();
+  }, []);
+
+  // Get search suggestions (autocomplete)
+  const searchSuggestions = searchQuery.length > 0
+    ? candidates
+        .filter((c) => getCandidateSearchText(c).includes(searchQuery.toLowerCase()))
+        .slice(0, 5)
+    : [];
+
+  // Filter candidates (by filter type and search query)
   const filteredCandidates = candidates.filter((c) => {
+    // First apply filter
+    let passesFilter = true;
     switch (filter) {
       case 'pending':
-        return !c.isApproved && !c.isHidden;
+        passesFilter = !c.isApproved && !c.isHidden;
+        break;
       case 'approved':
-        return c.isApproved;
+        passesFilter = c.isApproved;
+        break;
       case 'finalists':
-        return c.isFinalist;
+        passesFilter = c.isFinalist;
+        break;
       default:
-        return true;
+        passesFilter = true;
     }
+
+    // Then apply search
+    if (!passesFilter) return false;
+    if (!searchQuery) return true;
+    return getCandidateSearchText(c).includes(searchQuery.toLowerCase());
   });
 
   // Actions
@@ -195,6 +235,106 @@ export default function QVoteCandidatesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Bulk upload handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith('image/')
+    );
+    if (files.length > 0) {
+      await handleBulkImageUpload(files);
+    }
+  };
+
+  const handleBulkFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length > 0) {
+      await handleBulkImageUpload(files);
+    }
+    // Reset input
+    if (bulkUploadRef.current) {
+      bulkUploadRef.current.value = '';
+    }
+  };
+
+  const handleBulkImageUpload = async (files: File[]) => {
+    if (uploadingImages) return;
+
+    setUploadingImages(true);
+    setUploadProgress({ current: 0, total: files.length });
+
+    const newCandidates: Candidate[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadProgress({ current: i + 1, total: files.length });
+
+      try {
+        // Upload image
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('codeId', codeId);
+
+        const response = await fetch('/api/qvote/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+
+        if (!response.ok) {
+          console.error(`Failed to upload ${file.name}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        // Create candidate with this image
+        const candidateName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        const candidate = await createCandidate(codeId, {
+          source: 'producer',
+          name: candidateName,
+          formData: { name: candidateName },
+          photos: [
+            {
+              id: data.id,
+              url: data.url,
+              thumbnailUrl: data.thumbnailUrl || data.url,
+              order: 0,
+              uploadedAt: new Date(),
+            },
+          ],
+          isApproved: true, // Producer-uploaded candidates are auto-approved
+          isFinalist: false,
+          isHidden: false,
+          displayOrder: candidates.length + i,
+        });
+
+        newCandidates.push(candidate);
+      } catch (error) {
+        console.error(`Error processing ${file.name}:`, error);
+      }
+    }
+
+    // Add new candidates to list
+    if (newCandidates.length > 0) {
+      setCandidates((prev) => [...prev, ...newCandidates]);
+    }
+
+    setUploadingImages(false);
+    setUploadProgress({ current: 0, total: 0 });
   };
 
   // Stats
@@ -297,9 +437,76 @@ export default function QVoteCandidatesPage() {
         </div>
       </header>
 
-      {/* Filters */}
+      {/* Search & Filters */}
       <div className="bg-bg-card border-b border-border">
-        <div className="max-w-6xl mx-auto px-4 py-3">
+        <div className="max-w-6xl mx-auto px-4 py-3 space-y-3">
+          {/* Search with autocomplete */}
+          <div className="relative">
+            <div className="relative">
+              <Search className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary ${isRTL ? 'right-3' : 'left-3'}`} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchResults(e.target.value.length > 0);
+                }}
+                onFocus={() => setShowSearchResults(searchQuery.length > 0)}
+                onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
+                placeholder={isRTL ? 'חיפוש מועמדים...' : 'Search candidates...'}
+                className={`w-full py-2 rounded-lg bg-bg-secondary border border-border text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent/50 ${isRTL ? 'pr-10 pl-3' : 'pl-10 pr-3'}`}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShowSearchResults(false);
+                  }}
+                  className={`absolute top-1/2 -translate-y-1/2 p-1 rounded hover:bg-bg-hover ${isRTL ? 'left-2' : 'right-2'}`}
+                >
+                  <X className="w-4 h-4 text-text-secondary" />
+                </button>
+              )}
+            </div>
+
+            {/* Autocomplete suggestions */}
+            {showSearchResults && searchSuggestions.length > 0 && (
+              <div className="absolute z-20 top-full mt-1 w-full bg-bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+                {searchSuggestions.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    onClick={() => {
+                      setSearchQuery(candidate.name || candidate.formData?.name || '');
+                      setShowSearchResults(false);
+                    }}
+                    className="w-full flex items-center gap-3 p-2 hover:bg-bg-hover text-start"
+                  >
+                    {candidate.photos[0] ? (
+                      <img
+                        src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
+                        alt=""
+                        className="w-8 h-8 rounded object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded bg-bg-secondary flex items-center justify-center">
+                        <User className="w-4 h-4 text-text-secondary" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">
+                        {candidate.name || candidate.formData?.name || (isRTL ? 'ללא שם' : 'No name')}
+                      </p>
+                      {candidate.isApproved && (
+                        <span className="text-xs text-green-500">{isRTL ? 'מאושר' : 'Approved'}</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Filter tabs */}
             <div className="flex gap-2">
@@ -371,7 +578,67 @@ export default function QVoteCandidatesPage() {
       </div>
 
       {/* Content */}
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* Bulk Upload Zone */}
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`relative border-2 border-dashed rounded-xl p-6 transition-all ${
+            isDragging
+              ? 'border-accent bg-accent/10'
+              : 'border-border hover:border-accent/50 hover:bg-bg-hover/50'
+          }`}
+        >
+          {uploadingImages ? (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-accent" />
+              <p className="text-sm text-text-secondary">
+                {isRTL
+                  ? `מעלה ${uploadProgress.current} מתוך ${uploadProgress.total}...`
+                  : `Uploading ${uploadProgress.current} of ${uploadProgress.total}...`}
+              </p>
+              <div className="w-full max-w-xs h-2 bg-bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent transition-all"
+                  style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
+                <Upload className="w-6 h-6 text-accent" />
+              </div>
+              <div className="text-center">
+                <p className="text-text-primary font-medium">
+                  {isRTL ? 'גררו תמונות להוספת מועמדים' : 'Drag images to add candidates'}
+                </p>
+                <p className="text-sm text-text-secondary mt-1">
+                  {isRTL
+                    ? 'כל תמונה תיצור מועמד חדש (יאושר אוטומטית)'
+                    : 'Each image will create a new candidate (auto-approved)'}
+                </p>
+              </div>
+              <button
+                onClick={() => bulkUploadRef.current?.click()}
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                {isRTL ? 'בחרו תמונות' : 'Select images'}
+              </button>
+            </div>
+          )}
+          <input
+            ref={bulkUploadRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleBulkFileSelect}
+          />
+        </div>
+
         {filteredCandidates.length === 0 ? (
           <div className="text-center py-12 text-text-secondary">
             <User className="w-12 h-12 mx-auto mb-4 opacity-50" />
