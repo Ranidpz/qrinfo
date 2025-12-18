@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import Image from 'next/image';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -1046,6 +1046,10 @@ export default function DashboardPage() {
             opacity: 0;
             animation: fadeIn 0.6s ease-out 0.8s forwards;
           }
+          .hero-features {
+            opacity: 0;
+            animation: fadeIn 0.6s ease-out 1s forwards;
+          }
           `}</style>
         <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight flex items-center justify-center gap-2 flex-wrap" dir="ltr">
           <span className="text-lg sm:text-xl md:text-2xl font-normal" style={{ color: '#6b7280' }}>The</span>
@@ -1063,9 +1067,23 @@ export default function DashboardPage() {
         </div>
         <p className="hero-subtitle text-sm sm:text-base md:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
           {t('subtitle')}
-          <br />
-          <span className="text-accent font-medium">{t('safeCode')}</span>
         </p>
+        <div className="hero-features flex flex-wrap items-center justify-center gap-3 sm:gap-6 mt-4 text-sm sm:text-base">
+          <span className="flex items-center gap-1.5 text-accent font-medium">
+            <Printer className="w-4 h-4 sm:w-5 sm:h-5" />
+            {t('heroFeature1')}
+          </span>
+          <span className="text-text-secondary hidden sm:inline">|</span>
+          <span className="flex items-center gap-1.5 text-accent font-medium">
+            <CalendarClock className="w-4 h-4 sm:w-5 sm:h-5" />
+            {t('heroFeature2')}
+          </span>
+          <span className="text-text-secondary hidden sm:inline">|</span>
+          <span className="flex items-center gap-1.5 text-accent font-medium">
+            <Ban className="w-4 h-4 sm:w-5 sm:h-5" />
+            {t('heroFeature3')}
+          </span>
+        </div>
       </div>
       )}
 

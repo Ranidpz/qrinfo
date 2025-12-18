@@ -64,8 +64,11 @@
   },
   "dashboard": {
     "title": "The Q - One Code. Endless Experiences",
-    "subtitle": "Images, video, PDF, riddles, word clouds, mini-games, selfie galleries and more",
+    "subtitle": "Digital catalogs, games, riddles, word clouds and more with built-in XP scoring and prizes, interactive real-time event voting",
     "safeCode": "Safe code for printing, ad-free",
+    "heroFeature1": "Create print-safe QR codes",
+    "heroFeature2": "Update and schedule in real-time",
+    "heroFeature3": "Ad-free",
     "createNew": "Create new experience",
     "creatingCode": "Creating new code...",
     "experiences": "Experiences",
@@ -90,7 +93,7 @@
   },
   "login": {
     "tagline": "One QR. Endless Experiences.",
-    "description": "Images, video, PDF, riddles, word clouds, mini-games, selfie galleries and more",
+    "description": "Digital catalogs, games, riddles, word clouds and more with built-in XP scoring and prizes, interactive real-time event voting",
     "safeCode": "Safe code for printing, ad-free",
     "freeCode": "1 free QR code",
     "freeStorage": "Free storage",
