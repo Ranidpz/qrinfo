@@ -430,6 +430,34 @@ export default function CodeEditPage({ params }: PageProps) {
     router.push(`/code/${siblingCodes[nextIndex].id}`);
   };
 
+  // Keyboard navigation between sibling codes
+  useEffect(() => {
+    if (siblingCodes.length <= 1) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't navigate if user is typing in an input/textarea or if a modal is open
+      const activeElement = document.activeElement;
+      if (
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement?.closest('[role="dialog"]')
+      ) {
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateToPrevCode();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigateToNextCode();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [siblingCodes.length, currentIndex]);
+
   const handleDelete = async () => {
     if (!code || !user) return;
 
