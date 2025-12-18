@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import Image from 'next/image';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban, QrCode } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -1042,13 +1042,17 @@ export default function DashboardPage() {
             width: 0;
             animation: expandWidth 0.4s ease-out 0.6s forwards;
           }
+          .hero-tagline {
+            opacity: 0;
+            animation: fadeIn 0.5s ease-out 0.5s forwards;
+          }
           .hero-subtitle {
             opacity: 0;
-            animation: fadeIn 0.6s ease-out 0.8s forwards;
+            animation: fadeIn 0.6s ease-out 0.9s forwards;
           }
           .hero-features {
             opacity: 0;
-            animation: fadeIn 0.6s ease-out 1s forwards;
+            animation: fadeIn 0.6s ease-out 1.1s forwards;
           }
           `}</style>
         <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight flex items-center justify-center gap-2 flex-wrap" dir="ltr">
@@ -1062,6 +1066,10 @@ export default function DashboardPage() {
           />
           <span style={{ color: 'var(--text-title, #1f2937)' }}>- One Code. Endless Experiences</span>
         </h1>
+        <p className="hero-tagline flex items-center justify-center gap-2 text-base sm:text-lg text-text-secondary mb-4">
+          <QrCode className="w-5 h-5 text-accent" />
+          {t('heroTagline')}
+        </p>
         <div className="hero-divider flex justify-center mb-4">
           <div className="hero-divider-line h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
         </div>
