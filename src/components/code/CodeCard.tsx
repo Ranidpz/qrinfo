@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -50,6 +50,7 @@ interface CodeCardProps {
   widgets?: CodeWidgets;
   viewMode?: ViewMode;
   mediaCount?: number; // Total number of media items in this code
+  replaceStatus?: 'success' | 'error' | null; // Status indicator after file replace
   onDelete?: () => void;
   onRefresh?: () => void;
   onReplaceFile?: (file: File) => void;
@@ -95,6 +96,7 @@ export default function CodeCard({
   widgets,
   viewMode = 'grid',
   mediaCount = 1,
+  replaceStatus,
   onDelete,
   onRefresh,
   onReplaceFile,
@@ -348,6 +350,24 @@ export default function CodeCard({
             </div>
           </div>
         )}
+        {/* Replace status overlay */}
+        {replaceStatus && (
+          <div className={clsx(
+            "absolute inset-0 z-20 backdrop-blur-sm rounded-lg flex items-center justify-center pointer-events-none transition-opacity",
+            replaceStatus === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'
+          )}>
+            <div className={clsx(
+              "flex items-center gap-2",
+              replaceStatus === 'success' ? 'text-green-500' : 'text-red-500'
+            )}>
+              {replaceStatus === 'success' ? (
+                <CheckCircle className="w-6 h-6" />
+              ) : (
+                <XCircle className="w-6 h-6" />
+              )}
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-3 p-3">
           {/* Small thumbnail/icon */}
           <a href={`/code/${id}`} className="flex-shrink-0 w-12 h-12 rounded-lg bg-bg-secondary overflow-hidden flex items-center justify-center">
@@ -519,6 +539,24 @@ export default function CodeCard({
           <div className="flex flex-col items-center gap-2 text-accent">
             <Upload className="w-8 h-8" />
             <span className="text-sm font-medium">{tCard('dropToReplace')}</span>
+          </div>
+        </div>
+      )}
+      {/* Replace status overlay */}
+      {replaceStatus && (
+        <div className={clsx(
+          "absolute inset-0 z-20 backdrop-blur-sm rounded-xl flex items-center justify-center pointer-events-none transition-opacity",
+          replaceStatus === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'
+        )}>
+          <div className={clsx(
+            "flex flex-col items-center gap-2",
+            replaceStatus === 'success' ? 'text-green-500' : 'text-red-500'
+          )}>
+            {replaceStatus === 'success' ? (
+              <CheckCircle className="w-12 h-12" />
+            ) : (
+              <XCircle className="w-12 h-12" />
+            )}
           </div>
         </div>
       )}

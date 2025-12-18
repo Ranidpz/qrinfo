@@ -65,6 +65,7 @@ export default function DashboardPage() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingCodeId, setDraggingCodeId] = useState<string | null>(null);
+  const [replaceStatus, setReplaceStatus] = useState<{ codeId: string; status: 'success' | 'error' } | null>(null);
   const [deleteFolderModal, setDeleteFolderModal] = useState<{ isOpen: boolean; folder: Folder | null }>({
     isOpen: false,
     folder: null,
@@ -799,11 +800,21 @@ export default function DashboardPage() {
       await updateUserStorage(user.id, uploadData.size);
       await refreshUser();
 
-      // Navigate to the code edit page
-      router.push(`/code/${codeId}`);
+      // Update codes state with new media (stay on dashboard)
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === codeId ? { ...c, media: [newMedia], updatedAt: new Date() } : c
+        )
+      );
+
+      // Show success indicator
+      setReplaceStatus({ codeId, status: 'success' });
+      setTimeout(() => setReplaceStatus(null), 3000);
     } catch (error) {
       console.error('Error replacing file:', error);
-      alert(tErrors('replaceFileError'));
+      // Show error indicator
+      setReplaceStatus({ codeId, status: 'error' });
+      setTimeout(() => setReplaceStatus(null), 3000);
     }
   };
 
@@ -1400,6 +1411,7 @@ export default function DashboardPage() {
               ownerName={ownerNames[code.ownerId] || (code.ownerId === user?.id ? user.displayName : undefined)}
               isSuperAdmin={user?.role === 'super_admin'}
               isDragging={draggingCodeId === code.id}
+              replaceStatus={replaceStatus?.codeId === code.id ? replaceStatus.status : null}
               onDelete={() => handleDelete(code)}
               onRefresh={() => router.push(`/code/${code.id}`)}
               onReplaceFile={(file) => handleReplaceFile(code.id, code, file)}
