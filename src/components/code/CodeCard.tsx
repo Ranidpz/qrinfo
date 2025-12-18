@@ -51,6 +51,7 @@ interface CodeCardProps {
   viewMode?: ViewMode;
   mediaCount?: number; // Total number of media items in this code
   replaceStatus?: 'success' | 'error' | null; // Status indicator after file replace
+  uploadProgress?: number | null; // Upload progress percentage (0-100)
   onDelete?: () => void;
   onRefresh?: () => void;
   onReplaceFile?: (file: File) => void;
@@ -97,6 +98,7 @@ export default function CodeCard({
   viewMode = 'grid',
   mediaCount = 1,
   replaceStatus,
+  uploadProgress,
   onDelete,
   onRefresh,
   onReplaceFile,
@@ -368,6 +370,20 @@ export default function CodeCard({
             </div>
           </div>
         )}
+        {/* Upload progress overlay */}
+        {uploadProgress !== null && uploadProgress !== undefined && (
+          <div className="absolute inset-0 z-20 bg-bg-card/80 backdrop-blur-sm rounded-lg flex items-center justify-center pointer-events-none">
+            <div className="flex items-center gap-3">
+              <div className="w-24 h-2 bg-bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent transition-all duration-200"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <span className="text-sm font-medium text-accent">{uploadProgress}%</span>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-3 p-3">
           {/* Small thumbnail/icon */}
           <a href={`/code/${id}`} className="flex-shrink-0 w-12 h-12 rounded-lg bg-bg-secondary overflow-hidden flex items-center justify-center">
@@ -557,6 +573,20 @@ export default function CodeCard({
             ) : (
               <XCircle className="w-12 h-12" />
             )}
+          </div>
+        </div>
+      )}
+      {/* Upload progress overlay */}
+      {uploadProgress !== null && uploadProgress !== undefined && (
+        <div className="absolute inset-0 z-20 bg-bg-card/80 backdrop-blur-sm rounded-xl flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-32 h-2 bg-bg-secondary rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent transition-all duration-200"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+            <span className="text-lg font-medium text-accent">{uploadProgress}%</span>
           </div>
         </div>
       )}

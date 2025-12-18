@@ -17,7 +17,7 @@ import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
-import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig } from '@/types';
+import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig, MediaType } from '@/types';
 import { QVoteConfig } from '@/types/qvote';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,6 +66,7 @@ export default function DashboardPage() {
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingCodeId, setDraggingCodeId] = useState<string | null>(null);
   const [replaceStatus, setReplaceStatus] = useState<{ codeId: string; status: 'success' | 'error' } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ codeId: string; progress: number } | null>(null);
   const [deleteFolderModal, setDeleteFolderModal] = useState<{ isOpen: boolean; folder: Folder | null }>({
     isOpen: false,
     folder: null,
@@ -751,21 +752,43 @@ export default function DashboardPage() {
     if (!user) return;
 
     try {
-      // Upload new file to Vercel Blob
+      // Show upload progress immediately
+      setUploadProgress({ codeId, progress: 0 });
+
+      // Upload new file to Vercel Blob with progress tracking
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
 
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
+      const uploadData = await new Promise<{ url: string; type: string; size: number; filename: string }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress({ codeId, progress });
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch {
+              reject(new Error('Invalid response'));
+            }
+          } else {
+            reject(new Error('Upload failed'));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Upload failed'));
+        xhr.open('POST', '/api/upload');
+        xhr.send(formData);
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const uploadData = await uploadResponse.json();
+      // Clear progress
+      setUploadProgress(null);
 
       // Delete old media from Vercel Blob if not a link
       const oldMedia = code.media[0];
@@ -786,7 +809,7 @@ export default function DashboardPage() {
       const newMedia = {
         id: `media_${Date.now()}_0`,
         url: uploadData.url,
-        type: uploadData.type,
+        type: uploadData.type as MediaType,
         size: uploadData.size,
         order: 0,
         uploadedBy: user.id,
@@ -812,6 +835,7 @@ export default function DashboardPage() {
       setTimeout(() => setReplaceStatus(null), 3000);
     } catch (error) {
       console.error('Error replacing file:', error);
+      setUploadProgress(null);
       // Show error indicator
       setReplaceStatus({ codeId, status: 'error' });
       setTimeout(() => setReplaceStatus(null), 3000);
@@ -1412,6 +1436,7 @@ export default function DashboardPage() {
               isSuperAdmin={user?.role === 'super_admin'}
               isDragging={draggingCodeId === code.id}
               replaceStatus={replaceStatus?.codeId === code.id ? replaceStatus.status : null}
+              uploadProgress={uploadProgress?.codeId === code.id ? uploadProgress.progress : null}
               onDelete={() => handleDelete(code)}
               onRefresh={() => router.push(`/code/${code.id}`)}
               onReplaceFile={(file) => handleReplaceFile(code.id, code, file)}
