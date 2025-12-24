@@ -53,10 +53,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique filename in owner's folder
+    // Generate unique filename in owner's folder with correct extension
     const timestamp = Date.now();
     const imageId = `gallery_${timestamp}_${Math.random().toString(36).substring(7)}`;
-    const filename = `${ownerId}/${codeId}/gallery/${imageId}.webp`;
+    const ext = file.type === 'image/webp' ? 'webp' : file.type === 'image/jpeg' ? 'jpg' : 'webp';
+    const filename = `${ownerId}/${codeId}/gallery/${imageId}.${ext}`;
 
     // Upload to Vercel Blob
     const blob = await put(filename, file, {

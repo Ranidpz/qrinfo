@@ -14,6 +14,7 @@ export interface RiddleContent {
   images?: string[]; // Array of uploaded image URLs
   galleryEnabled?: boolean; // Allow users to upload selfies
   allowAnonymous?: boolean; // Allow anonymous uploads (no name required)
+  language?: 'he' | 'en' | 'auto'; // Interface language: he=Hebrew(RTL), en=English(LTR), auto=let viewer choose
 }
 
 // Selfiebeam content structure (same as RiddleContent for now, may diverge later)

@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { RiddleContent, UserGalleryImage, Visitor, PendingPack, PackOpening } from '@/types';
-import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Star, User, Pencil, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Star, User, Pencil, Plus, Globe } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
 import { queuedUpload } from '@/lib/uploadQueue';
-import { getBrowserLocale, uploadTranslations, gamificationTranslations } from '@/lib/publicTranslations';
+import { getBrowserLocale, uploadTranslations, gamificationTranslations, languageSwitcherTranslations } from '@/lib/publicTranslations';
 import { getVisitorId, getLevelForXP, getProgressToNextLevel, formatXP, getLevelName } from '@/lib/xp';
 import { getVisitor, recordPhotoUpload, recordStationScan, getFolder, removePhotoXP, updateVisitor } from '@/lib/db';
 import { getPendingPacks } from '@/lib/lottery';
@@ -131,39 +131,93 @@ function extractYoutubeId(url: string): string | null {
   return null;
 }
 
-// Compress image to WebP format
+// Compress image with mobile-friendly fallbacks
 async function compressImage(file: File): Promise<Blob> {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
-  const img = await createImageBitmap(file);
+
+  // Try createImageBitmap first (faster), fallback to Image() for HEIC/older browsers
+  let imgWidth: number;
+  let imgHeight: number;
+  let imgSource: ImageBitmap | HTMLImageElement;
+
+  try {
+    imgSource = await createImageBitmap(file);
+    imgWidth = imgSource.width;
+    imgHeight = imgSource.height;
+  } catch {
+    // Fallback for HEIC/HEIF and older browsers
+    imgSource = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+    imgWidth = imgSource.width;
+    imgHeight = imgSource.height;
+  }
 
   // Resize to 600x600 max (enough for selfies)
   const maxDim = 600;
-  let { width, height } = img;
+  let width = imgWidth;
+  let height = imgHeight;
   if (width > maxDim || height > maxDim) {
     const ratio = Math.min(maxDim / width, maxDim / height);
-    width *= ratio;
-    height *= ratio;
+    width = Math.round(width * ratio);
+    height = Math.round(height * ratio);
   }
 
   canvas.width = width;
   canvas.height = height;
-  ctx.drawImage(img, 0, 0, width, height);
+  ctx.drawImage(imgSource, 0, 0, width, height);
 
-  // Convert to WebP (lighter than JPEG)
+  // Clean up object URL if we created one
+  if (imgSource instanceof HTMLImageElement) {
+    URL.revokeObjectURL(imgSource.src);
+  }
+
+  // Try WebP first, fallback to JPEG for older browsers (especially iOS Safari)
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob!), 'image/webp', 0.7);
+    canvas.toBlob(
+      (blob) => {
+        if (blob && blob.size > 0) {
+          resolve(blob);
+        } else {
+          // WebP not supported, fallback to JPEG
+          canvas.toBlob(
+            (jpegBlob) => resolve(jpegBlob!),
+            'image/jpeg',
+            0.75
+          );
+        }
+      },
+      'image/webp',
+      0.7
+    );
   });
 }
 
 export default function RiddleViewer({ content, codeId, shortId, ownerId, folderId }: RiddleViewerProps) {
-  // Get browser locale for translations
-  const [locale, setLocale] = useState<'he' | 'en'>('he');
+  // Determine if language selector should be shown (when language is 'auto' or not set)
+  const allowLanguageSwitch = !content.language || content.language === 'auto';
+
+  // Get locale - use content.language if set (and not 'auto'), otherwise use browser locale
+  const [locale, setLocale] = useState<'he' | 'en'>(() => {
+    if (content.language && content.language !== 'auto') {
+      return content.language;
+    }
+    return 'he'; // Default, will be updated in useEffect
+  });
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const t = uploadTranslations[locale];
+  const langT = languageSwitcherTranslations[locale];
 
   useEffect(() => {
-    setLocale(getBrowserLocale());
-  }, []);
+    // Only detect browser locale if language is 'auto' or not set
+    if (allowLanguageSwitch) {
+      setLocale(getBrowserLocale());
+    }
+  }, [allowLanguageSwitch]);
 
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -485,9 +539,10 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
       // Compress image
       const compressedBlob = await compressImage(file);
 
-      // Create form data
+      // Create form data with correct extension based on actual format
       const formData = new FormData();
-      formData.append('file', compressedBlob, `selfie_${Date.now()}.webp`);
+      const ext = compressedBlob.type === 'image/webp' ? 'webp' : 'jpg';
+      formData.append('file', compressedBlob, `selfie_${Date.now()}.${ext}`);
       formData.append('codeId', codeId);
       formData.append('ownerId', ownerId);
       formData.append('uploaderName', name || t.anonymous);
@@ -662,6 +717,7 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
     <div
       className="min-h-screen w-full flex flex-col"
       style={{ backgroundColor: content.backgroundColor }}
+      dir={locale === 'he' ? 'rtl' : 'ltr'}
     >
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 pb-24 overflow-y-auto">
@@ -957,6 +1013,62 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
             </button>
           </div>
         </>
+      )}
+
+      {/* Language Switcher - shown when language is 'auto' or not set */}
+      {allowLanguageSwitch && (
+        <div className="fixed bottom-6 left-6 z-40">
+          {/* Language Menu */}
+          {showLanguageMenu && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setShowLanguageMenu(false)}
+              />
+              {/* Menu */}
+              <div className="absolute bottom-14 left-0 bg-slate-800/95 backdrop-blur-sm rounded-2xl shadow-xl border border-white/10 overflow-hidden min-w-[140px] z-40">
+                <button
+                  onClick={() => {
+                    setLocale('he');
+                    setShowLanguageMenu(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-start transition-colors ${
+                    locale === 'he'
+                      ? 'bg-accent/20 text-accent'
+                      : 'text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="text-lg">🇮🇱</span>
+                  <span className="text-sm font-medium">{langT.hebrew}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setLocale('en');
+                    setShowLanguageMenu(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-start transition-colors ${
+                    locale === 'en'
+                      ? 'bg-accent/20 text-accent'
+                      : 'text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="text-lg">🇺🇸</span>
+                  <span className="text-sm font-medium">{langT.english}</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Language Toggle Button */}
+          <button
+            onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+            className="w-12 h-12 rounded-full bg-slate-800/90 backdrop-blur-sm border border-white/20 shadow-lg hover:bg-slate-700/90 transition-all flex items-center justify-center"
+            title={langT.selectLanguage}
+          >
+            <Globe className="w-5 h-5 text-white" />
+          </button>
+        </div>
       )}
 
       {/* Name Input Modal */}

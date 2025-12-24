@@ -304,5 +304,19 @@ export const gamificationTranslations = {
   },
 };
 
+// Language switcher translations for viewer
+export const languageSwitcherTranslations = {
+  he: {
+    selectLanguage: 'בחר שפה',
+    hebrew: 'עברית',
+    english: 'English',
+  },
+  en: {
+    selectLanguage: 'Select Language',
+    hebrew: 'עברית',
+    english: 'English',
+  },
+};
+
 // Hook for using translations in components (deprecated - use direct access instead)
 // Components should use: const t = translations[locale] where locale comes from getBrowserLocale()

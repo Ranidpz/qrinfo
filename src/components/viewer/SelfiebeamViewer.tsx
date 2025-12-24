@@ -128,7 +128,20 @@ function extractYoutubeId(url: string): string | null {
 async function compressImage(file: File): Promise<Blob> {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
-  const img = await createImageBitmap(file);
+
+  // Try createImageBitmap first, fall back to Image element for broader format support
+  let img: ImageBitmap | HTMLImageElement;
+  try {
+    img = await createImageBitmap(file);
+  } catch {
+    // Fallback: use Image element (supports more formats in some browsers)
+    img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Failed to load image'));
+      image.src = URL.createObjectURL(file);
+    });
+  }
 
   // Resize to 600x600 max (enough for selfies)
   const maxDim = 600;

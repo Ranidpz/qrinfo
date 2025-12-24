@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users, Pipette } from 'lucide-react';
+import { X, FileText, Plus, Trash2, ImageIcon, Youtube, Loader2, Camera, Users, Pipette, Globe } from 'lucide-react';
 import { RiddleContent } from '@/types';
 import DOMPurify from 'isomorphic-dompurify';
 import { useTranslations } from 'next-intl';
@@ -146,6 +146,7 @@ export default function RiddleModal({
   const [existingImages, setExistingImages] = useState<string[]>([]); // Track existing images that weren't deleted
   const [galleryEnabled, setGalleryEnabled] = useState(false);
   const [allowAnonymous, setAllowAnonymous] = useState(true);
+  const [language, setLanguage] = useState<'he' | 'en' | 'auto'>('auto');
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -165,6 +166,7 @@ export default function RiddleModal({
         setExistingImages(initialContent.images || []);
         setGalleryEnabled(initialContent.galleryEnabled || false);
         setAllowAnonymous(initialContent.allowAnonymous ?? true);
+        setLanguage(initialContent.language || 'auto');
       } else {
         setTitle('');
         setContent('');
@@ -175,6 +177,7 @@ export default function RiddleModal({
         setExistingImages([]);
         setGalleryEnabled(false);
         setAllowAnonymous(true);
+        setLanguage('auto');
       }
       setImageFiles([]);
       setError('');
@@ -254,6 +257,7 @@ export default function RiddleModal({
       images: existingImages, // Use the tracked existing images (after deletions)
       galleryEnabled,
       allowAnonymous,
+      language,
     };
 
     await onSave(riddleContent, imageFiles);
@@ -403,6 +407,55 @@ export default function RiddleModal({
                 </label>
               </div>
             </div>
+          </div>
+
+          {/* Language Selector */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary flex items-center gap-2">
+              <Globe className="w-4 h-4 text-accent" />
+              {t('riddleLanguage')}
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setLanguage('he')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                  language === 'he'
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-border hover:border-text-secondary text-text-secondary'
+                }`}
+              >
+                <span className="text-lg">🇮🇱</span>
+                <span className="text-sm font-medium">{t('riddleLanguageHebrew')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                  language === 'en'
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-border hover:border-text-secondary text-text-secondary'
+                }`}
+              >
+                <span className="text-lg">🇺🇸</span>
+                <span className="text-sm font-medium">{t('riddleLanguageEnglish')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('auto')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                  language === 'auto'
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-border hover:border-text-secondary text-text-secondary'
+                }`}
+              >
+                <Globe className="w-4 h-4" />
+                <span className="text-sm font-medium">{t('riddleLanguageAuto')}</span>
+              </button>
+            </div>
+            <p className="text-xs text-text-secondary">
+              {t('riddleLanguageDescription')}
+            </p>
           </div>
 
           {/* Content Textarea */}
