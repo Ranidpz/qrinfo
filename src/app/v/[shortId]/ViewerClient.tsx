@@ -38,51 +38,47 @@ declare global {
   }
 }
 
-// jQuery type for 3D FlipBook
+// jQuery type for Real3D FlipBook
 interface JQueryStatic {
   (selector: string | Element): JQueryElement;
-  fn?: { FlipBook?: unknown };
+  fn?: { flipBook?: unknown };
 }
 
 interface JQueryElement {
-  FlipBook?: (options: FlipBookOptions) => void;
+  flipBook?: (options: Real3DFlipBookOptions) => unknown;
   remove?: () => void;
 }
 
-interface FlipBookOptions {
-  pdf?: string;
-  pageWidth?: number;
-  pageHeight?: number;
+// Real3D FlipBook options
+interface Real3DFlipBookOptions {
+  pdfUrl?: string;
+  pages?: Array<{ src: string; thumb?: string; title?: string }>;
+  rightToLeft?: boolean;
+  singlePageMode?: boolean;
+  responsiveView?: boolean;
+  responsiveViewTreshold?: number;
   sound?: boolean;
-  backgroundMusic?: boolean;
+  assets?: {
+    flipMp3?: string;
+    spinner?: string;
+    left?: string;
+    overlay?: string;
+  };
+  pdfBrowserViewerIfMobile?: boolean;
+  pdfBrowserViewerIfIE?: boolean;
   backgroundColor?: string;
-  template?: {
-    html?: string;
-    styles?: string[];
-    script?: string;
-    sounds?: {
-      startFlip?: string;
-      endFlip?: string;
-    };
-  };
-  controlsProps?: {
-    enableFullscreen?: boolean;
-    enableDownload?: boolean;
-    enableZoom?: boolean;
-    enableSound?: boolean;
-    enableToc?: boolean;
-    enableShare?: boolean;
-    // Arrow buttons
-    arrows?: {
-      enabled?: boolean;
-    };
-  };
-  // Single page mode configuration
-  cmdSinglePage?: {
-    active?: boolean;
-    activeForMobile?: boolean;
-  };
-  propertiesCallback?: (props: unknown) => unknown;
+  backgroundImage?: string;
+  btnToc?: { enabled: boolean };
+  btnThumbs?: { enabled: boolean };
+  btnZoomIn?: { enabled: boolean };
+  btnZoomOut?: { enabled: boolean };
+  btnPrint?: { enabled: boolean };
+  btnDownloadPages?: { enabled: boolean };
+  btnDownloadPdf?: { enabled: boolean };
+  btnShare?: { enabled: boolean };
+  btnSound?: { enabled: boolean };
+  zoomMin?: number;
+  zoomMax?: number;
 }
 
 // Helper function to load scripts dynamically
@@ -213,27 +209,122 @@ interface PDFPageData {
   annotations: PDFAnnotation[];
 }
 
-// PDF FlipBook Viewer - Currently using Swiper fallback
-// TODO: Replace with Real3D FlipBook when purchased
+// PDF FlipBook Viewer using Real3D FlipBook
 const PDFFlipBookViewer = memo(({
   url,
   title,
   onLoad,
-  onLinkClick
 }: {
   url: string;
   title: string;
   onLoad: () => void;
   onLinkClick?: (linkUrl: string, source: LinkSource) => void;
 }) => {
-  // Use MultiPDFViewer for single PDF - it works well and has no WebGL bugs
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const flipbookId = useRef(`real3d_${Date.now()}`);
+
+  // Get translations based on browser locale
+  const t = viewerTranslations[getBrowserLocale()];
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const loadReal3DFlipBook = async () => {
+      try {
+        // Load jQuery if not already loaded
+        if (!window.jQuery) {
+          await loadScript('https://code.jquery.com/jquery-3.6.3.min.js');
+        }
+
+        // Load Real3D FlipBook CSS
+        if (!document.querySelector('link[href="/real3dflipbook/css/flipbook.min.css"]')) {
+          const cssLink = document.createElement('link');
+          cssLink.rel = 'stylesheet';
+          cssLink.href = '/real3dflipbook/css/flipbook.min.css';
+          document.head.appendChild(cssLink);
+        }
+
+        // Load Real3D FlipBook JS
+        if (!window.$?.fn?.flipBook) {
+          await loadScript('/real3dflipbook/js/flipbook.min.js');
+        }
+
+        setIsLoading(false);
+
+        // Initialize the flipbook after a short delay
+        setTimeout(() => {
+          if (window.$ && containerRef.current) {
+            const $container = window.$(`#${flipbookId.current}`);
+            if ($container.flipBook) {
+              $container.flipBook({
+                pdfUrl: url,
+                rightToLeft: true,  // RTL for Hebrew
+                responsiveView: true,
+                responsiveViewTreshold: 768,  // Single page on mobile (< 768px)
+                sound: true,
+                assets: {
+                  flipMp3: '/real3dflipbook/assets/mp3/turnPage2.mp3',
+                },
+                pdfBrowserViewerIfMobile: false,
+                pdfBrowserViewerIfIE: false,
+                backgroundColor: '#1a1a2e',
+                btnToc: { enabled: true },
+                btnThumbs: { enabled: true },
+                btnZoomIn: { enabled: true },
+                btnZoomOut: { enabled: true },
+                zoomMin: 1,
+                zoomMax: 4,
+                btnPrint: { enabled: false },
+                btnDownloadPages: { enabled: false },
+                btnDownloadPdf: { enabled: false },
+                btnShare: { enabled: false },
+              });
+            }
+          }
+          onLoad();
+        }, 200);
+
+      } catch (err) {
+        console.error('Failed to load Real3D FlipBook:', err);
+        setError('Failed to load flipbook viewer');
+        setIsLoading(false);
+        onLoad();
+      }
+    };
+
+    loadReal3DFlipBook();
+  }, [url, onLoad]);
+
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
   return (
-    <MultiPDFViewer
-      pdfUrls={[url]}
-      title={title}
-      onLoad={onLoad}
-      onLinkClick={onLinkClick}
-    />
+    <div
+      ref={containerRef}
+      className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative"
+    >
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
+          <div className="text-white flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+            <p>{t.loadingDocument}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Real3D FlipBook Container */}
+      <div
+        id={flipbookId.current}
+        style={{ width: '100%', height: '100%' }}
+      />
+    </div>
   );
 });
 PDFFlipBookViewer.displayName = 'PDFFlipBookViewer';
