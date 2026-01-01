@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Use Node.js runtime for better compatibility with fetch and large files
+export const runtime = 'nodejs';
+// Increase max duration for large PDFs
+export const maxDuration = 30;
+
 /**
  * PDF Proxy API Route
  *
@@ -96,9 +101,16 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[PDF Proxy] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('[PDF Proxy] Error:', errorMessage, errorStack);
     return NextResponse.json(
-      { error: 'Failed to fetch PDF' },
+      {
+        error: 'Failed to fetch PDF',
+        details: errorMessage,
+        // Include more info for debugging
+        pdfUrl: pdfUrl?.substring(0, 100),
+      },
       { status: 500 }
     );
   }
