@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { X, RotateCcw, BookOpen, Volume2, Zap, MousePointer2, Download, Play, Layers, Move } from 'lucide-react';
 import { PDFFlipbookSettings } from '@/types';
 
@@ -176,6 +176,11 @@ export default function PDFSettingsModal({
 }: PDFSettingsModalProps) {
   const [localSettings, setLocalSettings] = useState<PDFFlipbookSettings>(settings);
 
+  // Sync local state when settings prop changes (e.g., when modal opens)
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
   const updateSetting = useCallback(<K extends keyof PDFFlipbookSettings>(
     key: K,
     value: PDFFlipbookSettings[K]
@@ -188,6 +193,7 @@ export default function PDFSettingsModal({
   }, []);
 
   const handleSave = useCallback(() => {
+    console.log('[PDFSettingsModal] Saving settings:', localSettings);
     onSave(localSettings);
     onClose();
   }, [localSettings, onSave, onClose]);
