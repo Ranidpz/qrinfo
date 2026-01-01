@@ -104,6 +104,21 @@ export interface MediaSchedule {
 }
 
 // Media item in a code
+// PDF Flipbook Settings for digital booklet viewer
+export interface PDFFlipbookSettings {
+  pagemode: '1' | '2'; // 1 = single, 2 = double
+  direction: '1' | '2'; // 1 = LTR, 2 = RTL
+  webgl: boolean;
+  soundenable: boolean;
+  duration: number; // 300-1200ms
+  zoomratio: number; // 1-3
+  autoplay: boolean;
+  controls: 'auto' | 'true' | 'false';
+  scrollwheel: boolean;
+  hard: 'cover' | 'none';
+  enabledownload: boolean;
+}
+
 export interface MediaItem {
   id: string;
   url: string;
@@ -114,6 +129,7 @@ export interface MediaItem {
   title?: string;
   filename?: string;   // Original filename
   pageCount?: number;  // Number of pages (for PDF files)
+  pdfSettings?: PDFFlipbookSettings; // Settings for PDF flipbook viewer
   schedule?: MediaSchedule;
   linkUrl?: string;     // Optional external link for the media
   linkTitle?: string;   // Display name for the link button

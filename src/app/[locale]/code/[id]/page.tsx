@@ -74,8 +74,10 @@ import WhatsAppWidgetModal from '@/components/modals/WhatsAppWidgetModal';
 import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
 import MobilePreviewModal from '@/components/modals/MobilePreviewModal';
 import LandingPageModal from '@/components/modals/LandingPageModal';
+import PDFSettingsModal, { DEFAULT_PDF_SETTINGS, PDFFlipbookSettings } from '@/components/editor/PDFSettingsModal';
 import { shouldShowLandingPage } from '@/lib/landingPage';
 import { clsx } from 'clsx';
+import { Settings } from 'lucide-react';
 
 // Helper function to get PDF page count
 async function getPdfPageCount(url: string): Promise<number> {
@@ -202,6 +204,12 @@ export default function CodeEditPage({ params }: PageProps) {
 
   // Landing page modal state
   const [landingPageModalOpen, setLandingPageModalOpen] = useState(false);
+
+  // PDF settings modal state
+  const [pdfSettingsModal, setPdfSettingsModal] = useState<{ isOpen: boolean; mediaId: string | null }>({
+    isOpen: false,
+    mediaId: null,
+  });
 
   // Create separate experience modal state
   const [createSeparateModal, setCreateSeparateModal] = useState<{
@@ -1153,6 +1161,26 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
     } catch (error) {
       console.error('Error saving media link:', error);
+      alert(tErrors('saveError'));
+    }
+  };
+
+  // Handler for saving PDF flipbook settings
+  const handleSavePdfSettings = async (settings: PDFFlipbookSettings) => {
+    if (!code || !pdfSettingsModal.mediaId) return;
+
+    try {
+      const updatedMedia = code.media.map((m) =>
+        m.id === pdfSettingsModal.mediaId
+          ? { ...m, pdfSettings: settings }
+          : m
+      );
+
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      setPdfSettingsModal({ isOpen: false, mediaId: null });
+    } catch (error) {
+      console.error('Error saving PDF settings:', error);
       alert(tErrors('saveError'));
     }
   };
@@ -2724,6 +2752,21 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
+                  {/* PDF Settings button */}
+                  {media.type === 'pdf' && (
+                    <Tooltip text={locale === 'he' ? 'הגדרות חוברת' : 'Flipbook Settings'}>
+                      <button
+                        onClick={() => setPdfSettingsModal({ isOpen: true, mediaId: media.id })}
+                        className={clsx(
+                          'p-2 rounded-lg hover:bg-bg-hover transition-colors',
+                          media.pdfSettings ? 'text-accent' : 'text-text-secondary'
+                        )}
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
                   {/* Replace button - not for links, riddles, selfiebeams, weeklycal, or qvote */}
                   {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && (
                     <Tooltip text={t('replaceFile')}>
@@ -2853,6 +2896,14 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveMediaLink}
         currentLinkUrl={currentMediaForLink?.linkUrl}
         currentLinkTitle={currentMediaForLink?.linkTitle}
+      />
+
+      {/* PDF settings modal */}
+      <PDFSettingsModal
+        isOpen={pdfSettingsModal.isOpen}
+        onClose={() => setPdfSettingsModal({ isOpen: false, mediaId: null })}
+        settings={code?.media.find(m => m.id === pdfSettingsModal.mediaId)?.pdfSettings || DEFAULT_PDF_SETTINGS}
+        onSave={handleSavePdfSettings}
       />
 
       {/* Delete media confirmation modal */}

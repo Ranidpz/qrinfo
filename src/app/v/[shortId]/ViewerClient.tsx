@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { MediaItem, CodeWidgets, LinkSource, LandingPageConfig, DEFAULT_LANDING_PAGE_CONFIG } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import RiddleViewer from '@/components/viewer/RiddleViewer';
@@ -18,9 +18,128 @@ import type { Swiper as SwiperType } from 'swiper';
 import { incrementViews } from '@/lib/db';
 import { createLinkClick } from '@/lib/analytics';
 import { getBrowserLocale, viewerTranslations } from '@/lib/publicTranslations';
-
 // Import Swiper styles
 import 'swiper/css';
+
+// Extend Window interface for flipbook libraries
+declare global {
+  interface Window {
+    jQuery?: JQueryStatic;
+    $?: JQueryStatic;
+    // 3D FlipBook
+    FlipBook?: unknown;
+    // DearFlip (commented out - keeping for reference)
+    DFLIP?: {
+      defaults: Record<string, unknown>;
+      parseBooks?: () => void;
+      [key: string]: unknown;
+    };
+    defined?: unknown;
+  }
+}
+
+// jQuery type for 3D FlipBook
+interface JQueryStatic {
+  (selector: string | Element): JQueryElement;
+  fn?: { FlipBook?: unknown };
+}
+
+interface JQueryElement {
+  FlipBook?: (options: FlipBookOptions) => void;
+  remove?: () => void;
+}
+
+interface FlipBookOptions {
+  pdf?: string;
+  pageWidth?: number;
+  pageHeight?: number;
+  sound?: boolean;
+  backgroundMusic?: boolean;
+  backgroundColor?: string;
+  template?: {
+    html?: string;
+    styles?: string[];
+    script?: string;
+    sounds?: {
+      startFlip?: string;
+      endFlip?: string;
+    };
+  };
+  controlsProps?: {
+    enableFullscreen?: boolean;
+    enableDownload?: boolean;
+    enableZoom?: boolean;
+    enableSound?: boolean;
+    enableToc?: boolean;
+    enableShare?: boolean;
+  };
+  propertiesCallback?: (props: unknown) => unknown;
+}
+
+// Helper function to load scripts dynamically
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+    document.body.appendChild(script);
+  });
+}
+
+// Generate page flip sound using Web Audio API (for MultiPDFViewer fallback)
+const createFlipSound = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+
+    return () => {
+      const bufferSize = audioContext.sampleRate * 0.15;
+      const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        const t = i / bufferSize;
+        const envelope = Math.exp(-t * 15) * (1 - Math.exp(-t * 100));
+        data[i] = (Math.random() * 2 - 1) * envelope * 0.3;
+      }
+
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+
+      const filter = audioContext.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 2000;
+
+      const osc = audioContext.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, audioContext.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.1);
+
+      const oscGain = audioContext.createGain();
+      oscGain.gain.setValueAtTime(0.05, audioContext.currentTime);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+
+      source.connect(filter);
+      filter.connect(audioContext.destination);
+
+      osc.connect(oscGain);
+      oscGain.connect(audioContext.destination);
+
+      source.start();
+      osc.start();
+      osc.stop(audioContext.currentTime + 0.15);
+    };
+  } catch {
+    return null;
+  }
+};
 
 interface ViewerClientProps {
   media: MediaItem[];
@@ -85,279 +204,174 @@ interface PDFPageData {
   annotations: PDFAnnotation[];
 }
 
-// PDF Swiper Viewer - smooth swipe navigation with pinch-to-zoom
+// PDF FlipBook Viewer using 3D FlipBook library
 const PDFFlipBookViewer = memo(({
   url,
   title,
   onLoad,
-  onLinkClick
 }: {
   url: string;
   title: string;
   onLoad: () => void;
   onLinkClick?: (linkUrl: string, source: LinkSource) => void;
 }) => {
-  const [pages, setPages] = useState<PDFPageData[]>([]);
-  const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [isZoomed, setIsZoomed] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [loadingMessage, setLoadingMessage] = useState('');
-  const swiperRef = useRef<SwiperType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const flipbookId = useRef(`fb_${Date.now()}`);
+  const scriptsLoadedRef = useRef(false);
 
   // Get translations based on browser locale
   const t = viewerTranslations[getBrowserLocale()];
 
-  // Load PDF and convert to images with high resolution
   useEffect(() => {
-    const loadPDF = async () => {
+    if (typeof window === 'undefined') return;
+
+    const load3DFlipBook = async () => {
       try {
-        setLoadingMessage(t.loadingDocument);
-        setLoadingProgress(5);
-
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-
-        setLoadingProgress(10);
-        const pdf = await pdfjsLib.getDocument(url).promise;
-        setTotalPages(pdf.numPages);
-        setLoadingProgress(15);
-        setLoadingMessage(t.processingPages.replace('{count}', String(pdf.numPages)));
-
-        const pagesData: PDFPageData[] = [];
-        // Higher scale for better zoom quality - use device pixel ratio
-        const deviceScale = Math.min(window.devicePixelRatio || 1, 3);
-        const scale = 2 * deviceScale;
-
-        // Get first page dimensions
-        const firstPage = await pdf.getPage(1);
-        const viewport = firstPage.getViewport({ scale: 1 });
-        setPageDimensions({ width: viewport.width, height: viewport.height });
-
-        // Render all pages and extract annotations
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const pageViewport = page.getViewport({ scale });
-
-          const canvas = document.createElement('canvas');
-          const context = canvas.getContext('2d')!;
-          canvas.width = pageViewport.width;
-          canvas.height = pageViewport.height;
-
-          await page.render({ canvasContext: context, viewport: pageViewport, canvas }).promise;
-          const imageData = canvas.toDataURL('image/webp', 0.92);
-
-          // Extract link annotations
-          const pageLinks: PDFAnnotation[] = [];
-          try {
-            const annotations = await page.getAnnotations();
-            for (const annotation of annotations) {
-              if (annotation.subtype === 'Link' && annotation.url) {
-                const rect = annotation.rect;
-                // PDF coordinates: origin at bottom-left
-                pageLinks.push({
-                  url: annotation.url,
-                  rect: {
-                    x: rect[0],
-                    y: viewport.height - rect[3], // Convert from bottom-left to top-left origin
-                    width: rect[2] - rect[0],
-                    height: rect[3] - rect[1],
-                  },
-                });
-              }
-            }
-          } catch {
-            // Ignore annotation errors
-          }
-
-          pagesData.push({ image: imageData, annotations: pageLinks });
-
-          // Update progress (15-95% for page rendering)
-          const progress = 15 + ((i / pdf.numPages) * 80);
-          setLoadingProgress(progress);
-          if (i === 1) setLoadingMessage(t.preparingDisplay);
-          else if (i > pdf.numPages / 2) setLoadingMessage(t.almostThere);
+        // Load jQuery if not already loaded
+        if (!window.jQuery) {
+          await loadScript('/3dflipbook/js/jquery.min.js');
         }
 
-        setLoadingProgress(100);
-        setLoadingMessage(t.ready);
-        setPages(pagesData);
-        onLoad();
-      } catch (error) {
-        console.error('Error loading PDF:', error);
+        // Load 3D FlipBook CSS
+        if (!document.querySelector('link[href="/3dflipbook/css/short-black-book-view.css"]')) {
+          const cssLink = document.createElement('link');
+          cssLink.rel = 'stylesheet';
+          cssLink.href = '/3dflipbook/css/short-black-book-view.css';
+          document.head.appendChild(cssLink);
+
+          // Also load font-awesome for icons
+          const faLink = document.createElement('link');
+          faLink.rel = 'stylesheet';
+          faLink.href = '/3dflipbook/css/font-awesome.min.css';
+          document.head.appendChild(faLink);
+        }
+
+        // Configure PDF.js worker path before loading main script
+        (window as Window & { PDFJS_LOCALE?: Record<string, string> }).PDFJS_LOCALE = {
+          pdfJsWorker: '/3dflipbook/js/pdf.worker.js',
+          pdfJsCMapUrl: '/3dflipbook/js/cmaps'
+        };
+
+        // Load required dependencies
+        await loadScript('/3dflipbook/js/html2canvas.min.js');
+        await loadScript('/3dflipbook/js/three.min.js');
+        await loadScript('/3dflipbook/js/pdf.min.js');
+
+        // Load 3D FlipBook main script
+        if (!window.$?.fn?.FlipBook) {
+          await loadScript('/3dflipbook/dist/flip-book.min.js');
+        }
+
+        scriptsLoadedRef.current = true;
+        setIsLoading(false);
+
+        // Initialize the flipbook
+        setTimeout(() => {
+          if (window.$ && containerRef.current) {
+            const $container = window.$(`#${flipbookId.current}`);
+            if ($container.FlipBook) {
+              $container.FlipBook({
+                pdf: url,
+                sound: true,
+                backgroundMusic: false,
+                backgroundColor: '#1a1a2e',
+                template: {
+                  html: '/3dflipbook/templates/default-book-view.html',
+                  styles: [
+                    '/3dflipbook/css/short-black-book-view.css',
+                    '/3dflipbook/css/font-awesome.min.css'
+                  ],
+                  script: '/3dflipbook/js/default-book-view.js',
+                  sounds: {
+                    startFlip: '/3dflipbook/sounds/start-flip.mp3',
+                    endFlip: '/3dflipbook/sounds/end-flip.mp3'
+                  }
+                },
+                controlsProps: {
+                  enableFullscreen: true,
+                  enableDownload: false,
+                  enableZoom: true,
+                  enableSound: true,
+                  enableToc: true,
+                  enableShare: false,
+                },
+              });
+            }
+          }
+          onLoad();
+        }, 300);
+
+      } catch (err) {
+        console.error('Failed to load 3D FlipBook:', err);
+        setError('Failed to load flipbook viewer');
+        setIsLoading(false);
         onLoad();
       }
     };
 
-    loadPDF();
-  }, [url, onLoad, t]);
+    load3DFlipBook();
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' && swiperRef.current) {
-        swiperRef.current.slideNext();
-      }
-      if (e.key === 'ArrowRight' && swiperRef.current) {
-        swiperRef.current.slidePrev();
+    // Cleanup
+    return () => {
+      if (window.$ && scriptsLoadedRef.current) {
+        const $container = window.$(`#${flipbookId.current}`);
+        if ($container.remove) {
+          $container.remove();
+        }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [url, onLoad]);
 
-  if (pages.length === 0) {
-    // Show loading spinner while PDF is being processed
-    return <LoadingSpinner progress={loadingProgress} message={loadingMessage || t.loadingContent} />;
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
+        <p>{error}</p>
+      </div>
+    );
   }
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
-      <Swiper
-        modules={[Virtual]}
-        onSwiper={(swiper) => { swiperRef.current = swiper; }}
-        onSlideChange={(swiper) => setCurrentPage(swiper.activeIndex)}
-        dir="rtl"
-        slidesPerView={1}
-        spaceBetween={0}
-        speed={300}
-        resistance={true}
-        resistanceRatio={0.85}
-        touchRatio={1}
-        threshold={10}
-        cssMode={false}
-        allowTouchMove={true}
-        virtual
-        className="w-full h-full"
-        style={{ direction: 'rtl' }}
-      >
-        {pages.map((page, index) => (
-          <SwiperSlide key={index} virtualIndex={index} className="flex items-center justify-center">
-            <TransformWrapper
-              initialScale={1}
-              minScale={1}
-              maxScale={5}
-              centerOnInit={true}
-              wheel={{ disabled: false, step: 0.1 }}
-              pinch={{ step: 5 }}
-              panning={{ disabled: !isZoomed }}
-              doubleClick={{ mode: 'toggle', step: 2 }}
-              onTransformed={(ref) => {
-                const zoomed = ref.state.scale > 1.05;
-                setIsZoomed(zoomed);
-                if (swiperRef.current) {
-                  swiperRef.current.allowTouchMove = !zoomed;
-                }
-              }}
-            >
-              {() => (
-                <TransformComponent
-                  wrapperStyle={{ width: '100%', height: '100%' }}
-                  contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <div className="relative max-w-full max-h-full flex items-center justify-center">
-                    <img
-                      src={page.image}
-                      alt={`${title} - עמוד ${index + 1}`}
-                      className="max-w-full max-h-[100vh] object-contain select-none"
-                      draggable={false}
-                      style={{
-                        transform: 'translateZ(0)',
-                        backfaceVisibility: 'hidden',
-                      }}
-                    />
-                    {/* PDF Link Annotations */}
-                    {page.annotations.map((annotation, idx) => (
-                      <a
-                        key={idx}
-                        href={annotation.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute cursor-pointer hover:bg-blue-500/20 active:bg-blue-500/30 transition-colors z-50"
-                        style={{
-                          left: `${(annotation.rect.x / pageDimensions.width) * 100}%`,
-                          top: `${(annotation.rect.y / pageDimensions.height) * 100}%`,
-                          width: `${(annotation.rect.width / pageDimensions.width) * 100}%`,
-                          height: `${(annotation.rect.height / pageDimensions.height) * 100}%`,
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onLinkClick?.(annotation.url, 'pdf');
-                        }}
-                      />
-                    ))}
-                  </div>
-                </TransformComponent>
-              )}
-            </TransformWrapper>
-          </SwiperSlide>
-        ))}
-      </Swiper>
-
-      {/* Minimal page indicator - small dots at bottom */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
-        {pages.length <= 10 ? (
-          pages.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => swiperRef.current?.slideTo(index)}
-              className={`rounded-full transition-all duration-200 ${
-                index === currentPage
-                  ? 'w-6 h-2 bg-white'
-                  : 'w-2 h-2 bg-white/40 hover:bg-white/60'
-              }`}
-            />
-          ))
-        ) : (
-          <div className="px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
-            <span className="text-white/90 text-sm font-medium">
-              {currentPage + 1} / {totalPages}
-            </span>
+    <div
+      ref={containerRef}
+      className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative"
+    >
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
+          <div className="text-white flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+            <p>{t.loadingDocument}</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Navigation arrows - only on desktop */}
-      <div className="hidden md:block">
-        {currentPage > 0 && (
-          <button
-            onClick={() => swiperRef.current?.slidePrev()}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
-            aria-label="הקודם"
-          >
-            <ChevronRight className="w-6 h-6 text-white" />
-          </button>
-        )}
-        {currentPage < totalPages - 1 && (
-          <button
-            onClick={() => swiperRef.current?.slideNext()}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
-            aria-label="הבא"
-          >
-            <ChevronLeft className="w-6 h-6 text-white" />
-          </button>
-        )}
-      </div>
+      {/* 3D FlipBook Container */}
+      <div
+        id={flipbookId.current}
+        className="flip-book-container"
+        style={{ width: '100%', height: '100%' }}
+      />
 
       <style jsx global>{`
-        .swiper-slide {
-          transform: translateZ(0);
-          will-change: transform;
-          backface-visibility: hidden;
+        /* 3D FlipBook custom styles */
+        .flip-book-container {
+          background: transparent !important;
+        }
+        .skin-btn {
+          background: rgba(255, 255, 255, 0.1) !important;
+          backdrop-filter: blur(8px);
+        }
+        .skin-btn:hover {
+          background: rgba(255, 255, 255, 0.2) !important;
+        }
+        /* Hide watermark if any */
+        .fb3d-watermark {
+          display: none !important;
         }
         /* Prevent browser zoom on mobile */
         html {
           touch-action: pan-x pan-y;
-        }
-        /* Smooth transitions */
-        .react-transform-wrapper {
-          width: 100% !important;
-          height: 100% !important;
-        }
-        .react-transform-component {
-          width: 100% !important;
-          height: 100% !important;
         }
       `}</style>
     </div>
@@ -365,7 +379,185 @@ const PDFFlipBookViewer = memo(({
 });
 PDFFlipBookViewer.displayName = 'PDFFlipBookViewer';
 
-// Multi-PDF Viewer - combines all pages from multiple PDFs into one swiper
+/* =====================================
+ * DEARFLIP CODE - COMMENTED OUT
+ * Keeping for reference in case we need to switch back
+ * =====================================
+ *
+ * // PDF FlipBook Viewer using DearFlip library
+ * const PDFFlipBookViewer_DearFlip = memo(({
+ *   url,
+ *   title,
+ *   onLoad,
+ * }: {
+ *   url: string;
+ *   title: string;
+ *   onLoad: () => void;
+ *   onLinkClick?: (linkUrl: string, source: LinkSource) => void;
+ * }) => {
+ *   const [isLoading, setIsLoading] = useState(true);
+ *   const [error, setError] = useState<string | null>(null);
+ *   const containerRef = useRef<HTMLDivElement>(null);
+ *   const flipbookId = useRef(`df_${Date.now()}`);
+ *   const scriptsLoadedRef = useRef(false);
+ *
+ *   // Get translations based on browser locale
+ *   const t = viewerTranslations[getBrowserLocale()];
+ *
+ *   useEffect(() => {
+ *     if (typeof window === 'undefined') return;
+ *
+ *     const loadDearFlip = async () => {
+ *       try {
+ *         // Load jQuery if not already loaded
+ *         if (!window.jQuery) {
+ *           await loadScript('/dflip/js/libs/jquery.min.js');
+ *         }
+ *
+ *         // Load DearFlip CSS
+ *         if (!document.querySelector('link[href="/dflip/css/dflip.min.css"]')) {
+ *           const cssLink = document.createElement('link');
+ *           cssLink.rel = 'stylesheet';
+ *           cssLink.href = '/dflip/css/dflip.min.css';
+ *           document.head.appendChild(cssLink);
+ *
+ *           const iconsLink = document.createElement('link');
+ *           iconsLink.rel = 'stylesheet';
+ *           iconsLink.href = '/dflip/css/themify-icons.min.css';
+ *           document.head.appendChild(iconsLink);
+ *         }
+ *
+ *         // Pre-configure DFLIP defaults BEFORE loading the script
+ *         (window as Window & { DFLIP_SOURCE?: Record<string, unknown> }).DFLIP_SOURCE = {
+ *           pdfjsSrc: '/dflip/js/libs/pdf.min.js',
+ *           pdfjsCompatibilitySrc: '/dflip/js/libs/compatibility.js',
+ *           threejsSrc: '/dflip/js/libs/three.min.js',
+ *           mockupjsSrc: '/dflip/js/libs/mockup.min.js',
+ *           soundFile: '/dflip/sound/turnPage.mp3',
+ *           imagesLocation: '/dflip/images/',
+ *           cMapUrl: '/dflip/js/libs/cmaps/',
+ *         };
+ *
+ *         // Load DearFlip JS if not already loaded
+ *         if (!window.DFLIP) {
+ *           await loadScript('/dflip/js/dflip.min.js');
+ *         }
+ *
+ *         // Configure DearFlip asset paths after loading
+ *         if (window.DFLIP) {
+ *           window.DFLIP.defaults = {
+ *             ...window.DFLIP.defaults,
+ *             pdfjsSrc: '/dflip/js/libs/pdf.min.js',
+ *             pdfjsCompatibilitySrc: '/dflip/js/libs/compatibility.js',
+ *             threejsSrc: '/dflip/js/libs/three.min.js',
+ *             mockupjsSrc: '/dflip/js/libs/mockup.min.js',
+ *             soundFile: '/dflip/sound/turnPage.mp3',
+ *             imagesLocation: '/dflip/images/',
+ *             imageResourcesPath: '/dflip/images/',
+ *             cMapUrl: '/dflip/js/libs/cmaps/',
+ *           };
+ *         }
+ *
+ *         scriptsLoadedRef.current = true;
+ *         setIsLoading(false);
+ *
+ *         // Initialize the flipbook after a short delay
+ *         setTimeout(() => {
+ *           if (window.DFLIP?.parseBooks) {
+ *             window.DFLIP.parseBooks();
+ *           }
+ *           onLoad();
+ *         }, 300);
+ *
+ *       } catch (err) {
+ *         console.error('Failed to load DearFlip:', err);
+ *         setError('Failed to load flipbook viewer');
+ *         setIsLoading(false);
+ *         onLoad();
+ *       }
+ *     };
+ *
+ *     loadDearFlip();
+ *   }, [onLoad]);
+ *
+ *   // Re-parse when PDF URL changes
+ *   useEffect(() => {
+ *     if (scriptsLoadedRef.current && window.DFLIP?.parseBooks) {
+ *       setTimeout(() => {
+ *         window.DFLIP?.parseBooks?.();
+ *       }, 200);
+ *     }
+ *   }, [url]);
+ *
+ *   if (error) {
+ *     return (
+ *       <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
+ *         <p>{error}</p>
+ *       </div>
+ *     );
+ *   }
+ *
+ *   return (
+ *     <div
+ *       ref={containerRef}
+ *       className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative"
+ *     >
+ *       {isLoading && (
+ *         <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
+ *           <div className="text-white flex flex-col items-center gap-4">
+ *             <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+ *             <p>{t.loadingDocument}</p>
+ *           </div>
+ *         </div>
+ *       )}
+ *
+ *       <div
+ *         key={url}
+ *         id={flipbookId.current}
+ *         className="_df_book"
+ *         style={{ width: '100%', height: '100%' }}
+ *         data-source={url}
+ *         data-webgl="true"
+ *         data-backgroundcolor="#1a1a2e"
+ *         data-hard="cover"
+ *         data-autoplay="false"
+ *         data-autoplaystart="false"
+ *         data-duration="800"
+ *         data-soundenable="true"
+ *         data-direction="2"
+ *         data-pagemode="2"
+ *         data-singlepage="auto"
+ *         data-controls="auto"
+ *         data-scrollwheel="true"
+ *         data-enabledownload="false"
+ *         data-logo=""
+ *         data-paddingtop="20"
+ *         data-paddingbottom="20"
+ *         data-paddingleft="20"
+ *         data-paddingright="20"
+ *         data-zoomratio="1.5"
+ *         data-title={title}
+ *         data-overwritepdflocation="/dflip/js/libs/"
+ *       />
+ *
+ *       <style jsx global>{\`
+ *         .df-container { background: transparent !important; }
+ *         .df-ui-controls { background: rgba(0, 0, 0, 0.3) !important; backdrop-filter: blur(8px); }
+ *         .df-ui-btn { background: rgba(255, 255, 255, 0.1) !important; }
+ *         .df-ui-btn:hover { background: rgba(255, 255, 255, 0.2) !important; }
+ *         .df-logo, .df-watermark { display: none !important; }
+ *         html { touch-action: pan-x pan-y; }
+ *       \`}</style>
+ *     </div>
+ *   );
+ * });
+ * PDFFlipBookViewer_DearFlip.displayName = 'PDFFlipBookViewer_DearFlip';
+ * =====================================
+ * END DEARFLIP CODE
+ * =====================================
+ */
+
+// Multi-PDF Viewer - combines all pages from multiple PDFs with Swiper and flip sound
 const MultiPDFViewer = memo(({
   pdfUrls,
   title,
@@ -380,13 +572,42 @@ const MultiPDFViewer = memo(({
   const [pages, setPages] = useState<PDFPageData[]>([]);
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }>({ width: 595, height: 842 });
   const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('');
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('flipbook-muted') === 'true';
+    }
+    return false;
+  });
   const swiperRef = useRef<SwiperType | null>(null);
+  const playFlipSoundRef = useRef<(() => void) | null>(null);
 
   // Get translations based on browser locale
   const t = viewerTranslations[getBrowserLocale()];
+
+  // Initialize sound
+  useEffect(() => {
+    playFlipSoundRef.current = createFlipSound();
+  }, []);
+
+  // Handle mute toggle
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => {
+      const newValue = !prev;
+      localStorage.setItem('flipbook-muted', String(newValue));
+      return newValue;
+    });
+  }, []);
+
+  // Play flip sound
+  const playFlipSound = useCallback(() => {
+    if (!isMuted && playFlipSoundRef.current) {
+      playFlipSoundRef.current();
+    }
+  }, [isMuted]);
 
   // Load all PDFs and combine pages
   useEffect(() => {
@@ -417,6 +638,7 @@ const MultiPDFViewer = memo(({
           }
         }
 
+        setTotalPages(totalPageCount);
         setLoadingProgress(15);
         setLoadingMessage(t.processingPages.replace('{count}', String(totalPageCount)));
 
@@ -520,7 +742,10 @@ const MultiPDFViewer = memo(({
       <Swiper
         modules={[Virtual]}
         onSwiper={(swiper) => { swiperRef.current = swiper; }}
-        onSlideChange={(swiper) => setCurrentPage(swiper.activeIndex)}
+        onSlideChange={(swiper) => {
+          setCurrentPage(swiper.activeIndex);
+          playFlipSound();
+        }}
         dir="rtl"
         slidesPerView={1}
         spaceBetween={0}
@@ -530,7 +755,7 @@ const MultiPDFViewer = memo(({
         touchRatio={1}
         threshold={10}
         cssMode={false}
-        allowTouchMove={!isZoomed}
+        allowTouchMove={true}
         virtual
         className="w-full h-full"
         style={{ direction: 'rtl' }}
@@ -598,7 +823,20 @@ const MultiPDFViewer = memo(({
         ))}
       </Swiper>
 
-      {/* Page dots indicator */}
+      {/* Sound mute toggle button */}
+      <button
+        onClick={toggleMute}
+        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center backdrop-blur-sm transition-all z-20"
+        aria-label={isMuted ? 'הפעל סאונד' : 'השתק סאונד'}
+      >
+        {isMuted ? (
+          <VolumeX className="w-5 h-5 text-white/70" />
+        ) : (
+          <Volume2 className="w-5 h-5 text-white" />
+        )}
+      </button>
+
+      {/* Minimal page indicator - small dots at bottom */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
         {pages.length <= 10 ? (
           pages.map((_, index) => (
@@ -615,7 +853,7 @@ const MultiPDFViewer = memo(({
         ) : (
           <div className="px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
             <span className="text-white/90 text-sm font-medium">
-              {currentPage + 1} / {pages.length}
+              {currentPage + 1} / {totalPages}
             </span>
           </div>
         )}
@@ -632,7 +870,7 @@ const MultiPDFViewer = memo(({
             <ChevronRight className="w-6 h-6 text-white" />
           </button>
         )}
-        {currentPage < pages.length - 1 && (
+        {currentPage < totalPages - 1 && (
           <button
             onClick={() => swiperRef.current?.slideNext()}
             className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center backdrop-blur-sm transition-all hover:scale-110 z-10"
@@ -642,6 +880,27 @@ const MultiPDFViewer = memo(({
           </button>
         )}
       </div>
+
+      <style jsx global>{`
+        .swiper-slide {
+          transform: translateZ(0);
+          will-change: transform;
+          backface-visibility: hidden;
+        }
+        /* Prevent browser zoom on mobile */
+        html {
+          touch-action: pan-x pan-y;
+        }
+        /* Smooth transitions */
+        .react-transform-wrapper {
+          width: 100% !important;
+          height: 100% !important;
+        }
+        .react-transform-component {
+          width: 100% !important;
+          height: 100% !important;
+        }
+      `}</style>
     </div>
   );
 });

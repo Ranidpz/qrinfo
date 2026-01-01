@@ -9,8 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@dearhive/dearflip-jquery-flipbook": "^1.7.3",
     "@types/dompurify": "^3.0.5",
     "@vercel/blob": "^2.0.0",
+    "3d-flip-book": "^1.9.9",
     "clsx": "^2.1.1",
     "dompurify": "^3.3.0",
     "firebase": "^12.6.0",
@@ -23,6 +25,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-grid-layout": "^2.0.0",
+    "react-pageflip": "^2.0.3",
     "react-zoom-pan-pinch": "^3.7.0",
     "recharts": "^3.5.1",
     "swiper": "^12.0.3"
