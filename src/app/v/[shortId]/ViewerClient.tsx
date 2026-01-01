@@ -63,6 +63,8 @@ interface Real3DFlipBookOptions {
   autoplayOnStart?: boolean;
   autoplayInterval?: number;
   mouseWheel?: boolean;
+  sideNavigationButtons?: boolean;
+  currentPage?: { enabled: boolean };
   assets?: {
     flipMp3?: string;
     spinner?: string;
@@ -78,6 +80,7 @@ interface Real3DFlipBookOptions {
   btnZoomIn?: { enabled: boolean };
   btnZoomOut?: { enabled: boolean };
   btnAutoplay?: { enabled: boolean };
+  btnExpand?: { enabled: boolean };
   btnPrint?: { enabled: boolean };
   btnDownloadPages?: { enabled: boolean };
   btnDownloadPdf?: { enabled: boolean };
@@ -259,8 +262,6 @@ const PDFFlipBookViewer = memo(({
           await loadScript('/real3dflipbook/js/flipbook.min.js');
         }
 
-        setIsLoading(false);
-
         // Map PDFFlipbookSettings to Real3D FlipBook options
         const isRTL = pdfSettings?.direction === '2';  // 2 = RTL, 1 = LTR
         const isSinglePage = pdfSettings?.pagemode === '1';  // 1 = single, 2 = double
@@ -273,46 +274,64 @@ const PDFFlipBookViewer = memo(({
         const mouseWheel = pdfSettings?.scrollwheel !== false;  // Default true
         const enableDownload = pdfSettings?.enabledownload || false;
 
-        // Initialize the flipbook after a short delay
-        setTimeout(() => {
-          if (window.$ && containerRef.current) {
-            const $container = window.$(`#${flipbookId.current}`);
-            if ($container.flipBook) {
-              $container.flipBook({
-                pdfUrl: url,
-                rightToLeft: isRTL,
-                singlePageMode: isSinglePage,
-                viewMode: is3D ? '3d' : '2d',
-                responsiveView: true,
-                responsiveViewTreshold: 768,  // Single page on mobile (< 768px)
-                sound: hasSound,
-                pageFlipDuration: flipDuration,
-                autoplayOnStart: autoplay,
-                autoplayInterval: autoplayInterval,
-                mouseWheel: mouseWheel,
-                assets: {
-                  flipMp3: '/real3dflipbook/assets/mp3/turnPage2.mp3',
-                },
-                pdfBrowserViewerIfMobile: false,
-                pdfBrowserViewerIfIE: false,
-                backgroundColor: '#1a1a2e',
-                btnToc: { enabled: true },
-                btnThumbs: { enabled: true },
-                btnZoomIn: { enabled: true },
-                btnZoomOut: { enabled: true },
-                btnSound: { enabled: hasSound },
-                btnAutoplay: { enabled: true },
-                zoomMin: 1,
-                zoomMax: zoomMax,
-                btnPrint: { enabled: false },
-                btnDownloadPages: { enabled: enableDownload },
-                btnDownloadPdf: { enabled: enableDownload },
-                btnShare: { enabled: false },
-              });
+        // Controls visibility: 'auto' = default, 'true' = always, 'false' = never
+        const controlsMode = pdfSettings?.controls || 'auto';
+        const showControls = controlsMode !== 'false';  // Show for 'auto' and 'true'
+
+        // Initialize the flipbook after container is ready
+        // Use requestAnimationFrame to ensure DOM is rendered
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (window.$ && containerRef.current) {
+              const $container = window.$(`#${flipbookId.current}`);
+              if ($container && $container.flipBook) {
+                try {
+                  $container.flipBook({
+                    pdfUrl: url,
+                    rightToLeft: isRTL,
+                    singlePageMode: isSinglePage,
+                    viewMode: is3D ? '3d' : '2d',
+                    responsiveView: true,
+                    responsiveViewTreshold: 768,  // Single page on mobile (< 768px)
+                    sound: hasSound,
+                    pageFlipDuration: flipDuration,
+                    autoplayOnStart: autoplay,
+                    autoplayInterval: autoplayInterval,
+                    mouseWheel: mouseWheel,
+                    sideNavigationButtons: showControls,  // Hide side arrows when controls hidden
+                    currentPage: { enabled: showControls },  // Hide page indicator
+                    assets: {
+                      flipMp3: '/real3dflipbook/assets/mp3/turnPage2.mp3',
+                    },
+                    pdfBrowserViewerIfMobile: false,
+                    pdfBrowserViewerIfIE: false,
+                    backgroundColor: '#1a1a2e',
+                    // Menu buttons - hide all when controls='false'
+                    btnToc: { enabled: showControls },
+                    btnThumbs: { enabled: showControls },
+                    btnZoomIn: { enabled: showControls },
+                    btnZoomOut: { enabled: showControls },
+                    btnSound: { enabled: showControls && hasSound },
+                    btnAutoplay: { enabled: showControls },
+                    btnExpand: { enabled: showControls },
+                    zoomMin: 1,
+                    zoomMax: zoomMax,
+                    btnPrint: { enabled: false },
+                    btnDownloadPages: { enabled: showControls && enableDownload },
+                    btnDownloadPdf: { enabled: showControls && enableDownload },
+                    btnShare: { enabled: false },
+                  });
+                  setIsLoading(false);
+                } catch (initError) {
+                  console.error('Error initializing flipbook:', initError);
+                  setError('Failed to initialize flipbook');
+                  setIsLoading(false);
+                }
+              }
             }
-          }
-          onLoad();
-        }, 200);
+            onLoad();
+          }, 100);
+        });
 
       } catch (err) {
         console.error('Failed to load Real3D FlipBook:', err);
