@@ -325,7 +325,7 @@ const PDFFlipBookViewer = memo(({
                     pdfUrl: pdfUrl,
                     rightToLeft: isRTL,
                     singlePageMode: isSinglePage,
-                    viewMode: is3D ? '3d' : '2d',
+                    viewMode: is3D ? '3d' : 'swipe',  // Use '3d' for WebGL, 'swipe' for 2D
                     responsiveView: true,
                     responsiveViewTreshold: 768,  // Single page on mobile (< 768px)
                     sound: hasSound,
