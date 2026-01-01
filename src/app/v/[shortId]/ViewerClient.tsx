@@ -306,8 +306,13 @@ const PDFFlipBookViewer = memo(({
               const $container = window.$(`#${flipbookId.current}`);
               if ($container && $container.flipBook) {
                 try {
+                  // Use proxy for external PDF URLs to avoid CORS issues
+                  const pdfUrl = url.includes('blob.vercel-storage.com')
+                    ? `/api/pdf-proxy?url=${encodeURIComponent(url)}`
+                    : url;
+
                   $container.flipBook({
-                    pdfUrl: url,
+                    pdfUrl: pdfUrl,
                     rightToLeft: isRTL,
                     singlePageMode: isSinglePage,
                     viewMode: is3D ? '3d' : '2d',
