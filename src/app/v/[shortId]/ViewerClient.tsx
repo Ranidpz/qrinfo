@@ -213,206 +213,197 @@ interface PDFPageData {
   annotations: PDFAnnotation[];
 }
 
-// PDF FlipBook Viewer using 3D FlipBook library
+// PDF FlipBook Viewer - Currently using Swiper fallback
+// TODO: Replace with Real3D FlipBook when purchased
 const PDFFlipBookViewer = memo(({
   url,
   title,
   onLoad,
+  onLinkClick
 }: {
   url: string;
   title: string;
   onLoad: () => void;
   onLinkClick?: (linkUrl: string, source: LinkSource) => void;
 }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const flipbookId = useRef(`fb_${Date.now()}`);
-  const scriptsLoadedRef = useRef(false);
-
-  // Get translations based on browser locale
-  const t = viewerTranslations[getBrowserLocale()];
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const load3DFlipBook = async () => {
-      try {
-        // Load jQuery if not already loaded
-        if (!window.jQuery) {
-          await loadScript('/3dflipbook/js/jquery.min.js');
-        }
-
-        // Load 3D FlipBook CSS
-        if (!document.querySelector('link[href="/3dflipbook/css/short-black-book-view.css"]')) {
-          const cssLink = document.createElement('link');
-          cssLink.rel = 'stylesheet';
-          cssLink.href = '/3dflipbook/css/short-black-book-view.css';
-          document.head.appendChild(cssLink);
-
-          // Also load font-awesome for icons
-          const faLink = document.createElement('link');
-          faLink.rel = 'stylesheet';
-          faLink.href = '/3dflipbook/css/font-awesome.min.css';
-          document.head.appendChild(faLink);
-        }
-
-        // Configure PDF.js worker path before loading main script
-        (window as Window & { PDFJS_LOCALE?: Record<string, string> }).PDFJS_LOCALE = {
-          pdfJsWorker: '/3dflipbook/js/pdf.worker.js',
-          pdfJsCMapUrl: '/3dflipbook/js/cmaps'
-        };
-
-        // Load required dependencies
-        await loadScript('/3dflipbook/js/html2canvas.min.js');
-        await loadScript('/3dflipbook/js/three.min.js');
-        await loadScript('/3dflipbook/js/pdf.min.js');
-
-        // Load 3D FlipBook main script
-        if (!window.$?.fn?.FlipBook) {
-          await loadScript('/3dflipbook/dist/flip-book.min.js');
-        }
-
-        scriptsLoadedRef.current = true;
-        setIsLoading(false);
-
-        // Initialize the flipbook
-        setTimeout(() => {
-          if (window.$ && containerRef.current) {
-            const $container = window.$(`#${flipbookId.current}`);
-            if ($container.FlipBook) {
-              $container.FlipBook({
-                pdf: url,
-                sound: true,
-                backgroundMusic: false,
-                backgroundColor: '#1a1a2e',
-                template: {
-                  html: '/3dflipbook/templates/default-book-view.html',
-                  styles: [
-                    '/3dflipbook/css/short-black-book-view.css',
-                    '/3dflipbook/css/font-awesome.min.css'
-                  ],
-                  script: '/3dflipbook/js/default-book-view.js',
-                  sounds: {
-                    startFlip: '/3dflipbook/sounds/start-flip.mp3',
-                    endFlip: '/3dflipbook/sounds/end-flip.mp3'
-                  }
-                },
-                controlsProps: {
-                  enableFullscreen: true,
-                  enableDownload: false,
-                  enableZoom: true,
-                  enableSound: true,
-                  enableToc: true,
-                  enableShare: false,
-                  arrows: {
-                    enabled: false  // Hide navigation arrows
-                  }
-                },
-                // Enable single page mode on mobile devices
-                cmdSinglePage: {
-                  active: false,        // Start in double page on desktop
-                  activeForMobile: true // But use single page on mobile
-                },
-              });
-            }
-          }
-          onLoad();
-        }, 300);
-
-      } catch (err) {
-        console.error('Failed to load 3D FlipBook:', err);
-        setError('Failed to load flipbook viewer');
-        setIsLoading(false);
-        onLoad();
-      }
-    };
-
-    load3DFlipBook();
-
-    // Cleanup
-    return () => {
-      if (window.$ && scriptsLoadedRef.current) {
-        const $container = window.$(`#${flipbookId.current}`);
-        if ($container.remove) {
-          $container.remove();
-        }
-      }
-    };
-  }, [url, onLoad]);
-
-  if (error) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
-        <p>{error}</p>
-      </div>
-    );
-  }
-
+  // Use MultiPDFViewer for single PDF - it works well and has no WebGL bugs
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative"
-    >
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
-          <div className="text-white flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-            <p>{t.loadingDocument}</p>
-          </div>
-        </div>
-      )}
-
-      {/* 3D FlipBook Container */}
-      <div
-        id={flipbookId.current}
-        className="flip-book-container"
-        style={{ width: '100%', height: '100%' }}
-      />
-
-      <style jsx global>{`
-        /* 3D FlipBook custom styles */
-        .flip-book-container {
-          background: transparent !important;
-        }
-        .skin-btn {
-          background: rgba(255, 255, 255, 0.1) !important;
-          backdrop-filter: blur(8px);
-        }
-        .skin-btn:hover {
-          background: rgba(255, 255, 255, 0.2) !important;
-        }
-        /* Hide watermark if any */
-        .fb3d-watermark {
-          display: none !important;
-        }
-        /* Hide/minimize navigation arrows */
-        .fb3d-arrow-wrapper,
-        .fb3d-nav-arrow,
-        .nav-arrow,
-        .arrow-left,
-        .arrow-right,
-        .skin-arrow {
-          display: none !important;
-          opacity: 0 !important;
-        }
-        /* Alternative: Make arrows smaller on mobile */
-        @media (max-width: 768px) {
-          .fb3d-arrows,
-          [class*="arrow"] {
-            transform: scale(0.5) !important;
-            opacity: 0.3 !important;
-          }
-        }
-        /* Prevent browser zoom on mobile */
-        html {
-          touch-action: pan-x pan-y;
-        }
-      `}</style>
-    </div>
+    <MultiPDFViewer
+      pdfUrls={[url]}
+      title={title}
+      onLoad={onLoad}
+      onLinkClick={onLinkClick}
+    />
   );
 });
 PDFFlipBookViewer.displayName = 'PDFFlipBookViewer';
+
+/* =====================================
+ * 3D FLIPBOOK CODE - DISABLED DUE TO WEBGL BUGS
+ * Keeping for reference - replace with Real3D FlipBook when purchased
+ * =====================================
+ *
+ * const PDFFlipBookViewer_3DFlipBook = memo(({
+ *   url,
+ *   title,
+ *   onLoad,
+ * }: {
+ *   url: string;
+ *   title: string;
+ *   onLoad: () => void;
+ *   onLinkClick?: (linkUrl: string, source: LinkSource) => void;
+ * }) => {
+ *   const [isLoading, setIsLoading] = useState(true);
+ *   const [error, setError] = useState<string | null>(null);
+ *   const containerRef = useRef<HTMLDivElement>(null);
+ *   const flipbookId = useRef(`fb_${Date.now()}`);
+ *   const scriptsLoadedRef = useRef(false);
+ *
+ *   // Get translations based on browser locale
+ *   const t = viewerTranslations[getBrowserLocale()];
+ *
+ *   useEffect(() => {
+ *     if (typeof window === 'undefined') return;
+ *
+ *     const load3DFlipBook = async () => {
+ *       try {
+ *         // Load jQuery if not already loaded
+ *         if (!window.jQuery) {
+ *           await loadScript('/3dflipbook/js/jquery.min.js');
+ *         }
+ *
+ *         // Load 3D FlipBook CSS
+ *         if (!document.querySelector('link[href="/3dflipbook/css/short-black-book-view.css"]')) {
+ *           const cssLink = document.createElement('link');
+ *           cssLink.rel = 'stylesheet';
+ *           cssLink.href = '/3dflipbook/css/short-black-book-view.css';
+ *           document.head.appendChild(cssLink);
+ *
+ *           // Also load font-awesome for icons
+ *           const faLink = document.createElement('link');
+ *           faLink.rel = 'stylesheet';
+ *           faLink.href = '/3dflipbook/css/font-awesome.min.css';
+ *           document.head.appendChild(faLink);
+ *         }
+ *
+ *         // Configure PDF.js worker path before loading main script
+ *         (window as Window & { PDFJS_LOCALE?: Record<string, string> }).PDFJS_LOCALE = {
+ *           pdfJsWorker: '/3dflipbook/js/pdf.worker.js',
+ *           pdfJsCMapUrl: '/3dflipbook/js/cmaps'
+ *         };
+ *
+ *         // Load required dependencies
+ *         await loadScript('/3dflipbook/js/html2canvas.min.js');
+ *         await loadScript('/3dflipbook/js/three.min.js');
+ *         await loadScript('/3dflipbook/js/pdf.min.js');
+ *
+ *         // Load 3D FlipBook main script
+ *         if (!window.$?.fn?.FlipBook) {
+ *           await loadScript('/3dflipbook/dist/flip-book.min.js');
+ *         }
+ *
+ *         scriptsLoadedRef.current = true;
+ *         setIsLoading(false);
+ *
+ *         // Initialize the flipbook
+ *         setTimeout(() => {
+ *           if (window.$ && containerRef.current) {
+ *             const $container = window.$(`#${flipbookId.current}`);
+ *             if ($container.FlipBook) {
+ *               $container.FlipBook({
+ *                 pdf: url,
+ *                 sound: true,
+ *                 backgroundMusic: false,
+ *                 backgroundColor: '#1a1a2e',
+ *                 template: {
+ *                   html: '/3dflipbook/templates/default-book-view.html',
+ *                   styles: [
+ *                     '/3dflipbook/css/short-black-book-view.css',
+ *                     '/3dflipbook/css/font-awesome.min.css'
+ *                   ],
+ *                   script: '/3dflipbook/js/default-book-view.js',
+ *                   sounds: {
+ *                     startFlip: '/3dflipbook/sounds/start-flip.mp3',
+ *                     endFlip: '/3dflipbook/sounds/end-flip.mp3'
+ *                   }
+ *                 },
+ *                 controlsProps: {
+ *                   enableFullscreen: true,
+ *                   enableDownload: false,
+ *                   enableZoom: true,
+ *                   enableSound: true,
+ *                   enableToc: true,
+ *                   enableShare: false,
+ *                   arrows: {
+ *                     enabled: false
+ *                   }
+ *                 },
+ *                 cmdSinglePage: {
+ *                   active: false,
+ *                   activeForMobile: true
+ *                 },
+ *               });
+ *             }
+ *           }
+ *           onLoad();
+ *         }, 300);
+ *
+ *       } catch (err) {
+ *         console.error('Failed to load 3D FlipBook:', err);
+ *         setError('Failed to load flipbook viewer');
+ *         setIsLoading(false);
+ *         onLoad();
+ *       }
+ *     };
+ *
+ *     load3DFlipBook();
+ *
+ *     // Cleanup
+ *     return () => {
+ *       if (window.$ && scriptsLoadedRef.current) {
+ *         const $container = window.$(`#${flipbookId.current}`);
+ *         if ($container.remove) {
+ *           $container.remove();
+ *         }
+ *       }
+ *     };
+ *   }, [url, onLoad]);
+ *
+ *   if (error) {
+ *     return (
+ *       <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
+ *         <p>{error}</p>
+ *       </div>
+ *     );
+ *   }
+ *
+ *   return (
+ *     <div
+ *       ref={containerRef}
+ *       className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative"
+ *     >
+ *       {isLoading && (
+ *         <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
+ *           <div className="text-white flex flex-col items-center gap-4">
+ *             <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+ *             <p>{t.loadingDocument}</p>
+ *           </div>
+ *         </div>
+ *       )}
+ *
+ *       <div
+ *         id={flipbookId.current}
+ *         className="flip-book-container"
+ *         style={{ width: '100%', height: '100%' }}
+ *       />
+ *     </div>
+ *   );
+ * });
+ * PDFFlipBookViewer_3DFlipBook.displayName = 'PDFFlipBookViewer_3DFlipBook';
+ * =====================================
+ * END 3D FLIPBOOK CODE
+ * =====================================
+ */
 
 /* =====================================
  * DEARFLIP CODE - COMMENTED OUT
