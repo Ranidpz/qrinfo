@@ -17,6 +17,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const pdfUrl = searchParams.get('url');
 
+  // Quick test mode - if test=1, return a simple response
+  if (searchParams.get('test') === '1') {
+    return NextResponse.json({ status: 'ok', pdfUrl: pdfUrl?.substring(0, 50) });
+  }
+
   console.log('[PDF Proxy] Request received:', { pdfUrl: pdfUrl?.substring(0, 100) });
 
   if (!pdfUrl) {
@@ -33,22 +38,24 @@ export async function GET(request: NextRequest) {
     'blob.vercel-storage.com',
   ];
 
+  let validatedUrl: URL;
   try {
-    const url = new URL(pdfUrl);
-    const isAllowed = allowedDomains.some(domain => url.hostname.endsWith(domain));
+    validatedUrl = new URL(pdfUrl);
+    const isAllowed = allowedDomains.some(domain => validatedUrl.hostname.endsWith(domain));
 
     if (!isAllowed) {
-      console.log('[PDF Proxy] Domain not allowed:', url.hostname);
+      console.log('[PDF Proxy] Domain not allowed:', validatedUrl.hostname);
       return NextResponse.json(
-        { error: 'URL domain not allowed' },
+        { error: 'URL domain not allowed', hostname: validatedUrl.hostname },
         { status: 403 }
       );
     }
-    console.log('[PDF Proxy] Domain validated:', url.hostname);
+    console.log('[PDF Proxy] Domain validated:', validatedUrl.hostname);
   } catch (err) {
-    console.log('[PDF Proxy] Invalid URL:', err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.log('[PDF Proxy] Invalid URL:', errMsg);
     return NextResponse.json(
-      { error: 'Invalid URL' },
+      { error: 'Invalid URL', details: errMsg, rawUrl: pdfUrl?.substring(0, 100) },
       { status: 400 }
     );
   }
@@ -56,29 +63,30 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[PDF Proxy] Fetching PDF from:', pdfUrl);
 
-    // Get Range header from request if present (pdf.js often uses range requests)
-    const rangeHeader = request.headers.get('Range');
-
-    // Fetch the PDF from Vercel Blob storage
-    const fetchHeaders: Record<string, string> = {
-      'Accept': 'application/pdf',
-    };
-    if (rangeHeader) {
-      fetchHeaders['Range'] = rangeHeader;
-    }
-
-    const response = await fetch(pdfUrl, { headers: fetchHeaders });
+    // Simple fetch without range for now to test basic connectivity
+    const response = await fetch(pdfUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': '*/*',
+      },
+    });
 
     console.log('[PDF Proxy] Fetch response:', {
       status: response.status,
+      statusText: response.statusText,
       contentType: response.headers.get('content-type'),
       contentLength: response.headers.get('content-length'),
     });
 
     if (!response.ok) {
-      console.log('[PDF Proxy] Fetch failed:', response.status, response.statusText);
+      const errorBody = await response.text().catch(() => '');
+      console.log('[PDF Proxy] Fetch failed:', response.status, response.statusText, errorBody);
       return NextResponse.json(
-        { error: `Failed to fetch PDF: ${response.status}` },
+        {
+          error: `Failed to fetch PDF: ${response.status}`,
+          statusText: response.statusText,
+          body: errorBody.substring(0, 200),
+        },
         { status: response.status }
       );
     }
@@ -89,15 +97,14 @@ export async function GET(request: NextRequest) {
 
     // Return the PDF with proper headers
     return new NextResponse(pdfData, {
-      status: rangeHeader ? 206 : 200,
+      status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
+        'Content-Type': response.headers.get('content-type') || 'application/pdf',
         'Content-Length': pdfData.byteLength.toString(),
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Range',
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        'Access-Control-Allow-Headers': '*',
+        'Cache-Control': 'public, max-age=3600',
       },
     });
   } catch (error) {
@@ -108,7 +115,7 @@ export async function GET(request: NextRequest) {
       {
         error: 'Failed to fetch PDF',
         details: errorMessage,
-        // Include more info for debugging
+        stack: errorStack?.substring(0, 500),
         pdfUrl: pdfUrl?.substring(0, 100),
       },
       { status: 500 }
