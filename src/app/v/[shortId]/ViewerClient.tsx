@@ -72,6 +72,15 @@ interface FlipBookOptions {
     enableSound?: boolean;
     enableToc?: boolean;
     enableShare?: boolean;
+    // Arrow buttons
+    arrows?: {
+      enabled?: boolean;
+    };
+  };
+  // Single page mode configuration
+  cmdSinglePage?: {
+    active?: boolean;
+    activeForMobile?: boolean;
   };
   propertiesCallback?: (props: unknown) => unknown;
 }
@@ -296,6 +305,14 @@ const PDFFlipBookViewer = memo(({
                   enableSound: true,
                   enableToc: true,
                   enableShare: false,
+                  arrows: {
+                    enabled: false  // Hide navigation arrows
+                  }
+                },
+                // Enable single page mode on mobile devices
+                cmdSinglePage: {
+                  active: false,        // Start in double page on desktop
+                  activeForMobile: true // But use single page on mobile
                 },
               });
             }
@@ -368,6 +385,24 @@ const PDFFlipBookViewer = memo(({
         /* Hide watermark if any */
         .fb3d-watermark {
           display: none !important;
+        }
+        /* Hide/minimize navigation arrows */
+        .fb3d-arrow-wrapper,
+        .fb3d-nav-arrow,
+        .nav-arrow,
+        .arrow-left,
+        .arrow-right,
+        .skin-arrow {
+          display: none !important;
+          opacity: 0 !important;
+        }
+        /* Alternative: Make arrows smaller on mobile */
+        @media (max-width: 768px) {
+          .fb3d-arrows,
+          [class*="arrow"] {
+            transform: scale(0.5) !important;
+            opacity: 0.3 !important;
+          }
         }
         /* Prevent browser zoom on mobile */
         html {
