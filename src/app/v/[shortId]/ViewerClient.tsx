@@ -264,6 +264,24 @@ const PDFFlipBookViewer = memo(({
           await loadScript('/real3dflipbook/js/flipbook.min.js');
         }
 
+        // Set FLIPBOOK paths explicitly to ensure correct dependency loading
+        // The library auto-detects paths from script src, but dynamic loading can fail
+        const FLIPBOOK = (window as Window & { FLIPBOOK?: Record<string, string> }).FLIPBOOK;
+        if (FLIPBOOK) {
+          const basePath = '/real3dflipbook/js/';
+          FLIPBOOK.flipbookSrc = basePath + 'flipbook.min.js';
+          FLIPBOOK.pdfjsSrc = basePath + 'libs/pdf.min.js';
+          FLIPBOOK.pdfjsworkerSrc = basePath + 'libs/pdf.worker.min.js';
+          FLIPBOOK.threejsSrc = basePath + 'libs/three.min.js';
+          FLIPBOOK.iscrollSrc = basePath + 'libs/iscroll.min.js';
+          FLIPBOOK.markSrc = basePath + 'libs/mark.min.js';
+          FLIPBOOK.pdfServiceSrc = basePath + 'flipbook.pdfservice.min.js';
+          FLIPBOOK.flipbookBook3Src = basePath + 'flipbook.book3.min.js';
+          FLIPBOOK.flipbookWebGlSrc = basePath + 'flipbook.webgl.min.js';
+          FLIPBOOK.flipBookSwipeSrc = basePath + 'flipbook.swipe.min.js';
+          FLIPBOOK.flipBookScrollSrc = basePath + 'flipbook.scroll.min.js';
+        }
+
         // Map PDFFlipbookSettings to Real3D FlipBook options
         const isRTL = pdfSettings?.direction === '2';  // 2 = RTL, 1 = LTR
         const isSinglePage = pdfSettings?.pagemode === '1';  // 1 = single, 2 = double
