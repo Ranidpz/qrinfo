@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
-import { MediaItem, CodeWidgets, LinkSource, LandingPageConfig, DEFAULT_LANDING_PAGE_CONFIG } from '@/types';
+import { MediaItem, CodeWidgets, LinkSource, LandingPageConfig, DEFAULT_LANDING_PAGE_CONFIG, PDFFlipbookSettings } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import RiddleViewer from '@/components/viewer/RiddleViewer';
 import SelfiebeamViewer from '@/components/viewer/SelfiebeamViewer';
@@ -55,9 +55,14 @@ interface Real3DFlipBookOptions {
   pages?: Array<{ src: string; thumb?: string; title?: string }>;
   rightToLeft?: boolean;
   singlePageMode?: boolean;
+  viewMode?: '2d' | '3d' | 'swipe' | 'scroll';
   responsiveView?: boolean;
   responsiveViewTreshold?: number;
   sound?: boolean;
+  pageFlipDuration?: number;
+  autoplayOnStart?: boolean;
+  autoplayInterval?: number;
+  mouseWheel?: boolean;
   assets?: {
     flipMp3?: string;
     spinner?: string;
@@ -72,6 +77,7 @@ interface Real3DFlipBookOptions {
   btnThumbs?: { enabled: boolean };
   btnZoomIn?: { enabled: boolean };
   btnZoomOut?: { enabled: boolean };
+  btnAutoplay?: { enabled: boolean };
   btnPrint?: { enabled: boolean };
   btnDownloadPages?: { enabled: boolean };
   btnDownloadPdf?: { enabled: boolean };
@@ -214,11 +220,13 @@ const PDFFlipBookViewer = memo(({
   url,
   title,
   onLoad,
+  pdfSettings,
 }: {
   url: string;
   title: string;
   onLoad: () => void;
   onLinkClick?: (linkUrl: string, source: LinkSource) => void;
+  pdfSettings?: PDFFlipbookSettings;
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -253,6 +261,18 @@ const PDFFlipBookViewer = memo(({
 
         setIsLoading(false);
 
+        // Map PDFFlipbookSettings to Real3D FlipBook options
+        const isRTL = pdfSettings?.direction === '2';  // 2 = RTL, 1 = LTR
+        const isSinglePage = pdfSettings?.pagemode === '1';  // 1 = single, 2 = double
+        const is3D = pdfSettings?.webgl !== false;  // Default true
+        const hasSound = pdfSettings?.soundenable !== false;  // Default true
+        const flipDuration = pdfSettings?.duration ? pdfSettings.duration / 1000 : 0.8;  // Convert ms to seconds
+        const zoomMax = pdfSettings?.zoomratio || 1.5;
+        const autoplay = pdfSettings?.autoplay || false;
+        const autoplayInterval = 3000;  // 3 seconds between pages
+        const mouseWheel = pdfSettings?.scrollwheel !== false;  // Default true
+        const enableDownload = pdfSettings?.enabledownload || false;
+
         // Initialize the flipbook after a short delay
         setTimeout(() => {
           if (window.$ && containerRef.current) {
@@ -260,10 +280,16 @@ const PDFFlipBookViewer = memo(({
             if ($container.flipBook) {
               $container.flipBook({
                 pdfUrl: url,
-                rightToLeft: true,  // RTL for Hebrew
+                rightToLeft: isRTL,
+                singlePageMode: isSinglePage,
+                viewMode: is3D ? '3d' : '2d',
                 responsiveView: true,
                 responsiveViewTreshold: 768,  // Single page on mobile (< 768px)
-                sound: true,
+                sound: hasSound,
+                pageFlipDuration: flipDuration,
+                autoplayOnStart: autoplay,
+                autoplayInterval: autoplayInterval,
+                mouseWheel: mouseWheel,
                 assets: {
                   flipMp3: '/real3dflipbook/assets/mp3/turnPage2.mp3',
                 },
@@ -274,11 +300,13 @@ const PDFFlipBookViewer = memo(({
                 btnThumbs: { enabled: true },
                 btnZoomIn: { enabled: true },
                 btnZoomOut: { enabled: true },
+                btnSound: { enabled: hasSound },
+                btnAutoplay: { enabled: true },
                 zoomMin: 1,
-                zoomMax: 4,
+                zoomMax: zoomMax,
                 btnPrint: { enabled: false },
-                btnDownloadPages: { enabled: false },
-                btnDownloadPdf: { enabled: false },
+                btnDownloadPages: { enabled: enableDownload },
+                btnDownloadPdf: { enabled: enableDownload },
                 btnShare: { enabled: false },
               });
             }
@@ -295,7 +323,7 @@ const PDFFlipBookViewer = memo(({
     };
 
     loadReal3DFlipBook();
-  }, [url, onLoad]);
+  }, [url, onLoad, pdfSettings]);
 
   if (error) {
     return (
@@ -1516,6 +1544,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                 title={title}
                 onLoad={handleMediaLoad}
                 onLinkClick={trackLinkClick}
+                pdfSettings={activeViewer.media.pdfSettings}
               />
             )}
             {activeViewer.type === 'video' && !Array.isArray(activeViewer.media) && (
@@ -1599,7 +1628,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                   ) : item.type === 'selfiebeam' && item.selfiebeamContent ? (
                     <SelfiebeamViewer content={item.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
                   ) : item.type === 'pdf' ? (
-                    <PDFFlipBookViewer url={item.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
+                    <PDFFlipBookViewer url={item.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} pdfSettings={item.pdfSettings} />
                   ) : item.type === 'video' ? (
                     <div className="w-full h-full flex items-center justify-center bg-black">
                       <video
@@ -1720,7 +1749,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
         ) : isWeeklyCal && currentMedia.weeklycalConfig ? (
           <WeeklyCalendarViewer config={currentMedia.weeklycalConfig} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isPDF ? (
-          <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
+          <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} pdfSettings={currentMedia.pdfSettings} />
         ) : isAllPDFs && hasMultipleMedia ? (
           <MultiPDFViewer pdfUrls={media.map(m => m.url)} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} />
         ) : isAllImages && hasMultipleMedia ? (

@@ -632,16 +632,32 @@ export default function CodeEditPage({ params }: PageProps) {
 
     try {
       // Create new code with same media references (no actual file copy)
+      // Copy all media properties to preserve settings like pdfSettings
       const newCode = await createQRCode(
         user.id,
         `${code.title} ${t('duplicateSuffix')}`,
-        code.media.map((m) => ({
-          url: m.url,
-          type: m.type,
-          size: 0, // Don't count storage again since it's same file
-          order: m.order,
-          uploadedBy: user.id,
-        }))
+        code.media.map((m) => {
+          const mediaData: Record<string, unknown> = {
+            url: m.url,
+            type: m.type,
+            size: 0, // Don't count storage again since it's same file
+            order: m.order,
+            uploadedBy: user.id,
+          };
+          // Copy all optional properties if they exist
+          if (m.filename) mediaData.filename = m.filename;
+          if (m.title) mediaData.title = m.title;
+          if (m.pageCount) mediaData.pageCount = m.pageCount;
+          if (m.pdfSettings) mediaData.pdfSettings = m.pdfSettings;
+          if (m.schedule) mediaData.schedule = m.schedule;
+          if (m.linkUrl) mediaData.linkUrl = m.linkUrl;
+          if (m.linkTitle) mediaData.linkTitle = m.linkTitle;
+          if (m.riddleContent) mediaData.riddleContent = m.riddleContent;
+          if (m.selfiebeamContent) mediaData.selfiebeamContent = m.selfiebeamContent;
+          if (m.qvoteConfig) mediaData.qvoteConfig = m.qvoteConfig;
+          if (m.weeklycalConfig) mediaData.weeklycalConfig = m.weeklycalConfig;
+          return mediaData as Omit<MediaItem, 'id' | 'createdAt'>;
+        })
       );
 
       // Navigate to the new code
@@ -698,6 +714,9 @@ export default function CodeEditPage({ params }: PageProps) {
       if (media.selfiebeamContent) mediaData.selfiebeamContent = media.selfiebeamContent;
       if (media.weeklycalConfig) mediaData.weeklycalConfig = media.weeklycalConfig;
       if (media.qvoteConfig) mediaData.qvoteConfig = media.qvoteConfig;
+      if (media.pdfSettings) mediaData.pdfSettings = media.pdfSettings;
+      if (media.pageCount) mediaData.pageCount = media.pageCount;
+      if (media.schedule) mediaData.schedule = media.schedule;
 
       // Create new code with just this media item
       const newCode = await createQRCode(
