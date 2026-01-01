@@ -311,6 +311,16 @@ const PDFFlipBookViewer = memo(({
                     ? `/api/pdf-proxy?url=${encodeURIComponent(url)}`
                     : url;
 
+                  // Debug logging
+                  console.log('[PDFFlipBookViewer] URL check:', {
+                    originalUrl: url,
+                    hasBlob: url.includes('blob.vercel-storage.com'),
+                    finalPdfUrl: pdfUrl,
+                    pdfSettings: pdfSettings,
+                    showControls: showControls,
+                    controlsMode: controlsMode,
+                  });
+
                   $container.flipBook({
                     pdfUrl: pdfUrl,
                     rightToLeft: isRTL,
