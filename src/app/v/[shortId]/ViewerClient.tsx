@@ -285,7 +285,7 @@ const PDFFlipBookViewer = memo(({
         // Map PDFFlipbookSettings to Real3D FlipBook options
         const isRTL = pdfSettings?.direction === '2';  // 2 = RTL, 1 = LTR
         const isSinglePage = pdfSettings?.pagemode === '1';  // 1 = single, 2 = double
-        const is3D = pdfSettings?.webgl === true;  // Default false for testing
+        const is3D = pdfSettings?.webgl !== false;  // Default true (3D mode)
         const hasSound = pdfSettings?.soundenable !== false;  // Default true
         const flipDuration = pdfSettings?.duration ? pdfSettings.duration / 1000 : 0.8;  // Convert ms to seconds
         const zoomMax = pdfSettings?.zoomratio || 1.5;
