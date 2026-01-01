@@ -68,6 +68,8 @@ interface Real3DFlipBookOptions {
   assets?: {
     flipMp3?: string;
     spinner?: string;
+    preloader?: string;
+    backgroundMp3?: string;
     left?: string;
     overlay?: string;
   };
@@ -300,8 +302,12 @@ const PDFFlipBookViewer = memo(({
                     mouseWheel: mouseWheel,
                     sideNavigationButtons: showControls,  // Hide side arrows when controls hidden
                     currentPage: { enabled: showControls },  // Hide page indicator
+                    // Set absolute paths for all assets to avoid relative path issues
                     assets: {
+                      spinner: '/real3dflipbook/assets/images/spinner.gif',
+                      preloader: '/real3dflipbook/assets/images/preloader.jpg',
                       flipMp3: '/real3dflipbook/assets/mp3/turnPage2.mp3',
+                      backgroundMp3: '/real3dflipbook/assets/mp3/background.mp3',
                     },
                     pdfBrowserViewerIfMobile: false,
                     pdfBrowserViewerIfIE: false,
