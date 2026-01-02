@@ -352,7 +352,13 @@
     "tooltipWeeklyCal": "Weekly schedule for events and hotels",
     "qvoteDescription": "Create a digital voting experience for events",
     "createQVote": "Create Q.Vote",
-    "tooltipQVote": "Interactive voting for events"
+    "tooltipQVote": "Interactive voting for events",
+    "linkModeUrl": "Regular Link",
+    "whatsappNumberPlaceholder": "+1234567890",
+    "whatsappMessagePlaceholder": "Message (optional)",
+    "whatsappDescription": "QR scanners will be redirected to a WhatsApp chat with this number",
+    "whatsappNumberRequired": "Phone number is required",
+    "whatsappInvalidNumber": "Invalid phone number"
   },
   "analytics": {
     "title": "Analytics",

@@ -352,7 +352,13 @@
     "tooltipWeeklyCal": "לוח זמנים שבועי לאירועים ומלונות",
     "qvoteDescription": "צור חוויית הצבעה דיגיטלית לאירועים",
     "createQVote": "צור Q.Vote",
-    "tooltipQVote": "הצבעה אינטראקטיבית לאירועים"
+    "tooltipQVote": "הצבעה אינטראקטיבית לאירועים",
+    "linkModeUrl": "לינק רגיל",
+    "whatsappNumberPlaceholder": "050-1234567 או +972501234567",
+    "whatsappMessagePlaceholder": "הודעה (אופציונלי)",
+    "whatsappDescription": "סורקי הקוד יועברו לשיחת וואטסאפ עם המספר שהזנת",
+    "whatsappNumberRequired": "יש להזין מספר טלפון",
+    "whatsappInvalidNumber": "מספר טלפון לא תקין"
   },
   "analytics": {
     "title": "אנליטיקס",

@@ -1,9 +1,16 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
+
+// WhatsApp icon component
+const WhatsAppIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+  </svg>
+);
 
 interface MediaUploaderProps {
   onFileSelect: (file: File) => void;
@@ -32,6 +39,9 @@ export default function MediaUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'minigames'>('upload');
   const [linkUrl, setLinkUrl] = useState('');
+  const [linkMode, setLinkMode] = useState<'url' | 'whatsapp'>('url');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [whatsappMessage, setWhatsappMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,23 +100,76 @@ export default function MediaUploader({
     onFileSelect(file);
   };
 
-  const handleLinkSubmit = () => {
-    if (!linkUrl.trim()) return;
-    setError(null);
+  // Format phone number for WhatsApp (remove spaces, dashes, etc.)
+  const formatWhatsAppNumber = (number: string): string => {
+    // Remove all non-digit characters except +
+    let cleaned = number.replace(/[^\d+]/g, '');
 
-    let url = linkUrl.trim();
-
-    // Add https:// if no protocol specified
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
+    // If starts with 0, assume Israeli number and replace with 972
+    if (cleaned.startsWith('0')) {
+      cleaned = '972' + cleaned.slice(1);
     }
 
-    try {
-      new URL(url);
-      onLinkAdd?.(url);
-      setLinkUrl('');
-    } catch {
-      setError(t('invalidUrl'));
+    // Remove leading + if present (wa.me doesn't need it)
+    if (cleaned.startsWith('+')) {
+      cleaned = cleaned.slice(1);
+    }
+
+    return cleaned;
+  };
+
+  // Validate phone number
+  const isValidPhoneNumber = (number: string): boolean => {
+    const cleaned = formatWhatsAppNumber(number);
+    // Should be between 10-15 digits
+    return /^\d{10,15}$/.test(cleaned);
+  };
+
+  const handleLinkSubmit = () => {
+    setError(null);
+
+    if (linkMode === 'whatsapp') {
+      // WhatsApp link mode
+      if (!whatsappNumber.trim()) {
+        setError(t('whatsappNumberRequired') || 'יש להזין מספר טלפון');
+        return;
+      }
+
+      if (!isValidPhoneNumber(whatsappNumber)) {
+        setError(t('whatsappInvalidNumber') || 'מספר טלפון לא תקין');
+        return;
+      }
+
+      const formattedNumber = formatWhatsAppNumber(whatsappNumber);
+      let whatsappUrl = `https://wa.me/${formattedNumber}`;
+
+      // Add message if provided
+      if (whatsappMessage.trim()) {
+        whatsappUrl += `?text=${encodeURIComponent(whatsappMessage.trim())}`;
+      }
+
+      onLinkAdd?.(whatsappUrl);
+      setWhatsappNumber('');
+      setWhatsappMessage('');
+      setLinkMode('url');
+    } else {
+      // Regular URL mode
+      if (!linkUrl.trim()) return;
+
+      let url = linkUrl.trim();
+
+      // Add https:// if no protocol specified
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      try {
+        new URL(url);
+        onLinkAdd?.(url);
+        setLinkUrl('');
+      } catch {
+        setError(t('invalidUrl'));
+      }
     }
   };
 
@@ -259,23 +322,86 @@ export default function MediaUploader({
           </div>
         </>
       ) : activeTab === 'link' ? (
-        /* Link input */
+        /* Link input with URL/WhatsApp toggle */
         <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
-            <Link className="w-5 h-5 text-text-secondary flex-shrink-0" />
-            <input
-              type="url"
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.target.value)}
-              placeholder={t('enterUrl')}
-              className="input flex-1 text-sm"
-              dir="ltr"
-            />
+          {/* Mode toggle */}
+          <div className="flex gap-2 p-1 bg-bg-secondary rounded-xl">
+            <button
+              onClick={() => setLinkMode('url')}
+              className={clsx(
+                'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+                linkMode === 'url'
+                  ? 'bg-accent text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              )}
+            >
+              <Link className="w-4 h-4" />
+              {t('linkModeUrl') || 'לינק רגיל'}
+            </button>
+            <button
+              onClick={() => setLinkMode('whatsapp')}
+              className={clsx(
+                'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+                linkMode === 'whatsapp'
+                  ? 'bg-[#25D366] text-white'
+                  : 'text-text-secondary hover:text-text-primary'
+              )}
+            >
+              <WhatsAppIcon className="w-4 h-4" />
+              WhatsApp
+            </button>
           </div>
+
+          {linkMode === 'url' ? (
+            /* Regular URL input */
+            <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+              <Link className="w-5 h-5 text-text-secondary flex-shrink-0" />
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder={t('enterUrl')}
+                className="input flex-1 text-sm"
+                dir="ltr"
+              />
+            </div>
+          ) : (
+            /* WhatsApp input */
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+                <WhatsAppIcon className="w-5 h-5 text-[#25D366] flex-shrink-0" />
+                <input
+                  type="tel"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  placeholder={t('whatsappNumberPlaceholder') || '050-1234567 או +972501234567'}
+                  className="input flex-1 text-sm"
+                  dir="ltr"
+                />
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+                <MessageCircle className="w-5 h-5 text-text-secondary flex-shrink-0" />
+                <input
+                  type="text"
+                  value={whatsappMessage}
+                  onChange={(e) => setWhatsappMessage(e.target.value)}
+                  placeholder={t('whatsappMessagePlaceholder') || 'הודעה (אופציונלי)'}
+                  className="input flex-1 text-sm"
+                />
+              </div>
+              <p className="text-xs text-text-secondary text-center">
+                {t('whatsappDescription') || 'סורקי הקוד יועברו לשיחת וואטסאפ עם המספר שהזנת'}
+              </p>
+            </div>
+          )}
+
           <button
             onClick={handleLinkSubmit}
-            disabled={!linkUrl.trim()}
-            className="btn btn-primary w-full disabled:opacity-50"
+            disabled={linkMode === 'url' ? !linkUrl.trim() : !whatsappNumber.trim()}
+            className={clsx(
+              'btn w-full disabled:opacity-50',
+              linkMode === 'whatsapp' ? 'bg-[#25D366] hover:bg-[#20BA5C] text-white' : 'btn-primary'
+            )}
           >
             {t('createExperience')}
           </button>
