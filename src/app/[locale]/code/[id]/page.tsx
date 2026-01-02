@@ -2280,11 +2280,11 @@ export default function CodeEditPage({ params }: PageProps) {
         )}>
           {/* Header with title edit, action buttons and media count */}
           <div className="flex flex-col gap-3">
-            {/* Title edit row - title only on mobile, title + buttons on desktop */}
-            <div className="flex items-center gap-2">
-              {/* Navigation arrows */}
+            {/* Title row - full width on mobile for long names */}
+            <div className="flex items-start sm:items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* Navigation arrows - hidden on mobile, shown inline on desktop */}
               {siblingCodes.length > 1 && (
-                <div className="flex items-center">
+                <div className="hidden sm:flex items-center">
                   <button
                     onClick={navigateToNextCode}
                     className="p-1.5 rounded-lg hover:bg-bg-secondary transition-colors"
@@ -2305,7 +2305,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="flex-1 text-lg font-semibold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1"
+                className="w-full sm:flex-1 text-lg font-semibold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1 order-first sm:order-none"
                 placeholder={t('codeName')}
               />
               {/* Action buttons - hidden on mobile, shown on desktop */}
@@ -2375,6 +2375,26 @@ export default function CodeEditPage({ params }: PageProps) {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </Tooltip>
+              )}
+              {/* Navigation arrows on mobile - at the end */}
+              {siblingCodes.length > 1 && (
+                <>
+                  <div className="flex-1" />
+                  <button
+                    onClick={navigateToPrevCode}
+                    className="p-2 rounded-lg bg-bg-secondary hover:bg-bg-hover transition-colors"
+                    title={t('prevCode')}
+                  >
+                    <ChevronLeft className="w-4 h-4 text-text-secondary" />
+                  </button>
+                  <button
+                    onClick={navigateToNextCode}
+                    className="p-2 rounded-lg bg-bg-secondary hover:bg-bg-hover transition-colors"
+                    title={t('nextCode')}
+                  >
+                    <ChevronRight className="w-4 h-4 text-text-secondary" />
+                  </button>
+                </>
               )}
             </div>
             {/* Media count and add buttons */}
