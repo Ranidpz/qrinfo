@@ -305,8 +305,9 @@
   },
   "media": {
     "image": "Image",
+    "imageOrBooklet": "Image/Digital Booklet",
     "video": "Video",
-    "pdf": "PDF",
+    "pdf": "Digital Booklet",
     "link": "Link",
     "riddle": "Riddle",
     "wordcloud": "Word Cloud",

@@ -159,7 +159,7 @@ export default function MediaUploader({
       {/* Tab buttons - 4 columns grid on desktop, 3 on mobile */}
       {(onLinkAdd || onRiddleCreate || onWordCloudCreate) && (
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2 overflow-visible pt-3">
-          <TabButton tab="upload" label={tMedia('image')} icon={Upload} tooltip={t('tooltipUpload')} />
+          <TabButton tab="upload" label={tMedia('imageOrBooklet')} icon={Upload} tooltip={t('tooltipUpload')} />
           {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} tooltip={t('tooltipLink')} />}
           {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} badge="XP" tooltip={t('tooltipRiddle')} />}
           {onWordCloudCreate && <TabButton tab="wordcloud" label={tMedia('wordcloud')} icon={Cloud} tooltip={t('tooltipWordcloud')} />}
