@@ -142,6 +142,8 @@ export default function CodeCard({
       case 'wordcloud': return tMedia('wordcloud');
       case 'riddle': return tMedia('riddle');
       case 'selfiebeam': return tMedia('selfiebeam');
+      case 'weeklycal': return tMedia('weeklycal');
+      case 'qvote': return 'Q.Vote';
       default: return tMedia('image');
     }
   };
