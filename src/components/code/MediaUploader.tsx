@@ -4,6 +4,10 @@ import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, Ca
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
+import GooglePlacesAutocomplete from '@/components/ui/GooglePlacesAutocomplete';
+
+// Google Maps API key - must be accessed at module level for proper bundling
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 // Link mode types
 type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email' | 'navigation' | 'social' | 'payment';
@@ -384,10 +388,10 @@ export default function MediaUploader({
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2 overflow-visible pt-3">
           <TabButton tab="upload" label={tMedia('imageOrBooklet')} icon={Upload} tooltip={t('tooltipUpload')} />
           {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} tooltip={t('tooltipLink')} />}
-          {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} badge="XP" tooltip={t('tooltipRiddle')} />}
+          {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} tooltip={t('tooltipRiddle')} />}
           {onWordCloudCreate && <TabButton tab="wordcloud" label={tMedia('wordcloud')} icon={Cloud} tooltip={t('tooltipWordcloud')} />}
           {onSelfiebeamCreate && <TabButton tab="selfiebeam" label={tMedia('selfiebeam')} icon={Camera} tooltip={t('tooltipSelfiebeam')} />}
-          {onQVoteCreate && <TabButton tab="qvote" label="Q.Vote" icon={Vote} badge="NEW" tooltip={t('tooltipQVote') || 'Create a voting experience'} />}
+          {onQVoteCreate && <TabButton tab="qvote" label="Q.Vote" icon={Vote} tooltip={t('tooltipQVote') || 'Create a voting experience'} />}
           {onWeeklyCalendarCreate && <TabButton tab="weeklycal" label={tMedia('weeklycal') || 'Weekly'} icon={CalendarDays} tooltip={t('tooltipWeeklyCal') || 'Create a weekly schedule'} />}
           <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} tooltip={t('tooltipMinigames')} />
         </div>
@@ -483,36 +487,53 @@ export default function MediaUploader({
         </>
       ) : activeTab === 'link' ? (
         /* Link input with button selector for all link types */
-        <div className="space-y-3">
-          {/* Link mode buttons - grid of options (2 rows) */}
-          <div className="grid grid-cols-4 gap-1.5">
-            {linkModeOptions.map((option) => (
-              <button
-                key={option.mode}
-                onClick={() => setLinkMode(option.mode)}
-                className={clsx(
-                  'flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-xs font-medium transition-all border',
-                  linkMode === option.mode
-                    ? option.mode === 'whatsapp'
-                      ? 'bg-[#25D366] text-white border-[#25D366]'
-                      : option.mode === 'social'
-                        ? 'bg-yellow-500 text-white border-yellow-500'
-                        : option.mode === 'payment'
-                          ? 'bg-green-500 text-white border-green-500'
-                          : option.mode === 'navigation'
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'bg-accent text-white border-accent'
-                    : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50'
-                )}
-              >
-                <span className={clsx(
-                  linkMode === option.mode && (option.mode === 'whatsapp' || option.mode === 'social' || option.mode === 'payment' || option.mode === 'navigation') ? 'text-white' : ''
-                )}>
-                  {option.icon}
-                </span>
-                <span className="truncate text-[10px]">{tMedia(option.labelKey) || option.label}</span>
-              </button>
-            ))}
+        <div className="space-y-4">
+          {/* Section header with subtle divider */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-gradient-to-l from-border to-transparent" />
+            <span className="text-[11px] font-medium text-text-secondary/70 tracking-wide">
+              {tMedia('chooseLinkType') || 'סוג הלינק'}
+            </span>
+            <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
+          </div>
+
+          {/* Link mode pills - compact horizontal layout */}
+          <div className="flex flex-wrap gap-2 justify-center">
+            {linkModeOptions.map((option) => {
+              const isSelected = linkMode === option.mode;
+              const colorMap: Record<string, { bg: string; border: string; text: string }> = {
+                whatsapp: { bg: 'bg-[#25D366]/15', border: 'border-[#25D366]/50', text: 'text-[#25D366]' },
+                social: { bg: 'bg-amber-500/15', border: 'border-amber-500/50', text: 'text-amber-400' },
+                payment: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/50', text: 'text-emerald-400' },
+                navigation: { bg: 'bg-sky-500/15', border: 'border-sky-500/50', text: 'text-sky-400' },
+                phone: { bg: 'bg-blue-500/15', border: 'border-blue-500/50', text: 'text-blue-400' },
+                sms: { bg: 'bg-violet-500/15', border: 'border-violet-500/50', text: 'text-violet-400' },
+                email: { bg: 'bg-rose-500/15', border: 'border-rose-500/50', text: 'text-rose-400' },
+                url: { bg: 'bg-accent/15', border: 'border-accent/50', text: 'text-accent' },
+              };
+              const colors = colorMap[option.mode] || colorMap.url;
+
+              return (
+                <button
+                  key={option.mode}
+                  onClick={() => setLinkMode(option.mode)}
+                  className={clsx(
+                    'group flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium transition-all duration-200 border',
+                    isSelected
+                      ? `${colors.bg} ${colors.border} ${colors.text} shadow-sm`
+                      : 'bg-transparent border-border/50 text-text-secondary hover:border-text-secondary/30 hover:text-text-primary'
+                  )}
+                >
+                  <span className={clsx(
+                    'transition-transform duration-200',
+                    isSelected ? 'scale-110' : 'group-hover:scale-105'
+                  )}>
+                    {option.icon}
+                  </span>
+                  <span>{tMedia(option.labelKey) || option.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Fields based on selected mode */}
@@ -604,56 +625,81 @@ export default function MediaUploader({
 
           {linkMode === 'navigation' && (
             <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
-                <MapPin className="w-5 h-5 text-text-secondary flex-shrink-0" />
-                <input
-                  type="text"
-                  value={navAddress}
-                  onChange={(e) => setNavAddress(e.target.value)}
-                  placeholder={tMedia('addressPlaceholder') || 'רחוב, עיר או שם מקום'}
-                  className="input flex-1 text-sm"
-                />
-              </div>
-              {/* App selector */}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNavApp('google')}
-                  className={clsx(
-                    'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all border',
-                    navApp === 'google'
-                      ? 'bg-blue-500 text-white border-blue-500'
-                      : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border'
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Left column - Controls */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+                    <MapPin className="w-5 h-5 text-text-secondary flex-shrink-0" />
+                    <GooglePlacesAutocomplete
+                      value={navAddress}
+                      onChange={setNavAddress}
+                      placeholder={tMedia('addressPlaceholder') || 'רחוב, עיר או שם מקום'}
+                      className="input flex-1 text-sm"
+                    />
+                  </div>
+                  {/* App selector */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNavApp('google')}
+                      className={clsx(
+                        'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all border',
+                        navApp === 'google'
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border'
+                      )}
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                      </svg>
+                      Google Maps
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNavApp('waze')}
+                      className={clsx(
+                        'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all border',
+                        navApp === 'waze'
+                          ? 'bg-[#33CCFF] text-white border-[#33CCFF]'
+                          : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border'
+                      )}
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.54 6.63C19.41 4.23 16.67 2.86 13.74 3.03c-3.12.18-5.93 2-7.07 4.62-.65 1.49-.62 3.11-.7 4.64-.05.96.1 1.91.46 2.81.21.52.48 1.02.82 1.47.41.54.9 1 1.46 1.39 1.55 1.07 3.41 1.56 5.26 1.42 1.84-.14 3.57-.89 4.93-2.09 1.03-.91 1.75-2.1 2.13-3.4.37-1.28.4-2.64.08-3.94-.32-1.32-.98-2.52-1.93-3.5-.31-.33-.66-.64-1.03-.91.47.09.93.23 1.37.43 1.26.56 2.26 1.55 2.86 2.78.12.25.22.51.3.78.26-.56.42-1.16.48-1.78.12-1.35-.26-2.7-1.03-3.82-.25-.36-.54-.69-.86-.99z"/>
+                      </svg>
+                      Waze
+                    </button>
+                  </div>
+                  <p className="text-xs text-text-secondary text-center">
+                    {tMedia('navigationHowTo') || 'הסורק יועבר ישירות לניווט באפליקציה שבחרתם'}
+                  </p>
+                </div>
+                {/* Right column - Map preview */}
+                <div className="flex items-center justify-center">
+                  {navAddress.trim().length > 3 && GOOGLE_MAPS_API_KEY ? (
+                    <div className="relative rounded-xl overflow-hidden border border-border/50 bg-bg-secondary w-full h-[150px]">
+                      <img
+                        src={`https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(navAddress.trim())}&zoom=15&size=300x180&scale=2&maptype=roadmap&markers=color:red%7C${encodeURIComponent(navAddress.trim())}&key=${GOOGLE_MAPS_API_KEY}`}
+                        alt="Map preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) parent.style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded">
+                        Google Maps
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border-2 border-dashed border-border w-full h-[150px] flex items-center justify-center">
+                      <div className="text-center text-text-secondary">
+                        <MapPin className="w-8 h-8 mx-auto mb-1 opacity-50" />
+                        <p className="text-[10px]">{tMedia('mapPreviewPlaceholder')}</p>
+                      </div>
+                    </div>
                   )}
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                  </svg>
-                  Google Maps
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNavApp('waze')}
-                  className={clsx(
-                    'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all border',
-                    navApp === 'waze'
-                      ? 'bg-[#33CCFF] text-white border-[#33CCFF]'
-                      : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border'
-                  )}
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.54 6.63C19.41 4.23 16.67 2.86 13.74 3.03c-3.12.18-5.93 2-7.07 4.62-.65 1.49-.62 3.11-.7 4.64-.05.96.1 1.91.46 2.81.21.52.48 1.02.82 1.47.41.54.9 1 1.46 1.39 1.55 1.07 3.41 1.56 5.26 1.42 1.84-.14 3.57-.89 4.93-2.09 1.03-.91 1.75-2.1 2.13-3.4.37-1.28.4-2.64.08-3.94-.32-1.32-.98-2.52-1.93-3.5-.31-.33-.66-.64-1.03-.91.47.09.93.23 1.37.43 1.26.56 2.26 1.55 2.86 2.78.12.25.22.51.3.78.26-.56.42-1.16.48-1.78.12-1.35-.26-2.7-1.03-3.82-.25-.36-.54-.69-.86-.99z"/>
-                  </svg>
-                  Waze
-                </button>
-              </div>
-              <div className="text-center space-y-1">
-                <p className="text-xs text-text-secondary">
-                  {tMedia('navigationDescription') || 'פשוט הזינו כתובת - אנחנו ניצור את הלינק!'}
-                </p>
-                <p className="text-[10px] text-text-secondary/70">
-                  {tMedia('navigationHowTo') || 'הסורק יועבר ישירות לניווט באפליקציה שבחרתם'}
-                </p>
+                </div>
               </div>
             </div>
           )}

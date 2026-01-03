@@ -1062,7 +1062,9 @@ export default function DashboardPage() {
             alt="Q"
             width={160}
             height={160}
-            className="inline-block transition-transform duration-300 hover:scale-110 cursor-pointer opacity-0 animate-[logoFadeIn_0.4s_ease-out_0.4s_forwards]"
+            priority
+            className="inline-block transition-transform duration-300 hover:scale-110 cursor-pointer"
+            style={{ animation: 'logoFadeIn 0.4s ease-out 0.4s forwards', opacity: 0 }}
           />
           <span style={{ color: 'var(--text-title, #1f2937)' }}>- One Code. Endless Experiences</span>
         </h1>

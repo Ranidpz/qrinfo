@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Link as LinkIcon, Phone, Mail, MessageCircle, ChevronDown, MapPin, Star, CreditCard } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { clsx } from 'clsx';
+import GooglePlacesAutocomplete from '@/components/ui/GooglePlacesAutocomplete';
 
 // Link mode types
 type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email' | 'navigation' | 'social' | 'payment';
@@ -370,7 +371,10 @@ export default function AddLinkModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-bg-card border border-border rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5">
+      <div className={clsx(
+        "relative bg-bg-card border border-border rounded-2xl shadow-xl w-full p-6 space-y-5",
+        linkMode === 'navigation' ? 'max-w-2xl' : 'max-w-md'
+      )}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -541,58 +545,81 @@ export default function AddLinkModal({
 
           {linkMode === 'navigation' && (
             <>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-text-primary">
-                  {tUploader('addressPlaceholder') || 'כתובת'} <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={navAddress}
-                  onChange={(e) => {
-                    setNavAddress(e.target.value);
-                    setError('');
-                  }}
-                  placeholder={tUploader('addressPlaceholder') || 'רחוב, עיר או שם מקום'}
-                  className="input w-full"
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-text-primary">
-                  {tUploader('navigationApp') || 'אפליקציית ניווט'}
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNavApp('google')}
-                    className={clsx(
-                      'flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2',
-                      navApp === 'google'
-                        ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50'
-                        : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
-                    )}
-                  >
-                    <MapPin className="w-4 h-4" />
-                    Google Maps
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNavApp('waze')}
-                    className={clsx(
-                      'flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2',
-                      navApp === 'waze'
-                        ? 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/50'
-                        : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
-                    )}
-                  >
-                    <MapPin className="w-4 h-4" />
-                    Waze
-                  </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Left column - Search & Platform */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-text-primary">
+                      {tUploader('addressPlaceholder') || 'כתובת'} <span className="text-danger">*</span>
+                    </label>
+                    <GooglePlacesAutocomplete
+                      value={navAddress}
+                      onChange={(value) => {
+                        setNavAddress(value);
+                        setError('');
+                      }}
+                      placeholder={tUploader('addressPlaceholder') || 'רחוב, עיר או שם מקום'}
+                      className="input w-full"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-text-primary">
+                      {tUploader('navigationApp') || 'אפליקציית ניווט'}
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNavApp('google')}
+                        className={clsx(
+                          'flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-1.5',
+                          navApp === 'google'
+                            ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50'
+                            : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
+                        )}
+                      >
+                        <MapPin className="w-4 h-4" />
+                        Google Maps
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNavApp('waze')}
+                        className={clsx(
+                          'flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-1.5',
+                          navApp === 'waze'
+                            ? 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/50'
+                            : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
+                        )}
+                      >
+                        <MapPin className="w-4 h-4" />
+                        Waze
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    {tUploader('navigationDescription') || 'סורקי הקוד יועברו לניווט'}
+                  </p>
+                </div>
+                {/* Right column - Map Preview */}
+                <div className="flex items-center justify-center">
+                  {navAddress.trim() && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
+                    <div className="rounded-xl overflow-hidden border border-border w-full h-full min-h-[160px]">
+                      <img
+                        src={`https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(navAddress)}&zoom=15&size=300x200&scale=2&markers=color:red%7C${encodeURIComponent(navAddress)}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
+                        alt="Map preview"
+                        className="w-full h-full object-cover min-h-[160px]"
+                      />
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border-2 border-dashed border-border w-full h-full min-h-[160px] flex items-center justify-center">
+                      <div className="text-center text-text-secondary">
+                        <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs">{tUploader('mapPreviewPlaceholder') || 'הזן כתובת לתצוגה מקדימה'}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-              <p className="text-xs text-text-secondary">
-                {tUploader('navigationDescription') || 'סורקי הקוד יועברו לניווט'}
-              </p>
             </>
           )}
 
