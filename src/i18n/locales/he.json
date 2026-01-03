@@ -376,7 +376,17 @@
     "whatsappNumberPlaceholder": "050-1234567 או +972501234567",
     "whatsappMessagePlaceholder": "הודעה (אופציונלי)",
     "whatsappNumberRequired": "יש להזין מספר טלפון",
-    "whatsappInvalidNumber": "מספר טלפון לא תקין"
+    "whatsappInvalidNumber": "מספר טלפון לא תקין",
+    "linkModeNavigation": "ניווט",
+    "linkModeTip": "פרגנו לנו",
+    "addressPlaceholder": "רחוב, עיר או שם מקום",
+    "addressRequired": "יש להזין כתובת",
+    "navigationDescription": "סורקי הקוד יועברו לניווט",
+    "tipUrlPlaceholder": "לינק ל-PayPal, Paybox או כל דף תשלום",
+    "tipUrlRequired": "יש להזין לינק לתשלום",
+    "tipDescription": "סורקי הקוד יועברו לדף התשלום שלכם",
+    "navigation": "ניווט",
+    "tip": "פרגנו"
   },
   "analytics": {
     "title": "אנליטיקס",

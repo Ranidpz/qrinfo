@@ -1,12 +1,12 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
 
 // Link mode types
-type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email';
+type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email' | 'navigation' | 'tip';
 
 // WhatsApp icon component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -15,13 +15,15 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Link mode options with icons and labels
+// Link mode options with icons and labels - now in 2 rows
 const linkModeOptions: { mode: LinkMode; icon: React.ReactNode; label: string; labelKey: string }[] = [
   { mode: 'url', icon: <Link className="w-4 h-4" />, label: 'לינק רגיל', labelKey: 'linkModeUrl' },
   { mode: 'whatsapp', icon: <WhatsAppIcon className="w-4 h-4" />, label: 'WhatsApp', labelKey: 'linkModeWhatsapp' },
   { mode: 'phone', icon: <Phone className="w-4 h-4" />, label: 'שיחת טלפון', labelKey: 'linkModePhone' },
   { mode: 'sms', icon: <MessageCircle className="w-4 h-4" />, label: 'SMS', labelKey: 'linkModeSms' },
   { mode: 'email', icon: <Mail className="w-4 h-4" />, label: 'אימייל', labelKey: 'linkModeEmail' },
+  { mode: 'navigation', icon: <MapPin className="w-4 h-4" />, label: 'ניווט', labelKey: 'linkModeNavigation' },
+  { mode: 'tip', icon: <Heart className="w-4 h-4" />, label: 'פרגנו לנו', labelKey: 'linkModeTip' },
 ];
 
 interface MediaUploaderProps {
@@ -60,6 +62,11 @@ export default function MediaUploader({
   const [emailAddress, setEmailAddress] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
+  // Navigation fields
+  const [navAddress, setNavAddress] = useState('');
+  const [navApp, setNavApp] = useState<'google' | 'waze'>('google');
+  // Tip/payment fields
+  const [tipUrl, setTipUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -156,6 +163,9 @@ export default function MediaUploader({
     setEmailAddress('');
     setEmailSubject('');
     setEmailBody('');
+    setNavAddress('');
+    setNavApp('google');
+    setTipUrl('');
     setLinkMode('url');
   };
 
@@ -239,6 +249,43 @@ export default function MediaUploader({
         }
         onLinkAdd?.(url);
         resetLinkFields();
+        break;
+      }
+
+      case 'navigation': {
+        if (!navAddress.trim()) {
+          setError(tMedia('addressRequired') || 'יש להזין כתובת');
+          return;
+        }
+        const encodedAddress = encodeURIComponent(navAddress.trim());
+        let url: string;
+        if (navApp === 'waze') {
+          url = `https://waze.com/ul?q=${encodedAddress}&navigate=yes`;
+        } else {
+          url = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+        }
+        onLinkAdd?.(url);
+        resetLinkFields();
+        break;
+      }
+
+      case 'tip': {
+        if (!tipUrl.trim()) {
+          setError(tMedia('tipUrlRequired') || 'יש להזין לינק לתשלום');
+          return;
+        }
+        let url = tipUrl.trim();
+        // Add https:// if no protocol specified
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          url = 'https://' + url;
+        }
+        try {
+          new URL(url);
+          onLinkAdd?.(url);
+          resetLinkFields();
+        } catch {
+          setError(t('invalidUrl'));
+        }
         break;
       }
 
@@ -413,8 +460,8 @@ export default function MediaUploader({
       ) : activeTab === 'link' ? (
         /* Link input with button selector for all link types */
         <div className="space-y-3">
-          {/* Link mode buttons - grid of options */}
-          <div className="grid grid-cols-5 gap-1.5">
+          {/* Link mode buttons - grid of options (2 rows) */}
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
             {linkModeOptions.map((option) => (
               <button
                 key={option.mode}
@@ -424,16 +471,20 @@ export default function MediaUploader({
                   linkMode === option.mode
                     ? option.mode === 'whatsapp'
                       ? 'bg-[#25D366] text-white border-[#25D366]'
-                      : 'bg-accent text-white border-accent'
+                      : option.mode === 'tip'
+                        ? 'bg-pink-500 text-white border-pink-500'
+                        : option.mode === 'navigation'
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'bg-accent text-white border-accent'
                     : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50'
                 )}
               >
                 <span className={clsx(
-                  linkMode === option.mode && option.mode === 'whatsapp' ? 'text-white' : ''
+                  linkMode === option.mode && (option.mode === 'whatsapp' || option.mode === 'tip' || option.mode === 'navigation') ? 'text-white' : ''
                 )}>
                   {option.icon}
                 </span>
-                <span className="truncate text-[10px]">{t(option.labelKey) || option.label}</span>
+                <span className="truncate text-[10px]">{tMedia(option.labelKey) || option.label}</span>
               </button>
             ))}
           </div>
@@ -525,16 +576,91 @@ export default function MediaUploader({
             </div>
           )}
 
+          {linkMode === 'navigation' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+                <MapPin className="w-5 h-5 text-text-secondary flex-shrink-0" />
+                <input
+                  type="text"
+                  value={navAddress}
+                  onChange={(e) => setNavAddress(e.target.value)}
+                  placeholder={tMedia('addressPlaceholder') || 'רחוב, עיר או שם מקום'}
+                  className="input flex-1 text-sm"
+                />
+              </div>
+              {/* App selector */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNavApp('google')}
+                  className={clsx(
+                    'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all border',
+                    navApp === 'google'
+                      ? 'bg-blue-500 text-white border-blue-500'
+                      : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border'
+                  )}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                  Google Maps
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNavApp('waze')}
+                  className={clsx(
+                    'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all border',
+                    navApp === 'waze'
+                      ? 'bg-[#33CCFF] text-white border-[#33CCFF]'
+                      : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border'
+                  )}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.54 6.63C19.41 4.23 16.67 2.86 13.74 3.03c-3.12.18-5.93 2-7.07 4.62-.65 1.49-.62 3.11-.7 4.64-.05.96.1 1.91.46 2.81.21.52.48 1.02.82 1.47.41.54.9 1 1.46 1.39 1.55 1.07 3.41 1.56 5.26 1.42 1.84-.14 3.57-.89 4.93-2.09 1.03-.91 1.75-2.1 2.13-3.4.37-1.28.4-2.64.08-3.94-.32-1.32-.98-2.52-1.93-3.5-.31-.33-.66-.64-1.03-.91.47.09.93.23 1.37.43 1.26.56 2.26 1.55 2.86 2.78.12.25.22.51.3.78.26-.56.42-1.16.48-1.78.12-1.35-.26-2.7-1.03-3.82-.25-.36-.54-.69-.86-.99z"/>
+                  </svg>
+                  Waze
+                </button>
+              </div>
+              <p className="text-xs text-text-secondary text-center">
+                {tMedia('navigationDescription') || 'סורקי הקוד יועברו לניווט'}
+              </p>
+            </div>
+          )}
+
+          {linkMode === 'tip' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+                <Heart className="w-5 h-5 text-pink-500 flex-shrink-0" />
+                <input
+                  type="url"
+                  value={tipUrl}
+                  onChange={(e) => setTipUrl(e.target.value)}
+                  placeholder={tMedia('tipUrlPlaceholder') || 'לינק ל-PayPal, Paybox...'}
+                  className="input flex-1 text-sm"
+                  dir="ltr"
+                />
+              </div>
+              <p className="text-xs text-text-secondary text-center">
+                {tMedia('tipDescription') || 'סורקי הקוד יועברו לדף התשלום שלכם'}
+              </p>
+            </div>
+          )}
+
           <button
             onClick={handleLinkSubmit}
             disabled={
               (linkMode === 'url' && !linkUrl.trim()) ||
               ((linkMode === 'whatsapp' || linkMode === 'phone' || linkMode === 'sms') && !phoneNumber.trim()) ||
-              (linkMode === 'email' && !emailAddress.trim())
+              (linkMode === 'email' && !emailAddress.trim()) ||
+              (linkMode === 'navigation' && !navAddress.trim()) ||
+              (linkMode === 'tip' && !tipUrl.trim())
             }
             className={clsx(
               'btn w-full disabled:opacity-50',
-              linkMode === 'whatsapp' ? 'bg-[#25D366] hover:bg-[#20BA5C] text-white' : 'btn-primary'
+              linkMode === 'whatsapp' ? 'bg-[#25D366] hover:bg-[#20BA5C] text-white' :
+              linkMode === 'tip' ? 'bg-pink-500 hover:bg-pink-600 text-white' :
+              linkMode === 'navigation' ? 'bg-blue-500 hover:bg-blue-600 text-white' :
+              'btn-primary'
             )}
           >
             {t('createExperience')}

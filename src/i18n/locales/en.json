@@ -376,7 +376,17 @@
     "whatsappNumberPlaceholder": "+1234567890",
     "whatsappMessagePlaceholder": "Message (optional)",
     "whatsappNumberRequired": "Phone number is required",
-    "whatsappInvalidNumber": "Invalid phone number"
+    "whatsappInvalidNumber": "Invalid phone number",
+    "linkModeNavigation": "Navigation",
+    "linkModeTip": "Tip Us",
+    "addressPlaceholder": "Street, city or place name",
+    "addressRequired": "Address is required",
+    "navigationDescription": "QR scanners will be redirected to navigation",
+    "tipUrlPlaceholder": "Link to PayPal, Paybox or any payment page",
+    "tipUrlRequired": "Payment link is required",
+    "tipDescription": "QR scanners will be redirected to your payment page",
+    "navigation": "Navigation",
+    "tip": "Tip"
   },
   "analytics": {
     "title": "Analytics",
