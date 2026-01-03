@@ -37,6 +37,9 @@ import {
   Smartphone,
   LayoutGrid,
   Users,
+  Phone,
+  Mail,
+  MapPin,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,6 +74,7 @@ import QVoteModal from '@/components/modals/QVoteModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import QRSignModal from '@/components/modals/QRSignModal';
 import WhatsAppWidgetModal from '@/components/modals/WhatsAppWidgetModal';
+import ContactWidgetModal from '@/components/modals/ContactWidgetModal';
 import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
 import MobilePreviewModal from '@/components/modals/MobilePreviewModal';
 import LandingPageModal from '@/components/modals/LandingPageModal';
@@ -274,6 +278,10 @@ export default function CodeEditPage({ params }: PageProps) {
   // Widget modals state
   const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [contactWidgetModal, setContactWidgetModal] = useState<{
+    isOpen: boolean;
+    type: 'phone' | 'email' | 'sms' | 'navigation';
+  }>({ isOpen: false, type: 'phone' });
 
   // Mobile preview modal state
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
@@ -1865,7 +1873,7 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
-  const handleSaveWhatsappWidget = async (groupLink: string | undefined) => {
+  const handleSaveWhatsappWidget = async (config: CodeWidgets['whatsapp'] | undefined) => {
     if (!code) return;
 
     try {
@@ -1873,8 +1881,8 @@ export default function CodeEditPage({ params }: PageProps) {
         ...code.widgets,
       };
 
-      if (groupLink) {
-        updatedWidgets.whatsapp = { enabled: true, groupLink };
+      if (config) {
+        updatedWidgets.whatsapp = config;
       } else {
         delete updatedWidgets.whatsapp;
       }
@@ -1883,6 +1891,31 @@ export default function CodeEditPage({ params }: PageProps) {
       setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
     } catch (error) {
       console.error('Error saving WhatsApp widget:', error);
+      alert(tErrors('saveError'));
+    }
+  };
+
+  const handleSaveContactWidget = async (
+    widgetType: 'phone' | 'email' | 'sms' | 'navigation',
+    config: NonNullable<CodeWidgets[typeof widgetType]> | undefined
+  ) => {
+    if (!code) return;
+
+    try {
+      const updatedWidgets: CodeWidgets = {
+        ...code.widgets,
+      };
+
+      if (config) {
+        (updatedWidgets[widgetType] as typeof config) = config;
+      } else {
+        delete updatedWidgets[widgetType];
+      }
+
+      await updateQRCode(code.id, { widgets: updatedWidgets });
+      setCode((prev) => prev ? { ...prev, widgets: updatedWidgets } : null);
+    } catch (error) {
+      console.error(`Error saving ${widgetType} widget:`, error);
       alert(tErrors('saveError'));
     }
   };
@@ -2330,6 +2363,114 @@ export default function CodeEditPage({ params }: PageProps) {
                       <span>{code.widgets?.whatsapp?.enabled ? t('active') : t('inactive')}</span>
                     </div>
                     <div className="mt-0.5 text-gray-300">{t('whatsappTooltip')}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
+                </button>
+
+                {/* Phone Widget Button */}
+                <button
+                  onClick={() => setContactWidgetModal({ isOpen: true, type: 'phone' })}
+                  className={clsx(
+                    "group relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-all",
+                    code.widgets?.phone?.enabled
+                      ? "bg-blue-500/10 border-blue-500 text-blue-500"
+                      : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
+                  )}
+                >
+                  <div className={clsx(
+                    "w-7 h-7 rounded-full flex items-center justify-center",
+                    code.widgets?.phone?.enabled ? "bg-blue-500/20" : "bg-bg-hover"
+                  )}>
+                    <Phone className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-medium">{t('phoneWidget') || 'טלפון'}</span>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className={clsx("w-1.5 h-1.5 rounded-full", code.widgets?.phone?.enabled ? "bg-blue-500" : "bg-gray-500")} />
+                      <span>{code.widgets?.phone?.enabled ? t('active') : t('inactive')}</span>
+                    </div>
+                    <div className="mt-0.5 text-gray-300">{t('phoneWidgetTooltip') || 'כפתור חיוג ישיר'}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
+                </button>
+
+                {/* Email Widget Button */}
+                <button
+                  onClick={() => setContactWidgetModal({ isOpen: true, type: 'email' })}
+                  className={clsx(
+                    "group relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-all",
+                    code.widgets?.email?.enabled
+                      ? "bg-red-500/10 border-red-500 text-red-500"
+                      : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
+                  )}
+                >
+                  <div className={clsx(
+                    "w-7 h-7 rounded-full flex items-center justify-center",
+                    code.widgets?.email?.enabled ? "bg-red-500/20" : "bg-bg-hover"
+                  )}>
+                    <Mail className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-medium">{t('emailWidget') || 'מייל'}</span>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className={clsx("w-1.5 h-1.5 rounded-full", code.widgets?.email?.enabled ? "bg-red-500" : "bg-gray-500")} />
+                      <span>{code.widgets?.email?.enabled ? t('active') : t('inactive')}</span>
+                    </div>
+                    <div className="mt-0.5 text-gray-300">{t('emailWidgetTooltip') || 'כפתור שליחת מייל'}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
+                </button>
+
+                {/* SMS Widget Button */}
+                <button
+                  onClick={() => setContactWidgetModal({ isOpen: true, type: 'sms' })}
+                  className={clsx(
+                    "group relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-all",
+                    code.widgets?.sms?.enabled
+                      ? "bg-purple-500/10 border-purple-500 text-purple-500"
+                      : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
+                  )}
+                >
+                  <div className={clsx(
+                    "w-7 h-7 rounded-full flex items-center justify-center",
+                    code.widgets?.sms?.enabled ? "bg-purple-500/20" : "bg-bg-hover"
+                  )}>
+                    <MessageCircle className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-medium">SMS</span>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className={clsx("w-1.5 h-1.5 rounded-full", code.widgets?.sms?.enabled ? "bg-purple-500" : "bg-gray-500")} />
+                      <span>{code.widgets?.sms?.enabled ? t('active') : t('inactive')}</span>
+                    </div>
+                    <div className="mt-0.5 text-gray-300">{t('smsWidgetTooltip') || 'כפתור שליחת SMS'}</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
+                </button>
+
+                {/* Navigation Widget Button */}
+                <button
+                  onClick={() => setContactWidgetModal({ isOpen: true, type: 'navigation' })}
+                  className={clsx(
+                    "group relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-all",
+                    code.widgets?.navigation?.enabled
+                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-500"
+                      : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
+                  )}
+                >
+                  <div className={clsx(
+                    "w-7 h-7 rounded-full flex items-center justify-center",
+                    code.widgets?.navigation?.enabled ? "bg-emerald-500/20" : "bg-bg-hover"
+                  )}>
+                    <MapPin className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[11px] font-medium">{t('navigationWidget') || 'ניווט'}</span>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    <div className="flex items-center gap-1.5">
+                      <span className={clsx("w-1.5 h-1.5 rounded-full", code.widgets?.navigation?.enabled ? "bg-emerald-500" : "bg-gray-500")} />
+                      <span>{code.widgets?.navigation?.enabled ? t('active') : t('inactive')}</span>
+                    </div>
+                    <div className="mt-0.5 text-gray-300">{t('navigationWidgetTooltip') || 'כפתור ניווט למיקום'}</div>
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                   </div>
                 </button>
@@ -3288,7 +3429,16 @@ export default function CodeEditPage({ params }: PageProps) {
         isOpen={whatsappModalOpen}
         onClose={() => setWhatsappModalOpen(false)}
         onSave={handleSaveWhatsappWidget}
-        currentGroupLink={code.widgets?.whatsapp?.groupLink}
+        currentConfig={code.widgets?.whatsapp}
+      />
+
+      {/* Contact Widget Modal */}
+      <ContactWidgetModal
+        isOpen={contactWidgetModal.isOpen}
+        onClose={() => setContactWidgetModal(prev => ({ ...prev, isOpen: false }))}
+        widgetType={contactWidgetModal.type}
+        onSave={(config) => handleSaveContactWidget(contactWidgetModal.type, config as NonNullable<CodeWidgets[typeof contactWidgetModal.type]> | undefined)}
+        currentConfig={code.widgets?.[contactWidgetModal.type]}
       />
 
       {/* Replace Media Confirmation Modal */}

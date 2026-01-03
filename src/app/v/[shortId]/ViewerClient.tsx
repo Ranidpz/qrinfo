@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { MediaItem, CodeWidgets, LinkSource, LandingPageConfig, DEFAULT_LANDING_PAGE_CONFIG, PDFFlipbookSettings } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
+import ContactWidget from '@/components/viewer/ContactWidget';
 import RiddleViewer from '@/components/viewer/RiddleViewer';
 import SelfiebeamViewer from '@/components/viewer/SelfiebeamViewer';
 import QVoteViewer from '@/components/viewer/QVoteViewer';
@@ -1512,10 +1513,54 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
       </div>
 
       {/* WhatsApp Widget */}
-      {widgets.whatsapp?.enabled && widgets.whatsapp.groupLink && (
+      {widgets.whatsapp?.enabled && (
         <WhatsAppWidget
-          groupLink={widgets.whatsapp.groupLink}
-          onTrackClick={() => trackLinkClick(widgets.whatsapp!.groupLink, 'whatsapp')}
+          config={widgets.whatsapp}
+          onTrackClick={() => {
+            const url = widgets.whatsapp?.type === 'phone'
+              ? `https://wa.me/${widgets.whatsapp.phoneNumber}`
+              : widgets.whatsapp?.groupLink || '';
+            trackLinkClick(url, 'whatsapp');
+          }}
+        />
+      )}
+
+      {/* Contact Widgets */}
+      {widgets.phone?.enabled && (
+        <ContactWidget
+          type="phone"
+          config={widgets.phone}
+          offset={widgets.whatsapp?.enabled ? 72 : 0}
+          onTrackClick={() => trackLinkClick(`tel:+${widgets.phone!.phoneNumber}`, 'link')}
+        />
+      )}
+      {widgets.email?.enabled && (
+        <ContactWidget
+          type="email"
+          config={widgets.email}
+          offset={(widgets.whatsapp?.enabled ? 72 : 0) + (widgets.phone?.enabled ? 72 : 0)}
+          onTrackClick={() => trackLinkClick(`mailto:${widgets.email!.email}`, 'link')}
+        />
+      )}
+      {widgets.sms?.enabled && (
+        <ContactWidget
+          type="sms"
+          config={widgets.sms}
+          offset={(widgets.whatsapp?.enabled ? 72 : 0) + (widgets.phone?.enabled ? 72 : 0) + (widgets.email?.enabled ? 72 : 0)}
+          onTrackClick={() => trackLinkClick(`sms:+${widgets.sms!.phoneNumber}`, 'link')}
+        />
+      )}
+      {widgets.navigation?.enabled && (
+        <ContactWidget
+          type="navigation"
+          config={widgets.navigation}
+          offset={(widgets.whatsapp?.enabled ? 72 : 0) + (widgets.phone?.enabled ? 72 : 0) + (widgets.email?.enabled ? 72 : 0) + (widgets.sms?.enabled ? 72 : 0)}
+          onTrackClick={() => {
+            const url = widgets.navigation!.app === 'waze'
+              ? `https://waze.com/ul?q=${encodeURIComponent(widgets.navigation!.address)}&navigate=yes`
+              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(widgets.navigation!.address)}`;
+            trackLinkClick(url, 'link');
+          }}
         />
       )}
     </div>

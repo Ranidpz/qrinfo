@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Link as LinkIcon, Phone, Mail, MessageCircle, ChevronDown } from 'lucide-react';
+import { X, Link as LinkIcon, Phone, Mail, MessageCircle, ChevronDown, MapPin, Star, CreditCard } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { clsx } from 'clsx';
 
 // Link mode types
-type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email';
+type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email' | 'navigation' | 'social' | 'payment';
 
 // WhatsApp icon component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -41,6 +41,10 @@ export default function AddLinkModal({
   const [emailAddress, setEmailAddress] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
+  const [navAddress, setNavAddress] = useState('');
+  const [navApp, setNavApp] = useState<'google' | 'waze'>('google');
+  const [socialUrl, setSocialUrl] = useState('');
+  const [paymentUrl, setPaymentUrl] = useState('');
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
 
@@ -55,6 +59,9 @@ export default function AddLinkModal({
     { mode: 'phone', icon: <Phone className="w-4 h-4" />, label: tUploader('linkModePhone') || 'שיחת טלפון' },
     { mode: 'sms', icon: <MessageCircle className="w-4 h-4" />, label: tUploader('linkModeSms') || 'SMS' },
     { mode: 'email', icon: <Mail className="w-4 h-4" />, label: tUploader('linkModeEmail') || 'אימייל' },
+    { mode: 'navigation', icon: <MapPin className="w-4 h-4" />, label: tUploader('linkModeNavigation') || 'ניווט' },
+    { mode: 'social', icon: <Star className="w-4 h-4" />, label: tUploader('linkModeSocial') || 'פרגנו לנו' },
+    { mode: 'payment', icon: <CreditCard className="w-4 h-4" />, label: tUploader('linkModePayment') || 'תשלום' },
   ];
 
   // Detect link type from URL and pre-populate fields
@@ -101,6 +108,39 @@ export default function AddLinkModal({
         return;
       }
 
+      // Navigation URLs (Google Maps / Waze)
+      if (urlObj.hostname.includes('google.com/maps') || urlObj.hostname === 'maps.google.com') {
+        setLinkMode('navigation');
+        setNavApp('google');
+        const query = urlObj.searchParams.get('query') || urlObj.searchParams.get('q') || '';
+        setNavAddress(decodeURIComponent(query));
+        return;
+      }
+      if (urlObj.hostname === 'waze.com' || urlObj.hostname === 'www.waze.com') {
+        setLinkMode('navigation');
+        setNavApp('waze');
+        const query = urlObj.searchParams.get('q') || '';
+        setNavAddress(decodeURIComponent(query));
+        return;
+      }
+
+      // Social/Review URLs (Facebook, Google Reviews, TripAdvisor)
+      if (urlObj.hostname.includes('facebook.com') ||
+          urlObj.hostname.includes('google.com/maps/place') ||
+          urlObj.hostname.includes('tripadvisor')) {
+        setLinkMode('social');
+        setSocialUrl(url);
+        return;
+      }
+
+      // Payment URLs (PayPal, Paybox)
+      if (urlObj.hostname.includes('paypal') ||
+          urlObj.hostname.includes('paybox')) {
+        setLinkMode('payment');
+        setPaymentUrl(url);
+        return;
+      }
+
       // Regular URL
       setLinkMode('url');
       setLinkUrl(url);
@@ -126,6 +166,10 @@ export default function AddLinkModal({
         setEmailAddress('');
         setEmailSubject('');
         setEmailBody('');
+        setNavAddress('');
+        setNavApp('google');
+        setSocialUrl('');
+        setPaymentUrl('');
         setTitle('');
       }
     }
@@ -232,6 +276,58 @@ export default function AddLinkModal({
         break;
       }
 
+      case 'navigation': {
+        if (!navAddress.trim()) {
+          setError(tUploader('addressRequired') || 'יש להזין כתובת');
+          return;
+        }
+        const encodedAddress = encodeURIComponent(navAddress.trim());
+        if (navApp === 'waze') {
+          finalUrl = `https://waze.com/ul?q=${encodedAddress}&navigate=yes`;
+        } else {
+          finalUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+        }
+        break;
+      }
+
+      case 'social': {
+        const trimmedUrl = socialUrl.trim();
+        if (!trimmedUrl) {
+          setError(tUploader('socialUrlRequired') || 'יש להזין לינק');
+          return;
+        }
+        finalUrl = trimmedUrl;
+        if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+          finalUrl = 'https://' + trimmedUrl;
+        }
+        try {
+          new URL(finalUrl);
+        } catch {
+          setError(t('addLinkInvalidUrl'));
+          return;
+        }
+        break;
+      }
+
+      case 'payment': {
+        const trimmedUrl = paymentUrl.trim();
+        if (!trimmedUrl) {
+          setError(tUploader('paymentUrlRequired') || 'יש להזין לינק');
+          return;
+        }
+        finalUrl = trimmedUrl;
+        if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+          finalUrl = 'https://' + trimmedUrl;
+        }
+        try {
+          new URL(finalUrl);
+        } catch {
+          setError(t('addLinkInvalidUrl'));
+          return;
+        }
+        break;
+      }
+
       case 'url':
       default: {
         const trimmedUrl = linkUrl.trim();
@@ -260,7 +356,10 @@ export default function AddLinkModal({
     loading ||
     (linkMode === 'url' && !linkUrl.trim()) ||
     ((linkMode === 'whatsapp' || linkMode === 'phone' || linkMode === 'sms') && !phoneNumber.trim()) ||
-    (linkMode === 'email' && !emailAddress.trim());
+    (linkMode === 'email' && !emailAddress.trim()) ||
+    (linkMode === 'navigation' && !navAddress.trim()) ||
+    (linkMode === 'social' && !socialUrl.trim()) ||
+    (linkMode === 'payment' && !paymentUrl.trim());
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -436,6 +535,113 @@ export default function AddLinkModal({
               </div>
               <p className="text-xs text-text-secondary">
                 {tUploader('emailDescription') || 'סורקי הקוד יפתחו את תוכנת המייל שלהם'}
+              </p>
+            </>
+          )}
+
+          {linkMode === 'navigation' && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-primary">
+                  {tUploader('addressPlaceholder') || 'כתובת'} <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={navAddress}
+                  onChange={(e) => {
+                    setNavAddress(e.target.value);
+                    setError('');
+                  }}
+                  placeholder={tUploader('addressPlaceholder') || 'רחוב, עיר או שם מקום'}
+                  className="input w-full"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-primary">
+                  {tUploader('navigationApp') || 'אפליקציית ניווט'}
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNavApp('google')}
+                    className={clsx(
+                      'flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2',
+                      navApp === 'google'
+                        ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50'
+                        : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
+                    )}
+                  >
+                    <MapPin className="w-4 h-4" />
+                    Google Maps
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNavApp('waze')}
+                    className={clsx(
+                      'flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2',
+                      navApp === 'waze'
+                        ? 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/50'
+                        : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
+                    )}
+                  >
+                    <MapPin className="w-4 h-4" />
+                    Waze
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-text-secondary">
+                {tUploader('navigationDescription') || 'סורקי הקוד יועברו לניווט'}
+              </p>
+            </>
+          )}
+
+          {linkMode === 'social' && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-primary">
+                  {tUploader('linkModeSocial') || 'לינק לביקורות'} <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={socialUrl}
+                  onChange={(e) => {
+                    setSocialUrl(e.target.value);
+                    setError('');
+                  }}
+                  placeholder={tUploader('socialUrlPlaceholder') || 'לינק לפייסבוק, גוגל ביקורות, TripAdvisor...'}
+                  className="input w-full"
+                  dir="ltr"
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-text-secondary">
+                {tUploader('socialDescription') || 'סורקי הקוד יועברו להשאיר לכם ביקורת'}
+              </p>
+            </>
+          )}
+
+          {linkMode === 'payment' && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text-primary">
+                  {tUploader('linkModePayment') || 'לינק לתשלום'} <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={paymentUrl}
+                  onChange={(e) => {
+                    setPaymentUrl(e.target.value);
+                    setError('');
+                  }}
+                  placeholder={tUploader('paymentUrlPlaceholder') || 'לינק ל-PayPal, Paybox או כל דף תשלום'}
+                  className="input w-full"
+                  dir="ltr"
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-text-secondary">
+                {tUploader('paymentDescription') || 'סורקי הקוד יועברו לדף התשלום שלכם'}
               </p>
             </>
           )}

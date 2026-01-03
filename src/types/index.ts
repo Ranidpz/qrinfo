@@ -158,7 +158,30 @@ export interface CodeWidgets {
   qrSign?: QRSign;
   whatsapp?: {
     enabled: boolean;
-    groupLink: string;
+    type: 'group' | 'phone'; // group = chat.whatsapp.com link, phone = direct number
+    groupLink?: string;
+    phoneNumber?: string;
+    message?: string; // Pre-filled message for phone type
+  };
+  phone?: {
+    enabled: boolean;
+    phoneNumber: string;
+  };
+  email?: {
+    enabled: boolean;
+    email: string;
+    subject?: string;
+    body?: string;
+  };
+  sms?: {
+    enabled: boolean;
+    phoneNumber: string;
+    message?: string;
+  };
+  navigation?: {
+    enabled: boolean;
+    address: string;
+    app: 'google' | 'waze';
   };
   pwaEncourage?: {
     enabled: boolean; // Default true - encourage app installation on scan
