@@ -1,12 +1,12 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
 
 // Link mode types
-type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email' | 'navigation' | 'tip';
+type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email' | 'navigation' | 'social' | 'payment';
 
 // WhatsApp icon component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -23,7 +23,8 @@ const linkModeOptions: { mode: LinkMode; icon: React.ReactNode; label: string; l
   { mode: 'sms', icon: <MessageCircle className="w-4 h-4" />, label: 'SMS', labelKey: 'linkModeSms' },
   { mode: 'email', icon: <Mail className="w-4 h-4" />, label: 'אימייל', labelKey: 'linkModeEmail' },
   { mode: 'navigation', icon: <MapPin className="w-4 h-4" />, label: 'ניווט', labelKey: 'linkModeNavigation' },
-  { mode: 'tip', icon: <Heart className="w-4 h-4" />, label: 'פרגנו לנו', labelKey: 'linkModeTip' },
+  { mode: 'social', icon: <Star className="w-4 h-4" />, label: 'פרגנו לנו', labelKey: 'linkModeSocial' },
+  { mode: 'payment', icon: <CreditCard className="w-4 h-4" />, label: 'תשלום', labelKey: 'linkModePayment' },
 ];
 
 interface MediaUploaderProps {
@@ -65,8 +66,10 @@ export default function MediaUploader({
   // Navigation fields
   const [navAddress, setNavAddress] = useState('');
   const [navApp, setNavApp] = useState<'google' | 'waze'>('google');
-  // Tip/payment fields
-  const [tipUrl, setTipUrl] = useState('');
+  // Social/review fields
+  const [socialUrl, setSocialUrl] = useState('');
+  // Payment fields
+  const [paymentUrl, setPaymentUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -165,7 +168,8 @@ export default function MediaUploader({
     setEmailBody('');
     setNavAddress('');
     setNavApp('google');
-    setTipUrl('');
+    setSocialUrl('');
+    setPaymentUrl('');
     setLinkMode('url');
   };
 
@@ -269,12 +273,32 @@ export default function MediaUploader({
         break;
       }
 
-      case 'tip': {
-        if (!tipUrl.trim()) {
-          setError(tMedia('tipUrlRequired') || 'יש להזין לינק לתשלום');
+      case 'social': {
+        if (!socialUrl.trim()) {
+          setError(tMedia('socialUrlRequired') || 'יש להזין לינק לדף הביקורות');
           return;
         }
-        let url = tipUrl.trim();
+        let url = socialUrl.trim();
+        // Add https:// if no protocol specified
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          url = 'https://' + url;
+        }
+        try {
+          new URL(url);
+          onLinkAdd?.(url);
+          resetLinkFields();
+        } catch {
+          setError(t('invalidUrl'));
+        }
+        break;
+      }
+
+      case 'payment': {
+        if (!paymentUrl.trim()) {
+          setError(tMedia('paymentUrlRequired') || 'יש להזין לינק לתשלום');
+          return;
+        }
+        let url = paymentUrl.trim();
         // Add https:// if no protocol specified
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
           url = 'https://' + url;
@@ -461,7 +485,7 @@ export default function MediaUploader({
         /* Link input with button selector for all link types */
         <div className="space-y-3">
           {/* Link mode buttons - grid of options (2 rows) */}
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {linkModeOptions.map((option) => (
               <button
                 key={option.mode}
@@ -471,16 +495,18 @@ export default function MediaUploader({
                   linkMode === option.mode
                     ? option.mode === 'whatsapp'
                       ? 'bg-[#25D366] text-white border-[#25D366]'
-                      : option.mode === 'tip'
-                        ? 'bg-pink-500 text-white border-pink-500'
-                        : option.mode === 'navigation'
-                          ? 'bg-blue-500 text-white border-blue-500'
-                          : 'bg-accent text-white border-accent'
+                      : option.mode === 'social'
+                        ? 'bg-yellow-500 text-white border-yellow-500'
+                        : option.mode === 'payment'
+                          ? 'bg-green-500 text-white border-green-500'
+                          : option.mode === 'navigation'
+                            ? 'bg-blue-500 text-white border-blue-500'
+                            : 'bg-accent text-white border-accent'
                     : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50'
                 )}
               >
                 <span className={clsx(
-                  linkMode === option.mode && (option.mode === 'whatsapp' || option.mode === 'tip' || option.mode === 'navigation') ? 'text-white' : ''
+                  linkMode === option.mode && (option.mode === 'whatsapp' || option.mode === 'social' || option.mode === 'payment' || option.mode === 'navigation') ? 'text-white' : ''
                 )}>
                   {option.icon}
                 </span>
@@ -627,21 +653,40 @@ export default function MediaUploader({
             </div>
           )}
 
-          {linkMode === 'tip' && (
+          {linkMode === 'social' && (
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
-                <Heart className="w-5 h-5 text-pink-500 flex-shrink-0" />
+                <Star className="w-5 h-5 text-yellow-500 flex-shrink-0" />
                 <input
                   type="url"
-                  value={tipUrl}
-                  onChange={(e) => setTipUrl(e.target.value)}
-                  placeholder={tMedia('tipUrlPlaceholder') || 'לינק ל-PayPal, Paybox...'}
+                  value={socialUrl}
+                  onChange={(e) => setSocialUrl(e.target.value)}
+                  placeholder={tMedia('socialUrlPlaceholder') || 'לינק לפייסבוק, גוגל ביקורות...'}
                   className="input flex-1 text-sm"
                   dir="ltr"
                 />
               </div>
               <p className="text-xs text-text-secondary text-center">
-                {tMedia('tipDescription') || 'סורקי הקוד יועברו לדף התשלום שלכם'}
+                {tMedia('socialDescription') || 'סורקי הקוד יועברו לדף הביקורות שלכם'}
+              </p>
+            </div>
+          )}
+
+          {linkMode === 'payment' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+                <CreditCard className="w-5 h-5 text-green-500 flex-shrink-0" />
+                <input
+                  type="url"
+                  value={paymentUrl}
+                  onChange={(e) => setPaymentUrl(e.target.value)}
+                  placeholder={tMedia('paymentUrlPlaceholder') || 'לינק ל-PayPal, Paybox...'}
+                  className="input flex-1 text-sm"
+                  dir="ltr"
+                />
+              </div>
+              <p className="text-xs text-text-secondary text-center">
+                {tMedia('paymentDescription') || 'סורקי הקוד יועברו לדף התשלום שלכם'}
               </p>
             </div>
           )}
@@ -653,12 +698,14 @@ export default function MediaUploader({
               ((linkMode === 'whatsapp' || linkMode === 'phone' || linkMode === 'sms') && !phoneNumber.trim()) ||
               (linkMode === 'email' && !emailAddress.trim()) ||
               (linkMode === 'navigation' && !navAddress.trim()) ||
-              (linkMode === 'tip' && !tipUrl.trim())
+              (linkMode === 'social' && !socialUrl.trim()) ||
+              (linkMode === 'payment' && !paymentUrl.trim())
             }
             className={clsx(
               'btn w-full disabled:opacity-50',
               linkMode === 'whatsapp' ? 'bg-[#25D366] hover:bg-[#20BA5C] text-white' :
-              linkMode === 'tip' ? 'bg-pink-500 hover:bg-pink-600 text-white' :
+              linkMode === 'social' ? 'bg-yellow-500 hover:bg-yellow-600 text-white' :
+              linkMode === 'payment' ? 'bg-green-500 hover:bg-green-600 text-white' :
               linkMode === 'navigation' ? 'bg-blue-500 hover:bg-blue-600 text-white' :
               'btn-primary'
             )}
