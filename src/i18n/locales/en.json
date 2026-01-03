@@ -282,6 +282,7 @@
     "printQR": "Print QR",
     "share": "Share",
     "widgets": "Widgets",
+    "widgetsDescription": "Floating buttons that appear on the experience for quick access",
     "qrSign": "QR Sign",
     "qrSignTooltip": "Add a custom sign/logo in the center of the QR code",
     "whatsappWidget": "WhatsApp",

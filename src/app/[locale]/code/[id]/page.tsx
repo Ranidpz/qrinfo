@@ -2141,7 +2141,20 @@ export default function CodeEditPage({ params }: PageProps) {
           {qrExpanded && (
             <div className="space-y-6">
               {/* QR Code */}
-              <div ref={qrRef} className="flex justify-center p-4 bg-white rounded-xl">
+              <div ref={qrRef} className="flex justify-center p-4 bg-white rounded-xl relative">
+                {/* QR Sign Button - overlaid on QR code */}
+                <button
+                  onClick={() => setQrSignModalOpen(true)}
+                  className={clsx(
+                    "absolute top-2 left-2 p-1.5 rounded-lg transition-all z-10",
+                    code.widgets?.qrSign?.enabled
+                      ? "bg-emerald-500/90 text-white hover:bg-emerald-600"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  )}
+                  title={t('qrSignTooltip')}
+                >
+                  <QrCode className="w-4 h-4" />
+                </button>
                 <div className="relative inline-block">
                   <QRCodeSVG
                     value={viewUrl}
@@ -2288,55 +2301,9 @@ export default function CodeEditPage({ params }: PageProps) {
 
             {/* Collapsible content - Widget buttons grid */}
             {widgetsExpanded && (
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {/* QR Sign Widget Button */}
-                <button
-                  onClick={() => setQrSignModalOpen(true)}
-                  className={clsx(
-                    "group relative flex flex-col items-center gap-1 p-2 rounded-lg border transition-all",
-                    code.widgets?.qrSign?.enabled
-                      ? "bg-emerald-500/10 border-emerald-500 text-emerald-500"
-                      : "bg-bg-secondary border-border text-text-secondary hover:bg-bg-hover"
-                  )}
-                >
-                  <div className={clsx(
-                    "w-7 h-7 rounded-full flex items-center justify-center",
-                    code.widgets?.qrSign?.enabled ? "bg-emerald-500/20" : "bg-bg-hover"
-                  )}>
-                    {code.widgets?.qrSign?.enabled && code.widgets.qrSign.value ? (
-                      code.widgets.qrSign.type === 'logo' ? (
-                        <img
-                          src={code.widgets.qrSign.value}
-                          alt="Logo"
-                          className="w-4 h-4 object-contain"
-                        />
-                      ) : code.widgets.qrSign.type === 'icon' ? (
-                        (() => {
-                          const LucideIcons = require('lucide-react');
-                          const IconComponent = LucideIcons[code.widgets.qrSign.value];
-                          return IconComponent ? (
-                            <IconComponent size={14} className="text-emerald-500" />
-                          ) : <QrCode className="w-3.5 h-3.5" />;
-                        })()
-                      ) : (
-                        <span className="text-[10px] font-bold">{code.widgets.qrSign.value}</span>
-                      )
-                    ) : (
-                      <QrCode className="w-3.5 h-3.5" />
-                    )}
-                  </div>
-                  <span className="text-[11px] font-medium">{t('qrSign')}</span>
-                  {/* Styled Tooltip with status */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1.5 bg-gray-900 text-white text-[10px] rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                    <div className="flex items-center gap-1.5">
-                      <span className={clsx("w-1.5 h-1.5 rounded-full", code.widgets?.qrSign?.enabled ? "bg-emerald-500" : "bg-gray-500")} />
-                      <span>{code.widgets?.qrSign?.enabled ? t('active') : t('inactive')}</span>
-                    </div>
-                    <div className="mt-0.5 text-gray-300">{t('qrSignTooltip')}</div>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-                  </div>
-                </button>
-
+              <div className="mt-3 space-y-3">
+                <p className="text-xs text-text-secondary">{t('widgetsDescription')}</p>
+                <div className="grid grid-cols-3 gap-2">
                 {/* WhatsApp Widget Button */}
                 <button
                   onClick={() => setWhatsappModalOpen(true)}
@@ -2503,6 +2470,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   </div>
                 </button>
 
+                </div>
               </div>
             )}
           </div>
