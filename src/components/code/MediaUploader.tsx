@@ -411,40 +411,31 @@ export default function MediaUploader({
           </div>
         </>
       ) : activeTab === 'link' ? (
-        /* Link input with dropdown selector for all link types */
+        /* Link input with button selector for all link types */
         <div className="space-y-3">
-          {/* Link mode dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowLinkModeDropdown(!showLinkModeDropdown)}
-              className="w-full flex items-center justify-between gap-2 p-3 bg-bg-secondary rounded-xl text-sm font-medium text-text-primary hover:bg-bg-hover transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                {linkModeOptions.find(o => o.mode === linkMode)?.icon}
-                <span>{t(linkModeOptions.find(o => o.mode === linkMode)?.labelKey || 'linkModeUrl') || linkModeOptions.find(o => o.mode === linkMode)?.label}</span>
-              </div>
-              <ChevronDown className={clsx('w-4 h-4 transition-transform', showLinkModeDropdown && 'rotate-180')} />
-            </button>
-            {showLinkModeDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
-                {linkModeOptions.map((option) => (
-                  <button
-                    key={option.mode}
-                    onClick={() => {
-                      setLinkMode(option.mode);
-                      setShowLinkModeDropdown(false);
-                    }}
-                    className={clsx(
-                      'w-full flex items-center gap-2 p-3 text-sm text-start hover:bg-bg-hover transition-colors',
-                      linkMode === option.mode && 'bg-accent/10 text-accent'
-                    )}
-                  >
-                    {option.icon}
-                    <span>{t(option.labelKey) || option.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+          {/* Link mode buttons - grid of options */}
+          <div className="grid grid-cols-5 gap-1.5">
+            {linkModeOptions.map((option) => (
+              <button
+                key={option.mode}
+                onClick={() => setLinkMode(option.mode)}
+                className={clsx(
+                  'flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-xs font-medium transition-all border',
+                  linkMode === option.mode
+                    ? option.mode === 'whatsapp'
+                      ? 'bg-[#25D366] text-white border-[#25D366]'
+                      : 'bg-accent text-white border-accent'
+                    : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50'
+                )}
+              >
+                <span className={clsx(
+                  linkMode === option.mode && option.mode === 'whatsapp' ? 'text-white' : ''
+                )}>
+                  {option.icon}
+                </span>
+                <span className="truncate text-[10px]">{t(option.labelKey) || option.label}</span>
+              </button>
+            ))}
           </div>
 
           {/* Fields based on selected mode */}

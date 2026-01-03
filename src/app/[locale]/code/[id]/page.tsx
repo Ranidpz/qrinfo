@@ -240,6 +240,13 @@ export default function CodeEditPage({ params }: PageProps) {
   const [addLinkModalOpen, setAddLinkModalOpen] = useState(false);
   const [addingLink, setAddingLink] = useState(false);
 
+  // Edit link modal state (for link-type media)
+  const [editLinkModal, setEditLinkModal] = useState<{ isOpen: boolean; mediaId: string | null; url: string }>({
+    isOpen: false,
+    mediaId: null,
+    url: '',
+  });
+
   // Riddle modal state
   const [riddleModalOpen, setRiddleModalOpen] = useState(false);
   const [addingRiddle, setAddingRiddle] = useState(false);
@@ -1299,6 +1306,25 @@ export default function CodeEditPage({ params }: PageProps) {
       alert(tErrors('saveError'));
     } finally {
       setAddingLink(false);
+    }
+  };
+
+  // Handler for updating an existing link media
+  const handleUpdateLink = async (linkUrl: string, title?: string) => {
+    if (!code || !editLinkModal.mediaId) return;
+
+    try {
+      const updatedMedia = code.media.map((m) =>
+        m.id === editLinkModal.mediaId
+          ? { ...m, url: linkUrl, title: title }
+          : m
+      );
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      setEditLinkModal({ isOpen: false, mediaId: null, url: '' });
+    } catch (error) {
+      console.error('Error updating link:', error);
+      alert(tErrors('saveError'));
     }
   };
 
@@ -2897,6 +2923,18 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
+                  {/* Link Settings button - for link-type media */}
+                  {media.type === 'link' && (
+                    <Tooltip text={locale === 'he' ? 'עריכת קישור' : 'Edit Link'}>
+                      <button
+                        onClick={() => setEditLinkModal({ isOpen: true, mediaId: media.id, url: media.url })}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-accent transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
                   {/* Replace button - not for links, riddles, selfiebeams, weeklycal, or qvote */}
                   {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && (
                     <Tooltip text={t('replaceFile')}>
@@ -3135,6 +3173,15 @@ export default function CodeEditPage({ params }: PageProps) {
         onClose={() => setAddLinkModalOpen(false)}
         onSave={handleAddLink}
         loading={addingLink}
+      />
+
+      {/* Edit Link Modal */}
+      <AddLinkModal
+        isOpen={editLinkModal.isOpen}
+        onClose={() => setEditLinkModal({ isOpen: false, mediaId: null, url: '' })}
+        onSave={handleUpdateLink}
+        editMode={true}
+        initialUrl={editLinkModal.url}
       />
 
       {/* Riddle Modal */}
