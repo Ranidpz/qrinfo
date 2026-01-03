@@ -647,9 +647,14 @@ export default function MediaUploader({
                   Waze
                 </button>
               </div>
-              <p className="text-xs text-text-secondary text-center">
-                {tMedia('navigationDescription') || 'סורקי הקוד יועברו לניווט'}
-              </p>
+              <div className="text-center space-y-1">
+                <p className="text-xs text-text-secondary">
+                  {tMedia('navigationDescription') || 'פשוט הזינו כתובת - אנחנו ניצור את הלינק!'}
+                </p>
+                <p className="text-[10px] text-text-secondary/70">
+                  {tMedia('navigationHowTo') || 'הסורק יועבר ישירות לניווט באפליקציה שבחרתם'}
+                </p>
+              </div>
             </div>
           )}
 
