@@ -666,9 +666,14 @@ export default function MediaUploader({
                   dir="ltr"
                 />
               </div>
-              <p className="text-xs text-text-secondary text-center">
-                {tMedia('socialDescription') || 'סורקי הקוד יועברו לדף הביקורות שלכם'}
-              </p>
+              <div className="text-center space-y-1">
+                <p className="text-xs text-text-secondary">
+                  {tMedia('socialDescription') || 'סורקי הקוד יועברו לדף הביקורות שלכם'}
+                </p>
+                <p className="text-[10px] text-text-secondary/70">
+                  {tMedia('socialHowTo') || 'איך להשיג? היכנסו לדף העסק → לחצו ״שתף״ → העתיקו את הלינק'}
+                </p>
+              </div>
             </div>
           )}
 
@@ -685,9 +690,14 @@ export default function MediaUploader({
                   dir="ltr"
                 />
               </div>
-              <p className="text-xs text-text-secondary text-center">
-                {tMedia('paymentDescription') || 'סורקי הקוד יועברו לדף התשלום שלכם'}
-              </p>
+              <div className="text-center space-y-1">
+                <p className="text-xs text-text-secondary">
+                  {tMedia('paymentDescription') || 'סורקי הקוד יועברו לדף התשלום שלכם'}
+                </p>
+                <p className="text-[10px] text-text-secondary/70">
+                  {tMedia('paymentHowTo') || 'העתיקו את הלינק לדף התשלום מהאפליקציה או האתר שלכם'}
+                </p>
+              </div>
             </div>
           )}
 
