@@ -1,6 +1,6 @@
 'use client';
 
-import { MousePointer2, FileText, Image, MessageCircle } from 'lucide-react';
+import { MousePointer2, FileText, Image, MessageCircle, ExternalLink } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { LinkClickStats, LinkSource } from '@/types';
 
@@ -12,12 +12,14 @@ const sourceIcons: Record<LinkSource, typeof FileText> = {
   pdf: FileText,
   media: Image,
   whatsapp: MessageCircle,
+  link: ExternalLink,
 };
 
 const sourceColors: Record<LinkSource, { text: string; bg: string }> = {
   pdf: { text: 'text-red-500', bg: 'bg-red-500/10' },
   media: { text: 'text-blue-500', bg: 'bg-blue-500/10' },
   whatsapp: { text: 'text-green-500', bg: 'bg-green-500/10' },
+  link: { text: 'text-purple-500', bg: 'bg-purple-500/10' },
 };
 
 function formatUrl(url: string): string {

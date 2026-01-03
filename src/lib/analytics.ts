@@ -604,6 +604,7 @@ export const linkSourceLabels: Record<LinkSource, string> = {
   pdf: 'PDF',
   media: 'מדיה',
   whatsapp: 'WhatsApp',
+  link: 'קישור',
 };
 
 // ============ RSVP Analytics for Weekly Calendar ============

@@ -285,7 +285,7 @@ export interface AnalyticsFilter {
 // ============ LINK CLICK TRACKING ============
 
 // Link source types
-export type LinkSource = 'pdf' | 'media' | 'whatsapp';
+export type LinkSource = 'pdf' | 'media' | 'whatsapp' | 'link';
 
 // Link click document
 export interface LinkClick {

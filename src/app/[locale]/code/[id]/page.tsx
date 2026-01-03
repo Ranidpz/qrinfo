@@ -79,6 +79,75 @@ import { shouldShowLandingPage } from '@/lib/landingPage';
 import { clsx } from 'clsx';
 import { Settings } from 'lucide-react';
 
+// Link type detection
+type LinkType = 'whatsapp' | 'phone' | 'sms' | 'email' | 'url';
+
+function detectLinkType(url?: string): LinkType {
+  if (!url) return 'url';
+  try {
+    if (url.startsWith('tel:')) return 'phone';
+    if (url.startsWith('sms:')) return 'sms';
+    if (url.startsWith('mailto:')) return 'email';
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'wa.me' || urlObj.hostname === 'api.whatsapp.com') return 'whatsapp';
+    return 'url';
+  } catch {
+    return 'url';
+  }
+}
+
+// Helper function to extract phone number from URL (works for WhatsApp, phone, SMS)
+function extractPhoneFromUrl(url?: string): string {
+  if (!url) return '';
+  try {
+    if (url.startsWith('tel:')) {
+      return url.replace('tel:', '').split('?')[0];
+    }
+    if (url.startsWith('sms:')) {
+      return url.replace('sms:', '').split('?')[0];
+    }
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'wa.me') {
+      return urlObj.pathname.slice(1) || '';
+    }
+    if (urlObj.hostname === 'api.whatsapp.com') {
+      return urlObj.searchParams.get('phone') || '';
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+// Helper function to extract email from mailto URL
+function extractEmailFromUrl(url?: string): string {
+  if (!url || !url.startsWith('mailto:')) return '';
+  return url.replace('mailto:', '').split('?')[0];
+}
+
+// Helper function to extract message from URL (WhatsApp text, SMS body, email body)
+function extractMessageFromUrl(url?: string): string {
+  if (!url) return '';
+  try {
+    const urlObj = new URL(url);
+    return urlObj.searchParams.get('text') || urlObj.searchParams.get('body') || '';
+  } catch {
+    return '';
+  }
+}
+
+// Helper function to get link type label
+function getLinkTypeLabel(url?: string): string {
+  const type = detectLinkType(url);
+  switch (type) {
+    case 'whatsapp': return 'WhatsApp';
+    case 'phone': return 'טלפון';
+    case 'sms': return 'SMS';
+    case 'email': return 'אימייל';
+    default: return 'לינק';
+  }
+}
+
 // Helper function to get PDF page count
 async function getPdfPageCount(url: string): Promise<number> {
   try {
@@ -2636,8 +2705,9 @@ export default function CodeEditPage({ params }: PageProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-text-primary">
-                        {media.type === 'link' ? tMedia('link')
-                          : media.type === 'riddle' ? (media.riddleContent?.title || tMedia('riddle'))
+                        {media.type === 'link' ? (
+                          getLinkTypeLabel(media.url)
+                        ) : media.type === 'riddle' ? (media.riddleContent?.title || tMedia('riddle'))
                           : media.type === 'selfiebeam' ? (media.selfiebeamContent?.title || tMedia('selfiebeam'))
                           : media.type === 'wordcloud' ? tMedia('wordcloud')
                           : media.type === 'weeklycal' ? (tMedia('weeklycal') || 'לוח פעילות')
@@ -2646,6 +2716,27 @@ export default function CodeEditPage({ params }: PageProps) {
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
                     </div>
+                    {media.type === 'link' && (
+                      <p className="text-xs text-text-secondary truncate mt-0.5" dir="ltr">
+                        {(() => {
+                          const linkType = detectLinkType(media.url);
+                          switch (linkType) {
+                            case 'whatsapp':
+                            case 'phone':
+                            case 'sms':
+                              return extractPhoneFromUrl(media.url) || '';
+                            case 'email':
+                              return extractEmailFromUrl(media.url);
+                            default:
+                              try {
+                                return new URL(media.url).hostname;
+                              } catch {
+                                return media.url;
+                              }
+                          }
+                        })()}
+                      </p>
+                    )}
                     {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.filename && (
                       <p className="text-xs text-text-secondary truncate mt-0.5" dir="ltr">
                         {media.filename}

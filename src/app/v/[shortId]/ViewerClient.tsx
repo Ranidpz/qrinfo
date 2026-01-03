@@ -1121,6 +1121,19 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
     return shouldShowLandingPage(media);
   })();
 
+  // Redirect for link-type media (external links like wa.me refuse iframe embedding)
+  useEffect(() => {
+    if (isLink && currentMedia?.url) {
+      // Track the link click before redirecting
+      trackLinkClick(currentMedia.url, 'link');
+      // Small delay to ensure analytics is tracked, then redirect
+      const timer = setTimeout(() => {
+        window.location.href = currentMedia.url;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isLink, currentMedia?.url, trackLinkClick]);
+
   // Preload media
   useEffect(() => {
     if (media.length === 0) {
@@ -1266,12 +1279,11 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
               </div>
             )}
             {activeViewer.type === 'link' && !Array.isArray(activeViewer.media) && (
-              <iframe
-                src={activeViewer.media.url}
-                className="w-full h-full"
-                title={title}
-                sandbox="allow-scripts allow-same-origin"
-              />
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mb-4"></div>
+                <p className="text-lg">מעביר אותך...</p>
+                <p className="text-sm text-gray-400 mt-2 max-w-xs text-center break-all">{activeViewer.media.url}</p>
+              </div>
             )}
             {activeViewer.type === 'riddle' && !Array.isArray(activeViewer.media) && activeViewer.media.riddleContent && (
               <RiddleViewer
@@ -1347,12 +1359,11 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                       />
                     </div>
                   ) : item.type === 'link' ? (
-                    <iframe
-                      src={item.url}
-                      className="w-full h-full"
-                      title={title}
-                      sandbox="allow-scripts allow-same-origin"
-                    />
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mb-4"></div>
+                      <p className="text-lg">מעביר אותך...</p>
+                      <p className="text-sm text-gray-400 mt-2 max-w-xs text-center break-all">{item.url}</p>
+                    </div>
                   ) : item.type === 'wordcloud' ? (
                     <iframe
                       src={item.url}
@@ -1477,12 +1488,11 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             />
           </div>
         ) : isLink ? (
-          <iframe
-            src={currentMedia.url}
-            className="w-full h-full"
-            title={title}
-            sandbox="allow-scripts allow-same-origin"
-          />
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mb-4"></div>
+            <p className="text-lg">מעביר אותך...</p>
+            <p className="text-sm text-gray-400 mt-2 max-w-xs text-center break-all">{currentMedia.url}</p>
+          </div>
         ) : isWordCloud ? (
           <iframe
             src={currentMedia.url}

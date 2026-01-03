@@ -131,14 +131,75 @@ export default function CodeCard({
   const qrRef = useRef<HTMLDivElement>(null);
   const prevViewsRef = useRef(views);
 
+  // Detect link type from URL
+  type LinkType = 'whatsapp' | 'phone' | 'sms' | 'email' | 'url';
+
+  const detectLinkType = (url?: string): LinkType => {
+    if (!url) return 'url';
+    try {
+      if (url.startsWith('tel:')) return 'phone';
+      if (url.startsWith('sms:')) return 'sms';
+      if (url.startsWith('mailto:')) return 'email';
+      const urlObj = new URL(url);
+      if (urlObj.hostname === 'wa.me' || urlObj.hostname === 'api.whatsapp.com') return 'whatsapp';
+      return 'url';
+    } catch {
+      return 'url';
+    }
+  };
+
+  // Extract phone number from URL (works for WhatsApp, phone, SMS)
+  const extractPhoneFromUrl = (url?: string): string => {
+    if (!url) return '';
+    try {
+      if (url.startsWith('tel:')) {
+        return url.replace('tel:', '').split('?')[0];
+      }
+      if (url.startsWith('sms:')) {
+        return url.replace('sms:', '').split('?')[0];
+      }
+      const urlObj = new URL(url);
+      if (urlObj.hostname === 'wa.me') {
+        return urlObj.pathname.slice(1) || '';
+      }
+      if (urlObj.hostname === 'api.whatsapp.com') {
+        return urlObj.searchParams.get('phone') || '';
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  };
+
+  // Extract email from mailto URL
+  const extractEmailFromUrl = (url?: string): string => {
+    if (!url || !url.startsWith('mailto:')) return '';
+    return url.replace('mailto:', '').split('?')[0];
+  };
+
+  // Get link type label
+  const getLinkTypeLabel = (url?: string): string => {
+    const type = detectLinkType(url);
+    switch (type) {
+      case 'whatsapp': return 'WhatsApp';
+      case 'phone': return tMedia('phone') || 'טלפון';
+      case 'sms': return 'SMS';
+      case 'email': return tMedia('email') || 'אימייל';
+      default: return tMedia('link');
+    }
+  };
+
   // Get translated media label
   const getMediaLabel = (type: MediaType): string => {
+    // Check link type for special handling
+    if (type === 'link') {
+      return getLinkTypeLabel(mediaUrl);
+    }
     switch (type) {
       case 'image': return tMedia('image');
       case 'gif': return 'GIF';
       case 'video': return tMedia('video');
       case 'pdf': return tMedia('pdf');
-      case 'link': return tMedia('link');
       case 'wordcloud': return tMedia('wordcloud');
       case 'riddle': return tMedia('riddle');
       case 'selfiebeam': return tMedia('selfiebeam');
@@ -306,11 +367,25 @@ export default function CodeCard({
   // Get display info based on media type
   const getMediaInfo = () => {
     if (mediaType === 'link' && mediaUrl) {
-      try {
-        const url = new URL(mediaUrl);
-        return url.hostname;
-      } catch {
-        return mediaUrl;
+      const linkType = detectLinkType(mediaUrl);
+      switch (linkType) {
+        case 'whatsapp':
+        case 'phone':
+        case 'sms': {
+          const phone = extractPhoneFromUrl(mediaUrl);
+          return phone || '';
+        }
+        case 'email': {
+          return extractEmailFromUrl(mediaUrl);
+        }
+        default: {
+          try {
+            const url = new URL(mediaUrl);
+            return url.hostname;
+          } catch {
+            return mediaUrl;
+          }
+        }
       }
     }
     return fileName || '';
