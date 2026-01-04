@@ -121,11 +121,11 @@ export default function QVoteVotingView({
       style={{ backgroundColor: brandingStyles.background }}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
-      {/* Header with Logo, Category Name, and Back Button */}
+      {/* Header with Logo, Category Name, and Back Button - Sticky */}
       <div
-        className="shrink-0 px-4 py-3 z-10"
+        className="sticky top-0 shrink-0 px-4 py-3 z-30"
         style={{
-          backgroundColor: `${brandingStyles.background}`,
+          backgroundColor: brandingStyles.background,
           borderBottom: `1px solid ${brandingStyles.text}10`,
         }}
       >
@@ -314,14 +314,6 @@ export default function QVoteVotingView({
             boxShadow: `0 -4px 24px ${brandingStyles.text}10`,
           }}
         >
-          {/* Selection counter */}
-          <div
-            className="text-center text-sm font-medium mb-3"
-            style={{ color: `${brandingStyles.text}80` }}
-          >
-            {selectedCandidates.length} / {config.maxSelectionsPerVoter} {isRTL ? 'נבחרו' : 'selected'}
-          </div>
-
           <button
             onClick={onSubmitVote}
             disabled={submitting || selectedCandidates.length < config.maxSelectionsPerVoter}

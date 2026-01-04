@@ -113,7 +113,7 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
           onSwiper={handleSwiperInit}
           onSlideChange={handleSlideChange}
           initialSlide={currentIndex}
-          className="w-full h-full px-4 py-6"
+          className="w-full h-full px-2 py-3"
         >
           {candidates.map((candidate, index) => {
             const isSelected = selectedIds.includes(candidate.id);
@@ -126,7 +126,7 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
               <SwiperSlide key={candidate.id} className="!flex items-center justify-center">
                 <div
                   onClick={() => handleSelect(candidate.id)}
-                  className="relative w-full h-full max-w-md mx-auto rounded-3xl overflow-hidden shadow-2xl cursor-pointer transition-transform active:scale-[0.98]"
+                  className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl cursor-pointer transition-transform active:scale-[0.98]"
                   style={{
                     backgroundColor: '#f3f4f6',
                     boxShadow: isSelected
