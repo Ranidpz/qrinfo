@@ -45,11 +45,9 @@ const QVoteSelectedBubbles = memo(function QVoteSelectedBubbles({
     [candidates, currentIndex, onNavigateTo, onDeselect]
   );
 
-  if (selectedIds.length === 0) return null;
-
   return (
     <div
-      className="fixed bottom-28 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none"
+      className="flex justify-center px-4"
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       <div
