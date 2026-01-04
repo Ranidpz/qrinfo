@@ -371,7 +371,7 @@ export default function QVoteVotingView({
         )}
 
         {/* Floating View Mode Selector */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 z-20">
           <QVoteViewModeSelector
             viewMode={viewMode}
             onChange={handleViewModeChange}
@@ -381,35 +381,39 @@ export default function QVoteVotingView({
         </div>
       </div>
 
-      {/* Selected Bubbles (floating) */}
-      {!hasVoted && (
-        <QVoteSelectedBubbles
-          candidates={filteredCandidates}
-          selectedIds={selectedCandidates}
-          currentIndex={viewMode === 'flipbook' ? currentIndex : -1}
-          maxSelections={config.maxSelectionsPerVoter}
-          onNavigateTo={handleNavigateToCandidate}
-          onDeselect={handleDeselectFromBubble}
-          accentColor={brandingStyles.accent}
-          textColor={brandingStyles.text}
-          isRTL={isRTL}
-        />
-      )}
-
-      {/* Submit Button Bar - slides in when all candidates selected */}
+      {/* Selected Bubbles + Submit Button Bar - slides in together */}
       {!hasVoted && (
         <div
-          className={`fixed left-0 right-0 p-4 z-50 transition-all duration-500 ease-out ${
+          className={`fixed left-0 right-0 z-50 transition-all duration-500 ease-out ${
             selectedCandidates.length >= config.maxSelectionsPerVoter
               ? 'bottom-0 opacity-100 translate-y-0'
               : 'bottom-0 opacity-0 translate-y-full pointer-events-none'
           }`}
-          style={{
-            backgroundColor: brandingStyles.background,
-            borderTop: `1px solid ${brandingStyles.text}15`,
-            boxShadow: `0 -4px 24px ${brandingStyles.text}10`,
-          }}
         >
+          {/* Selected Bubbles */}
+          <div className="px-4 pb-2">
+            <QVoteSelectedBubbles
+              candidates={filteredCandidates}
+              selectedIds={selectedCandidates}
+              currentIndex={viewMode === 'flipbook' ? currentIndex : -1}
+              maxSelections={config.maxSelectionsPerVoter}
+              onNavigateTo={handleNavigateToCandidate}
+              onDeselect={handleDeselectFromBubble}
+              accentColor={brandingStyles.accent}
+              textColor={brandingStyles.text}
+              isRTL={isRTL}
+            />
+          </div>
+
+          {/* Submit Button */}
+          <div
+            className="p-4 pt-2"
+            style={{
+              backgroundColor: brandingStyles.background,
+              borderTop: `1px solid ${brandingStyles.text}15`,
+              boxShadow: `0 -4px 24px ${brandingStyles.text}10`,
+            }}
+          >
           <button
             onClick={onSubmitVote}
             disabled={submitting}
@@ -442,6 +446,7 @@ export default function QVoteVotingView({
               </span>
             )}
           </button>
+          </div>
         </div>
       )}
     </div>

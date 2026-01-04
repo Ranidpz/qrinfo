@@ -592,7 +592,101 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     );
   }
 
-  // Render category selection if needed
+  // Determine if we should show landing page (moved up for correct flow)
+  const hasLandingContent = config.branding.landingImage || config.branding.landingTitle || config.branding.landingSubtitle;
+
+  // Get button text based on current phase
+  const getButtonText = () => {
+    const phase = config.currentPhase;
+    if (config.branding.buttonTexts && phase !== 'results') {
+      const text = config.branding.buttonTexts[phase];
+      if (text) return text;
+    }
+    return config.branding.buttonText || t.enterButton;
+  };
+
+  // Render landing page FIRST (before category selection)
+  if (showLanding && hasLandingContent) {
+    const overlayOpacity = config.branding.imageOverlayOpacity ?? 40;
+
+    return (
+      <div
+        className="min-h-screen flex flex-col relative overflow-hidden"
+        style={{ backgroundColor: brandingStyles.background }}
+        dir={locale === 'he' ? 'rtl' : 'ltr'}
+      >
+        {/* Background Image */}
+        {config.branding.landingImage && (
+          <div className="absolute inset-0">
+            <img
+              src={config.branding.landingImage}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+            {/* Overlay */}
+            <div
+              className="absolute inset-0"
+              style={{ backgroundColor: `rgba(0, 0, 0, ${overlayOpacity / 100})` }}
+            />
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
+          {/* Title & Subtitle */}
+          {(config.branding.landingTitle || config.branding.landingSubtitle) && (
+            <div className="mb-8">
+              {config.branding.landingTitle && (
+                <h1
+                  className="text-3xl font-bold mb-3"
+                  style={{ color: config.branding.landingImage ? '#ffffff' : brandingStyles.text }}
+                >
+                  {config.branding.landingTitle}
+                </h1>
+              )}
+              {config.branding.landingSubtitle && (
+                <p
+                  className="text-lg"
+                  style={{ color: config.branding.landingImage ? 'rgba(255,255,255,0.85)' : `${brandingStyles.text}99` }}
+                >
+                  {config.branding.landingSubtitle}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Enter Button */}
+          <button
+            onClick={() => setShowLanding(false)}
+            className="px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 active:scale-95 shadow-lg"
+            style={{
+              backgroundColor: brandingStyles.buttonBg,
+              color: brandingStyles.buttonText,
+            }}
+          >
+            {getButtonText()}
+          </button>
+
+          {/* Tap to continue hint */}
+          <p
+            className="mt-6 text-sm opacity-70"
+            style={{ color: config.branding.landingImage ? '#ffffff' : brandingStyles.text }}
+          >
+            {t.tapToContinue}
+          </p>
+        </div>
+
+        {/* Tap anywhere to enter (optional - makes whole screen tappable) */}
+        <button
+          onClick={() => setShowLanding(false)}
+          className="absolute inset-0 z-0"
+          aria-label="Enter"
+        />
+      </div>
+    );
+  }
+
+  // Render category selection AFTER landing page
   if (showCategorySelect && config.categories.length > 0) {
     return (
       <div
@@ -975,100 +1069,6 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       />
     );
   };
-
-  // Determine if we should show landing page
-  const hasLandingContent = config.branding.landingImage || config.branding.landingTitle || config.branding.landingSubtitle;
-
-  // Get button text based on current phase
-  const getButtonText = () => {
-    const phase = config.currentPhase;
-    if (config.branding.buttonTexts && phase !== 'results') {
-      const text = config.branding.buttonTexts[phase];
-      if (text) return text;
-    }
-    return config.branding.buttonText || t.enterButton;
-  };
-
-  // Render landing page
-  if (showLanding && hasLandingContent) {
-    const overlayOpacity = config.branding.imageOverlayOpacity ?? 40;
-
-    return (
-      <div
-        className="min-h-screen flex flex-col relative overflow-hidden"
-        style={{ backgroundColor: brandingStyles.background }}
-        dir={locale === 'he' ? 'rtl' : 'ltr'}
-      >
-        {/* Background Image */}
-        {config.branding.landingImage && (
-          <div className="absolute inset-0">
-            <img
-              src={config.branding.landingImage}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-            {/* Overlay */}
-            <div
-              className="absolute inset-0"
-              style={{ backgroundColor: `rgba(0, 0, 0, ${overlayOpacity / 100})` }}
-            />
-          </div>
-        )}
-
-        {/* Content */}
-        <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
-          {/* Title & Subtitle */}
-          {(config.branding.landingTitle || config.branding.landingSubtitle) && (
-            <div className="mb-8">
-              {config.branding.landingTitle && (
-                <h1
-                  className="text-3xl font-bold mb-3"
-                  style={{ color: config.branding.landingImage ? '#ffffff' : brandingStyles.text }}
-                >
-                  {config.branding.landingTitle}
-                </h1>
-              )}
-              {config.branding.landingSubtitle && (
-                <p
-                  className="text-lg"
-                  style={{ color: config.branding.landingImage ? 'rgba(255,255,255,0.85)' : `${brandingStyles.text}99` }}
-                >
-                  {config.branding.landingSubtitle}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Enter Button */}
-          <button
-            onClick={() => setShowLanding(false)}
-            className="px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 active:scale-95 shadow-lg"
-            style={{
-              backgroundColor: brandingStyles.buttonBg,
-              color: brandingStyles.buttonText,
-            }}
-          >
-            {getButtonText()}
-          </button>
-
-          {/* Tap to continue hint */}
-          <p
-            className="mt-6 text-sm opacity-70"
-            style={{ color: config.branding.landingImage ? '#ffffff' : brandingStyles.text }}
-          >
-            {t.tapToContinue}
-          </p>
-        </div>
-
-        {/* Tap anywhere to enter (optional - makes whole screen tappable) */}
-        <button
-          onClick={() => setShowLanding(false)}
-          className="absolute inset-0 z-0"
-          aria-label="Enter"
-        />
-      </div>
-    );
-  }
 
   return (
     <div
