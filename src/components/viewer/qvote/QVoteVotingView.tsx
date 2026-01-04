@@ -396,10 +396,14 @@ export default function QVoteVotingView({
         />
       )}
 
-      {/* Submit Button Bar */}
+      {/* Submit Button Bar - slides in when all candidates selected */}
       {!hasVoted && (
         <div
-          className="fixed bottom-0 left-0 right-0 p-4 z-50"
+          className={`fixed left-0 right-0 p-4 z-50 transition-all duration-500 ease-out ${
+            selectedCandidates.length >= config.maxSelectionsPerVoter
+              ? 'bottom-0 opacity-100 translate-y-0'
+              : 'bottom-0 opacity-0 translate-y-full pointer-events-none'
+          }`}
           style={{
             backgroundColor: brandingStyles.background,
             borderTop: `1px solid ${brandingStyles.text}15`,
@@ -408,22 +412,18 @@ export default function QVoteVotingView({
         >
           <button
             onClick={onSubmitVote}
-            disabled={submitting || selectedCandidates.length < config.maxSelectionsPerVoter}
-            className={`relative w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden ${
-              selectedCandidates.length >= config.maxSelectionsPerVoter && !submitting
-                ? 'animate-qvote-breathe'
-                : ''
+            disabled={submitting}
+            className={`relative w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 active:scale-[0.98] overflow-hidden ${
+              !submitting ? 'animate-qvote-breathe' : ''
             }`}
             style={{
-              backgroundColor: selectedCandidates.length >= config.maxSelectionsPerVoter ? '#22c55e' : brandingStyles.buttonBg,
-              color: selectedCandidates.length >= config.maxSelectionsPerVoter ? '#ffffff' : brandingStyles.buttonText,
-              boxShadow: selectedCandidates.length >= config.maxSelectionsPerVoter
-                ? '0 4px 30px rgba(34, 197, 94, 0.5)'
-                : 'none',
+              backgroundColor: '#22c55e',
+              color: '#ffffff',
+              boxShadow: '0 4px 30px rgba(34, 197, 94, 0.5)',
             }}
           >
             {/* Animated gradient overlay when button is active */}
-            {selectedCandidates.length >= config.maxSelectionsPerVoter && !submitting && (
+            {!submitting && (
               <div
                 className="absolute inset-0 animate-qvote-shimmer"
                 style={{
@@ -437,7 +437,7 @@ export default function QVoteVotingView({
               <Loader2 className="w-6 h-6 animate-spin mx-auto" />
             ) : (
               <span className="relative flex items-center justify-center gap-2">
-                <Vote className={`w-5 h-5 ${selectedCandidates.length >= config.maxSelectionsPerVoter ? 'animate-pulse' : ''}`} />
+                <Vote className="w-5 h-5 animate-pulse" />
                 {t.submitVote}
               </span>
             )}
