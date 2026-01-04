@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resetVoterVotes, getQVoteConfig } from '@/lib/qvote';
-import { getQRCodeByShortId } from '@/lib/db';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import type { VoteRound } from '@/types/qvote';
 
-// POST: Reset a voter's votes (for vote change feature)
+// POST: Reset a voter's votes (for vote change feature) using Admin SDK
 export async function POST(request: NextRequest) {
   try {
-    const { shortId, voterId, round = 1 } = await request.json();
-
-    if (!shortId) {
-      return NextResponse.json(
-        { error: 'shortId is required' },
-        { status: 400 }
-      );
-    }
+    const { shortId, codeId: providedCodeId, voterId, round = 1 } = await request.json();
 
     if (!voterId) {
       return NextResponse.json(
@@ -22,19 +15,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up the actual codeId
-    const code = await getQRCodeByShortId(shortId);
-    if (!code) {
+    const db = getAdminDb();
+    let codeId = providedCodeId;
+
+    // Look up the actual codeId from shortId if not provided
+    if (!codeId && shortId) {
+      const codesSnapshot = await db.collection('codes').where('shortId', '==', shortId).limit(1).get();
+      if (codesSnapshot.empty) {
+        return NextResponse.json(
+          { error: 'Code not found' },
+          { status: 404 }
+        );
+      }
+      codeId = codesSnapshot.docs[0].id;
+    }
+
+    if (!codeId) {
+      return NextResponse.json(
+        { error: 'codeId or shortId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get QVote config to check if vote changes are allowed
+    const codeDoc = await db.collection('codes').doc(codeId).get();
+    if (!codeDoc.exists) {
       return NextResponse.json(
         { error: 'Code not found' },
         { status: 404 }
       );
     }
 
-    const codeId = code.id;
+    const codeData = codeDoc.data();
+    const qvoteMedia = codeData?.media?.find((m: { type: string }) => m.type === 'qvote');
+    const config = qvoteMedia?.qvoteConfig;
 
-    // Get QVote config to check if vote changes are allowed
-    const config = await getQVoteConfig(codeId);
     if (!config) {
       return NextResponse.json(
         { error: 'QVote config not found' },
@@ -52,15 +67,98 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Reset the voter's votes
-    const result = await resetVoterVotes(codeId, voterId, round as VoteRound);
+    // Get all votes by this voter for this round
+    const votesSnapshot = await db.collection('codes').doc(codeId).collection('votes')
+      .where('voterId', '==', voterId)
+      .where('round', '==', round)
+      .get();
 
-    console.log(`[QVote Reset Voter] Voter ${voterId} reset ${result.removedVotes} votes for code: ${codeId}`);
+    if (votesSnapshot.empty) {
+      return NextResponse.json({
+        success: true,
+        removedVotes: 0,
+        candidateIds: [],
+      });
+    }
+
+    const votes = votesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        candidateId: data.candidateId as string,
+        voterId: data.voterId as string,
+        round: data.round as number,
+      };
+    });
+    const candidateIds = votes.map(v => v.candidateId);
+
+    // Use a transaction to delete votes and update candidate counts
+    await db.runTransaction(async (transaction) => {
+      // PHASE 1: Read all candidate documents first
+      const candidateSnapshots = new Map<string, boolean>();
+      for (const vote of votes) {
+        const candidateId = vote.candidateId as string;
+        if (!candidateSnapshots.has(candidateId)) {
+          const candidateRef = db.collection('codes').doc(codeId).collection('candidates').doc(candidateId);
+          const candidateSnap = await transaction.get(candidateRef);
+          candidateSnapshots.set(candidateId, candidateSnap.exists);
+        }
+      }
+
+      // PHASE 2: Perform all writes
+      for (const vote of votes) {
+        const voteRef = db.collection('codes').doc(codeId).collection('votes').doc(vote.id);
+        transaction.delete(voteRef);
+
+        const candidateId = vote.candidateId as string;
+        // Only update candidate if it exists
+        if (candidateSnapshots.get(candidateId)) {
+          const candidateRef = db.collection('codes').doc(codeId).collection('candidates').doc(candidateId);
+          const voteField = round === 1 ? 'voteCount' : 'finalsVoteCount';
+          transaction.update(candidateRef, {
+            [voteField]: FieldValue.increment(-1),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    });
+
+    // Update stats (outside transaction)
+    try {
+      const qvoteMediaIndex = codeData?.media?.findIndex((m: { type: string }) => m.type === 'qvote');
+      if (qvoteMediaIndex !== undefined && qvoteMediaIndex !== -1) {
+        const currentStats = codeData?.media[qvoteMediaIndex]?.qvoteConfig?.stats || {};
+
+        const updatedMedia = [...(codeData?.media || [])];
+        updatedMedia[qvoteMediaIndex] = {
+          ...updatedMedia[qvoteMediaIndex],
+          qvoteConfig: {
+            ...updatedMedia[qvoteMediaIndex].qvoteConfig,
+            stats: {
+              ...currentStats,
+              totalVotes: Math.max(0, (currentStats.totalVotes || 0) - votes.length),
+              totalVoters: Math.max(0, (currentStats.totalVoters || 0) - 1),
+              lastUpdated: new Date(),
+            },
+          },
+        };
+
+        await db.collection('codes').doc(codeId).update({
+          media: updatedMedia,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (statsError) {
+      console.error('Error updating stats:', statsError);
+      // Don't fail the request if stats update fails
+    }
+
+    console.log(`[QVote Reset Voter] Voter ${voterId} reset ${votes.length} votes for code: ${codeId}`);
 
     return NextResponse.json({
       success: true,
-      removedVotes: result.removedVotes,
-      candidateIds: result.candidateIds,
+      removedVotes: votes.length,
+      candidateIds,
     });
   } catch (error) {
     console.error('Q.Vote reset voter error:', error);

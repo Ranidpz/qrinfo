@@ -121,6 +121,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
   // Landing page state
   const [showLanding, setShowLanding] = useState(true);
+  const [showLanguageSelect, setShowLanguageSelect] = useState(false);
 
   // Registration state
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -147,9 +148,21 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   const currentCategoryKey = selectedCategory || '_global';
   const hasVoted = votedCategories[currentCategoryKey] || false;
 
+  // Set language based on config.languageMode
   useEffect(() => {
-    setLocale(getBrowserLocale());
-  }, []);
+    const langMode = config.languageMode || 'choice';
+    if (langMode === 'he') {
+      setLocale('he');
+      setShowLanguageSelect(false);
+    } else if (langMode === 'en') {
+      setLocale('en');
+      setShowLanguageSelect(false);
+    } else {
+      // 'choice' - show language selection buttons
+      setLocale(getBrowserLocale());
+      setShowLanguageSelect(true);
+    }
+  }, [config.languageMode]);
 
   // Check for scheduled phase transitions every 10 seconds
   useEffect(() => {
@@ -685,6 +698,38 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
             {t.tapToContinue}
           </p>
         </div>
+
+        {/* Language Selection Buttons */}
+        {showLanguageSelect && (
+          <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 z-10">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setLocale('he');
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                locale === 'he'
+                  ? 'bg-white/30 backdrop-blur-sm text-white border-2 border-white'
+                  : 'bg-white/10 backdrop-blur-sm text-white/80 border border-white/30 hover:bg-white/20'
+              }`}
+            >
+              עברית
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setLocale('en');
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                locale === 'en'
+                  ? 'bg-white/30 backdrop-blur-sm text-white border-2 border-white'
+                  : 'bg-white/10 backdrop-blur-sm text-white/80 border border-white/30 hover:bg-white/20'
+              }`}
+            >
+              English
+            </button>
+          </div>
+        )}
 
         {/* Tap anywhere to enter (optional - makes whole screen tappable) */}
         <button

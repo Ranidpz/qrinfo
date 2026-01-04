@@ -12,6 +12,7 @@ import {
   QVotePhase,
   QVoteMessages,
   QVoteFlipbookSettings,
+  QVoteLanguageMode,
   DEFAULT_QVOTE_CONFIG,
   DEFAULT_FLIPBOOK_SETTINGS,
 } from '@/types/qvote';
@@ -139,6 +140,7 @@ export default function QVoteModal({
   const [enableFinals, setEnableFinals] = useState(false);
   const [hideResultsFromParticipants, setHideResultsFromParticipants] = useState(false);
   const [maxVoteChanges, setMaxVoteChanges] = useState(0);
+  const [languageMode, setLanguageMode] = useState<QVoteLanguageMode>('choice');
   const [flipbookSettings, setFlipbookSettings] = useState<QVoteFlipbookSettings>(DEFAULT_FLIPBOOK_SETTINGS);
   const [currentPhase, setCurrentPhase] = useState<QVotePhase>('registration');
 
@@ -199,6 +201,7 @@ export default function QVoteModal({
         setEnableFinals(initialConfig.enableFinals);
         setHideResultsFromParticipants(initialConfig.hideResultsFromParticipants || false);
         setMaxVoteChanges(initialConfig.maxVoteChanges ?? 0);
+        setLanguageMode(initialConfig.languageMode || 'choice');
         setFlipbookSettings(initialConfig.flipbookSettings || DEFAULT_FLIPBOOK_SETTINGS);
         setCurrentPhase(initialConfig.currentPhase);
         // Load button texts from config or use defaults
@@ -251,6 +254,7 @@ export default function QVoteModal({
         setEnableFinals(false);
         setHideResultsFromParticipants(false);
         setMaxVoteChanges(0);
+        setLanguageMode('choice');
         setFlipbookSettings(DEFAULT_FLIPBOOK_SETTINGS);
         setCurrentPhase('registration');
         setButtonTexts(defaultButtonTexts);
@@ -417,6 +421,7 @@ export default function QVoteModal({
       allowSelfRegistration,
       hideResultsFromParticipants,
       maxVoteChanges,
+      languageMode,
       flipbookSettings,
       gamification: {
         enabled: gamificationEnabled,
@@ -629,6 +634,42 @@ export default function QVoteModal({
                             onClick={() => setMaxVoteChanges(option.value)}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                               maxVoteChanges === option.value
+                                ? 'bg-accent text-white'
+                                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Language Mode */}
+                  <div className="p-3 bg-bg-secondary rounded-xl">
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">
+                          {isRTL ? 'שפת הצבעה' : 'Voting Language'}
+                        </p>
+                        <p className="text-xs text-text-secondary mt-0.5">
+                          {isRTL
+                            ? 'השפה שתוצג למצביעים'
+                            : 'Language displayed to voters'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { value: 'he' as const, label: 'עברית' },
+                          { value: 'en' as const, label: 'English' },
+                          { value: 'choice' as const, label: isRTL ? 'לבחירת המשתמש' : 'User Choice' },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setLanguageMode(option.value)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              languageMode === option.value
                                 ? 'bg-accent text-white'
                                 : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
                             }`}

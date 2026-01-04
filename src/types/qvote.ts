@@ -12,6 +12,9 @@ export type CandidateSource = 'self' | 'producer';
 // Vote round (1 = regular voting, 2 = finals)
 export type VoteRound = 1 | 2;
 
+// Language mode for viewer
+export type QVoteLanguageMode = 'he' | 'en' | 'choice';
+
 // Form field for dynamic registration
 export interface QVoteFormField {
   id: string;
@@ -159,6 +162,7 @@ export interface QVoteConfig {
   allowSelfRegistration: boolean;   // Allow self-registration or producer-only
   hideResultsFromParticipants?: boolean; // Hide results page from participants (show "calculating" instead)
   maxVoteChanges?: number;           // Max times a voter can change their vote (0 = no changes, undefined = no changes)
+  languageMode?: QVoteLanguageMode;  // 'he' = Hebrew only, 'en' = English only, 'choice' = user selects
 
   // Gamification for voters
   gamification: QVoteGamification;
@@ -283,6 +287,7 @@ export const DEFAULT_QVOTE_CONFIG: QVoteConfig = {
   showNames: true,
   enableCropping: true,
   allowSelfRegistration: true,
+  languageMode: 'choice',
   gamification: {
     enabled: false,
     xpPerVote: 10,
