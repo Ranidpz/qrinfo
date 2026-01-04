@@ -68,7 +68,7 @@ const QVoteBoomerangImage = memo(function QVoteBoomerangImage({
           <img
             src={photo.url}
             alt=""
-            className="w-full h-full object-contain"
+            className="w-full h-full object-cover"
             loading="eager"
           />
         )}
@@ -82,7 +82,7 @@ const QVoteBoomerangImage = memo(function QVoteBoomerangImage({
       <img
         src={photos[0].url}
         alt=""
-        className="absolute inset-0 w-full h-full object-contain"
+        className="absolute inset-0 w-full h-full object-cover"
         loading="eager"
       />
 
@@ -90,7 +90,7 @@ const QVoteBoomerangImage = memo(function QVoteBoomerangImage({
       <img
         src={photos[1].url}
         alt=""
-        className="absolute inset-0 w-full h-full object-contain transition-opacity ease-in-out"
+        className="absolute inset-0 w-full h-full object-cover transition-opacity ease-in-out"
         style={{
           opacity: activeIndex === 1 ? 1 : 0,
           transitionDuration: `${frameDuration * 0.4}ms`,
