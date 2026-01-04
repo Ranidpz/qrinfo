@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Check, XCircle, Eye, EyeOff, Trophy, Loader2, User, Calendar, Image as ImageIcon, RefreshCw } from 'lucide-react';
-import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus } from '@/lib/qvote';
+import { X, Check, XCircle, Eye, EyeOff, Trophy, Loader2, User, Calendar, Image as ImageIcon, RefreshCw, Trash2 } from 'lucide-react';
+import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, deleteAllQVoteData, recalculateStats } from '@/lib/qvote';
 import { Candidate } from '@/types/qvote';
 import { useLocale } from 'next-intl';
 
@@ -27,6 +27,7 @@ export default function QVoteCandidatesModal({
   const [updating, setUpdating] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'finalists'>('all');
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   // Load candidates
   const loadCandidates = async () => {
@@ -116,6 +117,37 @@ export default function QVoteCandidatesModal({
       console.error('Error deleting candidate:', error);
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    const confirmMessage = isRTL
+      ? `האם אתה בטוח שברצונך למחוק את כל ${candidates.length} המועמדים? פעולה זו אינה ניתנת לביטול!`
+      : `Are you sure you want to delete all ${candidates.length} candidates? This cannot be undone!`;
+
+    if (!confirm(confirmMessage)) return;
+
+    // Double confirm for safety
+    const doubleConfirm = isRTL
+      ? 'הקלד "מחק" לאישור:'
+      : 'Type "delete" to confirm:';
+
+    const confirmation = prompt(doubleConfirm);
+    if (confirmation?.toLowerCase() !== (isRTL ? 'מחק' : 'delete')) {
+      return;
+    }
+
+    setDeletingAll(true);
+    try {
+      await deleteAllQVoteData(codeId);
+      await recalculateStats(codeId);
+      setCandidates([]);
+      setSelectedCandidates([]);
+    } catch (error) {
+      console.error('Error deleting all candidates:', error);
+      alert(isRTL ? 'שגיאה במחיקת המועמדים' : 'Error deleting candidates');
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -447,10 +479,26 @@ export default function QVoteCandidatesModal({
 
         {/* Footer */}
         <div className="bg-bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="text-sm text-text-secondary">
-            {isRTL
-              ? `${approvedCount} מאושרים מתוך ${candidates.length}`
-              : `${approvedCount} approved out of ${candidates.length}`}
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-text-secondary">
+              {isRTL
+                ? `${approvedCount} מאושרים מתוך ${candidates.length}`
+                : `${approvedCount} approved out of ${candidates.length}`}
+            </div>
+            {candidates.length > 0 && (
+              <button
+                onClick={handleDeleteAll}
+                disabled={deletingAll}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 text-sm font-medium hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+              >
+                {deletingAll ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                {isRTL ? 'מחק הכל' : 'Delete All'}
+              </button>
+            )}
           </div>
           <button
             onClick={onClose}

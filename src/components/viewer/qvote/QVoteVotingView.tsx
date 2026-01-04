@@ -1,0 +1,365 @@
+'use client';
+
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Check, ChevronLeft, Loader2, Vote } from 'lucide-react';
+import type { Candidate, QVoteConfig } from '@/types/qvote';
+import QVoteViewModeSelector, { ViewMode } from './QVoteViewModeSelector';
+import QVoteSelectedBubbles from './QVoteSelectedBubbles';
+import QVoteFlipbookView from './QVoteFlipbookView';
+import QVoteListView from './QVoteListView';
+import QVoteGridView from './QVoteGridView';
+
+const STORAGE_KEY = 'qvote-view-mode';
+
+interface QVoteVotingViewProps {
+  candidates: Candidate[];
+  config: QVoteConfig;
+  selectedCandidates: string[];
+  onSelectCandidate: (candidateId: string) => void;
+  hasVoted: boolean;
+  submitting: boolean;
+  onSubmitVote: () => void;
+  selectedCategory: string | null;
+  onBackToCategories: () => void;
+  locale: 'he' | 'en';
+  translations: {
+    votingTitle: string;
+    finalsTitle: string;
+    selectUpTo: string;
+    submitVote: string;
+    voteSubmitted: string;
+    thankYou: string;
+    yourSelections: string;
+    noCandidates: string;
+    votes: string;
+  };
+}
+
+export default function QVoteVotingView({
+  candidates,
+  config,
+  selectedCandidates,
+  onSelectCandidate,
+  hasVoted,
+  submitting,
+  onSubmitVote,
+  selectedCategory,
+  onBackToCategories,
+  locale,
+  translations: t,
+}: QVoteVotingViewProps) {
+  const isRTL = locale === 'he';
+  const isFinalsPhase = config.currentPhase === 'finals';
+
+  // View mode state with localStorage persistence
+  const [viewMode, setViewMode] = useState<ViewMode>('flipbook');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [scrollTargetIndex, setScrollTargetIndex] = useState<number | null>(null);
+
+  // Load saved view mode preference
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY) as ViewMode | null;
+    if (saved && ['flipbook', 'list', 'grid'].includes(saved)) {
+      setViewMode(saved);
+    }
+  }, []);
+
+  // Save view mode preference
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem(STORAGE_KEY, mode);
+  }, []);
+
+  // Branding styles
+  const brandingStyles = useMemo(
+    () => ({
+      background: config.branding.colors.background || '#ffffff',
+      text: config.branding.colors.text || '#1f2937',
+      buttonBg: config.branding.colors.buttonBackground || '#3b82f6',
+      buttonText: config.branding.colors.buttonText || '#ffffff',
+      accent: config.branding.colors.accent || config.branding.colors.buttonBackground || '#3b82f6',
+    }),
+    [config.branding.colors]
+  );
+
+  // Filter candidates based on category (supports both categoryId and categoryIds)
+  const filteredCandidates = useMemo(() => {
+    if (!selectedCategory) return candidates;
+    return candidates.filter((c) => {
+      // Check categoryIds array first (new multi-category support)
+      if (c.categoryIds && c.categoryIds.length > 0) {
+        return c.categoryIds.includes(selectedCategory);
+      }
+      // Fallback to legacy single categoryId
+      return c.categoryId === selectedCategory;
+    });
+  }, [candidates, selectedCategory]);
+
+  // Handle navigation from bubbles
+  const handleNavigateToCandidate = useCallback(
+    (index: number) => {
+      if (viewMode === 'flipbook') {
+        setCurrentIndex(index);
+      } else {
+        setScrollTargetIndex(index);
+      }
+    },
+    [viewMode]
+  );
+
+  // Handle deselect from bubbles
+  const handleDeselectFromBubble = useCallback(
+    (candidateId: string) => {
+      onSelectCandidate(candidateId);
+    },
+    [onSelectCandidate]
+  );
+
+  return (
+    <div
+      className="flex-1 flex flex-col relative overflow-hidden"
+      style={{ backgroundColor: brandingStyles.background }}
+      dir={isRTL ? 'rtl' : 'ltr'}
+    >
+      {/* Header with Logo, Category Name, and Back Button */}
+      <div
+        className="shrink-0 px-4 py-3 z-10"
+        style={{
+          backgroundColor: `${brandingStyles.background}`,
+          borderBottom: `1px solid ${brandingStyles.text}10`,
+        }}
+      >
+        <div className="flex items-center gap-3">
+          {/* Back button (if categories) */}
+          {selectedCategory && config.categories.length > 0 && (
+            <button
+              onClick={onBackToCategories}
+              className="p-2 -ms-2 rounded-full transition-colors hover:bg-black/10 active:scale-95"
+              style={{ color: brandingStyles.text }}
+              title={isRTL ? 'חזרה לקטגוריות' : 'Back to categories'}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Title - Category name or voting title */}
+          <div className="flex-1 min-w-0">
+            {selectedCategory && config.categories.length > 0 ? (
+              <>
+                {/* Category name */}
+                <h2
+                  className="text-lg font-bold truncate"
+                  style={{ color: brandingStyles.text }}
+                >
+                  {(() => {
+                    const category = config.categories.find(c => c.id === selectedCategory);
+                    return locale === 'en' && category?.nameEn ? category.nameEn : category?.name || '';
+                  })()}
+                </h2>
+                {!hasVoted && (
+                  <p
+                    className="text-xs"
+                    style={{ color: `${brandingStyles.text}70` }}
+                  >
+                    {t.selectUpTo.replace('{n}', String(config.maxSelectionsPerVoter))}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <h2
+                  className="text-lg font-bold truncate"
+                  style={{ color: brandingStyles.text }}
+                >
+                  {isFinalsPhase ? t.finalsTitle : t.votingTitle}
+                </h2>
+                {!hasVoted && (
+                  <p
+                    className="text-xs"
+                    style={{ color: `${brandingStyles.text}70` }}
+                  >
+                    {t.selectUpTo.replace('{n}', String(config.maxSelectionsPerVoter))}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Q Logo - Links to main site */}
+          <a
+            href="https://qr.playzones.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 transition-transform hover:scale-105 active:scale-95"
+          >
+            <img
+              src="/theQ.png"
+              alt="Q"
+              className="w-8 h-8 object-contain"
+            />
+          </a>
+        </div>
+      </div>
+
+      {/* Vote Success Banner */}
+      {hasVoted && (
+        <div
+          className="mx-4 my-3 p-4 rounded-xl text-center animate-qvote-check"
+          style={{
+            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+          }}
+        >
+          <Check className="w-8 h-8 text-green-500 mx-auto mb-2" />
+          <p className="font-semibold text-green-600">{t.voteSubmitted}</p>
+          <p className="text-sm text-green-600/80">{t.thankYou}</p>
+        </div>
+      )}
+
+      {/* Content Area */}
+      <div className="flex-1 min-h-0 relative">
+        {filteredCandidates.length === 0 ? (
+          <div
+            className="h-full flex items-center justify-center text-center p-8"
+            style={{ color: `${brandingStyles.text}60` }}
+          >
+            {t.noCandidates}
+          </div>
+        ) : viewMode === 'flipbook' ? (
+          <QVoteFlipbookView
+            candidates={filteredCandidates}
+            selectedIds={selectedCandidates}
+            maxSelections={config.maxSelectionsPerVoter}
+            onSelect={onSelectCandidate}
+            onSlideChange={setCurrentIndex}
+            currentIndex={currentIndex}
+            hasVoted={hasVoted}
+            showNames={config.showNames}
+            showVoteCount={config.showVoteCount}
+            isFinalsPhase={isFinalsPhase}
+            accentColor={brandingStyles.accent}
+            textColor={brandingStyles.text}
+            backgroundColor={brandingStyles.background}
+            isRTL={isRTL}
+          />
+        ) : viewMode === 'list' ? (
+          <QVoteListView
+            candidates={filteredCandidates}
+            selectedIds={selectedCandidates}
+            maxSelections={config.maxSelectionsPerVoter}
+            onSelect={onSelectCandidate}
+            onScrollToIndex={setScrollTargetIndex}
+            targetIndex={scrollTargetIndex}
+            hasVoted={hasVoted}
+            showNames={config.showNames}
+            showVoteCount={config.showVoteCount}
+            isFinalsPhase={isFinalsPhase}
+            accentColor={brandingStyles.accent}
+            textColor={brandingStyles.text}
+            backgroundColor={brandingStyles.background}
+            isRTL={isRTL}
+          />
+        ) : (
+          <QVoteGridView
+            candidates={filteredCandidates}
+            selectedIds={selectedCandidates}
+            maxSelections={config.maxSelectionsPerVoter}
+            onSelect={onSelectCandidate}
+            onScrollToIndex={setScrollTargetIndex}
+            targetIndex={scrollTargetIndex}
+            hasVoted={hasVoted}
+            showNames={config.showNames}
+            showVoteCount={config.showVoteCount}
+            isFinalsPhase={isFinalsPhase}
+            accentColor={brandingStyles.accent}
+            textColor={brandingStyles.text}
+            backgroundColor={brandingStyles.background}
+            isRTL={isRTL}
+          />
+        )}
+
+        {/* Floating View Mode Selector */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+          <QVoteViewModeSelector
+            viewMode={viewMode}
+            onChange={handleViewModeChange}
+            accentColor={brandingStyles.accent}
+            textColor={brandingStyles.text}
+          />
+        </div>
+      </div>
+
+      {/* Selected Bubbles (floating) */}
+      {!hasVoted && (
+        <QVoteSelectedBubbles
+          candidates={filteredCandidates}
+          selectedIds={selectedCandidates}
+          currentIndex={viewMode === 'flipbook' ? currentIndex : -1}
+          maxSelections={config.maxSelectionsPerVoter}
+          onNavigateTo={handleNavigateToCandidate}
+          onDeselect={handleDeselectFromBubble}
+          accentColor={brandingStyles.accent}
+          textColor={brandingStyles.text}
+          isRTL={isRTL}
+        />
+      )}
+
+      {/* Submit Button Bar */}
+      {!hasVoted && (
+        <div
+          className="fixed bottom-0 left-0 right-0 p-4 z-50"
+          style={{
+            backgroundColor: brandingStyles.background,
+            borderTop: `1px solid ${brandingStyles.text}15`,
+            boxShadow: `0 -4px 24px ${brandingStyles.text}10`,
+          }}
+        >
+          {/* Selection counter */}
+          <div
+            className="text-center text-sm font-medium mb-3"
+            style={{ color: `${brandingStyles.text}80` }}
+          >
+            {selectedCandidates.length} / {config.maxSelectionsPerVoter} {isRTL ? 'נבחרו' : 'selected'}
+          </div>
+
+          <button
+            onClick={onSubmitVote}
+            disabled={submitting || selectedCandidates.length < config.maxSelectionsPerVoter}
+            className={`relative w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] overflow-hidden ${
+              selectedCandidates.length >= config.maxSelectionsPerVoter && !submitting
+                ? 'animate-qvote-breathe'
+                : ''
+            }`}
+            style={{
+              backgroundColor: selectedCandidates.length >= config.maxSelectionsPerVoter ? '#22c55e' : brandingStyles.buttonBg,
+              color: selectedCandidates.length >= config.maxSelectionsPerVoter ? '#ffffff' : brandingStyles.buttonText,
+              boxShadow: selectedCandidates.length >= config.maxSelectionsPerVoter
+                ? '0 4px 30px rgba(34, 197, 94, 0.5)'
+                : 'none',
+            }}
+          >
+            {/* Animated gradient overlay when button is active */}
+            {selectedCandidates.length >= config.maxSelectionsPerVoter && !submitting && (
+              <div
+                className="absolute inset-0 animate-qvote-shimmer"
+                style={{
+                  background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)`,
+                  backgroundSize: '200% 100%',
+                }}
+              />
+            )}
+
+            {submitting ? (
+              <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+            ) : (
+              <span className="relative flex items-center justify-center gap-2">
+                <Vote className={`w-5 h-5 ${selectedCandidates.length >= config.maxSelectionsPerVoter ? 'animate-pulse' : ''}`} />
+                {t.submitVote}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

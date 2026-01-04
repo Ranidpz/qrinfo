@@ -11,7 +11,9 @@ import {
   QVoteBranding,
   QVotePhase,
   QVoteMessages,
+  QVoteFlipbookSettings,
   DEFAULT_QVOTE_CONFIG,
+  DEFAULT_FLIPBOOK_SETTINGS,
 } from '@/types/qvote';
 
 // Image file info type
@@ -135,6 +137,8 @@ export default function QVoteModal({
   const [enableCropping, setEnableCropping] = useState(true);
   const [allowSelfRegistration, setAllowSelfRegistration] = useState(true);
   const [enableFinals, setEnableFinals] = useState(false);
+  const [hideResultsFromParticipants, setHideResultsFromParticipants] = useState(false);
+  const [flipbookSettings, setFlipbookSettings] = useState<QVoteFlipbookSettings>(DEFAULT_FLIPBOOK_SETTINGS);
   const [currentPhase, setCurrentPhase] = useState<QVotePhase>('registration');
 
   // Button texts per phase (with defaults)
@@ -192,6 +196,8 @@ export default function QVoteModal({
         setEnableCropping(initialConfig.enableCropping);
         setAllowSelfRegistration(initialConfig.allowSelfRegistration);
         setEnableFinals(initialConfig.enableFinals);
+        setHideResultsFromParticipants(initialConfig.hideResultsFromParticipants || false);
+        setFlipbookSettings(initialConfig.flipbookSettings || DEFAULT_FLIPBOOK_SETTINGS);
         setCurrentPhase(initialConfig.currentPhase);
         // Load button texts from config or use defaults
         if (initialConfig.branding.buttonTexts) {
@@ -241,6 +247,8 @@ export default function QVoteModal({
         setEnableCropping(true);
         setAllowSelfRegistration(true);
         setEnableFinals(false);
+        setHideResultsFromParticipants(false);
+        setFlipbookSettings(DEFAULT_FLIPBOOK_SETTINGS);
         setCurrentPhase('registration');
         setButtonTexts(defaultButtonTexts);
         setFormFields([
@@ -404,6 +412,8 @@ export default function QVoteModal({
       showNames,
       enableCropping,
       allowSelfRegistration,
+      hideResultsFromParticipants,
+      flipbookSettings,
       gamification: {
         enabled: gamificationEnabled,
         xpPerVote,
@@ -578,6 +588,13 @@ export default function QVoteModal({
                     description={isRTL ? 'הוספת שלב גמר עם הצבעה נוספת' : 'Add a finals stage with additional voting'}
                     value={enableFinals}
                     onChange={setEnableFinals}
+                  />
+
+                  <ToggleSetting
+                    label={isRTL ? 'הסתר תוצאות מהמשתתפים' : 'Hide results from participants'}
+                    description={isRTL ? 'המשתתפים יראו "מחשבים תוצאות" עד שתחשפו. הוסיפו ?operator=true לקישור כדי לראות התוצאות' : 'Participants see "calculating" until revealed. Add ?operator=true to URL to view results'}
+                    value={hideResultsFromParticipants}
+                    onChange={setHideResultsFromParticipants}
                   />
                 </div>
               </div>
@@ -961,6 +978,25 @@ export default function QVoteModal({
                   />
                 </div>
 
+                {/* Voting Title */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-text-primary">
+                    {isRTL ? 'כותרת שלב הצבעה' : 'Voting Phase Title'}
+                  </label>
+                  <input
+                    type="text"
+                    value={branding.votingTitle || ''}
+                    onChange={(e) =>
+                      setBranding({
+                        ...branding,
+                        votingTitle: e.target.value,
+                      })
+                    }
+                    placeholder={isRTL ? 'הצביעו למועמד האהוב' : 'Vote for your favorite'}
+                    className="input w-full"
+                  />
+                </div>
+
                 {/* Button Text Per Phase */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-text-primary">
@@ -1110,6 +1146,150 @@ export default function QVoteModal({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Flipbook Settings for Results */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Settings className="w-5 h-5 text-accent" />
+                  <h3 className="font-medium text-text-primary">
+                    {isRTL ? 'הגדרות פליפבוק תוצאות' : 'Results Flipbook Settings'}
+                  </h3>
+                </div>
+                <p className="text-sm text-text-secondary">
+                  {isRTL
+                    ? 'הגדרות עבור תצוגת התוצאות בפליפבוק'
+                    : 'Settings for the results flipbook view'}
+                </p>
+
+                <div className="space-y-4 p-4 bg-bg-secondary rounded-xl">
+                  {/* Page Mode */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">
+                        {isRTL ? 'מצב דפים' : 'Page Mode'}
+                      </p>
+                      <p className="text-xs text-text-secondary">
+                        {isRTL ? 'תמונה בודדת או זוג תמונות' : 'Single image or double spread'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setFlipbookSettings({ ...flipbookSettings, pageMode: 'single' })}
+                        className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                          flipbookSettings.pageMode === 'single'
+                            ? 'bg-accent text-white'
+                            : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                        }`}
+                      >
+                        {isRTL ? 'בודד' : 'Single'}
+                      </button>
+                      <button
+                        onClick={() => setFlipbookSettings({ ...flipbookSettings, pageMode: 'double' })}
+                        className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                          flipbookSettings.pageMode === 'double'
+                            ? 'bg-accent text-white'
+                            : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                        }`}
+                      >
+                        {isRTL ? 'כפול' : 'Double'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3D Effect */}
+                  <ToggleSetting
+                    label={isRTL ? 'אפקט תלת-מימד' : '3D Flip Effect'}
+                    description={isRTL ? 'אפקט היפוך דף תלת-ממדי' : 'Realistic 3D page flip effect'}
+                    value={flipbookSettings.effect3D}
+                    onChange={(val) => setFlipbookSettings({ ...flipbookSettings, effect3D: val })}
+                  />
+
+                  {/* Sound */}
+                  <ToggleSetting
+                    label={isRTL ? 'צליל דפדוף' : 'Page Flip Sound'}
+                    description={isRTL ? 'צליל בעת דפדוף בין עמודים' : 'Sound effect when flipping pages'}
+                    value={flipbookSettings.soundEnabled}
+                    onChange={(val) => setFlipbookSettings({ ...flipbookSettings, soundEnabled: val })}
+                  />
+
+                  {/* Auto Play */}
+                  <ToggleSetting
+                    label={isRTL ? 'ניגון אוטומטי' : 'Auto Play'}
+                    description={isRTL ? 'מעבר אוטומטי בין תמונות' : 'Automatically advance through images'}
+                    value={flipbookSettings.autoPlay}
+                    onChange={(val) => setFlipbookSettings({ ...flipbookSettings, autoPlay: val })}
+                  />
+
+                  {flipbookSettings.autoPlay && (
+                    <div className="space-y-2">
+                      <label className="text-sm text-text-secondary">
+                        {isRTL ? 'מרווח זמן (שניות)' : 'Interval (seconds)'}
+                      </label>
+                      <input
+                        type="range"
+                        min={2}
+                        max={10}
+                        step={1}
+                        value={flipbookSettings.autoPlayInterval / 1000}
+                        onChange={(e) =>
+                          setFlipbookSettings({
+                            ...flipbookSettings,
+                            autoPlayInterval: Number(e.target.value) * 1000,
+                          })
+                        }
+                        className="w-full accent-accent"
+                      />
+                      <div className="flex justify-between text-xs text-text-secondary">
+                        <span>2s</span>
+                        <span className="font-medium">{flipbookSettings.autoPlayInterval / 1000}s</span>
+                        <span>10s</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Flip Duration */}
+                  <div className="space-y-2">
+                    <label className="text-sm text-text-secondary">
+                      {isRTL ? 'מהירות דפדוף' : 'Flip Speed'}
+                    </label>
+                    <input
+                      type="range"
+                      min={300}
+                      max={1200}
+                      step={100}
+                      value={flipbookSettings.flipDuration}
+                      onChange={(e) =>
+                        setFlipbookSettings({
+                          ...flipbookSettings,
+                          flipDuration: Number(e.target.value),
+                        })
+                      }
+                      className="w-full accent-accent"
+                    />
+                    <div className="flex justify-between text-xs text-text-secondary">
+                      <span>{isRTL ? 'מהיר' : 'Fast'}</span>
+                      <span className="font-medium">{flipbookSettings.flipDuration}ms</span>
+                      <span>{isRTL ? 'איטי' : 'Slow'}</span>
+                    </div>
+                  </div>
+
+                  {/* Show Controls */}
+                  <ToggleSetting
+                    label={isRTL ? 'הצג בקרי ניווט' : 'Show Navigation Controls'}
+                    description={isRTL ? 'חיצים ומונה עמודים' : 'Arrows and page counter'}
+                    value={flipbookSettings.showControls}
+                    onChange={(val) => setFlipbookSettings({ ...flipbookSettings, showControls: val })}
+                  />
+
+                  {/* Start from Last */}
+                  <ToggleSetting
+                    label={isRTL ? 'התחל מהמקום האחרון' : 'Start from Last Place'}
+                    description={isRTL ? 'הצג תוצאות מהאחרון לראשון (חשיפה דרמטית)' : 'Show results from last to first (dramatic reveal)'}
+                    value={flipbookSettings.startFromLast}
+                    onChange={(val) => setFlipbookSettings({ ...flipbookSettings, startFromLast: val })}
+                  />
+                </div>
               </div>
 
               {/* Custom Messages */}

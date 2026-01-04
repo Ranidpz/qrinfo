@@ -133,20 +133,31 @@ export async function getQRCode(id: string): Promise<QRCode | null> {
     ownerId: data.ownerId,
     collaborators: data.collaborators || [],
     title: data.title,
-    media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
-      ...m,
-      id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
-      createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
-      schedule: m.schedule ? {
-        ...m.schedule as object,
-        startDate: (m.schedule as Record<string, unknown>).startDate
-          ? ((m.schedule as Record<string, unknown>).startDate as Timestamp).toDate()
-          : undefined,
-        endDate: (m.schedule as Record<string, unknown>).endDate
-          ? ((m.schedule as Record<string, unknown>).endDate as Timestamp).toDate()
-          : undefined,
-      } : undefined,
-    })),
+    media: (data.media || []).map((m: Record<string, unknown>, index: number) => {
+      // Handle qvoteConfig.stats.lastUpdated Timestamp conversion
+      const qvoteConfig = m.qvoteConfig as Record<string, unknown> | undefined;
+      if (qvoteConfig?.stats) {
+        const stats = qvoteConfig.stats as Record<string, unknown>;
+        if (stats.lastUpdated && typeof (stats.lastUpdated as Timestamp)?.toDate === 'function') {
+          stats.lastUpdated = (stats.lastUpdated as Timestamp).toDate().toISOString();
+        }
+      }
+
+      return {
+        ...m,
+        id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
+        createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+        schedule: m.schedule ? {
+          ...m.schedule as object,
+          startDate: (m.schedule as Record<string, unknown>).startDate
+            ? ((m.schedule as Record<string, unknown>).startDate as Timestamp).toDate()
+            : undefined,
+          endDate: (m.schedule as Record<string, unknown>).endDate
+            ? ((m.schedule as Record<string, unknown>).endDate as Timestamp).toDate()
+            : undefined,
+        } : undefined,
+      };
+    }),
     widgets: data.widgets || {},
     views: data.views || 0,
     isActive: data.isActive ?? true,
@@ -186,11 +197,22 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
     ownerId: data.ownerId,
     collaborators: data.collaborators || [],
     title: data.title,
-    media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
-      ...m,
-      id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
-      createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
-    })),
+    media: (data.media || []).map((m: Record<string, unknown>, index: number) => {
+      // Handle qvoteConfig.stats.lastUpdated Timestamp conversion
+      const qvoteConfig = m.qvoteConfig as Record<string, unknown> | undefined;
+      if (qvoteConfig?.stats) {
+        const stats = qvoteConfig.stats as Record<string, unknown>;
+        if (stats.lastUpdated && typeof (stats.lastUpdated as Timestamp)?.toDate === 'function') {
+          stats.lastUpdated = (stats.lastUpdated as Timestamp).toDate().toISOString();
+        }
+      }
+
+      return {
+        ...m,
+        id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
+        createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+      };
+    }),
     widgets: data.widgets || {},
     views: data.views || 0,
     isActive: data.isActive ?? true,

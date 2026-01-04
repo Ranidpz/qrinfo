@@ -1309,6 +1309,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                 codeId={codeId}
                 mediaId={activeViewer.media.id}
                 shortId={shortId}
+                ownerId={ownerId}
               />
             )}
             {activeViewer.type === 'weeklycal' && !Array.isArray(activeViewer.media) && activeViewer.media.weeklycalConfig && (
@@ -1464,7 +1465,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
         ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isQVote && currentMedia.qvoteConfig ? (
-          <QVoteViewer config={currentMedia.qvoteConfig} codeId={codeId} mediaId={currentMedia.id} shortId={shortId} />
+          <QVoteViewer config={currentMedia.qvoteConfig} codeId={codeId} mediaId={currentMedia.id} shortId={shortId} ownerId={ownerId} />
         ) : isWeeklyCal && currentMedia.weeklycalConfig ? (
           <WeeklyCalendarViewer config={currentMedia.weeklycalConfig} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isPDF ? (

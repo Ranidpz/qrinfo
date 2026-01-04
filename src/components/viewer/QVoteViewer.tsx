@@ -2,18 +2,23 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { QVoteConfig, Candidate, QVotePhase } from '@/types/qvote';
-import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getCandidates, submitVotes, getVoterVotes, createCandidate } from '@/lib/qvote';
+import { MediaItem } from '@/types';
 import { getOrCreateVisitorId } from '@/lib/xp';
+import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
 import { getBrowserLocale } from '@/lib/publicTranslations';
 import { Check, Loader2, Vote, Camera, ChevronLeft, ChevronRight, Trophy, Clock, Users, X, Plus, Trash2 } from 'lucide-react';
+import QVoteVotingView from './qvote/QVoteVotingView';
+import QVoteResultsView from './qvote/QVoteResultsView';
 
 interface QVoteViewerProps {
   config: QVoteConfig;
   codeId: string;
   mediaId: string;
   shortId: string;
+  ownerId?: string;
 }
 
 // Translations
@@ -26,7 +31,7 @@ const translations = {
     preparationDesc: 'ההצבעה תיפתח בקרוב',
     votingTitle: 'הצביעו למועמד האהוב',
     selectUpTo: 'בחרו עד {n} מועמדים',
-    submitVote: 'שלח הצבעה',
+    submitVote: 'שלחו הצבעה',
     voteSubmitted: 'ההצבעה נשלחה!',
     thankYou: 'תודה על ההשתתפות',
     resultsTitle: 'התוצאות',
@@ -51,6 +56,10 @@ const translations = {
     waitForApproval: 'ההרשמה שלכם תאושר בקרוב',
     tapToContinue: 'לחצו להמשך',
     enterButton: 'כניסה',
+    calculatingTitle: 'מחשבים תוצאות...',
+    calculatingDesc: 'התוצאות יוצגו בקרוב',
+    gracePeriod: 'סיימו להצביע',
+    secondsLeft: 'שניות נותרו',
   },
   en: {
     registration: 'Registration',
@@ -85,19 +94,28 @@ const translations = {
     waitForApproval: 'Your registration will be approved soon',
     tapToContinue: 'Tap to continue',
     enterButton: 'Enter',
+    calculatingTitle: 'Calculating results...',
+    calculatingDesc: 'Results will be displayed soon',
+    gracePeriod: 'Finish voting',
+    secondsLeft: 'seconds left',
   },
 };
 
-export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteViewerProps) {
+export default function QVoteViewer({ config: initialConfig, codeId, mediaId, shortId, ownerId }: QVoteViewerProps) {
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = translations[locale];
+
+  // Live config state - starts with initial config but updates in real-time
+  const [liveConfig, setLiveConfig] = useState<QVoteConfig>(initialConfig);
+  const config = liveConfig; // Use liveConfig for all rendering
 
   // State
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [hasVoted, setHasVoted] = useState(false);
+  // Track votes per category (categoryId -> hasVoted), use '_global' for no-category voting
+  const [votedCategories, setVotedCategories] = useState<Record<string, boolean>>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCategorySelect, setShowCategorySelect] = useState(false);
 
@@ -113,12 +131,169 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
 
+  // Grace period state - allows users to finish their action before phase change
+  const [userPhase, setUserPhase] = useState<QVotePhase>(initialConfig.currentPhase);
+  const [gracePeriodActive, setGracePeriodActive] = useState(false);
+  const [gracePeriodSeconds, setGracePeriodSeconds] = useState(0);
+  const gracePeriodTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visitorId = getOrCreateVisitorId();
+
+  // Compute hasVoted for current category
+  const currentCategoryKey = selectedCategory || '_global';
+  const hasVoted = votedCategories[currentCategoryKey] || false;
 
   useEffect(() => {
     setLocale(getBrowserLocale());
   }, []);
+
+  // Check for scheduled phase transitions every 10 seconds
+  useEffect(() => {
+    if (!config.schedule) return;
+
+    const checkSchedule = () => {
+      const now = new Date();
+      const phases = ['registration', 'preparation', 'voting', 'finals', 'calculating', 'results'] as const;
+
+      // Find the latest scheduled phase that has passed
+      let latestScheduledPhase: typeof phases[number] | null = null;
+      let latestScheduledTime: Date | null = null;
+
+      for (const phase of phases) {
+        const scheduleTime = config.schedule?.[phase];
+        if (scheduleTime) {
+          const scheduledDate = new Date(scheduleTime);
+          if (scheduledDate <= now) {
+            if (!latestScheduledTime || scheduledDate > latestScheduledTime) {
+              latestScheduledTime = scheduledDate;
+              latestScheduledPhase = phase;
+            }
+          }
+        }
+      }
+
+      // If we found a scheduled phase that should be active and it's different from current
+      if (latestScheduledPhase && latestScheduledPhase !== userPhase && !gracePeriodActive) {
+        console.log('[QVoteViewer] Auto-transitioning to scheduled phase:', latestScheduledPhase);
+        setUserPhase(latestScheduledPhase);
+      }
+    };
+
+    // Check immediately and then every 10 seconds
+    checkSchedule();
+    const interval = setInterval(checkSchedule, 10000);
+
+    return () => clearInterval(interval);
+  }, [config.schedule, userPhase, gracePeriodActive]);
+
+  // Subscribe to real-time config updates from Firestore
+  useEffect(() => {
+    if (!codeId) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'codes', codeId), (snapshot) => {
+      if (!snapshot.exists()) return;
+
+      const data = snapshot.data();
+      const media = data.media as MediaItem[] | undefined;
+      if (!media) return;
+
+      // Find the QVote media item
+      const qvoteMedia = media.find((m) => m.id === mediaId || m.type === 'qvote');
+      if (qvoteMedia?.qvoteConfig) {
+        const newConfig = qvoteMedia.qvoteConfig!;
+
+        setLiveConfig((prev) => {
+          // Check if phase changed
+          if (prev.currentPhase !== newConfig.currentPhase) {
+            console.log('[QVoteViewer] Phase change detected:', {
+              previousPhase: prev.currentPhase,
+              newPhase: newConfig.currentPhase,
+              userPhase,
+            });
+
+            // Check if user is in the middle of an action that needs grace period
+            const needsGracePeriod = (
+              // User is voting/selecting and phase moves away from voting/finals
+              ((userPhase === 'voting' || userPhase === 'finals') &&
+               !hasVoted &&
+               selectedCandidates.length > 0 &&
+               (newConfig.currentPhase === 'calculating' || newConfig.currentPhase === 'results'))
+            );
+
+            if (needsGracePeriod && !gracePeriodActive) {
+              // Start grace period - 10 seconds for voting
+              setGracePeriodActive(true);
+              setGracePeriodSeconds(10);
+
+              // Clear any existing timer
+              if (gracePeriodTimerRef.current) {
+                clearInterval(gracePeriodTimerRef.current);
+              }
+
+              // Start countdown
+              gracePeriodTimerRef.current = setInterval(() => {
+                setGracePeriodSeconds((prev) => {
+                  if (prev <= 1) {
+                    // Grace period ended - force transition
+                    clearInterval(gracePeriodTimerRef.current!);
+                    setGracePeriodActive(false);
+                    setUserPhase(newConfig.currentPhase);
+                    return 0;
+                  }
+                  return prev - 1;
+                });
+              }, 1000);
+
+              console.log('[QVoteViewer] Grace period started - 10 seconds to finish voting');
+            } else if (!needsGracePeriod) {
+              // No grace period needed - immediate transition
+              setUserPhase(newConfig.currentPhase);
+            }
+          }
+
+          // Check if votes were reset (stats show 0 voters/votes)
+          const prevStats = prev.stats;
+          const newStats = newConfig.stats;
+          const wasReset = (
+            prevStats &&
+            newStats &&
+            (prevStats.totalVoters > 0 || prevStats.totalVotes > 0) &&
+            newStats.totalVoters === 0 &&
+            newStats.totalVotes === 0
+          );
+
+          if (wasReset) {
+            console.log('[QVoteViewer] Votes reset detected - allowing user to vote again');
+            setVotedCategories({});
+            setSelectedCandidates([]);
+          }
+
+          // Always update the live config (for branding, etc.)
+          if (
+            prev.currentPhase !== newConfig.currentPhase ||
+            JSON.stringify(prev.branding) !== JSON.stringify(newConfig.branding) ||
+            prev.maxSelectionsPerVoter !== newConfig.maxSelectionsPerVoter ||
+            prev.showVoteCount !== newConfig.showVoteCount ||
+            prev.showNames !== newConfig.showNames ||
+            JSON.stringify(prev.stats) !== JSON.stringify(newStats)
+          ) {
+            return newConfig;
+          }
+          return prev;
+        });
+      }
+    }, (error) => {
+      console.error('[QVoteViewer] Error listening to config updates:', error);
+    });
+
+    return () => {
+      unsubscribe();
+      if (gracePeriodTimerRef.current) {
+        clearInterval(gracePeriodTimerRef.current);
+      }
+    };
+  }, [codeId, mediaId, userPhase, hasVoted, selectedCandidates.length, gracePeriodActive]);
 
   // Determine round based on phase
   const round = config.currentPhase === 'finals' ? 2 : 1;
@@ -137,12 +312,32 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
         });
         setCandidates(loadedCandidates);
 
-        // Check if user has already voted in this round
+        // Check if user has already voted in this round - group by category
         if (visitorId && (config.currentPhase === 'voting' || config.currentPhase === 'finals')) {
           const existingVotes = await getVoterVotes(codeId, visitorId, round);
           if (existingVotes.length > 0) {
-            setHasVoted(true);
-            setSelectedCandidates(existingVotes.map(v => v.candidateId));
+            // Group votes by category
+            const votesByCategory: Record<string, string[]> = {};
+            for (const vote of existingVotes) {
+              const categoryKey = vote.categoryId || '_global';
+              if (!votesByCategory[categoryKey]) {
+                votesByCategory[categoryKey] = [];
+              }
+              votesByCategory[categoryKey].push(vote.candidateId);
+            }
+
+            // Mark categories as voted
+            const votedCats: Record<string, boolean> = {};
+            for (const categoryKey of Object.keys(votesByCategory)) {
+              votedCats[categoryKey] = true;
+            }
+            setVotedCategories(votedCats);
+
+            // Set selected candidates for current category (if already selected)
+            const currentKey = selectedCategory || '_global';
+            if (votesByCategory[currentKey]) {
+              setSelectedCandidates(votesByCategory[currentKey]);
+            }
           }
         }
 
@@ -161,7 +356,7 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
     };
 
     loadData();
-  }, [codeId, config.currentPhase, visitorId, round]);
+  }, [codeId, config.currentPhase, visitorId, round, selectedCategory]);
 
   // Show category select if there are categories
   useEffect(() => {
@@ -207,7 +402,21 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
       );
 
       if (result.success) {
-        setHasVoted(true);
+        // Mark this category as voted
+        const categoryKey = selectedCategory || '_global';
+        setVotedCategories(prev => ({ ...prev, [categoryKey]: true }));
+
+        // If grace period is active, end it and transition to new phase
+        if (gracePeriodActive) {
+          if (gracePeriodTimerRef.current) {
+            clearInterval(gracePeriodTimerRef.current);
+          }
+          setGracePeriodActive(false);
+          setGracePeriodSeconds(0);
+          // Transition to the actual config phase
+          setUserPhase(config.currentPhase);
+          console.log('[QVoteViewer] Grace period ended - user completed voting');
+        }
       }
     } catch (error) {
       console.error('Error submitting vote:', error);
@@ -250,9 +459,17 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
       // Upload photos
       const uploadedPhotos = [];
       for (const file of photoFiles) {
+        // Compress image before upload (target 300KB, max 1200px for mobile)
+        const compressed = await compressImage(file, { maxSizeKB: 300, maxWidth: 1200, maxHeight: 1200 });
+        const compressedFile = createCompressedFile(compressed, file.name);
+        console.log(`Compressed ${file.name}: ${formatBytes(compressed.originalSize)} → ${formatBytes(compressed.compressedSize)}`);
+
         const formDataUpload = new FormData();
-        formDataUpload.append('file', file);
+        formDataUpload.append('file', compressedFile);
         formDataUpload.append('codeId', codeId);
+        if (ownerId) {
+          formDataUpload.append('ownerId', ownerId);
+        }
 
         const response = await fetch('/api/qvote/upload', {
           method: 'POST',
@@ -286,6 +503,7 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
         displayOrder: 0,
         visitorId,
         categoryId: selectedCategory || undefined,
+        categoryIds: selectedCategory ? [selectedCategory] : [],
       });
 
       setRegistrationSuccess(true);
@@ -307,6 +525,7 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
     text: config.branding.colors.text,
     buttonBg: config.branding.colors.buttonBackground,
     buttonText: config.branding.colors.buttonText,
+    accent: config.branding.colors.accent || config.branding.colors.buttonBackground,
   };
 
   // Render loading state
@@ -326,67 +545,85 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
   if (showCategorySelect && config.categories.length > 0) {
     return (
       <div
-        className="min-h-screen flex flex-col"
+        className="min-h-screen relative overflow-hidden"
         style={{ backgroundColor: brandingStyles.background }}
         dir={locale === 'he' ? 'rtl' : 'ltr'}
       >
-        {/* Landing image */}
+        {/* Full screen background image */}
         {config.branding.landingImage && (
-          <div className="relative w-full aspect-video">
+          <div className="absolute inset-0">
             <img
               src={config.branding.landingImage}
               alt=""
               className="w-full h-full object-cover"
             />
+            {/* Dark overlay for readability */}
+            <div className="absolute inset-0 bg-black/40" />
           </div>
         )}
 
-        <div className="flex-1 p-4 space-y-4">
-          <h2
-            className="text-2xl font-bold text-center"
-            style={{ color: brandingStyles.text }}
+        {/* Centered glassmorphism overlay */}
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div
+            className="w-full max-w-md rounded-3xl p-6 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+            }}
           >
-            {t.selectCategory}
-          </h2>
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-center text-white drop-shadow-lg">
+              {t.selectCategory}
+            </h2>
 
-          <div className="grid grid-cols-1 gap-3">
-            {config.categories.filter(c => c.isActive).map((category) => (
-              <button
-                key={category.id}
-                onClick={() => {
-                  setSelectedCategory(category.id);
-                  setShowCategorySelect(false);
-                }}
-                className="p-4 rounded-xl border-2 transition-all"
-                style={{
-                  borderColor: brandingStyles.buttonBg,
-                  backgroundColor: `${brandingStyles.buttonBg}10`,
-                }}
-              >
-                {config.branding.categoryImages?.[category.id] && (
-                  <img
-                    src={config.branding.categoryImages[category.id]}
-                    alt=""
-                    className="w-full h-32 object-cover rounded-lg mb-2"
-                  />
-                )}
-                <span
-                  className="text-lg font-medium"
-                  style={{ color: brandingStyles.text }}
+            {/* Category buttons */}
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto overscroll-contain px-1 py-1">
+              {config.categories.filter(c => c.isActive).map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => {
+                    setSelectedCategory(category.id);
+                    setShowCategorySelect(false);
+                    setSelectedCandidates([]); // Clear selections when switching categories
+                  }}
+                  className="w-full p-4 rounded-2xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                  }}
                 >
-                  {locale === 'en' && category.nameEn ? category.nameEn : category.name}
-                </span>
-              </button>
-            ))}
+                  {config.branding.categoryImages?.[category.id] && (
+                    <img
+                      src={config.branding.categoryImages[category.id]}
+                      alt=""
+                      className="w-full h-28 object-cover rounded-xl mb-3"
+                    />
+                  )}
+                  <span className="text-lg font-semibold text-white drop-shadow-md block">
+                    {locale === 'en' && category.nameEn ? category.nameEn : category.name}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // Render based on phase
+  // Render based on phase (use userPhase for grace period support)
   const renderPhaseContent = () => {
-    switch (config.currentPhase) {
+    // Use userPhase to allow grace period - user sees their current phase until grace period ends
+    const displayPhase = userPhase;
+
+    // Check for operator mode via URL parameter
+    const isOperator = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('operator') === 'true';
+
+    switch (displayPhase) {
       case 'registration':
         return renderRegistration();
       case 'preparation':
@@ -394,7 +631,13 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
       case 'voting':
       case 'finals':
         return renderVoting();
+      case 'calculating':
+        return renderCalculating();
       case 'results':
+        // If hideResultsFromParticipants is enabled and user is not operator, show calculating phase
+        if (config.hideResultsFromParticipants && !isOperator) {
+          return renderCalculating();
+        }
         return renderResults();
       default:
         return null;
@@ -564,248 +807,121 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
     </div>
   );
 
-  // Voting Phase
-  const renderVoting = () => {
-    const filteredCandidates = selectedCategory
-      ? candidates.filter(c => c.categoryId === selectedCategory)
-      : candidates;
+  // Calculating Phase - Similar to preparation but different message
+  const renderCalculating = () => (
+    <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
+      {/* Animated loading spinner */}
+      <div className="relative w-20 h-20 mb-6">
+        <div
+          className="absolute inset-0 rounded-full border-4 border-t-transparent animate-spin"
+          style={{ borderColor: `${brandingStyles.text}30`, borderTopColor: brandingStyles.buttonBg }}
+        />
+        <div
+          className="absolute inset-2 rounded-full border-4 border-b-transparent animate-spin"
+          style={{
+            borderColor: `${brandingStyles.text}20`,
+            borderBottomColor: brandingStyles.buttonBg,
+            animationDirection: 'reverse',
+            animationDuration: '1.5s',
+          }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Trophy className="w-8 h-8" style={{ color: brandingStyles.buttonBg }} />
+        </div>
+      </div>
 
-    const isFinalsPhase = config.currentPhase === 'finals';
+      <h2
+        className="text-2xl font-bold mb-2"
+        style={{ color: brandingStyles.text }}
+      >
+        {config.messages.calculatingMessage || t.calculatingTitle}
+      </h2>
+      <p style={{ color: `${brandingStyles.text}99` }}>
+        {t.calculatingDesc}
+      </p>
+
+      {/* Animated dots */}
+      <div className="flex gap-1 mt-4">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="w-2 h-2 rounded-full animate-bounce"
+            style={{
+              backgroundColor: brandingStyles.buttonBg,
+              animationDelay: `${i * 0.15}s`,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
+  // Voting Phase - Using the new redesigned voting view
+  const renderVoting = () => {
+    const handleBackToCategories = () => {
+      setSelectedCategory(null);
+      setShowCategorySelect(true);
+      setSelectedCandidates([]); // Clear selections when switching categories
+    };
 
     return (
-      <div className="flex-1 flex flex-col">
-        {/* Category Header */}
-        {selectedCategory && config.categories.length > 0 && (
-          <div className="relative">
-            {config.branding.categoryImages?.[selectedCategory] && (
-              <img
-                src={config.branding.categoryImages[selectedCategory]}
-                alt=""
-                className="w-full h-32 object-cover"
-              />
-            )}
-            <button
-              onClick={() => {
-                setSelectedCategory(null);
-                setShowCategorySelect(true);
-              }}
-              className="absolute top-2 start-2 p-2 rounded-full bg-black/50 text-white"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-
-        {/* Title */}
-        <div className="p-4 text-center">
-          <h2
-            className="text-2xl font-bold"
-            style={{ color: brandingStyles.text }}
-          >
-            {isFinalsPhase ? t.finalsTitle : t.votingTitle}
-          </h2>
-          {!hasVoted && (
-            <p className="text-sm mt-1" style={{ color: `${brandingStyles.text}99` }}>
-              {t.selectUpTo.replace('{n}', String(config.maxSelectionsPerVoter))}
-            </p>
-          )}
-        </div>
-
-        {/* Vote Success Message */}
-        {hasVoted && (
-          <div className="mx-4 mb-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30 text-center">
-            <Check className="w-8 h-8 text-green-500 mx-auto mb-2" />
-            <p className="font-semibold text-green-600">{t.voteSubmitted}</p>
-            <p className="text-sm text-green-600/80">{t.thankYou}</p>
-          </div>
-        )}
-
-        {/* Candidates Grid */}
-        <div className="flex-1 px-4 pb-32 overflow-y-auto">
-          {filteredCandidates.length === 0 ? (
-            <div className="text-center py-8" style={{ color: `${brandingStyles.text}99` }}>
-              {t.noCandidates}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {filteredCandidates.map((candidate) => {
-                const isSelected = selectedCandidates.includes(candidate.id);
-                const photo = candidate.photos[0];
-
-                return (
-                  <button
-                    key={candidate.id}
-                    onClick={() => handleCandidateSelect(candidate.id)}
-                    disabled={hasVoted}
-                    className={`relative rounded-xl overflow-hidden transition-all ${
-                      isSelected ? 'ring-4 ring-offset-2 scale-[1.02]' : ''
-                    } ${hasVoted ? 'opacity-70' : ''}`}
-                    style={{
-                      '--tw-ring-color': isSelected ? brandingStyles.buttonBg : undefined,
-                    } as React.CSSProperties}
-                  >
-                    {/* Photo */}
-                    <div className="aspect-square bg-gray-200">
-                      {photo && (
-                        <img
-                          src={photo.thumbnailUrl || photo.url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </div>
-
-                    {/* Name & Vote Count */}
-                    <div
-                      className="p-2"
-                      style={{ backgroundColor: `${brandingStyles.background}f0` }}
-                    >
-                      {config.showNames && candidate.name && (
-                        <p
-                          className="font-medium text-sm truncate"
-                          style={{ color: brandingStyles.text }}
-                        >
-                          {candidate.name}
-                        </p>
-                      )}
-                      {config.showVoteCount && (
-                        <p
-                          className="text-xs"
-                          style={{ color: `${brandingStyles.text}99` }}
-                        >
-                          {isFinalsPhase ? candidate.finalsVoteCount : candidate.voteCount} {t.votes}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Selection Indicator */}
-                    {isSelected && (
-                      <div
-                        className="absolute top-2 end-2 w-6 h-6 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: brandingStyles.buttonBg }}
-                      >
-                        <Check className="w-4 h-4" style={{ color: brandingStyles.buttonText }} />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Fixed Bottom Bar */}
-        {!hasVoted && selectedCandidates.length > 0 && (
-          <div
-            className="fixed bottom-0 left-0 right-0 p-4 border-t"
-            style={{
-              backgroundColor: brandingStyles.background,
-              borderColor: `${brandingStyles.text}20`,
-            }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span style={{ color: brandingStyles.text }}>
-                {t.yourSelections}: {selectedCandidates.length}/{config.maxSelectionsPerVoter}
-              </span>
-            </div>
-            <button
-              onClick={handleSubmitVote}
-              disabled={submitting}
-              className="w-full py-4 rounded-xl font-semibold transition-all disabled:opacity-50"
-              style={{
-                backgroundColor: brandingStyles.buttonBg,
-                color: brandingStyles.buttonText,
-              }}
-            >
-              {submitting ? (
-                <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-              ) : (
-                <>
-                  <Vote className="w-5 h-5 inline-block me-2" />
-                  {t.submitVote}
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
+      <QVoteVotingView
+        candidates={candidates}
+        config={config}
+        selectedCandidates={selectedCandidates}
+        onSelectCandidate={handleCandidateSelect}
+        hasVoted={hasVoted}
+        submitting={submitting}
+        onSubmitVote={handleSubmitVote}
+        selectedCategory={selectedCategory}
+        onBackToCategories={handleBackToCategories}
+        locale={locale}
+        translations={{
+          votingTitle: (locale === 'he' ? config.branding.votingTitle : config.branding.votingTitleEn) || config.branding.votingTitle || t.votingTitle,
+          finalsTitle: t.finalsTitle,
+          selectUpTo: t.selectUpTo,
+          submitVote: t.submitVote,
+          voteSubmitted: t.voteSubmitted,
+          thankYou: t.thankYou,
+          yourSelections: t.yourSelections,
+          noCandidates: t.noCandidates,
+          votes: t.votes,
+        }}
+      />
     );
   };
 
   // Results Phase
-  const renderResults = () => (
-    <div className="flex-1 p-4">
-      <h2
-        className="text-2xl font-bold text-center mb-6"
-        style={{ color: brandingStyles.text }}
-      >
-        {t.resultsTitle}
-      </h2>
+  const renderResults = () => {
+    // Get category name if a category is selected
+    const categoryName = selectedCategory && config.categories.length > 0
+      ? (() => {
+          const category = config.categories.find(c => c.id === selectedCategory);
+          return locale === 'en' && category?.nameEn ? category.nameEn : category?.name;
+        })()
+      : undefined;
 
-      <div className="space-y-3">
-        {candidates.slice(0, 10).map((candidate, index) => {
-          const photo = candidate.photos[0];
-          const isWinner = index === 0;
-
-          return (
-            <div
-              key={candidate.id}
-              className={`flex items-center gap-3 p-3 rounded-xl ${
-                isWinner ? 'ring-2 ring-yellow-400' : ''
-              }`}
-              style={{
-                backgroundColor: `${brandingStyles.text}10`,
-              }}
-            >
-              {/* Rank */}
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                  isWinner ? 'bg-yellow-400 text-yellow-900' : ''
-                }`}
-                style={!isWinner ? {
-                  backgroundColor: `${brandingStyles.text}20`,
-                  color: brandingStyles.text,
-                } : undefined}
-              >
-                {isWinner ? <Trophy className="w-4 h-4" /> : index + 1}
-              </div>
-
-              {/* Photo */}
-              <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                {photo && (
-                  <img
-                    src={photo.thumbnailUrl || photo.url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                )}
-              </div>
-
-              {/* Name */}
-              <div className="flex-1 min-w-0">
-                {config.showNames && candidate.name && (
-                  <p
-                    className="font-medium truncate"
-                    style={{ color: brandingStyles.text }}
-                  >
-                    {candidate.name}
-                  </p>
-                )}
-                {config.showVoteCount && (
-                  <p
-                    className="text-sm"
-                    style={{ color: `${brandingStyles.text}99` }}
-                  >
-                    {candidate.voteCount} {t.votes}
-                  </p>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+    return (
+      <QVoteResultsView
+        candidates={candidates}
+        showNames={config.showNames}
+        showVoteCount={config.showVoteCount}
+        isFinalsPhase={config.currentPhase === 'finals'}
+        accentColor={brandingStyles.accent}
+        textColor={brandingStyles.text}
+        backgroundColor={brandingStyles.background}
+        isRTL={locale === 'he'}
+        logoUrl={config.branding.logoUrl}
+        flipbookSettings={config.flipbookSettings}
+        categoryName={categoryName}
+        translations={{
+          resultsTitle: t.resultsTitle,
+          votes: t.votes,
+          winner: t.winner,
+        }}
+      />
+    );
+  };
 
   // Determine if we should show landing page
   const hasLandingContent = config.branding.landingImage || config.branding.landingTitle || config.branding.landingSubtitle;
@@ -903,12 +1019,54 @@ export default function QVoteViewer({ config, codeId, mediaId, shortId }: QVoteV
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="min-h-screen flex flex-col relative"
       style={{ backgroundColor: brandingStyles.background }}
       dir={locale === 'he' ? 'rtl' : 'ltr'}
     >
       {/* Phase Content */}
       {renderPhaseContent()}
+
+      {/* Grace Period Countdown Timer - Animated bar from green to red */}
+      {gracePeriodActive && (
+        <div className="fixed top-0 left-0 right-0 z-50">
+          {/* Progress bar background */}
+          <div className="h-2 bg-gray-200/30 backdrop-blur-sm">
+            {/* Animated progress bar - shrinks from 100% to 0% over 10 seconds */}
+            <div
+              className="h-full transition-all duration-1000 ease-linear"
+              style={{
+                width: `${(gracePeriodSeconds / 10) * 100}%`,
+                backgroundColor: gracePeriodSeconds > 6
+                  ? '#22c55e' // Green
+                  : gracePeriodSeconds > 3
+                  ? '#f59e0b' // Amber
+                  : '#ef4444', // Red
+              }}
+            />
+          </div>
+
+          {/* Timer message */}
+          <div
+            className="flex items-center justify-center gap-3 py-3 px-4"
+            style={{
+              backgroundColor: gracePeriodSeconds > 6
+                ? 'rgba(34, 197, 94, 0.95)'
+                : gracePeriodSeconds > 3
+                ? 'rgba(245, 158, 11, 0.95)'
+                : 'rgba(239, 68, 68, 0.95)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <Clock className="w-5 h-5 text-white animate-pulse" />
+            <span className="text-white font-bold text-lg">
+              {gracePeriodSeconds}
+            </span>
+            <span className="text-white/90 font-medium">
+              {t.secondsLeft} - {t.gracePeriod}!
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

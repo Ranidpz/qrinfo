@@ -327,3 +327,123 @@ body {
   display: none;
 }
 
+/* ========== QVote Voting Interface Animations ========== */
+
+/* Selection pulse effect */
+@keyframes qvote-select-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Checkmark burst animation */
+@keyframes qvote-check-burst {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Shake animation for max selections */
+@keyframes qvote-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+/* Bubble entrance animation */
+@keyframes qvote-bubble-enter {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Fade up entrance */
+@keyframes qvote-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-qvote-select {
+  animation: qvote-select-pulse 0.5s ease-out;
+}
+
+.animate-qvote-check {
+  animation: qvote-check-burst 0.4s ease-out forwards;
+}
+
+.animate-qvote-shake {
+  animation: qvote-shake 0.4s ease-in-out;
+}
+
+.animate-qvote-bubble-enter {
+  animation: qvote-bubble-enter 0.35s ease-out forwards;
+}
+
+.animate-qvote-fade-up {
+  animation: qvote-fade-up 0.4s ease-out forwards;
+}
+
+/* Breathing/pulse animation for active voting button */
+@keyframes qvote-breathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 20px currentColor;
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 6px 30px currentColor;
+  }
+}
+
+.animate-qvote-breathe {
+  animation: qvote-breathe 2s ease-in-out infinite;
+}
+
+/* Shimmer effect for active button */
+@keyframes qvote-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-qvote-shimmer {
+  animation: qvote-shimmer 2s ease-in-out infinite;
+}
+

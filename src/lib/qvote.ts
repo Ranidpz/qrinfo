@@ -203,6 +203,7 @@ export async function getCandidates(
       id: docSnap.id,
       codeId: data.codeId,
       categoryId: data.categoryId,
+      categoryIds: data.categoryIds || [],
       source: data.source,
       name: data.name,
       formData: data.formData || {},
@@ -243,7 +244,7 @@ export async function getCandidates(
 export async function updateCandidate(
   codeId: string,
   candidateId: string,
-  updates: Partial<Pick<Candidate, 'name' | 'formData' | 'photos' | 'isApproved' | 'isFinalist' | 'isHidden' | 'displayOrder' | 'categoryId'>>
+  updates: Partial<Pick<Candidate, 'name' | 'formData' | 'photos' | 'isApproved' | 'isFinalist' | 'isHidden' | 'displayOrder' | 'categoryId' | 'categoryIds'>>
 ): Promise<void> {
   const wasApproved = updates.isApproved !== undefined;
 
@@ -364,13 +365,24 @@ export async function submitVotes(
   let votesSubmitted = 0;
 
   await runTransaction(db, async (transaction) => {
-    // Check for existing votes
+    // PHASE 1: All reads first (Firestore requirement)
+    const voteRefs: { voteId: string; voteRef: ReturnType<typeof doc>; candidateId: string; exists: boolean }[] = [];
+
     for (const candidateId of candidateIds) {
       const voteId = `${voterId}_${candidateId}_${round}`;
       const voteRef = doc(db, 'codes', codeId, 'votes', voteId);
       const voteSnap = await transaction.get(voteRef);
+      voteRefs.push({
+        voteId,
+        voteRef,
+        candidateId,
+        exists: voteSnap.exists(),
+      });
+    }
 
-      if (voteSnap.exists()) {
+    // PHASE 2: All writes after reads
+    for (const { voteId, voteRef, candidateId, exists } of voteRefs) {
+      if (exists) {
         duplicates.push(candidateId);
         continue;
       }
@@ -747,4 +759,78 @@ export async function deleteAllQVoteData(codeId: string): Promise<void> {
   });
 
   await batch.commit();
+}
+
+// Reset all votes (keeps candidates, clears vote counts)
+export async function resetAllVotes(codeId: string): Promise<{ deletedVotes: number }> {
+  // Delete all votes
+  const votesSnapshot = await getDocs(
+    collection(db, 'codes', codeId, 'votes')
+  );
+
+  const deletedVotes = votesSnapshot.size;
+
+  // Batch delete votes (max 500 per batch)
+  const voteDocs = votesSnapshot.docs;
+  for (let i = 0; i < voteDocs.length; i += 500) {
+    const batch = writeBatch(db);
+    const chunk = voteDocs.slice(i, i + 500);
+    chunk.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+  }
+
+  // Reset vote counts on all candidates
+  const candidatesSnapshot = await getDocs(
+    collection(db, 'codes', codeId, 'candidates')
+  );
+
+  const candidateDocs = candidatesSnapshot.docs;
+  for (let i = 0; i < candidateDocs.length; i += 500) {
+    const batch = writeBatch(db);
+    const chunk = candidateDocs.slice(i, i + 500);
+    chunk.forEach((docSnap) => {
+      batch.update(docSnap.ref, {
+        voteCount: 0,
+        finalsVoteCount: 0,
+        updatedAt: serverTimestamp(),
+      });
+    });
+    await batch.commit();
+  }
+
+  // Reset stats
+  const codeDoc = await getDoc(doc(db, 'codes', codeId));
+  if (codeDoc.exists()) {
+    const data = codeDoc.data();
+    const qvoteMediaIndex = data.media?.findIndex((m: { type: string }) => m.type === 'qvote');
+
+    if (qvoteMediaIndex !== -1) {
+      const updatedMedia = [...data.media];
+      const currentStats = updatedMedia[qvoteMediaIndex].qvoteConfig?.stats || {};
+
+      updatedMedia[qvoteMediaIndex] = {
+        ...updatedMedia[qvoteMediaIndex],
+        qvoteConfig: {
+          ...updatedMedia[qvoteMediaIndex].qvoteConfig,
+          stats: {
+            ...currentStats,
+            totalVoters: 0,
+            totalVotes: 0,
+            finalsVoters: 0,
+            finalsVotes: 0,
+            lastUpdated: new Date(),
+          },
+        },
+      };
+
+      await updateDoc(doc(db, 'codes', codeId), {
+        media: updatedMedia,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  }
+
+  return { deletedVotes };
 }

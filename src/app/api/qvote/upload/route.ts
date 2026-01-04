@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const codeId = formData.get('codeId') as string;
+    const ownerId = formData.get('ownerId') as string;
 
     if (!file || !codeId) {
       return NextResponse.json(
@@ -68,15 +69,19 @@ export async function POST(request: NextRequest) {
     const photoId = `qvote_${timestamp}_${Math.random().toString(36).substring(7)}`;
     const extension = file.type === 'image/webp' ? 'webp' : 'jpg';
 
+    // Build path with owner folder structure: {ownerId}/{codeId}/qvote/photos/...
+    // If ownerId is not provided, fall back to codeId-only structure for backwards compatibility
+    const basePath = ownerId ? `${ownerId}/${codeId}/qvote` : `qvote/${codeId}`;
+
     // Upload main image
-    const mainFilename = `qvote/${codeId}/photos/${photoId}.${extension}`;
+    const mainFilename = `${basePath}/photos/${photoId}.${extension}`;
     const mainBlob = await put(mainFilename, file, {
       access: 'public',
       addRandomSuffix: false,
     });
 
     // Upload thumbnail (same for now - could resize server-side)
-    const thumbnailFilename = `qvote/${codeId}/thumbs/${photoId}_thumb.${extension}`;
+    const thumbnailFilename = `${basePath}/thumbs/${photoId}_thumb.${extension}`;
     const thumbnailBlob = await put(thumbnailFilename, file, {
       access: 'public',
       addRandomSuffix: false,

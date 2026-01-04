@@ -1,7 +1,7 @@
 // ============ Q.VOTE - Digital Voting System ============
 
 // Phase types for voting lifecycle
-export type QVotePhase = 'registration' | 'preparation' | 'voting' | 'finals' | 'results';
+export type QVotePhase = 'registration' | 'preparation' | 'voting' | 'finals' | 'calculating' | 'results';
 
 // Schedule mode for phase transitions
 export type ScheduleMode = 'manual' | 'scheduled' | 'hybrid';
@@ -39,18 +39,22 @@ export interface QVoteBranding {
   landingImage?: string;              // Full screen landing page image
   landingImageName?: string;          // Original file name
   landingImageSize?: number;          // File size in bytes
+  logoUrl?: string;                   // Logo URL for header
   categoryImages?: Record<string, string>;  // Image per category ID
   imageOverlayOpacity?: number;       // Overlay opacity (0-80) for landing image
 
   // Text content
   landingTitle?: string;
   landingSubtitle?: string;
+  votingTitle?: string;                // Title shown during voting phase
+  votingTitleEn?: string;              // English version
   buttonText?: string;                 // Legacy - fallback
   buttonTexts?: {                      // Button text per phase
     registration?: string;
     preparation?: string;
     voting?: string;
     finals?: string;
+    calculating?: string;
   };
 
   // Colors - full brand customization
@@ -65,13 +69,12 @@ export interface QVoteBranding {
 
 // Schedule configuration for phases
 export interface QVoteSchedule {
-  registrationStart?: Date;
-  registrationEnd?: Date;
-  votingStart?: Date;
-  votingEnd?: Date;
-  finalsStart?: Date;               // Only if enableFinals=true
-  finalsEnd?: Date;
-  resultsStart?: Date;
+  registration?: string | Date;
+  preparation?: string | Date;
+  voting?: string | Date;
+  finals?: string | Date;
+  calculating?: string | Date;
+  results?: string | Date;
 }
 
 // Gamification settings for voters
@@ -89,7 +92,36 @@ export interface QVoteMessages {
   registrationSuccess?: string;     // "נרשמתם בהצלחה!"
   waitForApproval?: string;         // "ההרשמה שלכם תאושר בקרוב"
   alreadyRegistered?: string;       // "כבר נרשמת לתחרות"
+  calculatingMessage?: string;      // "מחשבים תוצאות..."
 }
+
+// Flipbook settings for results view
+export interface QVoteFlipbookSettings {
+  pageMode: 'single' | 'double';    // Single or double page spread
+  direction: 'ltr' | 'rtl';         // Page direction
+  effect3D: boolean;                // 3D flip effect vs 2D swipe
+  soundEnabled: boolean;            // Page flip sound
+  flipDuration: number;             // Animation duration (300-1200ms)
+  autoPlay: boolean;                // Auto advance
+  autoPlayInterval: number;         // Interval between auto-advances (2000-10000ms)
+  showControls: boolean;            // Show navigation controls
+  showCounter: boolean;             // Show page counter
+  startFromLast: boolean;           // Start from last place (countdown reveal)
+}
+
+// Default flipbook settings
+export const DEFAULT_FLIPBOOK_SETTINGS: QVoteFlipbookSettings = {
+  pageMode: 'single',
+  direction: 'rtl',
+  effect3D: true,
+  soundEnabled: false,
+  flipDuration: 600,
+  autoPlay: false,
+  autoPlayInterval: 3000,
+  showControls: true,
+  showCounter: true,
+  startFromLast: false,
+};
 
 // Statistics for the voting session
 export interface QVoteStats {
@@ -125,6 +157,7 @@ export interface QVoteConfig {
   showNames: boolean;               // Show/hide candidate names
   enableCropping: boolean;          // Allow image cropping on upload
   allowSelfRegistration: boolean;   // Allow self-registration or producer-only
+  hideResultsFromParticipants?: boolean; // Hide results page from participants (show "calculating" instead)
 
   // Gamification for voters
   gamification: QVoteGamification;
@@ -134,6 +167,9 @@ export interface QVoteConfig {
 
   // Custom messages
   messages: QVoteMessages;
+
+  // Flipbook settings for results view
+  flipbookSettings?: QVoteFlipbookSettings;
 
   // Statistics (denormalized for performance)
   stats?: QVoteStats;
@@ -146,13 +182,15 @@ export interface CandidatePhoto {
   thumbnailUrl: string;             // Smaller image for gallery
   order: number;
   uploadedAt: Date;
+  size?: number;                    // File size in bytes (after compression)
 }
 
 // Candidate document (subcollection: codes/{codeId}/candidates)
 export interface Candidate {
   id: string;
   codeId: string;                   // Parent code ID
-  categoryId?: string;              // Category (if using categories)
+  categoryId?: string;              // Category (if using categories) - legacy single
+  categoryIds?: string[];           // Multiple categories (tag system)
 
   // Registration source
   source: CandidateSource;          // 'self' or 'producer'
@@ -266,11 +304,12 @@ export const PHASE_NAMES: Record<QVotePhase, { he: string; en: string }> = {
   preparation: { he: 'הכנה', en: 'Preparation' },
   voting: { he: 'הצבעה', en: 'Voting' },
   finals: { he: 'גמר', en: 'Finals' },
+  calculating: { he: 'מחשבים תוצאות', en: 'Calculating Results' },
   results: { he: 'תוצאות', en: 'Results' },
 };
 
 // Phase order for validation
-export const PHASE_ORDER: QVotePhase[] = ['registration', 'preparation', 'voting', 'finals', 'results'];
+export const PHASE_ORDER: QVotePhase[] = ['registration', 'preparation', 'voting', 'finals', 'calculating', 'results'];
 
 // Validate phase transition (can only move forward, except finals is optional)
 export function isValidPhaseTransition(from: QVotePhase, to: QVotePhase, enableFinals: boolean): boolean {
