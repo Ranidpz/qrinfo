@@ -34,37 +34,57 @@ interface QVoteResultsViewProps {
   };
 }
 
-// Rank badge component
+// Rank badge component - Elegant combined badge
 const RankBadge = memo(function RankBadge({
   rank,
   voteCount,
+  showVoteCount,
   isRTL,
 }: {
   rank: number;
   voteCount: number;
+  showVoteCount: boolean;
   isRTL: boolean;
 }) {
-  const getBadgeStyle = () => {
-    if (rank === 1) return { bg: 'bg-gradient-to-br from-yellow-400 to-amber-500', icon: Crown, text: 'text-yellow-900' };
-    if (rank === 2) return { bg: 'bg-gradient-to-br from-gray-300 to-gray-400', icon: Medal, text: 'text-gray-700' };
-    if (rank === 3) return { bg: 'bg-gradient-to-br from-amber-600 to-amber-700', icon: Medal, text: 'text-amber-100' };
-    return { bg: 'bg-gradient-to-br from-blue-500 to-blue-600', icon: null, text: 'text-white' };
+  const getBadgeColor = () => {
+    if (rank === 1) return '#fbbf24'; // Gold
+    if (rank === 2) return '#9ca3af'; // Silver
+    if (rank === 3) return '#d97706'; // Bronze
+    return '#3b82f6'; // Blue
   };
 
-  const style = getBadgeStyle();
-  const Icon = style.icon;
+  const getTextColor = () => {
+    if (rank === 1) return '#78350f'; // Dark amber
+    if (rank === 2) return '#374151'; // Dark gray
+    return '#ffffff'; // White
+  };
 
   return (
-    <div className={`absolute top-3 ${isRTL ? 'left-3' : 'right-3'} flex flex-col items-center gap-1 z-20`}>
-      <div className={`w-12 h-12 rounded-full ${style.bg} flex items-center justify-center shadow-lg`}>
-        {Icon ? (
-          <Icon className={`w-6 h-6 ${style.text}`} />
-        ) : (
-          <span className={`font-bold text-lg ${style.text}`}>{rank}</span>
+    <div className={`absolute top-3 ${isRTL ? 'left-3' : 'right-3'} z-20`}>
+      <div
+        className="flex flex-col items-center rounded-2xl overflow-hidden shadow-xl"
+        style={{ backgroundColor: getBadgeColor() }}
+      >
+        {/* Rank */}
+        <div
+          className="w-14 h-14 flex items-center justify-center"
+          style={{ color: getTextColor() }}
+        >
+          {rank === 1 ? (
+            <Crown className="w-8 h-8" />
+          ) : (
+            <span className="font-bold text-2xl">{rank}</span>
+          )}
+        </div>
+        {/* Vote count */}
+        {showVoteCount && (
+          <div
+            className="w-full px-3 py-1.5 text-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}
+          >
+            <span className="text-white text-sm font-bold">{voteCount}</span>
+          </div>
         )}
-      </div>
-      <div className="px-2 py-1 rounded-full bg-black/70 backdrop-blur-sm">
-        <span className="text-white text-xs font-bold">{voteCount}</span>
       </div>
     </div>
   );
@@ -112,7 +132,7 @@ const FlipbookResultCard = memo(function FlipbookResultCard({
       )}
 
       {/* Rank Badge */}
-      <RankBadge rank={rank} voteCount={voteCount} isRTL={isRTL} />
+      <RankBadge rank={rank} voteCount={voteCount} showVoteCount={showVoteCount} isRTL={isRTL} />
 
       {/* Bottom gradient with name - only show real names, not filenames */}
       {(() => {
@@ -131,20 +151,6 @@ const FlipbookResultCard = memo(function FlipbookResultCard({
             <h3 className="text-white text-2xl font-bold truncate text-center drop-shadow-lg">
               {candidate.name}
             </h3>
-            {showVoteCount && (
-              <p className="text-white/80 text-center mt-1">
-                {voteCount} {votesLabel}
-              </p>
-            )}
-          </div>
-        ) : showVoteCount ? (
-          <div
-            className="absolute bottom-0 inset-x-0 p-4 z-10"
-            style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}
-          >
-            <p className="text-white/80 text-center">
-              {voteCount} {votesLabel}
-            </p>
           </div>
         ) : null;
       })()}
@@ -208,26 +214,34 @@ const GridResultItem = memo(function GridResultItem({
         </div>
       )}
 
-      {/* Rank & Vote Badge */}
-      <div className={`absolute top-2 ${isRTL ? 'left-2' : 'right-2'} flex flex-col items-center gap-1 z-10`}>
+      {/* Rank & Vote Badge - Elegant combined badge */}
+      <div className={`absolute top-2 ${isRTL ? 'left-2' : 'right-2'} z-10`}>
         <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-lg ${
-            rank === 1
-              ? 'bg-yellow-400 text-yellow-900'
-              : rank === 2
-              ? 'bg-gray-300 text-gray-700'
-              : rank === 3
-              ? 'bg-amber-600 text-white'
-              : 'bg-blue-500 text-white'
-          }`}
+          className="flex flex-col items-center rounded-xl overflow-hidden shadow-lg"
+          style={{
+            backgroundColor: rank === 1 ? '#fbbf24' : rank === 2 ? '#9ca3af' : rank === 3 ? '#d97706' : '#3b82f6',
+          }}
         >
-          {rank <= 3 ? (rank === 1 ? <Crown className="w-4 h-4" /> : rank) : rank}
-        </div>
-        {showVoteCount && (
-          <div className="px-1.5 py-0.5 rounded-full bg-black/70 backdrop-blur-sm">
-            <span className="text-white text-[10px] font-bold">{voteCount}</span>
+          {/* Rank */}
+          <div
+            className={`w-10 h-10 flex items-center justify-center font-bold ${
+              rank === 1 ? 'text-yellow-900' : rank === 2 ? 'text-gray-700' : rank === 3 ? 'text-white' : 'text-white'
+            }`}
+          >
+            {rank === 1 ? <Crown className="w-5 h-5" /> : <span className="text-lg">{rank}</span>}
           </div>
-        )}
+          {/* Vote count */}
+          {showVoteCount && (
+            <div
+              className="w-full px-2 py-1 text-center"
+              style={{
+                backgroundColor: 'rgba(0,0,0,0.3)',
+              }}
+            >
+              <span className="text-white text-xs font-semibold">{voteCount}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Name overlay - only show real names, not filenames */}
@@ -299,19 +313,32 @@ const ListResultItem = memo(function ListResultItem({
           : `0 2px 8px ${textColor}15`,
       }}
     >
-      {/* Rank Badge */}
-      <div
-        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-          rank === 1
-            ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-yellow-900'
-            : rank === 2
-            ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700'
-            : rank === 3
-            ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white'
-            : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
-        }`}
-      >
-        {rank <= 3 ? (rank === 1 ? <Crown className="w-5 h-5" /> : rank) : rank}
+      {/* Rank Badge with Vote Count */}
+      <div className="flex flex-col items-center shrink-0">
+        <div
+          className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold shadow-md ${
+            rank === 1
+              ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-yellow-900'
+              : rank === 2
+              ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700'
+              : rank === 3
+              ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white'
+              : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
+          }`}
+        >
+          {rank === 1 ? <Crown className="w-6 h-6" /> : <span className="text-xl">{rank}</span>}
+        </div>
+        {showVoteCount && (
+          <div
+            className="mt-1 px-2 py-0.5 rounded-md text-xs font-semibold"
+            style={{
+              backgroundColor: rank === 1 ? '#fbbf24' : rank === 2 ? '#9ca3af' : rank === 3 ? '#d97706' : '#3b82f6',
+              color: rank === 1 ? '#78350f' : rank === 2 ? '#374151' : '#ffffff',
+            }}
+          >
+            {voteCount}
+          </div>
+        )}
       </div>
 
       {/* Image - Small square */}
@@ -336,17 +363,12 @@ const ListResultItem = memo(function ListResultItem({
         )}
       </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
+      {/* Info - Name only, vote count shown in badge */}
+      <div className="flex-1 min-w-0 flex items-center">
         {showNames && isRealName && (
-          <h3 className="font-semibold truncate" style={{ color: textColor }}>
+          <h3 className="font-semibold truncate text-lg" style={{ color: textColor }}>
             {candidate.name}
           </h3>
-        )}
-        {showVoteCount && (
-          <p className="text-sm" style={{ color: `${textColor}70` }}>
-            {voteCount} {votesLabel}
-          </p>
         )}
       </div>
     </div>
