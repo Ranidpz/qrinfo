@@ -854,6 +854,11 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     // Check for operator mode via URL parameter
     const isOperator = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('operator') === 'true';
 
+    // Operator mode always shows results, regardless of current phase
+    if (isOperator) {
+      return renderResults();
+    }
+
     switch (displayPhase) {
       case 'registration':
         return renderRegistration();
@@ -865,8 +870,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       case 'calculating':
         return renderCalculating();
       case 'results':
-        // If hideResultsFromParticipants is enabled and user is not operator, show calculating phase
-        if (config.hideResultsFromParticipants && !isOperator) {
+        // If hideResultsFromParticipants is enabled, show calculating phase
+        if (config.hideResultsFromParticipants) {
           return renderCalculating();
         }
         return renderResults();
