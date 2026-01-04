@@ -121,9 +121,9 @@ export default function QVoteVotingView({
       style={{ backgroundColor: brandingStyles.background }}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
-      {/* Header with Logo, Category Name, and Back Button - Sticky */}
+      {/* Header with Logo, Category Name, and Back Button - Fixed */}
       <div
-        className="sticky top-0 shrink-0 px-4 py-3 z-30"
+        className="fixed top-0 left-0 right-0 px-4 py-3 z-50"
         style={{
           backgroundColor: brandingStyles.background,
           borderBottom: `1px solid ${brandingStyles.text}10`,
@@ -200,6 +200,9 @@ export default function QVoteVotingView({
           </a>
         </div>
       </div>
+
+      {/* Spacer for fixed header */}
+      <div className="h-14 shrink-0" />
 
       {/* Vote Success Banner */}
       {hasVoted && (
