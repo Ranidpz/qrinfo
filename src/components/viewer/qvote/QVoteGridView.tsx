@@ -189,8 +189,9 @@ const QVoteGridView = memo(function QVoteGridView({
 
       const isSelected = selectedIds.includes(candidateId);
 
-      // If already selected, do nothing - deselect only via bubble X button
+      // In grid view, clicking on selected item deselects it
       if (isSelected) {
+        onSelect(candidateId); // Toggle off
         return;
       }
 

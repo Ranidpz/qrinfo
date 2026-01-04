@@ -61,6 +61,7 @@ export default function QVoteVotingView({
   const isFinalsPhase = config.currentPhase === 'finals';
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
+  const [showExitToQ, setShowExitToQ] = useState(false);
 
   // Calculate if vote change is allowed
   const maxVoteChanges = config.maxVoteChanges ?? 0;
@@ -74,6 +75,7 @@ export default function QVoteVotingView({
   const [viewMode, setViewMode] = useState<ViewMode>('flipbook');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [scrollTargetIndex, setScrollTargetIndex] = useState<number | null>(null);
+  const [listFocusedIndex, setListFocusedIndex] = useState<number | null>(null);
 
   // Load saved view mode preference
   useEffect(() => {
@@ -213,11 +215,9 @@ export default function QVoteVotingView({
             )}
           </div>
 
-          {/* Q Logo - Links to main site */}
-          <a
-            href="https://qr.playzones.app"
-            target="_blank"
-            rel="noopener noreferrer"
+          {/* Q Logo - Shows exit confirmation */}
+          <button
+            onClick={() => setShowExitToQ(true)}
             className="shrink-0 transition-transform hover:scale-105 active:scale-95"
           >
             <img
@@ -225,7 +225,7 @@ export default function QVoteVotingView({
               alt="Q"
               className="w-8 h-8 object-contain"
             />
-          </a>
+          </button>
         </div>
       </div>
 
@@ -374,6 +374,63 @@ export default function QVoteVotingView({
         </div>
       )}
 
+      {/* Exit to Q Platform Confirmation Dialog */}
+      {showExitToQ && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowExitToQ(false)}
+          />
+          <div
+            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl"
+            style={{ backgroundColor: brandingStyles.background }}
+          >
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden bg-gradient-to-br from-purple-500 to-blue-500">
+                <img
+                  src="/theQ.png"
+                  alt="Q"
+                  className="w-10 h-10 object-contain"
+                />
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{ color: brandingStyles.text }}>
+                {isRTL ? 'יציאה לפלטפורמת The Q' : 'Leaving to The Q Platform'}
+              </h3>
+              <p className="text-sm mb-6" style={{ color: `${brandingStyles.text}80` }}>
+                {isRTL
+                  ? 'אתם עומדים לעזוב את ההצבעה לטאב חדש עם פלטפורמת The Q. אתם בטוחים?'
+                  : "You're about to leave the voting for a new tab with The Q platform. Are you sure?"}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowExitToQ(false)}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: `${brandingStyles.text}10`,
+                    color: brandingStyles.text,
+                  }}
+                >
+                  {isRTL ? 'לא, להישאר' : 'No, Stay'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExitToQ(false);
+                    window.open('https://qr.playzones.app', '_blank');
+                  }}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: brandingStyles.accent,
+                    color: '#ffffff',
+                  }}
+                >
+                  {isRTL ? 'כן, לצאת' : 'Yes, Leave'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content Area */}
       <div className="flex-1 min-h-0 relative">
         {filteredCandidates.length === 0 ? (
@@ -416,6 +473,7 @@ export default function QVoteVotingView({
             textColor={brandingStyles.text}
             backgroundColor={brandingStyles.background}
             isRTL={isRTL}
+            onFocusedIndexChange={setListFocusedIndex}
           />
         ) : (
           <QVoteGridView
@@ -459,14 +517,20 @@ export default function QVoteVotingView({
           <QVoteSelectedBubbles
             candidates={filteredCandidates}
             selectedIds={selectedCandidates}
-            currentIndex={viewMode === 'flipbook' ? currentIndex : -1}
+            currentIndex={
+              viewMode === 'flipbook'
+                ? currentIndex
+                : viewMode === 'list'
+                ? (listFocusedIndex ?? -1)
+                : -1
+            }
             maxSelections={config.maxSelectionsPerVoter}
             onNavigateTo={handleNavigateToCandidate}
             onDeselect={handleDeselectFromBubble}
             accentColor={brandingStyles.accent}
             textColor={brandingStyles.text}
             isRTL={isRTL}
-            directDeselect={viewMode !== 'flipbook'}
+            directDeselect={viewMode === 'grid'}
           />
         </div>
       )}

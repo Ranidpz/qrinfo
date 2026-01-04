@@ -19,6 +19,8 @@ interface QVoteListViewProps {
   textColor?: string;
   backgroundColor?: string;
   isRTL?: boolean;
+  /** Called when the focused item changes (for bubble X visibility) */
+  onFocusedIndexChange?: (index: number | null) => void;
 }
 
 // Individual list item - Compact horizontal card
@@ -181,18 +183,58 @@ const QVoteListView = memo(function QVoteListView({
   textColor = '#1f2937',
   backgroundColor = '#ffffff',
   isRTL = false,
+  onFocusedIndexChange,
 }: QVoteListViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const isScrollingFromBubble = useRef(false);
+  const focusedIndexRef = useRef<number | null>(null);
 
   // Scroll to target index when navigating from bubbles
   useEffect(() => {
     if (targetIndex !== null && targetIndex >= 0 && itemRefs.current.has(targetIndex)) {
+      isScrollingFromBubble.current = true;
+      focusedIndexRef.current = targetIndex;
+      onFocusedIndexChange?.(targetIndex);
+
       const element = itemRefs.current.get(targetIndex);
       element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       onScrollToIndex(-1); // Reset target
+
+      // Reset the bubble scroll flag after animation completes
+      setTimeout(() => {
+        isScrollingFromBubble.current = false;
+      }, 500);
     }
-  }, [targetIndex, onScrollToIndex]);
+  }, [targetIndex, onScrollToIndex, onFocusedIndexChange]);
+
+  // Clear focus when user scrolls manually
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let scrollTimeout: NodeJS.Timeout;
+
+    const handleScroll = () => {
+      // Ignore if this scroll was triggered by bubble click
+      if (isScrollingFromBubble.current) return;
+
+      // Clear focus when user scrolls manually
+      if (focusedIndexRef.current !== null) {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          focusedIndexRef.current = null;
+          onFocusedIndexChange?.(null);
+        }, 100);
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, [onFocusedIndexChange]);
 
   const handleSelect = useCallback(
     (candidateId: string) => {

@@ -434,6 +434,7 @@ export default function QVoteResultsView({
   const [topCount, setTopCount] = useState(10);
   const [showHeader, setShowHeader] = useState(true);
   const [showSideMenu, setShowSideMenu] = useState(false);
+  const [showExitToQ, setShowExitToQ] = useState(false);
   const swiperRef = useRef<SwiperType | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -587,11 +588,9 @@ export default function QVoteResultsView({
             )}
           </div>
 
-          {/* Q Logo - Links to main site */}
-          <a
-            href="https://qr.playzones.app"
-            target="_blank"
-            rel="noopener noreferrer"
+          {/* Q Logo - Shows exit confirmation */}
+          <button
+            onClick={() => setShowExitToQ(true)}
             className="transition-transform hover:scale-105 active:scale-95"
           >
             <img
@@ -599,7 +598,7 @@ export default function QVoteResultsView({
               alt="Q"
               className="h-10 w-auto object-contain"
             />
-          </a>
+          </button>
         </div>
       </div>
 
@@ -725,6 +724,63 @@ export default function QVoteResultsView({
                     </span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exit to Q Platform Confirmation Dialog */}
+      {showExitToQ && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowExitToQ(false)}
+          />
+          <div
+            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl"
+            style={{ backgroundColor }}
+          >
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden bg-gradient-to-br from-purple-500 to-blue-500">
+                <img
+                  src="/theQ.png"
+                  alt="Q"
+                  className="w-10 h-10 object-contain"
+                />
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{ color: textColor }}>
+                {isRTL ? 'יציאה לפלטפורמת The Q' : 'Leaving to The Q Platform'}
+              </h3>
+              <p className="text-sm mb-6" style={{ color: `${textColor}80` }}>
+                {isRTL
+                  ? 'אתם עומדים לעזוב את התוצאות לטאב חדש עם פלטפורמת The Q. אתם בטוחים?'
+                  : "You're about to leave the results for a new tab with The Q platform. Are you sure?"}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowExitToQ(false)}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: `${textColor}10`,
+                    color: textColor,
+                  }}
+                >
+                  {isRTL ? 'לא, להישאר' : 'No, Stay'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExitToQ(false);
+                    window.open('https://qr.playzones.app', '_blank');
+                  }}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: accentColor,
+                    color: '#ffffff',
+                  }}
+                >
+                  {isRTL ? 'כן, לצאת' : 'Yes, Leave'}
+                </button>
               </div>
             </div>
           </div>
