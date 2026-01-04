@@ -141,6 +141,7 @@ export default function QVoteModal({
   const [hideResultsFromParticipants, setHideResultsFromParticipants] = useState(false);
   const [maxVoteChanges, setMaxVoteChanges] = useState(0);
   const [languageMode, setLanguageMode] = useState<QVoteLanguageMode>('choice');
+  const [shuffleCandidates, setShuffleCandidates] = useState(true); // Default: true - shuffle candidates for each viewer
   const [flipbookSettings, setFlipbookSettings] = useState<QVoteFlipbookSettings>(DEFAULT_FLIPBOOK_SETTINGS);
   const [currentPhase, setCurrentPhase] = useState<QVotePhase>('registration');
 
@@ -209,6 +210,7 @@ export default function QVoteModal({
         setHideResultsFromParticipants(initialConfig.hideResultsFromParticipants || false);
         setMaxVoteChanges(initialConfig.maxVoteChanges ?? 0);
         setLanguageMode(initialConfig.languageMode || 'choice');
+        setShuffleCandidates(initialConfig.shuffleCandidates !== false); // Default to true if undefined
         setFlipbookSettings(initialConfig.flipbookSettings || DEFAULT_FLIPBOOK_SETTINGS);
         setCurrentPhase(initialConfig.currentPhase);
         // Load button texts from config or use defaults
@@ -441,6 +443,7 @@ export default function QVoteModal({
       hideResultsFromParticipants,
       maxVoteChanges,
       languageMode,
+      shuffleCandidates,
       flipbookSettings,
       gamification: {
         enabled: gamificationEnabled,
@@ -629,6 +632,13 @@ export default function QVoteModal({
                     description={isRTL ? 'המשתתפים יראו "מחשבים תוצאות" עד שתחשפו. הוסיפו ?operator=true לקישור כדי לראות התוצאות' : 'Participants see "calculating" until revealed. Add ?operator=true to URL to view results'}
                     value={hideResultsFromParticipants}
                     onChange={setHideResultsFromParticipants}
+                  />
+
+                  <ToggleSetting
+                    label={isRTL ? 'ערבב סדר מועמדים' : 'Shuffle candidates order'}
+                    description={isRTL ? 'כל מצביע יראה את המועמדים בסדר אקראי שונה' : 'Each voter sees candidates in a different random order'}
+                    value={shuffleCandidates}
+                    onChange={setShuffleCandidates}
                   />
 
                   {/* Max Vote Changes */}

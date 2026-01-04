@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Check, ChevronLeft, Loader2, Vote, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { Candidate, QVoteConfig } from '@/types/qvote';
 import QVoteViewModeSelector, { ViewMode } from './QVoteViewModeSelector';
@@ -10,6 +10,22 @@ import QVoteListView from './QVoteListView';
 import QVoteGridView from './QVoteGridView';
 
 const STORAGE_KEY = 'qvote-view-mode';
+
+// Fisher-Yates shuffle algorithm - O(n) time complexity
+function shuffleArray<T>(array: T[], seed: number): T[] {
+  const result = [...array];
+  let m = result.length;
+  // Simple seeded random number generator
+  const random = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  while (m) {
+    const i = Math.floor(random() * m--);
+    [result[m], result[i]] = [result[i], result[m]];
+  }
+  return result;
+}
 
 interface QVoteVotingViewProps {
   candidates: Candidate[];
@@ -115,6 +131,16 @@ export default function QVoteVotingView({
       return c.categoryId === selectedCategory;
     });
   }, [candidates, selectedCategory]);
+
+  // Generate a random seed once per session for shuffling
+  const shuffleSeedRef = useRef<number>(Date.now() + Math.floor(Math.random() * 1000000));
+
+  // Shuffle candidates if enabled (default: true)
+  const displayCandidates = useMemo(() => {
+    const shouldShuffle = config.shuffleCandidates !== false; // Default to true
+    if (!shouldShuffle) return filteredCandidates;
+    return shuffleArray(filteredCandidates, shuffleSeedRef.current);
+  }, [filteredCandidates, config.shuffleCandidates]);
 
   // Handle navigation from bubbles
   const handleNavigateToCandidate = useCallback(
@@ -433,7 +459,7 @@ export default function QVoteVotingView({
 
       {/* Content Area */}
       <div className="flex-1 min-h-0 relative">
-        {filteredCandidates.length === 0 ? (
+        {displayCandidates.length === 0 ? (
           <div
             className="h-full flex items-center justify-center text-center p-8"
             style={{ color: `${brandingStyles.text}60` }}
@@ -442,7 +468,7 @@ export default function QVoteVotingView({
           </div>
         ) : viewMode === 'flipbook' ? (
           <QVoteFlipbookView
-            candidates={filteredCandidates}
+            candidates={displayCandidates}
             selectedIds={selectedCandidates}
             maxSelections={config.maxSelectionsPerVoter}
             onSelect={onSelectCandidate}
@@ -459,7 +485,7 @@ export default function QVoteVotingView({
           />
         ) : viewMode === 'list' ? (
           <QVoteListView
-            candidates={filteredCandidates}
+            candidates={displayCandidates}
             selectedIds={selectedCandidates}
             maxSelections={config.maxSelectionsPerVoter}
             onSelect={onSelectCandidate}
@@ -477,7 +503,7 @@ export default function QVoteVotingView({
           />
         ) : (
           <QVoteGridView
-            candidates={filteredCandidates}
+            candidates={displayCandidates}
             selectedIds={selectedCandidates}
             maxSelections={config.maxSelectionsPerVoter}
             onSelect={onSelectCandidate}
@@ -515,7 +541,7 @@ export default function QVoteVotingView({
           }`}
         >
           <QVoteSelectedBubbles
-            candidates={filteredCandidates}
+            candidates={displayCandidates}
             selectedIds={selectedCandidates}
             currentIndex={
               viewMode === 'flipbook'

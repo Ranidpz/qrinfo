@@ -172,6 +172,7 @@ export interface QVoteConfig {
   hideResultsFromParticipants?: boolean; // Hide results page from participants (show "calculating" instead)
   maxVoteChanges?: number;           // Max times a voter can change their vote (0 = no changes, undefined = no changes)
   languageMode?: QVoteLanguageMode;  // 'he' = Hebrew only, 'en' = English only, 'choice' = user selects
+  shuffleCandidates?: boolean;       // Shuffle candidates order for each viewer (default: true)
 
   // Gamification for voters
   gamification: QVoteGamification;
