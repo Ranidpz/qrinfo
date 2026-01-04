@@ -181,9 +181,10 @@ const GridResultItem = memo(function GridResultItem({
 
   return (
     <div
-      className="relative aspect-square rounded-xl overflow-hidden"
+      className="relative w-full h-full rounded-xl overflow-hidden"
       style={{
         boxShadow: isTopThree && ringColor ? `0 0 0 2px ${ringColor}` : undefined,
+        minHeight: 0,
       }}
     >
       {/* Loading */}
@@ -250,7 +251,7 @@ const GridResultItem = memo(function GridResultItem({
   );
 });
 
-// List result item
+// List result item - Compact card with small image and details side by side
 const ListResultItem = memo(function ListResultItem({
   candidate,
   rank,
@@ -280,21 +281,44 @@ const ListResultItem = memo(function ListResultItem({
   const isTopThree = rank <= 3;
   const ringColor = rank === 1 ? '#fbbf24' : rank === 2 ? '#9ca3af' : rank === 3 ? '#d97706' : undefined;
 
+  // Check if name is real (not a filename)
+  const isRealName = candidate.name &&
+    !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
+    !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
+    !candidate.name.match(/^\d{5,}/) &&
+    !candidate.name.match(/[_-]\d+$/) &&
+    !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
+
   return (
     <div
-      className="rounded-2xl overflow-hidden transition-all"
+      className="flex items-center gap-4 p-3 rounded-xl transition-all"
       style={{
+        backgroundColor: `${backgroundColor}`,
         boxShadow: isTopThree && ringColor
-          ? `0 0 0 2px ${ringColor}, 0 4px 16px ${textColor}10`
-          : `0 4px 16px ${textColor}10`,
+          ? `0 0 0 2px ${ringColor}, 0 2px 8px ${textColor}10`
+          : `0 2px 8px ${textColor}15`,
       }}
     >
-      {/* Image */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden">
-        {/* Loading */}
+      {/* Rank Badge */}
+      <div
+        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
+          rank === 1
+            ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-yellow-900'
+            : rank === 2
+            ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700'
+            : rank === 3
+            ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white'
+            : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
+        }`}
+      >
+        {rank <= 3 ? (rank === 1 ? <Crown className="w-5 h-5" /> : rank) : rank}
+      </div>
+
+      {/* Image - Small square */}
+      <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0">
         {!imageLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-            <Loader2 className="w-8 h-8 animate-spin text-white/60" />
+            <Loader2 className="w-4 h-4 animate-spin text-white/60" />
           </div>
         )}
 
@@ -307,61 +331,24 @@ const ListResultItem = memo(function ListResultItem({
           />
         ) : (
           <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-            <span className="text-6xl text-gray-500">{candidate.name?.[0] || '?'}</span>
+            <span className="text-xl text-gray-500">{candidate.name?.[0] || '?'}</span>
           </div>
         )}
-
-        {/* Rank Badge - Large floating */}
-        <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} flex flex-col items-center gap-2 z-10`}>
-          <div
-            className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl shadow-xl ${
-              rank === 1
-                ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-yellow-900'
-                : rank === 2
-                ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700'
-                : rank === 3
-                ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white'
-                : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
-            }`}
-          >
-            {rank <= 3 ? (rank === 1 ? <Crown className="w-7 h-7" /> : <Medal className="w-6 h-6" />) : rank}
-          </div>
-          {showVoteCount && (
-            <div className="px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-sm shadow-lg">
-              <span className="text-white text-sm font-bold">{voteCount}</span>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Info - only show real names, not filenames */}
-      {(() => {
-        const isRealName = candidate.name &&
-          !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
-          !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
-          !candidate.name.match(/^\d{5,}/) &&
-          !candidate.name.match(/[_-]\d+$/) &&
-          !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
-
-        return showNames && isRealName ? (
-          <div className="px-4 py-3" style={{ backgroundColor: `${backgroundColor}f8` }}>
-            <h3 className="text-lg font-bold truncate" style={{ color: textColor }}>
-              {candidate.name}
-            </h3>
-            {showVoteCount && (
-              <p className="text-sm mt-0.5" style={{ color: `${textColor}80` }}>
-                {voteCount} {votesLabel}
-              </p>
-            )}
-          </div>
-        ) : showVoteCount ? (
-          <div className="px-4 py-3" style={{ backgroundColor: `${backgroundColor}f8` }}>
-            <p className="text-sm" style={{ color: textColor }}>
-              {voteCount} {votesLabel}
-            </p>
-          </div>
-        ) : null;
-      })()}
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        {showNames && isRealName && (
+          <h3 className="font-semibold truncate" style={{ color: textColor }}>
+            {candidate.name}
+          </h3>
+        )}
+        {showVoteCount && (
+          <p className="text-sm" style={{ color: `${textColor}70` }}>
+            {voteCount} {votesLabel}
+          </p>
+        )}
+      </div>
     </div>
   );
 });
@@ -437,12 +424,17 @@ export default function QVoteResultsView({
     });
   }, [candidates, isFinalsPhase]);
 
-  // Get top N candidates (optionally reversed for countdown reveal)
+  // Get top N candidates (optionally reversed for countdown reveal in flipbook)
   const displayCandidates = useMemo(() => {
     const top = sortedCandidates.slice(0, topCount);
     // If startFromLast is true, reverse the order for countdown reveal (last place first)
     return flipbookSettings.startFromLast ? [...top].reverse() : top;
   }, [sortedCandidates, topCount, flipbookSettings.startFromLast]);
+
+  // For grid and list views, always show first place at top (not reversed)
+  const gridListCandidates = useMemo(() => {
+    return sortedCandidates.slice(0, topCount);
+  }, [sortedCandidates, topCount]);
 
   // Calculate actual rank for each candidate (accounting for reversed order)
   const getRank = useCallback((index: number) => {
@@ -804,17 +796,36 @@ export default function QVoteResultsView({
             </div>
           </div>
         ) : viewMode === 'grid' ? (
-          /* Grid View */
+          /* Grid View - Fit all items without scrolling */
           <div
-            className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth p-4"
+            className="absolute inset-0 p-4 flex items-center justify-center"
             style={{ backgroundColor }}
           >
-            <div className="grid grid-cols-3 gap-2">
-              {displayCandidates.map((candidate, index) => (
+            <div
+              className="w-full h-full grid gap-2 place-content-center"
+              style={{
+                // Calculate optimal grid layout based on item count
+                // For n items, find best rows x cols that fills the space
+                gridTemplateColumns: `repeat(${
+                  gridListCandidates.length <= 1 ? 1 :
+                  gridListCandidates.length <= 2 ? 2 :
+                  gridListCandidates.length <= 4 ? 2 :
+                  gridListCandidates.length <= 6 ? 3 :
+                  gridListCandidates.length <= 9 ? 3 :
+                  gridListCandidates.length <= 12 ? 4 :
+                  gridListCandidates.length <= 16 ? 4 :
+                  gridListCandidates.length <= 20 ? 5 :
+                  gridListCandidates.length <= 25 ? 5 :
+                  6
+                }, 1fr)`,
+                gridAutoRows: '1fr',
+              }}
+            >
+              {gridListCandidates.map((candidate, index) => (
                 <GridResultItem
                   key={candidate.id}
                   candidate={candidate}
-                  rank={getRank(index)}
+                  rank={index + 1}
                   showNames={showNames}
                   showVoteCount={showVoteCount}
                   isFinalsPhase={isFinalsPhase}
@@ -826,17 +837,17 @@ export default function QVoteResultsView({
             </div>
           </div>
         ) : (
-          /* List View */
+          /* List View - Compact cards with first place at top */
           <div
             className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth"
             style={{ backgroundColor }}
           >
-            <div className="flex flex-col gap-4 p-4 pb-24">
-              {displayCandidates.map((candidate, index) => (
+            <div className="flex flex-col gap-3 p-4 pb-24">
+              {gridListCandidates.map((candidate, index) => (
                 <ListResultItem
                   key={candidate.id}
                   candidate={candidate}
-                  rank={getRank(index)}
+                  rank={index + 1}
                   showNames={showNames}
                   showVoteCount={showVoteCount}
                   isFinalsPhase={isFinalsPhase}

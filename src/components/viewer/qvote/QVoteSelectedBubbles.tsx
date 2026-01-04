@@ -132,13 +132,13 @@ const QVoteSelectedBubbles = memo(function QVoteSelectedBubbles({
                 )}
 
                 {/* Deselect overlay - show when viewing (flipbook) or always in direct deselect mode (grid/list) */}
-                {(isViewing || directDeselect) && (
-                  <div
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity duration-200"
-                  >
-                    <X className="w-5 h-5 text-white drop-shadow-lg" strokeWidth={3} />
-                  </div>
-                )}
+                <div
+                  className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity duration-200 ${
+                    isViewing || directDeselect ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <X className="w-5 h-5 text-white drop-shadow-lg" strokeWidth={3} />
+                </div>
               </button>
             );
           })}
