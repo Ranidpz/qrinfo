@@ -669,19 +669,33 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         style={{ backgroundColor: brandingStyles.background }}
         dir={locale === 'he' ? 'rtl' : 'ltr'}
       >
-        {/* Background Image */}
+        {/* Background Image with zoom-out animation */}
         {config.branding.landingImage && (
-          <div className="absolute inset-0">
+          <div className="absolute inset-0 overflow-hidden">
             <img
               src={config.branding.landingImage}
               alt=""
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover animate-landing-zoom"
+              style={{
+                animation: 'landingZoom 8s ease-out forwards',
+              }}
             />
             {/* Overlay */}
             <div
               className="absolute inset-0"
               style={{ backgroundColor: `rgba(0, 0, 0, ${overlayOpacity / 100})` }}
             />
+            {/* CSS Animation */}
+            <style>{`
+              @keyframes landingZoom {
+                0% {
+                  transform: scale(1.15);
+                }
+                100% {
+                  transform: scale(1);
+                }
+              }
+            `}</style>
           </div>
         )}
 
