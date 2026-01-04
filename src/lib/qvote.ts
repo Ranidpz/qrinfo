@@ -487,17 +487,35 @@ export async function resetVoterVotes(
   const candidateIds = votes.map(v => v.candidateId);
 
   await runTransaction(db, async (transaction) => {
-    // Delete each vote and decrement candidate vote counts
+    // PHASE 1: Read all documents first (Firestore requirement)
+    const voteRefs: { voteRef: ReturnType<typeof doc>; candidateId: string }[] = [];
+    const candidateSnapshots = new Map<string, boolean>();
+
     for (const vote of votes) {
       const voteRef = doc(db, 'codes', codeId, 'votes', vote.id);
+      voteRefs.push({ voteRef, candidateId: vote.candidateId });
+
+      // Read candidate document to check if it exists
+      if (!candidateSnapshots.has(vote.candidateId)) {
+        const candidateRef = doc(db, 'codes', codeId, 'candidates', vote.candidateId);
+        const candidateSnap = await transaction.get(candidateRef);
+        candidateSnapshots.set(vote.candidateId, candidateSnap.exists());
+      }
+    }
+
+    // PHASE 2: Perform all writes
+    for (const { voteRef, candidateId } of voteRefs) {
       transaction.delete(voteRef);
 
-      const candidateRef = doc(db, 'codes', codeId, 'candidates', vote.candidateId);
-      const voteField = round === 1 ? 'voteCount' : 'finalsVoteCount';
-      transaction.update(candidateRef, {
-        [voteField]: increment(-1),
-        updatedAt: serverTimestamp(),
-      });
+      // Only update candidate if it exists
+      if (candidateSnapshots.get(candidateId)) {
+        const candidateRef = doc(db, 'codes', codeId, 'candidates', candidateId);
+        const voteField = round === 1 ? 'voteCount' : 'finalsVoteCount';
+        transaction.update(candidateRef, {
+          [voteField]: increment(-1),
+          updatedAt: serverTimestamp(),
+        });
+      }
     }
   });
 
