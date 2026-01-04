@@ -66,18 +66,21 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
 
       const isSelected = selectedIds.includes(candidateId);
 
+      // If already selected, do nothing - deselect only via bubble X button
       if (isSelected) {
-        setFeedbackType('deselected');
-        onSelect(candidateId);
-      } else if (selectedIds.length >= maxSelections) {
+        return;
+      }
+
+      if (selectedIds.length >= maxSelections) {
         setFeedbackType('max');
+        setShowFeedback(true);
+        setTimeout(() => setShowFeedback(false), 500);
       } else {
         setFeedbackType('selected');
         onSelect(candidateId);
+        setShowFeedback(true);
+        setTimeout(() => setShowFeedback(false), 500);
       }
-
-      setShowFeedback(true);
-      setTimeout(() => setShowFeedback(false), 500);
     },
     [selectedIds, maxSelections, hasVoted, onSelect]
   );
@@ -166,13 +169,13 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
                     )}
                   </div>
 
-                  {/* Selection indicator */}
+                  {/* Selection indicator - green like submit button */}
                   {isSelected && (
                     <div
                       className="absolute top-4 end-4 w-14 h-14 rounded-full flex items-center justify-center z-20 animate-qvote-check"
                       style={{
-                        backgroundColor: accentColor,
-                        boxShadow: `0 4px 24px ${accentColor}70`,
+                        backgroundColor: '#22c55e',
+                        boxShadow: '0 4px 24px rgba(34, 197, 94, 0.5)',
                       }}
                     >
                       <Check className="w-8 h-8 text-white" strokeWidth={3} />

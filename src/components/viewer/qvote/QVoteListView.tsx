@@ -103,13 +103,13 @@ const ListItem = memo(function ListItem({
           }}
         />
 
-        {/* Selection badge */}
+        {/* Selection badge - green like submit button */}
         {isSelected && (
           <div
             className="absolute top-4 end-4 w-12 h-12 rounded-full flex items-center justify-center animate-qvote-check"
             style={{
-              backgroundColor: accentColor,
-              boxShadow: `0 4px 20px ${accentColor}50`,
+              backgroundColor: '#22c55e',
+              boxShadow: '0 4px 20px rgba(34, 197, 94, 0.5)',
             }}
           >
             <Check className="w-7 h-7 text-white" strokeWidth={3} />
@@ -194,7 +194,13 @@ const QVoteListView = memo(function QVoteListView({
       if (hasVoted) return;
 
       const isSelected = selectedIds.includes(candidateId);
-      if (!isSelected && selectedIds.length >= maxSelections) {
+
+      // If already selected, do nothing - deselect only via bubble X button
+      if (isSelected) {
+        return;
+      }
+
+      if (selectedIds.length >= maxSelections) {
         return; // Max reached
       }
 

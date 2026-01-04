@@ -85,17 +85,17 @@ const GridItem = memo(function GridItem({
         </div>
       )}
 
-      {/* Selection overlay */}
+      {/* Selection overlay - green like submit button */}
       {isSelected && (
         <div
           className="absolute inset-0 flex items-center justify-center"
-          style={{ backgroundColor: `${accentColor}30` }}
+          style={{ backgroundColor: 'rgba(34, 197, 94, 0.3)' }}
         >
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{
-              backgroundColor: accentColor,
-              boxShadow: `0 2px 12px ${accentColor}60`,
+              backgroundColor: '#22c55e',
+              boxShadow: '0 2px 12px rgba(34, 197, 94, 0.6)',
             }}
           >
             <Check className="w-6 h-6 text-white" strokeWidth={3} />
@@ -179,7 +179,13 @@ const QVoteGridView = memo(function QVoteGridView({
       if (hasVoted) return;
 
       const isSelected = selectedIds.includes(candidateId);
-      if (!isSelected && selectedIds.length >= maxSelections) {
+
+      // If already selected, do nothing - deselect only via bubble X button
+      if (isSelected) {
+        return;
+      }
+
+      if (selectedIds.length >= maxSelections) {
         return; // Max reached
       }
 
