@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Check, ChevronLeft, Loader2, Vote, X, RefreshCw } from 'lucide-react';
+import { Check, ChevronLeft, Loader2, Vote, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { Candidate, QVoteConfig } from '@/types/qvote';
 import QVoteViewModeSelector, { ViewMode } from './QVoteViewModeSelector';
 import QVoteSelectedBubbles from './QVoteSelectedBubbles';
@@ -60,6 +60,7 @@ export default function QVoteVotingView({
   const isRTL = locale === 'he';
   const isFinalsPhase = config.currentPhase === 'finals';
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
 
   // Calculate if vote change is allowed
   const maxVoteChanges = config.maxVoteChanges ?? 0;
@@ -133,6 +134,15 @@ export default function QVoteVotingView({
     [onSelectCandidate]
   );
 
+  // Handle back button with warning if user has unsaved selections
+  const handleBackClick = useCallback(() => {
+    if (selectedCandidates.length > 0 && !hasVoted) {
+      setShowLeaveWarning(true);
+    } else {
+      onBackToCategories();
+    }
+  }, [selectedCandidates.length, hasVoted, onBackToCategories]);
+
   return (
     <div
       className="flex-1 flex flex-col relative overflow-hidden"
@@ -151,7 +161,7 @@ export default function QVoteVotingView({
           {/* Back button (if categories) */}
           {selectedCategory && config.categories.length > 0 && (
             <button
-              onClick={onBackToCategories}
+              onClick={handleBackClick}
               className="p-2 -ms-2 rounded-full transition-colors hover:bg-black/10 active:scale-95"
               style={{ color: brandingStyles.text }}
               title={isRTL ? 'חזרה לקטגוריות' : 'Back to categories'}
@@ -308,6 +318,62 @@ export default function QVoteVotingView({
         </div>
       )}
 
+      {/* Leave Warning Dialog - shows when user tries to go back with unsaved selections */}
+      {showLeaveWarning && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowLeaveWarning(false)}
+          />
+          <div
+            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl"
+            style={{ backgroundColor: brandingStyles.background }}
+          >
+            <div className="text-center">
+              <div
+                className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center"
+                style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)' }}
+              >
+                <AlertTriangle className="w-7 h-7 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{ color: brandingStyles.text }}>
+                {isRTL ? 'יש לך בחירות שלא נשמרו' : 'You have unsaved selections'}
+              </h3>
+              <p className="text-sm mb-6" style={{ color: `${brandingStyles.text}80` }}>
+                {isRTL
+                  ? `בחרת ${selectedCandidates.length} מתוך ${config.maxSelectionsPerVoter}. אם תצאו עכשיו, הבחירות יימחקו.`
+                  : `You selected ${selectedCandidates.length} of ${config.maxSelectionsPerVoter}. If you leave now, your selections will be lost.`}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLeaveWarning(false)}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: brandingStyles.accent,
+                    color: '#ffffff',
+                  }}
+                >
+                  {isRTL ? 'להישאר ולבחור' : 'Stay & Choose'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLeaveWarning(false);
+                    onBackToCategories();
+                  }}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: `${brandingStyles.text}10`,
+                    color: brandingStyles.text,
+                  }}
+                >
+                  {isRTL ? 'לצאת בכל זאת' : 'Leave Anyway'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content Area */}
       <div className="flex-1 min-h-0 relative">
         {filteredCandidates.length === 0 ? (
@@ -400,6 +466,7 @@ export default function QVoteVotingView({
             accentColor={brandingStyles.accent}
             textColor={brandingStyles.text}
             isRTL={isRTL}
+            directDeselect={viewMode !== 'flipbook'}
           />
         </div>
       )}

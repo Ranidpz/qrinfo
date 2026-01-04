@@ -14,6 +14,8 @@ interface QVoteSelectedBubblesProps {
   accentColor?: string;
   textColor?: string;
   isRTL?: boolean;
+  /** When true (grid/list modes), tapping a bubble deselects directly without navigation */
+  directDeselect?: boolean;
 }
 
 const QVoteSelectedBubbles = memo(function QVoteSelectedBubbles({
@@ -26,11 +28,19 @@ const QVoteSelectedBubbles = memo(function QVoteSelectedBubbles({
   accentColor = '#3b82f6',
   textColor = '#ffffff',
   isRTL = false,
+  directDeselect = false,
 }: QVoteSelectedBubblesProps) {
   const [pressedId, setPressedId] = useState<string | null>(null);
 
   const handleClick = useCallback(
     (candidateId: string) => {
+      // In grid/list modes, directly deselect on tap
+      if (directDeselect) {
+        onDeselect(candidateId);
+        return;
+      }
+
+      // In flipbook mode: first tap navigates, second tap deselects
       const candidateIndex = candidates.findIndex((c) => c.id === candidateId);
       const isCurrentlyViewing = candidateIndex === currentIndex;
 
@@ -42,7 +52,7 @@ const QVoteSelectedBubbles = memo(function QVoteSelectedBubbles({
         onNavigateTo(candidateIndex);
       }
     },
-    [candidates, currentIndex, onNavigateTo, onDeselect]
+    [candidates, currentIndex, onNavigateTo, onDeselect, directDeselect]
   );
 
   return (
@@ -121,8 +131,8 @@ const QVoteSelectedBubbles = memo(function QVoteSelectedBubbles({
                   </div>
                 )}
 
-                {/* Deselect overlay when viewing */}
-                {isViewing && (
+                {/* Deselect overlay - show when viewing (flipbook) or always in direct deselect mode (grid/list) */}
+                {(isViewing || directDeselect) && (
                   <div
                     className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity duration-200"
                   >

@@ -472,6 +472,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
           shortId,
           voterId: visitorId,
           round,
+          categoryId: selectedCategory || undefined,
         }),
       });
 

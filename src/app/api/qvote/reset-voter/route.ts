@@ -6,7 +6,7 @@ import type { VoteRound } from '@/types/qvote';
 // POST: Reset a voter's votes (for vote change feature) using Admin SDK
 export async function POST(request: NextRequest) {
   try {
-    const { shortId, codeId: providedCodeId, voterId, round = 1 } = await request.json();
+    const { shortId, codeId: providedCodeId, voterId, round = 1, categoryId } = await request.json();
 
     if (!voterId) {
       return NextResponse.json(
@@ -67,11 +67,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get all votes by this voter for this round
-    const votesSnapshot = await db.collection('codes').doc(codeId).collection('votes')
+    // Get all votes by this voter for this round (optionally filtered by category)
+    let votesQuery = db.collection('codes').doc(codeId).collection('votes')
       .where('voterId', '==', voterId)
-      .where('round', '==', round)
-      .get();
+      .where('round', '==', round);
+
+    // If categoryId is provided, only reset votes for that category
+    if (categoryId) {
+      votesQuery = votesQuery.where('categoryId', '==', categoryId);
+    }
+
+    const votesSnapshot = await votesQuery.get();
 
     if (votesSnapshot.empty) {
       return NextResponse.json({
