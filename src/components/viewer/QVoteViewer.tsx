@@ -617,16 +617,46 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   }
 
   // Determine if we should show landing page (moved up for correct flow)
-  const hasLandingContent = config.branding.landingImage || config.branding.landingTitle || config.branding.landingSubtitle;
+  const hasLandingContent = config.branding.landingImage || config.branding.landingTitle || config.branding.landingTitleEn || config.branding.landingSubtitle || config.branding.landingSubtitleEn;
 
-  // Get button text based on current phase
+  // Get button text based on current phase and locale
   const getButtonText = () => {
     const phase = config.currentPhase;
-    if (config.branding.buttonTexts && phase !== 'results') {
-      const text = config.branding.buttonTexts[phase];
-      if (text) return text;
+    if (phase !== 'results') {
+      // Use English texts if locale is 'en' and English texts exist
+      if (locale === 'en' && config.branding.buttonTextsEn) {
+        const text = config.branding.buttonTextsEn[phase];
+        if (text) return text;
+      }
+      // Fall back to Hebrew texts
+      if (config.branding.buttonTexts) {
+        const text = config.branding.buttonTexts[phase];
+        if (text) return text;
+      }
     }
     return config.branding.buttonText || t.enterButton;
+  };
+
+  // Get localized text based on locale
+  const getLocalizedTitle = () => {
+    if (locale === 'en' && config.branding.landingTitleEn) {
+      return config.branding.landingTitleEn;
+    }
+    return config.branding.landingTitle;
+  };
+
+  const getLocalizedSubtitle = () => {
+    if (locale === 'en' && config.branding.landingSubtitleEn) {
+      return config.branding.landingSubtitleEn;
+    }
+    return config.branding.landingSubtitle;
+  };
+
+  const getLocalizedVotingTitle = () => {
+    if (locale === 'en' && config.branding.votingTitleEn) {
+      return config.branding.votingTitleEn;
+    }
+    return config.branding.votingTitle;
   };
 
   // Render landing page FIRST (before category selection)
@@ -658,22 +688,22 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         {/* Content */}
         <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
           {/* Title & Subtitle */}
-          {(config.branding.landingTitle || config.branding.landingSubtitle) && (
+          {(getLocalizedTitle() || getLocalizedSubtitle()) && (
             <div className="mb-8">
-              {config.branding.landingTitle && (
+              {getLocalizedTitle() && (
                 <h1
                   className="text-3xl font-bold mb-3"
                   style={{ color: config.branding.landingImage ? '#ffffff' : brandingStyles.text }}
                 >
-                  {config.branding.landingTitle}
+                  {getLocalizedTitle()}
                 </h1>
               )}
-              {config.branding.landingSubtitle && (
+              {getLocalizedSubtitle() && (
                 <p
                   className="text-lg"
                   style={{ color: config.branding.landingImage ? 'rgba(255,255,255,0.85)' : `${brandingStyles.text}99` }}
                 >
-                  {config.branding.landingSubtitle}
+                  {getLocalizedSubtitle()}
                 </p>
               )}
             </div>
@@ -1080,7 +1110,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         voteChangeCount={voteChangeCount}
         onResetVote={handleResetVote}
         translations={{
-          votingTitle: (locale === 'he' ? config.branding.votingTitle : config.branding.votingTitleEn) || config.branding.votingTitle || t.votingTitle,
+          votingTitle: getLocalizedVotingTitle() || t.votingTitle,
           finalsTitle: t.finalsTitle,
           selectUpTo: t.selectUpTo,
           submitVote: t.submitVote,

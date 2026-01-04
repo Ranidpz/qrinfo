@@ -48,11 +48,20 @@ export interface QVoteBranding {
 
   // Text content
   landingTitle?: string;
+  landingTitleEn?: string;             // English version
   landingSubtitle?: string;
+  landingSubtitleEn?: string;          // English version
   votingTitle?: string;                // Title shown during voting phase
   votingTitleEn?: string;              // English version
   buttonText?: string;                 // Legacy - fallback
   buttonTexts?: {                      // Button text per phase
+    registration?: string;
+    preparation?: string;
+    voting?: string;
+    finals?: string;
+    calculating?: string;
+  };
+  buttonTextsEn?: {                    // English button texts
     registration?: string;
     preparation?: string;
     voting?: string;

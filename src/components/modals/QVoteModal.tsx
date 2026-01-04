@@ -146,12 +146,19 @@ export default function QVoteModal({
 
   // Button texts per phase (with defaults)
   const defaultButtonTexts = {
-    registration: isRTL ? 'להרשמה' : 'Register',
-    preparation: isRTL ? 'מכינים...' : 'Preparing...',
-    voting: isRTL ? 'להצבעה' : 'Vote Now',
-    finals: isRTL ? 'לשלב הגמר' : 'Finals',
+    registration: 'להרשמה',
+    preparation: 'מכינים...',
+    voting: 'להצבעה',
+    finals: 'לשלב הגמר',
+  };
+  const defaultButtonTextsEn = {
+    registration: 'Register',
+    preparation: 'Preparing...',
+    voting: 'Vote Now',
+    finals: 'Finals',
   };
   const [buttonTexts, setButtonTexts] = useState<Record<string, string>>(defaultButtonTexts);
+  const [buttonTextsEn, setButtonTextsEn] = useState<Record<string, string>>(defaultButtonTextsEn);
 
   // Form fields
   const [formFields, setFormFields] = useState<QVoteFormField[]>([]);
@@ -215,6 +222,17 @@ export default function QVoteModal({
         } else {
           setButtonTexts(defaultButtonTexts);
         }
+        // Load English button texts
+        if (initialConfig.branding.buttonTextsEn) {
+          setButtonTextsEn({
+            registration: initialConfig.branding.buttonTextsEn.registration || defaultButtonTextsEn.registration,
+            preparation: initialConfig.branding.buttonTextsEn.preparation || defaultButtonTextsEn.preparation,
+            voting: initialConfig.branding.buttonTextsEn.voting || defaultButtonTextsEn.voting,
+            finals: initialConfig.branding.buttonTextsEn.finals || defaultButtonTextsEn.finals,
+          });
+        } else {
+          setButtonTextsEn(defaultButtonTextsEn);
+        }
         setFormFields(initialConfig.formFields);
         setCategories(initialConfig.categories);
         setBranding(initialConfig.branding);
@@ -258,6 +276,7 @@ export default function QVoteModal({
         setFlipbookSettings(DEFAULT_FLIPBOOK_SETTINGS);
         setCurrentPhase('registration');
         setButtonTexts(defaultButtonTexts);
+        setButtonTextsEn(defaultButtonTextsEn);
         setFormFields([
           { id: 'name', label: isRTL ? 'שם מלא' : 'Full Name', labelEn: 'Full Name', required: true, order: 0 },
         ]);
@@ -436,6 +455,12 @@ export default function QVoteModal({
           preparation: buttonTexts.preparation,
           voting: buttonTexts.voting,
           finals: buttonTexts.finals,
+        },
+        buttonTextsEn: {
+          registration: buttonTextsEn.registration,
+          preparation: buttonTextsEn.preparation,
+          voting: buttonTextsEn.voting,
+          finals: buttonTextsEn.finals,
         },
       },
       messages: {
@@ -1010,18 +1035,34 @@ export default function QVoteModal({
                     <label className="text-sm font-medium text-text-primary">
                       {isRTL ? 'כותרת' : 'Title'}
                     </label>
-                    <input
-                      type="text"
-                      value={branding.landingTitle || ''}
-                      onChange={(e) =>
-                        setBranding({
-                          ...branding,
-                          landingTitle: e.target.value,
-                        })
-                      }
-                      placeholder={isRTL ? 'הכניסו כותרת...' : 'Enter title...'}
-                      className="input w-full"
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={branding.landingTitle || ''}
+                        onChange={(e) =>
+                          setBranding({
+                            ...branding,
+                            landingTitle: e.target.value,
+                          })
+                        }
+                        placeholder="עברית"
+                        className="input w-full text-right"
+                        dir="rtl"
+                      />
+                      <input
+                        type="text"
+                        value={branding.landingTitleEn || ''}
+                        onChange={(e) =>
+                          setBranding({
+                            ...branding,
+                            landingTitleEn: e.target.value,
+                          })
+                        }
+                        placeholder="English"
+                        className="input w-full"
+                        dir="ltr"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-text-primary">
@@ -1048,18 +1089,34 @@ export default function QVoteModal({
                   <label className="text-sm font-medium text-text-primary">
                     {isRTL ? 'תת-כותרת' : 'Subtitle'}
                   </label>
-                  <input
-                    type="text"
-                    value={branding.landingSubtitle || ''}
-                    onChange={(e) =>
-                      setBranding({
-                        ...branding,
-                        landingSubtitle: e.target.value,
-                      })
-                    }
-                    placeholder={isRTL ? 'הכניסו תת-כותרת...' : 'Enter subtitle...'}
-                    className="input w-full"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={branding.landingSubtitle || ''}
+                      onChange={(e) =>
+                        setBranding({
+                          ...branding,
+                          landingSubtitle: e.target.value,
+                        })
+                      }
+                      placeholder="עברית"
+                      className="input w-full text-right"
+                      dir="rtl"
+                    />
+                    <input
+                      type="text"
+                      value={branding.landingSubtitleEn || ''}
+                      onChange={(e) =>
+                        setBranding({
+                          ...branding,
+                          landingSubtitleEn: e.target.value,
+                        })
+                      }
+                      placeholder="English"
+                      className="input w-full"
+                      dir="ltr"
+                    />
+                  </div>
                 </div>
 
                 {/* Voting Title */}
@@ -1067,18 +1124,34 @@ export default function QVoteModal({
                   <label className="text-sm font-medium text-text-primary">
                     {isRTL ? 'כותרת שלב הצבעה' : 'Voting Phase Title'}
                   </label>
-                  <input
-                    type="text"
-                    value={branding.votingTitle || ''}
-                    onChange={(e) =>
-                      setBranding({
-                        ...branding,
-                        votingTitle: e.target.value,
-                      })
-                    }
-                    placeholder={isRTL ? 'הצביעו למועמד האהוב' : 'Vote for your favorite'}
-                    className="input w-full"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={branding.votingTitle || ''}
+                      onChange={(e) =>
+                        setBranding({
+                          ...branding,
+                          votingTitle: e.target.value,
+                        })
+                      }
+                      placeholder="בחרו את ה 3 שהכי אהבתם"
+                      className="input w-full text-right"
+                      dir="rtl"
+                    />
+                    <input
+                      type="text"
+                      value={branding.votingTitleEn || ''}
+                      onChange={(e) =>
+                        setBranding({
+                          ...branding,
+                          votingTitleEn: e.target.value,
+                        })
+                      }
+                      placeholder="Select your top 3"
+                      className="input w-full"
+                      dir="ltr"
+                    />
+                  </div>
                 </div>
 
                 {/* Button Text Per Phase */}
@@ -1091,57 +1164,109 @@ export default function QVoteModal({
                       <label className="text-xs text-text-secondary">
                         {isRTL ? 'הרשמה' : 'Registration'}
                       </label>
-                      <input
-                        type="text"
-                        value={buttonTexts.registration || ''}
-                        onChange={(e) =>
-                          setButtonTexts({ ...buttonTexts, registration: e.target.value })
-                        }
-                        placeholder={defaultButtonTexts.registration}
-                        className="input w-full text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-1">
+                        <input
+                          type="text"
+                          value={buttonTexts.registration || ''}
+                          onChange={(e) =>
+                            setButtonTexts({ ...buttonTexts, registration: e.target.value })
+                          }
+                          placeholder={defaultButtonTexts.registration}
+                          className="input w-full text-sm text-right"
+                          dir="rtl"
+                        />
+                        <input
+                          type="text"
+                          value={buttonTextsEn.registration || ''}
+                          onChange={(e) =>
+                            setButtonTextsEn({ ...buttonTextsEn, registration: e.target.value })
+                          }
+                          placeholder={defaultButtonTextsEn.registration}
+                          className="input w-full text-sm"
+                          dir="ltr"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-text-secondary">
                         {isRTL ? 'מכינים' : 'Preparation'}
                       </label>
-                      <input
-                        type="text"
-                        value={buttonTexts.preparation || ''}
-                        onChange={(e) =>
-                          setButtonTexts({ ...buttonTexts, preparation: e.target.value })
-                        }
-                        placeholder={defaultButtonTexts.preparation}
-                        className="input w-full text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-1">
+                        <input
+                          type="text"
+                          value={buttonTexts.preparation || ''}
+                          onChange={(e) =>
+                            setButtonTexts({ ...buttonTexts, preparation: e.target.value })
+                          }
+                          placeholder={defaultButtonTexts.preparation}
+                          className="input w-full text-sm text-right"
+                          dir="rtl"
+                        />
+                        <input
+                          type="text"
+                          value={buttonTextsEn.preparation || ''}
+                          onChange={(e) =>
+                            setButtonTextsEn({ ...buttonTextsEn, preparation: e.target.value })
+                          }
+                          placeholder={defaultButtonTextsEn.preparation}
+                          className="input w-full text-sm"
+                          dir="ltr"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-text-secondary">
                         {isRTL ? 'הצבעה' : 'Voting'}
                       </label>
-                      <input
-                        type="text"
-                        value={buttonTexts.voting || ''}
-                        onChange={(e) =>
-                          setButtonTexts({ ...buttonTexts, voting: e.target.value })
-                        }
-                        placeholder={defaultButtonTexts.voting}
-                        className="input w-full text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-1">
+                        <input
+                          type="text"
+                          value={buttonTexts.voting || ''}
+                          onChange={(e) =>
+                            setButtonTexts({ ...buttonTexts, voting: e.target.value })
+                          }
+                          placeholder={defaultButtonTexts.voting}
+                          className="input w-full text-sm text-right"
+                          dir="rtl"
+                        />
+                        <input
+                          type="text"
+                          value={buttonTextsEn.voting || ''}
+                          onChange={(e) =>
+                            setButtonTextsEn({ ...buttonTextsEn, voting: e.target.value })
+                          }
+                          placeholder={defaultButtonTextsEn.voting}
+                          className="input w-full text-sm"
+                          dir="ltr"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-text-secondary">
                         {isRTL ? 'גמר' : 'Finals'}
                       </label>
-                      <input
-                        type="text"
-                        value={buttonTexts.finals || ''}
-                        onChange={(e) =>
-                          setButtonTexts({ ...buttonTexts, finals: e.target.value })
-                        }
-                        placeholder={defaultButtonTexts.finals}
-                        className="input w-full text-sm"
-                      />
+                      <div className="grid grid-cols-2 gap-1">
+                        <input
+                          type="text"
+                          value={buttonTexts.finals || ''}
+                          onChange={(e) =>
+                            setButtonTexts({ ...buttonTexts, finals: e.target.value })
+                          }
+                          placeholder={defaultButtonTexts.finals}
+                          className="input w-full text-sm text-right"
+                          dir="rtl"
+                        />
+                        <input
+                          type="text"
+                          value={buttonTextsEn.finals || ''}
+                          onChange={(e) =>
+                            setButtonTextsEn({ ...buttonTextsEn, finals: e.target.value })
+                          }
+                          placeholder={defaultButtonTextsEn.finals}
+                          className="input w-full text-sm"
+                          dir="ltr"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
