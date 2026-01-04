@@ -21,7 +21,7 @@ interface QVoteListViewProps {
   isRTL?: boolean;
 }
 
-// Individual list item with lazy loading
+// Individual list item - Compact horizontal card
 const ListItem = memo(function ListItem({
   candidate,
   isSelected,
@@ -53,26 +53,32 @@ const ListItem = memo(function ListItem({
   const photo = candidate.photos[0];
   const voteCount = isFinalsPhase ? candidate.finalsVoteCount : candidate.voteCount;
 
+  // Check if name is real (not a filename)
+  const isRealName = candidate.name &&
+    !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
+    !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
+    !candidate.name.match(/^\d{5,}/) &&
+    !candidate.name.match(/[_-]\d+$/) &&
+    !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
+
   return (
     <button
       onClick={onSelect}
       disabled={hasVoted || (!canSelect && !isSelected)}
-      className="w-full rounded-2xl overflow-hidden transition-all duration-300 ease-out text-start active:scale-[0.98]"
+      className="w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300 ease-out text-start active:scale-[0.98]"
       style={{
+        backgroundColor,
         boxShadow: isSelected
-          ? `0 0 0 3px ${accentColor}, 0 8px 32px ${accentColor}30`
-          : `0 4px 16px ${textColor}10`,
-        transform: isSelected ? 'scale(1.01)' : 'scale(1)',
+          ? `0 0 0 3px ${accentColor}, 0 4px 16px ${accentColor}30`
+          : `0 2px 8px ${textColor}15`,
         opacity: hasVoted && !isSelected ? 0.6 : 1,
       }}
     >
-      {/* Image */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden">
-        {/* Loading spinner */}
+      {/* Image - Small square */}
+      <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0">
         {!imageLoaded && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800">
-            <Loader2 className="w-8 h-8 animate-spin text-white/60" />
-            <p className="mt-2 text-white/50 text-xs">{isRTL ? 'טוען...' : 'Loading...'}</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+            <Loader2 className="w-5 h-5 animate-spin text-white/60" />
           </div>
         )}
 
@@ -86,84 +92,74 @@ const ListItem = memo(function ListItem({
           />
         ) : (
           <div
-            className="w-full h-full flex items-center justify-center text-6xl"
+            className="w-full h-full flex items-center justify-center text-2xl"
             style={{ backgroundColor: `${textColor}10`, color: `${textColor}30` }}
           >
             {candidate.name?.[0] || '?'}
           </div>
         )}
 
-        {/* Selection overlay */}
-        <div
-          className="absolute inset-0 transition-opacity duration-300"
-          style={{
-            background: isSelected
-              ? `linear-gradient(180deg, ${accentColor}20 0%, ${accentColor}40 100%)`
-              : 'transparent',
-          }}
-        />
-
-        {/* Selection badge - green like submit button */}
+        {/* Selection checkmark on image */}
         {isSelected && (
-          <div
-            className="absolute top-4 end-4 w-12 h-12 rounded-full flex items-center justify-center animate-qvote-check"
-            style={{
-              backgroundColor: '#22c55e',
-              boxShadow: '0 4px 20px rgba(34, 197, 94, 0.5)',
-            }}
-          >
-            <Check className="w-7 h-7 text-white" strokeWidth={3} />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: '#22c55e',
+                boxShadow: '0 2px 8px rgba(34, 197, 94, 0.5)',
+              }}
+            >
+              <Check className="w-5 h-5 text-white" strokeWidth={3} />
+            </div>
           </div>
         )}
 
         {/* Multiple photos indicator */}
-        {candidate.photos.length > 1 && (
+        {candidate.photos.length > 1 && !isSelected && (
           <div
-            className="absolute bottom-4 end-4 px-2.5 py-1 rounded-full text-xs font-semibold backdrop-blur-md"
+            className="absolute bottom-1 end-1 px-1.5 py-0.5 rounded text-[10px] font-semibold backdrop-blur-md"
             style={{
-              backgroundColor: 'rgba(0,0,0,0.5)',
+              backgroundColor: 'rgba(0,0,0,0.6)',
               color: '#ffffff',
             }}
           >
-            {candidate.photos.length} {isRTL ? 'תמונות' : 'photos'}
+            +{candidate.photos.length - 1}
           </div>
         )}
       </div>
 
       {/* Info */}
-      <div
-        className="px-4 py-3"
-        style={{ backgroundColor: `${backgroundColor}f8` }}
-      >
-        <div className="flex items-center justify-between">
-          {(() => {
-            const isRealName = candidate.name &&
-              !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
-              !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
-              !candidate.name.match(/^\d{5,}/) &&
-              !candidate.name.match(/[_-]\d+$/) &&
-              !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        {showNames && isRealName && (
+          <h3
+            className="font-semibold truncate text-lg"
+            style={{ color: textColor }}
+          >
+            {candidate.name}
+          </h3>
+        )}
+        {showVoteCount && (
+          <span
+            className="text-sm mt-1"
+            style={{ color: `${textColor}70` }}
+          >
+            {voteCount} {isRTL ? 'קולות' : 'votes'}
+          </span>
+        )}
+      </div>
 
-            return showNames && isRealName ? (
-              <h3
-                className="text-lg font-bold truncate flex-1"
-                style={{ color: textColor }}
-              >
-                {candidate.name}
-              </h3>
-            ) : null;
-          })()}
-          {showVoteCount && (
-            <span
-              className="text-sm font-semibold px-3 py-1.5 rounded-full ms-2 shrink-0"
-              style={{
-                backgroundColor: `${accentColor}15`,
-                color: accentColor,
-              }}
-            >
-              {voteCount} {isRTL ? 'קולות' : 'votes'}
-            </span>
-          )}
+      {/* Selection indicator on end */}
+      <div className="shrink-0">
+        <div
+          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+            isSelected ? 'border-transparent' : ''
+          }`}
+          style={{
+            borderColor: isSelected ? 'transparent' : `${textColor}30`,
+            backgroundColor: isSelected ? '#22c55e' : 'transparent',
+          }}
+        >
+          {isSelected && <Check className="w-5 h-5 text-white" strokeWidth={3} />}
         </div>
       </div>
     </button>
@@ -225,7 +221,7 @@ const QVoteListView = memo(function QVoteListView({
       style={{ backgroundColor }}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
-      <div className="flex flex-col gap-4 p-4 pb-44">
+      <div className="flex flex-col gap-3 p-4 pb-44">
         {candidates.map((candidate, index) => {
           const isSelected = selectedIds.includes(candidate.id);
           const canSelect = isSelected || selectedIds.length < maxSelections;
