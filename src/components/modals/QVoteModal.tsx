@@ -603,7 +603,7 @@ export default function QVoteModal({
 
                   {/* Max Vote Changes */}
                   <div className="p-3 bg-bg-secondary rounded-xl">
-                    <div className="flex items-center justify-between">
+                    <div className="space-y-2">
                       <div>
                         <p className="text-sm font-medium text-text-primary">
                           {isRTL ? 'תיקוני הצבעה' : 'Vote Changes'}
@@ -614,18 +614,29 @@ export default function QVoteModal({
                             : 'How many times a voter can change their vote'}
                         </p>
                       </div>
-                      <select
-                        value={maxVoteChanges}
-                        onChange={(e) => setMaxVoteChanges(Number(e.target.value))}
-                        className="input w-24 text-center"
-                      >
-                        <option value={0}>{isRTL ? 'ללא' : 'None'}</option>
-                        <option value={1}>1</option>
-                        <option value={2}>2</option>
-                        <option value={3}>3</option>
-                        <option value={5}>5</option>
-                        <option value={-1}>{isRTL ? 'ללא הגבלה' : 'Unlimited'}</option>
-                      </select>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { value: 0, label: isRTL ? 'ללא' : 'None' },
+                          { value: 1, label: '1' },
+                          { value: 2, label: '2' },
+                          { value: 3, label: '3' },
+                          { value: 5, label: '5' },
+                          { value: -1, label: '∞' },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setMaxVoteChanges(option.value)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              maxVoteChanges === option.value
+                                ? 'bg-accent text-white'
+                                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
