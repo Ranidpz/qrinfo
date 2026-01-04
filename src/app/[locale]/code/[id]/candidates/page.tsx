@@ -1100,6 +1100,7 @@ export default function QVoteCandidatesPage() {
         thumbnailUrl: data.thumbnailUrl || data.url,
         order: editPhotoIndex,
         uploadedAt: new Date(),
+        size: data.size, // Store compressed file size
       };
 
       await updateCandidate(codeId, editingCandidate.id, { photos: newPhotos });
@@ -1121,7 +1122,7 @@ export default function QVoteCandidatesPage() {
   };
 
   // Upload photo via drag-drop (for edit modal slots and card replacement)
-  const uploadPhotoFile = async (file: File): Promise<{ id: string; url: string; thumbnailUrl: string } | null> => {
+  const uploadPhotoFile = async (file: File): Promise<{ id: string; url: string; thumbnailUrl: string; size?: number } | null> => {
     try {
       // Compress image before upload (target 300KB, max 1200px)
       const compressed = await compressImage(file, { maxSizeKB: 300, maxWidth: 1200, maxHeight: 1200 });
@@ -1170,6 +1171,7 @@ export default function QVoteCandidatesPage() {
         thumbnailUrl: uploadedPhoto.thumbnailUrl || uploadedPhoto.url,
         order: slotIndex,
         uploadedAt: new Date(),
+        size: uploadedPhoto.size, // Store compressed file size
       };
 
       // Update in Firebase
@@ -1209,6 +1211,7 @@ export default function QVoteCandidatesPage() {
         thumbnailUrl: uploadedPhoto.thumbnailUrl || uploadedPhoto.url,
         order: 0,
         uploadedAt: new Date(),
+        size: uploadedPhoto.size, // Store compressed file size
       };
 
       await updateCandidate(codeId, candidateId, { photos: newPhotos });
@@ -3097,9 +3100,16 @@ export default function QVoteCandidatesPage() {
                                 <Camera className="w-6 h-6 text-white" />
                               )}
                             </div>
-                            <span className="absolute bottom-2 start-2 px-2 py-1 rounded-md bg-black/60 text-white text-xs font-medium">
-                              {isRTL ? `תמונה ${index + 1}` : `Photo ${index + 1}`}
-                            </span>
+                            <div className="absolute bottom-2 start-2 flex flex-col gap-0.5">
+                              <span className="px-2 py-1 rounded-md bg-black/60 text-white text-xs font-medium">
+                                {isRTL ? `תמונה ${index + 1}` : `Photo ${index + 1}`}
+                              </span>
+                              {photo.size && (
+                                <span className="px-2 py-0.5 rounded-md bg-black/60 text-white/80 text-[10px]">
+                                  {(photo.size / 1024).toFixed(0)} KB
+                                </span>
+                              )}
+                            </div>
                           </>
                         ) : (
                           <div className={`w-full h-full flex flex-col items-center justify-center ${
