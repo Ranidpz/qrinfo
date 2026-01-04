@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { QVoteConfig, Candidate, QVotePhase } from '@/types/qvote';
 import { onSnapshot, collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getCandidates, submitVotes, getVoterVotes, createCandidate } from '@/lib/qvote';
+import { getCandidates, getVoterVotes, createCandidate } from '@/lib/qvote';
 import { MediaItem } from '@/types';
 import { getOrCreateVisitorId } from '@/lib/xp';
 import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
@@ -399,19 +399,29 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     });
   };
 
-  // Submit vote
+  // Submit vote via API
   const handleSubmitVote = async () => {
     if (!visitorId || selectedCandidates.length === 0 || submitting) return;
 
     setSubmitting(true);
     try {
-      const result = await submitVotes(
-        codeId,
-        visitorId,
-        selectedCandidates,
-        round,
-        selectedCategory || undefined
-      );
+      const response = await fetch('/api/qvote/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId,
+          voterId: visitorId,
+          candidateIds: selectedCandidates,
+          round,
+          categoryId: selectedCategory || undefined,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit vote');
+      }
 
       if (result.success) {
         // Mark this category as voted
