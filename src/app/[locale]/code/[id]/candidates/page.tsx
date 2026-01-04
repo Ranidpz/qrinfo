@@ -1412,12 +1412,7 @@ export default function QVoteCandidatesPage() {
           {/* Phase Selector - Prominent with Scheduling */}
           {qvoteConfig && (
             <div className="mt-6">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-text-secondary font-medium">{isRTL ? 'שלב נוכחי' : 'Current Phase'}</p>
-                <span className="text-xs text-text-secondary">
-                  {isRTL ? 'לחצו על שלב לשינוי, לחצו שוב לתזמון' : 'Click phase to change, click again to schedule'}
-                </span>
-              </div>
+              <p className="text-sm text-text-secondary font-medium mb-3">{isRTL ? 'שלב נוכחי' : 'Current Phase'}</p>
               <div className="flex flex-wrap gap-2">
                 {[
                   { key: 'registration', label: isRTL ? 'הרשמה' : 'Registration', color: 'bg-orange-500', borderColor: 'border-orange-500', hoverColor: 'hover:bg-orange-500/20' },
@@ -1562,6 +1557,9 @@ export default function QVoteCandidatesPage() {
                   );
                 })}
               </div>
+              <p className="text-xs text-text-secondary mt-2">
+                {isRTL ? 'לחצו על שלב לשינוי, לחצו שוב לתזמון' : 'Click phase to change, click again to schedule'}
+              </p>
             </div>
           )}
         </div>

@@ -114,22 +114,40 @@ const FlipbookResultCard = memo(function FlipbookResultCard({
       {/* Rank Badge */}
       <RankBadge rank={rank} voteCount={voteCount} isRTL={isRTL} />
 
-      {/* Bottom gradient with name */}
-      {showNames && candidate.name && (
-        <div
-          className="absolute bottom-0 inset-x-0 p-4 z-10"
-          style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}
-        >
-          <h3 className="text-white text-2xl font-bold truncate text-center drop-shadow-lg">
-            {candidate.name}
-          </h3>
-          {showVoteCount && (
-            <p className="text-white/80 text-center mt-1">
+      {/* Bottom gradient with name - only show real names, not filenames */}
+      {(() => {
+        const isRealName = candidate.name &&
+          !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
+          !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
+          !candidate.name.match(/^\d{5,}/) &&
+          !candidate.name.match(/[_-]\d+$/) &&
+          !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
+
+        return showNames && isRealName ? (
+          <div
+            className="absolute bottom-0 inset-x-0 p-4 z-10"
+            style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}
+          >
+            <h3 className="text-white text-2xl font-bold truncate text-center drop-shadow-lg">
+              {candidate.name}
+            </h3>
+            {showVoteCount && (
+              <p className="text-white/80 text-center mt-1">
+                {voteCount} {votesLabel}
+              </p>
+            )}
+          </div>
+        ) : showVoteCount ? (
+          <div
+            className="absolute bottom-0 inset-x-0 p-4 z-10"
+            style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}
+          >
+            <p className="text-white/80 text-center">
               {voteCount} {votesLabel}
             </p>
-          )}
-        </div>
-      )}
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 });
@@ -211,14 +229,23 @@ const GridResultItem = memo(function GridResultItem({
         )}
       </div>
 
-      {/* Name overlay */}
-      {showNames && candidate.name && (
-        <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-          <p className="text-white text-xs font-medium truncate text-center">
-            {candidate.name}
-          </p>
-        </div>
-      )}
+      {/* Name overlay - only show real names, not filenames */}
+      {(() => {
+        const isRealName = candidate.name &&
+          !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
+          !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
+          !candidate.name.match(/^\d{5,}/) &&
+          !candidate.name.match(/[_-]\d+$/) &&
+          !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
+
+        return showNames && isRealName ? (
+          <div className="absolute bottom-0 inset-x-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+            <p className="text-white text-xs font-medium truncate text-center">
+              {candidate.name}
+            </p>
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 });
@@ -307,19 +334,34 @@ const ListResultItem = memo(function ListResultItem({
         </div>
       </div>
 
-      {/* Info */}
-      {showNames && candidate.name && (
-        <div className="px-4 py-3" style={{ backgroundColor: `${backgroundColor}f8` }}>
-          <h3 className="text-lg font-bold truncate" style={{ color: textColor }}>
-            {candidate.name}
-          </h3>
-          {showVoteCount && (
-            <p className="text-sm mt-0.5" style={{ color: `${textColor}80` }}>
+      {/* Info - only show real names, not filenames */}
+      {(() => {
+        const isRealName = candidate.name &&
+          !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
+          !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
+          !candidate.name.match(/^\d{5,}/) &&
+          !candidate.name.match(/[_-]\d+$/) &&
+          !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
+
+        return showNames && isRealName ? (
+          <div className="px-4 py-3" style={{ backgroundColor: `${backgroundColor}f8` }}>
+            <h3 className="text-lg font-bold truncate" style={{ color: textColor }}>
+              {candidate.name}
+            </h3>
+            {showVoteCount && (
+              <p className="text-sm mt-0.5" style={{ color: `${textColor}80` }}>
+                {voteCount} {votesLabel}
+              </p>
+            )}
+          </div>
+        ) : showVoteCount ? (
+          <div className="px-4 py-3" style={{ backgroundColor: `${backgroundColor}f8` }}>
+            <p className="text-sm" style={{ color: textColor }}>
               {voteCount} {votesLabel}
             </p>
-          )}
-        </div>
-      )}
+          </div>
+        ) : null;
+      })()}
     </div>
   );
 });

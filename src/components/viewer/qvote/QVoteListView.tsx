@@ -136,14 +136,23 @@ const ListItem = memo(function ListItem({
         style={{ backgroundColor: `${backgroundColor}f8` }}
       >
         <div className="flex items-center justify-between">
-          {showNames && candidate.name && (
-            <h3
-              className="text-lg font-bold truncate flex-1"
-              style={{ color: textColor }}
-            >
-              {candidate.name}
-            </h3>
-          )}
+          {(() => {
+            const isRealName = candidate.name &&
+              !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
+              !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
+              !candidate.name.match(/^\d{5,}/) &&
+              !candidate.name.match(/[_-]\d+$/) &&
+              !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
+
+            return showNames && isRealName ? (
+              <h3
+                className="text-lg font-bold truncate flex-1"
+                style={{ color: textColor }}
+              >
+                {candidate.name}
+              </h3>
+            ) : null;
+          })()}
           {showVoteCount && (
             <span
               className="text-sm font-semibold px-3 py-1.5 rounded-full ms-2 shrink-0"

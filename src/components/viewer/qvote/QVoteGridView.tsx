@@ -116,19 +116,28 @@ const GridItem = memo(function GridItem({
         </div>
       )}
 
-      {/* Name overlay (bottom gradient) */}
-      {showNames && candidate.name && (
-        <div
-          className="absolute bottom-0 inset-x-0 px-1.5 py-1"
-          style={{
-            background: `linear-gradient(transparent, rgba(0,0,0,0.7))`,
-          }}
-        >
-          <p className="text-white text-xs font-medium truncate text-center drop-shadow-sm">
-            {candidate.name}
-          </p>
-        </div>
-      )}
+      {/* Name overlay (bottom gradient) - only show real names, not filenames */}
+      {(() => {
+        const isRealName = candidate.name &&
+          !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
+          !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe|DCIM|image)/i) &&
+          !candidate.name.match(/^\d{5,}/) &&
+          !candidate.name.match(/[_-]\d+$/) &&
+          !candidate.name.match(/^[A-Za-z0-9_-]+\s*\(\d+\)$/);
+
+        return showNames && isRealName ? (
+          <div
+            className="absolute bottom-0 inset-x-0 px-1.5 py-1"
+            style={{
+              background: `linear-gradient(transparent, rgba(0,0,0,0.7))`,
+            }}
+          >
+            <p className="text-white text-xs font-medium truncate text-center drop-shadow-sm">
+              {candidate.name}
+            </p>
+          </div>
+        ) : null;
+      })()}
 
       {/* Vote count badge */}
       {showVoteCount && !showNames && (
