@@ -158,6 +158,7 @@ export interface QVoteConfig {
   enableCropping: boolean;          // Allow image cropping on upload
   allowSelfRegistration: boolean;   // Allow self-registration or producer-only
   hideResultsFromParticipants?: boolean; // Hide results page from participants (show "calculating" instead)
+  maxVoteChanges?: number;           // Max times a voter can change their vote (0 = no changes, undefined = no changes)
 
   // Gamification for voters
   gamification: QVoteGamification;

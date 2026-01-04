@@ -138,6 +138,7 @@ export default function QVoteModal({
   const [allowSelfRegistration, setAllowSelfRegistration] = useState(true);
   const [enableFinals, setEnableFinals] = useState(false);
   const [hideResultsFromParticipants, setHideResultsFromParticipants] = useState(false);
+  const [maxVoteChanges, setMaxVoteChanges] = useState(0);
   const [flipbookSettings, setFlipbookSettings] = useState<QVoteFlipbookSettings>(DEFAULT_FLIPBOOK_SETTINGS);
   const [currentPhase, setCurrentPhase] = useState<QVotePhase>('registration');
 
@@ -197,6 +198,7 @@ export default function QVoteModal({
         setAllowSelfRegistration(initialConfig.allowSelfRegistration);
         setEnableFinals(initialConfig.enableFinals);
         setHideResultsFromParticipants(initialConfig.hideResultsFromParticipants || false);
+        setMaxVoteChanges(initialConfig.maxVoteChanges ?? 0);
         setFlipbookSettings(initialConfig.flipbookSettings || DEFAULT_FLIPBOOK_SETTINGS);
         setCurrentPhase(initialConfig.currentPhase);
         // Load button texts from config or use defaults
@@ -248,6 +250,7 @@ export default function QVoteModal({
         setAllowSelfRegistration(true);
         setEnableFinals(false);
         setHideResultsFromParticipants(false);
+        setMaxVoteChanges(0);
         setFlipbookSettings(DEFAULT_FLIPBOOK_SETTINGS);
         setCurrentPhase('registration');
         setButtonTexts(defaultButtonTexts);
@@ -413,6 +416,7 @@ export default function QVoteModal({
       enableCropping,
       allowSelfRegistration,
       hideResultsFromParticipants,
+      maxVoteChanges,
       flipbookSettings,
       gamification: {
         enabled: gamificationEnabled,
@@ -596,6 +600,34 @@ export default function QVoteModal({
                     value={hideResultsFromParticipants}
                     onChange={setHideResultsFromParticipants}
                   />
+
+                  {/* Max Vote Changes */}
+                  <div className="p-3 bg-bg-secondary rounded-xl">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">
+                          {isRTL ? 'תיקוני הצבעה' : 'Vote Changes'}
+                        </p>
+                        <p className="text-xs text-text-secondary mt-0.5">
+                          {isRTL
+                            ? 'כמה פעמים מצביע יכול לשנות את הבחירה'
+                            : 'How many times a voter can change their vote'}
+                        </p>
+                      </div>
+                      <select
+                        value={maxVoteChanges}
+                        onChange={(e) => setMaxVoteChanges(Number(e.target.value))}
+                        className="input w-24 text-center"
+                      >
+                        <option value={0}>{isRTL ? 'ללא' : 'None'}</option>
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                        <option value={5}>5</option>
+                        <option value={-1}>{isRTL ? 'ללא הגבלה' : 'Unlimited'}</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

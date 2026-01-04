@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Check, ChevronLeft, Loader2, Vote } from 'lucide-react';
+import { Check, ChevronLeft, Loader2, Vote, X, RefreshCw } from 'lucide-react';
 import type { Candidate, QVoteConfig } from '@/types/qvote';
 import QVoteViewModeSelector, { ViewMode } from './QVoteViewModeSelector';
 import QVoteSelectedBubbles from './QVoteSelectedBubbles';
@@ -22,6 +22,8 @@ interface QVoteVotingViewProps {
   selectedCategory: string | null;
   onBackToCategories: () => void;
   locale: 'he' | 'en';
+  voteChangeCount?: number;
+  onResetVote?: () => void;
   translations: {
     votingTitle: string;
     finalsTitle: string;
@@ -32,6 +34,11 @@ interface QVoteVotingViewProps {
     yourSelections: string;
     noCandidates: string;
     votes: string;
+    changeVote?: string;
+    confirmChangeVote?: string;
+    cancel?: string;
+    confirm?: string;
+    changesRemaining?: string;
   };
 }
 
@@ -46,10 +53,21 @@ export default function QVoteVotingView({
   selectedCategory,
   onBackToCategories,
   locale,
+  voteChangeCount = 0,
+  onResetVote,
   translations: t,
 }: QVoteVotingViewProps) {
   const isRTL = locale === 'he';
   const isFinalsPhase = config.currentPhase === 'finals';
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  // Calculate if vote change is allowed
+  const maxVoteChanges = config.maxVoteChanges ?? 0;
+  const canChangeVote = hasVoted && onResetVote && (
+    maxVoteChanges === -1 || // Unlimited
+    (maxVoteChanges > 0 && voteChangeCount < maxVoteChanges)
+  );
+  const changesRemaining = maxVoteChanges === -1 ? -1 : maxVoteChanges - voteChangeCount;
 
   // View mode state with localStorage persistence
   const [viewMode, setViewMode] = useState<ViewMode>('flipbook');
@@ -207,15 +225,86 @@ export default function QVoteVotingView({
       {/* Vote Success Banner */}
       {hasVoted && (
         <div
-          className="mx-4 my-3 p-4 rounded-xl text-center animate-qvote-check"
+          className="mx-4 my-3 p-4 rounded-xl text-center animate-qvote-check relative"
           style={{
             backgroundColor: 'rgba(34, 197, 94, 0.1)',
             border: '1px solid rgba(34, 197, 94, 0.3)',
           }}
         >
+          {/* X button to change vote */}
+          {canChangeVote && (
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="absolute top-2 end-2 p-1.5 rounded-full hover:bg-green-500/20 transition-colors"
+              title={t.changeVote || (isRTL ? 'שנה הצבעה' : 'Change vote')}
+            >
+              <X className="w-5 h-5 text-green-600" />
+            </button>
+          )}
           <Check className="w-8 h-8 text-green-500 mx-auto mb-2" />
           <p className="font-semibold text-green-600">{t.voteSubmitted}</p>
           <p className="text-sm text-green-600/80">{t.thankYou}</p>
+          {canChangeVote && changesRemaining > 0 && (
+            <p className="text-xs text-green-600/60 mt-2">
+              {(t.changesRemaining || (isRTL ? 'נותרו {n} שינויים' : '{n} changes remaining')).replace('{n}', String(changesRemaining))}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Reset Vote Confirmation Dialog */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowResetConfirm(false)}
+          />
+          <div
+            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl"
+            style={{ backgroundColor: brandingStyles.background }}
+          >
+            <div className="text-center">
+              <div
+                className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center"
+                style={{ backgroundColor: `${brandingStyles.accent}20` }}
+              >
+                <RefreshCw className="w-7 h-7" style={{ color: brandingStyles.accent }} />
+              </div>
+              <h3 className="text-lg font-bold mb-2" style={{ color: brandingStyles.text }}>
+                {t.confirmChangeVote || (isRTL ? 'לשנות את ההצבעה?' : 'Change your vote?')}
+              </h3>
+              <p className="text-sm mb-6" style={{ color: `${brandingStyles.text}80` }}>
+                {isRTL
+                  ? 'ההצבעה הקודמת תבוטל ותוכלו לבחור מחדש'
+                  : 'Your previous vote will be cancelled and you can choose again'}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: `${brandingStyles.text}10`,
+                    color: brandingStyles.text,
+                  }}
+                >
+                  {t.cancel || (isRTL ? 'ביטול' : 'Cancel')}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowResetConfirm(false);
+                    onResetVote?.();
+                  }}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{
+                    backgroundColor: brandingStyles.accent,
+                    color: '#ffffff',
+                  }}
+                >
+                  {t.confirm || (isRTL ? 'אישור' : 'Confirm')}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

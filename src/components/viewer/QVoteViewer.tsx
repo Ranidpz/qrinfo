@@ -137,6 +137,9 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   const [gracePeriodSeconds, setGracePeriodSeconds] = useState(0);
   const gracePeriodTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Vote change tracking state (stored in localStorage per code+round)
+  const [voteChangeCount, setVoteChangeCount] = useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visitorId = getOrCreateVisitorId();
 
@@ -298,6 +301,15 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   // Determine round based on phase
   const round = config.currentPhase === 'finals' ? 2 : 1;
 
+  // Load vote change count from localStorage
+  useEffect(() => {
+    const storageKey = `qvote-changes-${shortId}-${round}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      setVoteChangeCount(parseInt(stored, 10) || 0);
+    }
+  }, [shortId, round]);
+
   // Load candidates and check existing votes
   useEffect(() => {
     const loadData = async () => {
@@ -422,6 +434,45 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       console.error('Error submitting vote:', error);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Reset vote (for vote change feature)
+  const handleResetVote = async () => {
+    if (!visitorId) return;
+
+    try {
+      const response = await fetch('/api/qvote/reset-voter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shortId,
+          voterId: visitorId,
+          round,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to reset vote:', errorData.error);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('[QVoteViewer] Vote reset successful:', data);
+
+      // Update local state
+      const categoryKey = selectedCategory || '_global';
+      setVotedCategories((prev) => ({ ...prev, [categoryKey]: false }));
+      setSelectedCandidates([]);
+
+      // Increment vote change count and store in localStorage
+      const newCount = voteChangeCount + 1;
+      setVoteChangeCount(newCount);
+      const storageKey = `qvote-changes-${shortId}-${round}`;
+      localStorage.setItem(storageKey, String(newCount));
+    } catch (error) {
+      console.error('Error resetting vote:', error);
     }
   };
 
@@ -876,6 +927,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         selectedCategory={selectedCategory}
         onBackToCategories={handleBackToCategories}
         locale={locale}
+        voteChangeCount={voteChangeCount}
+        onResetVote={handleResetVote}
         translations={{
           votingTitle: (locale === 'he' ? config.branding.votingTitle : config.branding.votingTitleEn) || config.branding.votingTitle || t.votingTitle,
           finalsTitle: t.finalsTitle,

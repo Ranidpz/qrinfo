@@ -471,6 +471,53 @@ export async function removeVote(
   return true;
 }
 
+// Reset all votes by a specific voter (for vote change feature)
+export async function resetVoterVotes(
+  codeId: string,
+  voterId: string,
+  round: VoteRound
+): Promise<{ success: boolean; removedVotes: number; candidateIds: string[] }> {
+  // Get all votes by this voter for this round
+  const votes = await getVoterVotes(codeId, voterId, round);
+
+  if (votes.length === 0) {
+    return { success: true, removedVotes: 0, candidateIds: [] };
+  }
+
+  const candidateIds = votes.map(v => v.candidateId);
+
+  await runTransaction(db, async (transaction) => {
+    // Delete each vote and decrement candidate vote counts
+    for (const vote of votes) {
+      const voteRef = doc(db, 'codes', codeId, 'votes', vote.id);
+      transaction.delete(voteRef);
+
+      const candidateRef = doc(db, 'codes', codeId, 'candidates', vote.candidateId);
+      const voteField = round === 1 ? 'voteCount' : 'finalsVoteCount';
+      transaction.update(candidateRef, {
+        [voteField]: increment(-1),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  });
+
+  // Update stats outside transaction
+  const statsUpdate: Record<string, ReturnType<typeof increment>> = {
+    totalVotes: increment(-votes.length),
+  };
+
+  // Decrement voter count only if this was their only votes in this round
+  if (round === 1) {
+    statsUpdate.totalVoters = increment(-1);
+  } else {
+    statsUpdate.finalsVoters = increment(-1);
+  }
+
+  await updateQVoteStats(codeId, statsUpdate);
+
+  return { success: true, removedVotes: votes.length, candidateIds };
+}
+
 // ============ PHASE MANAGEMENT ============
 
 // Get current QVote config from a code's media
