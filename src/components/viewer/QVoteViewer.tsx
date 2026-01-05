@@ -745,10 +745,11 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
           {/* Language Selection Buttons - inside content for better positioning */}
           {showLanguageSelect && (
-            <div className="flex justify-center gap-3 mt-8">
+            <div className="flex justify-center gap-3 mt-8 relative z-20" dir="ltr">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  e.preventDefault();
                   setLocale('he');
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -762,6 +763,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  e.preventDefault();
                   setLocale('en');
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -779,7 +781,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         {/* Tap anywhere to enter (optional - makes whole screen tappable) */}
         <button
           onClick={() => setShowLanding(false)}
-          className="absolute inset-0 z-0"
+          className="absolute inset-0 -z-10"
           aria-label="Enter"
         />
       </div>
@@ -857,10 +859,11 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
             {/* Language Selection Buttons */}
             {showLanguageSelect && (
-              <div className="flex justify-center gap-3 pt-2">
+              <div className="flex justify-center gap-3 pt-2" dir="ltr">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     setLocale('he');
                   }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -874,6 +877,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     setLocale('en');
                   }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
