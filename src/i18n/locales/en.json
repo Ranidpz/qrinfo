@@ -41,11 +41,157 @@
   "navigation": {
     "dashboard": "Dashboard",
     "analytics": "Analytics",
+    "guide": "User Guide",
+    "whatIsQ": "What is The Q?",
     "userManagement": "User Management",
     "qtag": "Q.Tag",
     "qOrder": "Q.Order",
     "comingSoon": "Coming Soon!",
     "closeMenu": "Close menu"
+  },
+  "guide": {
+    "title": "User Guide",
+    "subtitle": "Everything you need to know about The Q",
+    "searchPlaceholder": "Search questions...",
+    "clear": "Clear",
+    "questionsCount": "questions",
+    "categoriesCount": "topics",
+    "totalQuestions": "total questions",
+    "noResults": "No results found",
+    "tryDifferentSearch": "Try searching with different keywords",
+    "needMoreHelp": "Need more help?",
+    "contactSupport": "Chat with us on WhatsApp",
+    "categories": {
+      "quickStart": "Quick Start",
+      "contentTypes": "Content Types",
+      "qrDesign": "QR Code Design",
+      "widgets": "Widgets & Buttons",
+      "qvote": "Q.Vote - Voting",
+      "customization": "Customization",
+      "organization": "Organization & Management",
+      "scheduling": "Scheduling & Planning",
+      "analytics": "Analytics",
+      "gamification": "Gamification",
+      "sharing": "Sharing & Distribution",
+      "tipsAndTricks": "Tips & Tricks"
+    },
+    "questions": {
+      "createFirstCode": "How do I create my first QR code?",
+      "createFirstCodeAnswer": "Go to the Dashboard and click \"Create New Experience\". Upload an image, video, PDF or choose another content type - and the code will be created automatically! The code is dynamic, meaning you can change its content anytime.",
+      "uploadMedia": "How do I upload media?",
+      "uploadMediaAnswer": "Drag a file to the upload area or click \"+\" to add content. Supports images (JPG, PNG, WebP, GIF), video (MP4, WebM) and PDF. Maximum size: 5MB per file.",
+      "shareCode": "How do I share the code?",
+      "shareCodeAnswer": "Click the share icon on the code card. You can copy the link, download the QR code as an image for printing, or open in a new window for preview.",
+      "whatIsDynamic": "What is a \"dynamic code\"?",
+      "whatIsDynamicAnswer": "A dynamic code is a QR code whose content can be changed anytime - without printing a new code! Print once, update content whenever you want through the Dashboard.",
+
+      "imageVsGallery": "What's the difference between an image and a gallery?",
+      "imageVsGalleryAnswer": "A single image displays only that image. If you upload multiple images to the same code, they appear as a swipeable gallery. You can also enable \"Selfie Gallery\" that allows viewers to upload their own photos.",
+      "pdfAnimation": "How do I upload a PDF with animation?",
+      "pdfAnimationAnswer": "Simply upload a PDF file! The system will automatically display it with a 3D page flip animation. Click the gear icon inside the media card to customize settings: flip direction, single/double page mode, sounds, download, and more.",
+      "whatIsRiddle": "What is Riddle?",
+      "whatIsRiddleAnswer": "An interactive landing page with custom design. You can add a title, styled text (bold, italic, headers), images, YouTube video, and even allow viewers to upload selfies to a shared gallery.",
+      "whatIsSelfiebeam": "What is Selfiebeam?",
+      "whatIsSelfiebeamAnswer": "A selfie wall for events! Like Riddle, but focused on photo uploads. You can add a company logo that will appear cyclically in the gallery between participant photos. Perfect for corporate events and parties.",
+      "createWeeklyCal": "How do I create a weekly calendar?",
+      "createWeeklyCalAnswer": "Select \"Activity Calendar\" from the create experience menu. You can define weeks, time slots, events with images and links, and even enable registration (RSVP) for activities. Perfect for hotels, camps, and activity venues.",
+
+      "qrSignLogo": "How do I add a logo to the center of the QR code?",
+      "qrSignLogoAnswer": "Click the \"QR Sign\" button on the code card. Select \"Logo\" and upload an image (PNG with transparent background works best). You can change size and background color. The logo will appear in the center of the code even when downloaded for printing.",
+      "qrSignText": "How do I add text to the center of the QR code?",
+      "qrSignTextAnswer": "In \"QR Sign\" settings select \"Text\". You can enter up to 4 characters (numbers, letters, or symbols). Customize text color and background color to match your design.",
+      "qrSignEmoji": "How do I add an emoji to the center of the QR code?",
+      "qrSignEmojiAnswer": "In \"QR Sign\" settings select \"Emoji\" or \"Icon\". You can choose from hundreds of built-in icons or paste an emoji of your choice.",
+      "qrColors": "Can I change the QR code color?",
+      "qrColorsAnswer": "Currently the code itself stays black and white to ensure maximum scan reliability. However, you can customize the sign colors in the center of the code - both the symbol and background colors.",
+      "printSafe": "Is the code safe for printing?",
+      "printSafeAnswer": "Yes! Our codes are designed for printing. Click \"Download QR Code\" to get a high-quality image. Tip: Print at least 2x2 cm for easy scanning.",
+
+      "whatsappWidget": "How do I add a WhatsApp button?",
+      "whatsappWidgetAnswer": "Click \"Widgets\" then WhatsApp. Choose between \"Phone Number\" (for private chat) or \"Group\" (group link). You can add a pre-filled message that will appear automatically.",
+      "whatsappGroup": "How do I connect to a WhatsApp group?",
+      "whatsappGroupAnswer": "In the WhatsApp widget select \"Group\" and paste the join link. How to get the link? Open the group → Group settings → Invite via link → Copy link.",
+      "phoneWidget": "How do I add a call button?",
+      "phoneWidgetAnswer": "In the Widgets menu select \"Phone\". Enter an Israeli or international phone number. Scanners can dial directly with one tap.",
+      "emailWidget": "How do I add an email button?",
+      "emailWidgetAnswer": "In the Widgets menu select \"Email\". Enter an email address, and optionally - a pre-filled subject and body. Scanners can send an email with one tap.",
+      "navigationWidget": "How do I add a navigation button?",
+      "navigationWidgetAnswer": "In the Widgets menu select \"Navigation\". Enter an address or place name, and choose an app (Waze or Google Maps). Scanners will be directed straight to navigation.",
+      "smsWidget": "How do I add an SMS button?",
+      "smsWidgetAnswer": "In the Widgets menu select \"SMS\". Enter a phone number and pre-filled message. Scanners can send a message with one tap.",
+
+      "openVoting": "How do I open a Q.Vote voting?",
+      "openVotingAnswer": "Create a new code and select \"Q.Vote\". Configure the voting phases, add candidates (manually or bulk upload), and customize the design. When ready, move to the \"Voting\" phase.",
+      "votingPhases": "What are the different voting phases?",
+      "votingPhasesAnswer": "1. Registration - candidates register (optional)\n2. Preparation - organize candidates before opening\n3. Voting - voting is open\n4. Finals - additional round for leaders (optional)\n5. Calculating - processing results\n6. Results - displaying winners",
+      "addCandidates": "How do I add candidates?",
+      "addCandidatesAnswer": "In voting editor click \"Add Candidate\". You can add manually (name + photo) or upload an Excel file with many candidates at once. You can also allow self-registration of candidates.",
+      "shuffleCandidates": "How do I shuffle candidate order?",
+      "shuffleCandidatesAnswer": "In voting settings enable \"Shuffle Candidates\". Each scanner will see candidates in a different random order - prevents bias based on list position.",
+      "limitVotes": "How do I limit the number of votes?",
+      "limitVotesAnswer": "In settings you can set: minimum selections (e.g., must choose at least 2), maximum selections (up to 3), and how many times a vote can be changed.",
+      "showResults": "How do I display results?",
+      "showResultsAnswer": "Move to the \"Results\" phase. You can display as an animated flipbook (exciting countdown!) or regular view. You can also hide results from voters until you choose to reveal.",
+
+      "changeColors": "How do I change experience colors?",
+      "changeColorsAnswer": "In experience editing (Riddle, Q.Vote, Weekly Calendar) there are design options: background color, text color, button colors. Choose from ready colors or enter a custom color.",
+      "setupLandingPage": "What is a landing page and how do I set it up?",
+      "setupLandingPageAnswer": "A landing page appears when there are multiple media items in a code. It shows buttons to choose from. Click \"Landing Page\" on the code card to customize: background, colors, titles, and button style.",
+      "customButtons": "How do I customize landing page buttons?",
+      "customButtonsAnswer": "In landing page settings you can choose style (solid, outline, glass), layout (list or grid), and colors. You can also give custom names to each button instead of default names.",
+      "mediaLinkButton": "How do I add a link button on an image?",
+      "mediaLinkButtonAnswer": "Click an image in the code and select \"Media Link\". Enter a URL and button name. When the viewer clicks the image, a button will appear leading to the link.",
+
+      "createFolder": "How do I create a folder/library?",
+      "createFolderAnswer": "Click \"New Library\" in the Dashboard. Name the library and drag codes into it. Libraries help organize codes by project, event, or client.",
+      "moveToFolder": "How do I move a code to a folder?",
+      "moveToFolderAnswer": "Simply drag the code card and drop it on the desired folder. You can also move a code back to the main dashboard.",
+      "duplicateCode": "How do I duplicate a code?",
+      "duplicateCodeAnswer": "Click the three dots on the code card and select \"Duplicate\". A new copy will be created with a new QR code, but with the same content. Useful for creating variations.",
+      "transferOwnership": "How do I transfer code ownership?",
+      "transferOwnershipAnswer": "Admins can click \"Transfer Ownership\" in the code menu, search for a user, and transfer. The code will completely move to the other user's account.",
+
+      "scheduleMedia": "How do I schedule media to appear on specific dates?",
+      "scheduleMediaAnswer": "Click the clock icon on the media card. Set start and end dates, and optionally - daily active hours. The media will only appear at the times you've set.",
+      "autoReplace": "How do I do automatic media replacement?",
+      "autoReplaceAnswer": "When replacing a file, choose \"Schedule Replacement\" instead of \"Replace Now\". Select a date and time - and the file will be replaced automatically at the time you set. Perfect for changing menus or scheduled messages.",
+      "activitySchedule": "What is activity scheduling?",
+      "activityScheduleAnswer": "In the weekly calendar and other experiences, you can set when each item appears. For example: breakfast from 7:00 to 10:00, lunch from 12:00 to 15:00.",
+
+      "viewStats": "Where can I see how many views a code has?",
+      "viewStatsAnswer": "Two options:\n1. In Dashboard - view count appears on each code card\n2. In Analytics - click \"Analytics\" in the menu for detailed statistics",
+      "viewSource": "How do I know where views came from?",
+      "viewSourceAnswer": "In the Analytics page you'll see breakdown by device type (mobile, desktop, tablet), views by hour of day, and views by date. Choose a date range for focused analysis.",
+      "clickReport": "What is a click report?",
+      "clickReportAnswer": "A click report shows how many times links in your content were clicked - links in images, PDF buttons, and widgets. Helps understand what interests viewers most.",
+
+      "whatIsXP": "What is the XP system?",
+      "whatIsXPAnswer": "A point system for gamification! Viewers earn XP for actions:\n• 10 XP - scanning a new code\n• 25 XP - uploading a photo to gallery\n• 50 XP - completing a route\nThe more XP earned, the higher the level and more prizes received.",
+      "setupPrizes": "How do I set up prizes?",
+      "setupPrizesAnswer": "In library (Route) settings enable \"Prize System\". Add prizes with name, image, rarity (common/rare/epic/legendary) and stock quantity. The system will distribute prizes automatically based on odds.",
+      "whatIsRoute": "What is a Route?",
+      "whatIsRouteAnswer": "A route turns a regular library into a gamification experience. Viewers scan codes along the route, earn XP, and receive prizes. Perfect for museums, exhibitions, and puzzle trails.",
+      "howLobbyWorks": "How does the lobby screen work?",
+      "howLobbyWorksAnswer": "The lobby screen displays winners in real-time on a large screen. When someone wins a rare/epic/legendary prize, their name and prize appear on screen. Address: /lobby/[route-id]",
+
+      "shareLink": "How do I share a code link?",
+      "shareLinkAnswer": "Click the share icon on the code card. The link will be copied to clipboard. You can also click \"Open in new window\" for preview.",
+      "downloadQR": "How do I download the QR code for printing?",
+      "downloadQRAnswer": "Click \"Download QR Code\" on the code card. The image will download in high quality, ready for printing. If you set up a QR Sign (logo/text), it will appear in the image.",
+      "publicUrls": "What public URLs are available?",
+      "publicUrlsAnswer": "• /v/[short-code] - main code view\n• /gallery/[short-code] - photo gallery\n• /lobby/[route-id] - lobby screen for prizes\n• /packs/[route-id] - pack opening",
+      "galleryUrl": "How do I get a link to only the photo gallery?",
+      "galleryUrlAnswer": "The gallery is accessible at /gallery/[short-code]. Useful for display on a large screen at events. In the gallery you can hide the header by pressing and releasing Ctrl.",
+
+      "keyboardShortcuts": "What keyboard shortcuts are available?",
+      "keyboardShortcutsAnswer": "• Ctrl/Cmd + release in gallery - show/hide header (code owner only)\n• Escape - close popup windows\n• Drag and drop - move codes between folders",
+      "mobilePreview": "How do I see a mobile preview?",
+      "mobilePreviewAnswer": "Click \"Mobile Preview\" on the code card. A window will open simulating how the code looks on a phone - perfect for testing before distribution.",
+      "collaborators": "Can I give others access to a code?",
+      "collaboratorsAnswer": "Currently a code belongs to one user. You can transfer ownership completely, or share login credentials (not recommended). Sharing feature in future development.",
+      "globalCodes": "What is a \"global code\"?",
+      "globalCodesAnswer": "A global code is visible to all users in the system (not just the owner). Only system admins can mark a code as global. Useful for examples and tutorials."
+    }
   },
   "sidebar": {
     "themeLight": "Switch to light mode",
@@ -706,5 +852,230 @@
     "feature4": "Documentation and analytics on visitors and usage",
     "feature5": "Animated gallery screen of visitors (optional)",
     "contact": "For details and early registration"
+  },
+  "marketing": {
+    "hero": {
+      "title": "One QR Code.",
+      "titleHighlight": "Endless Possibilities.",
+      "subtitle": "Create digital experiences you can update anytime - without reprinting",
+      "cta": "Get Started Free",
+      "ctaSecondary": "Watch Demo"
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "step1": {
+        "title": "Create Code",
+        "description": "Generate a print-safe QR code"
+      },
+      "step2": {
+        "title": "Choose Experience",
+        "description": "Select from ready-made experiences"
+      },
+      "step3": {
+        "title": "Share & Update",
+        "description": "Share and update in real-time"
+      }
+    },
+    "features": {
+      "title": "Experiences You Can Create",
+      "subtitle": "Everything you need to create impressive digital experiences",
+      "smartLinks": {
+        "title": "Smart Links",
+        "description": "WhatsApp, navigation, payment, social media",
+        "useCase": "Menus, business cards"
+      },
+      "weeklySchedule": {
+        "title": "Weekly Schedule",
+        "description": "Interactive activity calendar with RSVP",
+        "useCase": "Hotels, camps, gyms"
+      },
+      "digitalBooklets": {
+        "title": "Digital Booklets",
+        "description": "PDF with 3D page-flip animation",
+        "useCase": "Catalogs, guides, menus"
+      },
+      "voting": {
+        "title": "Voting System",
+        "description": "Digital elections with registration and results",
+        "useCase": "Events, competitions, surveys"
+      },
+      "gamification": {
+        "title": "Games & Prizes",
+        "description": "XP, levels, riddles, leaderboard and prizes",
+        "useCase": "Museums, exhibitions, tours"
+      },
+      "selfieWall": {
+        "title": "Selfie Wall",
+        "description": "Upload photos to shared gallery",
+        "useCase": "Events, bars, parties"
+      }
+    },
+    "useCases": {
+      "title": "Who Is It For?",
+      "subtitle": "Solutions tailored to every business type",
+      "productions": {
+        "title": "Production Companies",
+        "description": "Voting, gamification, selfie walls for events"
+      },
+      "hotels": {
+        "title": "Hotels & Resorts",
+        "description": "Weekly schedules, menus, guest information"
+      },
+      "events": {
+        "title": "Events & Festivals",
+        "description": "Voting, registration, games and activities"
+      },
+      "museums": {
+        "title": "Museums & Exhibitions",
+        "description": "Interactive routes with XP and prizes"
+      },
+      "restaurants": {
+        "title": "Restaurants & Bars",
+        "description": "Digital menus, orders, reviews"
+      },
+      "corporate": {
+        "title": "Companies & Organizations",
+        "description": "Corporate events, team building, training"
+      }
+    },
+    "benefits": {
+      "title": "Why The Q?",
+      "realtime": {
+        "title": "Real-time Updates",
+        "description": "Change content anytime - no reprinting needed"
+      },
+      "analytics": {
+        "title": "Detailed Analytics",
+        "description": "Know exactly who scanned, when and where"
+      },
+      "bilingual": {
+        "title": "Hebrew & English",
+        "description": "Full interface in both languages with RTL support"
+      },
+      "adFree": {
+        "title": "Ad-Free",
+        "description": "Clean, professional experience without interruptions"
+      },
+      "integrations": {
+        "title": "Integrations",
+        "description": "WhatsApp, Waze, payments and more"
+      }
+    },
+    "clients": {
+      "title": "Clients Who Trust Us",
+      "subtitle": "Thousands of events produced with The Q"
+    },
+    "pricing": {
+      "title": "Simple & Transparent Pricing",
+      "subtitle": "Choose the plan that fits you",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "yearlySave": "Save 17%",
+      "perMonth": "/month",
+      "perYear": "/year",
+      "discount": "off",
+      "save": "Save",
+      "getStarted": "Get Started",
+      "contactUs": "Contact Us",
+      "popular": "Most Popular",
+      "free": {
+        "name": "Free",
+        "price": "Free",
+        "description": "To get started",
+        "features": ["1 QR code", "25MB storage", "Links, images, PDF", "7-day analytics", "The Q watermark"]
+      },
+      "business": {
+        "name": "Business",
+        "priceMonthly": "99",
+        "priceYearly": "990",
+        "description": "For small & medium businesses",
+        "features": ["10 active codes", "500MB storage", "Weekly schedule & galleries", "90-day analytics", "No watermark", "All widgets", "Email support"]
+      },
+      "pro": {
+        "name": "Pro",
+        "priceMonthly": "299",
+        "priceYearly": "2990",
+        "description": "For production companies & hotels",
+        "features": ["30 active codes", "2GB storage", "Unlimited Selfiebeam", "Word Cloud", "Gamification & prizes", "Full branding", "Unlimited analytics", "Priority support"]
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "price": "Custom",
+        "description": "For large organizations",
+        "features": ["Unlimited codes", "Custom storage", "API access", "SSO", "Dedicated account manager"]
+      },
+      "events": {
+        "title": "One-Time Events",
+        "subtitle": "Don't need a subscription? Buy a package for a single event",
+        "qvote": {
+          "title": "Q.Vote - Voting",
+          "basic": { "name": "Basic", "price": "499", "participants": "Up to 100", "features": "Simple voting, results" },
+          "pro": { "name": "Pro", "price": "999", "participants": "Up to 500", "features": "+ Registration, categories, Flipbook" },
+          "premium": { "name": "Premium", "price": "1,499", "participants": "Up to 2,000", "features": "+ Branding, phases, statistics" }
+        },
+        "selfiebeam": {
+          "title": "Selfiebeam - Photo Wall",
+          "basic": { "name": "Basic", "price": "299", "limit": "Up to 100 photos" },
+          "pro": { "name": "Pro", "price": "599", "limit": "Up to 500 + logo" },
+          "premium": { "name": "Premium", "price": "999", "limit": "Unlimited + branding" }
+        },
+        "bundle": {
+          "title": "Bundle Packages",
+          "standard": { "name": "Standard", "price": "1,499", "includes": "Q.Vote Pro + Selfiebeam Basic" },
+          "full": { "name": "Full", "price": "2,499", "includes": "Q.Vote + Selfiebeam Premium + Gamification" }
+        },
+        "validity": "Valid: 14 days from activation"
+      }
+    },
+    "finalCta": {
+      "title": "Ready to Get Started?",
+      "subtitle": "Join thousands of businesses already using The Q",
+      "cta": "Get Started Free"
+    },
+    "footer": {
+      "tagline": "One Code. Endless Experiences.",
+      "madeBy": "By",
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "contact": "Contact Us"
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "subtitle": "Everything you need to know",
+      "items": [
+        {
+          "question": "What is a dynamic QR code?",
+          "answer": "A dynamic QR code allows you to change the content behind it at any time, without printing a new code. Print once, update forever."
+        },
+        {
+          "question": "Can I use it for free?",
+          "answer": "Yes! The free plan includes one QR code with 25MB storage. Perfect for getting started."
+        },
+        {
+          "question": "How do I know who scanned my code?",
+          "answer": "Our analytics system shows real-time data: view counts, device types, peak hours and more - without collecting personal information."
+        },
+        {
+          "question": "What's the difference between subscription and one-time event?",
+          "answer": "A subscription is ideal for ongoing use. One-time events are perfect for those who need the system for a specific event (like voting or selfie wall) for a limited period."
+        },
+        {
+          "question": "Are there ads on my content?",
+          "answer": "No! All plans (including free) are ad-free. The free plan only shows a small The Q logo."
+        },
+        {
+          "question": "How does the Q.Vote voting system work?",
+          "answer": "Q.Vote is a complete voting system featuring: participant registration, voting phases (regular + finals), animated results display, and detailed statistics."
+        },
+        {
+          "question": "What is Selfiebeam?",
+          "answer": "A digital selfie wall for events. Guests take selfies from their phones, and photos appear on a big screen in a shared gallery."
+        },
+        {
+          "question": "Can I combine multiple experiences in one code?",
+          "answer": "Absolutely! You can add multiple media items to the same code and schedule each one separately. For example: breakfast menu in the morning and dinner menu in the evening."
+        }
+      ]
+    }
   }
 }

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.8.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,29 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.8.0',
+    date: '2026-01-05',
+    isNew: true,
+    highlights: {
+      he: [
+        'דף נחיתה שיווקי חדש עם עיצוב מינימליסטי',
+        'עמוד תמחור - מנויים ואירועים חד-פעמיים',
+        'לוגו Q אינטראקטיבי עם אפקט הובר',
+        'מותאם מושלם למובייל - כל הסקשנים רספונסיביים',
+        'קישור לסיידבר מדף הנחיתה',
+      ],
+      en: [
+        'New marketing landing page with minimalist design',
+        'Pricing page - subscriptions and one-time events',
+        'Interactive Q logo with hover effect',
+        'Perfect mobile responsiveness - all sections responsive',
+        'Sidebar link from landing page',
+      ],
+    },
+  },
+  {
     version: '1.7.0',
     date: '2025-12-11',
-    isNew: true,
     highlights: {
       he: [
         'Q.Vote - מערכת הצבעות דיגיטלית עם דף נחיתה מעוצב',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart, Package, Smartphone, CreditCard, TrendingUp, Camera, ScanLine, Gift, Monitor, ClipboardList } from 'lucide-react';
+import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart, Package, Smartphone, CreditCard, TrendingUp, Camera, ScanLine, Gift, Monitor, ClipboardList, HelpCircle } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -62,6 +62,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', icon: Home, labelKey: 'dashboard' },
   { href: '/analytics', icon: BarChart3, labelKey: 'analytics' },
+  { href: '/guide', icon: HelpCircle, labelKey: 'guide' },
+  { href: '/marketing', icon: QrCode, labelKey: 'whatIsQ', dividerBefore: true },
   { href: '#qtag', icon: Ticket, labelKey: 'qtag', badge: 'comingSoon', disabled: true, dividerBefore: true },
   { href: '#qorder', icon: ShoppingCart, labelKey: 'qOrder', badge: 'comingSoon', disabled: true },
   { href: '/admin/users', icon: Users, labelKey: 'userManagement', roles: ['super_admin'], dividerBefore: true },
