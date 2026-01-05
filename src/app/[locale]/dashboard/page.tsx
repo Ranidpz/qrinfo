@@ -503,7 +503,7 @@ export default function DashboardPage() {
         enableFinals: config.enableFinals,
         schedule: {},
         scheduleMode: config.scheduleMode,
-        maxPhotosPerCandidate: config.maxPhotosPerCandidate,
+        minSelectionsPerVoter: config.minSelectionsPerVoter ?? 1,
         maxSelectionsPerVoter: config.maxSelectionsPerVoter,
         showVoteCount: config.showVoteCount,
         showNames: config.showNames,

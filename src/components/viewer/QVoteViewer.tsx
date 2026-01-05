@@ -9,7 +9,7 @@ import { MediaItem } from '@/types';
 import { getOrCreateVisitorId } from '@/lib/xp';
 import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
 import { getBrowserLocale } from '@/lib/publicTranslations';
-import { Check, Loader2, Vote, Camera, ChevronLeft, ChevronRight, Trophy, Clock, Users, X, Plus, Trash2 } from 'lucide-react';
+import { Check, Loader2, Vote, Camera, ChevronLeft, ChevronRight, Trophy, Clock, Users, X, Plus, Trash2, UserPlus } from 'lucide-react';
 import QVoteVotingView from './qvote/QVoteVotingView';
 import QVoteResultsView from './qvote/QVoteResultsView';
 
@@ -505,7 +505,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     const files = e.target.files;
     if (!files) return;
 
-    const newFiles = Array.from(files).slice(0, config.maxPhotosPerCandidate - photoFiles.length);
+    const newFiles = Array.from(files).slice(0, 2 - photoFiles.length); // Max 2 photos for boomerang
     setPhotoFiles(prev => [...prev, ...newFiles]);
   };
 
@@ -920,6 +920,31 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       );
     }
 
+    // If self-registration is disabled, show welcome message with booth instructions
+    if (!config.allowSelfRegistration) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center mb-4"
+            style={{ backgroundColor: `${brandingStyles.accent}20` }}
+          >
+            <UserPlus className="w-10 h-10" style={{ color: brandingStyles.accent }} />
+          </div>
+          <h2
+            className="text-2xl font-bold mb-2"
+            style={{ color: brandingStyles.text }}
+          >
+            {locale === 'he' ? 'ברוכים הבאים!' : 'Welcome!'}
+          </h2>
+          <p style={{ color: `${brandingStyles.text}99` }}>
+            {locale === 'he'
+              ? 'מוזמנים להירשם לתחרות בדוכן ההרשמה'
+              : 'You can register for the competition at the registration booth'}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 p-4 space-y-6">
         <h2
@@ -989,18 +1014,25 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
             </div>
           )}
 
-          {/* Add Photo Button */}
-          {photoFiles.length < config.maxPhotosPerCandidate && (
+          {/* Add Photo Button - max 2 photos (1 static or 2 for boomerang) */}
+          {photoFiles.length < 2 && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full p-4 border-2 border-dashed rounded-xl flex items-center justify-center gap-2 transition-colors"
+              className="w-full p-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-1 transition-colors"
               style={{
                 borderColor: `${brandingStyles.text}30`,
                 color: brandingStyles.text,
               }}
             >
-              <Camera className="w-5 h-5" />
-              <span>{t.addPhoto}</span>
+              <div className="flex items-center gap-2">
+                <Camera className="w-5 h-5" />
+                <span>{t.addPhoto}</span>
+              </div>
+              {photoFiles.length === 0 && (
+                <span className="text-xs opacity-60">
+                  {locale === 'he' ? '1 תמונה או 2 לבומרנג' : '1 photo or 2 for boomerang'}
+                </span>
+              )}
             </button>
           )}
 

@@ -163,7 +163,7 @@ export interface QVoteConfig {
   scheduleMode: ScheduleMode;
 
   // Voting settings
-  maxPhotosPerCandidate: number;    // 1-3
+  minSelectionsPerVoter?: number;   // Minimum candidates to select (1 = can submit after selecting 1)
   maxSelectionsPerVoter: number;    // 1-3 candidates per voter
   showVoteCount: boolean;           // Show/hide vote counts publicly
   showNames: boolean;               // Show/hide candidate names
@@ -291,7 +291,7 @@ export const DEFAULT_QVOTE_CONFIG: QVoteConfig = {
   enableFinals: false,
   schedule: {},
   scheduleMode: 'manual',
-  maxPhotosPerCandidate: 3,
+  minSelectionsPerVoter: 1,
   maxSelectionsPerVoter: 3,
   showVoteCount: false,
   showNames: true,

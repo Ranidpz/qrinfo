@@ -535,7 +535,7 @@ export default function QVoteVotingView({
       {!hasVoted && (
         <div
           className={`fixed left-0 right-0 z-40 transition-all duration-500 ease-out ${
-            selectedCandidates.length >= config.maxSelectionsPerVoter
+            selectedCandidates.length >= (config.minSelectionsPerVoter ?? config.maxSelectionsPerVoter)
               ? 'bottom-24' // Move up when submit button appears
               : 'bottom-6'
           }`}
@@ -561,11 +561,11 @@ export default function QVoteVotingView({
         </div>
       )}
 
-      {/* Submit Button - Slides in when all candidates selected */}
+      {/* Submit Button - Slides in when minimum candidates selected */}
       {!hasVoted && (
         <div
           className={`fixed left-0 right-0 z-50 transition-all duration-500 ease-out ${
-            selectedCandidates.length >= config.maxSelectionsPerVoter
+            selectedCandidates.length >= (config.minSelectionsPerVoter ?? config.maxSelectionsPerVoter)
               ? 'bottom-0 opacity-100 translate-y-0'
               : 'bottom-0 opacity-0 translate-y-full pointer-events-none'
           }`}

@@ -131,7 +131,7 @@ export default function QVoteModal({
 
   // Basic settings
   const [title, setTitle] = useState('');
-  const [maxPhotosPerCandidate, setMaxPhotosPerCandidate] = useState(3);
+  const [minSelectionsPerVoter, setMinSelectionsPerVoter] = useState(1);
   const [maxSelectionsPerVoter, setMaxSelectionsPerVoter] = useState(3);
   const [showVoteCount, setShowVoteCount] = useState(false);
   const [showNames, setShowNames] = useState(true);
@@ -200,7 +200,7 @@ export default function QVoteModal({
     if (isOpen) {
       if (initialConfig) {
         setTitle(initialConfig.formFields[0]?.label || '');
-        setMaxPhotosPerCandidate(initialConfig.maxPhotosPerCandidate);
+        setMinSelectionsPerVoter(initialConfig.minSelectionsPerVoter ?? 1);
         setMaxSelectionsPerVoter(initialConfig.maxSelectionsPerVoter);
         setShowVoteCount(initialConfig.showVoteCount);
         setShowNames(initialConfig.showNames);
@@ -265,7 +265,7 @@ export default function QVoteModal({
       } else {
         // Reset to defaults
         setTitle('');
-        setMaxPhotosPerCandidate(3);
+        setMinSelectionsPerVoter(1);
         setMaxSelectionsPerVoter(3);
         setShowVoteCount(false);
         setShowNames(true);
@@ -434,7 +434,7 @@ export default function QVoteModal({
       enableFinals,
       schedule: {},
       scheduleMode: 'manual',
-      maxPhotosPerCandidate,
+      minSelectionsPerVoter,
       maxSelectionsPerVoter,
       showVoteCount,
       showNames,
@@ -561,14 +561,21 @@ export default function QVoteModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm text-text-secondary">
-                      {isRTL ? 'מקסימום תמונות למועמד' : 'Max photos per candidate'}
+                      {isRTL ? 'מינימום בחירות למצביע' : 'Min selections per voter'}
                     </label>
                     <select
-                      value={maxPhotosPerCandidate}
-                      onChange={(e) => setMaxPhotosPerCandidate(Number(e.target.value))}
+                      value={minSelectionsPerVoter}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setMinSelectionsPerVoter(val);
+                        // Ensure max >= min
+                        if (val > maxSelectionsPerVoter) {
+                          setMaxSelectionsPerVoter(val);
+                        }
+                      }}
                       className="input w-full"
                     >
-                      {[1, 2, 3].map((n) => (
+                      {[1, 2, 3, 4, 5].map((n) => (
                         <option key={n} value={n}>{n}</option>
                       ))}
                     </select>
@@ -580,7 +587,14 @@ export default function QVoteModal({
                     </label>
                     <select
                       value={maxSelectionsPerVoter}
-                      onChange={(e) => setMaxSelectionsPerVoter(Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setMaxSelectionsPerVoter(val);
+                        // Ensure min <= max
+                        if (val < minSelectionsPerVoter) {
+                          setMinSelectionsPerVoter(val);
+                        }
+                      }}
                       className="input w-full"
                     >
                       {[1, 2, 3, 4, 5].map((n) => (
