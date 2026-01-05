@@ -742,39 +742,39 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
           >
             {t.tapToContinue}
           </p>
-        </div>
 
-        {/* Language Selection Buttons */}
-        {showLanguageSelect && (
-          <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 z-10">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setLocale('he');
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                locale === 'he'
-                  ? 'bg-white/30 backdrop-blur-sm text-white border-2 border-white'
-                  : 'bg-white/10 backdrop-blur-sm text-white/80 border border-white/30 hover:bg-white/20'
-              }`}
-            >
-              עברית
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setLocale('en');
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                locale === 'en'
-                  ? 'bg-white/30 backdrop-blur-sm text-white border-2 border-white'
-                  : 'bg-white/10 backdrop-blur-sm text-white/80 border border-white/30 hover:bg-white/20'
-              }`}
-            >
-              English
-            </button>
-          </div>
-        )}
+          {/* Language Selection Buttons - inside content for better positioning */}
+          {showLanguageSelect && (
+            <div className="flex justify-center gap-3 mt-8">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLocale('he');
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  locale === 'he'
+                    ? 'bg-white/30 backdrop-blur-sm text-white border-2 border-white'
+                    : 'bg-white/10 backdrop-blur-sm text-white/80 border border-white/30 hover:bg-white/20'
+                }`}
+              >
+                עברית
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLocale('en');
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  locale === 'en'
+                    ? 'bg-white/30 backdrop-blur-sm text-white border-2 border-white'
+                    : 'bg-white/10 backdrop-blur-sm text-white/80 border border-white/30 hover:bg-white/20'
+                }`}
+              >
+                English
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Tap anywhere to enter (optional - makes whole screen tappable) */}
         <button
@@ -854,6 +854,38 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
                 </button>
               ))}
             </div>
+
+            {/* Language Selection Buttons */}
+            {showLanguageSelect && (
+              <div className="flex justify-center gap-3 pt-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocale('he');
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    locale === 'he'
+                      ? 'bg-white/30 backdrop-blur-sm text-white border-2 border-white'
+                      : 'bg-white/10 backdrop-blur-sm text-white/80 border border-white/30 hover:bg-white/20'
+                  }`}
+                >
+                  עברית
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocale('en');
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    locale === 'en'
+                      ? 'bg-white/30 backdrop-blur-sm text-white border-2 border-white'
+                      : 'bg-white/10 backdrop-blur-sm text-white/80 border border-white/30 hover:bg-white/20'
+                  }`}
+                >
+                  English
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
