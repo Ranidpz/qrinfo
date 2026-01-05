@@ -103,6 +103,17 @@ export interface MediaSchedule {
   endTime?: string;   // HH:MM format
 }
 
+// Pending replacement for scheduled media replacement
+export interface PendingReplacement {
+  newMediaUrl: string;          // URL of the uploaded replacement file
+  newMediaSize: number;         // Size in bytes
+  newMediaType: MediaType;      // Type of the new file
+  newMediaFilename?: string;    // Original filename
+  scheduledAt: Date;            // When the replacement should happen
+  uploadedAt: Date;             // When the replacement was uploaded
+  uploadedBy: string;           // User who scheduled it
+}
+
 // Media item in a code
 // PDF Flipbook Settings for digital booklet viewer
 export interface PDFFlipbookSettings {
@@ -131,6 +142,7 @@ export interface MediaItem {
   pageCount?: number;  // Number of pages (for PDF files)
   pdfSettings?: PDFFlipbookSettings; // Settings for PDF flipbook viewer
   schedule?: MediaSchedule;
+  pendingReplacement?: PendingReplacement; // Scheduled replacement for this media
   linkUrl?: string;     // Optional external link for the media
   linkTitle?: string;   // Display name for the link button
   riddleContent?: RiddleContent; // Content for riddle type

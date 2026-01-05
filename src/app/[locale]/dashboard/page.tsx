@@ -195,6 +195,30 @@ export default function DashboardPage() {
     };
   }, [codes]);
 
+  // Check for due scheduled replacements
+  useEffect(() => {
+    if (!user || codes.length === 0) return;
+
+    const checkScheduledReplacements = async () => {
+      const now = new Date();
+      for (const code of codes) {
+        const pending = code.media[0]?.pendingReplacement;
+        if (pending && new Date(pending.scheduledAt) <= now) {
+          await executeScheduledReplacement(code);
+        }
+      }
+    };
+
+    // Check immediately on load
+    checkScheduledReplacements();
+
+    // Check every minute
+    const interval = setInterval(checkScheduledReplacements, 60000);
+
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codes, user]);
+
   const handleFileSelect = async (file: File) => {
     if (!user) return;
 
@@ -842,6 +866,183 @@ export default function DashboardPage() {
     }
   };
 
+  // Schedule a file replacement for later
+  const handleScheduleReplacement = async (codeId: string, code: QRCodeType, file: File, scheduledAt: Date) => {
+    if (!user) return;
+
+    try {
+      // Show upload progress
+      setUploadProgress({ codeId, progress: 0 });
+
+      // Upload the new file
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+
+      const uploadData = await new Promise<{ url: string; type: string; size: number; filename: string }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress({ codeId, progress });
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch {
+              reject(new Error('Invalid response'));
+            }
+          } else {
+            reject(new Error('Upload failed'));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Upload failed'));
+        xhr.open('POST', '/api/upload');
+        xhr.send(formData);
+      });
+
+      setUploadProgress(null);
+
+      // Update user storage (adding the new file size)
+      await updateUserStorage(user.id, uploadData.size);
+      await refreshUser();
+
+      // Update media with pendingReplacement
+      const updatedMedia = code.media.map((m, index) => {
+        if (index === 0) {
+          return {
+            ...m,
+            pendingReplacement: {
+              newMediaUrl: uploadData.url,
+              newMediaSize: uploadData.size,
+              newMediaType: uploadData.type as MediaType,
+              newMediaFilename: uploadData.filename,
+              scheduledAt,
+              uploadedAt: new Date(),
+              uploadedBy: user.id,
+            },
+          };
+        }
+        return m;
+      });
+
+      await updateQRCode(codeId, { media: updatedMedia });
+
+      // Update local state
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === codeId ? { ...c, media: updatedMedia, updatedAt: new Date() } : c
+        )
+      );
+
+      // Show success
+      setReplaceStatus({ codeId, status: 'success' });
+      setTimeout(() => setReplaceStatus(null), 3000);
+    } catch (error) {
+      console.error('Error scheduling replacement:', error);
+      setUploadProgress(null);
+      setReplaceStatus({ codeId, status: 'error' });
+      setTimeout(() => setReplaceStatus(null), 3000);
+    }
+  };
+
+  // Cancel a scheduled replacement
+  const handleCancelScheduledReplacement = async (codeId: string, code: QRCodeType) => {
+    if (!user) return;
+
+    try {
+      const pending = code.media[0]?.pendingReplacement;
+      if (!pending) return;
+
+      // Delete the pending file from Vercel Blob
+      await fetch('/api/upload', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: pending.newMediaUrl }),
+      });
+
+      // Update storage (subtract pending file size)
+      await updateUserStorage(user.id, -pending.newMediaSize);
+      await refreshUser();
+
+      // Remove pendingReplacement from media
+      const updatedMedia = code.media.map((m, index) => {
+        if (index === 0) {
+          const { pendingReplacement, ...rest } = m;
+          return rest;
+        }
+        return m;
+      });
+
+      await updateQRCode(codeId, { media: updatedMedia });
+
+      // Update local state
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === codeId ? { ...c, media: updatedMedia, updatedAt: new Date() } : c
+        )
+      );
+    } catch (error) {
+      console.error('Error canceling scheduled replacement:', error);
+    }
+  };
+
+  // Execute a scheduled replacement (when due)
+  const executeScheduledReplacement = async (code: QRCodeType) => {
+    if (!user) return;
+
+    const pending = code.media[0]?.pendingReplacement;
+    if (!pending) return;
+
+    try {
+      // Delete old media from Vercel Blob
+      const oldMedia = code.media[0];
+      if (oldMedia && oldMedia.type !== 'link') {
+        await fetch('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: oldMedia.url }),
+        });
+
+        // Update storage: subtract old size
+        if (oldMedia.uploadedBy === user.id) {
+          await updateUserStorage(user.id, -oldMedia.size);
+        }
+      }
+
+      // Create new media item from pending
+      const newMedia = {
+        id: `media_${Date.now()}_0`,
+        url: pending.newMediaUrl,
+        type: pending.newMediaType,
+        size: pending.newMediaSize,
+        order: 0,
+        uploadedBy: pending.uploadedBy,
+        filename: pending.newMediaFilename,
+        createdAt: new Date(),
+      };
+
+      await updateQRCode(code.id, { media: [newMedia] });
+      await refreshUser();
+
+      // Update local state
+      setCodes((prev) =>
+        prev.map((c) =>
+          c.id === code.id ? { ...c, media: [newMedia], updatedAt: new Date() } : c
+        )
+      );
+
+      console.log(`Executed scheduled replacement for code ${code.id}`);
+    } catch (error) {
+      console.error('Error executing scheduled replacement:', error);
+    }
+  };
+
   // Duplicate a code - creates new code with same media references (no actual file copy)
   const handleDuplicateCode = async (code: QRCodeType) => {
     if (!user) return;
@@ -1465,6 +1666,7 @@ export default function DashboardPage() {
               isDragging={draggingCodeId === code.id}
               replaceStatus={replaceStatus?.codeId === code.id ? replaceStatus.status : null}
               uploadProgress={uploadProgress?.codeId === code.id ? uploadProgress.progress : null}
+              pendingReplacement={code.media[0]?.pendingReplacement}
               onDelete={() => handleDelete(code)}
               onRefresh={() => router.push(`/code/${code.id}`)}
               onReplaceFile={(file) => handleReplaceFile(code.id, code, file)}
@@ -1479,6 +1681,8 @@ export default function DashboardPage() {
                 setDraggingCodeId(null);
                 setDragOverFolderId(null);
               }}
+              onScheduleReplacement={(file, scheduledAt) => handleScheduleReplacement(code.id, code, file, scheduledAt)}
+              onCancelScheduledReplacement={() => handleCancelScheduledReplacement(code.id, code)}
             />
           ))}
         </div>

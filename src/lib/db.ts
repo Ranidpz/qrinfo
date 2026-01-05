@@ -156,6 +156,11 @@ export async function getQRCode(id: string): Promise<QRCode | null> {
             ? ((m.schedule as Record<string, unknown>).endDate as Timestamp).toDate()
             : undefined,
         } : undefined,
+        pendingReplacement: m.pendingReplacement ? {
+          ...(m.pendingReplacement as object),
+          scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
+          uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
+        } : undefined,
       };
     }),
     widgets: data.widgets || {},
@@ -211,6 +216,11 @@ export async function getQRCodeByShortId(shortId: string): Promise<QRCode | null
         ...m,
         id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
         createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+        pendingReplacement: m.pendingReplacement ? {
+          ...(m.pendingReplacement as object),
+          scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
+          uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
+        } : undefined,
       };
     }),
     widgets: data.widgets || {},
@@ -250,6 +260,11 @@ export async function getGlobalQRCodes(): Promise<QRCode[]> {
         ...m,
         id: m.id || `media_${Date.now()}_${index}`,
         createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+        pendingReplacement: m.pendingReplacement ? {
+          ...(m.pendingReplacement as object),
+          scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
+          uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
+        } : undefined,
       })),
       widgets: data.widgets || {},
       views: data.views || 0,
@@ -305,6 +320,11 @@ export async function getUserQRCodes(userId: string): Promise<QRCode[]> {
         ...m,
         id: m.id || `media_${Date.now()}_${index}`, // Ensure id exists for old records
         createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+        pendingReplacement: m.pendingReplacement ? {
+          ...(m.pendingReplacement as object),
+          scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
+          uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
+        } : undefined,
       })),
       widgets: data.widgets || {},
       views: data.views || 0,
@@ -344,6 +364,11 @@ export async function getAllQRCodes(): Promise<QRCode[]> {
         ...m,
         id: m.id || `media_${Date.now()}_${index}`,
         createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+        pendingReplacement: m.pendingReplacement ? {
+          ...(m.pendingReplacement as object),
+          scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
+          uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
+        } : undefined,
       })),
       widgets: data.widgets || {},
       views: data.views || 0,
@@ -393,6 +418,17 @@ export async function updateQRCode(
       if (m.filename) (mediaItem as Record<string, unknown>).filename = m.filename;
       if (m.pageCount) (mediaItem as Record<string, unknown>).pageCount = m.pageCount;
       if (m.schedule) (mediaItem as Record<string, unknown>).schedule = m.schedule;
+      if (m.pendingReplacement) {
+        (mediaItem as Record<string, unknown>).pendingReplacement = {
+          ...m.pendingReplacement,
+          scheduledAt: m.pendingReplacement.scheduledAt instanceof Date
+            ? Timestamp.fromDate(m.pendingReplacement.scheduledAt)
+            : m.pendingReplacement.scheduledAt,
+          uploadedAt: m.pendingReplacement.uploadedAt instanceof Date
+            ? Timestamp.fromDate(m.pendingReplacement.uploadedAt)
+            : m.pendingReplacement.uploadedAt,
+        };
+      }
       if (m.linkUrl) (mediaItem as Record<string, unknown>).linkUrl = m.linkUrl;
       if (m.linkTitle) (mediaItem as Record<string, unknown>).linkTitle = m.linkTitle;
       if (m.riddleContent) (mediaItem as Record<string, unknown>).riddleContent = m.riddleContent;
@@ -1236,6 +1272,11 @@ export async function getSiblingCodes(
         ...m,
         id: m.id || `media_${Date.now()}_${index}`,
         createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+        pendingReplacement: m.pendingReplacement ? {
+          ...(m.pendingReplacement as object),
+          scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
+          uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
+        } : undefined,
       })),
       widgets: data.widgets || {},
       views: data.views || 0,
@@ -1280,6 +1321,11 @@ export async function getRouteCodes(routeId: string): Promise<QRCode[]> {
         ...m,
         id: m.id || `media_${Date.now()}_${index}`,
         createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+        pendingReplacement: m.pendingReplacement ? {
+          ...(m.pendingReplacement as object),
+          scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
+          uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
+        } : undefined,
       })),
       widgets: data.widgets || {},
       views: data.views || 0,

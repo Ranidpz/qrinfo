@@ -5,8 +5,11 @@ import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, U
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
-import { MediaType, CodeWidgets, ViewMode } from '@/types';
+import { MediaType, CodeWidgets, ViewMode, PendingReplacement } from '@/types';
 import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
+import ReplaceMediaOptionsModal from '@/components/modals/ReplaceMediaOptionsModal';
+import ScheduleReplacementModal from '@/components/modals/ScheduleReplacementModal';
+import PendingReplacementBadge from '@/components/code/PendingReplacementBadge';
 
 // Custom Tooltip component for instant display
 function Tooltip({ children, text, position = 'top' }: { children: React.ReactNode; text: string; position?: 'top' | 'bottom' }) {
@@ -52,6 +55,7 @@ interface CodeCardProps {
   mediaCount?: number; // Total number of media items in this code
   replaceStatus?: 'success' | 'error' | null; // Status indicator after file replace
   uploadProgress?: number | null; // Upload progress percentage (0-100)
+  pendingReplacement?: PendingReplacement; // Scheduled replacement info
   onDelete?: () => void;
   onRefresh?: () => void;
   onReplaceFile?: (file: File) => void;
@@ -63,6 +67,8 @@ interface CodeCardProps {
   onToggleGlobal?: () => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  onScheduleReplacement?: (file: File, scheduledAt: Date) => void;
+  onCancelScheduledReplacement?: () => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -99,6 +105,7 @@ export default function CodeCard({
   mediaCount = 1,
   replaceStatus,
   uploadProgress,
+  pendingReplacement,
   onDelete,
   onRefresh,
   onReplaceFile,
@@ -110,6 +117,8 @@ export default function CodeCard({
   onToggleGlobal,
   onDragStart,
   onDragEnd,
+  onScheduleReplacement,
+  onCancelScheduledReplacement,
 }: CodeCardProps) {
   const tMedia = useTranslations('media');
   const tCard = useTranslations('card');
@@ -123,6 +132,14 @@ export default function CodeCard({
   const [copied, setCopied] = useState(false);
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const [replaceConfirmModal, setReplaceConfirmModal] = useState<{ isOpen: boolean; file: File | null }>({
+    isOpen: false,
+    file: null,
+  });
+  const [replaceOptionsModal, setReplaceOptionsModal] = useState<{ isOpen: boolean; file: File | null }>({
+    isOpen: false,
+    file: null,
+  });
+  const [scheduleModal, setScheduleModal] = useState<{ isOpen: boolean; file: File | null }>({
     isOpen: false,
     file: null,
   });
@@ -353,8 +370,8 @@ export default function CodeCard({
 
     if (!validTypes.includes(file.type)) return;
 
-    // Show confirmation modal
-    setReplaceConfirmModal({ isOpen: true, file });
+    // Show options modal (replace now or schedule)
+    setReplaceOptionsModal({ isOpen: true, file });
   };
 
   const handleConfirmReplace = () => {
@@ -362,6 +379,30 @@ export default function CodeCard({
       onReplaceFile?.(replaceConfirmModal.file);
     }
     setReplaceConfirmModal({ isOpen: false, file: null });
+  };
+
+  // Handle "Replace Now" from options modal
+  const handleReplaceNow = () => {
+    if (replaceOptionsModal.file) {
+      setReplaceConfirmModal({ isOpen: true, file: replaceOptionsModal.file });
+    }
+    setReplaceOptionsModal({ isOpen: false, file: null });
+  };
+
+  // Handle "Schedule Replacement" from options modal
+  const handleOpenSchedule = () => {
+    if (replaceOptionsModal.file) {
+      setScheduleModal({ isOpen: true, file: replaceOptionsModal.file });
+    }
+    setReplaceOptionsModal({ isOpen: false, file: null });
+  };
+
+  // Handle scheduling confirmation
+  const handleScheduleConfirm = (scheduledAt: Date) => {
+    if (scheduleModal.file && onScheduleReplacement) {
+      onScheduleReplacement(scheduleModal.file, scheduledAt);
+    }
+    setScheduleModal({ isOpen: false, file: null });
   };
 
   // Get display info based on media type
@@ -530,6 +571,14 @@ export default function CodeCard({
             <span className="px-2 py-0.5 text-xs font-medium bg-bg-secondary rounded text-text-secondary">
               {getMediaLabel(mediaType)}
             </span>
+            {pendingReplacement && (
+              <PendingReplacementBadge
+                scheduledAt={pendingReplacement.scheduledAt}
+                onCancel={onCancelScheduledReplacement}
+                locale={locale as 'he' | 'en'}
+                compact
+              />
+            )}
             {isGlobal && (
               <span className="px-2 py-0.5 text-xs font-medium bg-success/20 rounded text-success flex items-center gap-1">
                 <Globe className="w-3 h-3" />
@@ -595,6 +644,28 @@ export default function CodeCard({
         currentFileName={fileName}
         newFileName={replaceConfirmModal.file?.name}
         mediaCount={mediaCount}
+      />
+
+      {/* Replace options modal (replace now or schedule) */}
+      <ReplaceMediaOptionsModal
+        isOpen={replaceOptionsModal.isOpen}
+        onClose={() => setReplaceOptionsModal({ isOpen: false, file: null })}
+        onReplaceNow={handleReplaceNow}
+        onScheduleReplacement={handleOpenSchedule}
+        currentMediaType={mediaType}
+        currentFileName={fileName}
+        newFileName={replaceOptionsModal.file?.name}
+        hasExistingScheduledReplacement={!!pendingReplacement}
+        existingScheduledDate={pendingReplacement?.scheduledAt}
+      />
+
+      {/* Schedule replacement modal */}
+      <ScheduleReplacementModal
+        isOpen={scheduleModal.isOpen}
+        onClose={() => setScheduleModal({ isOpen: false, file: null })}
+        onSchedule={handleScheduleConfirm}
+        currentFileName={fileName}
+        newFileName={scheduleModal.file?.name}
       />
       </>
     );
@@ -798,6 +869,15 @@ export default function CodeCard({
           )}
         </div>
 
+        {/* Pending replacement badge */}
+        {pendingReplacement && (
+          <PendingReplacementBadge
+            scheduledAt={pendingReplacement.scheduledAt}
+            onCancel={onCancelScheduledReplacement}
+            locale={locale as 'he' | 'en'}
+          />
+        )}
+
         {/* Views and time row */}
         <div className="flex items-center justify-between text-xs">
           {/* Views with tooltip */}
@@ -968,6 +1048,28 @@ export default function CodeCard({
       currentFileName={fileName}
       newFileName={replaceConfirmModal.file?.name}
       mediaCount={mediaCount}
+    />
+
+    {/* Replace options modal (replace now or schedule) */}
+    <ReplaceMediaOptionsModal
+      isOpen={replaceOptionsModal.isOpen}
+      onClose={() => setReplaceOptionsModal({ isOpen: false, file: null })}
+      onReplaceNow={handleReplaceNow}
+      onScheduleReplacement={handleOpenSchedule}
+      currentMediaType={mediaType}
+      currentFileName={fileName}
+      newFileName={replaceOptionsModal.file?.name}
+      hasExistingScheduledReplacement={!!pendingReplacement}
+      existingScheduledDate={pendingReplacement?.scheduledAt}
+    />
+
+    {/* Schedule replacement modal */}
+    <ScheduleReplacementModal
+      isOpen={scheduleModal.isOpen}
+      onClose={() => setScheduleModal({ isOpen: false, file: null })}
+      onSchedule={handleScheduleConfirm}
+      currentFileName={fileName}
+      newFileName={scheduleModal.file?.name}
     />
     </>
   );
