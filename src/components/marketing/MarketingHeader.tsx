@@ -19,10 +19,10 @@ export default function MarketingHeader() {
   }, []);
 
   const navItems = [
-    { label: 'חוויות', href: '#features' },
-    { label: 'למי זה', href: '#usecases' },
-    { label: 'תמחור', href: '#pricing' },
-    { label: 'שאלות נפוצות', href: '#faq' },
+    { label: t('header.features'), href: '#features' },
+    { label: t('header.useCases'), href: '#usecases' },
+    { label: t('header.pricing'), href: '#pricing' },
+    { label: t('header.faq'), href: '#faq' },
   ];
 
   return (

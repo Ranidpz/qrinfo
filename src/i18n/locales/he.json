@@ -860,7 +860,16 @@
       "titleHighlight": "אינסוף אפשרויות.",
       "subtitle": "צרו חוויות דיגיטליות שאפשר לעדכן בכל רגע - בלי להדפיס מחדש",
       "cta": "התחילו בחינם",
-      "ctaSecondary": "צפו בדמו"
+      "ctaSecondary": "צפו בדמו",
+      "trustAdFree": "ללא פרסומות",
+      "trustRealtime": "עדכון בזמן אמת",
+      "trustPrintSafe": "בטוח להדפסה"
+    },
+    "header": {
+      "features": "חוויות",
+      "useCases": "למי זה",
+      "pricing": "תמחור",
+      "faq": "שאלות נפוצות"
     },
     "howItWorks": {
       "title": "איך זה עובד?",

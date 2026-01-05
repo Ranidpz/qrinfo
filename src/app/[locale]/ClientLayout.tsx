@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import CookieConsent from '@/components/legal/CookieConsent';
@@ -18,12 +19,21 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
   const isRTL = direction === 'rtl';
+  const pathname = usePathname();
+
+  // Check if we're on a marketing page (no app shell needed)
+  const isMarketingPage = pathname?.includes('/marketing');
 
   // Update html element with lang and dir attributes
   useEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = direction;
   }, [locale, direction]);
+
+  // Marketing pages get their own layout without sidebar/header
+  if (isMarketingPage) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-bg-primary overflow-x-hidden">

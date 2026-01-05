@@ -9,7 +9,7 @@ export default function Hero() {
   const t = useTranslations('marketing.hero');
 
   return (
-    <section className="relative min-h-[85vh] md:min-h-[90vh] flex items-center justify-center overflow-hidden pt-16 md:pt-16">
+    <section className="relative min-h-[auto] md:min-h-[90vh] flex items-center justify-center overflow-hidden pt-20 pb-8 md:pt-16 md:pb-0">
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-b from-[var(--bg-primary)] via-[var(--bg-secondary)] to-[var(--bg-primary)]" />
 
@@ -78,24 +78,24 @@ export default function Hero() {
         </div>
 
         {/* Trust indicators */}
-        <div className="mt-10 md:mt-16 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 sm:gap-8 text-sm text-[var(--text-secondary)] animate-fade-in-up animation-delay-300">
+        <div className="mt-8 md:mt-16 mb-4 md:mb-0 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-8 text-sm text-[var(--text-secondary)] animate-fade-in-up animation-delay-300">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span>ללא פרסומות</span>
+            <span>{t('trustAdFree')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span>עדכון בזמן אמת</span>
+            <span>{t('trustRealtime')}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span>בטוח להדפסה</span>
+            <span>{t('trustPrintSafe')}</span>
           </div>
         </div>
       </div>
 
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-16 md:h-32 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />
+      {/* Bottom fade - hidden on mobile */}
+      <div className="hidden md:block absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />
     </section>
   );
 }

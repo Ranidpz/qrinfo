@@ -859,7 +859,16 @@
       "titleHighlight": "Endless Possibilities.",
       "subtitle": "Create digital experiences you can update anytime - without reprinting",
       "cta": "Get Started Free",
-      "ctaSecondary": "Watch Demo"
+      "ctaSecondary": "Watch Demo",
+      "trustAdFree": "Ad-free",
+      "trustRealtime": "Real-time updates",
+      "trustPrintSafe": "Print-safe"
+    },
+    "header": {
+      "features": "Features",
+      "useCases": "Who It's For",
+      "pricing": "Pricing",
+      "faq": "FAQ"
     },
     "howItWorks": {
       "title": "How It Works",
