@@ -17,7 +17,8 @@ import {
   MessageCircle,
   QrCode,
   Share2,
-  FolderOpen
+  FolderOpen,
+  Mic2
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { clsx } from 'clsx';
@@ -100,6 +101,20 @@ const categories: FAQCategory[] = [
       { questionKey: 'shuffleCandidates', answerKey: 'shuffleCandidatesAnswer' },
       { questionKey: 'limitVotes', answerKey: 'limitVotesAnswer' },
       { questionKey: 'showResults', answerKey: 'showResultsAnswer' },
+    ],
+  },
+  {
+    id: 'qstage',
+    icon: Mic2,
+    color: 'text-fuchsia-500',
+    bgColor: 'bg-fuchsia-500/10',
+    questions: [
+      { questionKey: 'whatIsQstage', answerKey: 'whatIsQstageAnswer' },
+      { questionKey: 'startVotingSession', answerKey: 'startVotingSessionAnswer' },
+      { questionKey: 'qstagePhases', answerKey: 'qstagePhasesAnswer' },
+      { questionKey: 'addJudges', answerKey: 'addJudgesAnswer' },
+      { questionKey: 'customizeDisplay', answerKey: 'customizeDisplayAnswer' },
+      { questionKey: 'qstageThresholds', answerKey: 'qstageThresholdsAnswer' },
     ],
   },
   {

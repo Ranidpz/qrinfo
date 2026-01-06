@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Link2, Calendar, BookOpen, Vote, Gamepad2, Camera } from 'lucide-react';
+import { Link2, Calendar, BookOpen, Vote, Gamepad2, Camera, Mic2 } from 'lucide-react';
 
 export default function Features() {
   const t = useTranslations('marketing.features');
@@ -36,6 +36,11 @@ export default function Features() {
       icon: Camera,
       key: 'selfieWall',
       gradient: 'from-indigo-500 to-violet-500',
+    },
+    {
+      icon: Mic2,
+      key: 'qstage',
+      gradient: 'from-fuchsia-500 to-pink-500',
     },
   ];
 
