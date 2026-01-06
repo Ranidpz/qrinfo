@@ -15,10 +15,14 @@ import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
+import QStageModal from '@/components/modals/QStageModal';
+import QHuntModal from '@/components/modals/QHuntModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig, MediaType } from '@/types';
 import { QVoteConfig } from '@/types/qvote';
+import { QStageConfig, DEFAULT_QSTAGE_CONFIG } from '@/types/qstage';
+import { QHuntConfig, DEFAULT_QHUNT_CONFIG } from '@/types/qhunt';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
@@ -90,8 +94,12 @@ export default function DashboardPage() {
   const [addingSelfiebeam, setAddingSelfiebeam] = useState(false);
   const [qvoteModalOpen, setQvoteModalOpen] = useState(false);
   const [addingQVote, setAddingQVote] = useState(false);
+  const [qstageModalOpen, setQstageModalOpen] = useState(false);
+  const [addingQStage, setAddingQStage] = useState(false);
   const [weeklyCalModalOpen, setWeeklyCalModalOpen] = useState(false);
   const [addingWeeklyCal, setAddingWeeklyCal] = useState(false);
+  const [qhuntModalOpen, setQhuntModalOpen] = useState(false);
+  const [addingQHunt, setAddingQHunt] = useState(false);
 
   // Set initial view mode based on screen size (list for mobile, grid for desktop)
   useEffect(() => {
@@ -583,6 +591,39 @@ export default function DashboardPage() {
     }
   };
 
+  const handleQStageCreate = async (config: QStageConfig) => {
+    if (!user) return;
+
+    setAddingQStage(true);
+
+    try {
+      // Create QR code with Q.Stage (in current folder if inside one)
+      const newCode = await createQRCode(user.id, 'Q.Stage', [
+        {
+          url: '',
+          type: 'qstage',
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+          title: 'Q.Stage',
+          qstageConfig: config,
+        },
+      ], currentFolderId);
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setQstageModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating Q.Stage:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQStage(false);
+    }
+  };
+
   const handleWeeklyCalCreate = async (config: WeeklyCalendarConfig) => {
     if (!user) return;
 
@@ -613,6 +654,39 @@ export default function DashboardPage() {
       alert(tErrors('createCodeError'));
     } finally {
       setAddingWeeklyCal(false);
+    }
+  };
+
+  const handleQHuntCreate = async (config: QHuntConfig) => {
+    if (!user) return;
+
+    setAddingQHunt(true);
+
+    try {
+      // Create QR code with QHunt (in current folder if inside one)
+      const newCode = await createQRCode(user.id, 'Q.Hunt', [
+        {
+          url: '',
+          type: 'qhunt',
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+          title: 'Q.Hunt',
+          qhuntConfig: config,
+        },
+      ], currentFolderId);
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setQhuntModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating Q.Hunt:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQHunt(false);
     }
   };
 
@@ -1332,7 +1406,9 @@ export default function DashboardPage() {
                   onWordCloudCreate={() => setWordCloudModalOpen(true)}
                   onSelfiebeamCreate={() => setSelfiebeamModalOpen(true)}
                   onQVoteCreate={() => setQvoteModalOpen(true)}
+                  onQStageCreate={() => setQstageModalOpen(true)}
                   onWeeklyCalendarCreate={() => setWeeklyCalModalOpen(true)}
+                  onQHuntCreate={() => setQhuntModalOpen(true)}
                   disabled={uploading}
                 />
               </div>
@@ -1852,6 +1928,14 @@ export default function DashboardPage() {
         loading={addingQVote}
       />
 
+      {/* Q.Stage Modal */}
+      <QStageModal
+        isOpen={qstageModalOpen}
+        onClose={() => setQstageModalOpen(false)}
+        onSave={handleQStageCreate}
+        loading={addingQStage}
+      />
+
       {/* Weekly Calendar Modal */}
       <WeeklyCalendarModal
         isOpen={weeklyCalModalOpen}
@@ -1886,6 +1970,14 @@ export default function DashboardPage() {
           }
         }}
         loading={addingWeeklyCal}
+      />
+
+      {/* Q.Hunt Modal */}
+      <QHuntModal
+        isOpen={qhuntModalOpen}
+        onClose={() => setQhuntModalOpen(false)}
+        onSave={handleQHuntCreate}
+        loading={addingQHunt}
       />
 
       {/* Route Settings Modal for current folder */}

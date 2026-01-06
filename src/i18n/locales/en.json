@@ -587,6 +587,8 @@
     "qstageDescription": "Live voting display for talent shows and events",
     "createQStage": "Create Q.Stage",
     "tooltipQStage": "Live voting on the big screen",
+    "tooltipQHunt": "Real-time code hunting game",
+    "tooltipQTreasure": "Treasure hunt game with clues",
     "linkModeUrl": "Regular Link",
     "linkModeWhatsapp": "WhatsApp",
     "linkModePhone": "Phone Call",

@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure';
 
 // Riddle content structure
 export interface RiddleContent {
@@ -149,6 +149,9 @@ export interface MediaItem {
   selfiebeamContent?: SelfiebeamContent; // Content for selfiebeam type
   qvoteConfig?: import('./qvote').QVoteConfig; // Configuration for qvote type
   weeklycalConfig?: import('./weeklycal').WeeklyCalendarConfig; // Configuration for weekly calendar type
+  qstageConfig?: import('./qstage').QStageConfig; // Configuration for qstage type (live voting)
+  qhuntConfig?: import('./qhunt').QHuntConfig; // Configuration for qhunt type (code hunting game)
+  qtreasureConfig?: import('./qtreasure').QTreasureConfig; // Configuration for qtreasure type (treasure hunt game)
   createdAt: Date;
 }
 
@@ -250,6 +253,7 @@ export interface User {
   role: UserRole;
   storageLimit: number; // bytes
   storageUsed: number;  // bytes
+  messageQuota?: import('./verification').MessageQuota; // WhatsApp/SMS message quota
   createdAt: Date;
   updatedAt: Date;
 }

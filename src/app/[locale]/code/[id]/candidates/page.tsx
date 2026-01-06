@@ -1393,10 +1393,16 @@ export default function QVoteCandidatesPage() {
               </div>
             </div>
 
-            {/* QR Code for Testing */}
+            {/* QR Code for Testing - Clickable */}
             {code?.shortId && (
-              <div className="bg-bg-secondary rounded-xl p-4 flex flex-col items-center justify-center gap-2 min-w-[140px]">
-                <div className="bg-white rounded-lg p-2">
+              <a
+                href={`/v/${code.shortId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-bg-secondary rounded-xl p-4 flex flex-col items-center justify-center gap-2 min-w-[140px] hover:bg-bg-tertiary transition-colors cursor-pointer group"
+                title={isRTL ? 'לחצו לפתיחה בטאב חדש' : 'Click to open in new tab'}
+              >
+                <div className="bg-white rounded-lg p-2 group-hover:shadow-lg transition-shadow">
                   <QRCodeSVG
                     value={typeof window !== 'undefined' ? `${window.location.origin}/v/${code.shortId}` : `/v/${code.shortId}`}
                     size={96}
@@ -1405,10 +1411,10 @@ export default function QVoteCandidatesPage() {
                     fgColor="#000000"
                   />
                 </div>
-                <span className="text-xs text-text-secondary text-center">
-                  {isRTL ? 'סרקו לבדיקה' : 'Scan to test'}
+                <span className="text-xs text-text-secondary text-center group-hover:text-accent transition-colors">
+                  {isRTL ? 'לחצו לבדיקה' : 'Click to test'}
                 </span>
-              </div>
+              </a>
             )}
           </div>
 

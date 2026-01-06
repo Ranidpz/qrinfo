@@ -40,6 +40,7 @@ import {
   Phone,
   Mail,
   MapPin,
+  Sparkles,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +48,7 @@ import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, upda
 import { subscribeToCodeViews } from '@/lib/analytics';
 import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign, LandingPageConfig } from '@/types';
 import { QVoteConfig } from '@/types/qvote';
+import { QStageConfig } from '@/types/qstage';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
 
 // Helper function to remove undefined values from an object (Firestore doesn't accept undefined)
@@ -55,7 +57,15 @@ function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
   for (const key in obj) {
     const value = obj[key];
     if (value === undefined) continue;
-    if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+    if (Array.isArray(value)) {
+      // Recursively process arrays
+      result[key] = value.map((item) => {
+        if (item !== null && typeof item === 'object' && !(item instanceof Date)) {
+          return removeUndefined(item as Record<string, unknown>);
+        }
+        return item;
+      }) as T[typeof key];
+    } else if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
       result[key] = removeUndefined(value as Record<string, unknown>) as T[typeof key];
     } else {
       result[key] = value;
@@ -71,6 +81,7 @@ import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
+import QStageModal from '@/components/modals/QStageModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import QRSignModal from '@/components/modals/QRSignModal';
 import WhatsAppWidgetModal from '@/components/modals/WhatsAppWidgetModal';
@@ -274,6 +285,11 @@ export default function CodeEditPage({ params }: PageProps) {
   const [weeklyCalModalOpen, setWeeklyCalModalOpen] = useState(false);
   const [editingWeeklyCalId, setEditingWeeklyCalId] = useState<string | null>(null);
   const [addingWeeklyCal, setAddingWeeklyCal] = useState(false);
+
+  // Q.Stage modal state
+  const [qstageModalOpen, setQstageModalOpen] = useState(false);
+  const [editingQStageId, setEditingQStageId] = useState<string | null>(null);
+  const [addingQStage, setAddingQStage] = useState(false);
 
   // Widget modals state
   const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
@@ -772,6 +788,8 @@ export default function CodeEditPage({ params }: PageProps) {
         newTitle = tMedia('weeklycal') || 'לוח פעילות';
       } else if (media.type === 'qvote') {
         newTitle = 'Q.Vote';
+      } else if (media.type === 'qstage') {
+        newTitle = 'Q.Stage';
       } else if (media.title) {
         newTitle = media.title;
       } else if (media.filename) {
@@ -798,6 +816,7 @@ export default function CodeEditPage({ params }: PageProps) {
       if (media.selfiebeamContent) mediaData.selfiebeamContent = media.selfiebeamContent;
       if (media.weeklycalConfig) mediaData.weeklycalConfig = media.weeklycalConfig;
       if (media.qvoteConfig) mediaData.qvoteConfig = media.qvoteConfig;
+      if (media.qstageConfig) mediaData.qstageConfig = media.qstageConfig;
       if (media.pdfSettings) mediaData.pdfSettings = media.pdfSettings;
       if (media.pageCount) mediaData.pageCount = media.pageCount;
       if (media.schedule) mediaData.schedule = media.schedule;
@@ -1707,7 +1726,9 @@ export default function CodeEditPage({ params }: PageProps) {
         setEditingQVoteId(newMediaId);
       }
 
-      await updateQRCode(code.id, { media: updatedMedia });
+      // Clean all media items to remove undefined values
+      const cleanedMedia = updatedMedia.map((m) => removeUndefined(m as unknown as Record<string, unknown>)) as unknown as MediaItem[];
+      await updateQRCode(code.id, { media: cleanedMedia });
 
       // Update user storage if images were uploaded
       if (totalImageSize > 0) {
@@ -1870,6 +1891,130 @@ export default function CodeEditPage({ params }: PageProps) {
       alert(tErrors('createCodeError'));
     } finally {
       setAddingWeeklyCal(false);
+    }
+  };
+
+  // Handler for adding/editing Q.Stage
+  const handleSaveQStage = async (config: QStageConfig, backgroundImageFile?: File, backgroundVideoFile?: File) => {
+    if (!code || !user) return;
+
+    setAddingQStage(true);
+    try {
+      let finalConfig = { ...config };
+      let totalMediaSize = 0;
+
+      // Get existing media item to check for old images to delete
+      const existingMedia = editingQStageId
+        ? code.media.find(m => m.id === editingQStageId)
+        : null;
+      const existingConfig = existingMedia?.qstageConfig;
+
+      // Upload background image if provided
+      if (backgroundImageFile) {
+        // Delete old background image if exists (being replaced)
+        const oldBgUrl = existingConfig?.backgroundImage;
+        if (oldBgUrl && oldBgUrl.includes('blob.vercel-storage.com')) {
+          fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: oldBgUrl }),
+          }).catch(console.error);
+        }
+
+        const formData = new FormData();
+        formData.append('file', backgroundImageFile);
+        formData.append('userId', user.id);
+        formData.append('codeId', code.id);
+        formData.append('folder', 'qstage');
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const { url, size } = await uploadRes.json();
+          finalConfig.backgroundImage = url;
+          totalMediaSize += size || 0;
+        }
+      }
+
+      // Upload background video if provided
+      if (backgroundVideoFile) {
+        // Delete old background video if exists (being replaced)
+        const oldVideoUrl = existingConfig?.backgroundVideo;
+        if (oldVideoUrl && oldVideoUrl.includes('blob.vercel-storage.com')) {
+          fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: oldVideoUrl }),
+          }).catch(console.error);
+        }
+
+        const formData = new FormData();
+        formData.append('file', backgroundVideoFile);
+        formData.append('userId', user.id);
+        formData.append('codeId', code.id);
+        formData.append('folder', 'qstage');
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const { url, size } = await uploadRes.json();
+          finalConfig.backgroundVideo = url;
+          totalMediaSize += size || 0;
+        }
+      }
+
+      // Clean config for Firestore
+      const qstageConfig = removeUndefined(finalConfig) as QStageConfig;
+
+      let updatedMedia: MediaItem[];
+
+      if (editingQStageId) {
+        // Editing existing Q.Stage
+        updatedMedia = code.media.map((m) =>
+          m.id === editingQStageId
+            ? { ...m, qstageConfig, updatedAt: new Date() }
+            : m
+        );
+      } else {
+        // Create new Q.Stage media item
+        const newMediaId = `media_${Date.now()}`;
+        const newMedia: MediaItem = {
+          id: newMediaId,
+          url: '',
+          type: 'qstage',
+          size: totalMediaSize,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: 'Q.Stage',
+          qstageConfig,
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+        // Set editing ID so subsequent saves update this item instead of creating new ones
+        setEditingQStageId(newMediaId);
+      }
+
+      await updateQRCode(code.id, { media: updatedMedia });
+
+      // Update user storage if media was uploaded
+      if (totalMediaSize > 0) {
+        await updateUserStorage(user.id, totalMediaSize);
+        await refreshUser();
+      }
+
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      // Don't close modal - user will close it manually with X button
+    } catch (error) {
+      console.error('Error saving Q.Stage:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQStage(false);
     }
   };
 
@@ -2679,6 +2824,16 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
 
+                {/* Q.Stage Button */}
+                <Tooltip text="Q.Stage">
+                  <button
+                    onClick={() => setQstageModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
                 {/* Minigames Button - Coming Soon */}
                 <Tooltip text={t('minigamesComingSoon')}>
                   <button
@@ -2788,6 +2943,9 @@ export default function CodeEditPage({ params }: PageProps) {
                       } else if (media.type === 'qvote') {
                         setEditingQVoteId(media.id);
                         setQvoteModalOpen(true);
+                      } else if (media.type === 'qstage') {
+                        setEditingQStageId(media.id);
+                        setQstageModalOpen(true);
                       } else {
                         window.open(media.url, '_blank');
                       }
@@ -2827,6 +2985,12 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Vote className="w-6 h-6 text-white" />
                       </div>
+                    ) : media.type === 'qstage' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500"
+                      >
+                        <Sparkles className="w-6 h-6 text-white" />
+                      </div>
                     ) : (
                       <img
                         src={media.url}
@@ -2847,6 +3011,7 @@ export default function CodeEditPage({ params }: PageProps) {
                           : media.type === 'wordcloud' ? tMedia('wordcloud')
                           : media.type === 'weeklycal' ? (tMedia('weeklycal') || 'לוח פעילות')
                           : media.type === 'qvote' ? 'Q.Vote'
+                          : media.type === 'qstage' ? 'Q.Stage'
                           : media.type.toUpperCase()}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
@@ -2872,7 +3037,7 @@ export default function CodeEditPage({ params }: PageProps) {
                         })()}
                       </p>
                     )}
-                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.filename && (
+                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qstage' && media.filename && (
                       <p className="text-xs text-text-secondary truncate mt-0.5" dir="ltr">
                         {media.filename}
                       </p>
@@ -2998,6 +3163,21 @@ export default function CodeEditPage({ params }: PageProps) {
                     </>
                   )}
 
+                  {/* Edit button for qstage */}
+                  {media.type === 'qstage' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingQStageId(media.id);
+                          setQstageModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
                   {/* Gallery button for selfiebeam with gallery enabled */}
                   {media.type === 'selfiebeam' && media.selfiebeamContent?.galleryEnabled && (
                     <Tooltip text={t('selfieGallery', { count: code.userGallery?.length || 0 })}>
@@ -3044,8 +3224,8 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
-                  {/* Replace button - not for links, riddles, selfiebeams, weeklycal, or qvote */}
-                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && (
+                  {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, or qstage */}
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qstage' && (
                     <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -3382,6 +3562,19 @@ export default function CodeEditPage({ params }: PageProps) {
         initialConfig={editingWeeklyCalId ? code?.media.find(m => m.id === editingWeeklyCalId)?.weeklycalConfig : undefined}
         shortId={code.shortId}
         codeId={code.id}
+      />
+
+      {/* Q.Stage Modal */}
+      <QStageModal
+        isOpen={qstageModalOpen}
+        onClose={() => {
+          setQstageModalOpen(false);
+          setEditingQStageId(null);
+        }}
+        onSave={handleSaveQStage}
+        loading={addingQStage}
+        initialConfig={editingQStageId ? code?.media.find(m => m.id === editingQStageId)?.qstageConfig : undefined}
+        shortId={code.shortId}
       />
 
       {/* QR Sign Modal */}

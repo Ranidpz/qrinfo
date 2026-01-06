@@ -9,9 +9,10 @@ import { MediaItem } from '@/types';
 import { getOrCreateVisitorId } from '@/lib/xp';
 import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
 import { getBrowserLocale } from '@/lib/publicTranslations';
-import { Check, Loader2, Vote, Camera, ChevronLeft, ChevronRight, Trophy, Clock, Users, X, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Check, Loader2, Vote, Camera, ChevronLeft, ChevronRight, Trophy, Clock, Users, X, Plus, Trash2, UserPlus, Shield } from 'lucide-react';
 import QVoteVotingView from './qvote/QVoteVotingView';
 import QVoteResultsView from './qvote/QVoteResultsView';
+import PhoneVerificationModal from '../modals/PhoneVerificationModal';
 
 interface QVoteViewerProps {
   config: QVoteConfig;
@@ -140,6 +141,20 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
   // Vote change tracking state (stored in localStorage per code+round)
   const [voteChangeCount, setVoteChangeCount] = useState(0);
+
+  // Verification state
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationSession, setVerificationSession] = useState<{
+    phone: string;
+    sessionToken: string;
+    votesRemaining: number;
+    maxVotes: number;
+  } | null>(null);
+  const [pendingVoteAfterVerification, setPendingVoteAfterVerification] = useState(false);
+
+  // Tablet/Kiosk mode state
+  const [tabletResetCountdown, setTabletResetCountdown] = useState<number | null>(null);
+  const tabletTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visitorId = getOrCreateVisitorId();
@@ -308,6 +323,9 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       if (gracePeriodTimerRef.current) {
         clearInterval(gracePeriodTimerRef.current);
       }
+      if (tabletTimerRef.current) {
+        clearInterval(tabletTimerRef.current);
+      }
     };
   }, [codeId, mediaId, userPhase, hasVoted, selectedCandidates.length, gracePeriodActive]);
 
@@ -322,6 +340,44 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       setVoteChangeCount(parseInt(stored, 10) || 0);
     }
   }, [shortId, round]);
+
+  // Load verification session from localStorage and check if still valid
+  useEffect(() => {
+    if (!config.verification?.enabled) return;
+
+    const storageKey = `qvote-verification-${codeId}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        const session = JSON.parse(stored);
+        // Check if session is not expired (basic check - server will validate)
+        if (session.sessionToken && session.phone) {
+          // Verify session is still valid via API
+          fetch(`/api/verification/status?codeId=${codeId}&phone=${encodeURIComponent(session.phone)}&sessionToken=${session.sessionToken}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.sessionValid && data.votesRemaining > 0) {
+                setVerificationSession({
+                  phone: session.phone,
+                  sessionToken: session.sessionToken,
+                  votesRemaining: data.votesRemaining,
+                  maxVotes: data.maxVotes,
+                });
+              } else {
+                // Session expired or no votes remaining - clear storage
+                localStorage.removeItem(storageKey);
+              }
+            })
+            .catch(() => {
+              // API error - clear session
+              localStorage.removeItem(storageKey);
+            });
+        }
+      } catch {
+        localStorage.removeItem(storageKey);
+      }
+    }
+  }, [codeId, config.verification?.enabled]);
 
   // Load candidates and check existing votes
   useEffect(() => {
@@ -338,7 +394,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         setCandidates(loadedCandidates);
 
         // Check if user has already voted in this round - group by category
-        if (visitorId && (config.currentPhase === 'voting' || config.currentPhase === 'finals')) {
+        // Skip this check in tablet mode - allow multiple votes from same device
+        if (visitorId && (config.currentPhase === 'voting' || config.currentPhase === 'finals') && !config.tabletMode?.enabled) {
           const existingVotes = await getVoterVotes(codeId, visitorId, round);
           if (existingVotes.length > 0) {
             // Group votes by category
@@ -412,25 +469,85 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     });
   };
 
-  // Submit vote via API
-  const handleSubmitVote = async () => {
+  // Handle verification success callback
+  const handleVerificationSuccess = (data: { phone: string; sessionToken: string; votesRemaining: number; maxVotes: number }) => {
+    // Store session in state
+    setVerificationSession({
+      phone: data.phone,
+      sessionToken: data.sessionToken,
+      votesRemaining: data.votesRemaining,
+      maxVotes: data.maxVotes,
+    });
+
+    // Store in localStorage
+    const storageKey = `qvote-verification-${codeId}`;
+    localStorage.setItem(storageKey, JSON.stringify({
+      phone: data.phone,
+      sessionToken: data.sessionToken,
+    }));
+
+    setShowVerificationModal(false);
+
+    // If there was a pending vote, submit it now
+    if (pendingVoteAfterVerification) {
+      setPendingVoteAfterVerification(false);
+      // Small delay to allow state to update
+      setTimeout(() => submitVoteWithCredentials(data.phone, data.sessionToken), 100);
+    }
+  };
+
+  // Submit vote with credentials (internal function)
+  const submitVoteWithCredentials = async (phone?: string, sessionToken?: string) => {
     if (!visitorId || selectedCandidates.length === 0 || submitting) return;
 
     setSubmitting(true);
     try {
+      const body: Record<string, unknown> = {
+        codeId,
+        voterId: visitorId,
+        candidateIds: selectedCandidates,
+        round,
+        categoryId: selectedCategory || undefined,
+      };
+
+      // Add verification credentials if verification is enabled
+      if (config.verification?.enabled) {
+        const usePhone = phone || verificationSession?.phone;
+        const useToken = sessionToken || verificationSession?.sessionToken;
+        if (usePhone && useToken) {
+          body.phone = usePhone;
+          body.sessionToken = useToken;
+        }
+      }
+
       const response = await fetch('/api/qvote/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codeId,
-          voterId: visitorId,
-          candidateIds: selectedCandidates,
-          round,
-          categoryId: selectedCategory || undefined,
-        }),
+        body: JSON.stringify(body),
       });
 
       const result = await response.json();
+
+      // Handle verification errors
+      if (!response.ok && result.errorCode) {
+        if (result.errorCode === 'VERIFICATION_REQUIRED' || result.errorCode === 'NOT_VERIFIED' ||
+            result.errorCode === 'INVALID_SESSION' || result.errorCode === 'SESSION_EXPIRED') {
+          // Clear stored session and show verification modal
+          const storageKey = `qvote-verification-${codeId}`;
+          localStorage.removeItem(storageKey);
+          setVerificationSession(null);
+          setPendingVoteAfterVerification(true);
+          setShowVerificationModal(true);
+          setSubmitting(false);
+          return;
+        }
+        if (result.errorCode === 'VOTE_LIMIT_REACHED') {
+          // User has no more votes
+          setVerificationSession(prev => prev ? { ...prev, votesRemaining: 0 } : null);
+          setSubmitting(false);
+          return;
+        }
+      }
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to submit vote');
@@ -441,6 +558,14 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         const categoryKey = selectedCategory || '_global';
         setVotedCategories(prev => ({ ...prev, [categoryKey]: true }));
 
+        // Update remaining votes
+        if (verificationSession) {
+          setVerificationSession(prev => prev ? {
+            ...prev,
+            votesRemaining: Math.max(0, prev.votesRemaining - 1),
+          } : null);
+        }
+
         // If grace period is active, end it and transition to new phase
         if (gracePeriodActive) {
           if (gracePeriodTimerRef.current) {
@@ -448,9 +573,13 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
           }
           setGracePeriodActive(false);
           setGracePeriodSeconds(0);
-          // Transition to the actual config phase
           setUserPhase(config.currentPhase);
-          console.log('[QVoteViewer] Grace period ended - user completed voting');
+        }
+
+        // Start tablet mode countdown if enabled
+        if (config.tabletMode?.enabled) {
+          const delay = config.tabletMode.resetDelaySeconds || 5;
+          setTabletResetCountdown(delay);
         }
       }
     } catch (error) {
@@ -458,6 +587,27 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Submit vote via API
+  const handleSubmitVote = async () => {
+    if (!visitorId || selectedCandidates.length === 0 || submitting) return;
+
+    // Check if verification is required
+    if (config.verification?.enabled && !verificationSession) {
+      setPendingVoteAfterVerification(true);
+      setShowVerificationModal(true);
+      return;
+    }
+
+    // Check if user has remaining votes (only for non-category voting)
+    // When categories are used, each category allows one vote regardless of global limit
+    if (config.verification?.enabled && verificationSession && verificationSession.votesRemaining <= 0 && config.categories.length === 0) {
+      // No votes remaining - don't allow voting (only when no categories)
+      return;
+    }
+
+    await submitVoteWithCredentials();
   };
 
   // Reset vote (for vote change feature)
@@ -499,6 +649,74 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       console.error('Error resetting vote:', error);
     }
   };
+
+  // Reset for next voter in tablet mode
+  const resetForNextVoter = useCallback(() => {
+    // Reset voting state
+    setVotedCategories({});
+    setSelectedCandidates([]);
+    setTabletResetCountdown(null);
+
+    // Clear the timer
+    if (tabletTimerRef.current) {
+      clearInterval(tabletTimerRef.current);
+      tabletTimerRef.current = null;
+    }
+
+    // Clear verification session if enabled
+    if (config.verification?.enabled) {
+      setVerificationSession(null);
+      const storageKey = `qvote-verification-${codeId}`;
+      localStorage.removeItem(storageKey);
+    }
+
+    // Return to landing page for next voter
+    setShowLanding(true);
+
+    // Reset category selection if categories exist
+    if (config.categories.length > 0) {
+      setSelectedCategory(null);
+      setShowCategorySelect(true);
+    }
+  }, [config.verification?.enabled, codeId, config.categories.length]);
+
+  // Tablet mode countdown timer - separate useEffect to avoid being cleared by other effects
+  // Use a ref to track whether we should start the countdown
+  const countdownStartedRef = useRef(false);
+  const resetForNextVoterRef = useRef(resetForNextVoter);
+  resetForNextVoterRef.current = resetForNextVoter;
+
+  useEffect(() => {
+    // Start countdown when tabletResetCountdown becomes a positive number
+    if (tabletResetCountdown !== null && tabletResetCountdown > 0 && !countdownStartedRef.current) {
+      countdownStartedRef.current = true;
+
+      const timerId = setInterval(() => {
+        setTabletResetCountdown(prev => {
+          if (prev === null || prev <= 1) {
+            clearInterval(timerId);
+            countdownStartedRef.current = false;
+            // Use setTimeout to call reset after state update
+            setTimeout(() => resetForNextVoterRef.current(), 0);
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      tabletTimerRef.current = timerId;
+
+      return () => {
+        clearInterval(timerId);
+        countdownStartedRef.current = false;
+      };
+    }
+
+    // Reset the flag when countdown becomes null
+    if (tabletResetCountdown === null) {
+      countdownStartedRef.current = false;
+    }
+  }, [tabletResetCountdown]);
 
   // Handle photo selection for registration
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -828,33 +1046,49 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
             {/* Category buttons */}
             <div className="space-y-3 max-h-[60vh] overflow-y-auto overscroll-contain px-1 py-1">
-              {config.categories.filter(c => c.isActive).map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => {
-                    setSelectedCategory(category.id);
-                    setShowCategorySelect(false);
-                    setSelectedCandidates([]); // Clear selections when switching categories
-                  }}
-                  className="w-full p-4 rounded-2xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-                  }}
-                >
-                  {config.branding.categoryImages?.[category.id] && (
-                    <img
-                      src={config.branding.categoryImages[category.id]}
-                      alt=""
-                      className="w-full h-28 object-cover rounded-xl mb-3"
-                    />
-                  )}
-                  <span className="text-lg font-semibold text-white drop-shadow-md block">
-                    {locale === 'en' && category.nameEn ? category.nameEn : category.name}
-                  </span>
-                </button>
-              ))}
+              {config.categories.filter(c => c.isActive).map((category) => {
+                const hasVotedInCategory = votedCategories[category.id] || false;
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => {
+                      setSelectedCategory(category.id);
+                      setShowCategorySelect(false);
+                      setSelectedCandidates([]); // Clear selections when switching categories
+                    }}
+                    className="w-full p-4 rounded-2xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 relative"
+                    style={{
+                      backgroundColor: hasVotedInCategory ? 'rgba(59, 130, 246, 0.4)' : 'rgba(255, 255, 255, 0.2)',
+                      border: hasVotedInCategory ? '2px solid rgba(59, 130, 246, 0.8)' : '1px solid rgba(255, 255, 255, 0.3)',
+                      boxShadow: hasVotedInCategory ? '0 4px 15px rgba(59, 130, 246, 0.3)' : '0 4px 15px rgba(0, 0, 0, 0.1)',
+                    }}
+                  >
+                    {/* Voted checkmark */}
+                    {hasVotedInCategory && (
+                      <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                    {config.branding.categoryImages?.[category.id] && (
+                      <img
+                        src={config.branding.categoryImages[category.id]}
+                        alt=""
+                        className="w-full h-28 object-cover rounded-xl mb-3"
+                      />
+                    )}
+                    <span className="text-lg font-semibold text-white drop-shadow-md block">
+                      {locale === 'en' && category.nameEn ? category.nameEn : category.name}
+                    </span>
+                    {hasVotedInCategory && (
+                      <span className="text-sm text-blue-200 mt-1 block">
+                        {locale === 'he' ? '✓ ההצבעה בוצעה!' : '✓ Vote submitted!'}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Language Selection Buttons */}
@@ -1196,6 +1430,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         locale={locale}
         voteChangeCount={voteChangeCount}
         onResetVote={handleResetVote}
+        tabletResetCountdown={tabletResetCountdown}
+        tabletResetDelay={config.tabletMode?.resetDelaySeconds || 5}
         translations={{
           votingTitle: getLocalizedVotingTitle() || t.votingTitle,
           finalsTitle: t.finalsTitle,
@@ -1289,6 +1525,40 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
             </span>
             <span className="text-white/90 font-medium">
               {t.secondsLeft} - {t.gracePeriod}!
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Phone Verification Modal */}
+      {showVerificationModal && config.verification?.enabled && (
+        <PhoneVerificationModal
+          isOpen={showVerificationModal}
+          onClose={() => {
+            setShowVerificationModal(false);
+            setPendingVoteAfterVerification(false);
+          }}
+          codeId={codeId}
+          locale={locale}
+          onVerified={handleVerificationSuccess}
+        />
+      )}
+
+      {/* Verification Status Indicator - shown when verified but has remaining votes */}
+      {config.verification?.enabled && verificationSession && verificationSession.votesRemaining > 0 && (userPhase === 'voting' || userPhase === 'finals') && (
+        <div className="fixed bottom-4 left-4 right-4 z-40">
+          <div
+            className="flex items-center justify-center gap-2 py-2 px-4 rounded-full mx-auto max-w-xs"
+            style={{
+              backgroundColor: 'rgba(34, 197, 94, 0.9)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <Shield className="w-4 h-4 text-white" />
+            <span className="text-white text-sm font-medium">
+              {locale === 'he'
+                ? `${verificationSession.votesRemaining} הצבעות נותרו`
+                : `${verificationSession.votesRemaining} votes remaining`}
             </span>
           </div>
         </div>

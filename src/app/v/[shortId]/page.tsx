@@ -82,6 +82,7 @@ export async function generateMetadata({ params }: ViewerPageProps) {
     return {
       title: `${code.title} - QR.info`,
       description: 'תוכן QR דינמי',
+      manifest: `/v/${shortId}/manifest.json`,
       openGraph: {
         title: code.title,
         description: 'תוכן QR דינמי',

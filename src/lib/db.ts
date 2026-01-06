@@ -32,6 +32,13 @@ import {
   PendingPack,
   PackTrigger,
 } from '@/types';
+import {
+  MessageQuota,
+  DEFAULT_MESSAGE_QUOTA,
+  MessageLog,
+  VerificationCode,
+  VerifiedVoter,
+} from '@/types/verification';
 import { getLevelForXP } from './xp';
 
 // Generate a unique short ID for QR codes
@@ -1583,4 +1590,450 @@ export async function getRoutePrizeStats(routeId: string): Promise<{
   }
 
   return stats;
+}
+
+// ============ MESSAGE QUOTA SYSTEM ============
+
+// Get user's message quota
+export async function getUserMessageQuota(userId: string): Promise<MessageQuota> {
+  const user = await getUser(userId);
+  return user?.messageQuota || DEFAULT_MESSAGE_QUOTA;
+}
+
+// Check if user can send a message (has remaining quota)
+export async function checkMessageQuota(userId: string): Promise<{
+  canSend: boolean;
+  remaining: number;
+  limit: number;
+}> {
+  const quota = await getUserMessageQuota(userId);
+  const remaining = Math.max(0, quota.limit - quota.used);
+
+  return {
+    canSend: remaining > 0,
+    remaining,
+    limit: quota.limit,
+  };
+}
+
+// Decrement user's message quota (after sending)
+export async function decrementMessageQuota(userId: string): Promise<{
+  success: boolean;
+  remaining: number;
+}> {
+  const userRef = doc(db, 'users', userId);
+
+  return runTransaction(db, async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+
+    if (!userDoc.exists()) {
+      throw new Error('User not found');
+    }
+
+    const data = userDoc.data();
+    const quota = data.messageQuota || DEFAULT_MESSAGE_QUOTA;
+    const newUsed = quota.used + 1;
+
+    // Check if we can send
+    if (newUsed > quota.limit) {
+      return { success: false, remaining: 0 };
+    }
+
+    // Update quota
+    transaction.update(userRef, {
+      messageQuota: {
+        ...quota,
+        used: newUsed,
+      },
+      updatedAt: serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      remaining: quota.limit - newUsed,
+    };
+  });
+}
+
+// Add messages to user's quota (admin action)
+export async function addMessageQuota(
+  userId: string,
+  amount: number
+): Promise<{ newLimit: number }> {
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+
+  if (!userDoc.exists()) {
+    throw new Error('User not found');
+  }
+
+  const data = userDoc.data();
+  const currentQuota = data.messageQuota || DEFAULT_MESSAGE_QUOTA;
+  const newLimit = currentQuota.limit + amount;
+
+  await updateDoc(userRef, {
+    messageQuota: {
+      ...currentQuota,
+      limit: newLimit,
+    },
+    updatedAt: serverTimestamp(),
+  });
+
+  return { newLimit };
+}
+
+// Reset user's used messages (e.g., monthly reset)
+export async function resetMessageQuotaUsage(userId: string): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  const userDoc = await getDoc(userRef);
+
+  if (!userDoc.exists()) {
+    throw new Error('User not found');
+  }
+
+  const data = userDoc.data();
+  const currentQuota = data.messageQuota || DEFAULT_MESSAGE_QUOTA;
+
+  await updateDoc(userRef, {
+    messageQuota: {
+      ...currentQuota,
+      used: 0,
+      lastResetAt: serverTimestamp(),
+    },
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Initialize quota for new user (called during user creation)
+export async function initializeMessageQuota(userId: string): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+
+  await updateDoc(userRef, {
+    messageQuota: DEFAULT_MESSAGE_QUOTA,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ============ MESSAGE LOGS ============
+
+// Log a sent message
+export async function logMessage(
+  userId: string,
+  codeId: string,
+  phone: string,
+  method: 'whatsapp' | 'sms',
+  status: 'sent' | 'delivered' | 'failed',
+  errorMessage?: string
+): Promise<MessageLog> {
+  const logRef = await addDoc(collection(db, 'messageLogs'), {
+    userId,
+    codeId,
+    phone,
+    method,
+    status,
+    errorMessage: errorMessage || null,
+    cost: 1, // Each message costs 1 credit
+    createdAt: serverTimestamp(),
+  });
+
+  return {
+    id: logRef.id,
+    userId,
+    codeId,
+    phone,
+    method,
+    status,
+    errorMessage,
+    cost: 1,
+    createdAt: new Date(),
+  };
+}
+
+// Get message logs for a user
+export async function getUserMessageLogs(
+  userId: string,
+  limitCount: number = 100
+): Promise<MessageLog[]> {
+  const { limit: firestoreLimit } = await import('firebase/firestore');
+
+  const q = query(
+    collection(db, 'messageLogs'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc'),
+    firestoreLimit(limitCount)
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      userId: data.userId,
+      codeId: data.codeId,
+      phone: data.phone,
+      method: data.method,
+      status: data.status,
+      errorMessage: data.errorMessage,
+      cost: data.cost || 1,
+      createdAt: data.createdAt?.toDate() || new Date(),
+    };
+  });
+}
+
+// ============ VERIFICATION CODES ============
+
+// Store a verification code
+export async function createVerificationCode(
+  verificationCode: Omit<VerificationCode, 'id'>
+): Promise<VerificationCode> {
+  const { setDoc } = await import('firebase/firestore');
+  const docId = `${verificationCode.codeId}_${verificationCode.phone.replace(/\D/g, '')}_${Date.now()}`;
+
+  await setDoc(doc(db, 'verificationCodes', docId), {
+    ...verificationCode,
+    id: docId,
+    createdAt: Timestamp.fromDate(verificationCode.createdAt),
+    expiresAt: Timestamp.fromDate(verificationCode.expiresAt),
+  });
+
+  return {
+    ...verificationCode,
+    id: docId,
+  };
+}
+
+// Get the latest verification code for a phone
+export async function getLatestVerificationCode(
+  codeId: string,
+  phone: string
+): Promise<VerificationCode | null> {
+  const normalizedPhone = phone.replace(/\D/g, '');
+
+  const q = query(
+    collection(db, 'verificationCodes'),
+    where('codeId', '==', codeId),
+    where('phone', '==', phone),
+    where('status', '==', 'pending'),
+    orderBy('createdAt', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) return null;
+
+  const data = snapshot.docs[0].data();
+  return {
+    id: snapshot.docs[0].id,
+    codeId: data.codeId,
+    phone: data.phone,
+    codeHash: data.codeHash,
+    attempts: data.attempts,
+    method: data.method,
+    status: data.status,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    expiresAt: data.expiresAt?.toDate() || new Date(),
+    verifiedAt: data.verifiedAt?.toDate(),
+    blockedUntil: data.blockedUntil?.toDate(),
+  };
+}
+
+// Update verification code status
+export async function updateVerificationCode(
+  verificationId: string,
+  updates: Partial<Pick<VerificationCode, 'status' | 'attempts' | 'verifiedAt' | 'blockedUntil'>>
+): Promise<void> {
+  const updateData: Record<string, unknown> = { ...updates };
+
+  if (updates.verifiedAt) {
+    updateData.verifiedAt = Timestamp.fromDate(updates.verifiedAt);
+  }
+  if (updates.blockedUntil) {
+    updateData.blockedUntil = Timestamp.fromDate(updates.blockedUntil);
+  }
+
+  await updateDoc(doc(db, 'verificationCodes', verificationId), updateData);
+}
+
+// ============ VERIFIED VOTERS ============
+
+// Get or create verified voter
+export async function getOrCreateVerifiedVoter(
+  codeId: string,
+  phone: string,
+  maxVotes: number,
+  name?: string
+): Promise<VerifiedVoter> {
+  const { setDoc } = await import('firebase/firestore');
+  const normalizedPhone = phone.replace(/\D/g, '');
+  const voterId = `${codeId}_${normalizedPhone}`;
+  const voterRef = doc(db, 'verifiedVoters', voterId);
+
+  const existing = await getDoc(voterRef);
+
+  if (existing.exists()) {
+    const data = existing.data();
+    return {
+      id: voterId,
+      codeId: data.codeId,
+      phone: data.phone,
+      name: data.name,
+      votesUsed: data.votesUsed,
+      maxVotes: data.maxVotes,
+      lastVerifiedAt: data.lastVerifiedAt?.toDate() || new Date(),
+      sessionToken: data.sessionToken,
+      sessionExpiresAt: data.sessionExpiresAt?.toDate() || new Date(),
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    };
+  }
+
+  // Create new verified voter
+  const now = new Date();
+  const sessionExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+  const newVoter: VerifiedVoter = {
+    id: voterId,
+    codeId,
+    phone,
+    name,
+    votesUsed: 0,
+    maxVotes,
+    lastVerifiedAt: now,
+    sessionToken: '', // Will be set by caller
+    sessionExpiresAt,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await setDoc(voterRef, {
+    ...newVoter,
+    lastVerifiedAt: Timestamp.fromDate(now),
+    sessionExpiresAt: Timestamp.fromDate(sessionExpiresAt),
+    createdAt: Timestamp.fromDate(now),
+    updatedAt: Timestamp.fromDate(now),
+  });
+
+  return newVoter;
+}
+
+// Get verified voter by ID
+export async function getVerifiedVoter(
+  codeId: string,
+  phone: string
+): Promise<VerifiedVoter | null> {
+  const normalizedPhone = phone.replace(/\D/g, '');
+  const voterId = `${codeId}_${normalizedPhone}`;
+  const voterDoc = await getDoc(doc(db, 'verifiedVoters', voterId));
+
+  if (!voterDoc.exists()) return null;
+
+  const data = voterDoc.data();
+  return {
+    id: voterId,
+    codeId: data.codeId,
+    phone: data.phone,
+    name: data.name,
+    votesUsed: data.votesUsed,
+    maxVotes: data.maxVotes,
+    lastVerifiedAt: data.lastVerifiedAt?.toDate() || new Date(),
+    sessionToken: data.sessionToken,
+    sessionExpiresAt: data.sessionExpiresAt?.toDate() || new Date(),
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+  };
+}
+
+// Update verified voter (e.g., after voting)
+export async function updateVerifiedVoter(
+  codeId: string,
+  phone: string,
+  updates: Partial<Pick<VerifiedVoter, 'votesUsed' | 'sessionToken' | 'sessionExpiresAt' | 'lastVerifiedAt'>>
+): Promise<void> {
+  const normalizedPhone = phone.replace(/\D/g, '');
+  const voterId = `${codeId}_${normalizedPhone}`;
+
+  const updateData: Record<string, unknown> = {
+    updatedAt: serverTimestamp(),
+  };
+
+  if (updates.votesUsed !== undefined) {
+    updateData.votesUsed = updates.votesUsed;
+  }
+  if (updates.sessionToken !== undefined) {
+    updateData.sessionToken = updates.sessionToken;
+  }
+  if (updates.sessionExpiresAt) {
+    updateData.sessionExpiresAt = Timestamp.fromDate(updates.sessionExpiresAt);
+  }
+  if (updates.lastVerifiedAt) {
+    updateData.lastVerifiedAt = Timestamp.fromDate(updates.lastVerifiedAt);
+  }
+
+  await updateDoc(doc(db, 'verifiedVoters', voterId), updateData);
+}
+
+// Increment votes used for a verified voter
+export async function incrementVerifiedVoterVotes(
+  codeId: string,
+  phone: string
+): Promise<{ success: boolean; votesUsed: number; votesRemaining: number }> {
+  const normalizedPhone = phone.replace(/\D/g, '');
+  const voterId = `${codeId}_${normalizedPhone}`;
+  const voterRef = doc(db, 'verifiedVoters', voterId);
+
+  return runTransaction(db, async (transaction) => {
+    const voterDoc = await transaction.get(voterRef);
+
+    if (!voterDoc.exists()) {
+      return { success: false, votesUsed: 0, votesRemaining: 0 };
+    }
+
+    const data = voterDoc.data();
+    const currentVotes = data.votesUsed || 0;
+    const maxVotes = data.maxVotes || 1;
+
+    if (currentVotes >= maxVotes) {
+      return { success: false, votesUsed: currentVotes, votesRemaining: 0 };
+    }
+
+    const newVotesUsed = currentVotes + 1;
+
+    transaction.update(voterRef, {
+      votesUsed: newVotesUsed,
+      updatedAt: serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      votesUsed: newVotesUsed,
+      votesRemaining: maxVotes - newVotesUsed,
+    };
+  });
+}
+
+// Validate session token for a verified voter
+export async function validateVoterSession(
+  codeId: string,
+  phone: string,
+  sessionToken: string
+): Promise<{ valid: boolean; votesRemaining: number }> {
+  const voter = await getVerifiedVoter(codeId, phone);
+
+  if (!voter) {
+    return { valid: false, votesRemaining: 0 };
+  }
+
+  // Check session token
+  if (voter.sessionToken !== sessionToken) {
+    return { valid: false, votesRemaining: 0 };
+  }
+
+  // Check session expiry
+  if (voter.sessionExpiresAt < new Date()) {
+    return { valid: false, votesRemaining: 0 };
+  }
+
+  const votesRemaining = Math.max(0, voter.maxVotes - voter.votesUsed);
+  return { valid: true, votesRemaining };
 }

@@ -9,6 +9,9 @@ import RiddleViewer from '@/components/viewer/RiddleViewer';
 import SelfiebeamViewer from '@/components/viewer/SelfiebeamViewer';
 import QVoteViewer from '@/components/viewer/QVoteViewer';
 import WeeklyCalendarViewer from '@/components/viewer/WeeklyCalendarViewer';
+import { QStageDisplay, QStageMobileVoter } from '@/components/qstage';
+import { QHuntPlayerView, QHuntDisplay } from '@/components/qhunt';
+import { QTreasurePlayerView } from '@/components/qtreasure';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
 import LandingPageViewer from '@/components/viewer/LandingPageViewer';
 import { shouldShowLandingPage } from '@/lib/landingPage';
@@ -1039,6 +1042,15 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = viewerTranslations[locale];
 
+  // Check for display mode (for QStage big screen)
+  const [isDisplayMode, setIsDisplayMode] = useState(false);
+
+  useEffect(() => {
+    // Check URL params for display mode
+    const params = new URLSearchParams(window.location.search);
+    setIsDisplayMode(params.get('display') === 'true');
+  }, []);
+
   useEffect(() => {
     const browserLocale = getBrowserLocale();
     setLocale(browserLocale);
@@ -1108,6 +1120,9 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isSelfiebeam = media.length === 1 && currentMedia?.type === 'selfiebeam';
   const isQVote = media.length === 1 && currentMedia?.type === 'qvote';
   const isWeeklyCal = media.length === 1 && currentMedia?.type === 'weeklycal';
+  const isQStage = media.length === 1 && currentMedia?.type === 'qstage';
+  const isQHunt = media.length === 1 && currentMedia?.type === 'qhunt';
+  const isQTreasure = media.length === 1 && currentMedia?.type === 'qtreasure';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
@@ -1320,6 +1335,29 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                 ownerId={ownerId}
               />
             )}
+            {activeViewer.type === 'qstage' && !Array.isArray(activeViewer.media) && (
+              isDisplayMode ? (
+                <QStageDisplay
+                  codeId={codeId}
+                  mediaId={activeViewer.media.id}
+                  initialConfig={activeViewer.media.qstageConfig}
+                />
+              ) : (
+                <QStageMobileVoter
+                  codeId={codeId}
+                  mediaId={activeViewer.media.id}
+                  initialConfig={activeViewer.media.qstageConfig}
+                />
+              )
+            )}
+            {activeViewer.type === 'qtreasure' && !Array.isArray(activeViewer.media) && activeViewer.media.qtreasureConfig && (
+              <QTreasurePlayerView
+                codeId={codeId}
+                mediaId={activeViewer.media.id}
+                initialConfig={activeViewer.media.qtreasureConfig}
+                shortId={shortId}
+              />
+            )}
           </div>
         ) : needsMixedSwiper ? (
           // Mixed media types - use swiper to navigate between all types
@@ -1468,6 +1506,25 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           <QVoteViewer config={currentMedia.qvoteConfig} codeId={codeId} mediaId={currentMedia.id} shortId={shortId} ownerId={ownerId} />
         ) : isWeeklyCal && currentMedia.weeklycalConfig ? (
           <WeeklyCalendarViewer config={currentMedia.weeklycalConfig} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+        ) : isQStage ? (
+          isDisplayMode ? (
+            <QStageDisplay codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qstageConfig} />
+          ) : (
+            <QStageMobileVoter codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qstageConfig} />
+          )
+        ) : isQHunt && currentMedia.qhuntConfig ? (
+          isDisplayMode ? (
+            <QHuntDisplay codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qhuntConfig} />
+          ) : (
+            <QHuntPlayerView codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qhuntConfig} shortId={shortId} />
+          )
+        ) : isQTreasure && currentMedia.qtreasureConfig ? (
+          <QTreasurePlayerView
+            codeId={codeId}
+            mediaId={currentMedia.id}
+            initialConfig={currentMedia.qtreasureConfig}
+            shortId={shortId}
+          />
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} pdfSettings={currentMedia.pdfSettings} />
         ) : isAllPDFs && hasMultipleMedia ? (

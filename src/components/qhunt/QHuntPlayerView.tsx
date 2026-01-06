@@ -1,0 +1,307 @@
+'use client';
+
+/**
+ * QHuntPlayerView - Main container component for the player interface
+ * Routes to different views based on game phase and player state
+ *
+ * Design: Neon Hunter - Arcade Gaming Vibe
+ * - Deep dark blue/black background (#0a0f1a)
+ * - Electric cyan accents (#00d4ff)
+ * - Hot pink highlights (#ff00aa)
+ * - Glowing effects and scan animations
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { QHuntConfig, QHuntPhase } from '@/types/qhunt';
+import { useQHuntConfig, useQHuntPlayer, useQHuntTimer, useQHuntSounds } from '@/hooks/useQHuntRealtime';
+import { QHuntRegistration } from './QHuntRegistration';
+import { QHuntScanner } from './QHuntScanner';
+import { QHuntPlayerComplete } from './QHuntPlayerComplete';
+import { QHuntCountdown } from './QHuntCountdown';
+
+// Generate or get visitor ID from localStorage
+function getVisitorId(): string {
+  if (typeof window === 'undefined') return '';
+
+  let visitorId = localStorage.getItem('qhunt_visitor_id');
+  if (!visitorId) {
+    visitorId = `player_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+    localStorage.setItem('qhunt_visitor_id', visitorId);
+  }
+  return visitorId;
+}
+
+interface QHuntPlayerViewProps {
+  codeId: string;
+  mediaId: string;
+  initialConfig: QHuntConfig;
+  shortId: string;
+}
+
+export function QHuntPlayerView({
+  codeId,
+  mediaId,
+  initialConfig,
+  shortId,
+}: QHuntPlayerViewProps) {
+  const [playerId] = useState(() => getVisitorId());
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [showCountdown, setShowCountdown] = useState(false);
+
+  const { config, loading: configLoading } = useQHuntConfig(codeId, mediaId);
+  const { player, scans, refreshPlayer, refreshScans } = useQHuntPlayer(codeId, playerId);
+  const sounds = useQHuntSounds(config?.sound?.enabled ?? true);
+
+  // Use live config or fallback to initial
+  const activeConfig = config || initialConfig;
+
+  // Determine language
+  const lang = activeConfig.language === 'auto'
+    ? (typeof navigator !== 'undefined' && navigator.language?.startsWith('he') ? 'he' : 'en')
+    : activeConfig.language;
+  const isRTL = lang === 'he';
+
+  // Check if player is registered and has started
+  useEffect(() => {
+    if (player) {
+      setIsRegistered(true);
+      if (player.gameStartedAt) {
+        setHasStarted(true);
+      }
+    }
+  }, [player]);
+
+  // Handle registration complete
+  const handleRegistrationComplete = useCallback(async () => {
+    await refreshPlayer();
+    setIsRegistered(true);
+  }, [refreshPlayer]);
+
+  // Handle game start
+  const handleGameStart = useCallback(async () => {
+    // Show countdown first
+    setShowCountdown(true);
+  }, []);
+
+  // Handle countdown complete
+  const handleCountdownComplete = useCallback(() => {
+    setShowCountdown(false);
+    setHasStarted(true);
+    sounds.playCountdown();
+  }, [sounds]);
+
+  // Handle scan complete
+  const handleScanComplete = useCallback(async (isGameComplete: boolean) => {
+    await refreshPlayer();
+    await refreshScans();
+
+    if (isGameComplete) {
+      sounds.playGameComplete();
+    } else {
+      sounds.playScanSuccess();
+
+      // Check for milestone
+      const newCount = (player?.scansCount || 0) + 1;
+      const interval = activeConfig.sound?.milestoneInterval || 5;
+      if (newCount % interval === 0) {
+        sounds.playMilestone();
+      }
+    }
+  }, [refreshPlayer, refreshScans, player, activeConfig, sounds]);
+
+  // Handle scan error
+  const handleScanError = useCallback(() => {
+    sounds.playScanError();
+  }, [sounds]);
+
+  // Determine what to render based on state
+  const renderContent = () => {
+    // Show countdown overlay
+    if (showCountdown) {
+      return (
+        <QHuntCountdown
+          seconds={activeConfig.countdownSeconds}
+          onComplete={handleCountdownComplete}
+          branding={activeConfig.branding}
+        />
+      );
+    }
+
+    // Player finished the game
+    if (player?.isFinished) {
+      return (
+        <QHuntPlayerComplete
+          codeId={codeId}
+          player={player}
+          scans={scans}
+          config={activeConfig}
+          lang={lang}
+        />
+      );
+    }
+
+    // Player is playing
+    if (hasStarted && player?.gameStartedAt) {
+      return (
+        <QHuntScanner
+          codeId={codeId}
+          player={player}
+          config={activeConfig}
+          onScanComplete={handleScanComplete}
+          onScanError={handleScanError}
+          lang={lang}
+        />
+      );
+    }
+
+    // Player is registered but hasn't started
+    if (isRegistered && player) {
+      return (
+        <QHuntRegistration
+          codeId={codeId}
+          config={activeConfig}
+          existingPlayer={player}
+          onRegister={handleRegistrationComplete}
+          onStart={handleGameStart}
+          lang={lang}
+        />
+      );
+    }
+
+    // Registration phase
+    return (
+      <QHuntRegistration
+        codeId={codeId}
+        config={activeConfig}
+        onRegister={handleRegistrationComplete}
+        onStart={handleGameStart}
+        lang={lang}
+      />
+    );
+  };
+
+  return (
+    <div
+      className="qhunt-player-view"
+      dir={isRTL ? 'rtl' : 'ltr'}
+      style={{
+        '--qhunt-bg': activeConfig.branding.backgroundColor || '#0a0f1a',
+        '--qhunt-primary': activeConfig.branding.primaryColor || '#00d4ff',
+        '--qhunt-secondary': activeConfig.branding.secondaryColor || '#ff00aa',
+        '--qhunt-success': activeConfig.branding.successColor || '#00ff88',
+        '--qhunt-warning': activeConfig.branding.warningColor || '#ffaa00',
+      } as React.CSSProperties}
+    >
+      {/* Animated background */}
+      <div className="qhunt-bg-effects">
+        <div className="qhunt-grid-lines" />
+        <div className="qhunt-glow-orb qhunt-glow-orb-1" />
+        <div className="qhunt-glow-orb qhunt-glow-orb-2" />
+      </div>
+
+      {/* Main content */}
+      <div className="qhunt-content">
+        {configLoading ? (
+          <div className="qhunt-loading">
+            <div className="qhunt-loading-spinner" />
+          </div>
+        ) : (
+          renderContent()
+        )}
+      </div>
+
+      <style jsx>{`
+        .qhunt-player-view {
+          min-height: 100vh;
+          min-height: 100dvh;
+          background: var(--qhunt-bg);
+          font-family: 'Assistant', sans-serif;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .qhunt-bg-effects {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
+
+        .qhunt-grid-lines {
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(var(--qhunt-primary)05 1px, transparent 1px),
+            linear-gradient(90deg, var(--qhunt-primary)05 1px, transparent 1px);
+          background-size: 50px 50px;
+          animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+          0% { transform: translate(0, 0); }
+          100% { transform: translate(50px, 50px); }
+        }
+
+        .qhunt-glow-orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(100px);
+          opacity: 0.3;
+          animation: orbFloat 10s ease-in-out infinite;
+        }
+
+        .qhunt-glow-orb-1 {
+          width: 400px;
+          height: 400px;
+          background: var(--qhunt-primary);
+          top: -200px;
+          right: -100px;
+        }
+
+        .qhunt-glow-orb-2 {
+          width: 300px;
+          height: 300px;
+          background: var(--qhunt-secondary);
+          bottom: -150px;
+          left: -100px;
+          animation-delay: -5s;
+        }
+
+        @keyframes orbFloat {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(30px, 30px) scale(1.1); }
+        }
+
+        .qhunt-content {
+          position: relative;
+          z-index: 1;
+          min-height: 100vh;
+          min-height: 100dvh;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .qhunt-loading {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .qhunt-loading-spinner {
+          width: 60px;
+          height: 60px;
+          border: 3px solid var(--qhunt-primary)30;
+          border-top-color: var(--qhunt-primary);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}

@@ -40,6 +40,8 @@ interface QVoteVotingViewProps {
   locale: 'he' | 'en';
   voteChangeCount?: number;
   onResetVote?: () => void;
+  tabletResetCountdown?: number | null;
+  tabletResetDelay?: number;
   translations: {
     votingTitle: string;
     finalsTitle: string;
@@ -71,6 +73,8 @@ export default function QVoteVotingView({
   locale,
   voteChangeCount = 0,
   onResetVote,
+  tabletResetCountdown,
+  tabletResetDelay = 5,
   translations: t,
 }: QVoteVotingViewProps) {
   const isRTL = locale === 'he';
@@ -284,6 +288,28 @@ export default function QVoteVotingView({
             <p className="text-xs text-green-600/60 mt-2">
               {(t.changesRemaining || (isRTL ? 'נותרו {n} שינויים' : '{n} changes remaining')).replace('{n}', String(changesRemaining))}
             </p>
+          )}
+
+          {/* Tablet Mode Reset Timer */}
+          {tabletResetCountdown !== null && tabletResetCountdown !== undefined && (
+            <div className="mt-4">
+              {/* Progress Bar */}
+              <div className="relative h-2 rounded-full overflow-hidden bg-gray-200">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-linear"
+                  style={{
+                    width: `${(tabletResetCountdown / tabletResetDelay) * 100}%`,
+                    background: 'linear-gradient(90deg, #10B981, #3B82F6)',
+                  }}
+                />
+              </div>
+              {/* Counter Text */}
+              <p className="text-center text-sm text-gray-500 mt-2">
+                {isRTL
+                  ? `חוזרים להצבעה בעוד ${tabletResetCountdown} שניות...`
+                  : `Returning to vote in ${tabletResetCountdown} seconds...`}
+              </p>
+            </div>
           )}
         </div>
       )}

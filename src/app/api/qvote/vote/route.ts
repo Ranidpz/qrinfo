@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { normalizePhoneNumber } from '@/lib/phone-utils';
 import type { VoteRound } from '@/types/qvote';
 
 // POST: Submit votes using Admin SDK
 export async function POST(request: NextRequest) {
   try {
-    const { codeId, voterId, candidateIds, round = 1, categoryId } = await request.json();
+    const { codeId, voterId, candidateIds, round = 1, categoryId, phone, sessionToken } = await request.json();
 
     if (!codeId) {
       return NextResponse.json(
@@ -30,6 +31,100 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getAdminDb();
+
+    // Check if verification is enabled for this code
+    const codeDoc = await db.collection('codes').doc(codeId).get();
+    if (!codeDoc.exists) {
+      return NextResponse.json(
+        { error: 'Code not found' },
+        { status: 404 }
+      );
+    }
+
+    const codeData = codeDoc.data();
+    const qvoteMedia = codeData?.media?.find((m: { type: string }) => m.type === 'qvote');
+    const verificationConfig = qvoteMedia?.qvoteConfig?.verification;
+
+    // If verification is enabled, validate session
+    if (verificationConfig?.enabled) {
+      if (!phone || !sessionToken) {
+        return NextResponse.json(
+          { error: 'Phone verification required', errorCode: 'VERIFICATION_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      // Normalize phone and check verified voter
+      const normalizedPhone = normalizePhoneNumber(phone);
+      const voterNormalizedPhone = normalizedPhone.replace(/\D/g, '');
+      const verifiedVoterId = `${codeId}_${voterNormalizedPhone}`;
+      const voterDoc = await db.collection('verifiedVoters').doc(verifiedVoterId).get();
+
+      if (!voterDoc.exists) {
+        return NextResponse.json(
+          { error: 'Phone not verified', errorCode: 'NOT_VERIFIED' },
+          { status: 401 }
+        );
+      }
+
+      const voterData = voterDoc.data();
+
+      // Validate session token
+      if (voterData?.sessionToken !== sessionToken) {
+        return NextResponse.json(
+          { error: 'Invalid session', errorCode: 'INVALID_SESSION' },
+          { status: 401 }
+        );
+      }
+
+      // Check session expiry
+      const sessionExpiresAt = voterData?.sessionExpiresAt?.toDate();
+      if (!sessionExpiresAt || new Date() > sessionExpiresAt) {
+        return NextResponse.json(
+          { error: 'Session expired', errorCode: 'SESSION_EXPIRED' },
+          { status: 401 }
+        );
+      }
+
+      // Check if there are categories - if so, allow one vote per category
+      // instead of a total vote limit
+      if (categoryId) {
+        // Check if user already voted in this specific category
+        const existingCategoryVote = await db.collection('codes').doc(codeId)
+          .collection('votes')
+          .where('voterId', '==', voterId)
+          .where('categoryId', '==', categoryId)
+          .where('round', '==', round)
+          .limit(1)
+          .get();
+
+        if (!existingCategoryVote.empty) {
+          return NextResponse.json(
+            { error: 'Already voted in this category', errorCode: 'ALREADY_VOTED_CATEGORY' },
+            { status: 403 }
+          );
+        }
+        // For category voting, we allow voting without incrementing the global counter
+        // The vote itself will be recorded in the votes collection
+      } else {
+        // No category - use the global vote limit
+        const votesUsed = voterData?.votesUsed || 0;
+        const maxVotes = voterData?.maxVotes || 1;
+        if (votesUsed >= maxVotes) {
+          return NextResponse.json(
+            { error: 'Vote limit reached', errorCode: 'VOTE_LIMIT_REACHED', votesUsed, maxVotes },
+            { status: 403 }
+          );
+        }
+
+        // Increment votes used for this verified voter (only for non-category voting)
+        await db.collection('verifiedVoters').doc(verifiedVoterId).update({
+          votesUsed: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
     const duplicates: string[] = [];
     let votesSubmitted = 0;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Vote, Loader2, Plus, Trash2, GripVertical, Pipette, ImageIcon, Settings, Sparkles, Palette, Eye } from 'lucide-react';
+import { X, Vote, Loader2, Plus, Trash2, GripVertical, Pipette, ImageIcon, Settings, Sparkles, Palette, Eye, Shield, Upload, Phone, MessageSquare, Tablet, ChevronDown } from 'lucide-react';
 import MobilePreviewModal from './MobilePreviewModal';
 import { useTranslations, useLocale } from 'next-intl';
 import {
@@ -13,9 +13,19 @@ import {
   QVoteMessages,
   QVoteFlipbookSettings,
   QVoteLanguageMode,
+  QVoteTabletModeConfig,
   DEFAULT_QVOTE_CONFIG,
   DEFAULT_FLIPBOOK_SETTINGS,
+  DEFAULT_TABLET_MODE_CONFIG,
 } from '@/types/qvote';
+import {
+  QVoteVerificationConfig,
+  DEFAULT_VERIFICATION_CONFIG,
+  AuthorizedVoter,
+  VerificationMethod,
+} from '@/types/verification';
+import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
+import * as XLSX from 'xlsx';
 
 // Image file info type
 interface ImageFileInfo {
@@ -124,7 +134,7 @@ export default function QVoteModal({
   const isRTL = locale === 'he';
 
   // Tab state - branding is default
-  const [activeTab, setActiveTab] = useState<'basic' | 'form' | 'branding' | 'advanced'>('branding');
+  const [activeTab, setActiveTab] = useState<'basic' | 'form' | 'branding' | 'verification' | 'advanced'>('branding');
 
   // Preview modal state
   const [showPreview, setShowPreview] = useState(false);
@@ -143,6 +153,7 @@ export default function QVoteModal({
   const [languageMode, setLanguageMode] = useState<QVoteLanguageMode>('choice');
   const [shuffleCandidates, setShuffleCandidates] = useState(true); // Default: true - shuffle candidates for each viewer
   const [flipbookSettings, setFlipbookSettings] = useState<QVoteFlipbookSettings>(DEFAULT_FLIPBOOK_SETTINGS);
+  const [flipbookExpanded, setFlipbookExpanded] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<QVotePhase>('registration');
 
   // Button texts per phase (with defaults)
@@ -188,6 +199,16 @@ export default function QVoteModal({
     alreadyRegistered: isRTL ? 'כבר נרשמת לתחרות' : 'You are already registered',
   };
   const [messages, setMessages] = useState<QVoteMessages>(defaultMessages);
+
+  // Verification settings
+  const [verification, setVerification] = useState<QVoteVerificationConfig>(DEFAULT_VERIFICATION_CONFIG);
+  const [authorizedVotersFile, setAuthorizedVotersFile] = useState<File | null>(null);
+  const [isParsingVoters, setIsParsingVoters] = useState(false);
+  const [voterParseError, setVoterParseError] = useState('');
+  const voterFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Tablet/Kiosk mode settings
+  const [tabletMode, setTabletMode] = useState<QVoteTabletModeConfig>(DEFAULT_TABLET_MODE_CONFIG);
 
   // Error state
   const [error, setError] = useState('');
@@ -262,6 +283,24 @@ export default function QVoteModal({
         } else {
           setMessages(defaultMessages);
         }
+        // Load verification settings
+        if (initialConfig.verification) {
+          setVerification({
+            ...DEFAULT_VERIFICATION_CONFIG,
+            ...initialConfig.verification,
+          });
+        } else {
+          setVerification(DEFAULT_VERIFICATION_CONFIG);
+        }
+        // Load tablet mode settings
+        if (initialConfig.tabletMode) {
+          setTabletMode({
+            ...DEFAULT_TABLET_MODE_CONFIG,
+            ...initialConfig.tabletMode,
+          });
+        } else {
+          setTabletMode(DEFAULT_TABLET_MODE_CONFIG);
+        }
       } else {
         // Reset to defaults
         setTitle('');
@@ -289,9 +328,13 @@ export default function QVoteModal({
         setXpForPackThreshold(50);
         setLandingImagePreview(null);
         setMessages(defaultMessages);
+        setVerification(DEFAULT_VERIFICATION_CONFIG);
+        setTabletMode(DEFAULT_TABLET_MODE_CONFIG);
       }
       setLandingImageFile(null);
       setLandingImageInfo(null);
+      setAuthorizedVotersFile(null);
+      setVoterParseError('');
       setError('');
       // Only reset tab when modal first opens (not on config updates)
       if (!wasOpenRef.current) {
@@ -412,6 +455,91 @@ export default function QVoteModal({
     });
   };
 
+  // Parse authorized voters Excel file
+  const parseAuthorizedVotersFile = async (file: File) => {
+    setIsParsingVoters(true);
+    setVoterParseError('');
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
+
+      if (data.length === 0) {
+        setVoterParseError(isRTL ? 'הקובץ ריק' : 'File is empty');
+        return;
+      }
+
+      const voters: AuthorizedVoter[] = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        // Try different column names for phone
+        const phoneValue = row['phone'] || row['Phone'] || row['טלפון'] || row['מספר טלפון'] || row['mobile'] || row['Mobile'] || Object.values(row)[0];
+        const nameValue = row['name'] || row['Name'] || row['שם'] || row['שם מלא'] || Object.values(row)[1] || '';
+        const maxVotesValue = row['maxVotes'] || row['max_votes'] || row['הצבעות'] || undefined;
+
+        if (!phoneValue) {
+          errors.push(`${isRTL ? 'שורה' : 'Row'} ${i + 2}: ${isRTL ? 'חסר מספר טלפון' : 'Missing phone number'}`);
+          continue;
+        }
+
+        const phone = String(phoneValue);
+        const normalized = normalizePhoneNumber(phone);
+
+        if (!isValidIsraeliMobile(normalized)) {
+          errors.push(`${isRTL ? 'שורה' : 'Row'} ${i + 2}: ${isRTL ? 'מספר לא תקין' : 'Invalid phone'} (${phone})`);
+          continue;
+        }
+
+        voters.push({
+          phone: normalized,
+          name: nameValue ? String(nameValue) : undefined,
+          maxVotes: maxVotesValue ? Number(maxVotesValue) : undefined,
+        });
+      }
+
+      if (voters.length === 0) {
+        setVoterParseError(errors.length > 0
+          ? errors.slice(0, 3).join('\n') + (errors.length > 3 ? `\n... +${errors.length - 3} ${isRTL ? 'שגיאות נוספות' : 'more errors'}` : '')
+          : (isRTL ? 'לא נמצאו מספרי טלפון תקינים' : 'No valid phone numbers found')
+        );
+        return;
+      }
+
+      // Remove duplicates by phone
+      const uniqueVoters = voters.filter((v, i, arr) =>
+        arr.findIndex(x => x.phone === v.phone) === i
+      );
+
+      setVerification({
+        ...verification,
+        authorizedVoters: uniqueVoters,
+      });
+      setAuthorizedVotersFile(file);
+
+      if (errors.length > 0) {
+        setVoterParseError(`${isRTL ? 'יובאו' : 'Imported'} ${uniqueVoters.length} ${isRTL ? 'מספרים. שגיאות:' : 'numbers. Errors:'}\n${errors.slice(0, 2).join('\n')}`);
+      }
+    } catch (err) {
+      console.error('Error parsing voters file:', err);
+      setVoterParseError(isRTL ? 'שגיאה בקריאת הקובץ' : 'Error reading file');
+    } finally {
+      setIsParsingVoters(false);
+    }
+  };
+
+  // Handle voter file selection
+  const handleVoterFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      parseAuthorizedVotersFile(file);
+    }
+  };
+
   // Handle save
   const handleSave = async () => {
     // Validate
@@ -426,7 +554,7 @@ export default function QVoteModal({
       return;
     }
 
-    // Build config
+    // Build config - avoid undefined values for Firestore
     const config: QVoteConfig = {
       formFields: formFields.map((f, i) => ({ ...f, order: i })),
       categories: categories.map((c, i) => ({ ...c, order: i })),
@@ -452,7 +580,8 @@ export default function QVoteModal({
       },
       branding: {
         ...branding,
-        landingImage: landingImagePreview || undefined,
+        // Only include landingImage if it has a value
+        ...(landingImagePreview ? { landingImage: landingImagePreview } : {}),
         buttonTexts: {
           registration: buttonTexts.registration,
           preparation: buttonTexts.preparation,
@@ -471,6 +600,9 @@ export default function QVoteModal({
         waitForApproval: messages.waitForApproval,
         alreadyRegistered: messages.alreadyRegistered,
       },
+      // Only include verification/tabletMode if enabled
+      ...(verification.enabled ? { verification } : {}),
+      ...(tabletMode.enabled ? { tabletMode } : {}),
     };
 
     await onSave(config, landingImageFile || undefined);
@@ -482,6 +614,7 @@ export default function QVoteModal({
     { id: 'branding', label: isRTL ? 'מיתוג' : 'Branding', icon: Palette },
     { id: 'form', label: isRTL ? 'שדות טופס' : 'Form Fields', icon: Vote },
     { id: 'basic', label: isRTL ? 'הגדרות בסיסיות' : 'Basic Settings', icon: Settings },
+    { id: 'verification', label: isRTL ? 'אימות' : 'Verification', icon: Shield },
     { id: 'advanced', label: isRTL ? 'מתקדם' : 'Advanced', icon: Sparkles },
   ] as const;
 
@@ -563,44 +696,56 @@ export default function QVoteModal({
                     <label className="text-sm text-text-secondary">
                       {isRTL ? 'מינימום בחירות למצביע' : 'Min selections per voter'}
                     </label>
-                    <select
-                      value={minSelectionsPerVoter}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        setMinSelectionsPerVoter(val);
-                        // Ensure max >= min
-                        if (val > maxSelectionsPerVoter) {
-                          setMaxSelectionsPerVoter(val);
-                        }
-                      }}
-                      className="input w-full"
-                    >
+                    <div className="flex flex-wrap gap-2">
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <option key={n} value={n}>{n}</option>
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => {
+                            setMinSelectionsPerVoter(n);
+                            // Ensure max >= min
+                            if (n > maxSelectionsPerVoter) {
+                              setMaxSelectionsPerVoter(n);
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            minSelectionsPerVoter === n
+                              ? 'bg-accent text-white'
+                              : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                          }`}
+                        >
+                          {n}
+                        </button>
                       ))}
-                    </select>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm text-text-secondary">
                       {isRTL ? 'מקסימום בחירות למצביע' : 'Max selections per voter'}
                     </label>
-                    <select
-                      value={maxSelectionsPerVoter}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        setMaxSelectionsPerVoter(val);
-                        // Ensure min <= max
-                        if (val < minSelectionsPerVoter) {
-                          setMinSelectionsPerVoter(val);
-                        }
-                      }}
-                      className="input w-full"
-                    >
+                    <div className="flex flex-wrap gap-2">
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <option key={n} value={n}>{n}</option>
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => {
+                            setMaxSelectionsPerVoter(n);
+                            // Ensure min <= max
+                            if (n < minSelectionsPerVoter) {
+                              setMinSelectionsPerVoter(n);
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            maxSelectionsPerVoter === n
+                              ? 'bg-accent text-white'
+                              : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                          }`}
+                        >
+                          {n}
+                        </button>
                       ))}
-                    </select>
+                    </div>
                   </div>
                 </div>
 
@@ -1329,6 +1474,246 @@ export default function QVoteModal({
             </div>
           )}
 
+          {/* Verification Tab */}
+          {activeTab === 'verification' && (
+            <div className="space-y-6">
+              {/* Main Toggle */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Shield className="w-5 h-5 text-accent" />
+                  <h3 className="font-medium text-text-primary">
+                    {isRTL ? 'אימות מצביעים' : 'Voter Verification'}
+                  </h3>
+                </div>
+                <p className="text-sm text-text-secondary">
+                  {isRTL
+                    ? 'דרוש אימות טלפון באמצעות קוד חד-פעמי לפני ההצבעה'
+                    : 'Require phone verification via one-time code before voting'}
+                </p>
+
+                <ToggleSetting
+                  label={isRTL ? 'הפעל אימות טלפון' : 'Enable phone verification'}
+                  description={isRTL ? 'מצביעים יצטרכו לאמת את מספר הטלפון שלהם' : 'Voters will need to verify their phone number'}
+                  value={verification.enabled}
+                  onChange={(val) => setVerification({ ...verification, enabled: val })}
+                />
+              </div>
+
+              {verification.enabled && (
+                <>
+                  {/* Verification Method + Max Votes Per Phone - Side by Side */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Verification Method */}
+                    <div className="space-y-3 p-4 bg-bg-secondary rounded-xl">
+                      <p className="text-sm font-medium text-text-primary">
+                        {isRTL ? 'שיטת אימות' : 'Verification Method'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { value: 'whatsapp' as VerificationMethod, label: 'WhatsApp', icon: MessageSquare },
+                          { value: 'sms' as VerificationMethod, label: 'SMS', icon: Phone },
+                          { value: 'both' as VerificationMethod, label: isRTL ? 'שניהם' : 'Both', icon: Shield },
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setVerification({ ...verification, method: option.value })}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              verification.method === option.value
+                                ? 'bg-accent text-white'
+                                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                            }`}
+                          >
+                            <option.icon className="w-4 h-4" />
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Max Votes Per Phone */}
+                    <div className="space-y-3 p-4 bg-bg-secondary rounded-xl">
+                      <p className="text-sm font-medium text-text-primary">
+                        {isRTL ? 'מקסימום הצבעות לטלפון' : 'Max votes per phone'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {[1, 2, 3, 5, 10].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setVerification({ ...verification, maxVotesPerPhone: n })}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              verification.maxVotesPerPhone === n
+                                ? 'bg-accent text-white'
+                                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Authorized Voters Only + Advanced Settings - Side by Side */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Authorized Voters Only */}
+                    <div className="space-y-3 p-4 bg-bg-secondary rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-text-primary">
+                          {isRTL ? 'רק מספרים מאושרים' : 'Authorized numbers only'}
+                        </p>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={verification.authorizedVotersOnly}
+                          onClick={() => setVerification({ ...verification, authorizedVotersOnly: !verification.authorizedVotersOnly })}
+                          className={`relative w-11 h-6 rounded-full transition-colors ${
+                            verification.authorizedVotersOnly ? 'bg-accent' : 'bg-bg-tertiary'
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                              verification.authorizedVotersOnly ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Advanced Settings */}
+                    <div className="space-y-3 p-4 bg-bg-secondary rounded-xl">
+                      <p className="text-sm font-medium text-text-primary">
+                        {isRTL ? 'הגדרות מתקדמות' : 'Advanced Settings'}
+                      </p>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="text-xs text-text-secondary block mb-1">
+                            {isRTL ? 'תוקף קוד' : 'Code expiry'}
+                          </label>
+                          <select
+                            value={verification.codeExpiryMinutes}
+                            onChange={(e) => setVerification({ ...verification, codeExpiryMinutes: Number(e.target.value) })}
+                            className="input w-full text-sm appearance-none cursor-pointer"
+                            style={{ backgroundImage: 'none' }}
+                          >
+                            {[3, 5, 10, 15].map((n) => (
+                              <option key={n} value={n}>{n} {isRTL ? 'דק׳' : 'min'}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-xs text-text-secondary block mb-1">
+                            {isRTL ? 'ניסיונות' : 'Attempts'}
+                          </label>
+                          <select
+                            value={verification.maxAttempts}
+                            onChange={(e) => setVerification({ ...verification, maxAttempts: Number(e.target.value) })}
+                            className="input w-full text-sm appearance-none cursor-pointer"
+                            style={{ backgroundImage: 'none' }}
+                          >
+                            {[3, 5, 10].map((n) => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Authorized Voters List (shows when toggle is on) */}
+                  {verification.authorizedVotersOnly && (
+                    <div className="space-y-3 p-4 bg-bg-secondary rounded-xl">
+                      {/* Upload Button */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">
+                            {isRTL ? 'רשימת מצביעים מורשים' : 'Authorized voters list'}
+                          </p>
+                          <p className="text-xs text-text-secondary mt-0.5">
+                            {isRTL ? 'העלה קובץ Excel עם עמודות: טלפון, שם' : 'Upload Excel file with columns: phone, name'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => voterFileInputRef.current?.click()}
+                          disabled={isParsingVoters}
+                          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover disabled:opacity-50 transition-all"
+                        >
+                          {isParsingVoters ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                          {isRTL ? 'העלה קובץ' : 'Upload'}
+                        </button>
+                        <input
+                          ref={voterFileInputRef}
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          className="hidden"
+                          onChange={handleVoterFileSelect}
+                        />
+                      </div>
+
+                      {/* Error */}
+                      {voterParseError && (
+                        <p className="text-sm text-danger bg-danger/10 px-3 py-2 rounded-lg whitespace-pre-line">
+                          {voterParseError}
+                        </p>
+                      )}
+
+                      {/* Voters Count */}
+                      {verification.authorizedVoters && verification.authorizedVoters.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-success">
+                              {verification.authorizedVoters.length} {isRTL ? 'מצביעים ברשימה' : 'voters in list'}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setVerification({ ...verification, authorizedVoters: [] });
+                                setAuthorizedVotersFile(null);
+                              }}
+                              className="text-sm text-danger hover:underline"
+                            >
+                              {isRTL ? 'נקה רשימה' : 'Clear list'}
+                            </button>
+                          </div>
+
+                          {/* Preview first 5 voters */}
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {verification.authorizedVoters.slice(0, 5).map((voter, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between text-xs bg-bg-tertiary px-3 py-2 rounded-lg"
+                              >
+                                <span className="text-text-primary font-mono" dir="ltr">
+                                  {voter.phone.replace('+972', '0')}
+                                </span>
+                                {voter.name && (
+                                  <span className="text-text-secondary truncate max-w-[150px]">
+                                    {voter.name}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                            {verification.authorizedVoters.length > 5 && (
+                              <p className="text-xs text-text-secondary text-center py-1">
+                                +{verification.authorizedVoters.length - 5} {isRTL ? 'נוספים' : 'more'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Advanced Tab */}
           {activeTab === 'advanced' && (
             <div className="space-y-6">
@@ -1381,21 +1766,31 @@ export default function QVoteModal({
                 )}
               </div>
 
-              {/* Flipbook Settings for Results */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Settings className="w-5 h-5 text-accent" />
-                  <h3 className="font-medium text-text-primary">
-                    {isRTL ? 'הגדרות פליפבוק תוצאות' : 'Results Flipbook Settings'}
-                  </h3>
-                </div>
-                <p className="text-sm text-text-secondary">
-                  {isRTL
-                    ? 'הגדרות עבור תצוגת התוצאות בפליפבוק'
-                    : 'Settings for the results flipbook view'}
-                </p>
+              {/* Flipbook Settings for Results - Collapsible */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setFlipbookExpanded(!flipbookExpanded)}
+                  className="w-full flex items-center justify-between p-4 bg-bg-secondary rounded-xl hover:bg-bg-secondary/80 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Settings className="w-5 h-5 text-accent" />
+                    <div className="text-start">
+                      <h3 className="font-medium text-text-primary">
+                        {isRTL ? 'הגדרות פליפבוק תוצאות' : 'Results Flipbook Settings'}
+                      </h3>
+                      <p className="text-xs text-text-secondary">
+                        {isRTL
+                          ? 'הגדרות עבור תצוגת התוצאות בפליפבוק'
+                          : 'Settings for the results flipbook view'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-text-secondary transition-transform ${flipbookExpanded ? 'rotate-180' : ''}`} />
+                </button>
 
-                <div className="space-y-4 p-4 bg-bg-secondary rounded-xl">
+                {flipbookExpanded && (
+                <div className="space-y-4 p-4 bg-bg-secondary rounded-xl mt-2">
                   {/* Page Mode */}
                   <div className="flex items-center justify-between">
                     <div>
@@ -1523,6 +1918,56 @@ export default function QVoteModal({
                     onChange={(val) => setFlipbookSettings({ ...flipbookSettings, startFromLast: val })}
                   />
                 </div>
+                )}
+              </div>
+
+              {/* Tablet/Kiosk Mode */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Tablet className="w-5 h-5 text-accent" />
+                  <h3 className="font-medium text-text-primary">
+                    {isRTL ? 'מצב טאבלט / קיוסק' : 'Tablet / Kiosk Mode'}
+                  </h3>
+                </div>
+
+                <ToggleSetting
+                  label={isRTL ? 'הפעל מצב טאבלט' : 'Enable tablet mode'}
+                  description={isRTL
+                    ? 'לאחר הצבעה, המסך יחזור אוטומטית לאפשר הצבעה נוספת'
+                    : 'After voting, screen will auto-reset to allow another vote'}
+                  value={tabletMode.enabled}
+                  onChange={(val) => setTabletMode({ ...tabletMode, enabled: val })}
+                />
+
+                {tabletMode.enabled && (
+                  <div className="space-y-4 p-4 bg-bg-secondary rounded-xl">
+                    <div className="space-y-2">
+                      <label className="text-sm text-text-secondary">
+                        {isRTL ? 'השהיה לפני חזרה (שניות)' : 'Reset delay (seconds)'}
+                      </label>
+                      <div className="flex gap-2">
+                        {[3, 5, 7, 10].map((seconds) => (
+                          <button
+                            key={seconds}
+                            onClick={() => setTabletMode({ ...tabletMode, resetDelaySeconds: seconds })}
+                            className={`px-4 py-2 text-sm rounded-lg transition-all ${
+                              tabletMode.resetDelaySeconds === seconds
+                                ? 'bg-accent text-white'
+                                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary/80'
+                            }`}
+                          >
+                            {seconds}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs text-text-tertiary">
+                      {isRTL
+                        ? 'מומלץ להתקין את הדף כאפליקציה (Add to Home Screen) להסתרת ממשק הדפדפן'
+                        : 'Recommended: Install page as app (Add to Home Screen) to hide browser UI'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Custom Messages */}

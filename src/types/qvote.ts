@@ -135,6 +135,18 @@ export const DEFAULT_FLIPBOOK_SETTINGS: QVoteFlipbookSettings = {
   startFromLast: false,
 };
 
+// Tablet/Kiosk mode settings for continuous voting
+export interface QVoteTabletModeConfig {
+  enabled: boolean;
+  resetDelaySeconds: number;  // Seconds before auto-reset (default: 5)
+}
+
+// Default tablet mode settings
+export const DEFAULT_TABLET_MODE_CONFIG: QVoteTabletModeConfig = {
+  enabled: false,
+  resetDelaySeconds: 5,
+};
+
 // Statistics for the voting session
 export interface QVoteStats {
   totalCandidates: number;          // How many registered
@@ -173,6 +185,12 @@ export interface QVoteConfig {
   maxVoteChanges?: number;           // Max times a voter can change their vote (0 = no changes, undefined = no changes)
   languageMode?: QVoteLanguageMode;  // 'he' = Hebrew only, 'en' = English only, 'choice' = user selects
   shuffleCandidates?: boolean;       // Shuffle candidates order for each viewer (default: true)
+
+  // Phone verification for voters
+  verification?: import('./verification').QVoteVerificationConfig;
+
+  // Tablet/Kiosk mode for continuous voting on shared devices
+  tabletMode?: QVoteTabletModeConfig;
 
   // Gamification for voters
   gamification: QVoteGamification;
