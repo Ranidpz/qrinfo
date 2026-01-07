@@ -24,6 +24,7 @@ export const MEDIA_TYPE_INFO: Record<MediaType, {
   qstage: { icon: 'Sparkles', labelHe: 'הצבעה חיה', labelEn: 'Live Vote' },
   qhunt: { icon: 'Crosshair', labelHe: 'ציד קודים', labelEn: 'Code Hunt' },
   qtreasure: { icon: 'Map', labelHe: 'ציד אוצרות', labelEn: 'Treasure Hunt' },
+  qchallenge: { icon: 'Trophy', labelHe: 'טריוויה', labelEn: 'Trivia' },
 };
 
 /**
@@ -102,6 +103,10 @@ function getMediaTitle(item: MediaItem, locale: 'he' | 'en'): string {
       return item.qstageConfig?.branding?.eventName || item.title || 'Q.Stage';
     case 'qhunt':
       return item.qhuntConfig?.branding?.gameTitle || item.title || 'Q.Hunt';
+    case 'qtreasure':
+      return item.qtreasureConfig?.branding?.gameTitle || item.title || 'Q.Treasure';
+    case 'qchallenge':
+      return item.qchallengeConfig?.branding?.quizTitle || item.title || 'Q.Challenge';
     case 'pdf':
       return item.title || item.filename?.replace(/\.pdf$/i, '') || (isHe ? 'מסמך' : 'Document');
     case 'video':

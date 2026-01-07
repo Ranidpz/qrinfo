@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Check, XCircle, Eye, EyeOff, Trophy, Loader2, User, Calendar, Image as ImageIcon, RefreshCw, Trash2 } from 'lucide-react';
+import { X, Check, XCircle, Eye, EyeOff, Trophy, Loader2, User, Calendar, Image as ImageIcon, RefreshCw, Trash2, Move } from 'lucide-react';
 import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, deleteAllQVoteData, recalculateStats } from '@/lib/qvote';
-import { Candidate } from '@/types/qvote';
+import { Candidate, ImagePositionConfig, DEFAULT_IMAGE_POSITION, CandidatePhoto } from '@/types/qvote';
 import { useLocale } from 'next-intl';
+import { ImagePositionEditor } from '@/components/image-preview';
 
 interface QVoteCandidatesModalProps {
   isOpen: boolean;
@@ -28,6 +29,12 @@ export default function QVoteCandidatesModal({
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'finalists'>('all');
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [deletingAll, setDeletingAll] = useState(false);
+
+  // Image position editor state
+  const [showPositionEditor, setShowPositionEditor] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const [editingPhotoIndex, setEditingPhotoIndex] = useState(0);
+  const [tempPhotoPosition, setTempPhotoPosition] = useState<ImagePositionConfig>(DEFAULT_IMAGE_POSITION);
 
   // Load candidates
   const loadCandidates = async () => {
@@ -148,6 +155,45 @@ export default function QVoteCandidatesModal({
       alert(isRTL ? 'שגיאה במחיקת המועמדים' : 'Error deleting candidates');
     } finally {
       setDeletingAll(false);
+    }
+  };
+
+  // Image position handlers
+  const handleOpenPositionEditor = (candidate: Candidate, photoIndex: number = 0) => {
+    const photo = candidate.photos[photoIndex];
+    if (!photo) return;
+
+    setEditingCandidate(candidate);
+    setEditingPhotoIndex(photoIndex);
+    setTempPhotoPosition(photo.position || DEFAULT_IMAGE_POSITION);
+    setShowPositionEditor(true);
+  };
+
+  const handleSavePhotoPosition = async (position: ImagePositionConfig) => {
+    if (!editingCandidate) return;
+
+    const updatedPhotos = [...editingCandidate.photos];
+    if (updatedPhotos[editingPhotoIndex]) {
+      updatedPhotos[editingPhotoIndex] = {
+        ...updatedPhotos[editingPhotoIndex],
+        position,
+      };
+    }
+
+    setUpdating(editingCandidate.id);
+    try {
+      await updateCandidate(codeId, editingCandidate.id, { photos: updatedPhotos });
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === editingCandidate.id ? { ...c, photos: updatedPhotos } : c
+        )
+      );
+      setShowPositionEditor(false);
+      setEditingCandidate(null);
+    } catch (error) {
+      console.error('Error saving photo position:', error);
+    } finally {
+      setUpdating(null);
     }
   };
 
@@ -345,13 +391,30 @@ export default function QVoteCandidatesModal({
                   />
 
                   {/* Photo */}
-                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-bg-hover shrink-0">
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-bg-hover shrink-0 group">
                     {candidate.photos[0] ? (
-                      <img
-                        src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
+                      <>
+                        <img
+                          src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Position button overlay */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenPositionEditor(candidate, 0);
+                          }}
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                          title={isRTL ? 'מיקום תמונה' : 'Position image'}
+                        >
+                          <Move className="w-5 h-5 text-white" />
+                        </button>
+                        {/* Position indicator */}
+                        {candidate.photos[0].position?.mode === 'custom' && (
+                          <div className="absolute bottom-0.5 right-0.5 w-2 h-2 bg-green-500 rounded-full" title={isRTL ? 'מיקום מותאם' : 'Custom position'} />
+                        )}
+                      </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <ImageIcon className="w-6 h-6 text-text-secondary" />
@@ -508,6 +571,21 @@ export default function QVoteCandidatesModal({
           </button>
         </div>
       </div>
+
+      {/* Image Position Editor Modal */}
+      {showPositionEditor && editingCandidate?.photos[editingPhotoIndex] && (
+        <ImagePositionEditor
+          imageUrl={editingCandidate.photos[editingPhotoIndex].url}
+          position={tempPhotoPosition}
+          onPositionChange={setTempPhotoPosition}
+          onSave={() => handleSavePhotoPosition(tempPhotoPosition)}
+          onCancel={() => {
+            setShowPositionEditor(false);
+            setEditingCandidate(null);
+          }}
+          locale={locale as 'he' | 'en'}
+        />
+      )}
     </div>
   );
 }

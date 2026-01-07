@@ -14,6 +14,7 @@ import WeeklyCalendarViewer from '@/components/viewer/WeeklyCalendarViewer';
 import { QStageDisplay, QStageMobileVoter } from '@/components/qstage';
 import { QHuntPlayerView, QHuntDisplay } from '@/components/qhunt';
 import { QTreasurePlayerView } from '@/components/qtreasure';
+import QChallengeViewer from '@/components/viewer/QChallengeViewer';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
 import LandingPageViewer from '@/components/viewer/LandingPageViewer';
 import { shouldShowLandingPage } from '@/lib/landingPage';
@@ -1138,6 +1139,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isQStage = media.length === 1 && currentMedia?.type === 'qstage';
   const isQHunt = media.length === 1 && currentMedia?.type === 'qhunt';
   const isQTreasure = media.length === 1 && currentMedia?.type === 'qtreasure';
+  const isQChallenge = media.length === 1 && currentMedia?.type === 'qchallenge';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
@@ -1373,6 +1375,14 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                 shortId={shortId}
               />
             )}
+            {activeViewer.type === 'qchallenge' && !Array.isArray(activeViewer.media) && activeViewer.media.qchallengeConfig && (
+              <QChallengeViewer
+                codeId={codeId}
+                mediaId={activeViewer.media.id}
+                initialConfig={activeViewer.media.qchallengeConfig}
+                shortId={shortId}
+              />
+            )}
           </div>
         ) : needsMixedSwiper ? (
           // Mixed media types - use swiper to navigate between all types
@@ -1538,6 +1548,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             codeId={codeId}
             mediaId={currentMedia.id}
             initialConfig={currentMedia.qtreasureConfig}
+            shortId={shortId}
+          />
+        ) : isQChallenge && currentMedia.qchallengeConfig ? (
+          <QChallengeViewer
+            codeId={codeId}
+            mediaId={currentMedia.id}
+            initialConfig={currentMedia.qchallengeConfig}
             shortId={shortId}
           />
         ) : isPDF ? (

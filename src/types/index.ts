@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge';
 
 // Riddle content structure
 export interface RiddleContent {
@@ -152,6 +152,7 @@ export interface MediaItem {
   qstageConfig?: import('./qstage').QStageConfig; // Configuration for qstage type (live voting)
   qhuntConfig?: import('./qhunt').QHuntConfig; // Configuration for qhunt type (code hunting game)
   qtreasureConfig?: import('./qtreasure').QTreasureConfig; // Configuration for qtreasure type (treasure hunt game)
+  qchallengeConfig?: import('./qchallenge').QChallengeConfig; // Configuration for qchallenge type (trivia quiz game)
   createdAt: Date;
 }
 
