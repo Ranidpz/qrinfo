@@ -100,6 +100,14 @@ export async function generateMetadata({ params }: ViewerPageProps) {
       title: `${code.title} - QR.info`,
       description,
       manifest: `/v/${shortId}/manifest.json`,
+      appleWebApp: {
+        capable: true,
+        statusBarStyle: 'black-translucent',
+        title: code.title,
+      },
+      icons: {
+        apple: '/icons/apple-touch-icon.png',
+      },
       openGraph: {
         title: code.title,
         description,

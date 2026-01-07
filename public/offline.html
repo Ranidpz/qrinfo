@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Internet Required | The Q</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: white;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      color: white;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: white;
+    }
+
+    .message {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #9ca3af;
+      margin-bottom: 32px;
+    }
+
+    .retry-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+    }
+
+    .retry-btn:active {
+      transform: translateY(0);
+    }
+
+    .lang-switch {
+      position: fixed;
+      bottom: 24px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .lang-btn {
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .lang-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .lang-btn.active {
+      background: rgba(59, 130, 246, 0.3);
+      border-color: #3b82f6;
+    }
+
+    [lang="en"] {
+      direction: ltr;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+      </svg>
+    </div>
+
+    <h1 class="title" id="title"></h1>
+    <p class="message" id="message"></p>
+
+    <button class="retry-btn" onclick="location.reload()">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      <span id="retry-text"></span>
+    </button>
+  </div>
+
+  <div class="lang-switch">
+    <button class="lang-btn" onclick="setLang('he')" id="btn-he">עברית</button>
+    <button class="lang-btn" onclick="setLang('en')" id="btn-en">English</button>
+  </div>
+
+  <script>
+    const texts = {
+      he: {
+        title: 'נדרש חיבור לאינטרנט',
+        message: 'המערכת לא מזהה חיבור לאינטרנט כרגע. אנא בדקו את החיבור ונסו שוב.',
+        retry: 'נסו שוב'
+      },
+      en: {
+        title: 'Internet Connection Required',
+        message: 'The system cannot detect an internet connection. Please check your connection and try again.',
+        retry: 'Try Again'
+      }
+    };
+
+    function setLang(lang) {
+      const t = texts[lang];
+      document.getElementById('title').textContent = t.title;
+      document.getElementById('message').textContent = t.message;
+      document.getElementById('retry-text').textContent = t.retry;
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+
+      document.getElementById('btn-he').classList.toggle('active', lang === 'he');
+      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+
+      localStorage.setItem('offline-lang', lang);
+    }
+
+    // Detect language
+    const savedLang = localStorage.getItem('offline-lang');
+    const browserLang = navigator.language.startsWith('he') ? 'he' : 'en';
+    setLang(savedLang || browserLang);
+
+    // Auto-retry when back online
+    window.addEventListener('online', () => {
+      location.reload();
+    });
+  </script>
+</body>
+</html>

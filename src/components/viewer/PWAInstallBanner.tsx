@@ -63,7 +63,7 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
     const isIOS_ = isIOS();
     setIsIOSDevice(isIOS_);
 
-    // For iOS, show banner after a short delay
+    // For iOS, show banner after a short delay (no SW needed)
     if (isIOS_) {
       const timer = setTimeout(() => {
         setShowBanner(true);
@@ -71,26 +71,51 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
       return () => clearTimeout(timer);
     }
 
-    // For other browsers, wait for beforeinstallprompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowBanner(true);
+    // For non-iOS, wait for service worker to be ready before showing banner
+    // This ensures the install prompt will work
+    const setupInstallPrompt = async () => {
+      // Wait for service worker to be ready
+      if ('serviceWorker' in navigator) {
+        try {
+          await navigator.serviceWorker.ready;
+        } catch {
+          // SW not available, continue anyway
+        }
+      }
+
+      // For other browsers, wait for beforeinstallprompt event
+      const handleBeforeInstallPrompt = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e as BeforeInstallPromptEvent);
+        setShowBanner(true);
+      };
+
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+      // Show banner anyway after 3 seconds if event doesn't fire
+      // (some browsers support PWA but don't fire the event)
+      const fallbackTimer = setTimeout(() => {
+        setShowBanner(true);
+      }, 3000);
+
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        clearTimeout(fallbackTimer);
+      };
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    const cleanup = setupInstallPrompt();
 
-    // Show banner anyway after 3 seconds if event doesn't fire
-    // (some browsers support PWA but don't fire the event)
-    const fallbackTimer = setTimeout(() => {
-      if (!deferredPrompt) {
-        setShowBanner(true);
-      }
-    }, 3000);
+    // Listen for successful installation
+    const handleAppInstalled = () => {
+      setShowBanner(false);
+      console.log('[PWA] App installed successfully');
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      clearTimeout(fallbackTimer);
+      cleanup.then((cleanupFn) => cleanupFn?.());
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, [shortId]);
 

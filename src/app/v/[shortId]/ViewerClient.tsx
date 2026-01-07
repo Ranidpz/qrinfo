@@ -1060,6 +1060,19 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
     setLoadMessage(viewerTranslations[browserLocale].loadingContent);
   }, []);
 
+  // Register service worker for PWA installation
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('[SW] Registered:', registration.scope);
+        })
+        .catch((error) => {
+          console.error('[SW] Registration failed:', error);
+        });
+    }
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadMessage, setLoadMessage] = useState(t.loadingContent);
