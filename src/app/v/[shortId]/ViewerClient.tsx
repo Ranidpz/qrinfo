@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
+import dynamic from 'next/dynamic';
 import { ChevronLeft, ChevronRight, ExternalLink, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { MediaItem, CodeWidgets, LinkSource, LandingPageConfig, DEFAULT_LANDING_PAGE_CONFIG, PDFFlipbookSettings } from '@/types';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import ContactWidget from '@/components/viewer/ContactWidget';
-import RiddleViewer from '@/components/viewer/RiddleViewer';
-import SelfiebeamViewer from '@/components/viewer/SelfiebeamViewer';
+// Dynamic imports for components that use isomorphic-dompurify (jsdom SSR issue)
+const RiddleViewer = dynamic(() => import('@/components/viewer/RiddleViewer'), { ssr: false });
+const SelfiebeamViewer = dynamic(() => import('@/components/viewer/SelfiebeamViewer'), { ssr: false });
 import QVoteViewer from '@/components/viewer/QVoteViewer';
 import WeeklyCalendarViewer from '@/components/viewer/WeeklyCalendarViewer';
 import { QStageDisplay, QStageMobileVoter } from '@/components/qstage';
