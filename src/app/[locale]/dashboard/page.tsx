@@ -1152,8 +1152,8 @@ export default function DashboardPage() {
           // Deep copy Q.Vote config but reset stats (votes are NOT copied)
           qvoteConfig: m.qvoteConfig ? {
             ...m.qvoteConfig,
-            categories: m.qvoteConfig.categories ? m.qvoteConfig.categories.map((c: Record<string, unknown>) => ({ ...c })) : undefined,
-            registrationFields: m.qvoteConfig.registrationFields ? m.qvoteConfig.registrationFields.map((f: Record<string, unknown>) => ({ ...f })) : undefined,
+            categories: m.qvoteConfig.categories ? m.qvoteConfig.categories.map((c) => ({ ...c })) : [],
+            formFields: m.qvoteConfig.formFields ? m.qvoteConfig.formFields.map((f) => ({ ...f })) : [],
             verification: m.qvoteConfig.verification ? { ...m.qvoteConfig.verification } : undefined,
             // Reset stats to zero for the duplicate
             stats: {
