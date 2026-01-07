@@ -48,6 +48,7 @@ import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, upda
 import { subscribeToCodeViews } from '@/lib/analytics';
 import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign, LandingPageConfig } from '@/types';
 import { QVoteConfig } from '@/types/qvote';
+import { getCandidates, bulkCreateCandidates } from '@/lib/qvote';
 import { QStageConfig } from '@/types/qstage';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
 
@@ -754,11 +755,64 @@ export default function CodeEditPage({ params }: PageProps) {
           if (m.linkTitle) mediaData.linkTitle = m.linkTitle;
           if (m.riddleContent) mediaData.riddleContent = m.riddleContent;
           if (m.selfiebeamContent) mediaData.selfiebeamContent = m.selfiebeamContent;
-          if (m.qvoteConfig) mediaData.qvoteConfig = m.qvoteConfig;
+          // Deep copy Q.Vote config but reset stats (votes are NOT copied)
+          if (m.qvoteConfig) {
+            mediaData.qvoteConfig = removeUndefined({
+              ...m.qvoteConfig,
+              categories: m.qvoteConfig.categories ? m.qvoteConfig.categories.map((c) => removeUndefined({ ...c })) : [],
+              formFields: m.qvoteConfig.formFields ? m.qvoteConfig.formFields.map((f) => removeUndefined({ ...f })) : [],
+              verification: m.qvoteConfig.verification ? removeUndefined({ ...m.qvoteConfig.verification }) : undefined,
+              // Reset stats to zero for the duplicate
+              stats: {
+                totalCandidates: 0,
+                approvedCandidates: 0,
+                totalVoters: 0,
+                totalVotes: 0,
+                finalsVoters: 0,
+                finalsVotes: 0,
+                lastUpdated: new Date(),
+              },
+              // Reset phase to registration for fresh start
+              currentPhase: 'registration',
+            });
+          }
           if (m.weeklycalConfig) mediaData.weeklycalConfig = m.weeklycalConfig;
           return mediaData as Omit<MediaItem, 'id' | 'createdAt'>;
         })
       );
+
+      // If this is a Q.Vote code, copy candidates too (without votes)
+      const hasQVote = code.media.some((m) => m.type === 'qvote');
+      if (hasQVote) {
+        try {
+          // Get all candidates from original code
+          const originalCandidates = await getCandidates(code.id);
+
+          if (originalCandidates.length > 0) {
+            // Prepare candidates for bulk creation (reset vote counts)
+            const candidatesToCopy = originalCandidates.map((c) => ({
+              name: c.name,
+              formData: c.formData || {},
+              photos: c.photos || [],
+              categoryId: c.categoryId,
+              categoryIds: c.categoryIds || [],
+              source: c.source,
+              isApproved: c.isApproved,
+              isFinalist: false, // Reset finalist status
+              isHidden: c.isHidden,
+              displayOrder: c.displayOrder,
+              visitorId: c.visitorId,
+            }));
+
+            // Create candidates in the new code
+            const result = await bulkCreateCandidates(newCode.id, candidatesToCopy);
+            console.log(`Duplicated ${result.success} candidates to new code ${newCode.id}`);
+          }
+        } catch (candidateError) {
+          console.error('Error copying candidates:', candidateError);
+          // Don't fail the entire operation if candidates fail to copy
+        }
+      }
 
       // Navigate to the new code
       router.push(`/code/${newCode.id}`);
@@ -2941,8 +2995,8 @@ export default function CodeEditPage({ params }: PageProps) {
                         setEditingWeeklyCalId(media.id);
                         setWeeklyCalModalOpen(true);
                       } else if (media.type === 'qvote') {
-                        setEditingQVoteId(media.id);
-                        setQvoteModalOpen(true);
+                        // Go directly to candidate management
+                        router.push(`/${locale}/code/${code.id}/candidates`);
                       } else if (media.type === 'qstage') {
                         setEditingQStageId(media.id);
                         setQstageModalOpen(true);
@@ -3138,29 +3192,16 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
-                  {/* Edit button for qvote */}
+                  {/* Manage Candidates button for qvote */}
                   {media.type === 'qvote' && (
-                    <>
-                      <Tooltip text={t('edit')}>
-                        <button
-                          onClick={() => {
-                            setEditingQVoteId(media.id);
-                            setQvoteModalOpen(true);
-                          }}
-                          className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip text={locale === 'he' ? 'ניהול מועמדים' : 'Manage Candidates'}>
-                        <a
-                          href={`/${locale}/code/${code.id}/candidates`}
-                          className="p-2 rounded-lg hover:bg-bg-hover text-accent relative"
-                        >
-                          <Users className="w-4 h-4" />
-                        </a>
-                      </Tooltip>
-                    </>
+                    <Tooltip text={locale === 'he' ? 'ניהול מועמדים' : 'Manage Candidates'}>
+                      <a
+                        href={`/${locale}/code/${code.id}/candidates`}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-accent relative"
+                      >
+                        <Users className="w-4 h-4" />
+                      </a>
+                    </Tooltip>
                   )}
 
                   {/* Edit button for qstage */}
