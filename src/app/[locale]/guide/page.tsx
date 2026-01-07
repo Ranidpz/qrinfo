@@ -18,7 +18,9 @@ import {
   QrCode,
   Share2,
   FolderOpen,
-  Mic2
+  Mic2,
+  Crosshair,
+  Map
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { clsx } from 'clsx';
@@ -101,6 +103,9 @@ const categories: FAQCategory[] = [
       { questionKey: 'shuffleCandidates', answerKey: 'shuffleCandidatesAnswer' },
       { questionKey: 'limitVotes', answerKey: 'limitVotesAnswer' },
       { questionKey: 'showResults', answerKey: 'showResultsAnswer' },
+      { questionKey: 'qvoteBranding', answerKey: 'qvoteBrandingAnswer' },
+      { questionKey: 'disableLandingPage', answerKey: 'disableLandingPageAnswer' },
+      { questionKey: 'requireRegistration', answerKey: 'requireRegistrationAnswer' },
     ],
   },
   {
@@ -115,6 +120,30 @@ const categories: FAQCategory[] = [
       { questionKey: 'addJudges', answerKey: 'addJudgesAnswer' },
       { questionKey: 'customizeDisplay', answerKey: 'customizeDisplayAnswer' },
       { questionKey: 'qstageThresholds', answerKey: 'qstageThresholdsAnswer' },
+    ],
+  },
+  {
+    id: 'qhunt',
+    icon: Crosshair,
+    color: 'text-cyan-500',
+    bgColor: 'bg-cyan-500/10',
+    questions: [
+      { questionKey: 'whatIsQhunt', answerKey: 'whatIsQhuntAnswer' },
+      { questionKey: 'createHuntCodes', answerKey: 'createHuntCodesAnswer' },
+      { questionKey: 'teamScoring', answerKey: 'teamScoringAnswer' },
+      { questionKey: 'huntLeaderboard', answerKey: 'huntLeaderboardAnswer' },
+    ],
+  },
+  {
+    id: 'qtreasure',
+    icon: Map,
+    color: 'text-amber-500',
+    bgColor: 'bg-amber-500/10',
+    questions: [
+      { questionKey: 'whatIsQtreasure', answerKey: 'whatIsQtreasureAnswer' },
+      { questionKey: 'createTreasureStations', answerKey: 'createTreasureStationsAnswer' },
+      { questionKey: 'addCluesAndVideos', answerKey: 'addCluesAndVideosAnswer' },
+      { questionKey: 'treasureProgress', answerKey: 'treasureProgressAnswer' },
     ],
   },
   {
