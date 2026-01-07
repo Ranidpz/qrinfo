@@ -15,6 +15,19 @@ export type VoteRound = 1 | 2;
 // Language mode for viewer
 export type QVoteLanguageMode = 'he' | 'en' | 'choice';
 
+// Image position configuration for cropping/positioning
+export interface ImagePositionConfig {
+  mode: 'natural' | 'custom';     // 'natural' = default object-cover, 'custom' = user positioned
+  x?: number;                      // -100 to 100 (percentage offset from center) - only when mode='custom'
+  y?: number;                      // -100 to 100 (percentage offset from center) - only when mode='custom'
+  zoom?: number;                   // 0.5 to 2.0 (1.0 = normal, <1 = see more, >1 = focus/zoom in)
+}
+
+// Default image position (natural mode)
+export const DEFAULT_IMAGE_POSITION: ImagePositionConfig = {
+  mode: 'natural',
+};
+
 // Form field for dynamic registration
 export interface QVoteFormField {
   id: string;
@@ -32,6 +45,7 @@ export interface QVoteCategory {
   name: string;
   nameEn?: string;
   headerImage?: string;  // Category header banner image
+  headerImagePosition?: ImagePositionConfig;  // Position/crop config for header image
   order: number;
   isActive: boolean;
 }
@@ -42,8 +56,10 @@ export interface QVoteBranding {
   landingImage?: string;              // Full screen landing page image
   landingImageName?: string;          // Original file name
   landingImageSize?: number;          // File size in bytes
+  landingImagePosition?: ImagePositionConfig;  // Position/crop config for landing image
   logoUrl?: string;                   // Logo URL for header
   categoryImages?: Record<string, string>;  // Image per category ID
+  categoryImagePositions?: Record<string, ImagePositionConfig>;  // Position config per category ID
   imageOverlayOpacity?: number;       // Overlay opacity (0-80) for landing image
 
   // Text content
@@ -216,6 +232,7 @@ export interface CandidatePhoto {
   order: number;
   uploadedAt: Date;
   size?: number;                    // File size in bytes (after compression)
+  position?: ImagePositionConfig;   // Position/crop config for this photo
 }
 
 // Candidate document (subcollection: codes/{codeId}/candidates)

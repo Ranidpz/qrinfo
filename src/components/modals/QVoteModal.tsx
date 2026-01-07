@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Vote, Loader2, Plus, Trash2, GripVertical, Pipette, ImageIcon, Settings, Sparkles, Palette, Eye, Shield, Upload, Phone, MessageSquare, Tablet, ChevronDown } from 'lucide-react';
+import { X, Vote, Loader2, Plus, Trash2, GripVertical, Pipette, ImageIcon, Settings, Sparkles, Palette, Eye, Shield, Upload, Phone, MessageSquare, Tablet, ChevronDown, Move } from 'lucide-react';
+import { ImagePositionEditor } from '@/components/image-preview';
 import MobilePreviewModal from './MobilePreviewModal';
 import { useTranslations, useLocale } from 'next-intl';
 import {
@@ -14,9 +15,11 @@ import {
   QVoteFlipbookSettings,
   QVoteLanguageMode,
   QVoteTabletModeConfig,
+  ImagePositionConfig,
   DEFAULT_QVOTE_CONFIG,
   DEFAULT_FLIPBOOK_SETTINGS,
   DEFAULT_TABLET_MODE_CONFIG,
+  DEFAULT_IMAGE_POSITION,
 } from '@/types/qvote';
 import {
   QVoteVerificationConfig,
@@ -185,6 +188,8 @@ export default function QVoteModal({
   const [landingImageInfo, setLandingImageInfo] = useState<ImageFileInfo | null>(null);
   const [isDraggingLandingImage, setIsDraggingLandingImage] = useState(false);
   const [isCompressingLanding, setIsCompressingLanding] = useState(false);
+  const [showImagePositionEditor, setShowImagePositionEditor] = useState(false);
+  const [tempImagePosition, setTempImagePosition] = useState<ImagePositionConfig>(DEFAULT_IMAGE_POSITION);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Gamification
@@ -1167,6 +1172,20 @@ export default function QVoteModal({
                             className="w-16 h-1.5 bg-bg-hover rounded-lg appearance-none cursor-pointer accent-accent"
                           />
                         </div>
+                        {/* Position Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTempImagePosition(branding.landingImagePosition || DEFAULT_IMAGE_POSITION);
+                            setShowImagePositionEditor(true);
+                          }}
+                          className="p-2 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent transition-all"
+                          title={isRTL ? 'התאם מיקום' : 'Adjust position'}
+                        >
+                          <Move className="w-4 h-4" />
+                        </button>
+                        {/* Delete Button */}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1174,7 +1193,7 @@ export default function QVoteModal({
                             setLandingImageFile(null);
                             setLandingImagePreview(null);
                             setLandingImageInfo(null);
-                            setBranding({ ...branding, landingImage: undefined });
+                            setBranding({ ...branding, landingImage: undefined, landingImagePosition: undefined });
                           }}
                           className="p-2 rounded-lg bg-danger/20 hover:bg-danger/30 text-danger transition-all"
                           title={isRTL ? 'מחק תמונה' : 'Delete image'}
@@ -2056,6 +2075,21 @@ export default function QVoteModal({
           onClose={() => setShowPreview(false)}
           url={`/v/${shortId}?utm_source=preview`}
           title="Q.Vote"
+        />
+      )}
+
+      {/* Image Position Editor Modal */}
+      {showImagePositionEditor && landingImagePreview && (
+        <ImagePositionEditor
+          imageUrl={landingImagePreview}
+          position={tempImagePosition}
+          onPositionChange={setTempImagePosition}
+          onSave={() => {
+            setBranding({ ...branding, landingImagePosition: tempImagePosition });
+            setShowImagePositionEditor(false);
+          }}
+          onCancel={() => setShowImagePositionEditor(false)}
+          locale={isRTL ? 'he' : 'en'}
         />
       )}
     </div>

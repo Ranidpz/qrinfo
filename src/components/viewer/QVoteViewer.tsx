@@ -922,6 +922,12 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
               className="w-full h-full object-cover animate-landing-zoom"
               style={{
                 animation: 'landingZoom 8s ease-out forwards',
+                objectPosition: config.branding.landingImagePosition?.mode === 'custom'
+                  ? `${50 + (config.branding.landingImagePosition.x || 0)}% ${50 + (config.branding.landingImagePosition.y || 0)}%`
+                  : 'center center',
+                transform: config.branding.landingImagePosition?.mode === 'custom' && config.branding.landingImagePosition.zoom
+                  ? `scale(${config.branding.landingImagePosition.zoom})`
+                  : undefined,
               }}
             />
             {/* Overlay */}
@@ -1047,6 +1053,14 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
               src={config.branding.landingImage}
               alt=""
               className="w-full h-full object-cover"
+              style={{
+                objectPosition: config.branding.landingImagePosition?.mode === 'custom'
+                  ? `${50 + (config.branding.landingImagePosition.x || 0)}% ${50 + (config.branding.landingImagePosition.y || 0)}%`
+                  : 'center center',
+                transform: config.branding.landingImagePosition?.mode === 'custom' && config.branding.landingImagePosition.zoom
+                  ? `scale(${config.branding.landingImagePosition.zoom})`
+                  : undefined,
+              }}
             />
             {/* Dark overlay for readability */}
             <div className="absolute inset-0 bg-black/40" />
@@ -1123,6 +1137,11 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
                         src={config.branding.categoryImages[category.id]}
                         alt=""
                         className="w-full h-28 object-cover rounded-xl mb-3"
+                        style={{
+                          objectPosition: config.branding.categoryImagePositions?.[category.id]?.mode === 'custom'
+                            ? `${50 + (config.branding.categoryImagePositions[category.id].x || 0)}% ${50 + (config.branding.categoryImagePositions[category.id].y || 0)}%`
+                            : 'center center',
+                        }}
                       />
                     )}
                     <span className="text-lg font-semibold text-white drop-shadow-md block">

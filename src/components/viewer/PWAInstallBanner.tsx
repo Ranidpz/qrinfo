@@ -136,26 +136,38 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
         dir={isRTL ? 'rtl' : 'ltr'}
       >
         <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-lg">
-          <div className="px-4 py-3 flex items-center gap-3">
-            {/* Icon */}
-            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
-              <Smartphone className="w-5 h-5 text-white" />
+          <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Top row: Icon, Text, Close button (mobile) */}
+            <div className="flex items-center gap-3 w-full sm:w-auto sm:flex-1">
+              {/* Icon */}
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
+                <Smartphone className="w-5 h-5 text-white" />
+              </div>
+
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {isRTL ? 'הוסף למסך הבית' : 'Add to Home Screen'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {isRTL ? 'לגישה מהירה בכל עת' : 'For quick access anytime'}
+                </p>
+              </div>
+
+              {/* Close Button - Mobile only */}
+              <button
+                onClick={handleDismiss}
+                className="flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors sm:hidden"
+                aria-label={isRTL ? 'סגור' : 'Close'}
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* Text */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {isRTL ? 'הוסף למסך הבית' : 'Add to Home Screen'}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {isRTL ? 'לגישה מהירה בכל עת' : 'For quick access anytime'}
-              </p>
-            </div>
-
-            {/* Install Button */}
+            {/* Install Button - Full width on mobile */}
             <button
               onClick={handleInstall}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+              className="flex-shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
             >
               {isIOSDevice ? (
                 <>
@@ -170,10 +182,10 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
               )}
             </button>
 
-            {/* Close Button */}
+            {/* Close Button - Desktop only */}
             <button
               onClick={handleDismiss}
-              className="flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+              className="hidden sm:flex flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
               aria-label={isRTL ? 'סגור' : 'Close'}
             >
               <X className="w-5 h-5" />
