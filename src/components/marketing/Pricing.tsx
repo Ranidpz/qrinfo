@@ -1,7 +1,6 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Link } from '@/i18n/navigation';
 import { Mail, Calendar, MessageCircle } from 'lucide-react';
 
 export default function Pricing() {
@@ -45,20 +44,22 @@ export default function Pricing() {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  href="/contact"
+                <a
+                  href="mailto:info@playzone.co.il?subject=בקשת הצעת מחיר - The Q"
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--accent)] text-white font-medium hover:bg-[var(--accent-hover)] transition-all shadow-lg shadow-[var(--accent)]/20 hover:shadow-xl hover:shadow-[var(--accent)]/30"
                 >
                   <Mail className="w-5 h-5" />
                   {t('contactButton')}
-                </Link>
-                <Link
-                  href="/contact"
+                </a>
+                <a
+                  href="https://calendar.app.google/Qfo71zEj1TFJU48F9"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--bg-card)] text-[var(--text-primary)] font-medium border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
                 >
                   <Calendar className="w-5 h-5" />
                   {t('demoButton')}
-                </Link>
+                </a>
               </div>
             </div>
           </div>
