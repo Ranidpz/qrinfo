@@ -1129,50 +1129,85 @@ export default function DashboardPage() {
       const newCode = await createQRCode(
         user.id,
         `${code.title} ${tCode('duplicateSuffix')}`,
-        code.media.map((m) => ({
-          url: m.url,
-          type: m.type,
-          size: 0, // Don't count storage again since it's same file
-          order: m.order,
-          uploadedBy: user.id,
-          title: m.title,
-          filename: m.filename,
-          pageCount: m.pageCount,
-          linkUrl: m.linkUrl,
-          linkTitle: m.linkTitle,
-          // Deep copy of nested objects to avoid reference issues
-          riddleContent: m.riddleContent ? {
-            ...m.riddleContent,
-            images: m.riddleContent.images ? [...m.riddleContent.images] : undefined,
-          } : undefined,
-          selfiebeamContent: m.selfiebeamContent ? {
-            ...m.selfiebeamContent,
-            images: m.selfiebeamContent.images ? [...m.selfiebeamContent.images] : undefined,
-            companyLogos: m.selfiebeamContent.companyLogos ? [...m.selfiebeamContent.companyLogos] : undefined,
-          } : undefined,
+        code.media.map((m) => {
+          // Helper to remove undefined values from an object (Firestore doesn't accept undefined)
+          const cleanObject = <T extends Record<string, unknown>>(obj: T): T => {
+            const result = {} as T;
+            for (const key in obj) {
+              if (obj[key] !== undefined) {
+                result[key] = obj[key];
+              }
+            }
+            return result;
+          };
+
+          // Build the media item without undefined values
+          const mediaItem: Record<string, unknown> = {
+            url: m.url,
+            type: m.type,
+            size: 0, // Don't count storage again since it's same file
+            order: m.order,
+            uploadedBy: user.id,
+          };
+
+          // Add optional fields only if they exist
+          if (m.title) mediaItem.title = m.title;
+          if (m.filename) mediaItem.filename = m.filename;
+          if (m.pageCount) mediaItem.pageCount = m.pageCount;
+          if (m.linkUrl) mediaItem.linkUrl = m.linkUrl;
+          if (m.linkTitle) mediaItem.linkTitle = m.linkTitle;
+          if (m.schedule) mediaItem.schedule = { ...m.schedule };
+
+          // Deep copy riddle content
+          if (m.riddleContent) {
+            mediaItem.riddleContent = cleanObject({
+              ...m.riddleContent,
+              images: m.riddleContent.images ? [...m.riddleContent.images] : [],
+            });
+          }
+
+          // Deep copy selfiebeam content
+          if (m.selfiebeamContent) {
+            mediaItem.selfiebeamContent = cleanObject({
+              ...m.selfiebeamContent,
+              images: m.selfiebeamContent.images ? [...m.selfiebeamContent.images] : [],
+              companyLogos: m.selfiebeamContent.companyLogos ? [...m.selfiebeamContent.companyLogos] : [],
+            });
+          }
+
           // Deep copy Q.Vote config but reset stats (votes are NOT copied)
-          qvoteConfig: m.qvoteConfig ? {
-            ...m.qvoteConfig,
-            categories: m.qvoteConfig.categories ? m.qvoteConfig.categories.map((c) => ({ ...c })) : [],
-            formFields: m.qvoteConfig.formFields ? m.qvoteConfig.formFields.map((f) => ({ ...f })) : [],
-            verification: m.qvoteConfig.verification ? { ...m.qvoteConfig.verification } : undefined,
-            // Reset stats to zero for the duplicate
-            stats: {
-              totalCandidates: 0,
-              approvedCandidates: 0,
-              totalVoters: 0,
-              totalVotes: 0,
-              finalsVoters: 0,
-              finalsVotes: 0,
-              lastUpdated: new Date(),
-            },
-            // Reset phase to registration for fresh start
-            currentPhase: 'registration',
-          } : undefined,
+          if (m.qvoteConfig) {
+            const qvoteConfig: Record<string, unknown> = {
+              ...m.qvoteConfig,
+              categories: m.qvoteConfig.categories ? m.qvoteConfig.categories.map((c) => cleanObject({ ...c })) : [],
+              formFields: m.qvoteConfig.formFields ? m.qvoteConfig.formFields.map((f) => cleanObject({ ...f })) : [],
+              // Reset stats to zero for the duplicate
+              stats: {
+                totalCandidates: 0,
+                approvedCandidates: 0,
+                totalVoters: 0,
+                totalVotes: 0,
+                finalsVoters: 0,
+                finalsVotes: 0,
+                lastUpdated: new Date(),
+              },
+              // Reset phase to registration for fresh start
+              currentPhase: 'registration',
+            };
+            // Only include verification if it exists
+            if (m.qvoteConfig.verification) {
+              qvoteConfig.verification = cleanObject({ ...m.qvoteConfig.verification });
+            }
+            mediaItem.qvoteConfig = cleanObject(qvoteConfig as Record<string, unknown>);
+          }
+
           // Deep copy Weekly Calendar config
-          weeklycalConfig: m.weeklycalConfig ? { ...m.weeklycalConfig } : undefined,
-          schedule: m.schedule ? { ...m.schedule } : undefined,
-        })),
+          if (m.weeklycalConfig) {
+            mediaItem.weeklycalConfig = cleanObject({ ...m.weeklycalConfig });
+          }
+
+          return mediaItem as Omit<typeof m, 'id' | 'createdAt'>;
+        }),
         codeWithFolder.folderId || currentFolderId
       );
 
