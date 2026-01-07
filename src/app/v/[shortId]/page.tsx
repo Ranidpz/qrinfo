@@ -65,6 +65,20 @@ export default async function ViewerPage({ params }: ViewerPageProps) {
   }
 }
 
+function getDescriptionByMediaType(mediaType: string): string {
+  const descriptions: Record<string, string> = {
+    qvote: 'מזמינים אתכם להצביע בתחרות 🗳️',
+    qstage: 'בחרו אהבתי או לא אהבתי במופע 🎤',
+    qhunt: 'מוזמנים לציד הקודים 🎯',
+    qtreasure: 'מוזמנים לציד האוצר 🗺️',
+    selfiebeam: 'מזמינים אתכם לשתף תמונות במסך הענק 📸',
+    riddle: 'מוזמנים לפתור את החידה 🧩',
+    wordcloud: 'השתתפו בסקר בענן ☁️',
+    weeklycal: 'צפו בלוח האירועים 📅',
+  };
+  return descriptions[mediaType] || 'תוכן QR דינמי';
+}
+
 export async function generateMetadata({ params }: ViewerPageProps) {
   const { shortId } = await params;
 
@@ -78,18 +92,21 @@ export async function generateMetadata({ params }: ViewerPageProps) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app';
+    const primaryMediaType = code.media[0]?.type || 'default';
+    const description = getDescriptionByMediaType(primaryMediaType);
+    const ogImage = code.ogImage || `${baseUrl}/theQ.png`;
 
     return {
       title: `${code.title} - QR.info`,
-      description: 'תוכן QR דינמי',
+      description,
       manifest: `/v/${shortId}/manifest.json`,
       openGraph: {
         title: code.title,
-        description: 'תוכן QR דינמי',
+        description,
         type: 'website',
         images: [
           {
-            url: `${baseUrl}/theQ.png`,
+            url: ogImage,
             width: 800,
             height: 600,
             alt: 'The Q Logo',
@@ -99,8 +116,8 @@ export async function generateMetadata({ params }: ViewerPageProps) {
       twitter: {
         card: 'summary_large_image',
         title: code.title,
-        description: 'תוכן QR דינמי',
-        images: [`${baseUrl}/theQ.png`],
+        description,
+        images: [ogImage],
       },
     };
   } catch {

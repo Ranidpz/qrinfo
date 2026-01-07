@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -41,6 +41,7 @@ interface MediaUploaderProps {
   onQStageCreate?: () => void;
   onWeeklyCalendarCreate?: () => void;
   onQHuntCreate?: () => void;
+  onQTreasureCreate?: () => void;
   maxSize?: number; // bytes
   accept?: string[];
   disabled?: boolean;
@@ -56,11 +57,12 @@ export default function MediaUploader({
   onQStageCreate,
   onWeeklyCalendarCreate,
   onQHuntCreate,
+  onQTreasureCreate,
   maxSize = 5 * 1024 * 1024, // 5MB default
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'qstage' | 'weeklycal' | 'qhunt' | 'minigames'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'minigames'>('upload');
   const [linkUrl, setLinkUrl] = useState('');
   const [linkMode, setLinkMode] = useState<LinkMode>('url');
   const [showLinkModeDropdown, setShowLinkModeDropdown] = useState(false);
@@ -399,6 +401,7 @@ export default function MediaUploader({
           {onQStageCreate && <TabButton tab="qstage" label="Q.Stage" icon={Sparkles} badge="חדש!" tooltip={t('tooltipQStage') || 'Live voting display for events'} />}
           {onWeeklyCalendarCreate && <TabButton tab="weeklycal" label={tMedia('weeklycal') || 'Weekly'} icon={CalendarDays} tooltip={t('tooltipWeeklyCal') || 'Create a weekly schedule'} />}
           {onQHuntCreate && <TabButton tab="qhunt" label="Q.Hunt" icon={Crosshair} badge="חדש!" tooltip={t('tooltipQHunt') || 'Real-time code hunting game'} />}
+          {onQTreasureCreate && <TabButton tab="qtreasure" label="Q.Treasure" icon={Map} badge="חדש!" tooltip={t('tooltipQTreasure') || 'Treasure hunt with stations'} />}
           <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} tooltip={t('tooltipMinigames')} />
         </div>
       )}
@@ -954,6 +957,30 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQHunt') || 'Create Q.Hunt'}
+          </button>
+        </div>
+      ) : activeTab === 'qtreasure' ? (
+        /* Q.Treasure treasure hunt creation */
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-emerald-700 flex items-center justify-center flex-shrink-0">
+              <Map className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-start">
+              <h3 className="font-medium text-text-primary mb-1">
+                Q.Treasure
+              </h3>
+              <p className="text-xs text-text-secondary">
+                {t('qtreasureDescription') || 'Sequential treasure hunt with stations and hints'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onQTreasureCreate}
+            disabled={disabled}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            {t('createQTreasure') || 'Create Q.Treasure'}
           </button>
         </div>
       ) : activeTab === 'minigames' ? (

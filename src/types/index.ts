@@ -219,6 +219,7 @@ export interface QRCode {
   userGallery?: UserGalleryImage[]; // Selfies uploaded by viewers
   gallerySettings?: GallerySettings; // Display settings for gallery page
   landingPageConfig?: LandingPageConfig; // Landing page configuration for mixed media
+  ogImage?: string; // Custom OG image URL for WhatsApp/social preview
   createdAt: Date;
   updatedAt: Date;
 }

@@ -547,6 +547,14 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
           setSubmitting(false);
           return;
         }
+        if (result.errorCode === 'ALREADY_VOTED_CATEGORY') {
+          // User already voted in this category - mark as voted and show success
+          const categoryKey = selectedCategory || '_global';
+          setVotedCategories(prev => ({ ...prev, [categoryKey]: true }));
+          setSelectedCandidates([]);
+          setSubmitting(false);
+          return;
+        }
       }
 
       if (!response.ok) {

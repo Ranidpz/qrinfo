@@ -18,6 +18,8 @@ import {
   Eye,
   Settings,
   Share2,
+  Upload,
+  X,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +44,7 @@ export default function CodeEditPage({ params }: PageProps) {
   const [deleteModal, setDeleteModal] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingOgImage, setUploadingOgImage] = useState(false);
 
   // Load code data
   useEffect(() => {
@@ -131,6 +134,54 @@ export default function CodeEditPage({ params }: PageProps) {
     navigator.clipboard.writeText(url);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleUploadOgImage = async (file: File) => {
+    if (!code || !user) return;
+
+    setUploadingOgImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const uploadData = await uploadResponse.json();
+      await updateQRCode(code.id, { ogImage: uploadData.url });
+      setCode((prev) => prev ? { ...prev, ogImage: uploadData.url } : null);
+    } catch (error) {
+      console.error('Error uploading OG image:', error);
+      alert('שגיאה בהעלאת התמונה. נסה שוב.');
+    } finally {
+      setUploadingOgImage(false);
+    }
+  };
+
+  const handleRemoveOgImage = async () => {
+    if (!code) return;
+
+    try {
+      if (code.ogImage) {
+        await fetch('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: code.ogImage }),
+        });
+      }
+      await updateQRCode(code.id, { ogImage: '' });
+      setCode((prev) => prev ? { ...prev, ogImage: undefined } : null);
+    } catch (error) {
+      console.error('Error removing OG image:', error);
+      alert('שגיאה במחיקת התמונה. נסה שוב.');
+    }
   };
 
   const handleAddMedia = async (file: File) => {
@@ -363,6 +414,50 @@ export default function CodeEditPage({ params }: PageProps) {
               <Share2 className="w-4 h-4" />
               שיתוף
             </button>
+          </div>
+
+          {/* OG Image for WhatsApp preview */}
+          <div className="space-y-3 pt-4 border-t border-border">
+            <h3 className="text-sm font-medium text-text-primary">תמונת תצוגה מקדימה</h3>
+            <p className="text-xs text-text-secondary">תמונה שתוצג בשיתוף בוואטסאפ ורשתות חברתיות</p>
+
+            {code.ogImage ? (
+              <div className="relative">
+                <img
+                  src={code.ogImage}
+                  alt="OG Preview"
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+                <button
+                  onClick={handleRemoveOgImage}
+                  className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                  title="הסר תמונה"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-accent transition-colors">
+                {uploadingOgImage ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-text-secondary" />
+                ) : (
+                  <>
+                    <Upload className="w-6 h-6 text-text-secondary mb-1" />
+                    <span className="text-xs text-text-secondary">העלה תמונה</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUploadOgImage(file);
+                  }}
+                  disabled={uploadingOgImage}
+                />
+              </label>
+            )}
           </div>
         </div>
 

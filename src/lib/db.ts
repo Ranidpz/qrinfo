@@ -404,7 +404,7 @@ function removeUndefined(obj: Record<string, any>): Record<string, any> {
 // Update QR code
 export async function updateQRCode(
   id: string,
-  updates: Partial<Pick<QRCode, 'title' | 'media' | 'widgets' | 'collaborators' | 'isActive' | 'isGlobal' | 'landingPageConfig'>>
+  updates: Partial<Pick<QRCode, 'title' | 'media' | 'widgets' | 'collaborators' | 'isActive' | 'isGlobal' | 'landingPageConfig' | 'ogImage'>>
 ): Promise<void> {
   // Convert media createdAt to Firestore Timestamp if present and remove undefined values
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
