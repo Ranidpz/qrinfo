@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QVoteConfig, Candidate, QVotePhase } from '@/types/qvote';
+import { QVoteConfig, Candidate, QVotePhase, ImagePositionConfig, DEFAULT_IMAGE_POSITION } from '@/types/qvote';
 import { onSnapshot, collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getCandidates, getVoterVotes, createCandidate } from '@/lib/qvote';
@@ -9,7 +9,8 @@ import { MediaItem } from '@/types';
 import { getOrCreateVisitorId } from '@/lib/xp';
 import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
 import { getBrowserLocale } from '@/lib/publicTranslations';
-import { Check, Loader2, Vote, Camera, ChevronLeft, ChevronRight, Trophy, Clock, Users, X, Plus, Trash2, UserPlus, Shield } from 'lucide-react';
+import { Check, Loader2, Vote, Camera, ChevronLeft, ChevronRight, Trophy, Clock, Users, X, Plus, Trash2, UserPlus, Shield, Move } from 'lucide-react';
+import { ImagePositionEditor } from '@/components/image-preview';
 import QVoteVotingView from './qvote/QVoteVotingView';
 import QVoteResultsView from './qvote/QVoteResultsView';
 import PhoneVerificationModal from '../modals/PhoneVerificationModal';
@@ -129,6 +130,10 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [photoPositions, setPhotoPositions] = useState<(ImagePositionConfig | undefined)[]>([]);
+  const [showPhotoPositionEditor, setShowPhotoPositionEditor] = useState(false);
+  const [editingPhotoIndex, setEditingPhotoIndex] = useState<number | null>(null);
+  const [tempPhotoPosition, setTempPhotoPosition] = useState<ImagePositionConfig>(DEFAULT_IMAGE_POSITION);
   const [registering, setRegistering] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
@@ -788,6 +793,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
   const handleRemovePhoto = (index: number) => {
     setPhotoFiles(prev => prev.filter((_, i) => i !== index));
+    setPhotoPositions(prev => prev.filter((_, i) => i !== index));
   };
 
   // Submit registration
@@ -1383,10 +1389,27 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
                     src={preview}
                     alt=""
                     className="w-full h-full object-cover rounded-lg"
+                    style={{
+                      objectPosition: photoPositions[index]?.mode === 'custom'
+                        ? `${50 + (photoPositions[index]?.x || 0)}% ${50 + (photoPositions[index]?.y || 0)}%`
+                        : 'center center',
+                    }}
                   />
+                  {/* Position Button */}
+                  <button
+                    onClick={() => {
+                      setEditingPhotoIndex(index);
+                      setTempPhotoPosition(photoPositions[index] || DEFAULT_IMAGE_POSITION);
+                      setShowPhotoPositionEditor(true);
+                    }}
+                    className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-sm"
+                  >
+                    <Move className="w-3 h-3" />
+                  </button>
+                  {/* Delete Button */}
                   <button
                     onClick={() => handleRemovePhoto(index)}
-                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center"
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1673,6 +1696,29 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
             </span>
           </div>
         </div>
+      )}
+
+      {/* Photo Position Editor Modal */}
+      {showPhotoPositionEditor && editingPhotoIndex !== null && photoPreviews[editingPhotoIndex] && (
+        <ImagePositionEditor
+          imageUrl={photoPreviews[editingPhotoIndex]}
+          position={tempPhotoPosition}
+          onPositionChange={setTempPhotoPosition}
+          onSave={() => {
+            setPhotoPositions(prev => {
+              const newPositions = [...prev];
+              newPositions[editingPhotoIndex] = tempPhotoPosition;
+              return newPositions;
+            });
+            setShowPhotoPositionEditor(false);
+            setEditingPhotoIndex(null);
+          }}
+          onCancel={() => {
+            setShowPhotoPositionEditor(false);
+            setEditingPhotoIndex(null);
+          }}
+          locale={locale}
+        />
       )}
     </div>
   );

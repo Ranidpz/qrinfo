@@ -2996,7 +2996,7 @@ export default function CodeEditPage({ params }: PageProps) {
                         setWeeklyCalModalOpen(true);
                       } else if (media.type === 'qvote') {
                         // Go directly to candidate management
-                        router.push(`/${locale}/code/${code.id}/candidates`);
+                        router.push(`/code/${code.id}/candidates`);
                       } else if (media.type === 'qstage') {
                         setEditingQStageId(media.id);
                         setQstageModalOpen(true);
@@ -3196,7 +3196,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   {media.type === 'qvote' && (
                     <Tooltip text={locale === 'he' ? 'ניהול מועמדים' : 'Manage Candidates'}>
                       <a
-                        href={`/${locale}/code/${code.id}/candidates`}
+                        href={`/code/${code.id}/candidates`}
                         className="p-2 rounded-lg hover:bg-bg-hover text-accent relative"
                       >
                         <Users className="w-4 h-4" />

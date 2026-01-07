@@ -231,7 +231,13 @@
       "collaborators": "Can I give others access to a code?",
       "collaboratorsAnswer": "Currently a code belongs to one user. You can transfer ownership completely, or share login credentials (not recommended). Sharing feature in future development.",
       "globalCodes": "What is a \"global code\"?",
-      "globalCodesAnswer": "A global code is visible to all users in the system (not just the owner). Only system admins can mark a code as global. Useful for examples and tutorials."
+      "globalCodesAnswer": "A global code is visible to all users in the system (not just the owner). Only system admins can mark a code as global. Useful for examples and tutorials.",
+
+      "imagePositioning": "How do I make sure images look good on all devices?",
+      "imagePositioningAnswer": "When uploading images (landing image, candidates, categories), click the position button to adjust the image. The tool allows dragging and zooming to choose which part of the image will be displayed. You can switch between device previews (mobile, tablet, kiosk) to see how the image will look on each.",
+
+      "imageSafeZone": "What is the \"safe zone\" in images?",
+      "imageSafeZoneAnswer": "The safe zone is the central part of the image that is guaranteed to be visible on all devices. Important content like logos, text, or faces should be placed in this area. In the positioning tool, the safe zone is marked with a dashed green border, and areas that may be cropped are darkened."
     }
   },
   "sidebar": {

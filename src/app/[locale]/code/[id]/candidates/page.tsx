@@ -1295,7 +1295,7 @@ export default function QVoteCandidatesPage() {
           {/* Top Bar */}
           <div className="flex items-center justify-between mb-6">
             <button
-              onClick={() => router.push(`/${locale}/code/${codeId}`)}
+              onClick={() => router.push(`/code/${codeId}`)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-all"
             >
               <ArrowRight className={`w-5 h-5 ${isRTL ? '' : 'rotate-180'}`} />
