@@ -21,6 +21,7 @@ import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig, MediaType } from '@/types';
 import { QVoteConfig } from '@/types/qvote';
+import { getCandidates, bulkCreateCandidates } from '@/lib/qvote';
 import { QStageConfig, DEFAULT_QSTAGE_CONFIG } from '@/types/qstage';
 import { QHuntConfig, DEFAULT_QHUNT_CONFIG } from '@/types/qhunt';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
@@ -1174,6 +1175,39 @@ export default function DashboardPage() {
         })),
         codeWithFolder.folderId || currentFolderId
       );
+
+      // If this is a Q.Vote code, copy candidates too (without votes)
+      const hasQVote = code.media.some((m) => m.type === 'qvote');
+      if (hasQVote) {
+        try {
+          // Get all candidates from original code
+          const originalCandidates = await getCandidates(code.id);
+
+          if (originalCandidates.length > 0) {
+            // Prepare candidates for bulk creation (reset vote counts)
+            const candidatesToCopy = originalCandidates.map((c) => ({
+              name: c.name,
+              formData: c.formData || {},
+              photos: c.photos || [],
+              categoryId: c.categoryId,
+              categoryIds: c.categoryIds || [],
+              source: c.source,
+              isApproved: c.isApproved,
+              isFinalist: false, // Reset finalist status
+              isHidden: c.isHidden,
+              displayOrder: c.displayOrder,
+              visitorId: c.visitorId,
+            }));
+
+            // Create candidates in the new code
+            const result = await bulkCreateCandidates(newCode.id, candidatesToCopy);
+            console.log(`Duplicated ${result.success} candidates to new code ${newCode.id}`);
+          }
+        } catch (candidateError) {
+          console.error('Error copying candidates:', candidateError);
+          // Don't fail the entire operation if candidates fail to copy
+        }
+      }
 
       // Add to list
       setCodes((prev) => [newCode, ...prev]);
