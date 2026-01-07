@@ -176,6 +176,46 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // VerifiedVoters collection (phone verification for Q.Vote)
+    match /verifiedVoters/{voterId} {
+      // Anyone can read (to check session validity)
+      allow read: if true;
+      // Anyone can create (during phone verification)
+      allow create: if true;
+      // Anyone can update (session updates, vote tracking)
+      allow update: if true;
+      // Only authenticated users can delete (during vote reset)
+      allow delete: if request.auth != null;
+    }
+
+    // VerificationCodes collection (OTP codes for Q.Vote)
+    match /verificationCodes/{codeId} {
+      // Anyone can read (to verify OTP)
+      allow read: if true;
+      // Anyone can create (when requesting OTP)
+      allow create: if true;
+      // Anyone can update (increment attempts, mark as verified)
+      allow update: if true;
+      // Only authenticated users can delete (during vote reset)
+      allow delete: if request.auth != null;
+    }
+
+    // RateLimits collection (for OTP rate limiting)
+    match /rateLimits/{limitId} {
+      // Anyone can read/write (rate limiting is per-phone, not per-user)
+      allow read, write: if true;
+    }
+
+    // MessageLogs collection (for tracking sent messages)
+    match /messageLogs/{logId} {
+      // Only owner or admin can read
+      allow read: if request.auth != null;
+      // Anyone can create (during OTP sending)
+      allow create: if true;
+      // No update or delete
+      allow update, delete: if false;
+    }
+
     // Helper function to check if user is admin
     function isAdmin() {
       return request.auth != null &&

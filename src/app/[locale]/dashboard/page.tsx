@@ -1149,6 +1149,27 @@ export default function DashboardPage() {
             images: m.selfiebeamContent.images ? [...m.selfiebeamContent.images] : undefined,
             companyLogos: m.selfiebeamContent.companyLogos ? [...m.selfiebeamContent.companyLogos] : undefined,
           } : undefined,
+          // Deep copy Q.Vote config but reset stats (votes are NOT copied)
+          qvoteConfig: m.qvoteConfig ? {
+            ...m.qvoteConfig,
+            categories: m.qvoteConfig.categories ? m.qvoteConfig.categories.map((c: Record<string, unknown>) => ({ ...c })) : undefined,
+            registrationFields: m.qvoteConfig.registrationFields ? m.qvoteConfig.registrationFields.map((f: Record<string, unknown>) => ({ ...f })) : undefined,
+            verification: m.qvoteConfig.verification ? { ...m.qvoteConfig.verification } : undefined,
+            // Reset stats to zero for the duplicate
+            stats: {
+              totalCandidates: 0,
+              approvedCandidates: 0,
+              totalVoters: 0,
+              totalVotes: 0,
+              finalsVoters: 0,
+              finalsVotes: 0,
+              lastUpdated: new Date(),
+            },
+            // Reset phase to registration for fresh start
+            currentPhase: 'registration',
+          } : undefined,
+          // Deep copy Weekly Calendar config
+          weeklycalConfig: m.weeklycalConfig ? { ...m.weeklycalConfig } : undefined,
           schedule: m.schedule ? { ...m.schedule } : undefined,
         })),
         codeWithFolder.folderId || currentFolderId
