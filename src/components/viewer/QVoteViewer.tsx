@@ -551,12 +551,28 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         if (result.errorCode === 'ALREADY_VOTED_CATEGORY') {
           // User already voted in this category - go back to categories
           const categoryKey = selectedCategory || '_global';
-          setVotedCategories(prev => ({ ...prev, [categoryKey]: true }));
+          const newVotedCategories = { ...votedCategories, [categoryKey]: true };
+          setVotedCategories(newVotedCategories);
+
           if (config.categories.length > 0) {
-            setSelectedCategory(null);
-            setShowCategorySelect(true);
-            setShowVoteSuccessMessage(true);
-            setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+            // Check if all active categories are now voted
+            const activeCategories = config.categories.filter(c => c.isActive);
+            const allCategoriesVoted = activeCategories.every(c => newVotedCategories[c.id]);
+
+            if (config.tabletMode?.enabled && allCategoriesVoted) {
+              // Tablet mode + all categories voted → start reset countdown
+              setShowVoteSuccessMessage(true);
+              const delay = config.tabletMode.resetDelaySeconds || 5;
+              setTabletResetCountdown(delay);
+            } else {
+              setSelectedCategory(null);
+              setShowCategorySelect(true);
+              setShowVoteSuccessMessage(true);
+              // Only auto-hide in tablet mode
+              if (config.tabletMode?.enabled) {
+                setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+              }
+            }
           }
           setSelectedCandidates([]);
           setSubmitting(false);
@@ -593,14 +609,30 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
         // If there are categories, go back to categories page with success message
         if (config.categories.length > 0 && selectedCategory) {
+          // Check if all active categories will be voted after this vote
+          const newVotedCategories = { ...votedCategories, [categoryKey]: true };
+          const activeCategories = config.categories.filter(c => c.isActive);
+          const allCategoriesVoted = activeCategories.every(c => newVotedCategories[c.id]);
+
           // Small delay to let the vote register visually
           setTimeout(() => {
-            setSelectedCategory(null);
-            setShowCategorySelect(true);
-            setSelectedCandidates([]);
-            setShowVoteSuccessMessage(true);
-            // Auto-hide the success message after 4 seconds
-            setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+            if (config.tabletMode?.enabled && allCategoriesVoted) {
+              // Tablet mode + all categories voted → start reset countdown
+              setShowVoteSuccessMessage(true);
+              const delay = config.tabletMode.resetDelaySeconds || 5;
+              setTabletResetCountdown(delay);
+            } else {
+              // Go back to categories page
+              setSelectedCategory(null);
+              setShowCategorySelect(true);
+              setSelectedCandidates([]);
+              setShowVoteSuccessMessage(true);
+              // Only auto-hide in tablet mode when not all categories voted
+              if (config.tabletMode?.enabled) {
+                setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+              }
+              // In regular mode, success message stays visible permanently
+            }
           }, 500);
         } else if (config.tabletMode?.enabled) {
           // Start tablet mode countdown if enabled (only for non-category voting)
@@ -682,6 +714,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     setVotedCategories({});
     setSelectedCandidates([]);
     setTabletResetCountdown(null);
+    setShowVoteSuccessMessage(false);
 
     // Clear the timer
     if (tabletTimerRef.current) {
@@ -1079,7 +1112,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
             }}
           >
-            {/* Success Message Banner */}
+            {/* Success Message Banner - shows different content based on tablet mode and countdown */}
             {showVoteSuccessMessage && (
               <div
                 className="p-4 rounded-2xl text-center animate-in fade-in slide-in-from-top-4 duration-300"
@@ -1089,13 +1122,25 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
                   backdropFilter: 'blur(10px)',
                 }}
               >
-                <div className="flex items-center justify-center gap-2 text-white">
-                  <svg className="w-6 h-6 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="font-semibold">
-                    {locale === 'he' ? 'תודה! ההצבעה נקלטה בהצלחה' : 'Thank you! Your vote was submitted'}
-                  </span>
+                <div className="flex flex-col items-center justify-center gap-2 text-white">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-6 h-6 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-semibold">
+                      {tabletResetCountdown !== null
+                        ? (locale === 'he' ? 'תודה על השתתפותך!' : 'Thank you for participating!')
+                        : (locale === 'he' ? 'תודה! ההצבעה נקלטה בהצלחה' : 'Thank you! Your vote was submitted')}
+                    </span>
+                  </div>
+                  {/* Tablet mode countdown display */}
+                  {tabletResetCountdown !== null && (
+                    <div className="text-sm text-white/80 mt-1">
+                      {locale === 'he'
+                        ? `המסך יתאפס בעוד ${tabletResetCountdown} שניות...`
+                        : `Screen will reset in ${tabletResetCountdown} seconds...`}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
