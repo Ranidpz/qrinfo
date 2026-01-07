@@ -160,6 +160,8 @@ export async function POST(request: NextRequest) {
           candidateId,
           voterId,
           round,
+          // Store phone number for verification tracking (if provided)
+          phone: phone ? normalizePhoneNumber(phone) : null,
           createdAt: FieldValue.serverTimestamp(),
         });
 

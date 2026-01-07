@@ -43,6 +43,8 @@ const translations = {
     sentViaSms: 'הקוד נשלח ב-SMS',
     invalidPhone: 'מספר טלפון לא תקין',
     quotaExceeded: 'נגמרו ההודעות, פנה למנהל',
+    alreadyVoted: 'מספר זה כבר הצביע',
+    alreadyVotedAll: 'מספר זה כבר הצביע בכל הקטגוריות',
     networkError: 'שגיאת רשת, נסה שוב',
     verifyFailed: 'האימות נכשל, נסה שוב',
     noCodeFound: 'לא נמצא קוד אימות פעיל',
@@ -72,6 +74,8 @@ const translations = {
     sentViaSms: 'Code sent via SMS',
     invalidPhone: 'Invalid phone number',
     quotaExceeded: 'No messages left, contact admin',
+    alreadyVoted: 'This phone has already voted',
+    alreadyVotedAll: 'This phone has already voted in all categories',
     networkError: 'Network error, try again',
     verifyFailed: 'Verification failed, try again',
     noCodeFound: 'No active verification code found',
@@ -185,6 +189,10 @@ export default function PhoneVerificationModal({
           setError(t.quotaExceeded);
         } else if (data.errorCode === 'RATE_LIMITED') {
           setError(t.tryAgainLater);
+        } else if (data.errorCode === 'ALREADY_VOTED') {
+          setError(t.alreadyVoted);
+        } else if (data.errorCode === 'ALREADY_VOTED_ALL') {
+          setError(t.alreadyVotedAll);
         } else {
           // Use Hebrew translation for generic errors
           setError(t.sendCodeFailed);

@@ -136,6 +136,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if this phone has already used all its votes
+    const voterNormalizedPhone = normalizedPhone.replace(/\D/g, '');
+    const voterId = `${codeId}_${voterNormalizedPhone}`;
+    const existingVoterDoc = await db.collection('verifiedVoters').doc(voterId).get();
+
+    if (existingVoterDoc.exists) {
+      const voterData = existingVoterDoc.data();
+      const votesUsed = voterData?.votesUsed || 0;
+      const maxVotes = voterData?.maxVotes || verificationConfig.maxVotesPerPhone || 1;
+      const categories = qvoteMedia.qvoteConfig?.categories || [];
+      const activeCategories = categories.filter((c: { isActive?: boolean }) => c.isActive !== false);
+
+      if (activeCategories.length > 0) {
+        // For category voting: check if phone has voted in all active categories
+        const phoneVotesQuery = await db.collection('codes').doc(codeId)
+          .collection('votes')
+          .where('phone', '==', normalizedPhone)
+          .get();
+
+        const votedCategoryIds = new Set<string>();
+        phoneVotesQuery.docs.forEach(doc => {
+          const categoryId = doc.data().categoryId;
+          if (categoryId) {
+            votedCategoryIds.add(categoryId);
+          }
+        });
+
+        const allCategoriesVoted = activeCategories.every(
+          (c: { id: string }) => votedCategoryIds.has(c.id)
+        );
+
+        if (allCategoriesVoted) {
+          return NextResponse.json(
+            { error: 'This phone number has already voted in all categories', errorCode: 'ALREADY_VOTED_ALL' },
+            { status: 403 }
+          );
+        }
+      } else {
+        // For non-category voting: check if vote limit reached
+        if (votesUsed >= maxVotes) {
+          return NextResponse.json(
+            { error: 'This phone number has already voted', errorCode: 'ALREADY_VOTED' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     // Check owner's message quota
     const ownerDoc = await db.collection('users').doc(ownerId).get();
     const ownerData = ownerDoc.data();

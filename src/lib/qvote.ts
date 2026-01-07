@@ -897,5 +897,35 @@ export async function resetAllVotes(codeId: string): Promise<{ deletedVotes: num
     }
   }
 
+  // Delete verified voters for this code (allows them to vote again)
+  const verifiedVotersSnapshot = await getDocs(
+    query(collection(db, 'verifiedVoters'), where('codeId', '==', codeId))
+  );
+
+  const verifiedVotersDocs = verifiedVotersSnapshot.docs;
+  for (let i = 0; i < verifiedVotersDocs.length; i += 500) {
+    const batch = writeBatch(db);
+    const chunk = verifiedVotersDocs.slice(i, i + 500);
+    chunk.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+  }
+
+  // Delete verification codes for this code (cleanup)
+  const verificationCodesSnapshot = await getDocs(
+    query(collection(db, 'verificationCodes'), where('codeId', '==', codeId))
+  );
+
+  const verificationCodesDocs = verificationCodesSnapshot.docs;
+  for (let i = 0; i < verificationCodesDocs.length; i += 500) {
+    const batch = writeBatch(db);
+    const chunk = verificationCodesDocs.slice(i, i + 500);
+    chunk.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+  }
+
   return { deletedVotes };
 }
