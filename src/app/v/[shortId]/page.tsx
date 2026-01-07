@@ -104,12 +104,14 @@ export async function generateMetadata({ params }: ViewerPageProps) {
         title: code.title,
         description,
         type: 'website',
+        url: `${baseUrl}/v/${shortId}`,
+        siteName: 'The Q',
         images: [
           {
             url: ogImage,
-            width: 800,
-            height: 600,
-            alt: 'The Q Logo',
+            width: 633,
+            height: 633,
+            alt: code.title,
           },
         ],
       },

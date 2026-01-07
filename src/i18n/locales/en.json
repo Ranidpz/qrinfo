@@ -985,7 +985,18 @@
         "title": "Q.Stage",
         "description": "Live audience voting with real-time bar display",
         "useCase": "Talent shows, debates, competitions"
-      }
+      },
+      "qhunt": {
+        "title": "Q.Hunt",
+        "description": "Competitive QR scanning race with scattered codes",
+        "useCase": "Team building, events, exhibitions"
+      },
+      "qtreasure": {
+        "title": "Q.Treasure",
+        "description": "Sequential treasure hunt with stations, clues and video",
+        "useCase": "Tours, birthdays, adventures"
+      },
+      "footerNote": "Our experiences are updated monthly. Have an idea we haven't built yet? Contact us for consultation or custom development."
     },
     "useCases": {
       "title": "Who Is It For?",
@@ -1043,8 +1054,12 @@
       "subtitle": "Thousands of events produced with The Q"
     },
     "pricing": {
-      "title": "Simple & Transparent Pricing",
-      "subtitle": "Choose the plan that fits you",
+      "title": "Interested? Let's Talk",
+      "subtitle": "Contact us for a custom quote or to schedule a demo meeting",
+      "contactTitle": "We'd Love to Hear From You",
+      "contactDescription": "Tell us about your project and we'll find the perfect solution with a custom quote.",
+      "contactButton": "Get a Quote",
+      "demoButton": "Schedule a Demo",
       "monthly": "Monthly",
       "yearly": "Yearly",
       "yearlySave": "Save 17%",

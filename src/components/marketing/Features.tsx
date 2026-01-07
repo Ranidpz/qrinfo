@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Link2, Calendar, BookOpen, Vote, Gamepad2, Camera, Mic2 } from 'lucide-react';
+import { Link2, Calendar, BookOpen, Vote, Gamepad2, Camera, Mic2, Crosshair, Map } from 'lucide-react';
 
 export default function Features() {
   const t = useTranslations('marketing.features');
@@ -41,6 +41,16 @@ export default function Features() {
       icon: Mic2,
       key: 'qstage',
       gradient: 'from-fuchsia-500 to-pink-500',
+    },
+    {
+      icon: Crosshair,
+      key: 'qhunt',
+      gradient: 'from-cyan-500 to-pink-500',
+    },
+    {
+      icon: Map,
+      key: 'qtreasure',
+      gradient: 'from-amber-500 to-emerald-700',
     },
   ];
 
@@ -92,6 +102,13 @@ export default function Features() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Footer note */}
+        <div className="text-center mt-10 md:mt-14">
+          <p className="text-[var(--text-secondary)] text-sm md:text-base max-w-2xl mx-auto">
+            {t('footerNote')}
+          </p>
         </div>
       </div>
     </section>
