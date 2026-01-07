@@ -119,6 +119,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   const [votedCategories, setVotedCategories] = useState<Record<string, boolean>>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCategorySelect, setShowCategorySelect] = useState(false);
+  const [showVoteSuccessMessage, setShowVoteSuccessMessage] = useState(false);
 
   // Landing page state
   const [showLanding, setShowLanding] = useState(true);
@@ -548,9 +549,15 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
           return;
         }
         if (result.errorCode === 'ALREADY_VOTED_CATEGORY') {
-          // User already voted in this category - mark as voted and show success
+          // User already voted in this category - go back to categories
           const categoryKey = selectedCategory || '_global';
           setVotedCategories(prev => ({ ...prev, [categoryKey]: true }));
+          if (config.categories.length > 0) {
+            setSelectedCategory(null);
+            setShowCategorySelect(true);
+            setShowVoteSuccessMessage(true);
+            setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+          }
           setSelectedCandidates([]);
           setSubmitting(false);
           return;
@@ -584,8 +591,19 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
           setUserPhase(config.currentPhase);
         }
 
-        // Start tablet mode countdown if enabled
-        if (config.tabletMode?.enabled) {
+        // If there are categories, go back to categories page with success message
+        if (config.categories.length > 0 && selectedCategory) {
+          // Small delay to let the vote register visually
+          setTimeout(() => {
+            setSelectedCategory(null);
+            setShowCategorySelect(true);
+            setSelectedCandidates([]);
+            setShowVoteSuccessMessage(true);
+            // Auto-hide the success message after 4 seconds
+            setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+          }, 500);
+        } else if (config.tabletMode?.enabled) {
+          // Start tablet mode countdown if enabled (only for non-category voting)
           const delay = config.tabletMode.resetDelaySeconds || 5;
           setTabletResetCountdown(delay);
         }
@@ -1047,6 +1065,27 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
             }}
           >
+            {/* Success Message Banner */}
+            {showVoteSuccessMessage && (
+              <div
+                className="p-4 rounded-2xl text-center animate-in fade-in slide-in-from-top-4 duration-300"
+                style={{
+                  backgroundColor: 'rgba(34, 197, 94, 0.3)',
+                  border: '1px solid rgba(34, 197, 94, 0.5)',
+                  backdropFilter: 'blur(10px)',
+                }}
+              >
+                <div className="flex items-center justify-center gap-2 text-white">
+                  <svg className="w-6 h-6 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-semibold">
+                    {locale === 'he' ? 'תודה! ההצבעה נקלטה בהצלחה' : 'Thank you! Your vote was submitted'}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Title */}
             <h2 className="text-2xl font-bold text-center text-white drop-shadow-lg">
               {t.selectCategory}
