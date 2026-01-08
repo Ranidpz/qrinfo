@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import dynamic from 'next/dynamic';
 import { ChevronLeft, ChevronRight, ExternalLink, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { MediaItem, CodeWidgets, LinkSource, LandingPageConfig, DEFAULT_LANDING_PAGE_CONFIG, PDFFlipbookSettings } from '@/types';
+import { QChallengeConfig } from '@/types/qchallenge';
 import WhatsAppWidget from '@/components/viewer/WhatsAppWidget';
 import ContactWidget from '@/components/viewer/ContactWidget';
 // Dynamic imports for components that use isomorphic-dompurify (jsdom SSR issue)
@@ -1375,12 +1376,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                 shortId={shortId}
               />
             )}
-            {activeViewer.type === 'qchallenge' && !Array.isArray(activeViewer.media) && activeViewer.media.qchallengeConfig && (
+            {activeViewer.type === 'qchallenge' && !Array.isArray(activeViewer.media) && (
               <QChallengeViewer
                 codeId={codeId}
                 mediaId={activeViewer.media.id}
-                initialConfig={activeViewer.media.qchallengeConfig}
+                initialConfig={activeViewer.media.qchallengeConfig || {} as QChallengeConfig}
                 shortId={shortId}
+                locale={locale}
               />
             )}
           </div>
@@ -1550,12 +1552,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             initialConfig={currentMedia.qtreasureConfig}
             shortId={shortId}
           />
-        ) : isQChallenge && currentMedia.qchallengeConfig ? (
+        ) : isQChallenge ? (
           <QChallengeViewer
             codeId={codeId}
             mediaId={currentMedia.id}
-            initialConfig={currentMedia.qchallengeConfig}
+            initialConfig={currentMedia.qchallengeConfig || {} as QChallengeConfig}
             shortId={shortId}
+            locale={locale}
           />
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} pdfSettings={currentMedia.pdfSettings} />

@@ -17,6 +17,8 @@ import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
 import QStageModal from '@/components/modals/QStageModal';
 import QHuntModal from '@/components/modals/QHuntModal';
+import QTreasureModal from '@/components/modals/QTreasureModal';
+import QChallengeModal from '@/components/modals/QChallengeModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig, MediaType } from '@/types';
@@ -24,6 +26,8 @@ import { QVoteConfig } from '@/types/qvote';
 import { getCandidates, bulkCreateCandidates } from '@/lib/qvote';
 import { QStageConfig, DEFAULT_QSTAGE_CONFIG } from '@/types/qstage';
 import { QHuntConfig, DEFAULT_QHUNT_CONFIG } from '@/types/qhunt';
+import { QTreasureConfig } from '@/types/qtreasure';
+import { QChallengeConfig } from '@/types/qchallenge';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
@@ -101,6 +105,10 @@ export default function DashboardPage() {
   const [addingWeeklyCal, setAddingWeeklyCal] = useState(false);
   const [qhuntModalOpen, setQhuntModalOpen] = useState(false);
   const [addingQHunt, setAddingQHunt] = useState(false);
+  const [qtreasureModalOpen, setQtreasureModalOpen] = useState(false);
+  const [addingQTreasure, setAddingQTreasure] = useState(false);
+  const [qchallengeModalOpen, setQchallengeModalOpen] = useState(false);
+  const [addingQChallenge, setAddingQChallenge] = useState(false);
 
   // Set initial view mode based on screen size (list for mobile, grid for desktop)
   useEffect(() => {
@@ -688,6 +696,72 @@ export default function DashboardPage() {
       alert(tErrors('createCodeError'));
     } finally {
       setAddingQHunt(false);
+    }
+  };
+
+  const handleQTreasureCreate = async (config: QTreasureConfig) => {
+    if (!user) return;
+
+    setAddingQTreasure(true);
+
+    try {
+      // Create QR code with QTreasure (in current folder if inside one)
+      const newCode = await createQRCode(user.id, 'Q.Treasure', [
+        {
+          url: '',
+          type: 'qtreasure',
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+          title: 'Q.Treasure',
+          qtreasureConfig: config,
+        },
+      ], currentFolderId);
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setQtreasureModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating Q.Treasure:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQTreasure(false);
+    }
+  };
+
+  const handleQChallengeCreate = async (config: QChallengeConfig) => {
+    if (!user) return;
+
+    setAddingQChallenge(true);
+
+    try {
+      // Create QR code with QChallenge (in current folder if inside one)
+      const newCode = await createQRCode(user.id, 'Q.Challenge', [
+        {
+          url: '',
+          type: 'qchallenge',
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+          title: 'Q.Challenge',
+          qchallengeConfig: config,
+        },
+      ], currentFolderId);
+
+      // Add to list
+      setCodes((prev) => [newCode, ...prev]);
+
+      // Close modal and navigate to edit page
+      setQchallengeModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating Q.Challenge:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQChallenge(false);
     }
   };
 
@@ -1499,6 +1573,8 @@ export default function DashboardPage() {
                   onQStageCreate={() => setQstageModalOpen(true)}
                   onWeeklyCalendarCreate={() => setWeeklyCalModalOpen(true)}
                   onQHuntCreate={() => setQhuntModalOpen(true)}
+                  onQTreasureCreate={() => setQtreasureModalOpen(true)}
+                  onQChallengeCreate={() => setQchallengeModalOpen(true)}
                   disabled={uploading}
                 />
               </div>
@@ -2068,6 +2144,22 @@ export default function DashboardPage() {
         onClose={() => setQhuntModalOpen(false)}
         onSave={handleQHuntCreate}
         loading={addingQHunt}
+      />
+
+      {/* Q.Treasure Modal */}
+      <QTreasureModal
+        isOpen={qtreasureModalOpen}
+        onClose={() => setQtreasureModalOpen(false)}
+        onSave={handleQTreasureCreate}
+        loading={addingQTreasure}
+      />
+
+      {/* Q.Challenge Modal */}
+      <QChallengeModal
+        isOpen={qchallengeModalOpen}
+        onClose={() => setQchallengeModalOpen(false)}
+        onSave={handleQChallengeCreate}
+        loading={addingQChallenge}
       />
 
       {/* Route Settings Modal for current folder */}

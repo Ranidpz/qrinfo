@@ -5,8 +5,10 @@ import {
   X, Loader2, Plus, Trash2, Palette, Settings, HelpCircle,
   Copy, Check, ImageIcon, Upload, Timer, Play, Square, RotateCcw,
   GripVertical, ChevronDown, ChevronUp, Zap, Clock, Flame, CheckCircle,
+  ExternalLink, Trophy, Download, FileUp, Sparkles,
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   QChallengeConfig,
   QChallengeQuestion,
@@ -23,7 +25,7 @@ import {
 interface QChallengeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (config: QChallengeConfig, logoFile?: File) => Promise<void>;
+  onSave: (config: QChallengeConfig, logoFile?: File, backgroundFile?: File) => Promise<void>;
   onPhaseChange?: (phase: QChallengePhase) => Promise<void>;
   onReset?: () => Promise<void>;
   loading?: boolean;
@@ -69,8 +71,16 @@ export default function QChallengeModal({
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  // Background image state
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
+  const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
+
   // Copy state
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Save success state
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Initialize from initialConfig
   useEffect(() => {
@@ -78,6 +88,9 @@ export default function QChallengeModal({
       setConfig(initialConfig);
       if (initialConfig.branding.eventLogo) {
         setLogoPreview(initialConfig.branding.eventLogo);
+      }
+      if (initialConfig.branding.backgroundImage) {
+        setBackgroundPreview(initialConfig.branding.backgroundImage);
       }
     }
   }, [initialConfig]);
@@ -148,6 +161,147 @@ export default function QChallengeModal({
     updateConfig('questions', newQuestions);
   };
 
+  // Excel Import/Export
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+
+      // Skip header row if it looks like a header
+      const startIndex = lines[0]?.toLowerCase().includes('question') ||
+                         lines[0]?.toLowerCase().includes('שאלה') ? 1 : 0;
+
+      const newQuestions: QChallengeQuestion[] = [];
+
+      for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i];
+        // Parse CSV - handle quoted values
+        const values: string[] = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (const char of line) {
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current.trim());
+
+        // Format: Question, Answer1, Answer2, Answer3, Answer4, Answer5, Answer6, CorrectIndex, TimeLimit
+        // Minimum: Question, Answer1, Answer2, CorrectIndex
+        if (values.length >= 4) {
+          const questionText = values[0];
+          const answers: QChallengeAnswer[] = [];
+
+          // Get answers (columns 1-6)
+          for (let j = 1; j <= 6; j++) {
+            if (values[j] && values[j].trim()) {
+              answers.push({
+                id: generateAnswerId(),
+                text: values[j].trim(),
+                isCorrect: false,
+                order: j - 1,
+              });
+            }
+          }
+
+          // Get correct answer index (1-based in file, convert to 0-based)
+          const correctIndex = parseInt(values[7] || values[answers.length + 1] || '1') - 1;
+          if (correctIndex >= 0 && correctIndex < answers.length) {
+            answers[correctIndex].isCorrect = true;
+          } else if (answers.length > 0) {
+            answers[0].isCorrect = true;
+          }
+
+          // Get time limit if provided (default to config default)
+          const timeLimit = parseInt(values[8] || values[answers.length + 2] || '');
+          const defaultTimeLimit = config.defaultTimeLimitSeconds || 30;
+
+          if (questionText && answers.length >= 2) {
+            newQuestions.push({
+              id: generateQuestionId(),
+              text: questionText,
+              answers,
+              timeLimitSeconds: isNaN(timeLimit) ? defaultTimeLimit : timeLimit,
+              points: config.scoring?.basePoints || 100,
+              order: config.questions.length + newQuestions.length,
+              isActive: true,
+              createdAt: Date.now(),
+            });
+          }
+        }
+      }
+
+      if (newQuestions.length > 0) {
+        updateConfig('questions', [...config.questions, ...newQuestions]);
+        alert(isRTL
+          ? `יובאו ${newQuestions.length} שאלות בהצלחה!`
+          : `Successfully imported ${newQuestions.length} questions!`
+        );
+      } else {
+        alert(isRTL
+          ? 'לא נמצאו שאלות תקינות בקובץ. ודא שהפורמט נכון.'
+          : 'No valid questions found. Please check the file format.'
+        );
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      alert(isRTL ? 'שגיאה בייבוא הקובץ' : 'Error importing file');
+    }
+
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handleExportExcel = () => {
+    if (config.questions.length === 0) return;
+
+    // Create CSV content
+    const headers = isRTL
+      ? ['שאלה', 'תשובה 1', 'תשובה 2', 'תשובה 3', 'תשובה 4', 'תשובה 5', 'תשובה 6', 'תשובה נכונה', 'מגבלת זמן']
+      : ['Question', 'Answer 1', 'Answer 2', 'Answer 3', 'Answer 4', 'Answer 5', 'Answer 6', 'Correct Answer', 'Time Limit'];
+
+    const rows = config.questions.map(q => {
+      const answers = Array(6).fill('');
+      let correctIndex = 1;
+
+      q.answers.forEach((a, i) => {
+        answers[i] = a.text;
+        if (a.isCorrect) correctIndex = i + 1;
+      });
+
+      return [
+        `"${q.text.replace(/"/g, '""')}"`,
+        ...answers.map(a => `"${a.replace(/"/g, '""')}"`),
+        correctIndex.toString(),
+        q.timeLimitSeconds?.toString() || '',
+      ].join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+
+    // Add BOM for Hebrew support in Excel
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `qchallenge-questions-${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // Answer management
   const addAnswer = (questionId: string) => {
     const question = config.questions.find(q => q.id === questionId);
@@ -201,6 +355,15 @@ export default function QChallengeModal({
     }
   };
 
+  // Handle background upload
+  const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setBackgroundFile(file);
+      setBackgroundPreview(URL.createObjectURL(file));
+    }
+  };
+
   // Copy link
   const copyLink = async () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -212,7 +375,13 @@ export default function QChallengeModal({
 
   // Handle save
   const handleSave = async () => {
-    await onSave(config, logoFile || undefined);
+    try {
+      await onSave(config, logoFile || undefined, backgroundFile || undefined);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (error) {
+      console.error('Save error:', error);
+    }
   };
 
   // Phase control
@@ -282,32 +451,63 @@ export default function QChallengeModal({
           {/* General Tab */}
           {activeTab === 'general' && (
             <div className="space-y-6">
-              {/* Quiz Title */}
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  {isRTL ? 'כותרת החידון' : 'Quiz Title'}
-                </label>
-                <input
-                  type="text"
-                  value={config.branding.quizTitle || ''}
-                  onChange={(e) => updateBranding('quizTitle', e.target.value)}
-                  placeholder={isRTL ? 'הכנס כותרת...' : 'Enter title...'}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500"
-                />
-              </div>
+              {/* Title and QR Code section */}
+              <div className="flex gap-6">
+                {/* Left side - Title and Description */}
+                <div className="flex-1 space-y-4">
+                  {/* Quiz Title */}
+                  <div>
+                    <label className="block text-sm font-medium text-white/80 mb-2">
+                      {isRTL ? 'כותרת החידון' : 'Quiz Title'}
+                    </label>
+                    <input
+                      type="text"
+                      value={config.branding.quizTitle || ''}
+                      onChange={(e) => updateBranding('quizTitle', e.target.value)}
+                      placeholder={isRTL ? 'הכנס כותרת...' : 'Enter title...'}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  {isRTL ? 'תיאור' : 'Description'}
-                </label>
-                <textarea
-                  value={config.branding.quizDescription || ''}
-                  onChange={(e) => updateBranding('quizDescription', e.target.value)}
-                  placeholder={isRTL ? 'הכנס תיאור...' : 'Enter description...'}
-                  rows={3}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 resize-none"
-                />
+                  {/* Description */}
+                  <div>
+                    <label className="block text-sm font-medium text-white/80 mb-2">
+                      {isRTL ? 'תיאור' : 'Description'}
+                    </label>
+                    <textarea
+                      value={config.branding.quizDescription || ''}
+                      onChange={(e) => updateBranding('quizDescription', e.target.value)}
+                      placeholder={isRTL ? 'הכנס תיאור...' : 'Enter description...'}
+                      rows={3}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-blue-500 resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Right side - QR Code */}
+                {shortId && (
+                  <div className="flex flex-col items-center gap-2">
+                    <div
+                      className="p-3 bg-white rounded-xl cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => window.open(`${typeof window !== 'undefined' ? window.location.origin : ''}/v/${shortId}`, '_blank')}
+                      title={isRTL ? 'לחץ לפתיחה' : 'Click to open'}
+                    >
+                      <QRCodeSVG
+                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/v/${shortId}`}
+                        size={120}
+                        level="M"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <button
+                      onClick={() => window.open(`${typeof window !== 'undefined' ? window.location.origin : ''}/v/${shortId}`, '_blank')}
+                      className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      {isRTL ? 'פתח בדפדפן' : 'Open in browser'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Default Timer */}
@@ -403,18 +603,53 @@ export default function QChallengeModal({
           {/* Questions Tab */}
           {activeTab === 'questions' && (
             <div className="space-y-4">
-              {/* Questions count */}
-              <div className="flex items-center justify-between">
+              {/* Questions count and action buttons */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-white/60">
                   {config.questions.length} {isRTL ? 'שאלות' : 'questions'}
                 </span>
-                <button
-                  onClick={addQuestion}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  {isRTL ? 'הוסף שאלה' : 'Add Question'}
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Import from Excel */}
+                  <label className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors cursor-pointer">
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">{isRTL ? 'יבוא מאקסל' : 'Import'}</span>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleImportExcel}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Export to Excel */}
+                  <button
+                    onClick={handleExportExcel}
+                    disabled={config.questions.length === 0}
+                    className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileUp className="w-4 h-4" />
+                    <span className="hidden sm:inline">{isRTL ? 'יצוא לאקסל' : 'Export'}</span>
+                  </button>
+
+                  {/* AI Generator (coming soon) */}
+                  <button
+                    disabled
+                    className="flex items-center gap-2 px-3 py-2 bg-purple-500/30 text-purple-300 rounded-lg cursor-not-allowed opacity-60"
+                    title={isRTL ? 'בקרוב...' : 'Coming soon...'}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span className="hidden sm:inline">AI</span>
+                  </button>
+
+                  {/* Add Question */}
+                  <button
+                    onClick={addQuestion}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {isRTL ? 'הוסף שאלה' : 'Add Question'}
+                  </button>
+                </div>
               </div>
 
               {/* Questions list */}
@@ -620,66 +855,86 @@ export default function QChallengeModal({
                 </div>
               </div>
 
-              {/* Base points */}
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  {isRTL ? 'נקודות בסיס לתשובה נכונה' : 'Base Points per Correct Answer'}
-                </label>
-                <input
-                  type="number"
-                  min={10}
-                  max={500}
-                  step={10}
-                  value={config.scoring.basePoints}
-                  onChange={(e) => updateScoring('basePoints', parseInt(e.target.value) || 100)}
-                  className="w-32 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
+              {/* Points settings - row with inputs and explanation */}
+              <div className="p-4 bg-white/5 rounded-xl space-y-4">
+                {/* Input row */}
+                <div className="flex items-center gap-6 flex-wrap">
+                  {/* Base points */}
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-white/80">
+                      {isRTL ? 'נקודות בסיס:' : 'Base points:'}
+                    </label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={500}
+                      step={10}
+                      value={config.scoring.basePoints}
+                      onChange={(e) => updateScoring('basePoints', parseInt(e.target.value) || 100)}
+                      className="w-20 px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-center focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
 
-              {/* Time bonus (if applicable) */}
-              {(config.scoring.mode === 'time_only' || config.scoring.mode === 'time_and_streak') && (
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-2">
-                    {isRTL ? 'בונוס זמן מקסימלי' : 'Maximum Time Bonus'}
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={200}
-                    step={10}
-                    value={config.scoring.timeBonusMax}
-                    onChange={(e) => updateScoring('timeBonusMax', parseInt(e.target.value) || 50)}
-                    className="w-32 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                  />
-                  <p className="text-sm text-white/40 mt-1">
-                    {isRTL ? 'נקודות נוספות למי שעונה מהר' : 'Extra points for fast answers'}
-                  </p>
-                </div>
-              )}
-
-              {/* Preview scoring */}
-              <div className="p-4 bg-white/5 rounded-lg">
-                <h4 className="font-medium text-white mb-3">
-                  {isRTL ? 'דוגמה לחישוב ניקוד' : 'Scoring Example'}
-                </h4>
-                <div className="text-sm text-white/60 space-y-1">
-                  <p>{isRTL ? 'תשובה נכונה:' : 'Correct answer:'} +{config.scoring.basePoints}</p>
+                  {/* Time bonus (if applicable) */}
                   {(config.scoring.mode === 'time_only' || config.scoring.mode === 'time_and_streak') && (
-                    <p>{isRTL ? 'בונוס זמן (מהיר):' : 'Time bonus (fast):'} +{config.scoring.timeBonusMax}</p>
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm text-white/80">
+                        {isRTL ? 'בונוס זמן מקס׳:' : 'Max time bonus:'}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={200}
+                        step={10}
+                        value={config.scoring.timeBonusMax}
+                        onChange={(e) => updateScoring('timeBonusMax', parseInt(e.target.value) || 50)}
+                        className="w-20 px-3 py-2 bg-white/10 border border-white/10 rounded-lg text-white text-center focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
                   )}
+                </div>
+
+                {/* Scoring explanation */}
+                <div className="text-sm text-white/60 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400">✓</span>
+                    <span>{isRTL ? 'תשובה נכונה:' : 'Correct answer:'}</span>
+                    <span className="text-white font-medium">+{config.scoring.basePoints}</span>
+                    <span>{isRTL ? 'נקודות' : 'points'}</span>
+                  </div>
+
+                  {(config.scoring.mode === 'time_only' || config.scoring.mode === 'time_and_streak') && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-400">⚡</span>
+                      <span>{isRTL ? 'עונה מהר:' : 'Fast answer:'}</span>
+                      <span className="text-white font-medium">+{config.scoring.timeBonusMax}</span>
+                      <span>{isRTL ? 'נקודות נוספות (יורד ככל שעובר הזמן)' : 'bonus (decreases over time)'}</span>
+                    </div>
+                  )}
+
                   {(config.scoring.mode === 'streak_only' || config.scoring.mode === 'time_and_streak') && (
-                    <p>{isRTL ? 'מכפיל רצף (x3):' : 'Streak multiplier (x3):'} x3.0</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-orange-400">🔥</span>
+                      <span>{isRTL ? 'רצף תשובות נכונות:' : 'Correct streak:'}</span>
+                      <span className="text-white font-medium">×1.2 → ×3.0</span>
+                      <span>{isRTL ? '(עד 6 תשובות ברצף)' : '(up to 6 in a row)'}</span>
+                    </div>
                   )}
-                  <p className="text-white font-medium pt-2 border-t border-white/10">
-                    {isRTL ? 'מקסימום לשאלה:' : 'Max per question:'} ~
-                    {config.scoring.mode === 'simple'
-                      ? config.scoring.basePoints
-                      : Math.round(
-                          (config.scoring.basePoints + (config.scoring.mode !== 'streak_only' ? config.scoring.timeBonusMax : 0)) *
-                          (config.scoring.mode !== 'time_only' ? 3 : 1)
-                        )
-                    }
-                  </p>
+
+                  <div className="pt-2 border-t border-white/10 flex items-center gap-2">
+                    <span className="text-yellow-400">🏆</span>
+                    <span>{isRTL ? 'מקסימום לשאלה:' : 'Max per question:'}</span>
+                    <span className="text-white font-bold text-base">
+                      ~{config.scoring.mode === 'simple'
+                        ? config.scoring.basePoints
+                        : Math.round(
+                            (config.scoring.basePoints + (config.scoring.mode !== 'streak_only' ? config.scoring.timeBonusMax : 0)) *
+                            (config.scoring.mode !== 'time_only' ? 3 : 1)
+                          )
+                      }
+                    </span>
+                    <span>{isRTL ? 'נקודות' : 'points'}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -687,131 +942,370 @@ export default function QChallengeModal({
 
           {/* Branding Tab */}
           {activeTab === 'branding' && (
-            <div className="space-y-6">
-              {/* Logo */}
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  {isRTL ? 'לוגו' : 'Logo'}
-                </label>
-                <div className="flex items-center gap-4">
-                  {logoPreview ? (
-                    <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-white/10">
+            <div className="flex gap-6">
+              {/* Left side - Settings */}
+              <div className="flex-1 space-y-6">
+                {/* Logo */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    {isRTL ? 'לוגו' : 'Logo'}
+                  </label>
+                  <div className="flex items-center gap-4">
+                    {logoPreview ? (
+                      <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-white/10">
+                        <img
+                          src={logoPreview}
+                          alt="Logo"
+                          className="w-full h-full object-contain"
+                        />
+                        <button
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoPreview(null);
+                            updateBranding('eventLogo', undefined);
+                          }}
+                          className="absolute top-1 right-1 p-1 bg-red-500 rounded-full text-white"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => logoInputRef.current?.click()}
+                        className="w-20 h-20 rounded-lg border-2 border-dashed border-white/20 hover:border-white/40 flex flex-col items-center justify-center text-white/40 hover:text-white/60 transition-colors"
+                      >
+                        <Upload className="w-6 h-6" />
+                        <span className="text-xs mt-1">{isRTL ? 'העלאה' : 'Upload'}</span>
+                      </button>
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                    <span className="text-xs text-white/40">PNG / WebP / JPG</span>
+                  </div>
+                </div>
+
+                {/* Primary Color */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    {isRTL ? 'צבע ראשי' : 'Primary Color'}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      {presetColors.primary.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => updateBranding('primaryColor', color)}
+                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                            config.branding.primaryColor === color
+                              ? 'border-white scale-110'
+                              : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <input
+                      type="color"
+                      value={config.branding.primaryColor || '#3b82f6'}
+                      onChange={(e) => updateBranding('primaryColor', e.target.value)}
+                      className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-2 border-white/20"
+                      title={isRTL ? 'בחר צבע מותאם' : 'Choose custom color'}
+                    />
+                  </div>
+                </div>
+
+                {/* Background Color */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    {isRTL ? 'צבע רקע' : 'Background Color'}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      {presetColors.background.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => updateBranding('backgroundColor', color)}
+                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                            config.branding.backgroundColor === color
+                              ? 'border-white scale-110'
+                              : 'border-white/20'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <input
+                      type="color"
+                      value={config.branding.backgroundColor || '#1a1a2e'}
+                      onChange={(e) => updateBranding('backgroundColor', e.target.value)}
+                      className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-2 border-white/20"
+                      title={isRTL ? 'בחר צבע מותאם' : 'Choose custom color'}
+                    />
+                  </div>
+                </div>
+
+                {/* Success Color */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    {isRTL ? 'צבע תשובה נכונה' : 'Correct Answer Color'}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      {presetColors.success.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => updateBranding('successColor', color)}
+                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                            config.branding.successColor === color
+                              ? 'border-white scale-110'
+                              : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <input
+                      type="color"
+                      value={config.branding.successColor || '#22c55e'}
+                      onChange={(e) => updateBranding('successColor', e.target.value)}
+                      className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-2 border-white/20"
+                      title={isRTL ? 'בחר צבע מותאם' : 'Choose custom color'}
+                    />
+                  </div>
+                </div>
+
+                {/* Error Color */}
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">
+                    {isRTL ? 'צבע תשובה שגויה' : 'Wrong Answer Color'}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      {presetColors.error.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => updateBranding('errorColor', color)}
+                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                            config.branding.errorColor === color
+                              ? 'border-white scale-110'
+                              : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                    <input
+                      type="color"
+                      value={config.branding.errorColor || '#ef4444'}
+                      onChange={(e) => updateBranding('errorColor', e.target.value)}
+                      className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-2 border-white/20"
+                      title={isRTL ? 'בחר צבע מותאם' : 'Choose custom color'}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right side - Preview */}
+              <div className="w-64 flex-shrink-0 space-y-4">
+                {/* Preview header with background image button */}
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-white/80">
+                    {isRTL ? 'תצוגה מקדימה' : 'Preview'}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {/* Background image button */}
+                    <button
+                      onClick={() => backgroundInputRef.current?.click()}
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        backgroundPreview
+                          ? 'bg-blue-500/20 text-blue-400'
+                          : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'
+                      }`}
+                      title={isRTL ? 'תמונת רקע' : 'Background image'}
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    {backgroundPreview && (
+                      <button
+                        onClick={() => {
+                          setBackgroundFile(null);
+                          setBackgroundPreview(null);
+                          updateBranding('backgroundImage', undefined);
+                        }}
+                        className="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                        title={isRTL ? 'הסר רקע' : 'Remove background'}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hidden input for background */}
+                <input
+                  ref={backgroundInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleBackgroundUpload}
+                  className="hidden"
+                />
+
+                {/* Preview container */}
+                <div
+                  className="w-full aspect-[9/16] rounded-2xl overflow-hidden border-2 border-white/10 relative"
+                  style={{
+                    backgroundColor: config.branding.backgroundColor || '#1a1a2e',
+                    backgroundImage: backgroundPreview ? `url(${backgroundPreview})` : undefined,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.add('border-orange-500');
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-orange-500');
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-orange-500');
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.type.startsWith('image/')) {
+                      setBackgroundFile(file);
+                      setBackgroundPreview(URL.createObjectURL(file));
+                    }
+                  }}
+                >
+                  {/* Overlay for readability */}
+                  {backgroundPreview && (
+                    <div className="absolute inset-0 bg-black/40" />
+                  )}
+
+                  {/* Preview content */}
+                  <div className="relative h-full flex flex-col items-center justify-center p-4 text-center">
+                    {/* Logo preview */}
+                    {logoPreview && (
                       <img
                         src={logoPreview}
                         alt="Logo"
-                        className="w-full h-full object-contain"
+                        className="w-16 h-16 object-contain mb-3"
                       />
-                      <button
-                        onClick={() => {
-                          setLogoFile(null);
-                          setLogoPreview(null);
-                          updateBranding('eventLogo', undefined);
-                        }}
-                        className="absolute top-1 right-1 p-1 bg-red-500 rounded-full text-white"
+                    )}
+
+                    {/* Trophy icon if no logo */}
+                    {!logoPreview && (
+                      <div
+                        className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                        style={{ backgroundColor: `${config.branding.primaryColor || '#3b82f6'}30` }}
                       >
-                        <X className="w-3 h-3" />
+                        <Trophy
+                          className="w-7 h-7"
+                          style={{ color: config.branding.primaryColor || '#3b82f6' }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Title (if shown) */}
+                    {config.branding.showTitle !== false && (
+                      <h3
+                        className="text-white font-bold mb-1 line-clamp-2"
+                        style={{ fontSize: `${config.branding.titleFontSize || 1}rem` }}
+                      >
+                        {config.branding.quizTitle || (isRTL ? 'כותרת החידון' : 'Quiz Title')}
+                      </h3>
+                    )}
+
+                    {/* Description (if shown) */}
+                    {config.branding.showDescription !== false && (
+                      <p
+                        className="text-white/60 line-clamp-2 mb-4"
+                        style={{ fontSize: `${config.branding.descriptionFontSize || 0.75}rem` }}
+                      >
+                        {config.branding.quizDescription || (isRTL ? 'תיאור החידון' : 'Quiz description')}
+                      </p>
+                    )}
+
+                    {/* Start button */}
+                    <button
+                      className="px-4 py-2 rounded-lg text-white text-xs font-medium"
+                      style={{ backgroundColor: config.branding.primaryColor || '#3b82f6' }}
+                    >
+                      {isRTL ? 'התחל!' : 'Start!'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Text display settings */}
+                <div className="space-y-3 p-3 bg-white/5 rounded-xl">
+                  {/* Title settings */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-white/70">{isRTL ? 'כותרת' : 'Title'}</label>
+                      <button
+                        onClick={() => updateBranding('showTitle', !config.branding.showTitle)}
+                        className={`w-8 h-4 rounded-full transition-colors relative ${
+                          config.branding.showTitle !== false ? 'bg-blue-500' : 'bg-white/20'
+                        }`}
+                      >
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${
+                          config.branding.showTitle !== false ? 'right-0.5' : 'left-0.5'
+                        }`} />
                       </button>
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => logoInputRef.current?.click()}
-                      className="w-20 h-20 rounded-lg border-2 border-dashed border-white/20 hover:border-white/40 flex flex-col items-center justify-center text-white/40 hover:text-white/60 transition-colors"
-                    >
-                      <Upload className="w-6 h-6" />
-                      <span className="text-xs mt-1">{isRTL ? 'העלאה' : 'Upload'}</span>
-                    </button>
-                  )}
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    className="hidden"
-                  />
-                </div>
-              </div>
+                    {config.branding.showTitle !== false && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/50">A</span>
+                        <input
+                          type="range"
+                          min={0.75}
+                          max={2}
+                          step={0.05}
+                          value={config.branding.titleFontSize || 1}
+                          onChange={(e) => updateBranding('titleFontSize', parseFloat(e.target.value))}
+                          className="flex-1 accent-blue-500"
+                        />
+                        <span className="text-sm text-white/50">A</span>
+                      </div>
+                    )}
+                  </div>
 
-              {/* Primary Color */}
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  {isRTL ? 'צבע ראשי' : 'Primary Color'}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {presetColors.primary.map(color => (
-                    <button
-                      key={color}
-                      onClick={() => updateBranding('primaryColor', color)}
-                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                        config.branding.primaryColor === color
-                          ? 'border-white scale-110'
-                          : 'border-transparent'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Background Color */}
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  {isRTL ? 'צבע רקע' : 'Background Color'}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {presetColors.background.map(color => (
-                    <button
-                      key={color}
-                      onClick={() => updateBranding('backgroundColor', color)}
-                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                        config.branding.backgroundColor === color
-                          ? 'border-white scale-110'
-                          : 'border-white/20'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Success Color */}
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  {isRTL ? 'צבע תשובה נכונה' : 'Correct Answer Color'}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {presetColors.success.map(color => (
-                    <button
-                      key={color}
-                      onClick={() => updateBranding('successColor', color)}
-                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                        config.branding.successColor === color
-                          ? 'border-white scale-110'
-                          : 'border-transparent'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Error Color */}
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  {isRTL ? 'צבע תשובה שגויה' : 'Wrong Answer Color'}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {presetColors.error.map(color => (
-                    <button
-                      key={color}
-                      onClick={() => updateBranding('errorColor', color)}
-                      className={`w-10 h-10 rounded-lg border-2 transition-all ${
-                        config.branding.errorColor === color
-                          ? 'border-white scale-110'
-                          : 'border-transparent'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
+                  {/* Description settings */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-white/70">{isRTL ? 'תיאור' : 'Description'}</label>
+                      <button
+                        onClick={() => updateBranding('showDescription', !config.branding.showDescription)}
+                        className={`w-8 h-4 rounded-full transition-colors relative ${
+                          config.branding.showDescription !== false ? 'bg-blue-500' : 'bg-white/20'
+                        }`}
+                      >
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${
+                          config.branding.showDescription !== false ? 'right-0.5' : 'left-0.5'
+                        }`} />
+                      </button>
+                    </div>
+                    {config.branding.showDescription !== false && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white/50">A</span>
+                        <input
+                          type="range"
+                          min={0.5}
+                          max={1.5}
+                          step={0.05}
+                          value={config.branding.descriptionFontSize || 0.75}
+                          onChange={(e) => updateBranding('descriptionFontSize', parseFloat(e.target.value))}
+                          className="flex-1 accent-blue-500"
+                        />
+                        <span className="text-sm text-white/50">A</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -898,11 +1392,16 @@ export default function QChallengeModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={loading}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg transition-colors"
+            disabled={loading || saveSuccess}
+            className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition-all ${
+              saveSuccess
+                ? 'bg-green-500'
+                : 'bg-blue-500 hover:bg-blue-600 disabled:opacity-50'
+            }`}
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isRTL ? 'שמור' : 'Save'}
+            {saveSuccess && <Check className="w-4 h-4" />}
+            {saveSuccess ? (isRTL ? 'נשמר!' : 'Saved!') : loading ? (isRTL ? 'שומר...' : 'Saving...') : (isRTL ? 'שמור' : 'Save')}
           </button>
         </div>
       </div>

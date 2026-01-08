@@ -48,6 +48,12 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'selected' | 'deselected' | 'max'>('selected');
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+  const [isAndroid, setIsAndroid] = useState(false);
+
+  // Detect Android for performance optimizations
+  useEffect(() => {
+    setIsAndroid(/android/i.test(navigator.userAgent));
+  }, []);
 
   // Navigate to specific slide
   useEffect(() => {
@@ -108,7 +114,7 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
           effect="cards"
           grabCursor={true}
           cardsEffect={{
-            slideShadows: true,
+            slideShadows: !isAndroid, // Disable on Android for better performance
             perSlideOffset: 8,
             perSlideRotate: 2,
           }}
@@ -260,9 +266,9 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
         <button
           onClick={() => swiperRef.current?.slidePrev()}
           disabled={!canGoPrev}
-          className="absolute start-2 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-0 disabled:pointer-events-none hover:scale-110 hover:bg-white/30 active:scale-95 backdrop-blur-sm"
+          className={`absolute start-2 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-0 disabled:pointer-events-none hover:scale-110 hover:bg-white/30 active:scale-95 ${isAndroid ? '' : 'backdrop-blur-sm'}`}
           style={{
-            backgroundColor: 'rgba(255,255,255,0.15)',
+            backgroundColor: isAndroid ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.15)',
             color: 'white',
           }}
         >
@@ -272,9 +278,9 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
         <button
           onClick={() => swiperRef.current?.slideNext()}
           disabled={!canGoNext}
-          className="absolute end-2 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-0 disabled:pointer-events-none hover:scale-110 hover:bg-white/30 active:scale-95 backdrop-blur-sm"
+          className={`absolute end-2 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-0 disabled:pointer-events-none hover:scale-110 hover:bg-white/30 active:scale-95 ${isAndroid ? '' : 'backdrop-blur-sm'}`}
           style={{
-            backgroundColor: 'rgba(255,255,255,0.15)',
+            backgroundColor: isAndroid ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.15)',
             color: 'white',
           }}
         >

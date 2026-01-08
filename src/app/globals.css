@@ -447,6 +447,13 @@ body {
   animation: qvote-shimmer 2s ease-in-out infinite;
 }
 
+/* QVote Swiper GPU acceleration for smoother animations */
+.swiper-cards .swiper-slide {
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
 /* Marketing Page Animations */
 @keyframes fade-in {
   from {

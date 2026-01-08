@@ -173,6 +173,11 @@ export interface QChallengeBranding {
   successColor: string;             // Correct answers
   errorColor: string;               // Wrong answers
   eventLogo?: string;
+  // Text display settings
+  showTitle?: boolean;              // Show/hide title (default: true)
+  showDescription?: boolean;        // Show/hide description (default: true)
+  titleFontSize?: number;           // Title font size in rem (0.75-2, default: 1)
+  descriptionFontSize?: number;     // Description font size in rem (0.5-1.5, default: 0.75)
 }
 
 // =============================================================
@@ -429,6 +434,10 @@ export const DEFAULT_QCHALLENGE_CONFIG: QChallengeConfig = {
     secondaryColor: '#8b5cf6',
     successColor: '#22c55e',
     errorColor: '#ef4444',
+    showTitle: true,
+    showDescription: true,
+    titleFontSize: 1,
+    descriptionFontSize: 0.75,
   },
   emojiPalette: DEFAULT_QCHALLENGE_EMOJI_PALETTE,
   allowSelfie: true,

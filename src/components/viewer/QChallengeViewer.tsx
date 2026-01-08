@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocale } from 'next-intl';
 import { Check, X, Trophy, Users, Clock, Zap, ChevronRight, Loader2 } from 'lucide-react';
 import {
   QChallengeConfig,
@@ -10,6 +9,8 @@ import {
   QChallengeLeaderboardEntry,
   getQChallengeTranslation,
   formatQuizDuration,
+  DEFAULT_QCHALLENGE_EMOJI_PALETTE,
+  DEFAULT_QCHALLENGE_CONFIG,
 } from '@/types/qchallenge';
 import { getOrCreateVisitorId } from '@/lib/xp';
 import { subscribeToQChallengeLeaderboard } from '@/lib/qchallenge-realtime';
@@ -20,6 +21,7 @@ interface QChallengeViewerProps {
   mediaId: string;
   initialConfig: QChallengeConfig;
   shortId: string;
+  locale?: 'he' | 'en';
 }
 
 type ViewPhase = 'landing' | 'playing' | 'feedback' | 'result' | 'leaderboard';
@@ -29,12 +31,25 @@ export default function QChallengeViewer({
   mediaId,
   initialConfig,
   shortId,
+  locale = 'he',
 }: QChallengeViewerProps) {
-  const locale = useLocale() as 'he' | 'en';
   const isRTL = locale === 'he';
 
-  // State
-  const [config] = useState(initialConfig);
+  // Merge initialConfig with defaults to ensure all required fields exist
+  const [config] = useState<QChallengeConfig>(() => ({
+    ...DEFAULT_QCHALLENGE_CONFIG,
+    ...initialConfig,
+    branding: {
+      ...DEFAULT_QCHALLENGE_CONFIG.branding,
+      ...initialConfig.branding,
+    },
+    scoring: {
+      ...DEFAULT_QCHALLENGE_CONFIG.scoring,
+      ...initialConfig.scoring,
+    },
+    emojiPalette: initialConfig.emojiPalette?.length ? initialConfig.emojiPalette : DEFAULT_QCHALLENGE_EMOJI_PALETTE,
+  }));
+
   const [phase, setPhase] = useState<ViewPhase>('landing');
   const [player, setPlayer] = useState<QChallengePlayer | null>(null);
   const [questions, setQuestions] = useState<QChallengeQuestion[]>([]);
@@ -68,7 +83,7 @@ export default function QChallengeViewer({
 
   // Registration state
   const [nickname, setNickname] = useState('');
-  const [selectedEmoji, setSelectedEmoji] = useState(config.emojiPalette[0]);
+  const [selectedEmoji, setSelectedEmoji] = useState(config.emojiPalette[0] || '🧠');
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
 
@@ -257,12 +272,20 @@ export default function QChallengeViewer({
           )}
 
           {/* Title */}
-          <h1 className="text-3xl font-bold text-white text-center mb-2">
-            {config.branding.quizTitle || t('quizTitle')}
-          </h1>
+          {config.branding.showTitle !== false && (
+            <h1
+              className="font-bold text-white text-center mb-2"
+              style={{ fontSize: `${(config.branding.titleFontSize || 1) * 1.875}rem` }}
+            >
+              {config.branding.quizTitle || t('quizTitle')}
+            </h1>
+          )}
 
-          {config.branding.quizDescription && (
-            <p className="text-white/60 text-center mb-8 max-w-md">
+          {config.branding.showDescription !== false && config.branding.quizDescription && (
+            <p
+              className="text-white/60 text-center mb-8 max-w-md"
+              style={{ fontSize: `${(config.branding.descriptionFontSize || 0.75) * 1.33}rem` }}
+            >
               {config.branding.quizDescription}
             </p>
           )}

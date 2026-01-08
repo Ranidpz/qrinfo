@@ -41,6 +41,9 @@ import {
   Mail,
   MapPin,
   Sparkles,
+  Crosshair,
+  Map,
+  Trophy,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,6 +54,9 @@ import { QVoteConfig } from '@/types/qvote';
 import { getCandidates, bulkCreateCandidates } from '@/lib/qvote';
 import { QStageConfig } from '@/types/qstage';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
+import { QHuntConfig } from '@/types/qhunt';
+import { QTreasureConfig } from '@/types/qtreasure';
+import { QChallengeConfig } from '@/types/qchallenge';
 
 // Helper function to remove undefined values from an object (Firestore doesn't accept undefined)
 function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
@@ -90,6 +96,9 @@ import ContactWidgetModal from '@/components/modals/ContactWidgetModal';
 import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
 import MobilePreviewModal from '@/components/modals/MobilePreviewModal';
 import LandingPageModal from '@/components/modals/LandingPageModal';
+import QHuntModal from '@/components/modals/QHuntModal';
+import QTreasureModal from '@/components/modals/QTreasureModal';
+import QChallengeModal from '@/components/modals/QChallengeModal';
 import PDFSettingsModal, { DEFAULT_PDF_SETTINGS, PDFFlipbookSettings } from '@/components/editor/PDFSettingsModal';
 import { shouldShowLandingPage } from '@/lib/landingPage';
 import { clsx } from 'clsx';
@@ -291,6 +300,21 @@ export default function CodeEditPage({ params }: PageProps) {
   const [qstageModalOpen, setQstageModalOpen] = useState(false);
   const [editingQStageId, setEditingQStageId] = useState<string | null>(null);
   const [addingQStage, setAddingQStage] = useState(false);
+
+  // Q.Hunt modal state
+  const [qhuntModalOpen, setQhuntModalOpen] = useState(false);
+  const [editingQHuntId, setEditingQHuntId] = useState<string | null>(null);
+  const [addingQHunt, setAddingQHunt] = useState(false);
+
+  // Q.Treasure modal state
+  const [qtreasureModalOpen, setQtreasureModalOpen] = useState(false);
+  const [editingQTreasureId, setEditingQTreasureId] = useState<string | null>(null);
+  const [addingQTreasure, setAddingQTreasure] = useState(false);
+
+  // Q.Challenge modal state
+  const [qchallengeModalOpen, setQchallengeModalOpen] = useState(false);
+  const [editingQChallengeId, setEditingQChallengeId] = useState<string | null>(null);
+  const [addingQChallenge, setAddingQChallenge] = useState(false);
 
   // Widget modals state
   const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
@@ -2072,6 +2096,235 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  // Handler for adding/editing Q.Hunt
+  const handleSaveQHunt = async (config: QHuntConfig) => {
+    if (!code || !user) return;
+
+    setAddingQHunt(true);
+    try {
+      const qhuntConfig = { ...config };
+      let updatedMedia: MediaItem[];
+
+      if (editingQHuntId) {
+        // Editing existing Q.Hunt
+        updatedMedia = code.media.map((m) =>
+          m.id === editingQHuntId
+            ? { ...m, qhuntConfig, updatedAt: new Date() }
+            : m
+        );
+      } else {
+        // Create new Q.Hunt media item
+        const newMediaId = `media_${Date.now()}`;
+        const newMedia: MediaItem = {
+          id: newMediaId,
+          url: '',
+          type: 'qhunt',
+          size: 0,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: 'Q.Hunt',
+          qhuntConfig,
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+        setEditingQHuntId(newMediaId);
+      }
+
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+    } catch (error) {
+      console.error('Error saving Q.Hunt:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQHunt(false);
+    }
+  };
+
+  // Handler for adding/editing Q.Treasure
+  const handleSaveQTreasure = async (config: QTreasureConfig) => {
+    if (!code || !user) return;
+
+    setAddingQTreasure(true);
+    try {
+      const qtreasureConfig = { ...config };
+      let updatedMedia: MediaItem[];
+
+      if (editingQTreasureId) {
+        // Editing existing Q.Treasure
+        updatedMedia = code.media.map((m) =>
+          m.id === editingQTreasureId
+            ? { ...m, qtreasureConfig, updatedAt: new Date() }
+            : m
+        );
+      } else {
+        // Create new Q.Treasure media item
+        const newMediaId = `media_${Date.now()}`;
+        const newMedia: MediaItem = {
+          id: newMediaId,
+          url: '',
+          type: 'qtreasure',
+          size: 0,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: 'Q.Treasure',
+          qtreasureConfig,
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+        setEditingQTreasureId(newMediaId);
+      }
+
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+    } catch (error) {
+      console.error('Error saving Q.Treasure:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQTreasure(false);
+    }
+  };
+
+  // Handler for adding/editing Q.Challenge
+  const handleSaveQChallenge = async (config: QChallengeConfig, logoFile?: File, backgroundFile?: File) => {
+    if (!code || !user) return;
+
+    setAddingQChallenge(true);
+    try {
+      let logoUrl: string | undefined;
+      let backgroundUrl: string | undefined;
+      let totalSize = 0;
+
+      // Get current media item for checking old files
+      const currentMedia = editingQChallengeId
+        ? code.media.find(m => m.id === editingQChallengeId)
+        : undefined;
+      const oldLogoUrl = currentMedia?.qchallengeConfig?.branding?.eventLogo;
+      const oldBackgroundUrl = currentMedia?.qchallengeConfig?.branding?.backgroundImage;
+
+      // Upload logo if provided
+      if (logoFile) {
+        // Delete old logo first if exists and different
+        if (oldLogoUrl && oldLogoUrl !== config.branding.eventLogo) {
+          try {
+            await fetch('/api/upload', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: oldLogoUrl }),
+            });
+          } catch (e) {
+            console.warn('Failed to delete old logo:', e);
+          }
+        }
+
+        const formData = new FormData();
+        formData.append('file', logoFile);
+        formData.append('userId', user.id);
+        formData.append('convertToWebp', 'false'); // Keep PNG for transparency
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          logoUrl = uploadData.url;
+          totalSize += uploadData.size;
+        }
+      }
+
+      // Upload background if provided
+      if (backgroundFile) {
+        // Delete old background first if exists and different
+        if (oldBackgroundUrl && oldBackgroundUrl !== config.branding.backgroundImage) {
+          try {
+            await fetch('/api/upload', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: oldBackgroundUrl }),
+            });
+          } catch (e) {
+            console.warn('Failed to delete old background:', e);
+          }
+        }
+
+        const formData = new FormData();
+        formData.append('file', backgroundFile);
+        formData.append('userId', user.id);
+        formData.append('convertToWebp', 'true'); // Convert background to webp for size
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          backgroundUrl = uploadData.url;
+          totalSize += uploadData.size;
+        }
+      }
+
+      // Handle case where background was removed (config has undefined but we had an old one)
+      if (!config.branding.backgroundImage && oldBackgroundUrl && !backgroundFile) {
+        try {
+          await fetch('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: oldBackgroundUrl }),
+          });
+        } catch (e) {
+          console.warn('Failed to delete removed background:', e);
+        }
+      }
+
+      // Create Q.Challenge config with uploaded URLs
+      const qchallengeConfig = {
+        ...config,
+        branding: {
+          ...config.branding,
+          eventLogo: logoUrl || config.branding.eventLogo,
+          backgroundImage: backgroundUrl || config.branding.backgroundImage,
+        },
+      };
+
+      let updatedMedia: MediaItem[];
+
+      if (editingQChallengeId) {
+        // Editing existing Q.Challenge
+        updatedMedia = code.media.map((m) =>
+          m.id === editingQChallengeId
+            ? { ...m, qchallengeConfig, updatedAt: new Date() }
+            : m
+        );
+      } else {
+        // Create new Q.Challenge media item
+        const newMediaId = `media_${Date.now()}`;
+        const newMedia: MediaItem = {
+          id: newMediaId,
+          url: '',
+          type: 'qchallenge',
+          size: totalSize,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: 'Q.Challenge',
+          qchallengeConfig,
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+        setEditingQChallengeId(newMediaId);
+      }
+
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+    } catch (error) {
+      console.error('Error saving Q.Challenge:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQChallenge(false);
+    }
+  };
+
   const handleSaveWhatsappWidget = async (config: CodeWidgets['whatsapp'] | undefined) => {
     if (!code) return;
 
@@ -3000,6 +3253,15 @@ export default function CodeEditPage({ params }: PageProps) {
                       } else if (media.type === 'qstage') {
                         setEditingQStageId(media.id);
                         setQstageModalOpen(true);
+                      } else if (media.type === 'qhunt') {
+                        setEditingQHuntId(media.id);
+                        setQhuntModalOpen(true);
+                      } else if (media.type === 'qtreasure') {
+                        setEditingQTreasureId(media.id);
+                        setQtreasureModalOpen(true);
+                      } else if (media.type === 'qchallenge') {
+                        setEditingQChallengeId(media.id);
+                        setQchallengeModalOpen(true);
                       } else {
                         window.open(media.url, '_blank');
                       }
@@ -3045,6 +3307,24 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Sparkles className="w-6 h-6 text-white" />
                       </div>
+                    ) : media.type === 'qhunt' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-500 to-pink-500"
+                      >
+                        <Crosshair className="w-6 h-6 text-white" />
+                      </div>
+                    ) : media.type === 'qtreasure' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-500 to-emerald-700"
+                      >
+                        <Map className="w-6 h-6 text-white" />
+                      </div>
+                    ) : media.type === 'qchallenge' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-500"
+                      >
+                        <Trophy className="w-6 h-6 text-white" />
+                      </div>
                     ) : (
                       <img
                         src={media.url}
@@ -3066,6 +3346,9 @@ export default function CodeEditPage({ params }: PageProps) {
                           : media.type === 'weeklycal' ? (tMedia('weeklycal') || 'לוח פעילות')
                           : media.type === 'qvote' ? 'Q.Vote'
                           : media.type === 'qstage' ? 'Q.Stage'
+                          : media.type === 'qhunt' ? 'Q.Hunt'
+                          : media.type === 'qtreasure' ? 'Q.Treasure'
+                          : media.type === 'qchallenge' ? 'Q.Challenge'
                           : media.type.toUpperCase()}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
@@ -3091,7 +3374,7 @@ export default function CodeEditPage({ params }: PageProps) {
                         })()}
                       </p>
                     )}
-                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qstage' && media.filename && (
+                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.filename && (
                       <p className="text-xs text-text-secondary truncate mt-0.5" dir="ltr">
                         {media.filename}
                       </p>
@@ -3219,6 +3502,51 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
+                  {/* Edit button for qhunt */}
+                  {media.type === 'qhunt' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingQHuntId(media.id);
+                          setQhuntModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Edit button for qtreasure */}
+                  {media.type === 'qtreasure' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingQTreasureId(media.id);
+                          setQtreasureModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Edit button for qchallenge */}
+                  {media.type === 'qchallenge' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingQChallengeId(media.id);
+                          setQchallengeModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
                   {/* Gallery button for selfiebeam with gallery enabled */}
                   {media.type === 'selfiebeam' && media.selfiebeamContent?.galleryEnabled && (
                     <Tooltip text={t('selfieGallery', { count: code.userGallery?.length || 0 })}>
@@ -3265,8 +3593,8 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
-                  {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, or qstage */}
-                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qstage' && (
+                  {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, qstage, qhunt, qtreasure, or qchallenge */}
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && (
                     <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -3615,6 +3943,43 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveQStage}
         loading={addingQStage}
         initialConfig={editingQStageId ? code?.media.find(m => m.id === editingQStageId)?.qstageConfig : undefined}
+        shortId={code.shortId}
+      />
+
+      {/* Q.Hunt Modal */}
+      <QHuntModal
+        isOpen={qhuntModalOpen}
+        onClose={() => {
+          setQhuntModalOpen(false);
+          setEditingQHuntId(null);
+        }}
+        onSave={handleSaveQHunt}
+        loading={addingQHunt}
+        initialConfig={editingQHuntId ? code?.media.find(m => m.id === editingQHuntId)?.qhuntConfig : undefined}
+      />
+
+      {/* Q.Treasure Modal */}
+      <QTreasureModal
+        isOpen={qtreasureModalOpen}
+        onClose={() => {
+          setQtreasureModalOpen(false);
+          setEditingQTreasureId(null);
+        }}
+        onSave={handleSaveQTreasure}
+        loading={addingQTreasure}
+        initialConfig={editingQTreasureId ? code?.media.find(m => m.id === editingQTreasureId)?.qtreasureConfig : undefined}
+      />
+
+      {/* Q.Challenge Modal */}
+      <QChallengeModal
+        isOpen={qchallengeModalOpen}
+        onClose={() => {
+          setQchallengeModalOpen(false);
+          setEditingQChallengeId(null);
+        }}
+        onSave={handleSaveQChallenge}
+        loading={addingQChallenge}
+        initialConfig={editingQChallengeId ? code?.media.find(m => m.id === editingQChallengeId)?.qchallengeConfig : undefined}
         shortId={code.shortId}
       />
 

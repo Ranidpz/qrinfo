@@ -1,6 +1,7 @@
 import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+import sharp from 'sharp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     const userId = formData.get('userId') as string;
     const codeId = formData.get('codeId') as string | null;
     const folder = formData.get('folder') as string | null;
+    const convertToWebp = formData.get('convertToWebp') === 'true';
 
     if (!file) {
       return NextResponse.json(
@@ -70,8 +72,26 @@ export async function POST(request: NextRequest) {
 
     // Generate unique filename with user folder structure
     const timestamp = Date.now();
-    const extension = file.name.split('.').pop() || 'bin';
+    let extension = file.name.split('.').pop() || 'bin';
     const randomSuffix = Math.random().toString(36).substring(7);
+
+    // Convert to WebP if requested (for images only)
+    let uploadData: File | Buffer = file;
+    const convertibleTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+
+    if (convertToWebp && convertibleTypes.includes(file.type)) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        uploadData = await sharp(buffer)
+          .webp({ quality: 85 })
+          .toBuffer();
+        extension = 'webp';
+      } catch (conversionError) {
+        console.warn('WebP conversion failed, uploading original:', conversionError);
+        // Fall back to original file if conversion fails
+      }
+    }
 
     // If codeId is provided, save in code folder (for storage tracking)
     // Otherwise save directly in user folder
@@ -85,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Vercel Blob
-    const blob = await put(filename, file, {
+    const blob = await put(filename, uploadData, {
       access: 'public',
       addRandomSuffix: false,
     });
@@ -100,9 +120,12 @@ export async function POST(request: NextRequest) {
       mediaType = 'video';
     }
 
+    // Calculate actual uploaded size
+    const uploadedSize = uploadData instanceof Buffer ? uploadData.length : file.size;
+
     return NextResponse.json({
       url: blob.url,
-      size: file.size,
+      size: uploadedSize,
       type: mediaType,
       filename: file.name,
     });
