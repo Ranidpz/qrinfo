@@ -95,9 +95,8 @@ export async function generateMetadata({ params }: ViewerPageProps) {
     const primaryMediaType = code.media[0]?.type || 'default';
     const description = getDescriptionByMediaType(primaryMediaType);
 
-    // Generate dynamic OG image with dark background, or use custom ogImage if set
-    const ogImage = code.ogImage ||
-      `${baseUrl}/api/og?title=${encodeURIComponent(code.title)}&description=${encodeURIComponent(description)}`;
+    // Use dynamic OG image with dark background, or custom ogImage if set
+    const ogImage = code.ogImage || `${baseUrl}/api/og`;
 
     return {
       title: `${code.title} - QR.info`,
