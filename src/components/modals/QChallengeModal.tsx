@@ -803,6 +803,29 @@ export default function QChallengeModal({
                             </p>
                           )}
                         </div>
+
+                        {/* Question footer with actions */}
+                        <div className="flex items-center justify-between pt-4 mt-4 border-t border-white/10">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => removeQuestion(question.id)}
+                              className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              {isRTL ? 'מחק שאלה' : 'Delete'}
+                            </button>
+                            <button
+                              onClick={addQuestion}
+                              className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg transition-colors"
+                            >
+                              <Plus className="w-4 h-4" />
+                              {isRTL ? 'הוסף שאלה' : 'Add'}
+                            </button>
+                          </div>
+                          <span className="text-white/40 text-sm">
+                            {index + 1} {isRTL ? 'מתוך' : 'of'} {config.questions.length}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
