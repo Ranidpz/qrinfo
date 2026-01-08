@@ -94,7 +94,10 @@ export async function generateMetadata({ params }: ViewerPageProps) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app';
     const primaryMediaType = code.media[0]?.type || 'default';
     const description = getDescriptionByMediaType(primaryMediaType);
-    const ogImage = code.ogImage || `${baseUrl}/theQ.png`;
+
+    // Generate dynamic OG image with dark background, or use custom ogImage if set
+    const ogImage = code.ogImage ||
+      `${baseUrl}/api/og?title=${encodeURIComponent(code.title)}&description=${encodeURIComponent(description)}`;
 
     return {
       title: `${code.title} - QR.info`,

@@ -20,6 +20,7 @@ export async function GET(
       short_name: code?.title?.slice(0, 12) || 'QR',
       description: 'Experience powered by QR.info',
       start_url: `/v/${shortId}`,
+      scope: `/v/${shortId}`,
       display: 'standalone',
       orientation: 'portrait',
       background_color: backgroundColor,
@@ -30,13 +31,25 @@ export async function GET(
           src: '/icons/icon-192x192.png',
           sizes: '192x192',
           type: 'image/png',
-          purpose: 'any maskable'
+          purpose: 'any'
+        },
+        {
+          src: '/icons/icon-192x192.png',
+          sizes: '192x192',
+          type: 'image/png',
+          purpose: 'maskable'
         },
         {
           src: '/icons/icon-512x512.png',
           sizes: '512x512',
           type: 'image/png',
           purpose: 'any'
+        },
+        {
+          src: '/icons/icon-512x512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'maskable'
         }
       ]
     };
@@ -55,6 +68,7 @@ export async function GET(
       name: 'QR Experience',
       short_name: 'QR',
       start_url: `/v/${shortId}`,
+      scope: `/v/${shortId}`,
       display: 'standalone',
       background_color: '#ffffff',
       theme_color: '#3b82f6',
@@ -64,13 +78,25 @@ export async function GET(
           src: '/icons/icon-192x192.png',
           sizes: '192x192',
           type: 'image/png',
-          purpose: 'any maskable'
+          purpose: 'any'
+        },
+        {
+          src: '/icons/icon-192x192.png',
+          sizes: '192x192',
+          type: 'image/png',
+          purpose: 'maskable'
         },
         {
           src: '/icons/icon-512x512.png',
           sizes: '512x512',
           type: 'image/png',
           purpose: 'any'
+        },
+        {
+          src: '/icons/icon-512x512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'maskable'
         }
       ]
     }, {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Smartphone, Download, X, Share } from 'lucide-react';
+import { Smartphone, Download, X, Share, MoreVertical } from 'lucide-react';
 
 interface PWAInstallBannerProps {
   shortId: string;
@@ -38,6 +38,7 @@ function isStandalone(): boolean {
 export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstallBannerProps) {
   const [showBanner, setShowBanner] = useState(false);
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+  const [showAndroidInstructions, setShowAndroidInstructions] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
 
@@ -135,6 +136,9 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
       }
 
       setDeferredPrompt(null);
+    } else {
+      // No prompt available - show manual Android instructions
+      setShowAndroidInstructions(true);
     }
   }, [deferredPrompt, isIOSDevice]);
 
@@ -142,6 +146,7 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
   const handleDismiss = useCallback(() => {
     setShowBanner(false);
     setShowIOSInstructions(false);
+    setShowAndroidInstructions(false);
 
     // Save dismissal in sessionStorage (only for current session)
     // Banner will show again on next visit until user installs the app
@@ -218,6 +223,102 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
           </div>
         </div>
       </div>
+
+      {/* Android Instructions Modal */}
+      {showAndroidInstructions && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowAndroidInstructions(false)}
+          />
+          <div
+            className="relative bg-white dark:bg-gray-900 rounded-t-3xl shadow-xl w-full max-h-[70vh] overflow-hidden animate-slide-up"
+            dir={isRTL ? 'rtl' : 'ltr'}
+          >
+            {/* Handle */}
+            <div className="flex justify-center py-3">
+              <div className="w-12 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+            </div>
+
+            {/* Content */}
+            <div className="px-6 pb-8">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-6">
+                {isRTL ? 'התקנת האפליקציה' : 'Install App'}
+              </h2>
+
+              {/* Steps */}
+              <div className="space-y-4">
+                {/* Step 1 */}
+                <div className="flex items-start gap-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">1</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {isRTL ? 'פתחו את תפריט הדפדפן' : 'Open browser menu'}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {isRTL
+                        ? 'לחצו על 3 הנקודות בפינה העליונה'
+                        : 'Tap the 3 dots in the top corner'}
+                    </p>
+                    <div className="mt-2 inline-flex items-center justify-center w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                      <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="flex items-start gap-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">2</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {isRTL
+                        ? 'בחרו "התקן אפליקציה" או "הוסף למסך הבית"'
+                        : 'Select "Install app" or "Add to Home screen"'}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {isRTL
+                        ? 'גללו בתפריט עד שתמצאו'
+                        : 'Scroll in the menu to find it'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="flex items-start gap-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">3</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {isRTL ? 'לחצו "התקן"' : 'Tap "Install"'}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {isRTL
+                        ? 'בחלון שנפתח'
+                        : 'In the popup that appears'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Done Button */}
+              <button
+                onClick={() => {
+                  setShowAndroidInstructions(false);
+                  handleDismiss();
+                }}
+                className="w-full mt-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-xl transition-colors"
+              >
+                {isRTL ? 'הבנתי' : 'Got it'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* iOS Instructions Modal */}
       {showIOSInstructions && (
