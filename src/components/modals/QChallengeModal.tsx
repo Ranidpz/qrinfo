@@ -816,6 +816,17 @@ export default function QChallengeModal({
                   <p className="text-sm">{isRTL ? 'לחצו "הוסף שאלה" להתחיל' : 'Click "Add Question" to start'}</p>
                 </div>
               )}
+
+              {/* Add Question button at bottom - always visible */}
+              {config.questions.length > 0 && (
+                <button
+                  onClick={addQuestion}
+                  className="w-full flex items-center justify-center gap-2 py-3 mt-4 border-2 border-dashed border-blue-500/50 hover:border-blue-500 text-blue-400 hover:text-blue-300 rounded-lg transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  {isRTL ? 'הוסף שאלה נוספת' : 'Add Another Question'}
+                </button>
+              )}
             </div>
           )}
 
