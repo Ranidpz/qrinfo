@@ -46,7 +46,7 @@ export default function CostumeCTA() {
               <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1 rtl:rotate-180 rtl:group-hover:translate-x-1" />
             </a>
             <a
-              href="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ3GXgJGDnAJxdLc0wC-tQVixJxLLl_yDDWX3t7h2fRJPSIoFMjFv0aYHvhFHqLXKELXfYqFWiMq"
+              href="https://calendar.app.google/3dei45285ySZbHpa8"
               target="_blank"
               rel="noopener noreferrer"
               className="group inline-flex items-center gap-3 px-8 py-4 bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] font-semibold rounded-xl hover:border-amber-500/50 hover:bg-amber-500/5 transition-all duration-300"
