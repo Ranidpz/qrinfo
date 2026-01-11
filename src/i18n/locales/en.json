@@ -43,6 +43,7 @@
     "analytics": "Analytics",
     "guide": "User Guide",
     "whatIsQ": "What is The Q?",
+    "costumeCompetition": "Costume Competition",
     "userManagement": "User Management",
     "qtag": "Q.Tag",
     "qOrder": "Q.Order",
@@ -1208,6 +1209,224 @@
           "answer": "Absolutely! You can add multiple media items to the same code and schedule each one separately. For example: breakfast menu in the morning and dinner menu in the evening."
         }
       ]
+    }
+  },
+  "costumeCompetition": {
+    "meta": {
+      "title": "Digital Costume Competition for Purim 2026 - The Q",
+      "description": "Turn your costume competition into a digital event with live voting, real-time leaderboard, and stunning winner announcements"
+    },
+    "hero": {
+      "title": "The Ultimate Costume Competition",
+      "subtitle": "Purim 2026",
+      "description": "Turn your costume competition into an unforgettable digital experience - with live voting, real-time leaderboard, and stunning winner announcements",
+      "cta": "Get a Quote",
+      "ctaSecondary": "Watch Demo",
+      "trust1": "500+ voting events",
+      "trust2": "Full tech support",
+      "trust3": "Custom branding"
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "subtitle": "5 simple steps to a perfect costume competition",
+      "steps": [
+        {
+          "number": "01",
+          "title": "Participant Registration",
+          "description": "Self-registration via phone or photo at entrance with impressive photo wall"
+        },
+        {
+          "number": "02",
+          "title": "Approval & Assignment",
+          "description": "For large events - filter the best candidates for the voting stage"
+        },
+        {
+          "number": "03",
+          "title": "Live Voting",
+          "description": "Audience scans QR and votes for their favorites - in real-time or over several days"
+        },
+        {
+          "number": "04",
+          "title": "Live Leaderboard",
+          "description": "Track results in real-time behind the scenes"
+        },
+        {
+          "number": "05",
+          "title": "Winner Announcement",
+          "description": "Display winners on big screen with celebratory effects"
+        }
+      ]
+    },
+    "registration": {
+      "title": "Two Ways to Register Participants",
+      "selfService": {
+        "title": "Self-Registration via Phone",
+        "description": "Candidates scan QR and register themselves",
+        "benefits": [
+          "No additional staff needed",
+          "Fast and simple",
+          "Perfect for small-medium events",
+          "Candidate uploads photo from gallery or takes one"
+        ]
+      },
+      "photoWall": {
+        "title": "Photographer + Photo Wall at Entrance",
+        "description": "Professional photos with branded backdrop",
+        "benefits": [
+          "High-quality, consistent photos",
+          "Impressive entrance experience",
+          "Perfect for large events",
+          "On-site printing available"
+        ],
+        "note": "Additional cost: Equipment rental + photographer"
+      }
+    },
+    "largeEvents": {
+      "title": "Perfect for Large Events Too",
+      "subtitle": "Over 600 participants? No problem.",
+      "flow": [
+        "600+ register (all categories)",
+        "Managers select top 10-20 per category",
+        "Only top candidates go to public voting"
+      ],
+      "benefit": "Audience doesn't need to browse hundreds of candidates - focused and efficient voting"
+    },
+    "features": {
+      "title": "Everything You Need for a Perfect Competition",
+      "subtitle": "10 built-in capabilities",
+      "items": [
+        {
+          "title": "Real-Time Voting",
+          "description": "Live voting during event or over several days with live leaderboard"
+        },
+        {
+          "title": "Self-Registration",
+          "description": "Candidates register themselves - name, photo and category in one click"
+        },
+        {
+          "title": "Impressive Photo Wall",
+          "description": "Photographer at entrance with branded backdrop and professional photos"
+        },
+        {
+          "title": "Filtering Stage",
+          "description": "For large events - approve only top candidates for voting"
+        },
+        {
+          "title": "Customizable Voting",
+          "description": "Set how many candidates can be chosen (3 out of 10, etc.)"
+        },
+        {
+          "title": "Admin Dashboard",
+          "description": "View vote counts in real-time behind the scenes"
+        },
+        {
+          "title": "Auto Scheduling",
+          "description": "Schedule each stage in advance - phones update automatically"
+        },
+        {
+          "title": "Kiosk Mode",
+          "description": "Tablet as voting station - stand rental available"
+        },
+        {
+          "title": "Full Branding",
+          "description": "Upload logo and background images - customize for your event"
+        },
+        {
+          "title": "Voting Security",
+          "description": "WhatsApp/SMS verification to prevent duplicate votes"
+        }
+      ]
+    },
+    "security": {
+      "title": "Fair and Secure Voting",
+      "subtitle": "Perfect for competitions with prizes - prevents multiple votes and fraud",
+      "levels": [
+        {
+          "level": "Basic",
+          "method": "Device Limit",
+          "description": "Each device can vote once"
+        },
+        {
+          "level": "Advanced",
+          "method": "WhatsApp/SMS Verification",
+          "description": "Code sent to phone - number locked from voting again"
+        },
+        {
+          "level": "Maximum",
+          "method": "Whitelist",
+          "description": "Only pre-approved numbers can vote"
+        }
+      ]
+    },
+    "useCases": {
+      "title": "Perfect for Any Event Type",
+      "items": [
+        { "title": "Corporate Events", "description": "Employee costume competition" },
+        { "title": "Clubs & Bars", "description": "Purim night competition" },
+        { "title": "Day Camps & Kindergartens", "description": "Kids costume competition" },
+        { "title": "Festivals", "description": "Street competitions" },
+        { "title": "Schools", "description": "Purim activities" },
+        { "title": "Private Parties", "description": "Family Purim events" }
+      ]
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "items": [
+        {
+          "question": "How many participants can I add?",
+          "answer": "No limit! The system works for events from 20 to 2000+ participants."
+        },
+        {
+          "question": "Do I need an app?",
+          "answer": "No! Everything works through the phone browser - scan QR and start immediately."
+        },
+        {
+          "question": "How do you prevent duplicate votes?",
+          "answer": "WhatsApp/SMS verification - code is sent to phone and locks the number from voting again."
+        },
+        {
+          "question": "Can I limit who can vote?",
+          "answer": "Yes! You can set an approved numbers list (whitelist) - only they can vote."
+        },
+        {
+          "question": "Can I display on a big screen?",
+          "answer": "Absolutely! There are projection-ready displays with real-time updates."
+        },
+        {
+          "question": "What if there's a technical issue during the event?",
+          "answer": "We're available on WhatsApp throughout the event for immediate support."
+        },
+        {
+          "question": "How long does setup take?",
+          "answer": "Basic setup - one business day. With full branding - 2-3 days."
+        },
+        {
+          "question": "Do you rent equipment?",
+          "answer": "Yes! We offer tablet and stand rentals for your event."
+        },
+        {
+          "question": "I have multiple branches - how does it work?",
+          "answer": "You can open multiple voting instances for different branches, or create groups within one voting and let everyone vote for everyone. You can even run a competition between branches - not just individual!"
+        },
+        {
+          "question": "What internet do I need at the event?",
+          "answer": "Participants upload and vote using their cellular data - just make sure there's good coverage at the venue. The display computer needs a separate, stable network - wired is recommended, but dedicated WiFi works great too."
+        },
+        {
+          "question": "How many candidates can I upload?",
+          "answer": "You can upload dozens (or even hundreds) of candidates, then select which ones appear in the voting interface. This way you control exactly who competes."
+        }
+      ]
+    },
+    "cta": {
+      "title": "Purim 2026 is Coming!",
+      "subtitle": "Don't wait until the last minute - schedule a call now",
+      "note": "Limited availability for March",
+      "primary": "Get a Quote",
+      "secondary": "Schedule Consultation"
+    },
+    "footer": {
+      "whatsapp": "Chat with us on WhatsApp"
     }
   }
 }
