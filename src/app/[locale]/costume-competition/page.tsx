@@ -36,10 +36,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function CostumeCompetitionPage() {
+interface PageProps {
+  searchParams: Promise<{ embed?: string }>;
+}
+
+export default async function CostumeCompetitionPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const isEmbed = params.embed === 'true';
+
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      <MarketingHeader />
+      {!isEmbed && <MarketingHeader />}
       <main>
         <CostumeHero />
         <CostumeHowItWorks />
@@ -56,7 +63,7 @@ export default function CostumeCompetitionPage() {
         </section>
         <CostumeCTA />
       </main>
-      <Footer />
+      {!isEmbed && <Footer />}
     </div>
   );
 }
