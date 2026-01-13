@@ -21,8 +21,8 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
   const isRTL = direction === 'rtl';
   const pathname = usePathname();
 
-  // Check if we're on a marketing page (no app shell needed)
-  const isMarketingPage = pathname?.includes('/marketing');
+  // Check if we're on a marketing/landing page (no app shell needed)
+  const isMarketingPage = pathname?.includes('/marketing') || pathname?.includes('/costume-competition');
 
   // Update html element with lang and dir attributes
   useEffect(() => {
