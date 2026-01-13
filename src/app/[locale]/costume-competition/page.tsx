@@ -50,7 +50,9 @@ export default function CostumeCompetitionPage() {
         </section>
         <CostumeSecurity />
         <CostumeUseCases />
-        <CostumeDemo />
+        <section id="demo">
+          <CostumeDemo />
+        </section>
         <section id="faq">
           <CostumeFAQ />
         </section>
