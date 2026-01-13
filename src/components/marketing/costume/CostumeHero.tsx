@@ -110,7 +110,7 @@ export default function CostumeHero() {
         </div>
 
         {/* Trust indicators */}
-        <div className="mt-12 md:mt-16 mb-4 md:mb-0 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 sm:gap-8 text-sm text-[var(--text-secondary)] animate-fade-in-up animation-delay-300">
+        <div className="mt-12 md:mt-16 pb-8 md:pb-16 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 sm:gap-8 text-sm text-[var(--text-secondary)] animate-fade-in-up animation-delay-300">
           <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--bg-card)]/50 border border-[var(--border)]/50 backdrop-blur-sm">
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             <span>{t('trust1')}</span>

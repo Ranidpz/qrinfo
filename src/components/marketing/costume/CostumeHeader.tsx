@@ -23,8 +23,8 @@ export default function CostumeHeader() {
       }`}
     >
       <div className="container mx-auto px-6">
-        <div className="flex items-center justify-center h-16">
-          <a href="https://qr.playzones.app" className="flex items-center gap-3 group">
+        <div className="flex items-center justify-start h-16">
+          <a href="https://qr.playzones.app" className="flex items-center group">
             <Image
               src="/theQ.png"
               alt="The Q"
@@ -32,9 +32,6 @@ export default function CostumeHeader() {
               height={40}
               className="rounded-lg transition-transform duration-200 group-hover:scale-110"
             />
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              The Q
-            </span>
           </a>
         </div>
       </div>
