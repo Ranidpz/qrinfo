@@ -4,8 +4,20 @@ import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import { Drama, Sparkles, Crown, ArrowLeft, Play } from 'lucide-react';
 
+// Get the next Purim year (Purim is in February/March)
+function getNextPurimYear(): number {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+
+  // If we're past March, show next year's Purim
+  // Otherwise show current year
+  return currentMonth > 3 ? currentYear + 1 : currentYear;
+}
+
 export default function CostumeHero() {
   const t = useTranslations('costumeCompetition.hero');
+  const purimYear = getNextPurimYear();
 
   return (
     <section className="relative min-h-[auto] md:min-h-[90vh] flex items-center justify-center overflow-hidden pt-20 pb-12 md:pt-16 md:pb-0">
@@ -70,7 +82,7 @@ export default function CostumeHero() {
         <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-gradient-to-r from-purple-500/20 to-amber-500/20 border border-purple-500/30 backdrop-blur-sm animate-fade-in">
           <Sparkles className="w-4 h-4 text-amber-400" />
           <span className="text-sm font-medium bg-gradient-to-r from-purple-300 to-amber-300 bg-clip-text text-transparent">
-            {t('subtitle')}
+            פורים {purimYear}
           </span>
           <Sparkles className="w-4 h-4 text-purple-400" />
         </div>

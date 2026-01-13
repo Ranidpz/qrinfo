@@ -3,8 +3,20 @@
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Calendar, Mail, Sparkles } from 'lucide-react';
 
+// Get the next Purim year (Purim is in February/March)
+function getNextPurimYear(): number {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+
+  // If we're past March, show next year's Purim
+  // Otherwise show current year
+  return currentMonth > 3 ? currentYear + 1 : currentYear;
+}
+
 export default function CostumeCTA() {
   const t = useTranslations('costumeCompetition.cta');
+  const purimYear = getNextPurimYear();
 
   return (
     <section className="py-20 md:py-28 bg-[var(--bg-primary)] relative overflow-hidden">
@@ -26,7 +38,7 @@ export default function CostumeCTA() {
           {/* Main headline */}
           <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
             <span className="bg-gradient-to-r from-purple-300 via-pink-300 to-amber-300 bg-clip-text text-transparent">
-              {t('title')}
+              פורים {purimYear} מתקרב!
             </span>
           </h2>
 
@@ -38,7 +50,7 @@ export default function CostumeCTA() {
           {/* CTA buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="mailto:info@playzone.co.il?subject=תחרות תחפושות פורים 2026 - בקשת הצעת מחיר"
+              href={`mailto:info@playzone.co.il?subject=תחרות תחפושות פורים ${purimYear} - בקשת הצעת מחיר`}
               className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/30"
             >
               <Mail className="w-5 h-5" />
