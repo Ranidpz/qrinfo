@@ -1,3 +1,5 @@
+export { default as CostumeHeader } from './CostumeHeader';
+export { default as CostumeFooter } from './CostumeFooter';
 export { default as CostumeHero } from './CostumeHero';
 export { default as CostumeHowItWorks } from './CostumeHowItWorks';
 export { default as RegistrationOptions } from './RegistrationOptions';

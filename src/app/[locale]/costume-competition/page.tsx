@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
-import MarketingHeader from '@/components/marketing/MarketingHeader';
-import Footer from '@/components/marketing/Footer';
 import {
+  CostumeHeader,
+  CostumeFooter,
   CostumeHero,
   CostumeHowItWorks,
   RegistrationOptions,
@@ -36,17 +36,10 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-interface PageProps {
-  searchParams: Promise<{ embed?: string }>;
-}
-
-export default async function CostumeCompetitionPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const isEmbed = params.embed === 'true';
-
+export default function CostumeCompetitionPage() {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      {!isEmbed && <MarketingHeader />}
+      <CostumeHeader />
       <main>
         <CostumeHero />
         <CostumeHowItWorks />
@@ -63,7 +56,7 @@ export default async function CostumeCompetitionPage({ searchParams }: PageProps
         </section>
         <CostumeCTA />
       </main>
-      {!isEmbed && <Footer />}
+      <CostumeFooter />
     </div>
   );
 }
