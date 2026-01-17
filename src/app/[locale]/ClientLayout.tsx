@@ -21,8 +21,9 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
   const isRTL = direction === 'rtl';
   const pathname = usePathname();
 
-  // Check if we're on a marketing/landing page (no app shell needed)
-  const isMarketingPage = pathname?.includes('/marketing') || pathname?.includes('/costume-competition');
+  // Check if we're on a full-screen page (no app shell needed)
+  const isFullScreenPage = pathname?.includes('/marketing') ||
+    pathname?.includes('/costume-competition');
 
   // Update html element with lang and dir attributes
   useEffect(() => {
@@ -30,8 +31,8 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
     document.documentElement.dir = direction;
   }, [locale, direction]);
 
-  // Marketing pages get their own layout without sidebar/header
-  if (isMarketingPage) {
+  // Full-screen pages get their own layout without sidebar/header
+  if (isFullScreenPage) {
     return <>{children}</>;
   }
 

@@ -216,6 +216,101 @@ export async function sendSMSOTP(
 }
 
 /**
+ * Send WhatsApp template message with custom parameters
+ * Used for sending QR codes, reminders, etc.
+ */
+export async function sendTemplateMessage(
+  phone: string,
+  templateName: string,
+  parameters: string[],
+  method: 'whatsapp' | 'sms' = 'whatsapp'
+): Promise<INFORUSendResult> {
+  validateConfig();
+
+  // Format phone number
+  let formattedPhone = phone.replace(/\D/g, '');
+  if (formattedPhone.startsWith('0')) {
+    formattedPhone = '972' + formattedPhone.substring(1);
+  }
+
+  console.log(`[INFORU] Sending template message "${templateName}" to ${formattedPhone}`);
+
+  // Get template ID from environment or use template name directly
+  const templateIdEnvVar = `INFORU_TEMPLATE_${templateName.toUpperCase()}`;
+  const templateId = process.env[templateIdEnvVar] || templateName;
+
+  try {
+    // Build template parameters
+    // Note: INFORU template for booth_qr_code uses [#6#] to [#10#]
+    const startIndex = templateName === 'booth_qr_code' ? 6 : 1;
+    const templateParameters = parameters.map((value, index) => ({
+      Name: `[#${startIndex + index}#]`,
+      Type: 'Text',
+      Value: value,
+    }));
+
+    const response = await fetch(`${INFORU_API_BASE_URL}/api/v2/WhatsApp/SendWhatsApp`, {
+      method: 'POST',
+      headers: {
+        'Authorization': getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        Data: {
+          TemplateId: templateId,
+          TemplateParameters: templateParameters,
+          Recipients: [
+            {
+              Phone: formattedPhone,
+            }
+          ],
+        }
+      }),
+    });
+
+    const responseText = await response.text();
+    console.log('[INFORU] Template message API response:', response.status, responseText);
+
+    if (!response.ok) {
+      console.error('[INFORU] Template message send failed:', response.status, responseText);
+      return {
+        success: false,
+        error: `API error: ${response.status} - ${responseText}`,
+      };
+    }
+
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      result = { message: responseText };
+    }
+
+    // Check INFORU response format
+    if (result.StatusId === 1 || result.StatusDescription === 'Success') {
+      console.log('[INFORU] Template message sent successfully:', result.RequestId);
+      return {
+        success: true,
+        messageId: result.RequestId || result.Data?.RequestId,
+      };
+    }
+
+    const errorMessage = result.StatusDescription || result.DetailedDescription || result.error || 'Unknown error';
+    console.error('[INFORU] Template message send error:', errorMessage);
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  } catch (error) {
+    console.error('[INFORU] Template message send error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error',
+    };
+  }
+}
+
+/**
  * Send OTP via preferred method with optional fallback
  */
 export async function sendOTP(

@@ -56,7 +56,7 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  /* scroll-behavior moved to data-scroll-behavior attribute in layout.tsx for Next.js route transitions */
 }
 
 body {

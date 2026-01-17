@@ -3,12 +3,71 @@
 // Day of week (0 = Sunday, 6 = Saturday) - Israeli week format
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
-// Registration for a cell (RSVP)
+// Calendar mode: weekly view or daily booth view
+export type CalendarMode = 'weekly' | 'booths';
+
+// Registration for a cell (RSVP) - basic version
 export interface CellRegistration {
   visitorId: string;
   nickname?: string;
   registeredAt: Date;
 }
+
+// Avatar type for participant profile
+export type AvatarType = 'photo' | 'emoji' | 'none';
+
+// Enhanced registration with phone verification and check-in
+export interface EnhancedCellRegistration {
+  // Core identifiers
+  id: string;                      // Document ID
+  codeId: string;                  // QR code ID
+  cellId: string;                  // Activity cell ID
+  visitorId: string;               // Browser visitor ID
+
+  // Context (booth mode)
+  boothId?: string;                // Booth ID
+  boothDate?: string;              // Date string (YYYY-MM-DD)
+
+  // Context (weekly mode)
+  weekStartDate?: string;          // Week start date
+
+  // Participant info
+  nickname: string;                // Name
+  phone: string;                   // Normalized phone (+972 format)
+  count: number;                   // Number of people (1-10)
+
+  // Avatar/Profile
+  avatarUrl?: string;              // Photo URL or emoji
+  avatarType: AvatarType;          // 'photo' | 'emoji' | 'none'
+
+  // QR Token for check-in
+  qrToken: string;                 // Unique token for QR code
+
+  // Phone verification
+  isVerified: boolean;             // Phone verified via OTP
+  verifiedAt?: Date;               // When verified
+
+  // Check-in tracking
+  checkedIn: boolean;              // Has checked in
+  checkedInAt?: Date;              // When checked in
+  checkedInBy?: string;            // Admin who approved
+
+  // Timestamps
+  registeredAt: Date;
+  updatedAt?: Date;
+}
+
+// Preset avatar options
+export const PRESET_AVATARS = [
+  { id: 'emoji_smile', value: '😊' },
+  { id: 'emoji_star', value: '⭐' },
+  { id: 'emoji_heart', value: '❤️' },
+  { id: 'emoji_fire', value: '🔥' },
+  { id: 'emoji_party', value: '🎉' },
+  { id: 'emoji_cool', value: '😎' },
+  { id: 'emoji_rocket', value: '🚀' },
+  { id: 'emoji_unicorn', value: '🦄' },
+] as const;
 
 // Individual calendar cell (activity/event)
 export interface CalendarCell {
@@ -33,6 +92,16 @@ export interface CalendarCell {
   enableRSVP?: boolean;          // Enable RSVP button for this cell
   maxRegistrations?: number;     // Optional limit on registrations
 
+  // Recurrence (weekly repeat)
+  recurrence?: {
+    enabled: boolean;
+    frequency: 'weekly';           // Only weekly for now
+    endDate?: string;              // ISO date string, undefined = forever
+    parentId?: string;             // Original event ID (for instances)
+    isInstance?: boolean;          // Is this an instance of a recurring event
+    excludedDates?: string[];      // Week start dates where this event is excluded
+  };
+
   // Metadata
   createdAt: Date;
   updatedAt: Date;
@@ -45,6 +114,7 @@ export interface TimeSlot {
   endTime: string;               // HH:MM format (e.g., "10:00")
   label?: string;                // Optional custom label
   order: number;
+  durationMinutes?: number;      // Duration in minutes (calculated from start/end if not set)
 }
 
 // Single week's data
@@ -54,6 +124,67 @@ export interface WeekData {
   timeSlots: TimeSlot[];         // Time slots for this week
   cells: CalendarCell[];         // All cells for this week
   isTemplate?: boolean;          // Can be used as template for other weeks
+}
+
+// ============ BOOTH MODE - Daily Booth Schedule ============
+
+// Booth definition (experience station)
+export interface Booth {
+  id: string;
+  name: string;                    // Booth name (e.g., "Face Painting")
+  description?: string;            // Optional booth description
+  imageUrl?: string;               // Optional booth image/logo
+  order: number;                   // Display order (for drag-to-reorder)
+  isActive: boolean;               // Can hide without deleting
+  defaultCapacity?: number;        // Default max registrations per time slot
+  slotCapacities?: Record<number, number>; // Per-slot capacity overrides { slotIndex: capacity }
+  backgroundColor?: string;        // Optional custom color for header
+
+  // Per-booth schedule settings (for Timeline View)
+  startTime?: string;              // Booth operating start time (e.g., "09:00", default: "09:00")
+  endTime?: string;                // Booth operating end time (e.g., "18:00", default: "18:00")
+  durationMinutes: number;         // Activity duration in minutes (default: 10)
+  bufferMinutes: number;           // Buffer/gap time between slots in minutes (default: 5)
+  timeSlots: TimeSlot[];           // This booth's time slots (each booth can have different slots)
+}
+
+// Booth cell (activity at a booth + time slot)
+export interface BoothCell {
+  id: string;
+  boothId: string;                 // Reference to booth (instead of dayIndex)
+  startSlotIndex: number;          // Time slot index (row)
+  rowSpan: number;                 // How many time slots it spans (default 1)
+
+  // Content (same as CalendarCell)
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  linkTitle?: string;
+
+  // Styling
+  backgroundColor: string;
+  textColor?: string;
+
+  // Capacity - important for booth mode
+  capacity?: number;               // Override booth default capacity
+  enableRSVP?: boolean;            // Enable registration for this slot
+
+  // Break mode - booth not active during this time
+  isBreak?: boolean;               // When true, shows as break (gray, no RSVP)
+
+  // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Single day's booth data
+export interface BoothDayData {
+  id: string;
+  date: string;                    // ISO date string (specific day, e.g., "2026-01-15")
+  booths: Booth[];                 // Booth definitions for this day
+  timeSlots: TimeSlot[];           // Time slots (reuse existing TimeSlot)
+  cells: BoothCell[];              // Activities at booth+slot intersections
 }
 
 // Featured event/attraction (highlight from calendar)
@@ -145,12 +276,19 @@ export const DEFAULT_CALENDAR_NOTES: CalendarNotes = {
 
 // Main Weekly Calendar configuration (stored in MediaItem.weeklycalConfig)
 export interface WeeklyCalendarConfig {
-  // Data
+  // Mode selection (new)
+  mode?: CalendarMode;           // 'weekly' | 'booths' (default: 'weekly')
+
+  // Weekly mode data
   weeks: WeekData[];             // All programmed weeks
   attractions: CalendarAttraction[];
   notes?: CalendarNotes;         // Notes page configuration
 
-  // Default time slots (template for new weeks)
+  // Booth mode data (new)
+  boothDays?: BoothDayData[];    // Data for booth mode (by date)
+  defaultBooths?: Booth[];       // Template booths for new days
+
+  // Default time slots (template for new weeks/days)
   defaultTimeSlots: TimeSlot[];
 
   // Branding
@@ -161,6 +299,10 @@ export interface WeeklyCalendarConfig {
   showCurrentTimeIndicator: boolean;
   enableSwipeNavigation: boolean;
   enableRSVP?: boolean;          // Enable RSVP feature globally
+
+  // Phone verification & Check-in (booth mode)
+  requirePhoneVerification?: boolean;  // Require phone OTP verification
+  enableCheckin?: boolean;             // Enable admin check-in scanner
 
   // Statistics
   stats?: {
@@ -203,8 +345,11 @@ export const CELL_COLOR_PALETTE = [
 
 // Default configuration
 export const DEFAULT_WEEKLYCAL_CONFIG: WeeklyCalendarConfig = {
+  mode: 'weekly',                // Default to weekly mode
   weeks: [],
   attractions: [],
+  boothDays: [],                 // Booth mode data
+  defaultBooths: [],             // Template booths
   defaultTimeSlots: [
     { id: 'slot_1', startTime: '09:00', endTime: '10:00', order: 0 },
     { id: 'slot_2', startTime: '10:00', endTime: '11:00', order: 1 },
@@ -244,7 +389,7 @@ export function getWeekStartDate(date: Date): string {
   const d = new Date(date);
   const day = d.getDay();
   d.setDate(d.getDate() - day); // Go back to Sunday
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -381,4 +526,208 @@ export function getContrastTextColor(backgroundColor: string): string {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
   return luminance > 0.5 ? '#1f2937' : '#ffffff';
+}
+
+/**
+ * Check if a recurring event should appear in a specific week
+ */
+export function isRecurrenceActiveInWeek(
+  cell: CalendarCell,
+  cellWeekStartDate: string,
+  targetWeekStartDate: string
+): boolean {
+  if (!cell.recurrence?.enabled) return false;
+
+  // Check if target week is after the cell's original week
+  if (targetWeekStartDate < cellWeekStartDate) return false;
+
+  // Check if excluded
+  if (cell.recurrence.excludedDates?.includes(targetWeekStartDate)) return false;
+
+  // Check end date
+  if (cell.recurrence.endDate && targetWeekStartDate > cell.recurrence.endDate) return false;
+
+  return true;
+}
+
+/**
+ * Generate a recurring cell instance for a target week
+ */
+export function generateRecurringCellInstance(
+  parentCell: CalendarCell,
+  targetWeekStartDate: string
+): CalendarCell {
+  return {
+    ...parentCell,
+    id: `${parentCell.id}_${targetWeekStartDate}`,
+    recurrence: {
+      ...parentCell.recurrence!,
+      parentId: parentCell.id,
+      isInstance: true,
+    },
+  };
+}
+
+/**
+ * Get all recurring cells that should appear in a target week
+ */
+export function getRecurringCellsForWeek(
+  allWeeks: WeekData[],
+  targetWeekStartDate: string
+): CalendarCell[] {
+  const recurringCells: CalendarCell[] = [];
+
+  for (const week of allWeeks) {
+    // Only check weeks before or equal to target
+    if (week.weekStartDate > targetWeekStartDate) continue;
+    // Skip the target week itself (those cells are already there)
+    if (week.weekStartDate === targetWeekStartDate) continue;
+
+    for (const cell of week.cells) {
+      if (isRecurrenceActiveInWeek(cell, week.weekStartDate, targetWeekStartDate)) {
+        recurringCells.push(generateRecurringCellInstance(cell, targetWeekStartDate));
+      }
+    }
+  }
+
+  return recurringCells;
+}
+
+// ============ Booth Mode Helper Functions ============
+
+/**
+ * Get today's date as ISO string (YYYY-MM-DD) in local timezone
+ */
+export function getTodayDateString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Check if a date is today
+ */
+export function isDateToday(dateString: string): boolean {
+  return dateString === getTodayDateString();
+}
+
+/**
+ * Check if a date is in the past
+ */
+export function isDatePast(dateString: string): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(dateString);
+  return date < today;
+}
+
+/**
+ * Format date for display
+ */
+export function formatBoothDate(dateString: string, locale: 'he' | 'en' = 'he'): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Get day name from a date string
+ */
+export function getDayNameFromDate(dateString: string, locale: 'he' | 'en' = 'he'): string {
+  const date = new Date(dateString);
+  const dayIndex = date.getDay() as DayOfWeek;
+  return DAY_NAMES[locale][dayIndex];
+}
+
+/**
+ * Check if a time slot has passed for a specific date
+ */
+export function isBoothSlotPast(dateString: string, slotEndTime: string): boolean {
+  const todayStr = getTodayDateString();
+
+  // If the date is before today, all slots are past
+  if (dateString < todayStr) return true;
+  // If the date is after today, no slots are past
+  if (dateString > todayStr) return false;
+
+  // Same day - compare time
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const slotEndMinutes = timeToMinutes(slotEndTime);
+  return currentMinutes > slotEndMinutes;
+}
+
+/**
+ * Get next/previous date
+ */
+export function getAdjacentDate(dateString: string, direction: 'next' | 'prev'): string {
+  const date = new Date(dateString);
+  date.setDate(date.getDate() + (direction === 'next' ? 1 : -1));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Create a new empty booth day
+ */
+export function createEmptyBoothDay(date: string, defaultTimeSlots: TimeSlot[], defaultBooths: Booth[]): BoothDayData {
+  return {
+    id: generateId(),
+    date,
+    booths: defaultBooths.map(b => ({ ...b })), // Keep same booth IDs to sync with defaultBooths
+    timeSlots: [...defaultTimeSlots],
+    cells: [],
+  };
+}
+
+/**
+ * Create a new booth
+ */
+export function createBooth(name: string, order: number): Booth {
+  return {
+    id: generateId(),
+    name,
+    order,
+    isActive: true,
+    defaultCapacity: 10,
+    backgroundColor: CELL_COLOR_PALETTE[order % CELL_COLOR_PALETTE.length],
+    durationMinutes: 10,           // Default: 10 minutes per activity
+    bufferMinutes: 5,              // Default: 5 minutes break between activities
+    timeSlots: [],                 // Empty - user will generate slots
+  };
+}
+
+/**
+ * Get cells for a specific booth
+ */
+export function getCellsForBooth(cells: BoothCell[], boothId: string): BoothCell[] {
+  return cells
+    .filter(cell => cell.boothId === boothId)
+    .sort((a, b) => a.startSlotIndex - b.startSlotIndex);
+}
+
+/**
+ * Get active booths sorted by order
+ */
+export function getActiveBooths(booths: Booth[]): Booth[] {
+  return booths
+    .filter(b => b.isActive)
+    .sort((a, b) => a.order - b.order);
+}
+
+/**
+ * Get booth day data for a specific date, or create new if not exists
+ */
+export function getOrCreateBoothDay(
+  boothDays: BoothDayData[],
+  date: string,
+  defaultTimeSlots: TimeSlot[],
+  defaultBooths: Booth[]
+): { boothDay: BoothDayData; isNew: boolean } {
+  const existing = boothDays.find(bd => bd.date === date);
+  if (existing) {
+    return { boothDay: existing, isNew: false };
+  }
+  return { boothDay: createEmptyBoothDay(date, defaultTimeSlots, defaultBooths), isNew: true };
 }

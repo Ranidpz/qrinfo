@@ -765,7 +765,8 @@
     "makeGlobal": "Make global",
     "removeGlobal": "Remove from global",
     "transferOwnership": "Transfer ownership",
-    "whatsappWidgetActive": "WhatsApp widget active"
+    "whatsappWidgetActive": "WhatsApp widget active",
+    "edit": "Edit"
   },
   "errors": {
     "saveError": "Error saving. Please try again.",

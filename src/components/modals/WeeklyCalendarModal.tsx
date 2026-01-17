@@ -33,6 +33,14 @@ import {
   Check,
   Download,
   Info,
+  Store,
+  Users,
+  Repeat,
+  Phone,
+  User,
+  Pencil,
+  QrCode,
+  ScanLine,
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import {
@@ -43,6 +51,10 @@ import {
   CalendarAttraction,
   CalendarNotes,
   DayOfWeek,
+  CalendarMode,
+  Booth,
+  BoothCell,
+  BoothDayData,
   DEFAULT_WEEKLYCAL_CONFIG,
   DEFAULT_CALENDAR_NOTES,
   DAY_NAMES,
@@ -55,6 +67,16 @@ import {
   timeToMinutes,
   isCurrentWeek,
   getTodayDayIndex,
+  getRecurringCellsForWeek,
+  getTodayDateString,
+  createEmptyBoothDay,
+  createBooth,
+  getActiveBooths,
+  getCellsForBooth,
+  getOrCreateBoothDay,
+  formatBoothDate,
+  getAdjacentDate,
+  getDayNameFromDate,
 } from '@/types/weeklycal';
 import MobilePreviewModal from './MobilePreviewModal';
 import { QRCodeSVG } from 'qrcode.react';
@@ -65,6 +87,13 @@ interface ImageFileInfo {
   originalSize: number;
   compressedSize: number;
 }
+
+// Timeline constants (for booth mode calendar view)
+const PIXELS_PER_MINUTE = 4;  // 4px per minute = 240px per hour (bigger slots for better visibility)
+const DAY_START_MINUTES = 9 * 60;   // 09:00 = 540 minutes
+const DAY_END_MINUTES = 18 * 60;    // 18:00 = 1080 minutes
+const MIN_SLOT_HEIGHT = 50;  // Minimum slot height for readability
+const HOUR_HEIGHT = 60 * PIXELS_PER_MINUTE;  // 240px per hour
 
 // Format file size for display
 function formatFileSize(bytes: number): string {
@@ -175,8 +204,8 @@ function AnimatedCount({ value, duration = 800 }: { value: number; duration?: nu
 }
 
 interface WeeklyCalendarModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   onSave: (config: WeeklyCalendarConfig, landingImageFile?: File, dayBgImageFile?: File) => Promise<void>;
   onUploadCellImage?: (file: File) => Promise<string | null>;
   onDeleteCellImage?: (url: string) => Promise<boolean>;
@@ -184,9 +213,11 @@ interface WeeklyCalendarModalProps {
   initialConfig?: WeeklyCalendarConfig;
   shortId?: string;
   codeId?: string;
+  // Full page mode - renders as page instead of modal
+  fullPage?: boolean;
 }
 
-type TabType = 'schedule' | 'landing' | 'attractions' | 'notes' | 'settings';
+type TabType = 'schedule' | 'booths' | 'landing' | 'attractions' | 'notes' | 'settings';
 
 // Color picker component
 // Glassmorphism dark colors for visual identification
@@ -261,7 +292,7 @@ function ColorPicker({
 }
 
 export default function WeeklyCalendarModal({
-  isOpen,
+  isOpen = true,
   onClose,
   onSave,
   onUploadCellImage,
@@ -270,6 +301,7 @@ export default function WeeklyCalendarModal({
   initialConfig,
   shortId,
   codeId,
+  fullPage = false,
 }: WeeklyCalendarModalProps) {
   const t = useTranslations('modals');
   const tCommon = useTranslations('common');
@@ -285,10 +317,25 @@ export default function WeeklyCalendarModal({
   // Current week being edited
   const [currentWeekIndex, setCurrentWeekIndex] = useState(0);
 
-  // Cell editor state
+  // Cell editor state (weekly mode)
   const [editingCell, setEditingCell] = useState<CalendarCell | null>(null);
   const [editingCellDayIndex, setEditingCellDayIndex] = useState<number>(-1);
   const [editingCellSlotIndex, setEditingCellSlotIndex] = useState<number>(-1);
+
+  // Current date being edited (booth mode)
+  const [currentBoothDate, setCurrentBoothDate] = useState<string>(getTodayDateString());
+
+  // Booth cell editor state (booth mode)
+  const [editingBoothCell, setEditingBoothCell] = useState<BoothCell | null>(null);
+  const [editingBoothId, setEditingBoothId] = useState<string>('');
+  const [editingBoothSlotIndex, setEditingBoothSlotIndex] = useState<number>(-1);
+
+  // Booth cell drag state (booth mode)
+  const [draggingBoothCell, setDraggingBoothCell] = useState<{ cell: BoothCell; boothId: string; slotIndex: number } | null>(null);
+  const [boothDragOverTarget, setBoothDragOverTarget] = useState<{ boothId: string; slotIndex: number } | null>(null);
+
+  // Booth capacity editor state (booth mode)
+  const [editingBoothCapacity, setEditingBoothCapacity] = useState<Booth | null>(null);
 
   // Cell drag state (for moving/copying cells)
   const [draggingCell, setDraggingCell] = useState<CalendarCell | null>(null);
@@ -315,6 +362,7 @@ export default function WeeklyCalendarModal({
   const dayBgImageInputRef = useRef<HTMLInputElement>(null);
   const notesContentRef = useRef<HTMLDivElement>(null);
   const notesContentInitialized = useRef(false);
+  const boothTimelineRef = useRef<HTMLDivElement>(null);
 
   // Error state
   const [error, setError] = useState('');
@@ -343,6 +391,32 @@ export default function WeeklyCalendarModal({
   const [registrationCounts, setRegistrationCounts] = useState<Record<string, number>>({}); // Total attendees
   const [confirmationCounts, setConfirmationCounts] = useState<Record<string, number>>({}); // Number of people who confirmed
 
+  // Registration list for selected cell/activity
+  const [registrationsList, setRegistrationsList] = useState<Array<{
+    id: string;
+    nickname: string;
+    phone?: string;
+    count: number;
+    registeredAt: string;
+    checkedIn?: boolean;
+    checkedInAt?: string;
+  }>>([]);
+  const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
+  const [registrationsModalTitle, setRegistrationsModalTitle] = useState('');
+  const [loadingRegistrations, setLoadingRegistrations] = useState(false);
+  const [selectedCellForRegistrations, setSelectedCellForRegistrations] = useState<string>('');
+  const [selectedBoothIdForRegistrations, setSelectedBoothIdForRegistrations] = useState<string>('');
+
+  // Search and edit state for registrations modal
+  const [registrationsSearchQuery, setRegistrationsSearchQuery] = useState('');
+  const [editingRegistration, setEditingRegistration] = useState<{
+    id: string;
+    nickname: string;
+    count: number;
+  } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingRegistrationId, setDeletingRegistrationId] = useState<string | null>(null);
+
   // Delete time slot confirmation modal
   const [deleteSlotConfirm, setDeleteSlotConfirm] = useState<{
     show: boolean;
@@ -366,18 +440,45 @@ export default function WeeklyCalendarModal({
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch RSVP registration counts for editor display (with auto-refresh)
+  // Initialize currentBoothDate to match viewer behavior:
+  // Use today if there's a boothDay for today, otherwise use first boothDay's date
   useEffect(() => {
-    if (!isOpen || !codeId || !config.enableRSVP) return;
+    if (config.mode !== 'booths' || !config.boothDays?.length) return;
+    const today = getTodayDateString();
+    const hasToday = config.boothDays.some(bd => bd.date === today);
+    if (!hasToday) {
+      // No boothDay for today - use first boothDay's date (same as viewer)
+      const firstDate = config.boothDays[0]?.date;
+      if (firstDate && firstDate !== currentBoothDate) {
+        setCurrentBoothDate(firstDate);
+      }
+    }
+  }, [config.mode, config.boothDays]);
 
-    const currentWeekData = config.weeks[currentWeekIndex];
-    if (!currentWeekData) return;
+  // Fetch RSVP registration counts for editor display (with auto-refresh)
+  // Supports both weekly mode and booth mode
+  useEffect(() => {
+    // Always fetch registrations in editor - admin should see registration counts regardless of global enableRSVP setting
+    // Individual cells may have RSVP enabled even if global setting is off
+    if (!isOpen || !codeId) return;
+
+    const isBoothModeActive = config.mode === 'booths';
 
     const fetchRegistrations = async () => {
       try {
-        const response = await fetch(
-          `/api/weeklycal/register?codeId=${codeId}&weekStartDate=${currentWeekData.weekStartDate}`
-        );
+        let url: string;
+
+        if (isBoothModeActive) {
+          // Booth mode - fetch for current date (all booths for that day)
+          url = `/api/weeklycal/register?codeId=${codeId}&boothDate=${currentBoothDate}`;
+        } else {
+          // Weekly mode - fetch for current week
+          const currentWeekData = config.weeks[currentWeekIndex];
+          if (!currentWeekData) return;
+          url = `/api/weeklycal/register?codeId=${codeId}&weekStartDate=${currentWeekData.weekStartDate}`;
+        }
+
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
           setRegistrationCounts(data.countsByCell || {});
@@ -395,10 +496,245 @@ export default function WeeklyCalendarModal({
     const interval = setInterval(fetchRegistrations, 3000);
 
     return () => clearInterval(interval);
-  }, [isOpen, codeId, config.enableRSVP, config.weeks, currentWeekIndex]);
+  }, [isOpen, codeId, config.enableRSVP, config.mode, config.weeks, currentWeekIndex, currentBoothDate]);
+
+  // Auto-scroll booth timeline to current time
+  useEffect(() => {
+    if (!isOpen || config.mode !== 'booths' || activeTab !== 'booths') return;
+    if (!boothTimelineRef.current) return;
+
+    // Calculate current time position
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Get timeline range from first active booth
+    const activeBoothsList = config.defaultBooths?.filter(b => b.isActive) || [];
+    if (activeBoothsList.length === 0) return;
+
+    // Calculate timeline start based on earliest booth start time
+    let startMinutes = 9 * 60; // default 09:00
+    let endMinutes = 18 * 60; // default 18:00
+
+    activeBoothsList.forEach(booth => {
+      const boothStart = booth.startTime ? parseInt(booth.startTime.split(':')[0]) * 60 + parseInt(booth.startTime.split(':')[1]) : 9 * 60;
+      const boothEnd = booth.endTime ? parseInt(booth.endTime.split(':')[0]) * 60 + parseInt(booth.endTime.split(':')[1]) : 18 * 60;
+      if (boothStart < startMinutes) startMinutes = boothStart;
+      if (boothEnd > endMinutes) endMinutes = boothEnd;
+    });
+
+    // Only scroll if current time is within or near the timeline range
+    if (currentMinutes < startMinutes - 60 || currentMinutes > endMinutes + 60) return;
+
+    // Calculate scroll position
+    const scrollPosition = Math.max(0, (currentMinutes - startMinutes) * PIXELS_PER_MINUTE - 100); // -100 to show some context above
+
+    // Scroll with a small delay to ensure the element is rendered
+    setTimeout(() => {
+      if (boothTimelineRef.current) {
+        boothTimelineRef.current.scrollTop = scrollPosition;
+      }
+    }, 100);
+  }, [isOpen, config.mode, activeTab, config.defaultBooths]);
+
+  // Function to show registrations for a specific cell
+  const showCellRegistrations = async (cellId: string, cellTitle: string, boothId?: string) => {
+    if (!codeId) return;
+
+    setLoadingRegistrations(true);
+    setShowRegistrationsModal(true);
+    setRegistrationsModalTitle(cellTitle || (isRTL ? 'רשימת נרשמים' : 'Registrations'));
+    setSelectedCellForRegistrations(cellId);
+    setSelectedBoothIdForRegistrations(boothId || '');
+    setRegistrationsList([]);
+    setRegistrationsSearchQuery('');
+    setEditingRegistration(null);
+
+    try {
+      let url: string;
+      if (config.mode === 'booths' && currentBoothDate && boothId) {
+        url = `/api/weeklycal/register?codeId=${codeId}&boothDate=${currentBoothDate}&boothId=${boothId}`;
+      } else if (config.mode === 'booths' && currentBoothDate) {
+        url = `/api/weeklycal/register?codeId=${codeId}&boothDate=${currentBoothDate}`;
+      } else {
+        const currentWeekData = config.weeks[currentWeekIndex];
+        if (!currentWeekData) {
+          setLoadingRegistrations(false);
+          return;
+        }
+        url = `/api/weeklycal/register?codeId=${codeId}&weekStartDate=${currentWeekData.weekStartDate}`;
+      }
+
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter registrations for this specific cell
+        const cellRegistrations = (data.registrations || [])
+          .filter((reg: { cellId: string }) => reg.cellId === cellId)
+          .map((reg: {
+            id: string;
+            nickname?: string;
+            phone?: string;
+            count: number;
+            registeredAt?: string;
+            checkedIn?: boolean;
+            checkedInAt?: string;
+          }) => ({
+            id: reg.id,
+            nickname: reg.nickname || (isRTL ? 'אורח' : 'Guest'),
+            phone: reg.phone,
+            count: reg.count || 1,
+            registeredAt: reg.registeredAt || '',
+            checkedIn: reg.checkedIn,
+            checkedInAt: reg.checkedInAt,
+          }));
+        setRegistrationsList(cellRegistrations);
+      }
+    } catch (error) {
+      console.error('Failed to fetch registrations:', error);
+    } finally {
+      setLoadingRegistrations(false);
+    }
+  };
+
+  // Handler for saving edited registration
+  const handleSaveEditRegistration = async () => {
+    if (!editingRegistration || !codeId) return;
+
+    setSavingEdit(true);
+    try {
+      const response = await fetch('/api/weeklycal/register', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId,
+          registrationId: editingRegistration.id,
+          nickname: editingRegistration.nickname,
+          count: editingRegistration.count,
+        }),
+      });
+
+      if (response.ok) {
+        // Update local list
+        setRegistrationsList(prev =>
+          prev.map(reg =>
+            reg.id === editingRegistration.id
+              ? { ...reg, nickname: editingRegistration.nickname, count: editingRegistration.count }
+              : reg
+          )
+        );
+        setEditingRegistration(null);
+      } else {
+        console.error('Failed to update registration');
+      }
+    } catch (error) {
+      console.error('Error updating registration:', error);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Handler for deleting registration
+  const handleDeleteRegistration = async (registrationId: string) => {
+    if (!codeId) return;
+
+    setDeletingRegistrationId(registrationId);
+    try {
+      const response = await fetch(
+        `/api/weeklycal/register?codeId=${codeId}&registrationId=${registrationId}`,
+        { method: 'DELETE' }
+      );
+
+      if (response.ok) {
+        // Remove from local list
+        setRegistrationsList(prev => prev.filter(reg => reg.id !== registrationId));
+      } else {
+        console.error('Failed to delete registration');
+      }
+    } catch (error) {
+      console.error('Error deleting registration:', error);
+    } finally {
+      setDeletingRegistrationId(null);
+    }
+  };
+
+  // Filter registrations based on search query
+  const filteredRegistrations = useMemo(() => {
+    if (!registrationsSearchQuery.trim()) return registrationsList;
+
+    const query = registrationsSearchQuery.toLowerCase().trim();
+    return registrationsList.filter(reg => {
+      const nameMatch = reg.nickname?.toLowerCase().includes(query);
+      const phoneMatch = reg.phone?.replace(/\D/g, '').includes(query.replace(/\D/g, ''));
+      return nameMatch || phoneMatch;
+    });
+  }, [registrationsList, registrationsSearchQuery]);
 
   // Get current week data
   const currentWeek = config.weeks[currentWeekIndex];
+
+  // Check if in booth mode
+  const isBoothMode = config.mode === 'booths';
+
+  // Get booth day data for current date
+  const currentBoothDay = useMemo(() => {
+    if (!isBoothMode) return null;
+    const { boothDay, isNew } = getOrCreateBoothDay(
+      config.boothDays || [],
+      currentBoothDate,
+      config.defaultTimeSlots,
+      config.defaultBooths || []
+    );
+    // If it's a new day, add it to config
+    if (isNew) {
+      setConfig(prev => ({
+        ...prev,
+        boothDays: [...(prev.boothDays || []), boothDay],
+      }));
+    }
+    return boothDay;
+  }, [isBoothMode, config.boothDays, currentBoothDate, config.defaultTimeSlots, config.defaultBooths]);
+
+  // Get active booths sorted by order
+  const activeBooths = useMemo(() => {
+    if (!isBoothMode) return [];
+    // Use booths from current day if available, otherwise use defaults
+    const booths = currentBoothDay?.booths || config.defaultBooths || [];
+    return getActiveBooths(booths);
+  }, [isBoothMode, currentBoothDay?.booths, config.defaultBooths]);
+
+  // Calculate dynamic timeline range based on all booth operating hours
+  const timelineRange = useMemo(() => {
+    if (!isBoothMode || activeBooths.length === 0) {
+      return { startMinutes: DAY_START_MINUTES, endMinutes: DAY_END_MINUTES };
+    }
+
+    let minStart = DAY_END_MINUTES;
+    let maxEnd = DAY_START_MINUTES;
+
+    activeBooths.forEach(booth => {
+      const boothStart = booth.startTime ? timeToMinutes(booth.startTime) : DAY_START_MINUTES;
+      const boothEnd = booth.endTime ? timeToMinutes(booth.endTime) : DAY_END_MINUTES;
+      if (boothStart < minStart) minStart = boothStart;
+      if (boothEnd > maxEnd) maxEnd = boothEnd;
+    });
+
+    // Round to hour boundaries
+    minStart = Math.floor(minStart / 60) * 60;
+    maxEnd = Math.ceil(maxEnd / 60) * 60;
+
+    return { startMinutes: minStart, endMinutes: maxEnd };
+  }, [isBoothMode, activeBooths]);
+
+  // Hour markers for timeline (dynamic based on booth hours)
+  const hourMarkers = useMemo(() => {
+    const markers: number[] = [];
+    const startHour = Math.floor(timelineRange.startMinutes / 60);
+    const endHour = Math.floor(timelineRange.endMinutes / 60);
+    for (let h = startHour; h <= endHour; h++) {
+      markers.push(h);
+    }
+    return markers;
+  }, [timelineRange]);
 
   // Check if viewing current week and today's day
   const isViewingCurrentWeek = currentWeek ? isCurrentWeek(currentWeek.weekStartDate) : false;
@@ -538,6 +874,290 @@ export default function WeeklyCalendarModal({
       });
       setCurrentWeekIndex(config.weeks.length);
     }
+  };
+
+  // Navigate booth dates
+  const goToPreviousBoothDate = () => {
+    setCurrentBoothDate(getAdjacentDate(currentBoothDate, 'prev'));
+  };
+
+  const goToNextBoothDate = () => {
+    setCurrentBoothDate(getAdjacentDate(currentBoothDate, 'next'));
+  };
+
+  const goToTodayBoothDate = () => {
+    setCurrentBoothDate(getTodayDateString());
+  };
+
+  // Generate time slots for a booth based on its duration, buffer, and operating hours
+  // Optional overrides for when called right after updating booth settings (before state updates)
+  const generateBoothSlots = (boothId: string, overrides?: { duration?: number; buffer?: number; startTime?: string; endTime?: string }) => {
+    if (!currentBoothDay) return;
+
+    const booth = activeBooths.find(b => b.id === boothId);
+    if (!booth) return;
+
+    // Use overrides if provided, otherwise use booth settings
+    const duration = overrides?.duration ?? booth.durationMinutes ?? 10;
+    const buffer = overrides?.buffer ?? booth.bufferMinutes ?? 5;
+
+    // Parse start and end times (use booth settings or defaults)
+    const boothStartTime = overrides?.startTime ?? booth.startTime ?? '09:00';
+    const boothEndTime = overrides?.endTime ?? booth.endTime ?? '18:00';
+    const [startHourStr, startMinStr] = boothStartTime.split(':');
+    const [endHourStr, endMinStr] = boothEndTime.split(':');
+    const boothStartMinutes = parseInt(startHourStr) * 60 + parseInt(startMinStr);
+    const boothEndMinutes = parseInt(endHourStr) * 60 + parseInt(endMinStr);
+
+    const slots: TimeSlot[] = [];
+    let currentMinutes = boothStartMinutes;
+    let order = 0;
+
+    while (currentMinutes + duration <= boothEndMinutes) {
+      const startHour = Math.floor(currentMinutes / 60);
+      const startMin = currentMinutes % 60;
+      const endMinutes = currentMinutes + duration;
+      const endHour = Math.floor(endMinutes / 60);
+      const endMin = endMinutes % 60;
+
+      slots.push({
+        id: generateId(),
+        startTime: `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`,
+        endTime: `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`,
+        order: order++,
+      });
+
+      currentMinutes += duration + buffer;
+    }
+
+    // Update booth with new time slots (also update duration/buffer/times in case overrides were used)
+    const boothUpdates = {
+      timeSlots: slots,
+      ...(overrides?.duration !== undefined ? { durationMinutes: overrides.duration } : {}),
+      ...(overrides?.buffer !== undefined ? { bufferMinutes: overrides.buffer } : {}),
+      ...(overrides?.startTime !== undefined ? { startTime: overrides.startTime } : {}),
+      ...(overrides?.endTime !== undefined ? { endTime: overrides.endTime } : {}),
+    };
+
+    // Update config.defaultBooths and current boothDay
+    // IMPORTANT: Build updatedBooths inside setConfig to avoid race condition with updateBoothSettings
+    setConfig(prev => {
+      // Get current booths from prev state (includes any pending updates)
+      const currentDayBooths = prev.boothDays?.find(bd => bd.date === currentBoothDate)?.booths
+        || prev.defaultBooths || [];
+
+      const updatedBooths = currentDayBooths.map(b =>
+        b.id === boothId ? { ...b, ...boothUpdates } : b
+      );
+
+      return {
+        ...prev,
+        defaultBooths: (prev.defaultBooths || []).map(b =>
+          b.id === boothId ? { ...b, ...boothUpdates } : b
+        ),
+        boothDays: (prev.boothDays || []).map(bd =>
+          bd.date === currentBoothDate
+            ? { ...bd, booths: updatedBooths }
+            : bd
+        ),
+      };
+    });
+  };
+
+  // Update booth cell
+  const updateBoothCell = (boothId: string, slotIndex: number, updates: Partial<BoothCell>) => {
+    if (!currentBoothDay) return;
+
+    const existingCell = currentBoothDay.cells.find(
+      c => c.boothId === boothId && c.startSlotIndex === slotIndex
+    );
+
+    let updatedCells: BoothCell[];
+
+    if (existingCell) {
+      updatedCells = currentBoothDay.cells.map(c =>
+        c.id === existingCell.id
+          ? { ...c, ...updates, updatedAt: new Date() }
+          : c
+      );
+    } else {
+      const booth = activeBooths.find(b => b.id === boothId);
+      const newCell: BoothCell = {
+        id: generateId(),
+        boothId,
+        startSlotIndex: slotIndex,
+        rowSpan: 1,
+        title: '',
+        backgroundColor: booth?.backgroundColor || CELL_COLOR_PALETTE[0],
+        enableRSVP: true,
+        capacity: booth?.defaultCapacity,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...updates,
+      };
+      updatedCells = [...currentBoothDay.cells, newCell];
+    }
+
+    setConfig(prev => ({
+      ...prev,
+      boothDays: (prev.boothDays || []).map(bd =>
+        bd.date === currentBoothDate
+          ? { ...bd, cells: updatedCells }
+          : bd
+      ),
+    }));
+  };
+
+  // Delete booth cell
+  const deleteBoothCell = (cellId: string) => {
+    if (!currentBoothDay) return;
+
+    setConfig(prev => ({
+      ...prev,
+      boothDays: (prev.boothDays || []).map(bd =>
+        bd.date === currentBoothDate
+          ? { ...bd, cells: bd.cells.filter(c => c.id !== cellId) }
+          : bd
+      ),
+    }));
+  };
+
+  // Spread booth cell to all slots in booth
+  const spreadBoothCellToAllSlots = (boothId: string, sourceCell: Partial<BoothCell>) => {
+    if (!currentBoothDay) return;
+
+    const booth = activeBooths.find(b => b.id === boothId);
+    if (!booth || !booth.timeSlots?.length) return;
+
+    const updatedCells = [...currentBoothDay.cells.filter(c => c.boothId !== boothId)];
+
+    booth.timeSlots.forEach((slot, index) => {
+      updatedCells.push({
+        id: generateId(),
+        boothId,
+        startSlotIndex: index,
+        rowSpan: 1,
+        title: sourceCell.title || '',
+        description: sourceCell.description,
+        backgroundColor: sourceCell.backgroundColor || booth.backgroundColor || CELL_COLOR_PALETTE[0],
+        textColor: sourceCell.textColor,
+        capacity: sourceCell.capacity || booth.defaultCapacity,
+        enableRSVP: sourceCell.enableRSVP !== false,
+        isBreak: sourceCell.isBreak,
+        linkUrl: sourceCell.linkUrl,
+        linkTitle: sourceCell.linkTitle,
+        imageUrl: sourceCell.imageUrl,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    });
+
+    setConfig(prev => ({
+      ...prev,
+      boothDays: (prev.boothDays || []).map(bd =>
+        bd.date === currentBoothDate
+          ? { ...bd, cells: updatedCells }
+          : bd
+      ),
+    }));
+  };
+
+  // Booth cell drag handlers
+  const handleBoothCellDragStart = (cell: BoothCell, boothId: string, slotIndex: number, e: React.DragEvent) => {
+    setDraggingBoothCell({ cell, boothId, slotIndex });
+    e.dataTransfer.effectAllowed = e.shiftKey ? 'copy' : 'move';
+    e.dataTransfer.setData('text/plain', cell.id);
+  };
+
+  const handleBoothCellDragOver = (boothId: string, slotIndex: number, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = e.shiftKey ? 'copy' : 'move';
+    setBoothDragOverTarget({ boothId, slotIndex });
+  };
+
+  const handleBoothCellDragLeave = () => {
+    setBoothDragOverTarget(null);
+  };
+
+  const handleBoothCellDrop = (targetBoothId: string, targetSlotIndex: number, e: React.DragEvent) => {
+    e.preventDefault();
+    setBoothDragOverTarget(null);
+
+    if (!draggingBoothCell || !currentBoothDay) {
+      setDraggingBoothCell(null);
+      return;
+    }
+
+    const { cell: sourceCell, boothId: sourceBoothId, slotIndex: sourceSlotIndex } = draggingBoothCell;
+    const isCopy = e.shiftKey;
+
+    // Don't do anything if dropping on the same slot
+    if (sourceBoothId === targetBoothId && sourceSlotIndex === targetSlotIndex) {
+      setDraggingBoothCell(null);
+      return;
+    }
+
+    // Get target booth for default color
+    const targetBooth = activeBooths.find(b => b.id === targetBoothId);
+
+    // Create new cell at target
+    const newCell: BoothCell = {
+      ...sourceCell,
+      id: generateId(),
+      boothId: targetBoothId,
+      startSlotIndex: targetSlotIndex,
+      backgroundColor: targetBooth?.backgroundColor || sourceCell.backgroundColor,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    let updatedCells = [...currentBoothDay.cells];
+
+    // Remove existing cell at target if any
+    updatedCells = updatedCells.filter(c => !(c.boothId === targetBoothId && c.startSlotIndex === targetSlotIndex));
+
+    // If move (not copy), remove source cell
+    if (!isCopy) {
+      updatedCells = updatedCells.filter(c => c.id !== sourceCell.id);
+    }
+
+    // Add the new cell
+    updatedCells.push(newCell);
+
+    setConfig(prev => ({
+      ...prev,
+      boothDays: (prev.boothDays || []).map(bd =>
+        bd.date === currentBoothDate
+          ? { ...bd, cells: updatedCells }
+          : bd
+      ),
+    }));
+
+    setDraggingBoothCell(null);
+  };
+
+  const handleBoothCellDragEnd = () => {
+    setDraggingBoothCell(null);
+    setBoothDragOverTarget(null);
+  };
+
+  // Update booth settings
+  const updateBoothSettings = (boothId: string, updates: Partial<Booth>) => {
+    const updatedBooths = activeBooths.map(b =>
+      b.id === boothId ? { ...b, ...updates } : b
+    );
+
+    setConfig(prev => ({
+      ...prev,
+      defaultBooths: (prev.defaultBooths || []).map(b =>
+        b.id === boothId ? { ...b, ...updates } : b
+      ),
+      boothDays: (prev.boothDays || []).map(bd =>
+        bd.date === currentBoothDate
+          ? { ...bd, booths: updatedBooths }
+          : bd
+      ),
+    }));
   };
 
   // Copy week
@@ -1045,9 +1665,19 @@ export default function WeeklyCalendarModal({
 
   // Handle save
   const handleSave = async () => {
-    if (config.weeks.length === 0) {
-      setError(isRTL ? 'יש להגדיר לפחות שבוע אחד' : 'At least one week is required');
-      return;
+    // Validate based on mode
+    if (config.mode === 'booths') {
+      // Booth mode validation - needs default booths
+      if ((config.defaultBooths || []).length === 0) {
+        setError(isRTL ? 'יש להגדיר לפחות דוכן אחד' : 'At least one booth is required');
+        return;
+      }
+    } else {
+      // Weekly mode validation - needs weeks
+      if (config.weeks.length === 0) {
+        setError(isRTL ? 'יש להגדיר לפחות שבוע אחד' : 'At least one week is required');
+        return;
+      }
     }
 
     // Clean undefined values before saving to Firebase
@@ -1071,25 +1701,37 @@ export default function WeeklyCalendarModal({
     return `${startStr} - ${endStr}`;
   };
 
-  // Tab buttons
+  // Tab buttons (booths tab only shown in booth mode)
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'schedule', label: isRTL ? 'לוח זמנים' : 'Schedule', icon: <Calendar className="w-4 h-4" /> },
+    ...(isBoothMode ? [{ id: 'booths' as TabType, label: isRTL ? 'דוכנים' : 'Booths', icon: <Store className="w-4 h-4" /> }] : []),
     { id: 'landing', label: isRTL ? 'דף נחיתה' : 'Landing', icon: <ImageIcon className="w-4 h-4" /> },
     { id: 'attractions', label: isRTL ? 'אטרקציות' : 'Attractions', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'notes', label: isRTL ? 'מידע' : 'Info', icon: <Info className="w-4 h-4" /> },
     { id: 'settings', label: isRTL ? 'הגדרות' : 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+  // Wrapper classes based on mode
+  const wrapperClasses = fullPage
+    ? 'h-screen bg-bg-primary overflow-hidden'
+    : 'fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto';
 
-      {/* Modal */}
-      <div className="relative bg-bg-card border border-border rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+  const containerClasses = fullPage
+    ? 'bg-bg-card h-full flex flex-col'
+    : 'relative bg-bg-card border border-border rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col';
+
+  return (
+    <div className={wrapperClasses}>
+      {/* Backdrop - only in modal mode */}
+      {!fullPage && (
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Content */}
+      <div className={containerClasses}>
         {/* Header */}
         <div className="sticky top-0 z-10 bg-bg-card border-b border-border px-6 py-4">
           <div className="flex items-center justify-between mb-4">
@@ -1097,12 +1739,14 @@ export default function WeeklyCalendarModal({
               <Calendar className="w-5 h-5 text-accent" />
               {isRTL ? 'תוכנית שבועית' : 'Weekly Calendar'}
             </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-bg-secondary text-text-secondary"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-lg hover:bg-bg-secondary text-text-secondary"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           {/* Tabs */}
@@ -1147,6 +1791,17 @@ export default function WeeklyCalendarModal({
                 >
                   <Eye className="w-5 h-5" />
                 </button>
+                {codeId && (
+                  <a
+                    href={`/${locale}/dashboard/calendar/${codeId}/checkin`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-lg transition-all bg-green-500 text-white hover:bg-green-600"
+                    title={isRTL ? 'סורק כניסות' : 'Check-in Scanner'}
+                  >
+                    <ScanLine className="w-5 h-5" />
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -1161,8 +1816,8 @@ export default function WeeklyCalendarModal({
             </p>
           )}
 
-          {/* Schedule Tab */}
-          {activeTab === 'schedule' && currentWeek && (
+          {/* Schedule Tab - WEEKLY MODE */}
+          {activeTab === 'schedule' && !isBoothMode && currentWeek && (
             <div className="space-y-6">
               {/* Week Navigator */}
               <div className="flex items-center justify-between">
@@ -1364,14 +2019,18 @@ export default function WeeklyCalendarModal({
                                 </div>
                               )}
 
-                              {/* RSVP registration count badge with native tooltip */}
+                              {/* RSVP registration count badge - clickable to show list */}
                               {cell && config.enableRSVP && registrationCounts[cell.id] > 0 && (
-                                <div
-                                  className="absolute top-1 end-1 z-[60] bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center cursor-help hover:bg-green-600 transition-colors"
-                                  title={`${isRTL ? 'אישרו' : 'Confirmed'}: ${confirmationCounts[cell.id] || 0}\n${isRTL ? 'צפויים להגיע' : 'Expected'}: ${registrationCounts[cell.id]}`}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    showCellRegistrations(cell.id, cell.title || '');
+                                  }}
+                                  className="absolute top-1 end-1 z-[60] bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center cursor-pointer hover:bg-green-600 transition-colors"
+                                  title={`${isRTL ? 'לחץ לצפייה ברשימת נרשמים' : 'Click to view registrations'}`}
                                 >
                                   <AnimatedCount value={registrationCounts[cell.id]} />
-                                </div>
+                                </button>
                               )}
 
                               {/* File drop indicator for empty cells */}
@@ -1409,6 +2068,388 @@ export default function WeeklyCalendarModal({
                     <span>{isRTL ? 'הוסף שעה' : 'Add Time Slot'}</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Schedule Tab - BOOTH MODE (Calendar View) */}
+          {activeTab === 'schedule' && isBoothMode && currentBoothDay && (
+            <div className="space-y-6">
+              {/* Date Navigator */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={goToPreviousBoothDate}
+                  className="p-2 rounded-lg hover:bg-bg-secondary"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="text-sm text-text-secondary">
+                      {isRTL ? `יום ${getDayNameFromDate(currentBoothDate, 'he')}` : getDayNameFromDate(currentBoothDate, 'en')}
+                    </div>
+                    <div className="text-lg font-medium text-text-primary">
+                      {formatBoothDate(currentBoothDate, isRTL ? 'he' : 'en')}
+                    </div>
+                  </div>
+                  <button
+                    onClick={goToTodayBoothDate}
+                    disabled={currentBoothDate === getTodayDateString()}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm bg-accent/10 rounded-lg hover:bg-accent/20 text-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={isRTL ? 'עבור להיום' : 'Go to today'}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    {isRTL ? 'היום' : 'Today'}
+                  </button>
+                </div>
+
+                <button
+                  onClick={goToNextBoothDate}
+                  className="p-2 rounded-lg hover:bg-bg-secondary"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Calendar View - Booths as Columns */}
+              {activeBooths.length === 0 ? (
+                <div className="text-center py-12 text-text-secondary">
+                  <Store className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>{isRTL ? 'אין דוכנים פעילים' : 'No active booths'}</p>
+                  <p className="text-sm mt-1">
+                    {isRTL ? 'עבור לטאב "דוכנים" כדי להוסיף דוכנים' : 'Go to "Booths" tab to add booths'}
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-xl overflow-hidden bg-bg-primary">
+                  {/* Calendar Header - Booth Names (like days in calendar) */}
+                  <div className="flex border-b border-border bg-bg-secondary sticky top-0 z-20">
+                    {/* Time column header */}
+                    <div className="w-16 flex-shrink-0 p-2 text-center text-xs font-medium text-text-secondary border-e border-border">
+                      {isRTL ? 'שעה' : 'Time'}
+                    </div>
+                    {/* Booth name headers */}
+                    {activeBooths.map((booth) => (
+                      <div
+                        key={booth.id}
+                        className="flex-1 min-w-[140px] p-2 cursor-pointer hover:opacity-80 transition-opacity border-e border-border last:border-e-0"
+                        style={{
+                          backgroundColor: booth.backgroundColor || CELL_COLOR_PALETTE[0],
+                          color: getContrastTextColor(booth.backgroundColor || CELL_COLOR_PALETTE[0]),
+                        }}
+                        onClick={() => setEditingBoothCapacity(booth)}
+                      >
+                        <div className="font-bold text-sm text-center truncate">{booth.name}</div>
+                        <div className="text-xs opacity-70 text-center">
+                          {booth.durationMinutes || 10}+{booth.bufferMinutes || 5} {isRTL ? 'דק' : 'min'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar Grid - Time rows with booth columns */}
+                  <div ref={boothTimelineRef} className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+                    <div className="flex relative" style={{ minWidth: `${Math.max(500, 64 + activeBooths.length * 140)}px` }}>
+                      {/* Time Column */}
+                      <div className="w-16 flex-shrink-0 border-e border-border bg-bg-secondary/50">
+                        {hourMarkers.map((hour) => (
+                          <div
+                            key={hour}
+                            className="border-b border-border/30 flex items-start justify-center pt-1"
+                            style={{ height: HOUR_HEIGHT }}
+                          >
+                            <span className="text-xs font-medium text-text-secondary">
+                              {`${String(hour).padStart(2, '0')}:00`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Current Time Indicator - spans across all columns */}
+                      {(() => {
+                        const now = currentTime;
+                        const isToday = currentBoothDate === getTodayDateString();
+                        if (!isToday) return null;
+
+                        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                        if (currentMinutes < timelineRange.startMinutes || currentMinutes > timelineRange.endMinutes) return null;
+
+                        const top = (currentMinutes - timelineRange.startMinutes) * PIXELS_PER_MINUTE;
+
+                        return (
+                          <div
+                            className="absolute left-0 right-0 z-50 pointer-events-none"
+                            style={{ top }}
+                          >
+                            <div className="flex items-center">
+                              <div className="w-16 flex-shrink-0 flex justify-end pe-1">
+                                <span
+                                  className="text-[10px] font-bold px-1 rounded"
+                                  style={{
+                                    backgroundColor: config.branding?.currentTimeIndicatorColor || '#ef4444',
+                                    color: 'white',
+                                  }}
+                                >
+                                  {now.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                </span>
+                              </div>
+                              <div
+                                className="flex-1 h-0.5"
+                                style={{ backgroundColor: config.branding?.currentTimeIndicatorColor || '#ef4444' }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Booth Columns with activities */}
+                      {activeBooths.map((booth) => {
+                        const boothSlots = booth.timeSlots || [];
+                        const boothCells = currentBoothDay.cells.filter(c => c.boothId === booth.id);
+
+                        return (
+                          <div
+                            key={booth.id}
+                            className="flex-1 min-w-[140px] border-e border-border last:border-e-0 relative"
+                            style={{ height: hourMarkers.length * HOUR_HEIGHT }}
+                          >
+                            {/* Hour grid lines */}
+                            {hourMarkers.map((hour, idx) => (
+                              <div
+                                key={hour}
+                                className="absolute w-full border-b border-border/30 bg-bg-primary hover:bg-bg-secondary/30 transition-colors"
+                                style={{ top: idx * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                              />
+                            ))}
+
+                            {/* "Generate Slots" button if no slots */}
+                            {boothSlots.length === 0 && (
+                              <div className="absolute inset-0 flex items-center justify-center z-10">
+                                <button
+                                  onClick={() => generateBoothSlots(booth.id)}
+                                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-accent/10 hover:bg-accent/20 text-accent transition-colors"
+                                >
+                                  <Plus className="w-5 h-5" />
+                                  <span className="text-xs font-medium">{isRTL ? 'צור שעות' : 'Generate'}</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Time Slots positioned by time */}
+                            {boothSlots.map((slot, slotIndex) => {
+                              const startMinutes = timeToMinutes(slot.startTime);
+                              const endMinutes = timeToMinutes(slot.endTime);
+                              const top = (startMinutes - timelineRange.startMinutes) * PIXELS_PER_MINUTE;
+                              const height = (endMinutes - startMinutes) * PIXELS_PER_MINUTE;
+
+                              const cell = boothCells.find(c => c.startSlotIndex === slotIndex);
+                              const isBreak = cell?.isBreak;
+                              const slotHeight = Math.max(height, MIN_SLOT_HEIGHT);
+                              const isDragOver = boothDragOverTarget?.boothId === booth.id && boothDragOverTarget?.slotIndex === slotIndex;
+                              const isDragging = draggingBoothCell?.boothId === booth.id && draggingBoothCell?.slotIndex === slotIndex;
+
+                              return (
+                                <div
+                                  key={slot.id}
+                                  draggable={!!cell && !isBreak}
+                                  onDragStart={(e) => cell && !isBreak && handleBoothCellDragStart(cell, booth.id, slotIndex, e)}
+                                  onDragOver={(e) => handleBoothCellDragOver(booth.id, slotIndex, e)}
+                                  onDragLeave={handleBoothCellDragLeave}
+                                  onDrop={(e) => handleBoothCellDrop(booth.id, slotIndex, e)}
+                                  onDragEnd={handleBoothCellDragEnd}
+                                  className={`absolute left-1 right-1 rounded-lg border-2 cursor-pointer transition-all hover:ring-2 hover:ring-accent/50 z-10 ${
+                                    isDragOver
+                                      ? 'ring-2 ring-accent border-accent bg-accent/20'
+                                      : isDragging
+                                        ? 'opacity-50'
+                                        : isBreak
+                                          ? 'bg-gray-300 border-gray-400'
+                                          : cell
+                                            ? 'border-transparent'
+                                            : 'border-dashed border-border hover:border-accent hover:bg-accent/5'
+                                  }`}
+                                  style={{
+                                    top,
+                                    height: slotHeight,
+                                    backgroundColor: isDragOver ? undefined : (isBreak ? undefined : (cell?.backgroundColor || undefined)),
+                                  }}
+                                  onClick={() => {
+                                    if (cell) {
+                                      setEditingBoothCell(cell);
+                                      setEditingBoothId(booth.id);
+                                      setEditingBoothSlotIndex(slotIndex);
+                                    } else {
+                                      const newCell: BoothCell = {
+                                        id: generateId(),
+                                        boothId: booth.id,
+                                        startSlotIndex: slotIndex,
+                                        rowSpan: 1,
+                                        title: '',
+                                        backgroundColor: booth.backgroundColor || CELL_COLOR_PALETTE[0],
+                                        enableRSVP: true,
+                                        capacity: booth.defaultCapacity,
+                                        createdAt: new Date(),
+                                        updatedAt: new Date(),
+                                      };
+                                      setEditingBoothCell(newCell);
+                                      setEditingBoothId(booth.id);
+                                      setEditingBoothSlotIndex(slotIndex);
+                                    }
+                                  }}
+                                >
+                                  <div
+                                    className="px-1.5 py-1 h-full flex flex-col justify-center overflow-hidden"
+                                    style={{ color: isBreak ? '#374151' : (cell?.textColor || getContrastTextColor(cell?.backgroundColor || booth.backgroundColor || CELL_COLOR_PALETTE[0])) }}
+                                  >
+                                    {isBreak ? (
+                                      <div className="text-center">
+                                        <div className="text-[10px] opacity-60">{slot.startTime}-{slot.endTime}</div>
+                                        <div className="text-xs text-gray-500">{isRTL ? 'הפסקה' : 'Break'}</div>
+                                      </div>
+                                    ) : cell ? (
+                                      <>
+                                        {/* Time and capacity/registrations - compact single line */}
+                                        <div className="text-[10px] opacity-70 flex items-center justify-between leading-none">
+                                          <span>{slot.startTime}-{slot.endTime}</span>
+                                          {/* Show registration count - clickable to show list */}
+                                          {(cell.capacity || registrationCounts[cell.id] > 0) && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                showCellRegistrations(cell.id, cell.title || slot.startTime, booth.id);
+                                              }}
+                                              className={`flex items-center gap-0.5 hover:underline ${
+                                                registrationCounts[cell.id] > 0
+                                                  ? (cell.capacity && registrationCounts[cell.id] >= cell.capacity ? 'text-red-300 opacity-100' : 'text-green-300 opacity-100')
+                                                  : ''
+                                              }`}
+                                              title={isRTL ? 'לחץ לצפייה ברשימת נרשמים' : 'Click to view registrations'}
+                                            >
+                                              <Users className="w-2.5 h-2.5" />
+                                              {cell.capacity
+                                                ? `${registrationCounts[cell.id] || 0}/${cell.capacity}`
+                                                : registrationCounts[cell.id]
+                                              }
+                                            </button>
+                                          )}
+                                        </div>
+                                        {/* Title - prominent */}
+                                        <div className={`text-xs font-medium leading-tight mt-0.5 line-clamp-2 ${cell.title ? '' : 'opacity-50 italic'}`}>
+                                          {cell.title || (isRTL ? 'לחץ להוסיף' : 'Click to add')}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      /* Empty slot - just subtle border, no + icon */
+                                      <div className="h-full w-full" />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Booths Tab (only in booth mode) */}
+          {activeTab === 'booths' && isBoothMode && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-text-primary">
+                  {isRTL ? 'ניהול דוכנים' : 'Manage Booths'}
+                </h3>
+                <button
+                  onClick={() => {
+                    const newBooth = createBooth(isRTL ? 'דוכן חדש' : 'New Booth', (config.defaultBooths || []).length);
+                    setConfig({
+                      ...config,
+                      defaultBooths: [...(config.defaultBooths || []), newBooth],
+                    });
+                  }}
+                  className="btn bg-accent text-white hover:bg-accent-hover"
+                >
+                  <Plus className="w-4 h-4 me-1" />
+                  {isRTL ? 'הוסף דוכן' : 'Add Booth'}
+                </button>
+              </div>
+
+              {(config.defaultBooths || []).length === 0 ? (
+                <div className="text-center py-12 text-text-secondary">
+                  <Store className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>{isRTL ? 'אין דוכנים' : 'No booths yet'}</p>
+                  <p className="text-sm mt-1">
+                    {isRTL ? 'הוסף דוכן ראשון למעלה' : 'Add your first booth above'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(config.defaultBooths || []).map((booth, index) => (
+                    <div
+                      key={booth.id}
+                      className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl"
+                    >
+                      {/* Color indicator */}
+                      <div
+                        className="w-10 h-10 rounded-lg flex-shrink-0"
+                        style={{ backgroundColor: booth.backgroundColor || CELL_COLOR_PALETTE[0] }}
+                      />
+                      {/* Booth info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-text-primary truncate">{booth.name}</div>
+                        <div className="text-sm text-text-secondary">
+                          {booth.durationMinutes || 10}+{booth.bufferMinutes || 5} {isRTL ? 'דק' : 'min'} • {isRTL ? 'קיבולת' : 'Capacity'}: {booth.defaultCapacity || 10}
+                        </div>
+                      </div>
+                      {/* Actions */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => generateBoothSlots(booth.id)}
+                          className="btn bg-bg-hover text-text-primary hover:bg-bg-secondary px-3 py-1.5 text-sm"
+                          title={isRTL ? 'צור שעות' : 'Generate slots'}
+                        >
+                          <Clock className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingBoothCapacity(booth)}
+                          className="btn bg-bg-hover text-text-primary hover:bg-bg-secondary px-3 py-1.5 text-sm"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setConfig(prev => ({
+                              ...prev,
+                              defaultBooths: (prev.defaultBooths || []).filter(b => b.id !== booth.id),
+                              boothDays: (prev.boothDays || []).map(bd => ({
+                                ...bd,
+                                booths: bd.booths.filter(b => b.id !== booth.id),
+                                cells: bd.cells.filter(c => c.boothId !== booth.id),
+                              })),
+                            }));
+                          }}
+                          className="btn bg-danger/10 text-danger hover:bg-danger/20 px-3 py-1.5 text-sm"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 p-4 bg-accent/5 border border-accent/20 rounded-xl">
+                <p className="text-sm text-text-secondary">
+                  {isRTL
+                    ? 'טיפ: לחץ על שם הדוכן בלוח הזמנים כדי לערוך את ההגדרות שלו'
+                    : 'Tip: Click on a booth name in the schedule to edit its settings'
+                  }
+                </p>
               </div>
             </div>
           )}
@@ -2912,6 +3953,47 @@ export default function WeeklyCalendarModal({
           {/* Settings Tab */}
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-xl mx-auto">
+              {/* Calendar Mode Selector */}
+              <div className="p-4 bg-accent/10 border border-accent/20 rounded-xl">
+                <h3 className="font-medium text-text-primary mb-3">
+                  {isRTL ? 'מצב תצוגה' : 'Display Mode'}
+                </h3>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConfig({ ...config, mode: 'weekly' })}
+                    className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                      config.mode === 'weekly' || !config.mode
+                        ? 'border-accent bg-accent/10'
+                        : 'border-border hover:border-accent/50'
+                    }`}
+                  >
+                    <Calendar className="w-6 h-6 mx-auto mb-1 text-accent" />
+                    <div className="text-sm font-medium text-text-primary">
+                      {isRTL ? 'תצוגה שבועית' : 'Weekly View'}
+                    </div>
+                    <div className="text-xs text-text-secondary">
+                      {isRTL ? '7 ימים עם שעות' : '7 days with time slots'}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setConfig({ ...config, mode: 'booths' })}
+                    className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                      config.mode === 'booths'
+                        ? 'border-accent bg-accent/10'
+                        : 'border-border hover:border-accent/50'
+                    }`}
+                  >
+                    <Store className="w-6 h-6 mx-auto mb-1 text-accent" />
+                    <div className="text-sm font-medium text-text-primary">
+                      {isRTL ? 'תצוגת דוכנים' : 'Booths View'}
+                    </div>
+                    <div className="text-xs text-text-secondary">
+                      {isRTL ? 'דוכנים כעמודות, זמנים כשורות' : 'Booths as columns, time as rows'}
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Viewer Behavior */}
               <div className="space-y-4 p-4 bg-bg-secondary rounded-xl">
                 <h3 className="font-medium text-text-primary">
@@ -3105,6 +4187,70 @@ export default function WeeklyCalendarModal({
           />
         )}
 
+        {/* Booth Cell Editor Modal */}
+        {editingBoothSlotIndex >= 0 && editingBoothId && activeTab === 'schedule' && isBoothMode && (
+          <BoothCellEditorPopover
+            cell={editingBoothCell}
+            boothId={editingBoothId}
+            slotIndex={editingBoothSlotIndex}
+            boothName={activeBooths.find(b => b.id === editingBoothId)?.name || ''}
+            isRTL={isRTL}
+            onSave={(updates) => {
+              updateBoothCell(editingBoothId, editingBoothSlotIndex, updates);
+              setEditingBoothCell(null);
+              setEditingBoothId('');
+              setEditingBoothSlotIndex(-1);
+            }}
+            onSpreadToAll={(updates) => {
+              spreadBoothCellToAllSlots(editingBoothId, updates);
+              setEditingBoothCell(null);
+              setEditingBoothId('');
+              setEditingBoothSlotIndex(-1);
+            }}
+            onDelete={() => {
+              if (editingBoothCell?.id) {
+                deleteBoothCell(editingBoothCell.id);
+              }
+              setEditingBoothCell(null);
+              setEditingBoothId('');
+              setEditingBoothSlotIndex(-1);
+            }}
+            onClose={() => {
+              setEditingBoothCell(null);
+              setEditingBoothId('');
+              setEditingBoothSlotIndex(-1);
+            }}
+          />
+        )}
+
+        {/* Booth Settings Editor Modal */}
+        {editingBoothCapacity && isBoothMode && (
+          <BoothSettingsEditor
+            booth={editingBoothCapacity}
+            isRTL={isRTL}
+            onSave={(updates) => {
+              updateBoothSettings(editingBoothCapacity.id, updates);
+            }}
+            onDelete={() => {
+              // Remove booth from defaults and current day
+              setConfig(prev => ({
+                ...prev,
+                defaultBooths: (prev.defaultBooths || []).filter(b => b.id !== editingBoothCapacity.id),
+                boothDays: (prev.boothDays || []).map(bd => ({
+                  ...bd,
+                  booths: bd.booths.filter(b => b.id !== editingBoothCapacity.id),
+                  cells: bd.cells.filter(c => c.boothId !== editingBoothCapacity.id),
+                })),
+              }));
+              setEditingBoothCapacity(null);
+            }}
+            onGenerateSlots={(overrides) => {
+              generateBoothSlots(editingBoothCapacity.id, overrides);
+            }}
+            onClose={() => setEditingBoothCapacity(null)}
+          />
+        )}
+
         {/* Footer */}
         <div className="sticky bottom-0 z-10 bg-bg-card border-t border-border px-6 py-4">
           {/* Help hints - only show in schedule tab */}
@@ -3223,6 +4369,261 @@ export default function WeeklyCalendarModal({
                 className="px-4 py-2 rounded-lg bg-danger hover:bg-danger/90 text-white transition-colors"
               >
                 {isRTL ? 'מחק' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Registrations List Modal */}
+      {showRegistrationsModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowRegistrationsModal(false)}
+          />
+          <div className="relative bg-bg-primary rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[85vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-accent" />
+                <h3 className="font-semibold text-text-primary">{registrationsModalTitle}</h3>
+              </div>
+              <button
+                onClick={() => setShowRegistrationsModal(false)}
+                className="p-1 rounded-lg hover:bg-bg-secondary transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            {registrationsList.length > 0 && (
+              <div className="px-4 pt-3">
+                <div className="relative">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
+                  <input
+                    type="text"
+                    value={registrationsSearchQuery}
+                    onChange={(e) => setRegistrationsSearchQuery(e.target.value)}
+                    placeholder={isRTL ? 'חיפוש לפי שם או טלפון...' : 'Search by name or phone...'}
+                    className="w-full py-2 pr-10 pl-3 rounded-lg bg-bg-secondary border border-border text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent/50"
+                    dir={isRTL ? 'rtl' : 'ltr'}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingRegistrations ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                </div>
+              ) : registrationsList.length === 0 ? (
+                <div className="text-center py-8 text-text-secondary">
+                  <Users className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                  <p>{isRTL ? 'אין נרשמים עדיין' : 'No registrations yet'}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Summary */}
+                  <div className="bg-accent/10 rounded-lg p-3 text-center">
+                    <span className="text-lg font-bold text-accent">
+                      {registrationsList.reduce((sum, r) => sum + r.count, 0)}
+                    </span>
+                    <span className="text-text-secondary ml-2">
+                      {isRTL ? 'משתתפים צפויים' : 'expected attendees'}
+                    </span>
+                    <span className="text-text-tertiary text-sm block">
+                      {registrationsList.length} {isRTL ? 'נרשמים' : 'registrations'}
+                      {registrationsSearchQuery && filteredRegistrations.length !== registrationsList.length && (
+                        <> ({isRTL ? `מוצגים ${filteredRegistrations.length}` : `showing ${filteredRegistrations.length}`})</>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* No results from search */}
+                  {filteredRegistrations.length === 0 && registrationsSearchQuery && (
+                    <div className="text-center py-4 text-text-secondary">
+                      <p>{isRTL ? 'לא נמצאו תוצאות' : 'No results found'}</p>
+                    </div>
+                  )}
+
+                  {/* Registration List */}
+                  {filteredRegistrations.map((reg, index) => (
+                    <div
+                      key={reg.id}
+                      className="p-3 bg-bg-secondary rounded-lg"
+                    >
+                      {editingRegistration?.id === reg.id ? (
+                        /* Edit Mode */
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs text-text-secondary mb-1 block">
+                              {isRTL ? 'שם' : 'Name'}
+                            </label>
+                            <input
+                              type="text"
+                              value={editingRegistration.nickname}
+                              onChange={(e) => setEditingRegistration({
+                                ...editingRegistration,
+                                nickname: e.target.value,
+                              })}
+                              className="w-full py-2 px-3 rounded-lg bg-bg-primary border border-border text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50"
+                              dir={isRTL ? 'rtl' : 'ltr'}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-text-secondary mb-1 block">
+                              {isRTL ? 'מספר משתתפים' : 'Number of attendees'}
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setEditingRegistration({
+                                  ...editingRegistration,
+                                  count: Math.max(1, editingRegistration.count - 1),
+                                })}
+                                className="w-10 h-10 rounded-lg bg-bg-primary border border-border flex items-center justify-center hover:bg-bg-hover transition-colors"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </button>
+                              <span className="w-10 text-center font-bold text-text-primary">
+                                {editingRegistration.count}
+                              </span>
+                              <button
+                                onClick={() => setEditingRegistration({
+                                  ...editingRegistration,
+                                  count: Math.min(10, editingRegistration.count + 1),
+                                })}
+                                className="w-10 h-10 rounded-lg bg-bg-primary border border-border flex items-center justify-center hover:bg-bg-hover transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                            <button
+                              onClick={handleSaveEditRegistration}
+                              disabled={savingEdit}
+                              className="flex-1 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              {savingEdit ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Check className="w-4 h-4" />
+                              )}
+                              {isRTL ? 'שמור' : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => setEditingRegistration(null)}
+                              className="px-4 py-2 bg-bg-primary border border-border rounded-lg hover:bg-bg-hover transition-colors"
+                            >
+                              {isRTL ? 'ביטול' : 'Cancel'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* View Mode */
+                        <div className="flex items-center gap-3">
+                          {/* Avatar/Number */}
+                          <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold shrink-0">
+                            {index + 1}
+                          </div>
+
+                          {/* Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-text-primary flex items-center gap-2">
+                              <User className="w-4 h-4 text-text-tertiary shrink-0" />
+                              <span className="truncate">{reg.nickname}</span>
+                              {reg.count > 1 && (
+                                <span className="bg-accent/20 text-accent text-xs px-2 py-0.5 rounded-full shrink-0">
+                                  +{reg.count - 1}
+                                </span>
+                              )}
+                            </div>
+                            {reg.phone && (
+                              <div className="text-sm text-text-secondary flex items-center gap-1 mt-0.5">
+                                <Phone className="w-3 h-3" />
+                                <span dir="ltr">{reg.phone}</span>
+                              </div>
+                            )}
+                            {reg.registeredAt && (
+                              <div className="text-xs text-text-tertiary mt-0.5">
+                                {new Date(reg.registeredAt).toLocaleDateString(isRTL ? 'he-IL' : 'en-US', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Check-in status */}
+                          {reg.checkedIn && (
+                            <div className="flex items-center gap-1 text-green-500 text-xs shrink-0">
+                              <Check className="w-4 h-4" />
+                            </div>
+                          )}
+
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => setEditingRegistration({
+                                id: reg.id,
+                                nickname: reg.nickname,
+                                count: reg.count,
+                              })}
+                              className="p-2 rounded-lg hover:bg-bg-hover transition-colors text-text-secondary hover:text-accent"
+                              title={isRTL ? 'עריכה' : 'Edit'}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(isRTL ? 'האם למחוק את ההרשמה?' : 'Delete this registration?')) {
+                                  handleDeleteRegistration(reg.id);
+                                }
+                              }}
+                              disabled={deletingRegistrationId === reg.id}
+                              className="p-2 rounded-lg hover:bg-danger/10 transition-colors text-text-secondary hover:text-danger disabled:opacity-50"
+                              title={isRTL ? 'מחיקה' : 'Delete'}
+                            >
+                              {deletingRegistrationId === reg.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border space-y-2">
+              {/* Check-in Scanner Button */}
+              {config.mode === 'booths' && (
+                <a
+                  href={`/${locale}/dashboard/calendar/${codeId}/checkin`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <QrCode className="w-5 h-5" />
+                  {isRTL ? 'פתח סורק כניסות' : 'Open Check-in Scanner'}
+                </a>
+              )}
+              <button
+                onClick={() => setShowRegistrationsModal(false)}
+                className="w-full py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+              >
+                {isRTL ? 'סגור' : 'Close'}
               </button>
             </div>
           </div>
@@ -3570,6 +4971,434 @@ function CellEditorPopover({
           <button
             onClick={handleSave}
             disabled={!canSave}
+            className="btn bg-accent text-white hover:bg-accent-hover flex-1 disabled:opacity-50"
+          >
+            {isRTL ? 'שמור' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Booth Cell Editor Popover Component
+function BoothCellEditorPopover({
+  cell,
+  boothId,
+  slotIndex,
+  boothName,
+  isRTL,
+  onSave,
+  onSpreadToAll,
+  onDelete,
+  onClose,
+}: {
+  cell: BoothCell | null;
+  boothId: string;
+  slotIndex: number;
+  boothName: string;
+  isRTL: boolean;
+  onSave: (updates: Partial<BoothCell>) => void;
+  onSpreadToAll?: (updates: Partial<BoothCell>) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(cell?.title || '');
+  const [description, setDescription] = useState(cell?.description || '');
+  const [backgroundColor, setBackgroundColor] = useState(cell?.backgroundColor || CELL_COLOR_PALETTE[0]);
+  const [capacity, setCapacity] = useState(cell?.capacity || 10);
+  const [enableRSVP, setEnableRSVP] = useState(cell?.enableRSVP !== false);
+  const [isBreak, setIsBreak] = useState(cell?.isBreak || false);
+
+  if (!cell && slotIndex < 0) return null;
+
+  const canSave = title.trim() || isBreak;
+
+  const buildUpdates = (): Partial<BoothCell> => ({
+    title: title.trim(),
+    description: description.trim() || undefined,
+    backgroundColor,
+    textColor: getContrastTextColor(backgroundColor),
+    capacity: enableRSVP ? capacity : undefined,
+    enableRSVP,
+    isBreak,
+  });
+
+  const handleSave = () => {
+    if (!canSave) return;
+    onSave(buildUpdates());
+    onClose();
+  };
+
+  const handleSpreadToAll = () => {
+    if (onSpreadToAll) {
+      onSpreadToAll(buildUpdates());
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-4 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold text-text-primary">
+              {cell?.id ? (isRTL ? 'עריכת פעילות' : 'Edit Activity') : (isRTL ? 'פעילות חדשה' : 'New Activity')}
+            </h3>
+            <p className="text-sm text-text-secondary">{boothName}</p>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-bg-secondary rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Break Toggle */}
+        <div className="mb-4 p-3 bg-bg-secondary rounded-lg">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isBreak}
+              onChange={(e) => setIsBreak(e.target.checked)}
+              className="w-4 h-4 rounded border-border"
+            />
+            <div>
+              <span className="font-medium text-text-primary">
+                {isRTL ? 'סמן כהפסקה' : 'Mark as Break'}
+              </span>
+              <p className="text-xs text-text-secondary">
+                {isRTL ? 'הדוכן לא פעיל בזמן זה' : 'Booth is inactive during this time'}
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* Activity Fields (hidden if break) */}
+        {!isBreak && (
+          <>
+            {/* Title */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                {isRTL ? 'שם הפעילות' : 'Activity Name'}
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={isRTL ? 'למשל: טעימה עיוורת' : 'e.g., Blind Tasting'}
+                className="input w-full"
+                autoFocus
+              />
+            </div>
+
+            {/* Description */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                {isRTL ? 'תיאור (אופציונלי)' : 'Description (optional)'}
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="input w-full resize-none"
+              />
+            </div>
+
+            {/* Color Picker */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                {isRTL ? 'צבע' : 'Color'}
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {CELL_COLOR_PALETTE.slice(0, 10).map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setBackgroundColor(color)}
+                    className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                      backgroundColor === color ? 'border-accent scale-110' : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* RSVP Settings */}
+            <div className="mb-4 p-3 bg-bg-secondary rounded-lg">
+              <label className="flex items-center gap-3 cursor-pointer mb-2">
+                <input
+                  type="checkbox"
+                  checked={enableRSVP}
+                  onChange={(e) => setEnableRSVP(e.target.checked)}
+                  className="w-4 h-4 rounded border-border"
+                />
+                <span className="font-medium text-text-primary">
+                  {isRTL ? 'אפשר הרשמה' : 'Enable RSVP'}
+                </span>
+              </label>
+              {enableRSVP && (
+                <div className="mt-2">
+                  <label className="block text-sm text-text-secondary mb-1">
+                    {isRTL ? 'קיבולת מקסימלית' : 'Max Capacity'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={capacity}
+                    onChange={(e) => setCapacity(parseInt(e.target.value) || 10)}
+                    className="input w-24"
+                  />
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-2">
+          {cell?.id && (
+            <button
+              onClick={onDelete}
+              className="btn bg-danger/10 text-danger hover:bg-danger/20 px-4"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          {onSpreadToAll && (
+            <button
+              onClick={handleSpreadToAll}
+              disabled={!canSave}
+              className="btn bg-accent/10 text-accent hover:bg-accent/20 px-3 flex items-center gap-1.5 disabled:opacity-50"
+              title={isRTL ? 'פרוס לכל השעות' : 'Spread to all slots'}
+            >
+              <Repeat className="w-4 h-4" />
+              <span className="text-sm">{isRTL ? 'פרוס לכולם' : 'Spread'}</span>
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex-1"
+          >
+            {isRTL ? 'ביטול' : 'Cancel'}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!canSave}
+            className="btn bg-accent text-white hover:bg-accent-hover flex-1 disabled:opacity-50"
+          >
+            {isRTL ? 'שמור' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Booth Settings Editor Component (for editing booth name, duration, buffer, etc.)
+function BoothSettingsEditor({
+  booth,
+  isRTL,
+  onSave,
+  onDelete,
+  onGenerateSlots,
+  onClose,
+}: {
+  booth: Booth;
+  isRTL: boolean;
+  onSave: (updates: Partial<Booth>) => void;
+  onDelete: () => void;
+  onGenerateSlots: (overrides?: { duration?: number; buffer?: number; startTime?: string; endTime?: string }) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(booth.name);
+  const [startTime, setStartTime] = useState(booth.startTime || '09:00');
+  const [endTime, setEndTime] = useState(booth.endTime || '18:00');
+  const [durationMinutes, setDurationMinutes] = useState(booth.durationMinutes || 10);
+  const [bufferMinutes, setBufferMinutes] = useState(booth.bufferMinutes || 5);
+  const [defaultCapacity, setDefaultCapacity] = useState(booth.defaultCapacity || 10);
+  const [backgroundColor, setBackgroundColor] = useState(booth.backgroundColor || CELL_COLOR_PALETTE[0]);
+
+  // Check if time settings changed
+  const timeSettingsChanged =
+    durationMinutes !== (booth.durationMinutes || 10) ||
+    bufferMinutes !== (booth.bufferMinutes || 5) ||
+    startTime !== (booth.startTime || '09:00') ||
+    endTime !== (booth.endTime || '18:00');
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    onSave({
+      name: name.trim(),
+      startTime,
+      endTime,
+      durationMinutes,
+      bufferMinutes,
+      defaultCapacity,
+      backgroundColor,
+    });
+    onClose();
+  };
+
+  const handleGenerateSlots = () => {
+    onSave({
+      name: name.trim(),
+      startTime,
+      endTime,
+      durationMinutes,
+      bufferMinutes,
+      defaultCapacity,
+      backgroundColor,
+    });
+    onGenerateSlots({ duration: durationMinutes, buffer: bufferMinutes, startTime, endTime });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-4 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-text-primary">
+            {isRTL ? 'הגדרות דוכן' : 'Booth Settings'}
+          </h3>
+          <button onClick={onClose} className="p-1 hover:bg-bg-secondary rounded-lg">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Name */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            {isRTL ? 'שם הדוכן' : 'Booth Name'}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="input w-full"
+            autoFocus
+          />
+        </div>
+
+        {/* Operating Hours */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {isRTL ? 'שעת התחלה' : 'Start Time'}
+            </label>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="input w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {isRTL ? 'שעת סיום' : 'End Time'}
+            </label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="input w-full"
+            />
+          </div>
+        </div>
+
+        {/* Duration and Buffer */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {isRTL ? 'משך פעילות (דקות)' : 'Duration (min)'}
+            </label>
+            <input
+              type="number"
+              min={5}
+              max={120}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 10)}
+              className="input w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {isRTL ? 'הפסקה (דקות)' : 'Buffer (min)'}
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={60}
+              value={bufferMinutes}
+              onChange={(e) => setBufferMinutes(parseInt(e.target.value) || 5)}
+              className="input w-full"
+            />
+          </div>
+        </div>
+
+        {/* Default Capacity */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            {isRTL ? 'קיבולת ברירת מחדל' : 'Default Capacity'}
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={defaultCapacity}
+            onChange={(e) => setDefaultCapacity(parseInt(e.target.value) || 10)}
+            className="input w-24"
+          />
+        </div>
+
+        {/* Color Picker */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            {isRTL ? 'צבע' : 'Color'}
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            {CELL_COLOR_PALETTE.slice(0, 10).map((color) => (
+              <button
+                key={color}
+                onClick={() => setBackgroundColor(color)}
+                className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                  backgroundColor === color ? 'border-accent scale-110' : 'border-transparent'
+                }`}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Generate Slots Button */}
+        <button
+          onClick={handleGenerateSlots}
+          className="w-full btn bg-accent/10 text-accent hover:bg-accent/20 mb-4"
+        >
+          <Clock className="w-4 h-4 me-2" />
+          {isRTL ? `צור שעות (${startTime}-${endTime})` : `Generate Slots (${startTime}-${endTime})`}
+        </button>
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-2 border-t border-border">
+          <button
+            onClick={onDelete}
+            className="btn bg-danger/10 text-danger hover:bg-danger/20 px-4"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onClose}
+            className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex-1"
+          >
+            {isRTL ? 'ביטול' : 'Cancel'}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!name.trim()}
             className="btn bg-accent text-white hover:bg-accent-hover flex-1 disabled:opacity-50"
           >
             {isRTL ? 'שמור' : 'Save'}

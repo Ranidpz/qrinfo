@@ -3460,18 +3460,15 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
-                  {/* Edit button for weeklycal */}
+                  {/* Edit button for weeklycal - navigate to full page editor */}
                   {media.type === 'weeklycal' && (
                     <Tooltip text={t('edit')}>
-                      <button
-                        onClick={() => {
-                          setEditingWeeklyCalId(media.id);
-                          setWeeklyCalModalOpen(true);
-                        }}
+                      <a
+                        href={`/${locale}/dashboard/calendar/${code.id}`}
                         className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
                       >
                         <Pencil className="w-4 h-4" />
-                      </button>
+                      </a>
                     </Tooltip>
                   )}
 

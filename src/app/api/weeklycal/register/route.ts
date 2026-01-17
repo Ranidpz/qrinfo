@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDocs,
+  getDoc,
   setDoc,
   deleteDoc,
   query,
@@ -11,7 +12,16 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+
+// Generate unique QR token for check-in
+function generateQRToken(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 10);
+  return `${timestamp}${random}`.toUpperCase();
+}
 
 // POST: Register or unregister for a cell
 export async function POST(request: NextRequest) {
@@ -47,11 +57,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { codeId, cellId, weekStartDate, visitorId, nickname, action, count = 1 } = body;
+    const {
+      codeId,
+      cellId,
+      weekStartDate,  // Weekly mode
+      boothDate,      // Booth mode - date string
+      boothId,        // Booth mode - booth ID
+      visitorId,
+      nickname,
+      phone,          // Phone number for uniqueness check
+      avatarUrl,      // Avatar image URL or emoji
+      avatarType = 'none', // 'photo' | 'emoji' | 'none'
+      action,
+      count = 1,
+      capacity,       // Optional capacity for validation
+    } = body;
 
-    if (!codeId || !cellId || !weekStartDate || !visitorId || !action) {
+    // Either weekStartDate (weekly mode) or boothDate+boothId (booth mode) required
+    const isBoothMode = boothDate && boothId;
+    const hasDateContext = weekStartDate || isBoothMode;
+
+    if (!codeId || !cellId || !hasDateContext || !visitorId || !action) {
       return NextResponse.json(
-        { error: 'Missing required fields', details: { codeId, cellId, weekStartDate, visitorId, action } },
+        { error: 'Missing required fields', details: { codeId, cellId, weekStartDate, boothDate, boothId, visitorId, action } },
         { status: 400 }
       );
     }
@@ -63,26 +91,131 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Document ID: visitorId_cellId_weekStartDate (ensures one registration per visitor per cell per week)
-    const registrationId = `${visitorId}_${cellId}_${weekStartDate}`;
-    console.log('WeeklyCal RSVP: Creating doc ref for', registrationId);
+    // Document ID: ensures one registration per visitor per cell per context (week or booth day)
+    // Weekly mode: visitorId_cellId_weekStartDate
+    // Booth mode: visitorId_cellId_boothDate_boothId
+    const registrationId = isBoothMode
+      ? `${visitorId}_${cellId}_${boothDate}_${boothId}`
+      : `${visitorId}_${cellId}_${weekStartDate}`;
+    console.log('WeeklyCal RSVP: Creating doc ref for', registrationId, isBoothMode ? '(booth mode)' : '(weekly mode)');
 
     try {
       const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
 
       if (action === 'register') {
+        // Get all registrations for this cell to check capacity and phone uniqueness
+        const registrationsRef = collection(db, 'codes', codeId, 'cellRegistrations');
+        const snapshot = await getDocs(registrationsRef);
+
+        // Filter registrations for this cell and context
+        const cellRegistrations = snapshot.docs.filter(docSnap => {
+          const data = docSnap.data();
+          const matchesCell = data.cellId === cellId;
+          const matchesContext = isBoothMode
+            ? (data.boothDate === boothDate && data.boothId === boothId)
+            : (data.weekStartDate === weekStartDate);
+          return matchesCell && matchesContext;
+        });
+
+        // Phone uniqueness check - if phone is provided, check it's not already registered
+        if (phone && phone.trim()) {
+          const normalizedPhone = phone.replace(/\D/g, ''); // Remove non-digits for comparison
+          const existingPhoneReg = cellRegistrations.find(docSnap => {
+            const data = docSnap.data();
+            const regPhone = (data.phone || '').replace(/\D/g, '');
+            // Check if same phone (not same visitor updating their own registration)
+            return regPhone === normalizedPhone && data.visitorId !== visitorId;
+          });
+
+          if (existingPhoneReg) {
+            console.log('WeeklyCal RSVP: Phone already registered', phone);
+            return NextResponse.json(
+              {
+                error: 'Phone already registered',
+                message: 'מספר הטלפון הזה כבר רשום לפעילות זו',
+              },
+              { status: 409 }
+            );
+          }
+        }
+
+        // Capacity validation if capacity is provided
+        if (capacity !== undefined && capacity > 0) {
+          console.log('WeeklyCal RSVP: Checking capacity', capacity);
+
+          // Calculate current count for this cell (excluding current visitor)
+          let currentCount = 0;
+          cellRegistrations.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.visitorId !== visitorId) {
+              currentCount += data.count || 1;
+            }
+          });
+
+          // Check if new registration would exceed capacity
+          const requestedCount = Math.max(1, Math.min(10, count));
+          if (currentCount + requestedCount > capacity) {
+            const availableSlots = Math.max(0, capacity - currentCount);
+            console.log('WeeklyCal RSVP: Capacity exceeded', { currentCount, requestedCount, capacity, availableSlots });
+            return NextResponse.json(
+              {
+                error: 'Capacity exceeded',
+                currentCount,
+                capacity,
+                availableSlots,
+              },
+              { status: 409 }
+            );
+          }
+        }
+
+        // Generate QR token for check-in
+        const qrToken = generateQRToken();
+
         // Register for the cell with count (number of attendees)
-        console.log('WeeklyCal RSVP: Registering with count', count);
-        await setDoc(registrationRef, {
+        console.log('WeeklyCal RSVP: Registering with count', count, 'qrToken:', qrToken);
+        const registrationData: Record<string, unknown> = {
           codeId,
           cellId,
-          weekStartDate,
           visitorId,
           nickname: nickname || null,
+          phone: phone || null,  // Store phone for uniqueness check
           count: Math.max(1, Math.min(10, count)), // Limit between 1-10
           registeredAt: serverTimestamp(),
-        });
-        console.log('WeeklyCal RSVP: Registration saved');
+          // Avatar/Profile
+          avatarUrl: avatarUrl || null,
+          avatarType: avatarType || 'none',
+          // QR Token for check-in
+          qrToken,
+          // Verification & Check-in status
+          isVerified: false,
+          checkedIn: false,
+        };
+
+        // Add context fields based on mode
+        if (isBoothMode) {
+          registrationData.boothDate = boothDate;
+          registrationData.boothId = boothId;
+        } else {
+          registrationData.weekStartDate = weekStartDate;
+        }
+
+        await setDoc(registrationRef, registrationData);
+        console.log('WeeklyCal RSVP: Registration saved with qrToken:', qrToken);
+
+        // Create qrTokenMappings for fast check-in lookup (using admin SDK)
+        try {
+          const adminDb = getAdminDb();
+          await adminDb.collection('qrTokenMappings').doc(qrToken).set({
+            codeId,
+            registrationId,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+          console.log('WeeklyCal RSVP: Created qrTokenMapping for', qrToken);
+        } catch (mappingError) {
+          // Don't fail registration if mapping creation fails
+          console.error('WeeklyCal RSVP: Failed to create qrTokenMapping:', mappingError);
+        }
       } else {
         // Unregister from the cell
         console.log('WeeklyCal RSVP: Unregistering');
@@ -104,10 +237,15 @@ export async function POST(request: NextRequest) {
       const registrationsRef = collection(db, 'codes', codeId, 'cellRegistrations');
       const snapshot = await getDocs(registrationsRef);
 
-      // Filter by cellId and weekStartDate in code and sum counts
+      // Filter by cellId and context (weekStartDate or boothDate+boothId) and sum counts
       snapshot.docs.forEach(docSnap => {
         const data = docSnap.data();
-        if (data.cellId === cellId && data.weekStartDate === weekStartDate) {
+        const matchesCell = data.cellId === cellId;
+        const matchesContext = isBoothMode
+          ? (data.boothDate === boothDate && data.boothId === boothId)
+          : (data.weekStartDate === weekStartDate);
+
+        if (matchesCell && matchesContext) {
           totalAttendees += data.count || 1;
         }
       });
@@ -118,11 +256,29 @@ export async function POST(request: NextRequest) {
       totalAttendees = action === 'register' ? count : 0;
     }
 
+    // Get the qrToken for the response (need to re-read for register action)
+    let responseQrToken: string | undefined;
+    let responseRegistrationId: string | undefined;
+    if (action === 'register') {
+      try {
+        const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
+        const regDoc = await getDoc(registrationRef);
+        if (regDoc.exists()) {
+          responseQrToken = regDoc.data()?.qrToken;
+          responseRegistrationId = regDoc.id;
+        }
+      } catch (e) {
+        console.error('WeeklyCal RSVP: Error fetching qrToken:', e);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       registrationCount: totalAttendees,
       isRegistered: action === 'register',
       count: action === 'register' ? count : 0,
+      qrToken: responseQrToken,
+      registrationId: responseRegistrationId,
     });
   } catch (error) {
     console.error('WeeklyCal RSVP error:', error);
@@ -147,8 +303,67 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const codeId = searchParams.get('codeId');
-    const weekStartDate = searchParams.get('weekStartDate');
+    const qrToken = searchParams.get('token');                // Get by QR token
+    const weekStartDate = searchParams.get('weekStartDate');  // Weekly mode
+    const boothDate = searchParams.get('boothDate');          // Booth mode
+    const boothId = searchParams.get('boothId');              // Booth mode
     const visitorId = searchParams.get('visitorId');
+
+    // If token is provided, find registration by qrToken (for landing page / check-in)
+    if (qrToken) {
+      console.log('WeeklyCal GET: Finding registration by token:', qrToken);
+
+      // Need to search across all codes if codeId not provided
+      if (codeId) {
+        const registrationsRef = collection(db, 'codes', codeId, 'cellRegistrations');
+        const snapshot = await getDocs(registrationsRef);
+
+        const registration = snapshot.docs.find(docSnap =>
+          docSnap.data().qrToken === qrToken
+        );
+
+        if (!registration) {
+          return NextResponse.json(
+            { error: 'Registration not found' },
+            { status: 404 }
+          );
+        }
+
+        const data = registration.data();
+        return NextResponse.json({
+          registration: {
+            id: registration.id,
+            codeId: data.codeId,
+            cellId: data.cellId,
+            visitorId: data.visitorId,
+            nickname: data.nickname,
+            phone: data.phone,
+            count: data.count || 1,
+            avatarUrl: data.avatarUrl,
+            avatarType: data.avatarType || 'none',
+            qrToken: data.qrToken,
+            isVerified: data.isVerified || false,
+            checkedIn: data.checkedIn || false,
+            checkedInAt: data.checkedInAt instanceof Timestamp
+              ? data.checkedInAt.toDate().toISOString()
+              : data.checkedInAt,
+            boothDate: data.boothDate,
+            boothId: data.boothId,
+            weekStartDate: data.weekStartDate,
+            registeredAt: data.registeredAt instanceof Timestamp
+              ? data.registeredAt.toDate().toISOString()
+              : data.registeredAt,
+          },
+        });
+      } else {
+        return NextResponse.json(
+          { error: 'codeId is required when using token' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const isBoothMode = boothDate && boothId;
 
     if (!codeId) {
       return NextResponse.json(
@@ -172,14 +387,37 @@ export async function GET(request: NextRequest) {
           cellId: data.cellId,
           visitorId: data.visitorId,
           nickname: data.nickname,
+          phone: data.phone,
+          avatarUrl: data.avatarUrl,
+          avatarType: data.avatarType || 'none',
+          qrToken: data.qrToken,
+          isVerified: data.isVerified || false,
+          checkedIn: data.checkedIn || false,
+          checkedInAt: data.checkedInAt instanceof Timestamp
+            ? data.checkedInAt.toDate().toISOString()
+            : data.checkedInAt,
           weekStartDate: data.weekStartDate,
+          boothDate: data.boothDate,
+          boothId: data.boothId,
           count: data.count || 1,
           registeredAt: data.registeredAt instanceof Timestamp
             ? data.registeredAt.toDate().toISOString()
             : data.registeredAt,
         };
       })
-      .filter(reg => !weekStartDate || reg.weekStartDate === weekStartDate);
+      .filter(reg => {
+        // Filter by context
+        if (isBoothMode) {
+          // Full booth mode: filter by both date and booth
+          return reg.boothDate === boothDate && reg.boothId === boothId;
+        } else if (boothDate) {
+          // Just booth date (for editor): filter by date only, all booths
+          return reg.boothDate === boothDate;
+        } else if (weekStartDate) {
+          return reg.weekStartDate === weekStartDate;
+        }
+        return true; // No filter - return all
+      });
 
     // Group by cellId for counts
     const countsByCell: Record<string, number> = {}; // Sum of all attendees
@@ -190,7 +428,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Check if current visitor is registered (if visitorId provided)
-    let userRegistrations: string[] = [];
+    const userRegistrations: string[] = [];
     const userCounts: Record<string, number> = {};
     if (visitorId) {
       registrations
@@ -213,6 +451,120 @@ export async function GET(request: NextRequest) {
     console.error('WeeklyCal get registrations error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch registrations', details: String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH: Update registration (admin only - name, count)
+export async function PATCH(request: NextRequest) {
+  try {
+    if (!db) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+    const { codeId, registrationId, nickname, count } = body;
+
+    if (!codeId || !registrationId) {
+      return NextResponse.json(
+        { error: 'Missing codeId or registrationId' },
+        { status: 400 }
+      );
+    }
+
+    const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
+    const regDoc = await getDoc(registrationRef);
+
+    if (!regDoc.exists()) {
+      return NextResponse.json(
+        { error: 'Registration not found' },
+        { status: 404 }
+      );
+    }
+
+    // Build update object
+    const updates: Record<string, unknown> = {};
+    if (nickname !== undefined) updates.nickname = nickname;
+    if (count !== undefined) updates.count = Math.max(1, Math.min(10, count));
+
+    await setDoc(registrationRef, updates, { merge: true });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('WeeklyCal PATCH error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update registration', details: String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE: Remove registration (admin only)
+export async function DELETE(request: NextRequest) {
+  try {
+    if (!db) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 500 }
+      );
+    }
+
+    // Accept both URL params and body
+    const { searchParams } = new URL(request.url);
+    let codeId = searchParams.get('codeId');
+    let registrationId = searchParams.get('registrationId');
+
+    // If not in URL, try body
+    if (!codeId || !registrationId) {
+      try {
+        const body = await request.json();
+        codeId = body.codeId || codeId;
+        registrationId = body.registrationId || registrationId;
+      } catch {
+        // Body parsing failed, continue with URL params
+      }
+    }
+
+    if (!codeId || !registrationId) {
+      return NextResponse.json(
+        { error: 'Missing codeId or registrationId' },
+        { status: 400 }
+      );
+    }
+
+    const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
+    const regDoc = await getDoc(registrationRef);
+
+    if (!regDoc.exists()) {
+      return NextResponse.json(
+        { error: 'Registration not found' },
+        { status: 404 }
+      );
+    }
+
+    // Also delete the token mapping if it exists
+    const regData = regDoc.data();
+    if (regData?.qrToken) {
+      try {
+        // Use admin API for token mapping deletion
+        // For now, just log - token mappings are cleaned up lazily
+        console.log('WeeklyCal DELETE: Registration had qrToken:', regData.qrToken);
+      } catch (e) {
+        console.error('WeeklyCal DELETE: Error cleaning token mapping:', e);
+      }
+    }
+
+    await deleteDoc(registrationRef);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('WeeklyCal DELETE error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete registration', details: String(error) },
       { status: 500 }
     );
   }

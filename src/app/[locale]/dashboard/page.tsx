@@ -103,6 +103,7 @@ export default function DashboardPage() {
   const [addingQStage, setAddingQStage] = useState(false);
   const [weeklyCalModalOpen, setWeeklyCalModalOpen] = useState(false);
   const [addingWeeklyCal, setAddingWeeklyCal] = useState(false);
+  const [editingWeeklyCalCode, setEditingWeeklyCalCode] = useState<QRCodeType | null>(null);
   const [qhuntModalOpen, setQhuntModalOpen] = useState(false);
   const [addingQHunt, setAddingQHunt] = useState(false);
   const [qtreasureModalOpen, setQtreasureModalOpen] = useState(false);
@@ -639,15 +640,18 @@ export default function DashboardPage() {
     setAddingWeeklyCal(true);
 
     try {
+      // Set title based on mode
+      const calendarTitle = config.mode === 'booths' ? 'תוכנית שבועית - דוכנים' : 'לוח פעילות';
+
       // Create QR code with weekly calendar (in current folder if inside one)
-      const newCode = await createQRCode(user.id, 'לוח פעילות', [
+      const newCode = await createQRCode(user.id, calendarTitle, [
         {
           url: '', // Weekly calendar doesn't have a direct URL
           type: 'weeklycal',
           size: 0,
           order: 0,
           uploadedBy: user.id,
-          title: 'לוח פעילות',
+          title: calendarTitle,
           weeklycalConfig: config,
         },
       ], currentFolderId);
@@ -661,6 +665,40 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error creating weekly calendar:', error);
       alert(tErrors('createCodeError'));
+    } finally {
+      setAddingWeeklyCal(false);
+    }
+  };
+
+  // Handle edit existing weekly calendar
+  const handleWeeklyCalEdit = async (config: WeeklyCalendarConfig) => {
+    if (!editingWeeklyCalCode || !user) return;
+
+    setAddingWeeklyCal(true);
+
+    try {
+      // Update the media with new config
+      const updatedMedia = [...editingWeeklyCalCode.media];
+      if (updatedMedia[0]) {
+        updatedMedia[0] = { ...updatedMedia[0], weeklycalConfig: config };
+      }
+
+      // Update in Firestore
+      await updateQRCode(editingWeeklyCalCode.id, { media: updatedMedia });
+
+      // Update local state
+      setCodes(prev => prev.map(code =>
+        code.id === editingWeeklyCalCode.id
+          ? { ...code, media: updatedMedia }
+          : code
+      ));
+
+      // Close modal
+      setWeeklyCalModalOpen(false);
+      setEditingWeeklyCalCode(null);
+    } catch (error) {
+      console.error('Error updating weekly calendar:', error);
+      alert(tErrors('updateCodeError') || 'Error updating');
     } finally {
       setAddingWeeklyCal(false);
     }
@@ -1925,6 +1963,10 @@ export default function DashboardPage() {
               }}
               onScheduleReplacement={(file, scheduledAt) => handleScheduleReplacement(code.id, code, file, scheduledAt)}
               onCancelScheduledReplacement={() => handleCancelScheduledReplacement(code.id, code)}
+              onEdit={code.media[0]?.type === 'weeklycal' ? () => {
+                setEditingWeeklyCalCode(code);
+                setWeeklyCalModalOpen(true);
+              } : undefined}
             />
           ))}
         </div>
@@ -2105,8 +2147,11 @@ export default function DashboardPage() {
       {/* Weekly Calendar Modal */}
       <WeeklyCalendarModal
         isOpen={weeklyCalModalOpen}
-        onClose={() => setWeeklyCalModalOpen(false)}
-        onSave={handleWeeklyCalCreate}
+        onClose={() => {
+          setWeeklyCalModalOpen(false);
+          setEditingWeeklyCalCode(null);
+        }}
+        onSave={editingWeeklyCalCode ? handleWeeklyCalEdit : handleWeeklyCalCreate}
         onUploadCellImage={async (file: File) => {
           if (!user) return null;
           try {
@@ -2136,6 +2181,9 @@ export default function DashboardPage() {
           }
         }}
         loading={addingWeeklyCal}
+        initialConfig={editingWeeklyCalCode?.media[0]?.weeklycalConfig}
+        shortId={editingWeeklyCalCode?.shortId}
+        codeId={editingWeeklyCalCode?.id}
       />
 
       {/* Q.Hunt Modal */}

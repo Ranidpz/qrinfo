@@ -766,7 +766,8 @@
     "makeGlobal": "הפוך לגלובלי",
     "removeGlobal": "הסר מגלובלי",
     "transferOwnership": "העבר בעלות",
-    "whatsappWidgetActive": "ווידג׳ט WhatsApp פעיל"
+    "whatsappWidgetActive": "ווידג׳ט WhatsApp פעיל",
+    "edit": "עריכה"
   },
   "errors": {
     "saveError": "שגיאה בשמירה. נסה שוב.",

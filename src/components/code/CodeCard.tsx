@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -69,6 +69,7 @@ interface CodeCardProps {
   onDragEnd?: () => void;
   onScheduleReplacement?: (file: File, scheduledAt: Date) => void;
   onCancelScheduledReplacement?: () => void;
+  onEdit?: () => void;
 }
 
 function formatBytes(bytes: number): string {
@@ -119,6 +120,7 @@ export default function CodeCard({
   onDragEnd,
   onScheduleReplacement,
   onCancelScheduledReplacement,
+  onEdit,
 }: CodeCardProps) {
   const tMedia = useTranslations('media');
   const tCard = useTranslations('card');
@@ -607,6 +609,11 @@ export default function CodeCard({
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
+              {onEdit && (
+                <button onClick={onEdit} className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors">
+                  <Pencil className="w-4 h-4" />
+                </button>
+              )}
               {isSuperAdmin && onToggleGlobal && (
                 <button
                   onClick={onToggleGlobal}
@@ -993,6 +1000,18 @@ export default function CodeCard({
                 className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
               >
                 <Files className="w-4 h-4" />
+              </button>
+            </Tooltip>
+          )}
+
+          {/* Edit - for special types like weeklycal */}
+          {onEdit && (
+            <Tooltip text={tCard('edit') || 'עריכה'}>
+              <button
+                onClick={onEdit}
+                className="p-1.5 rounded-lg text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
               </button>
             </Tooltip>
           )}
