@@ -20,7 +20,7 @@ export const MEDIA_TYPE_INFO: Record<MediaType, {
   wordcloud: { icon: 'Cloud', labelHe: 'ענן מילים', labelEn: 'Word Cloud' },
   selfiebeam: { icon: 'Camera', labelHe: 'סלפי', labelEn: 'Selfie' },
   qvote: { icon: 'Vote', labelHe: 'הצבעה', labelEn: 'Vote' },
-  weeklycal: { icon: 'CalendarDays', labelHe: 'לוח פעילות', labelEn: 'Schedule' },
+  weeklycal: { icon: 'CalendarDays', labelHe: 'Q.Cal', labelEn: 'Q.Cal' },
   qstage: { icon: 'Sparkles', labelHe: 'הצבעה חיה', labelEn: 'Live Vote' },
   qhunt: { icon: 'Crosshair', labelHe: 'ציד קודים', labelEn: 'Code Hunt' },
   qtreasure: { icon: 'Map', labelHe: 'ציד אוצרות', labelEn: 'Treasure Hunt' },
@@ -96,7 +96,7 @@ function getMediaTitle(item: MediaItem, locale: 'he' | 'en'): string {
     case 'selfiebeam':
       return item.selfiebeamContent?.title || (isHe ? 'סלפי' : 'Selfie');
     case 'weeklycal':
-      return item.weeklycalConfig?.branding?.landing?.title || item.title || (isHe ? 'לוח פעילות' : 'Schedule');
+      return item.weeklycalConfig?.branding?.landing?.title || item.title || 'Q.Cal';
     case 'qvote':
       return item.qvoteConfig?.branding?.landingTitle || item.title || 'Q.Vote';
     case 'qstage':

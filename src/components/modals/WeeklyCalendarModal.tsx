@@ -380,6 +380,8 @@ export default function WeeklyCalendarModal({
 
   // Save confirmation state
   const [saved, setSaved] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const initialConfigRef = useRef<string>('');
 
   // Preview modal state
   const [showPreview, setShowPreview] = useState(false);
@@ -799,8 +801,18 @@ export default function WeeklyCalendarModal({
       setEditingCellDayIndex(-1);
       setEditingCellSlotIndex(-1);
       setSaved(false);
+      setHasChanges(false);
+      // Store initial config for change detection
+      initialConfigRef.current = JSON.stringify(initialConfig || DEFAULT_WEEKLYCAL_CONFIG);
     }
   }, [isOpen, initialConfig]);
+
+  // Track config changes
+  useEffect(() => {
+    if (!isOpen || !initialConfigRef.current) return;
+    const currentConfigStr = JSON.stringify(config);
+    setHasChanges(currentConfigStr !== initialConfigRef.current);
+  }, [config, isOpen]);
 
   // Reset image loaded state when preview URL changes
   useEffect(() => {
@@ -1686,6 +1698,9 @@ export default function WeeklyCalendarModal({
 
     // Show saved confirmation (modal stays open)
     setSaved(true);
+    setHasChanges(false);
+    // Update initial config reference to current state
+    initialConfigRef.current = JSON.stringify(cleanedConfig);
   };
 
   // Format week date range
@@ -1737,7 +1752,7 @@ export default function WeeklyCalendarModal({
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
               <Calendar className="w-5 h-5 text-accent" />
-              {isRTL ? 'תוכנית שבועית' : 'Weekly Calendar'}
+              Q.Cal
             </h2>
             {onClose && (
               <button
@@ -1808,7 +1823,7 @@ export default function WeeklyCalendarModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className={`flex-1 overflow-y-auto p-6 min-h-0 flex flex-col ${fullPage ? 'pb-24' : ''}`}>
           {/* Error */}
           {error && (
             <p className="text-sm text-danger bg-danger/10 px-3 py-2 rounded-lg mb-4">
@@ -4251,8 +4266,8 @@ export default function WeeklyCalendarModal({
           />
         )}
 
-        {/* Footer */}
-        <div className="sticky bottom-0 z-10 bg-bg-card border-t border-border px-6 py-4">
+        {/* Footer - fixed at bottom in full page mode, sticky in modal mode */}
+        <div className={`${fullPage ? 'fixed bottom-0 left-0 right-0' : 'sticky bottom-0'} z-10 bg-bg-card border-t border-border px-6 py-4`}>
           {/* Help hints - only show in schedule tab */}
           {activeTab === 'schedule' && (
             <div className="text-xs text-text-secondary mb-3 text-center leading-relaxed">
@@ -4298,10 +4313,12 @@ export default function WeeklyCalendarModal({
             <button
               onClick={handleSave}
               disabled={loading || saved}
-              className={`btn min-w-[120px] flex items-center justify-center gap-2 transition-all duration-300 ${
+              className={`btn min-w-[120px] flex items-center justify-center gap-2 transition-all duration-300 relative ${
                 saved
                   ? 'bg-green-500 text-white scale-105'
-                  : 'bg-accent text-white hover:bg-accent-hover'
+                  : hasChanges
+                    ? 'bg-accent text-white hover:bg-accent-hover ring-2 ring-accent ring-offset-2 ring-offset-bg-card'
+                    : 'bg-bg-secondary text-text-secondary hover:bg-bg-hover'
               } disabled:opacity-100`}
             >
               {loading ? (
@@ -4312,7 +4329,12 @@ export default function WeeklyCalendarModal({
                   <span>{isRTL ? 'נשמר!' : 'Saved!'}</span>
                 </>
               ) : (
-                isRTL ? 'שמור' : 'Save'
+                <>
+                  {hasChanges && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-pulse" />
+                  )}
+                  {isRTL ? 'שמור' : 'Save'}
+                </>
               )}
             </button>
           </div>
@@ -4636,7 +4658,7 @@ export default function WeeklyCalendarModal({
           isOpen={showPreview}
           onClose={() => setShowPreview(false)}
           url={`/v/${shortId}?utm_source=preview`}
-          title={isRTL ? 'תוכנית שבועית' : 'Weekly Calendar'}
+          title="Q.Cal"
         />
       )}
     </div>

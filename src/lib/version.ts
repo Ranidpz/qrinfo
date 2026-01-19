@@ -40,7 +40,7 @@ export const CHANGELOG: VersionUpdate[] = [
     highlights: {
       he: [
         'Q.Vote - מערכת הצבעות דיגיטלית עם דף נחיתה מעוצב',
-        'לוח שבועי - תכנון ימים ושעות עם RSVP',
+        'Q.Cal - תכנון ימים ושעות עם RSVP',
         'דף נחיתה מותאם אישית עם תמונה, כותרת וכפתור',
         'תצוגת טלפון בזמן אמת בעורך המיתוג',
         'דחיסת תמונות אוטומטית ל-WebP',
@@ -48,7 +48,7 @@ export const CHANGELOG: VersionUpdate[] = [
       ],
       en: [
         'Q.Vote - Digital voting system with branded landing page',
-        'Weekly Calendar - Day/time planning with RSVP',
+        'Q.Cal - Day/time planning with RSVP',
         'Custom landing page with image, title and button',
         'Real-time phone preview in branding editor',
         'Automatic image compression to WebP',

@@ -13,18 +13,17 @@ import {
   MapPin,
   Loader2,
   RefreshCw,
-  ArrowLeft,
   Search,
   List,
   User,
   Phone,
   Check,
   ChevronDown,
-  ChevronUp,
   Calendar,
-  Link2,
   Pencil,
   Trash2,
+  Menu,
+  Home,
 } from 'lucide-react';
 
 interface ScanResult {
@@ -108,7 +107,7 @@ export default function CheckinScannerPage() {
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
-  const [linkCopied, setLinkCopied] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [editingReg, setEditingReg] = useState<Registration | null>(null);
   const [deletingReg, setDeletingReg] = useState<Registration | null>(null);
   const [editNickname, setEditNickname] = useState('');
@@ -155,10 +154,8 @@ export default function CheckinScannerPage() {
             aspectRatio: 1.0,
           },
           handleScan,
-          (errorMessage) => {
-            if (!errorMessage.includes('No QR code found')) {
-              console.log('[Scanner] Scan error:', errorMessage);
-            }
+          () => {
+            // Silence all scan errors (normal behavior when no QR visible)
           }
         );
 
@@ -550,6 +547,18 @@ export default function CheckinScannerPage() {
     });
   }, [registrations, activities, searchQuery]);
 
+  // Auto-expand all slots when searching, collapse when search is cleared
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      // Expand all matching slots when searching
+      const matchingSlotIds = filteredAndGroupedRegistrations.map(([cellId]) => cellId);
+      setExpandedSlots(new Set(matchingSlotIds));
+    } else {
+      // Collapse all when search is cleared
+      setExpandedSlots(new Set());
+    }
+  }, [searchQuery, filteredAndGroupedRegistrations]);
+
   const toggleSlot = (cellId: string) => {
     setExpandedSlots(prev => {
       const newSet = new Set(prev);
@@ -564,105 +573,181 @@ export default function CheckinScannerPage() {
 
   return (
     <>
-      {/* CSS to constrain scanner video */}
+      {/* CSS to constrain scanner video and make layout responsive */}
       <style jsx global>{`
-        #qr-reader video {
-          max-height: calc(100vh - 220px) !important;
-          width: 100% !important;
-          object-fit: cover !important;
-          border-radius: 12px;
-        }
         #qr-reader {
           border: none !important;
+          width: 100% !important;
+          height: 100% !important;
+          background: #000 !important;
+        }
+        #qr-reader video {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          border-radius: 16px;
         }
         #qr-reader__scan_region {
           min-height: unset !important;
+          height: 100% !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        #qr-reader__scan_region > img {
+          display: none !important;
         }
         #qr-reader__dashboard {
           display: none !important;
         }
+        /* Use dvh for better mobile support */
+        .checkin-container {
+          height: 100vh;
+          height: 100dvh;
+        }
       `}</style>
       <div
-        className="min-h-screen bg-gray-900 flex flex-col"
+        className="checkin-container bg-gray-900 flex flex-col overflow-hidden"
         dir={isRTL ? 'rtl' : 'ltr'}
       >
-      {/* Header */}
-      <div className="bg-gray-800 p-4 flex items-center justify-between">
+      {/* Header - Clean design with menu on left, logo on right */}
+      <div className="bg-gradient-to-b from-gray-900 to-gray-900/95 px-4 py-3 flex items-center shrink-0 border-b border-gray-800">
+        {/* Hamburger Menu Button - on start */}
         <button
-          onClick={() => router.back()}
-          className="p-2 rounded-lg text-white hover:bg-gray-700"
+          onClick={() => setMenuOpen(true)}
+          className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <Menu className="w-6 h-6" />
         </button>
-        <h1 className="text-xl font-bold text-white truncate max-w-[200px]">
-          {eventTitle || (isRTL ? 'סורק כניסה' : 'Check-in Scanner')}
+
+        {/* Event Title */}
+        <h1 className="text-base sm:text-lg font-semibold text-white truncate flex-1 mx-4 text-center">
+          {eventTitle || (isRTL ? 'צ׳ק-אין' : 'Check-in')}
         </h1>
-        <button
-          onClick={() => {
-            const url = `${window.location.origin}/${locale}/dashboard/calendar/${codeId}/checkin`;
-            navigator.clipboard.writeText(url);
-            setLinkCopied(true);
-            setTimeout(() => setLinkCopied(false), 2000);
-          }}
-          className="p-2 rounded-lg text-white hover:bg-gray-700 relative"
-          title={isRTL ? 'העתק לינק' : 'Copy Link'}
-        >
-          <Link2 className="w-6 h-6" />
-          {linkCopied && (
-            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-green-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-              {isRTL ? 'הועתק!' : 'Copied!'}
-            </span>
-          )}
-        </button>
-      </div>
 
-      {/* View Mode Tabs */}
-      <div className="bg-gray-800 px-4 pb-4 flex gap-2">
-        <button
-          onClick={() => setViewMode('scanner')}
-          className={`flex-1 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors ${
-            viewMode === 'scanner'
-              ? 'bg-green-500 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
-        >
-          <Camera className="w-5 h-5" />
-          {isRTL ? 'סורק' : 'Scanner'}
-        </button>
-        <button
-          onClick={() => setViewMode('participants')}
-          className={`flex-1 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors ${
-            viewMode === 'participants'
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
-        >
-          <List className="w-5 h-5" />
-          {isRTL ? 'משתתפים' : 'Participants'}
-        </button>
-      </div>
-
-      {/* Main Content */}
-      {viewMode === 'scanner' ? (
-        /* Scanner View */
-        <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black">
-          <div
-            id="qr-reader"
-            className={`w-full max-w-lg mx-auto ${scanState !== 'scanning' ? 'opacity-30' : ''}`}
-            style={{ maxHeight: 'calc(100vh - 200px)' }}
+        {/* Q Logo - on end */}
+        <div className="flex items-center gap-3">
+          <img
+            src="/theQ.png"
+            alt="Q"
+            className="w-8 h-8 object-contain"
           />
+        </div>
+      </div>
 
-          {/* Scanning Overlay */}
-          {scanState === 'scanning' && cameraReady && (
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <div className="w-64 h-64 border-4 border-white/50 rounded-2xl relative">
-                <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-green-500 rounded-tl-lg" />
-                <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-green-500 rounded-tr-lg" />
-                <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-green-500 rounded-bl-lg" />
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-green-500 rounded-br-lg" />
-              </div>
+      {/* Slide-out Menu with animation */}
+      <div
+        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+          menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={() => setMenuOpen(false)}
+        />
+
+        {/* Menu Panel */}
+        <div
+          className={`fixed top-0 ${isRTL ? 'right-0' : 'left-0'} h-full w-72 bg-gray-900 z-50 shadow-2xl flex flex-col transform transition-transform duration-300 ease-out ${
+            menuOpen
+              ? 'translate-x-0'
+              : isRTL ? 'translate-x-full' : '-translate-x-full'
+          }`}
+          dir="rtl"
+        >
+          {/* Menu Header */}
+          <div className="p-4 flex items-center justify-between border-b border-gray-800">
+            <h2 className="text-white font-semibold">תפריט</h2>
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Menu Items */}
+          <div className="flex-1 py-4">
+            <button
+              onClick={() => {
+                setViewMode('scanner');
+                setMenuOpen(false);
+              }}
+              className={`w-full px-6 py-4 flex items-center gap-4 transition-all duration-200 ${
+                viewMode === 'scanner'
+                  ? 'bg-cyan-500/20 text-cyan-400 border-r-4 border-cyan-500'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              }`}
+            >
+              <Camera className="w-5 h-5" />
+              <span className="font-medium">{isRTL ? 'סורק QR' : 'QR Scanner'}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setViewMode('participants');
+                setMenuOpen(false);
+              }}
+              className={`w-full px-6 py-4 flex items-center gap-4 transition-all duration-200 ${
+                viewMode === 'participants'
+                  ? 'bg-cyan-500/20 text-cyan-400 border-r-4 border-cyan-500'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              }`}
+            >
+              <List className="w-5 h-5" />
+              <span className="font-medium">{isRTL ? 'רשימת משתתפים' : 'Participants List'}</span>
+            </button>
+
+            <div className="my-4 border-t border-gray-800" />
+
+            <button
+              onClick={() => {
+                router.push(`/${locale}/dashboard/calendar`);
+              }}
+              className="w-full px-6 py-4 flex items-center gap-4 text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-200"
+            >
+              <Home className="w-5 h-5" />
+              <span className="font-medium">{isRTL ? 'חזרה לאתר' : 'Back to Site'}</span>
+            </button>
+          </div>
+
+          {/* Footer - Powered by The Q */}
+          <div className="p-6 border-t border-gray-800">
+            <div className="flex items-center justify-center gap-2 text-gray-500 text-sm" dir="ltr">
+              <span>Powered by</span>
+              <img src="/theQ.png" alt="The Q" className="w-5 h-5 object-contain" />
+              <span className="font-semibold text-cyan-400">The Q</span>
             </div>
-          )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - Takes remaining space */}
+      {viewMode === 'scanner' ? (
+        /* Scanner View - Fill available space */
+        <div className="flex-1 relative overflow-hidden flex flex-col bg-black min-h-0">
+          {/* Camera Container - Centered square */}
+          <div className="flex-1 flex items-center justify-center p-4 min-h-0">
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72">
+              {/* Camera feed - exact square */}
+              <div
+                id="qr-reader"
+                className={`w-full h-full rounded-2xl overflow-hidden ${scanState !== 'scanning' ? 'opacity-30' : ''}`}
+              />
+              {/* Scanning frame overlay - on top of camera */}
+              {scanState === 'scanning' && cameraReady && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div className="w-full h-full border-4 border-white/30 rounded-2xl relative">
+                    <div className="absolute -top-0.5 -left-0.5 w-10 h-10 border-t-4 border-l-4 border-green-500 rounded-tl-xl" />
+                    <div className="absolute -top-0.5 -right-0.5 w-10 h-10 border-t-4 border-r-4 border-green-500 rounded-tr-xl" />
+                    <div className="absolute -bottom-0.5 -left-0.5 w-10 h-10 border-b-4 border-l-4 border-green-500 rounded-bl-xl" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-10 h-10 border-b-4 border-r-4 border-green-500 rounded-br-xl" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Loading Overlay */}
           {scanState === 'loading' && (
@@ -805,10 +890,10 @@ export default function CheckinScannerPage() {
           )}
         </div>
       ) : (
-        /* Participants View - Modern Glass Design */
-        <div className="flex-1 flex flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
-          {/* Search with Glow Effect */}
-          <div className="p-4 pb-2">
+        /* Participants View - Modern Glass Design - Fill available space */
+        <div className="flex-1 flex flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 min-h-0 overflow-hidden">
+          {/* Search with Glow Effect - Fixed height */}
+          <div className="p-4 pb-2 shrink-0">
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
               <div className="relative">
@@ -825,34 +910,33 @@ export default function CheckinScannerPage() {
             </div>
           </div>
 
-          {/* Stats Summary Bar */}
+          {/* Stats Summary Bar - Fixed height */}
           {!loadingParticipants && filteredAndGroupedRegistrations.length > 0 && (
-            <div className="px-4 py-3">
-              <div className="flex items-center justify-between bg-gradient-to-r from-slate-800/80 to-slate-800/40 backdrop-blur rounded-xl px-4 py-3 border border-slate-700/30">
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-slate-400 text-sm">
-                      {registrations.filter(r => r.checkedIn).length}
-                      <span className="text-slate-500 mx-1">/</span>
-                      {registrations.length}
-                      <span className="text-slate-500 mr-2">{isRTL ? ' נכנסו' : ' checked in'}</span>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-cyan-400" />
-                    <span className="text-slate-400 text-sm">
-                      {registrations.reduce((sum, r) => sum + r.count, 0)}
-                      <span className="text-slate-500 mr-2">{isRTL ? ' משתתפים' : ' people'}</span>
-                    </span>
-                  </div>
+            <div className="px-4 py-3 shrink-0">
+              <div className="flex items-center justify-center gap-4 bg-gradient-to-r from-slate-800/80 to-slate-800/40 backdrop-blur rounded-xl px-3 py-2.5 border border-slate-700/30">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-slate-400 text-sm">
+                    {registrations.filter(r => r.checkedIn).length}
+                    <span className="text-slate-500 mx-1">/</span>
+                    {registrations.length}
+                    <span className="text-slate-500 mr-1">{isRTL ? ' נכנסו' : ' in'}</span>
+                  </span>
+                </div>
+                <div className="w-px h-4 bg-slate-700" />
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-cyan-400" />
+                  <span className="text-slate-400 text-sm">
+                    {registrations.reduce((sum, r) => sum + r.count, 0)}
+                    <span className="text-slate-500 mr-1">{isRTL ? ' משתתפים' : ' people'}</span>
+                  </span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Participants List */}
-          <div className="flex-1 overflow-y-auto px-4 pb-6">
+          {/* Participants List - Scrollable area */}
+          <div className="flex-1 overflow-y-auto px-4 pb-6 min-h-0">
             {loadingParticipants ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <div className="relative">
@@ -909,25 +993,25 @@ export default function CheckinScannerPage() {
                         {/* Time Slot Header */}
                         <button
                           onClick={() => toggleSlot(cellId)}
-                          className="w-full p-5 flex items-center gap-4 text-right hover:bg-white/[0.02] transition-colors"
+                          className="w-full p-3 sm:p-4 flex items-center gap-2 sm:gap-3 text-right hover:bg-white/[0.02] transition-colors"
                         >
-                          {/* Activity Icon */}
+                          {/* Activity Icon - Smaller on mobile */}
                           <div
-                            className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0"
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0"
                             style={{
                               background: `linear-gradient(135deg, ${accentColor}30, ${accentColor}10)`,
                               boxShadow: `0 4px 20px ${accentColor}20`
                             }}
                           >
-                            <Clock className="w-6 h-6" style={{ color: accentColor }} />
+                            <Clock className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: accentColor }} />
                           </div>
 
                           {/* Activity Info */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-white text-lg mb-1 truncate">
+                            <h3 className="font-bold text-white text-base sm:text-lg mb-0.5 truncate">
                               {activity?.title || (isRTL ? 'פעילות' : 'Activity')}
                             </h3>
-                            <div className="flex flex-wrap items-center gap-3 text-slate-400 text-sm">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-slate-400 text-xs sm:text-sm">
                               {activity?.boothDate && (
                                 <span className="flex items-center gap-1">
                                   <Calendar className="w-3.5 h-3.5" style={{ color: accentColor }} />
@@ -952,56 +1036,55 @@ export default function CheckinScannerPage() {
                             </div>
                           </div>
 
-                          {/* Stats */}
-                          <div className="flex items-center gap-4 shrink-0">
-                            {/* Progress Ring - Shows checked-in count */}
-                            <div className="relative w-14 h-14">
-                              <svg className="w-14 h-14 -rotate-90">
+                          {/* Stats - Compact on mobile */}
+                          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                            {/* Progress Ring - Smaller on mobile */}
+                            <div className="relative w-10 h-10 sm:w-12 sm:h-12">
+                              <svg className="w-10 h-10 sm:w-12 sm:h-12 -rotate-90">
                                 <circle
-                                  cx="28"
-                                  cy="28"
-                                  r="24"
+                                  cx="50%"
+                                  cy="50%"
+                                  r="40%"
                                   stroke="currentColor"
-                                  strokeWidth="4"
+                                  strokeWidth="3"
                                   fill="none"
                                   className="text-slate-700/50"
                                 />
                                 <circle
-                                  cx="28"
-                                  cy="28"
-                                  r="24"
+                                  cx="50%"
+                                  cy="50%"
+                                  r="40%"
                                   stroke={accentColor}
-                                  strokeWidth="4"
+                                  strokeWidth="3"
                                   fill="none"
                                   strokeLinecap="round"
-                                  strokeDasharray={`${progress * 1.508} 150.8`}
+                                  strokeDasharray={`${progress * 1.26} 126`}
                                   className="transition-all duration-500"
                                 />
                               </svg>
                               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-sm font-bold text-white">{checkedInCount}</span>
-                                <span className="text-[10px] text-slate-500">/{regs.length}</span>
+                                <span className="text-xs sm:text-sm font-bold text-white">{checkedInCount}/{regs.length}</span>
                               </div>
                             </div>
 
-                            {/* People Count with Capacity */}
-                            <div className="text-center px-3 py-2 rounded-xl bg-slate-800/50">
-                              <div className="text-lg font-bold" style={{ color: accentColor }}>
+                            {/* People Count - Hidden on small mobile */}
+                            <div className="hidden sm:block text-center px-2 py-1.5 rounded-lg bg-slate-800/50">
+                              <div className="text-base font-bold" style={{ color: accentColor }}>
                                 {totalCount}
                                 {activity?.capacity && (
-                                  <span className="text-slate-500 text-sm font-normal">/{activity.capacity}</span>
+                                  <span className="text-slate-500 text-xs font-normal">/{activity.capacity}</span>
                                 )}
                               </div>
-                              <div className="text-[10px] text-slate-500 uppercase tracking-wide">
+                              <div className="text-[9px] text-slate-500 uppercase">
                                 {isRTL ? 'אנשים' : 'people'}
                               </div>
                             </div>
 
                             {/* Expand Icon */}
                             <div
-                              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${isExpanded ? 'bg-white/10 rotate-180' : 'bg-slate-800/50'}`}
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${isExpanded ? 'bg-white/10 rotate-180' : 'bg-slate-800/50'}`}
                             >
-                              <ChevronDown className="w-5 h-5 text-slate-400" />
+                              <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
                             </div>
                           </div>
                         </button>
@@ -1012,111 +1095,115 @@ export default function CheckinScannerPage() {
                             {regs.map((reg, regIndex) => (
                               <div
                                 key={reg.id}
-                                className="p-4 flex items-center gap-4 border-b border-slate-800/50 last:border-0 hover:bg-white/[0.02] transition-colors"
+                                className="p-3 sm:p-4 border-b border-slate-800/50 last:border-0 hover:bg-white/[0.02] transition-colors"
                                 style={{ animationDelay: `${regIndex * 30}ms` }}
                               >
-                                {/* Avatar */}
-                                <div className="relative">
-                                  {reg.avatarType === 'emoji' && reg.avatarUrl ? (
-                                    <div
-                                      className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-                                      style={{ background: `${accentColor}15` }}
-                                    >
-                                      {reg.avatarUrl}
-                                    </div>
-                                  ) : reg.avatarType === 'photo' && reg.avatarUrl ? (
-                                    <div className="w-12 h-12 rounded-xl overflow-hidden ring-2 ring-slate-700">
-                                      <img
-                                        src={reg.avatarUrl}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                                      <User className="w-5 h-5 text-slate-500" />
-                                    </div>
-                                  )}
-                                  {/* Check-in indicator */}
-                                  {reg.checkedIn && (
-                                    <div className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center ring-2 ring-slate-900">
-                                      <Check className="w-3 h-3 text-white" />
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Info */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-0.5">
-                                    <span className="font-semibold text-white truncate">{reg.nickname}</span>
-                                    {reg.count > 1 && (
-                                      <span
-                                        className="text-xs px-2 py-0.5 rounded-full font-medium"
-                                        style={{ background: `${accentColor}20`, color: accentColor }}
+                                <div className="flex items-center gap-3">
+                                  {/* Avatar */}
+                                  <div className="relative shrink-0">
+                                    {reg.avatarType === 'emoji' && reg.avatarUrl ? (
+                                      <div
+                                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center text-xl sm:text-2xl"
+                                        style={{ background: `${accentColor}15` }}
                                       >
-                                        +{reg.count - 1}
-                                      </span>
+                                        {reg.avatarUrl}
+                                      </div>
+                                    ) : reg.avatarType === 'photo' && reg.avatarUrl ? (
+                                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl overflow-hidden ring-2 ring-slate-700">
+                                        <img
+                                          src={reg.avatarUrl}
+                                          alt=""
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
+                                        <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
+                                      </div>
+                                    )}
+                                    {/* Check-in indicator */}
+                                    {reg.checkedIn && (
+                                      <div className="absolute -bottom-1 -left-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-500 flex items-center justify-center ring-2 ring-slate-900">
+                                        <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+                                      </div>
                                     )}
                                   </div>
-                                  {reg.phone && (
-                                    <div className="flex items-center gap-1.5 text-slate-500 text-sm">
-                                      <Phone className="w-3.5 h-3.5" />
-                                      <span dir="ltr">{reg.phone}</span>
-                                    </div>
-                                  )}
-                                </div>
 
-                                {/* Actions */}
-                                <div className="flex items-center gap-2">
-                                  {/* Edit Button */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEditReg(reg);
-                                    }}
-                                    className="p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white transition-colors"
-                                    title={isRTL ? 'עריכה' : 'Edit'}
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </button>
-
-                                  {/* Delete Button */}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDeletingReg(reg);
-                                    }}
-                                    className="p-2 rounded-lg bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
-                                    title={isRTL ? 'מחיקה' : 'Delete'}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-
-                                  {/* Status / Check-in */}
-                                  {reg.checkedIn ? (
-                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                      <Check className="w-4 h-4 text-emerald-500" />
-                                      <span className="text-emerald-400 text-sm font-medium">
-                                        {reg.checkedInAt
-                                          ? formatCheckedInTime(reg.checkedInAt)
-                                          : (isRTL ? 'נכנס' : 'In')}
+                                  {/* Info */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                      <span className={`font-semibold text-sm sm:text-base truncate ${searchQuery.trim() ? 'text-yellow-300' : 'text-white'}`}>
+                                        {reg.nickname}
                                       </span>
+                                      {reg.count > 1 && (
+                                        <span
+                                          className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full font-medium shrink-0"
+                                          style={{ background: `${accentColor}20`, color: accentColor }}
+                                        >
+                                          +{reg.count - 1}
+                                        </span>
+                                      )}
                                     </div>
-                                  ) : (
+                                    {reg.phone && (
+                                      <div className={`flex items-center gap-1 text-xs sm:text-sm ${searchQuery.trim() && reg.phone?.replace(/\D/g, '').includes(searchQuery.replace(/\D/g, '')) ? 'text-yellow-300' : 'text-slate-500'}`}>
+                                        <Phone className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                        <span dir="ltr">{reg.phone}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Actions - Compact buttons + status */}
+                                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                                    {/* Edit Button */}
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleManualCheckin(reg.qrToken, reg.id);
+                                        handleEditReg(reg);
                                       }}
-                                      className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
-                                      style={{
-                                        background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`,
-                                        boxShadow: `0 4px 15px ${accentColor}40`
-                                      }}
+                                      className="p-1.5 sm:p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white transition-colors"
+                                      title={isRTL ? 'עריכה' : 'Edit'}
                                     >
-                                      {isRTL ? 'אישור כניסה' : 'Check in'}
+                                      <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     </button>
-                                  )}
+
+                                    {/* Delete Button */}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeletingReg(reg);
+                                      }}
+                                      className="p-1.5 sm:p-2 rounded-lg bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+                                      title={isRTL ? 'מחיקה' : 'Delete'}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                    </button>
+
+                                    {/* Status / Check-in */}
+                                    {reg.checkedIn ? (
+                                      <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
+                                        <span className="text-emerald-400 text-xs sm:text-sm font-medium">
+                                          {reg.checkedInAt
+                                            ? formatCheckedInTime(reg.checkedInAt)
+                                            : (isRTL ? 'נכנס' : 'In')}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleManualCheckin(reg.qrToken, reg.id);
+                                        }}
+                                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold text-white transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
+                                        style={{
+                                          background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`,
+                                          boxShadow: `0 4px 15px ${accentColor}40`
+                                        }}
+                                      >
+                                        {isRTL ? 'כניסה' : 'Check in'}
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -1132,13 +1219,13 @@ export default function CheckinScannerPage() {
         </div>
       )}
 
-      {/* Footer Instructions */}
+      {/* Footer Instructions - Fixed height */}
       {viewMode === 'scanner' && scanState === 'scanning' && (
-        <div className="bg-gray-800 p-4 text-center">
+        <div className="bg-gray-800 p-4 text-center shrink-0">
           <p className="text-white/70">
             {isRTL
-              ? 'כוונו את המצלמה לקוד ה-QR של המשתתף'
-              : 'Point the camera at the participant\'s QR code'}
+              ? 'הציגו את קוד הכניסה שלכם למצלמה'
+              : 'Show your entry QR code to the camera'}
           </p>
         </div>
       )}

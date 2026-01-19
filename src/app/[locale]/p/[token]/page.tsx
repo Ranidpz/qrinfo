@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
-import { Clock, MapPin, Users, CheckCircle2, Loader2, AlertCircle, Download } from 'lucide-react';
+import { Clock, MapPin, Users, CheckCircle2, Loader2, AlertCircle, Download, Calendar } from 'lucide-react';
 
 interface RegistrationData {
   id: string;
@@ -199,6 +199,20 @@ export default function ParticipantLandingPage() {
               <h2 className="text-xl font-bold text-gray-900">
                 {registration.activityName}
               </h2>
+            )}
+
+            {registration.boothDate && (
+              <div className="flex items-center justify-center gap-2 text-gray-700 font-medium">
+                <Calendar className="w-5 h-5" />
+                <span>
+                  {new Date(registration.boothDate).toLocaleDateString(isRTL ? 'he-IL' : 'en-US', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </span>
+              </div>
             )}
 
             {registration.activityTime && (

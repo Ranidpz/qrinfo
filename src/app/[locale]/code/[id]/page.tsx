@@ -477,7 +477,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
   // Subscribe to real-time view counts for this code
   useEffect(() => {
-    if (!code) return;
+    if (!code || !user) return;
 
     const unsubscribe = subscribeToCodeViews(
       [code.id],
@@ -486,13 +486,14 @@ export default function CodeEditPage({ params }: PageProps) {
       },
       (error) => {
         console.error('Error subscribing to views:', error);
-      }
+      },
+      user.uid
     );
 
     return () => {
       unsubscribe();
     };
-  }, [code?.id]);
+  }, [code?.id, user]);
 
   // Load page count for PDFs that don't have it stored
   useEffect(() => {

@@ -181,11 +181,11 @@ export default function DashboardPage() {
 
   // Subscribe to real-time view counts for 24h and total views
   useEffect(() => {
-    if (codes.length === 0) return;
+    if (codes.length === 0 || !user) return;
 
     const codeIds = codes.map((c) => c.id);
 
-    // Subscribe to 24h views
+    // Subscribe to 24h views (pass ownerId for Firestore security rules)
     const unsubscribe24h = subscribeToCodeViews(
       codeIds,
       (viewsData) => {
@@ -193,7 +193,8 @@ export default function DashboardPage() {
       },
       (error) => {
         console.error('Error subscribing to 24h views:', error);
-      }
+      },
+      user.uid
     );
 
     // Subscribe to total views (real-time updates from codes collection)
@@ -211,7 +212,7 @@ export default function DashboardPage() {
       unsubscribe24h();
       unsubscribeTotal();
     };
-  }, [codes]);
+  }, [codes, user]);
 
   // Check for due scheduled replacements
   useEffect(() => {
@@ -641,7 +642,7 @@ export default function DashboardPage() {
 
     try {
       // Set title based on mode
-      const calendarTitle = config.mode === 'booths' ? 'תוכנית שבועית - דוכנים' : 'לוח פעילות';
+      const calendarTitle = config.mode === 'booths' ? 'Q.Cal - דוכנים' : 'Q.Cal';
 
       // Create QR code with weekly calendar (in current folder if inside one)
       const newCode = await createQRCode(user.id, calendarTitle, [

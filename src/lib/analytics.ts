@@ -289,7 +289,8 @@ export async function getViews24h(codeIds: string[]): Promise<Record<string, num
 export function subscribeToCodeViews(
   codeIds: string[],
   onData: (views: Record<string, number>) => void,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
+  ownerId?: string
 ): Unsubscribe {
   if (codeIds.length === 0) {
     onData({});
@@ -315,11 +316,19 @@ export function subscribeToCodeViews(
 
   chunks.forEach((chunk) => {
     // Listen to viewLogs for these codes (last 24h for efficiency)
-    const q = query(
-      collection(db, 'viewLogs'),
-      where('codeId', 'in', chunk),
-      where('timestamp', '>=', Timestamp.fromDate(yesterday))
-    );
+    // Include ownerId filter for Firestore security rules compliance
+    const q = ownerId
+      ? query(
+          collection(db, 'viewLogs'),
+          where('ownerId', '==', ownerId),
+          where('codeId', 'in', chunk),
+          where('timestamp', '>=', Timestamp.fromDate(yesterday))
+        )
+      : query(
+          collection(db, 'viewLogs'),
+          where('codeId', 'in', chunk),
+          where('timestamp', '>=', Timestamp.fromDate(yesterday))
+        );
 
     const unsubscribe = onSnapshot(
       q,
