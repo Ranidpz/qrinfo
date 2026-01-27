@@ -1046,14 +1046,16 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = viewerTranslations[locale];
 
-  // Check for display mode (for QStage big screen)
-  const [isDisplayMode, setIsDisplayMode] = useState(false);
-
-  useEffect(() => {
-    // Check URL params for display mode
-    const params = new URLSearchParams(window.location.search);
-    setIsDisplayMode(params.get('display') === 'true');
-  }, []);
+  // Check for display mode (for QStage/QHunt big screen)
+  // Initialize on client side to avoid flash of wrong content
+  const [isDisplayMode, setIsDisplayMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const displayParam = params.get('display');
+      return displayParam === 'true' || displayParam === '1';
+    }
+    return false;
+  });
 
   useEffect(() => {
     const browserLocale = getBrowserLocale();

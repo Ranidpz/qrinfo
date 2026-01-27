@@ -16,6 +16,9 @@ import {
   QHuntScan,
   formatGameTime,
 } from '@/types/qhunt';
+
+// Re-export types for convenience
+export type { QHuntLeaderboardEntry, QHuntTeamScore, QHuntRecentScan, QHuntStats };
 import {
   subscribeToQHuntLive,
   subscribeToQHuntStats,

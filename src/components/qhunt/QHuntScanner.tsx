@@ -110,6 +110,9 @@ export function QHuntScanner({
   const [isProcessing, setIsProcessing] = useState(false);
   const [floatingPoints, setFloatingPoints] = useState<number | null>(null);
   const [showEndGameModal, setShowEndGameModal] = useState(false);
+  // Badge animation states for +N on stat boxes
+  const [scoreBadge, setScoreBadge] = useState<number | null>(null);
+  const [codesBadge, setCodesBadge] = useState<boolean>(false);
   const [isEndingGame, setIsEndingGame] = useState(false);
   const [hintModal, setHintModal] = useState<{ hint: string; scannedCodeId: string } | null>(null);
 
@@ -302,7 +305,14 @@ export function QHuntScanner({
         // Show floating points animation
         if (result.scan?.points) {
           setFloatingPoints(result.scan.points);
+          // Show +N badge on score stat box
+          setScoreBadge(result.scan.points);
+          setTimeout(() => setScoreBadge(null), 1500);
         }
+
+        // Show +1 badge on codes stat box
+        setCodesBadge(true);
+        setTimeout(() => setCodesBadge(false), 1500);
 
         // Show success feedback
         setFeedback({
@@ -520,6 +530,9 @@ export function QHuntScanner({
         <div className="stat-box score-box">
           <span className="stat-label">{t.yourScore}</span>
           <span className="stat-value score-value">{animatedScore}</span>
+          {scoreBadge && (
+            <span className="stat-badge score-badge">+{scoreBadge}</span>
+          )}
         </div>
 
         {/* Show timer only if time-limited, otherwise show elapsed time - clickable to end game */}
@@ -546,6 +559,9 @@ export function QHuntScanner({
           <span className="stat-value">
             {player.scansCount}/{actualTargetCount}
           </span>
+          {codesBadge && (
+            <span className="stat-badge codes-badge">+1</span>
+          )}
         </div>
       </div>
 
@@ -723,10 +739,11 @@ export function QHuntScanner({
         }
 
         .stat-box {
+          position: relative;
           background: rgba(255, 255, 255, 0.03);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 10px;
-          padding: 8px 6px;
+          padding: 10px 8px;
           text-align: center;
           display: flex;
           flex-direction: column;
@@ -734,14 +751,14 @@ export function QHuntScanner({
         }
 
         .stat-label {
-          font-size: 0.65rem;
-          color: rgba(255, 255, 255, 0.5);
+          font-size: 0.75rem;
+          color: rgba(255, 255, 255, 0.6);
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
 
         .stat-value {
-          font-size: 1.2rem;
+          font-size: 1.4rem;
           font-weight: 800;
           color: #fff;
         }
@@ -796,6 +813,54 @@ export function QHuntScanner({
 
         .codes-box .stat-value {
           color: #00ff88;
+        }
+
+        /* +N Badge animation */
+        .stat-badge {
+          position: absolute;
+          top: -8px;
+          right: -4px;
+          font-size: 0.9rem;
+          font-weight: 800;
+          padding: 2px 6px;
+          border-radius: 8px;
+          animation: badgePop 1.5s ease-out forwards;
+          z-index: 10;
+          pointer-events: none;
+        }
+
+        .score-badge {
+          background: linear-gradient(135deg, #00ff88, #00cc6a);
+          color: #000;
+          box-shadow: 0 0 12px rgba(0, 255, 136, 0.6);
+        }
+
+        .codes-badge {
+          background: linear-gradient(135deg, #00d4ff, #0099cc);
+          color: #000;
+          box-shadow: 0 0 12px rgba(0, 212, 255, 0.6);
+        }
+
+        @keyframes badgePop {
+          0% {
+            opacity: 0;
+            transform: scale(0.5) translateY(10px);
+          }
+          15% {
+            opacity: 1;
+            transform: scale(1.3) translateY(-5px);
+          }
+          30% {
+            transform: scale(1) translateY(0);
+          }
+          70% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(0.8) translateY(-20px);
+          }
         }
 
         /* Elapsed time box (for unlimited time games) */
@@ -1093,14 +1158,14 @@ export function QHuntScanner({
         }
 
         .mission-label {
-          color: rgba(255, 255, 255, 0.7);
-          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 0.95rem;
         }
 
         .mission-type {
           color: var(--type-color, #00ff88);
           font-weight: 700;
-          font-size: 1rem;
+          font-size: 1.1rem;
           text-shadow: 0 0 8px var(--type-glow, rgba(0, 255, 136, 0.5));
         }
 
@@ -1298,13 +1363,13 @@ export function QHuntScanner({
 
         .manual-entry-btn {
           width: 100%;
-          padding: 14px;
-          font-size: 1rem;
+          padding: 16px;
+          font-size: 1.1rem;
           font-weight: 600;
           font-family: 'Assistant', sans-serif;
           background: rgba(255, 255, 255, 0.06);
-          border: 2px solid rgba(255, 255, 255, 0.2);
-          border-radius: 12px;
+          border: 2px solid rgba(255, 255, 255, 0.25);
+          border-radius: 14px;
           color: #fff;
           cursor: pointer;
           display: flex;
@@ -1326,19 +1391,19 @@ export function QHuntScanner({
 
         .end-game-btn {
           width: 100%;
-          padding: 12px;
-          font-size: 0.95rem;
+          padding: 14px;
+          font-size: 1.05rem;
           font-weight: 600;
           font-family: 'Assistant', sans-serif;
           background: rgba(255, 136, 0, 0.1);
           border: 2px solid rgba(255, 136, 0, 0.4);
-          border-radius: 12px;
+          border-radius: 14px;
           color: #ff8800;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
+          gap: 10px;
           transition: all 0.3s ease;
         }
 
@@ -1353,7 +1418,7 @@ export function QHuntScanner({
         }
 
         .btn-icon {
-          font-size: 1.2rem;
+          font-size: 1.4rem;
         }
 
         /* Mobile optimizations for short screens */
@@ -1385,16 +1450,22 @@ export function QHuntScanner({
           }
 
           .stat-box {
-            padding: 6px 4px;
+            padding: 8px 6px;
             border-radius: 8px;
           }
 
           .stat-label {
-            font-size: 0.6rem;
+            font-size: 0.65rem;
           }
 
           .stat-value {
-            font-size: 1rem;
+            font-size: 1.15rem;
+          }
+
+          .stat-badge {
+            font-size: 0.8rem;
+            top: -6px;
+            right: -2px;
           }
 
           .mission-indicator {
@@ -1403,11 +1474,11 @@ export function QHuntScanner({
           }
 
           .mission-label {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
           }
 
           .mission-type {
-            font-size: 0.9rem;
+            font-size: 0.95rem;
           }
 
           .scanner-container {
@@ -1446,19 +1517,19 @@ export function QHuntScanner({
           }
 
           .manual-entry-btn {
-            padding: 12px;
-            font-size: 0.95rem;
-            border-radius: 10px;
+            padding: 14px;
+            font-size: 1rem;
+            border-radius: 12px;
           }
 
           .end-game-btn {
-            padding: 10px;
-            font-size: 0.9rem;
-            border-radius: 10px;
+            padding: 12px;
+            font-size: 0.95rem;
+            border-radius: 12px;
           }
 
           .btn-icon {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
           }
         }
 
@@ -1491,15 +1562,22 @@ export function QHuntScanner({
           }
 
           .stat-box {
-            padding: 5px 3px;
+            padding: 6px 4px;
           }
 
           .stat-label {
-            font-size: 0.55rem;
+            font-size: 0.6rem;
           }
 
           .stat-value {
-            font-size: 0.9rem;
+            font-size: 1rem;
+          }
+
+          .stat-badge {
+            font-size: 0.7rem;
+            top: -5px;
+            right: -2px;
+            padding: 1px 4px;
           }
 
           .mission-indicator {
@@ -1507,11 +1585,11 @@ export function QHuntScanner({
           }
 
           .mission-label {
-            font-size: 0.75rem;
+            font-size: 0.8rem;
           }
 
           .mission-type {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
           }
 
           .scanner-container {
@@ -1526,13 +1604,13 @@ export function QHuntScanner({
           }
 
           .manual-entry-btn {
-            padding: 10px;
-            font-size: 0.9rem;
+            padding: 12px;
+            font-size: 0.95rem;
           }
 
           .end-game-btn {
-            padding: 8px;
-            font-size: 0.85rem;
+            padding: 10px;
+            font-size: 0.9rem;
           }
         }
       `}</style>
