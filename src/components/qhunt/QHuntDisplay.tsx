@@ -243,9 +243,6 @@ function AnimatedLeaderboard({
                 {entry.animationClass === 'rank-down' && (
                   <span className="rank-change down">▼</span>
                 )}
-                {entry.animationClass === 'new-entry' && (
-                  <span className="rank-change new">NEW</span>
-                )}
               </div>
 
               {/* Player info */}
@@ -668,11 +665,11 @@ function AnimatedLeaderboard({
           }
 
           .player-avatar {
-            width: 48px;
-            height: 48px;
-            font-size: 1.6rem;
-            border-radius: 12px;
-            border: 2px solid rgba(255,255,255,0.2);
+            width: 56px;
+            height: 56px;
+            font-size: 1.8rem;
+            border-radius: 14px;
+            border: 2px solid rgba(255,255,255,0.25);
             flex-shrink: 0;
           }
 
@@ -717,10 +714,10 @@ function AnimatedLeaderboard({
           }
 
           .player-avatar {
-            width: 42px;
-            height: 42px;
-            font-size: 1.4rem;
-            border-radius: 10px;
+            width: 48px;
+            height: 48px;
+            font-size: 1.5rem;
+            border-radius: 12px;
           }
 
           .player-name {
