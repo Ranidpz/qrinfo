@@ -1237,7 +1237,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   }
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden animate-fadeIn">
+    <div className="min-h-screen bg-black relative overflow-x-hidden overflow-y-auto animate-fadeIn">
       {/* PWA Install Banner */}
       <PWAInstallBanner shortId={shortId} enabled={widgets?.pwaEncourage?.enabled !== false} />
 
@@ -1252,7 +1252,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
       `}</style>
 
       {/* Content based on type */}
-      <div className="w-full h-screen">
+      <div className="w-full min-h-screen">
         {/* Landing Page for mixed media */}
         {shouldUseLandingPage && showLandingPage && !activeViewer ? (
           <LandingPageViewer

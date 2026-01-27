@@ -86,18 +86,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload to Vercel Blob
+    // Upload to Vercel Blob with random suffix to prevent caching issues
     const filename = `${avatarPath}.webp`;
     const blob = await put(filename, webpBuffer, {
       access: 'public',
-      addRandomSuffix: false,
+      addRandomSuffix: true,  // Creates unique filename each upload
     });
 
-    // Add cache-busting timestamp to prevent browser caching old images
-    const urlWithCacheBust = `${blob.url}?t=${Date.now()}`;
-
     return NextResponse.json({
-      url: urlWithCacheBust,
+      url: blob.url,
       size: webpBuffer.length,
     });
   } catch (error) {
