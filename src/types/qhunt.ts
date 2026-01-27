@@ -224,6 +224,7 @@ export interface QHuntLeaderboardEntry {
   score: number;
   scansCount: number;
   gameTime?: number;              // Total game time in ms (if finished)
+  finishedAt?: number;            // Timestamp when player finished
   isFinished: boolean;
   rank: number;
 }

@@ -97,6 +97,7 @@ export async function POST(request: Request) {
       }
       if (player.gameEndedAt && player.gameStartedAt) {
         entry.gameTime = player.gameEndedAt - player.gameStartedAt;
+        entry.finishedAt = player.gameEndedAt;
       }
 
       leaderboardData[player.id] = entry;

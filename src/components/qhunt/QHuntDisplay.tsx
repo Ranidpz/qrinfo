@@ -22,6 +22,16 @@ interface QHuntDisplayProps {
   initialConfig: QHuntConfig;
 }
 
+// Format date for display (e.g., "27/01 14:32")
+function formatFinishedDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${day}/${month} ${hours}:${minutes}`;
+}
+
 // Animated number component - counts from previous to current value
 function AnimatedNumber({
   value,
@@ -286,18 +296,22 @@ function AnimatedLeaderboard({
                 )}
               </div>
 
-              {/* Score + Stats combined - Mobile */}
+              {/* Score + Rank combined - Mobile */}
               <div className="row-score-mobile mobile-only">
-                <AnimatedNumber
-                  value={entry.score}
-                  className="score-value-mobile"
-                  duration={800}
-                />
+                <div className="score-with-rank">
+                  <span className="mobile-rank">{getRankBadge(entry.rank)}</span>
+                  <AnimatedNumber
+                    value={entry.score}
+                    className="score-value-mobile"
+                    duration={800}
+                  />
+                </div>
                 <div className="score-details">
-                  {entry.isFinished && entry.gameTime && (
+                  {entry.isFinished && entry.finishedAt ? (
+                    <span className="detail-item">{formatFinishedDate(entry.finishedAt)}</span>
+                  ) : entry.isFinished && entry.gameTime ? (
                     <span className="detail-item">{formatGameDuration(entry.gameTime)}</span>
-                  )}
-                  {!entry.isFinished && (
+                  ) : (
                     <span className="detail-item">{entry.scansCount} סריקות</span>
                   )}
                 </div>
@@ -594,6 +608,17 @@ function AnimatedLeaderboard({
           gap: 4px;
         }
 
+        .row-score-mobile .score-with-rank {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .row-score-mobile .mobile-rank {
+          font-size: 1.2rem;
+          opacity: 0.8;
+        }
+
         .row-score-mobile :global(.score-value-mobile) {
           font-size: 1.5rem;
           font-weight: 800;
@@ -637,46 +662,34 @@ function AnimatedLeaderboard({
           }
 
           .leaderboard-row {
-            grid-template-columns: 44px 1fr auto;
+            grid-template-columns: 1fr auto;
             gap: 12px;
-            padding: 14px 16px;
+            padding: 12px 16px;
           }
 
+          /* Hide rank column on mobile - rank is now shown with score */
           .row-rank {
-            gap: 4px;
-          }
-
-          .rank-badge {
-            font-size: 1.3rem;
-          }
-
-          .rank-glow {
-            inset: -5px;
-          }
-
-          .rank-change {
-            font-size: 0.6rem;
-            padding: 2px 4px;
+            display: none;
           }
 
           .row-player {
-            gap: 12px;
+            gap: 14px;
             min-width: 0;
           }
 
           .player-avatar {
-            width: 56px;
-            height: 56px;
-            font-size: 1.8rem;
-            border-radius: 14px;
-            border: 2px solid rgba(255,255,255,0.25);
+            width: 72px;
+            height: 72px;
+            font-size: 2.2rem;
+            border-radius: 16px;
+            border: 3px solid rgba(255,255,255,0.3);
             flex-shrink: 0;
           }
 
           .player-name {
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: 600;
-            max-width: 110px;
+            max-width: 140px;
           }
 
           .player-team-dot {
@@ -693,45 +706,51 @@ function AnimatedLeaderboard({
             display: none !important;
           }
 
+          .row-score-mobile .score-with-rank {
+            gap: 6px;
+          }
+
+          .row-score-mobile .mobile-rank {
+            font-size: 1rem;
+          }
+
           .row-score-mobile :global(.score-value-mobile) {
-            font-size: 1.4rem;
+            font-size: 1.5rem;
           }
 
           .row-score-mobile .score-details {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
           }
         }
 
         @media (max-width: 400px) {
           .leaderboard-row {
-            grid-template-columns: 36px 1fr auto;
-            gap: 8px;
-            padding: 12px;
-          }
-
-          .rank-badge {
-            font-size: 1.1rem;
+            gap: 10px;
+            padding: 10px 12px;
           }
 
           .player-avatar {
-            width: 48px;
-            height: 48px;
-            font-size: 1.5rem;
-            border-radius: 12px;
+            width: 60px;
+            height: 60px;
+            font-size: 1.8rem;
+            border-radius: 14px;
           }
 
           .player-name {
+            font-size: 1rem;
+            max-width: 100px;
+          }
+
+          .row-score-mobile .mobile-rank {
             font-size: 0.9rem;
-            max-width: 80px;
           }
 
           .row-score-mobile :global(.score-value-mobile) {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
           }
 
           .row-score-mobile .score-details {
-            font-size: 0.65rem;
-            gap: 6px;
+            font-size: 0.7rem;
           }
         }
       `}</style>

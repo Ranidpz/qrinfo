@@ -252,7 +252,9 @@ export async function POST(request: Request) {
         leaderboardEntry.teamColor = teamColor;
       }
       if (isGameComplete && player.gameStartedAt) {
-        leaderboardEntry.gameTime = Date.now() - player.gameStartedAt;
+        const now = Date.now();
+        leaderboardEntry.gameTime = now - player.gameStartedAt;
+        leaderboardEntry.finishedAt = now;
       }
 
       const leaderboardEntryRef = adminRtdb.ref(`qhunt/${codeId}/leaderboard/${player.id}`);

@@ -120,6 +120,7 @@ export async function POST(request: Request) {
       }
       if (player.gameStartedAt) {
         leaderboardEntry.gameTime = gameEndedAt - player.gameStartedAt;
+        leaderboardEntry.finishedAt = gameEndedAt;
       }
 
       const leaderboardEntryRef = adminRtdb.ref(`qhunt/${codeId}/leaderboard/${player.id}`);
