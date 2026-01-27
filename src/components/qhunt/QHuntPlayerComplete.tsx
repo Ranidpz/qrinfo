@@ -122,10 +122,7 @@ export function QHuntPlayerComplete({
   };
 
   return (
-    <div className="desktop-wrapper">
-      <div className="phone-mockup">
-        <div className="phone-notch" />
-        <div className="qhunt-complete" onClick={handleScreenTap}>
+    <div className="qhunt-complete" onClick={handleScreenTap}>
       {/* Try Again Modal */}
       {showTryAgainModal && (
         <div className="try-again-modal-overlay" onClick={(e) => e.stopPropagation()}>
@@ -335,108 +332,8 @@ export function QHuntPlayerComplete({
           </div>
         </div>
       )}
-        </div>
-      </div>
 
       <style jsx>{`
-        /* Desktop phone mockup wrapper */
-        .desktop-wrapper {
-          min-height: 100vh;
-          min-height: 100dvh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--qhunt-bg, #0a0f1a);
-        }
-
-        .phone-mockup {
-          width: 100%;
-          height: 100%;
-          min-height: 100vh;
-          min-height: 100dvh;
-          position: relative;
-          background: var(--qhunt-bg, #0a0f1a);
-        }
-
-        .phone-notch {
-          display: none;
-        }
-
-        /* Desktop styles - show phone frame */
-        @media (min-width: 768px) {
-          .desktop-wrapper {
-            padding: 40px 20px;
-            background: linear-gradient(135deg, #0a0f1a 0%, #1a1f2e 100%);
-          }
-
-          .phone-mockup {
-            width: 390px;
-            height: 844px;
-            min-height: unset;
-            max-height: calc(100vh - 80px);
-            border-radius: 50px;
-            border: 8px solid #2a2f3e;
-            box-shadow:
-              0 0 0 2px #1a1f2e,
-              0 25px 80px rgba(0, 0, 0, 0.5),
-              0 0 60px rgba(0, 212, 255, 0.1),
-              inset 0 0 20px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-            position: relative;
-          }
-
-          .phone-notch {
-            display: block;
-            position: absolute;
-            top: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 28px;
-            background: #1a1f2e;
-            border-radius: 20px;
-            z-index: 300;
-          }
-
-          .phone-notch::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 20px;
-            transform: translateY(-50%);
-            width: 10px;
-            height: 10px;
-            background: #2a2f3e;
-            border-radius: 50%;
-          }
-
-          .phone-notch::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            right: 30px;
-            transform: translateY(-50%);
-            width: 8px;
-            height: 8px;
-            background: #3b82f6;
-            border-radius: 50%;
-            box-shadow: 0 0 6px #3b82f6;
-          }
-
-          .qhunt-complete {
-            height: 100%;
-            overflow-y: auto;
-            padding-top: 50px;
-          }
-
-          /* Keep overlays inside phone frame */
-          .confetti-container,
-          .try-again-modal-overlay,
-          .leaderboard-overlay {
-            position: absolute;
-            border-radius: 42px;
-          }
-        }
         .qhunt-complete {
           min-height: 100vh;
           min-height: 100dvh;
