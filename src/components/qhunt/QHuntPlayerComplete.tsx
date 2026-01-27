@@ -41,6 +41,7 @@ export function QHuntPlayerComplete({
   const { leaderboard } = useQHuntLeaderboard(codeId);
   const [showConfetti, setShowConfetti] = useState(true);
   const [showTryAgainModal, setShowTryAgainModal] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   // Find player's rank - fallback to calculating from leaderboard position
   const leaderboardEntry = leaderboard.find(e => e.playerId === player.id);
@@ -208,12 +209,82 @@ export function QHuntPlayerComplete({
         </div>
       )}
 
-      {/* Tap hint at bottom */}
-      {onTryAgain && (
-        <div className="tap-hint">
-          <span className="tap-hint-text">
-            {lang === 'he' ? 'לחצו לנסות שוב' : 'Tap to try again'}
-          </span>
+      {/* Action buttons */}
+      <div className="action-buttons">
+        <button
+          className="leaderboard-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowLeaderboard(true);
+          }}
+        >
+          <span className="btn-icon">🏆</span>
+          <span>{lang === 'he' ? 'טבלת מובילים' : 'Leaderboard'}</span>
+        </button>
+        {onTryAgain && (
+          <div className="tap-hint">
+            <span className="tap-hint-text">
+              {lang === 'he' ? 'לחצו לנסות שוב' : 'Tap to try again'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Leaderboard Overlay */}
+      {showLeaderboard && (
+        <div className="leaderboard-overlay" onClick={(e) => e.stopPropagation()}>
+          <div className="leaderboard-container">
+            <div className="leaderboard-header">
+              <h2 className="leaderboard-title">
+                <span className="title-icon">🏆</span>
+                {lang === 'he' ? 'טבלת מובילים' : 'Leaderboard'}
+              </h2>
+              <button
+                className="close-btn"
+                onClick={() => setShowLeaderboard(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="leaderboard-list">
+              {leaderboard.length === 0 ? (
+                <div className="empty-state">
+                  {lang === 'he' ? 'אין שחקנים עדיין' : 'No players yet'}
+                </div>
+              ) : (
+                leaderboard.map((entry) => {
+                  const isCurrentPlayer = entry.playerId === player.id;
+                  const isTop3 = entry.rank <= 3;
+                  const rankEmoji = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`;
+
+                  return (
+                    <div
+                      key={entry.playerId}
+                      className={`leaderboard-row ${isTop3 ? `top-${entry.rank}` : ''} ${isCurrentPlayer ? 'current-player' : ''}`}
+                    >
+                      <div className="row-avatar">
+                        {entry.avatarType === 'selfie' && entry.avatarValue?.startsWith('http') ? (
+                          <img src={entry.avatarValue} alt="" className="avatar-img" />
+                        ) : (
+                          entry.avatarValue || '🎮'
+                        )}
+                      </div>
+                      <div className="row-info">
+                        <span className="row-name">{entry.playerName}</span>
+                        {entry.isFinished && entry.gameTime && (
+                          <span className="row-time">{formatGameDuration(entry.gameTime)}</span>
+                        )}
+                      </div>
+                      <div className="row-score-area">
+                        <span className="row-rank">{rankEmoji}</span>
+                        <span className="row-score">{entry.score}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -617,10 +688,51 @@ export function QHuntPlayerComplete({
           font-size: 1.1rem;
         }
 
+        /* Action buttons */
+        .action-buttons {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          margin-top: auto;
+          padding-top: 24px;
+        }
+
+        .leaderboard-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          padding: 16px 32px;
+          font-size: 1.1rem;
+          font-weight: 700;
+          font-family: 'Assistant', sans-serif;
+          color: #fff;
+          background: linear-gradient(135deg, var(--qhunt-primary), var(--qhunt-secondary));
+          border: none;
+          border-radius: 16px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 20px color-mix(in srgb, var(--qhunt-primary) 30%, transparent);
+        }
+
+        .leaderboard-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 30px color-mix(in srgb, var(--qhunt-primary) 50%, transparent);
+        }
+
+        .leaderboard-btn:active {
+          transform: translateY(0);
+        }
+
+        .leaderboard-btn .btn-icon {
+          font-size: 1.3rem;
+        }
+
         /* Tap hint */
         .tap-hint {
           text-align: center;
-          padding: 16px 0;
+          padding: 8px 0;
           flex-shrink: 0;
         }
 
@@ -629,6 +741,183 @@ export function QHuntPlayerComplete({
           font-weight: 500;
           color: var(--qhunt-primary);
           opacity: 0.7;
+        }
+
+        /* Leaderboard Overlay */
+        .leaderboard-overlay {
+          position: fixed;
+          inset: 0;
+          background: var(--qhunt-bg, #0a0f1a);
+          z-index: 200;
+          display: flex;
+          flex-direction: column;
+          animation: slideInFromRight 0.3s ease;
+        }
+
+        @keyframes slideInFromRight {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+
+        .leaderboard-container {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .leaderboard-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 16px 20px;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .leaderboard-title {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 1.4rem;
+          font-weight: 800;
+          color: #fff;
+          margin: 0;
+        }
+
+        .title-icon {
+          font-size: 1.5rem;
+        }
+
+        .close-btn {
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          color: rgba(255,255,255,0.7);
+          background: rgba(255,255,255,0.1);
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+          background: rgba(255,255,255,0.15);
+          color: #fff;
+        }
+
+        .leaderboard-list {
+          flex: 1;
+          overflow-y: auto;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 40px;
+          color: rgba(255,255,255,0.5);
+          font-size: 1.1rem;
+        }
+
+        .leaderboard-row {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px 16px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 16px;
+          transition: all 0.2s ease;
+        }
+
+        .leaderboard-row.current-player {
+          background: linear-gradient(135deg,
+            color-mix(in srgb, var(--qhunt-primary) 20%, transparent),
+            color-mix(in srgb, var(--qhunt-secondary) 10%, transparent)
+          );
+          border: 1px solid color-mix(in srgb, var(--qhunt-primary) 40%, transparent);
+        }
+
+        .leaderboard-row.top-1 {
+          background: linear-gradient(90deg, rgba(255,215,0,0.2), rgba(255,215,0,0.05) 70%, transparent);
+        }
+
+        .leaderboard-row.top-2 {
+          background: linear-gradient(90deg, rgba(192,192,192,0.15), rgba(192,192,192,0.05) 70%, transparent);
+        }
+
+        .leaderboard-row.top-3 {
+          background: linear-gradient(90deg, rgba(205,127,50,0.15), rgba(205,127,50,0.05) 70%, transparent);
+        }
+
+        .row-avatar {
+          width: 56px;
+          height: 56px;
+          font-size: 1.8rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255,255,255,0.08);
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.1);
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+
+        .row-avatar .avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .row-info {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .row-name {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #fff;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .row-time {
+          font-size: 0.8rem;
+          color: rgba(255,255,255,0.5);
+          font-family: 'Courier New', monospace;
+        }
+
+        .row-score-area {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+        }
+
+        .row-rank {
+          font-size: 1rem;
+          opacity: 0.8;
+        }
+
+        .row-score {
+          font-size: 1.4rem;
+          font-weight: 800;
+          color: var(--qhunt-primary);
+          text-shadow: 0 0 15px var(--qhunt-primary);
         }
       `}</style>
     </div>

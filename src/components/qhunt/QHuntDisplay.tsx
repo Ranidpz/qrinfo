@@ -307,10 +307,10 @@ function AnimatedLeaderboard({
                   />
                 </div>
                 <div className="score-details">
-                  {entry.isFinished && entry.finishedAt ? (
-                    <span className="detail-item">{formatFinishedDate(entry.finishedAt)}</span>
-                  ) : entry.isFinished && entry.gameTime ? (
+                  {entry.isFinished && entry.gameTime ? (
                     <span className="detail-item">{formatGameDuration(entry.gameTime)}</span>
+                  ) : entry.isFinished && entry.finishedAt ? (
+                    <span className="detail-item">{formatFinishedDate(entry.finishedAt)}</span>
                   ) : (
                     <span className="detail-item">{entry.scansCount} סריקות</span>
                   )}
