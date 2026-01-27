@@ -276,7 +276,9 @@ export function QHuntPlayerView({
           background: var(--qhunt-bg);
           font-family: 'Assistant', sans-serif;
           position: relative;
-          overflow: hidden;
+          overflow-x: hidden;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         .qhunt-bg-effects {
