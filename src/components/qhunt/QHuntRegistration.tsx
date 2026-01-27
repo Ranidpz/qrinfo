@@ -563,10 +563,10 @@ export function QHuntRegistration({
           padding-bottom: env(safe-area-inset-bottom, 16px);
           display: flex;
           flex-direction: column;
-          height: 100%;
-          min-height: 0;
+          min-height: 100%;
           overflow-x: hidden;
           overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         @media (min-height: 700px) {
@@ -672,10 +672,6 @@ export function QHuntRegistration({
           flex: 1;
           display: flex;
           flex-direction: column;
-          min-height: 0;
-          overflow-y: auto;
-          overflow-x: hidden;
-          -webkit-overflow-scrolling: touch;
         }
 
         .qhunt-step-content {
@@ -773,39 +769,26 @@ export function QHuntRegistration({
           margin-bottom: 12px;
         }
 
-        /* Ready step - full height with fixed button */
+        /* Ready step - simple scrollable layout */
         .qhunt-ready-step {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          min-height: 0;
-          overflow-x: hidden;
-          overflow-y: auto;
-          -webkit-overflow-scrolling: touch;
-        }
-
-        .qhunt-ready-scroll {
-          flex: 1;
-          overflow-y: auto;
-          overflow-x: hidden;
-          -webkit-overflow-scrolling: touch;
-          touch-action: pan-y;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: flex-start;
-          padding-top: 8px;
-          padding-bottom: 16px;
+          gap: 16px;
+          padding-bottom: 24px;
+        }
+
+        .qhunt-ready-scroll {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+          padding: 0 8px;
         }
 
         .qhunt-ready-actions {
-          flex-shrink: 0;
-          padding-top: 16px;
-          padding-bottom: env(safe-area-inset-bottom, 8px);
-          background: linear-gradient(to top, var(--qhunt-bg, #0a0f1a) 80%, transparent);
-          margin: 0 -16px;
-          padding-left: 16px;
-          padding-right: 16px;
+          width: 100%;
+          padding-top: 8px;
         }
 
         .animate-in {
