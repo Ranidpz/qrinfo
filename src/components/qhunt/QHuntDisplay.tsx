@@ -291,13 +291,11 @@ function AnimatedLeaderboard({
 
               {/* Score + Stats combined - Mobile */}
               <div className="row-score-mobile mobile-only">
-                <div className="score-main">
-                  <AnimatedNumber
-                    value={entry.score}
-                    className="score-value"
-                    duration={600}
-                  />
-                </div>
+                <AnimatedNumber
+                  value={entry.score}
+                  className="score-value-mobile"
+                  duration={800}
+                />
                 <div className="score-details">
                   {entry.isFinished && entry.gameTime && (
                     <span className="detail-item">{formatGameDuration(entry.gameTime)}</span>
@@ -317,9 +315,9 @@ function AnimatedLeaderboard({
                 />
               </div>
 
-              {/* Finished badge */}
+              {/* Finished badge - Desktop only */}
               {entry.isFinished && (
-                <div className="row-status">
+                <div className="row-status desktop-only">
                   <span className="status-badge">✓</span>
                 </div>
               )}
@@ -596,20 +594,20 @@ function AnimatedLeaderboard({
         .row-score-mobile {
           flex-direction: column;
           align-items: flex-end;
-          gap: 2px;
+          gap: 4px;
         }
 
-        .row-score-mobile .score-main :global(.score-value) {
-          font-size: 1.3rem;
+        .row-score-mobile :global(.score-value-mobile) {
+          font-size: 1.5rem;
           font-weight: 800;
           color: var(--rank-color);
-          text-shadow: 0 0 15px var(--rank-color);
+          text-shadow: 0 0 20px var(--rank-color);
         }
 
         .row-score-mobile .score-details {
           display: flex;
           gap: 8px;
-          font-size: 0.7rem;
+          font-size: 0.75rem;
           color: rgba(255,255,255,0.6);
         }
 
@@ -642,9 +640,9 @@ function AnimatedLeaderboard({
           }
 
           .leaderboard-row {
-            grid-template-columns: 50px 1fr auto;
-            gap: 10px;
-            padding: 12px 14px;
+            grid-template-columns: 44px 1fr auto;
+            gap: 12px;
+            padding: 14px 16px;
           }
 
           .row-rank {
@@ -652,7 +650,7 @@ function AnimatedLeaderboard({
           }
 
           .rank-badge {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
           }
 
           .rank-glow {
@@ -665,20 +663,23 @@ function AnimatedLeaderboard({
           }
 
           .row-player {
-            gap: 10px;
+            gap: 12px;
             min-width: 0;
           }
 
           .player-avatar {
-            width: 38px;
-            height: 38px;
-            font-size: 1.4rem;
-            border-radius: 10px;
+            width: 48px;
+            height: 48px;
+            font-size: 1.6rem;
+            border-radius: 12px;
+            border: 2px solid rgba(255,255,255,0.2);
+            flex-shrink: 0;
           }
 
           .player-name {
-            font-size: 0.95rem;
-            max-width: 100px;
+            font-size: 1rem;
+            font-weight: 600;
+            max-width: 110px;
           }
 
           .player-team-dot {
@@ -695,56 +696,44 @@ function AnimatedLeaderboard({
             display: none !important;
           }
 
-          .row-score-mobile .score-main :global(.score-value) {
-            font-size: 1.2rem;
+          .row-score-mobile :global(.score-value-mobile) {
+            font-size: 1.4rem;
           }
 
           .row-score-mobile .score-details {
-            font-size: 0.65rem;
-          }
-
-          .row-status {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-          }
-
-          .status-badge {
-            width: 24px;
-            height: 24px;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
           }
         }
 
         @media (max-width: 400px) {
           .leaderboard-row {
-            grid-template-columns: 40px 1fr auto;
-            gap: 6px;
-            padding: 10px 12px;
+            grid-template-columns: 36px 1fr auto;
+            gap: 8px;
+            padding: 12px;
           }
 
           .rank-badge {
-            font-size: 1rem;
+            font-size: 1.1rem;
           }
 
           .player-avatar {
-            width: 32px;
-            height: 32px;
-            font-size: 1.2rem;
-            border-radius: 8px;
+            width: 42px;
+            height: 42px;
+            font-size: 1.4rem;
+            border-radius: 10px;
           }
 
           .player-name {
-            font-size: 0.85rem;
-            max-width: 70px;
+            font-size: 0.9rem;
+            max-width: 80px;
           }
 
-          .row-score-mobile .score-main :global(.score-value) {
-            font-size: 1rem;
+          .row-score-mobile :global(.score-value-mobile) {
+            font-size: 1.2rem;
           }
 
           .row-score-mobile .score-details {
-            font-size: 0.6rem;
+            font-size: 0.65rem;
             gap: 6px;
           }
         }
