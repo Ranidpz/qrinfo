@@ -278,14 +278,13 @@ function AnimatedLeaderboard({
 
               {/* Stats - Desktop */}
               <div className="row-stats desktop-only">
-                <div className="stat-item">
-                  <span className="stat-icon">🎯</span>
-                  <span className="stat-value">{entry.scansCount}</span>
-                </div>
-                {entry.isFinished && entry.gameTime && (
+                {entry.isFinished && entry.gameTime ? (
                   <div className="stat-item time">
-                    <span className="stat-icon">⏱️</span>
                     <span className="stat-value">{formatGameDuration(entry.gameTime)}</span>
+                  </div>
+                ) : (
+                  <div className="stat-item">
+                    <span className="stat-value">{entry.scansCount} סריקות</span>
                   </div>
                 )}
               </div>
@@ -848,15 +847,15 @@ export function QHuntDisplay({
 
           <div className="stats-display">
             <div className="stat-card">
-              <AnimatedNumber value={stats?.totalPlayers || 0} className="stat-number" />
+              <AnimatedNumber value={stats?.totalPlayers || 0} className="stat-number" duration={1200} />
               <span className="stat-label">{t.players}</span>
             </div>
             <div className="stat-card playing">
-              <AnimatedNumber value={stats?.playersPlaying || 0} className="stat-number" />
+              <AnimatedNumber value={stats?.playersPlaying || 0} className="stat-number" duration={1200} />
               <span className="stat-label">{t.playing}</span>
             </div>
             <div className="stat-card finished">
-              <AnimatedNumber value={stats?.playersFinished || 0} className="stat-number" />
+              <AnimatedNumber value={stats?.playersFinished || 0} className="stat-number" duration={1200} />
               <span className="stat-label">{t.finished}</span>
             </div>
           </div>
