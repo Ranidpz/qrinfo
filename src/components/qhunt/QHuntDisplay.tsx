@@ -241,37 +241,31 @@ function AnimatedLeaderboard({
                   : 'var(--qhunt-primary)',
               } as React.CSSProperties}
             >
-              {/* Rank badge */}
-              <div className="row-rank">
-                <div className="rank-badge-container">
-                  <span className="rank-badge">{getRankBadge(entry.rank)}</span>
-                  {isTop3 && <div className="rank-glow" />}
-                </div>
-                {entry.animationClass === 'rank-up' && (
-                  <span className="rank-change up">▲</span>
-                )}
-                {entry.animationClass === 'rank-down' && (
-                  <span className="rank-change down">▼</span>
-                )}
-              </div>
-
-              {/* Player info */}
+              {/* Player info with avatar */}
               <div className="row-player">
-                <div className={`player-avatar ${entry.avatarType === 'selfie' ? 'photo' : ''}`}>
-                  {entry.avatarType === 'selfie' && entry.avatarValue?.startsWith('http') ? (
-                    <img
-                      src={entry.avatarValue}
-                      alt=""
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        if (target.parentElement) {
-                          target.parentElement.innerHTML = '👤';
-                        }
-                      }}
-                    />
-                  ) : (
-                    entry.avatarValue || '🎮'
+                <div className="avatar-wrapper">
+                  <div className={`player-avatar ${entry.avatarType === 'selfie' ? 'photo' : ''}`}>
+                    {entry.avatarType === 'selfie' && entry.avatarValue?.startsWith('http') ? (
+                      <img
+                        src={entry.avatarValue}
+                        alt=""
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          if (target.parentElement) {
+                            target.parentElement.innerHTML = '👤';
+                          }
+                        }}
+                      />
+                    ) : (
+                      entry.avatarValue || '🎮'
+                    )}
+                  </div>
+                  {entry.isFinished && entry.finishedAt && (
+                    <span className="finish-date">
+                      <span className="date-icon">📅</span>
+                      {formatFinishedDate(entry.finishedAt)}
+                    </span>
                   )}
                 </div>
                 <span className="player-name">{entry.playerName}</span>
@@ -283,26 +277,13 @@ function AnimatedLeaderboard({
                 )}
               </div>
 
-              {/* Stats - Desktop */}
-              <div className="row-stats desktop-only">
-                {entry.isFinished && entry.gameTime ? (
-                  <div className="stat-item time">
-                    <span className="stat-value">{formatGameDuration(entry.gameTime)}</span>
-                  </div>
-                ) : (
-                  <div className="stat-item">
-                    <span className="stat-value">{entry.scansCount} סריקות</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Score + Rank combined - Mobile */}
-              <div className="row-score-mobile mobile-only">
+              {/* Score + Rank combined */}
+              <div className="row-score-area">
                 <div className="score-with-rank">
-                  <span className="mobile-rank">{getRankBadge(entry.rank)}</span>
+                  <span className="rank-badge">{getRankBadge(entry.rank)}</span>
                   <AnimatedNumber
                     value={entry.score}
-                    className="score-value-mobile"
+                    className="score-value"
                     duration={800}
                   />
                 </div>
@@ -317,22 +298,6 @@ function AnimatedLeaderboard({
                 </div>
               </div>
 
-              {/* Score - Desktop */}
-              <div className="row-score desktop-only">
-                <AnimatedNumber
-                  value={entry.score}
-                  className="score-value"
-                  duration={600}
-                />
-              </div>
-
-              {/* Finished badge - Desktop only */}
-              {entry.isFinished && (
-                <div className="row-status desktop-only">
-                  <span className="status-badge">✓</span>
-                </div>
-              )}
-
               {/* Highlight effect for updates */}
               <div className="row-highlight" />
             </div>
@@ -342,26 +307,27 @@ function AnimatedLeaderboard({
 
       <style jsx>{`
         .leaderboard {
-          background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-          border-radius: 24px;
-          overflow: hidden;
-          border: 1px solid rgba(255,255,255,0.1);
-          backdrop-filter: blur(20px);
+          background: transparent;
+          border: none;
+          border-radius: 0;
+          max-width: 800px;
+          margin: 0 auto;
         }
 
         .leaderboard-list {
           display: flex;
           flex-direction: column;
+          gap: 12px;
         }
 
         .leaderboard-row {
           position: relative;
           display: grid;
-          grid-template-columns: 100px 1fr auto 140px 60px;
-          gap: 20px;
+          grid-template-columns: 1fr auto;
+          gap: 16px;
           align-items: center;
-          padding: 20px 32px;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
+          padding: 16px 24px;
+          border-radius: 20px;
           transition: background 0.3s ease;
           animation: rowAppear 0.5s ease-out calc(var(--row-index) * 0.05s) backwards;
         }
@@ -373,20 +339,16 @@ function AnimatedLeaderboard({
           }
         }
 
-        .leaderboard-row:last-child {
-          border-bottom: none;
-        }
-
         .leaderboard-row.top-1 {
-          background: linear-gradient(90deg, rgba(255,215,0,0.15), transparent 60%);
+          background: linear-gradient(90deg, rgba(255,215,0,0.2), rgba(255,215,0,0.05) 70%, transparent);
         }
 
         .leaderboard-row.top-2 {
-          background: linear-gradient(90deg, rgba(192,192,192,0.1), transparent 60%);
+          background: linear-gradient(90deg, rgba(192,192,192,0.15), rgba(192,192,192,0.05) 70%, transparent);
         }
 
         .leaderboard-row.top-3 {
-          background: linear-gradient(90deg, rgba(205,127,50,0.1), transparent 60%);
+          background: linear-gradient(90deg, rgba(205,127,50,0.15), rgba(205,127,50,0.05) 70%, transparent);
         }
 
         /* Animation classes */
@@ -410,7 +372,7 @@ function AnimatedLeaderboard({
           position: absolute;
           inset: 0;
           pointer-events: none;
-          border-radius: 4px;
+          border-radius: 20px;
         }
 
         @keyframes newEntry {
@@ -434,92 +396,31 @@ function AnimatedLeaderboard({
           100% { background: transparent; }
         }
 
-        /* Rank */
-        .row-rank {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .rank-badge-container {
-          position: relative;
-        }
-
-        .rank-badge {
-          font-size: 1.6rem;
-          font-weight: 800;
-          color: var(--rank-color);
-          text-shadow: 0 0 10px var(--rank-color);
-        }
-
-        .rank-glow {
-          position: absolute;
-          inset: -10px;
-          background: radial-gradient(circle, var(--rank-color)40, transparent 70%);
-          animation: rankGlow 2s ease-in-out infinite;
-          pointer-events: none;
-        }
-
-        @keyframes rankGlow {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-
-        .rank-change {
-          font-size: 0.75rem;
-          font-weight: 700;
-          padding: 3px 8px;
-          border-radius: 6px;
-        }
-
-        .rank-change.up {
-          color: var(--qhunt-success);
-          animation: bounceUp 0.4s ease-out;
-        }
-
-        .rank-change.down {
-          color: #ff4466;
-          animation: bounceDown 0.4s ease-out;
-        }
-
-        .rank-change.new {
-          background: linear-gradient(135deg, var(--qhunt-primary), var(--qhunt-secondary));
-          color: #000;
-          font-weight: 800;
-          animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-        }
-
-        @keyframes bounceUp {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
-        }
-
-        @keyframes bounceDown {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(8px); }
-        }
-
-        @keyframes popIn {
-          0% { transform: scale(0) rotate(-10deg); }
-          100% { transform: scale(1) rotate(0deg); }
-        }
-
         /* Player */
         .row-player {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 20px;
+          min-width: 0;
+        }
+
+        .avatar-wrapper {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
         }
 
         .player-avatar {
-          width: 52px;
-          height: 52px;
-          font-size: 2rem;
+          width: 80px;
+          height: 80px;
+          font-size: 2.5rem;
           display: flex;
           align-items: center;
           justify-content: center;
           background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-          border-radius: 14px;
+          border-radius: 18px;
           border: 2px solid rgba(255,255,255,0.15);
           overflow: hidden;
         }
@@ -534,13 +435,26 @@ function AnimatedLeaderboard({
           object-fit: cover;
         }
 
+        .finish-date {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.75rem;
+          color: rgba(255,255,255,0.5);
+          white-space: nowrap;
+        }
+
+        .date-icon {
+          font-size: 0.7rem;
+        }
+
         .player-name {
-          font-size: 1.2rem;
+          font-size: 1.4rem;
           font-weight: 600;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          max-width: 200px;
+          max-width: 300px;
         }
 
         .player-team-dot {
@@ -551,154 +465,58 @@ function AnimatedLeaderboard({
           box-shadow: 0 0 10px currentColor;
         }
 
-        /* Show/Hide utilities */
-        .mobile-only {
-          display: none;
-        }
-
-        .desktop-only {
+        /* Score Area - Unified */
+        .row-score-area {
           display: flex;
-        }
-
-        /* Stats */
-        .row-stats {
-          align-items: center;
-          gap: 24px;
-        }
-
-        .stat-item {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          background: rgba(255,255,255,0.05);
-          border-radius: 10px;
-        }
-
-        .stat-icon {
-          font-size: 1rem;
-        }
-
-        .stat-item .stat-value {
-          font-size: 1rem;
-          font-weight: 600;
-          color: rgba(255,255,255,0.8);
-        }
-
-        .stat-item.time .stat-value {
-          font-family: 'SF Mono', 'Courier New', monospace;
-        }
-
-        /* Score - Desktop */
-        .row-score {
-          text-align: right;
-        }
-
-        .row-score :global(.score-value) {
-          font-size: 1.8rem;
-          font-weight: 800;
-          color: var(--rank-color);
-          text-shadow: 0 0 20px var(--rank-color);
-        }
-
-        /* Score + Stats - Mobile */
-        .row-score-mobile {
           flex-direction: column;
           align-items: flex-end;
           gap: 4px;
-          padding: 8px 0;
         }
 
-        .row-score-mobile .score-with-rank {
+        .score-with-rank {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 12px;
         }
 
-        .row-score-mobile .mobile-rank {
-          font-size: 1.2rem;
-          opacity: 0.8;
+        .rank-badge {
+          font-size: 1.4rem;
+          opacity: 0.9;
         }
 
-        .row-score-mobile :global(.score-value-mobile) {
-          font-size: 1.5rem;
+        .row-score-area :global(.score-value) {
+          font-size: 2rem;
           font-weight: 800;
           color: var(--rank-color);
           text-shadow: 0 0 20px var(--rank-color);
         }
 
-        .row-score-mobile .score-details {
+        .score-details {
           display: flex;
           gap: 8px;
-          font-size: 0.75rem;
+          font-size: 0.9rem;
           color: rgba(255,255,255,0.6);
+          font-family: 'SF Mono', 'Courier New', monospace;
         }
 
-        .row-score-mobile .detail-item {
+        .detail-item {
           white-space: nowrap;
-        }
-
-        /* Status */
-        .row-status {
-          text-align: center;
-        }
-
-        .status-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          background: linear-gradient(135deg, var(--qhunt-success), #00cc6a);
-          border-radius: 50%;
-          font-size: 1.1rem;
-          color: #000;
-          box-shadow: 0 0 20px var(--qhunt-success);
         }
 
         /* ============ MOBILE RESPONSIVE ============ */
         @media (max-width: 768px) {
-          .leaderboard {
-            background: transparent;
-            border: none;
-            border-radius: 0;
-            backdrop-filter: none;
-          }
-
           .leaderboard-row {
-            grid-template-columns: 1fr auto;
             gap: 12px;
             padding: 12px 16px;
-            border-bottom: none;
-            margin-bottom: 8px;
             border-radius: 16px;
-          }
-
-          .leaderboard-row:last-child {
-            margin-bottom: 0;
-          }
-
-          /* Override top-3 gradients for mobile - full rounded corners */
-          .leaderboard-row.top-1 {
-            background: linear-gradient(90deg, rgba(255,215,0,0.2), rgba(255,215,0,0.05) 70%, transparent);
-          }
-
-          .leaderboard-row.top-2 {
-            background: linear-gradient(90deg, rgba(192,192,192,0.15), rgba(192,192,192,0.05) 70%, transparent);
-          }
-
-          .leaderboard-row.top-3 {
-            background: linear-gradient(90deg, rgba(205,127,50,0.15), rgba(205,127,50,0.05) 70%, transparent);
-          }
-
-          /* Hide rank column on mobile - rank is now shown with score */
-          .row-rank {
-            display: none;
           }
 
           .row-player {
             gap: 14px;
-            min-width: 0;
+          }
+
+          .avatar-wrapper {
+            gap: 4px;
           }
 
           .player-avatar {
@@ -706,13 +524,19 @@ function AnimatedLeaderboard({
             height: 72px;
             font-size: 2.2rem;
             border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.15);
-            flex-shrink: 0;
+            border-width: 1px;
+          }
+
+          .finish-date {
+            font-size: 0.65rem;
+          }
+
+          .date-icon {
+            font-size: 0.6rem;
           }
 
           .player-name {
             font-size: 1.1rem;
-            font-weight: 600;
             max-width: 140px;
           }
 
@@ -721,28 +545,19 @@ function AnimatedLeaderboard({
             height: 10px;
           }
 
-          /* Show mobile-only, hide desktop-only */
-          .mobile-only {
-            display: flex;
-          }
-
-          .desktop-only {
-            display: none !important;
-          }
-
-          .row-score-mobile .score-with-rank {
+          .score-with-rank {
             gap: 6px;
           }
 
-          .row-score-mobile .mobile-rank {
+          .rank-badge {
             font-size: 1rem;
           }
 
-          .row-score-mobile :global(.score-value-mobile) {
+          .row-score-area :global(.score-value) {
             font-size: 1.5rem;
           }
 
-          .row-score-mobile .score-details {
+          .score-details {
             font-size: 0.75rem;
           }
         }
@@ -758,7 +573,10 @@ function AnimatedLeaderboard({
             height: 60px;
             font-size: 1.8rem;
             border-radius: 14px;
-            border-width: 1px;
+          }
+
+          .finish-date {
+            font-size: 0.6rem;
           }
 
           .player-name {
@@ -766,15 +584,15 @@ function AnimatedLeaderboard({
             max-width: 100px;
           }
 
-          .row-score-mobile .mobile-rank {
+          .rank-badge {
             font-size: 0.9rem;
           }
 
-          .row-score-mobile :global(.score-value-mobile) {
+          .row-score-area :global(.score-value) {
             font-size: 1.3rem;
           }
 
-          .row-score-mobile .score-details {
+          .score-details {
             font-size: 0.7rem;
           }
         }
