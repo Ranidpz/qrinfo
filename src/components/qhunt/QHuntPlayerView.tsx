@@ -235,7 +235,8 @@ export function QHuntPlayerView({
 
   return (
     <div
-      className="qhunt-desktop-wrapper"
+      className="qhunt-player-view"
+      dir={isRTL ? 'rtl' : 'ltr'}
       style={{
         '--qhunt-bg': activeConfig.branding.backgroundColor || '#0a0f1a',
         '--qhunt-primary': activeConfig.branding.primaryColor || '#00d4ff',
@@ -244,147 +245,31 @@ export function QHuntPlayerView({
         '--qhunt-warning': activeConfig.branding.warningColor || '#ffaa00',
       } as React.CSSProperties}
     >
-      <div className="qhunt-phone-mockup">
-        <div className="qhunt-phone-notch" />
-        <div
-          className="qhunt-player-view"
-          dir={isRTL ? 'rtl' : 'ltr'}
-        >
-          {/* Animated background */}
-          <div className="qhunt-bg-effects">
-            {activeConfig.branding.showGridAnimation !== false && (
-              <div className="qhunt-grid-lines" />
-            )}
-            {activeConfig.branding.showGlowingOrbs !== false && (
-              <>
-                <div className="qhunt-glow-orb qhunt-glow-orb-1" />
-                <div className="qhunt-glow-orb qhunt-glow-orb-2" />
-              </>
-            )}
-          </div>
+      {/* Animated background */}
+      <div className="qhunt-bg-effects">
+        {activeConfig.branding.showGridAnimation !== false && (
+          <div className="qhunt-grid-lines" />
+        )}
+        {activeConfig.branding.showGlowingOrbs !== false && (
+          <>
+            <div className="qhunt-glow-orb qhunt-glow-orb-1" />
+            <div className="qhunt-glow-orb qhunt-glow-orb-2" />
+          </>
+        )}
+      </div>
 
-          {/* Main content */}
-          <div className="qhunt-content">
-            {configLoading ? (
-              <div className="qhunt-loading">
-                <div className="qhunt-loading-spinner" />
-              </div>
-            ) : (
-              renderContent()
-            )}
+      {/* Main content */}
+      <div className="qhunt-content">
+        {configLoading ? (
+          <div className="qhunt-loading">
+            <div className="qhunt-loading-spinner" />
           </div>
-        </div>
+        ) : (
+          renderContent()
+        )}
       </div>
 
       <style jsx>{`
-        /* Desktop phone mockup wrapper */
-        .qhunt-desktop-wrapper {
-          min-height: 100vh;
-          min-height: 100dvh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--qhunt-bg);
-        }
-
-        .qhunt-phone-mockup {
-          width: 100%;
-          height: 100%;
-          min-height: 100vh;
-          min-height: 100dvh;
-          position: relative;
-          background: var(--qhunt-bg);
-        }
-
-        .qhunt-phone-notch {
-          display: none;
-        }
-
-        /* Desktop styles - show phone frame */
-        @media (min-width: 768px) {
-          .qhunt-desktop-wrapper {
-            padding: 40px 20px;
-            background: linear-gradient(135deg, #0a0f1a 0%, #1a1f2e 100%);
-          }
-
-          .qhunt-phone-mockup {
-            width: 390px;
-            height: 844px;
-            min-height: unset;
-            max-height: calc(100vh - 80px);
-            border-radius: 50px;
-            border: 8px solid #2a2f3e;
-            box-shadow:
-              0 0 0 2px #1a1f2e,
-              0 25px 80px rgba(0, 0, 0, 0.5),
-              0 0 60px color-mix(in srgb, var(--qhunt-primary) 10%, transparent),
-              inset 0 0 20px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-            position: relative;
-          }
-
-          .qhunt-phone-notch {
-            display: block;
-            position: absolute;
-            top: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 28px;
-            background: #1a1f2e;
-            border-radius: 20px;
-            z-index: 300;
-          }
-
-          .qhunt-phone-notch::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 20px;
-            transform: translateY(-50%);
-            width: 10px;
-            height: 10px;
-            background: #2a2f3e;
-            border-radius: 50%;
-          }
-
-          .qhunt-phone-notch::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            right: 30px;
-            transform: translateY(-50%);
-            width: 8px;
-            height: 8px;
-            background: var(--qhunt-primary);
-            border-radius: 50%;
-            box-shadow: 0 0 6px var(--qhunt-primary);
-          }
-
-          .qhunt-player-view {
-            height: 100%;
-            min-height: unset;
-            padding-top: 50px;
-            border-radius: 42px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-          }
-
-          .qhunt-bg-effects {
-            border-radius: 42px;
-            position: absolute;
-          }
-
-          .qhunt-content {
-            min-height: unset;
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
-          }
-        }
-
         .qhunt-player-view {
           min-height: 100vh;
           min-height: 100dvh;
