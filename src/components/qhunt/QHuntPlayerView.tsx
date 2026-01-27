@@ -366,8 +366,9 @@ export function QHuntPlayerView({
             min-height: unset;
             padding-top: 50px;
             border-radius: 42px;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
           }
 
           .qhunt-bg-effects {
@@ -377,8 +378,10 @@ export function QHuntPlayerView({
 
           .qhunt-content {
             min-height: unset;
-            height: auto;
-            padding-bottom: 40px;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
           }
         }
 
