@@ -93,8 +93,11 @@ export async function POST(request: NextRequest) {
       addRandomSuffix: false,
     });
 
+    // Add cache-busting timestamp to prevent browser caching old images
+    const urlWithCacheBust = `${blob.url}?t=${Date.now()}`;
+
     return NextResponse.json({
-      url: blob.url,
+      url: urlWithCacheBust,
       size: webpBuffer.length,
     });
   } catch (error) {
