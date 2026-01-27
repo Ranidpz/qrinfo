@@ -6,6 +6,11 @@ import {
   QHuntCodeType,
 } from '@/types/qhunt';
 import { assignRandomCodeType } from '@/lib/qhunt';
+import {
+  updateLeaderboardEntry,
+  incrementPlayersPlaying,
+  recalculateRanks,
+} from '@/lib/qhunt-realtime';
 
 export async function POST(request: Request) {
   try {
@@ -114,6 +119,35 @@ export async function POST(request: Request) {
     }
 
     await playerRef.update(updateData);
+
+    // Add player to Realtime DB leaderboard for live display
+    try {
+      // Find team color if in team mode
+      let teamColor: string | undefined;
+      if (player.teamId) {
+        const team = config.teams.find(t => t.id === player.teamId);
+        teamColor = team?.color;
+      }
+
+      await updateLeaderboardEntry(codeId, {
+        playerId: player.id,
+        playerName: player.name,
+        avatarType: player.avatarType,
+        avatarValue: player.avatarValue,
+        teamId: player.teamId,
+        teamColor,
+        score: 0,
+        scansCount: 0,
+        isFinished: false,
+        rank: 0, // Will be recalculated
+      });
+
+      await incrementPlayersPlaying(codeId);
+      await recalculateRanks(codeId);
+    } catch (rtdbError) {
+      console.error('Error updating Realtime DB on start:', rtdbError);
+      // Don't fail the request, player can still play
+    }
 
     return NextResponse.json({
       success: true,

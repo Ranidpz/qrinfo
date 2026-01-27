@@ -629,20 +629,6 @@ export function QHuntDisplay({
 
   const isTeamMode = activeConfig.mode === 'teams' && activeConfig.teams.length > 0;
 
-  // Phase display
-  const getPhaseDisplay = (p: QHuntPhase) => {
-    const phases: Record<QHuntPhase, { label: string; color: string; icon: string }> = {
-      registration: { label: t.registration, color: '#00d4ff', icon: '📝' },
-      countdown: { label: t.countdown, color: '#ffaa00', icon: '⏳' },
-      playing: { label: t.playing, color: '#00ff88', icon: '🎮' },
-      finished: { label: t.gameEnded, color: '#ff00aa', icon: '🏁' },
-      results: { label: t.results, color: '#aa55ff', icon: '🏆' },
-    };
-    return phases[p] || phases.registration;
-  };
-
-  const phaseInfo = getPhaseDisplay(phase);
-
   return (
     <div
       className="qhunt-display"
@@ -694,14 +680,6 @@ export function QHuntDisplay({
               {activeConfig.branding.gameTitle || (lang === 'he' ? 'ציד קודים' : 'Code Hunt')}
             </h1>
             <div className="title-glow" />
-          </div>
-        </div>
-
-        <div className="header-center">
-          <div className="phase-indicator" style={{ '--phase-color': phaseInfo.color } as React.CSSProperties}>
-            <span className="phase-icon">{phaseInfo.icon}</span>
-            <span className="phase-dot" />
-            <span className="phase-label">{phaseInfo.label}</span>
           </div>
         </div>
 
@@ -942,47 +920,6 @@ export function QHuntDisplay({
           filter: blur(40px);
           opacity: 0.3;
           z-index: -1;
-        }
-
-        .header-center {
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-
-        .phase-indicator {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 28px;
-          background: linear-gradient(135deg, var(--phase-color)25, var(--phase-color)10);
-          border: 2px solid var(--phase-color);
-          border-radius: 40px;
-          box-shadow: 0 0 30px var(--phase-color)40;
-        }
-
-        .phase-icon {
-          font-size: 1.4rem;
-        }
-
-        .phase-dot {
-          width: 12px;
-          height: 12px;
-          background: var(--phase-color);
-          border-radius: 50%;
-          animation: phasePulse 1s ease-in-out infinite;
-          box-shadow: 0 0 10px var(--phase-color);
-        }
-
-        @keyframes phasePulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(0.8); }
-        }
-
-        .phase-label {
-          font-size: 1.3rem;
-          font-weight: 700;
-          color: var(--phase-color);
         }
 
         .header-right {
