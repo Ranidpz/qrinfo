@@ -12,6 +12,7 @@
     "@dearhive/dearflip-jquery-flipbook": "^1.7.3",
     "@types/dompurify": "^3.0.5",
     "@types/qrcode": "^1.5.6",
+    "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.0.0",
     "3d-flip-book": "^1.9.9",
     "clsx": "^2.1.1",
