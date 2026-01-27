@@ -366,16 +366,19 @@ export function QHuntPlayerView({
             min-height: unset;
             padding-top: 50px;
             border-radius: 42px;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
           }
 
           .qhunt-bg-effects {
             border-radius: 42px;
+            position: absolute;
           }
 
           .qhunt-content {
             min-height: unset;
-            height: 100%;
+            height: auto;
+            padding-bottom: 40px;
           }
         }
 
@@ -471,10 +474,14 @@ export function QHuntPlayerView({
           to { transform: rotate(360deg); }
         }
 
-        /* Desktop: keep background effects inside phone */
+        /* Desktop: keep elements contained inside phone */
         @media (min-width: 768px) {
           .qhunt-bg-effects {
             position: absolute;
+          }
+
+          .qhunt-content {
+            min-height: unset;
           }
         }
       `}</style>
