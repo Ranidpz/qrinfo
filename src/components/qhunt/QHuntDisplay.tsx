@@ -606,6 +606,9 @@ function AnimatedLeaderboard({
           flex-direction: column;
           align-items: flex-end;
           gap: 4px;
+          padding: 8px 12px;
+          background: rgba(255,255,255,0.05);
+          border-radius: 12px 4px 4px 12px;
         }
 
         .row-score-mobile .score-with-rank {
@@ -667,7 +670,7 @@ function AnimatedLeaderboard({
           .leaderboard-row {
             grid-template-columns: 1fr auto;
             gap: 12px;
-            padding: 12px 0;
+            padding: 12px 16px;
             border-bottom: 1px solid rgba(255,255,255,0.08);
           }
 
@@ -951,13 +954,13 @@ export function QHuntDisplay({
           display: none;
           position: relative;
           z-index: 10;
-          justify-content: center;
-          padding: 12px;
+          justify-content: flex-start;
+          padding: 12px 16px;
           text-decoration: none;
         }
 
         .mobile-logo-header .q-logo {
-          height: 36px;
+          height: 32px;
           width: auto;
           filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
         }
