@@ -771,16 +771,19 @@ export function QHuntDisplay({
         /* Q Logo Header */
         .q-logo-header {
           display: flex;
+          align-items: center;
           position: relative;
           z-index: 10;
           direction: ltr;
           justify-content: flex-start;
-          padding: 16px 48px;
+          padding: 0 27px;
+          height: 71px;
           text-decoration: none;
+          background: var(--qhunt-bg);
         }
 
         .q-logo-header .q-logo {
-          height: 44px;
+          height: 40px;
           width: auto;
           filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
         }
@@ -824,31 +827,21 @@ export function QHuntDisplay({
         }
 
         .glow-1 {
-          width: 600px;
-          height: 600px;
-          background: var(--qhunt-primary);
-          top: -200px;
-          left: -200px;
+          display: none;
         }
 
         .glow-2 {
-          width: 500px;
-          height: 500px;
-          background: var(--qhunt-secondary);
-          bottom: -200px;
-          right: -200px;
-          animation-delay: -4s;
+          width: 400px;
+          height: 400px;
+          background: #1e3a8a;
+          bottom: -150px;
+          right: -150px;
+          filter: blur(120px);
+          opacity: 0.3;
         }
 
         .glow-3 {
-          width: 400px;
-          height: 400px;
-          background: var(--qhunt-success);
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          animation-delay: -2s;
-          opacity: 0.2;
+          display: none;
         }
 
         .bg-particles {
@@ -910,7 +903,7 @@ export function QHuntDisplay({
           font-size: 2.8rem;
           font-weight: 800;
           margin: 0;
-          background: linear-gradient(135deg, #fff, var(--qhunt-primary));
+          background: linear-gradient(135deg, #fff, #3b82f6);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -919,9 +912,9 @@ export function QHuntDisplay({
         .title-glow {
           position: absolute;
           inset: -10px;
-          background: var(--qhunt-primary);
-          filter: blur(40px);
-          opacity: 0.3;
+          background: #1e40af;
+          filter: blur(30px);
+          opacity: 0.15;
           z-index: -1;
         }
 
@@ -1111,24 +1104,25 @@ export function QHuntDisplay({
         /* ============ MOBILE RESPONSIVE ============ */
         @media (max-width: 768px) {
           .q-logo-header {
-            padding: 12px 16px;
+            padding: 8px 16px 0;
+            height: auto;
           }
 
           .q-logo-header .q-logo {
-            height: 36px;
+            height: 40px;
           }
 
           .display-header {
             flex-direction: column;
-            gap: 12px;
-            padding: 8px 16px 16px;
+            gap: 6px;
+            padding: 0 16px 8px;
             text-align: center;
             background: transparent;
           }
 
           .header-left {
             flex-direction: column;
-            gap: 4px;
+            gap: 0;
           }
 
           .event-logo {
@@ -1184,13 +1178,13 @@ export function QHuntDisplay({
           /* Main content */
           .display-main {
             grid-template-columns: 1fr !important;
-            padding: 16px;
-            gap: 20px;
+            padding: 8px 16px 16px;
+            gap: 16px;
             min-height: auto;
           }
 
           .section-header {
-            margin-bottom: 12px;
+            margin-bottom: 8px;
           }
 
           .section-icon {
@@ -1241,12 +1235,21 @@ export function QHuntDisplay({
 
         /* Extra small screens */
         @media (max-width: 400px) {
+          .q-logo-header {
+            padding: 6px 12px 0;
+          }
+
+          .q-logo-header .q-logo {
+            height: 36px;
+          }
+
           .display-header {
-            padding: 12px;
+            padding: 0 12px 6px;
+            gap: 4px;
           }
 
           .game-title {
-            font-size: 1.4rem;
+            font-size: 1.3rem;
           }
 
           .stat-card {
@@ -1263,7 +1266,7 @@ export function QHuntDisplay({
           }
 
           .display-main {
-            padding: 12px;
+            padding: 6px 12px 12px;
           }
 
           .section-title {

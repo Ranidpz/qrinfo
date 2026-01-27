@@ -10,7 +10,7 @@
  * - Tap anywhere to try again
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   QHuntConfig,
   QHuntPlayer,
@@ -19,6 +19,48 @@ import {
   formatGameDuration,
 } from '@/types/qhunt';
 import { useQHuntLeaderboard } from '@/hooks/useQHuntRealtime';
+
+// Animated number component
+function AnimatedNumber({ value, duration = 1000 }: { value: number; duration?: number }) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+  const animationRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    startTimeRef.current = null;
+
+    const animate = (timestamp: number) => {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = timestamp;
+      }
+
+      const elapsed = timestamp - startTimeRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      const currentValue = Math.floor(easeOutQuart * value);
+
+      setDisplayValue(currentValue);
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate);
+      } else {
+        setDisplayValue(value);
+      }
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [value, duration]);
+
+  return <>{displayValue}</>;
+}
 
 interface QHuntPlayerCompleteProps {
   codeId: string;
@@ -252,7 +294,7 @@ export function QHuntPlayerComplete({
                   {lang === 'he' ? 'אין שחקנים עדיין' : 'No players yet'}
                 </div>
               ) : (
-                leaderboard.map((entry) => {
+                leaderboard.map((entry, index) => {
                   const isCurrentPlayer = entry.playerId === player.id;
                   const isTop3 = entry.rank <= 3;
                   const rankEmoji = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`;
@@ -261,6 +303,7 @@ export function QHuntPlayerComplete({
                     <div
                       key={entry.playerId}
                       className={`leaderboard-row ${isTop3 ? `top-${entry.rank}` : ''} ${isCurrentPlayer ? 'current-player' : ''}`}
+                      style={{ '--row-index': index } as React.CSSProperties}
                     >
                       <div className="row-avatar">
                         {entry.avatarType === 'selfie' && entry.avatarValue?.startsWith('http') ? (
@@ -277,7 +320,9 @@ export function QHuntPlayerComplete({
                       </div>
                       <div className="row-score-area">
                         <span className="row-rank">{rankEmoji}</span>
-                        <span className="row-score">{entry.score}</span>
+                        <span className="row-score">
+                          <AnimatedNumber value={entry.score} duration={800} />
+                        </span>
                       </div>
                     </div>
                   );
@@ -836,6 +881,21 @@ export function QHuntPlayerComplete({
           background: rgba(255,255,255,0.05);
           border-radius: 16px;
           transition: all 0.2s ease;
+          opacity: 0;
+          transform: translateX(30px);
+          animation: rowSlideIn 0.4s ease forwards;
+          animation-delay: calc(var(--row-index, 0) * 0.08s);
+        }
+
+        @keyframes rowSlideIn {
+          from {
+            opacity: 0;
+            transform: translateX(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
 
         .leaderboard-row.current-player {
@@ -918,6 +978,8 @@ export function QHuntPlayerComplete({
           font-weight: 800;
           color: var(--qhunt-primary);
           text-shadow: 0 0 15px var(--qhunt-primary);
+          min-width: 40px;
+          text-align: left;
         }
       `}</style>
     </div>
