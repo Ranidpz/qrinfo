@@ -108,6 +108,7 @@ export async function generateMetadata({ params }: ViewerPageProps) {
         title: code.title,
       },
       icons: {
+        icon: '/favicon.svg',
         apple: '/icons/apple-touch-icon.png',
       },
       openGraph: {
