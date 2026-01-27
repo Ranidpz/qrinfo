@@ -658,13 +658,21 @@ function AnimatedLeaderboard({
         /* ============ MOBILE RESPONSIVE ============ */
         @media (max-width: 768px) {
           .leaderboard {
-            border-radius: 16px;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            backdrop-filter: none;
           }
 
           .leaderboard-row {
             grid-template-columns: 1fr auto;
             gap: 12px;
-            padding: 12px 16px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+          }
+
+          .leaderboard-row:last-child {
+            border-bottom: none;
           }
 
           /* Hide rank column on mobile - rank is now shown with score */
@@ -682,7 +690,7 @@ function AnimatedLeaderboard({
             height: 72px;
             font-size: 2.2rem;
             border-radius: 16px;
-            border: 3px solid rgba(255,255,255,0.3);
+            border: 1px solid rgba(255,255,255,0.15);
             flex-shrink: 0;
           }
 
@@ -726,7 +734,7 @@ function AnimatedLeaderboard({
         @media (max-width: 400px) {
           .leaderboard-row {
             gap: 10px;
-            padding: 10px 12px;
+            padding: 10px 0;
           }
 
           .player-avatar {
@@ -734,6 +742,7 @@ function AnimatedLeaderboard({
             height: 60px;
             font-size: 1.8rem;
             border-radius: 14px;
+            border-width: 1px;
           }
 
           .player-name {
@@ -827,6 +836,11 @@ export function QHuntDisplay({
           ))}
         </div>
       </div>
+
+      {/* Mobile Header with Q Logo */}
+      <a href="https://qr.playzones.app" className="mobile-logo-header mobile-only">
+        <img src="/theQ.png" alt="The Q" className="q-logo" />
+      </a>
 
       {/* Header */}
       <header className="display-header">
@@ -930,6 +944,22 @@ export function QHuntDisplay({
           color: #fff;
           position: relative;
           overflow: hidden;
+        }
+
+        /* Mobile Q Logo Header */
+        .mobile-logo-header {
+          display: none;
+          position: relative;
+          z-index: 10;
+          justify-content: center;
+          padding: 12px;
+          text-decoration: none;
+        }
+
+        .mobile-logo-header .q-logo {
+          height: 36px;
+          width: auto;
+          filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
         }
 
         /* Background effects */
@@ -1256,24 +1286,34 @@ export function QHuntDisplay({
 
         /* ============ MOBILE RESPONSIVE ============ */
         @media (max-width: 768px) {
+          /* Show mobile Q logo header */
+          .mobile-logo-header {
+            display: flex;
+          }
+
           .display-header {
             flex-direction: column;
-            gap: 16px;
-            padding: 16px;
+            gap: 12px;
+            padding: 8px 16px 16px;
             text-align: center;
+            background: transparent;
           }
 
           .header-left {
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
           }
 
           .event-logo {
-            height: 40px;
+            display: none;
           }
 
           .game-title {
-            font-size: 1.6rem;
+            font-size: 1.4rem;
+          }
+
+          .title-glow {
+            display: none;
           }
 
           .header-right {
