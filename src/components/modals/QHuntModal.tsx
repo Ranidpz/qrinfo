@@ -277,6 +277,7 @@ export default function QHuntModal({
 
   // Delete single player state
   const [deletingPlayerId, setDeletingPlayerId] = useState<string | null>(null);
+  const [playerToDelete, setPlayerToDelete] = useState<QHuntPlayerDisplay | null>(null);
   const [showDeleteAllCodesModal, setShowDeleteAllCodesModal] = useState(false);
   const [deleteAllCodesConfirmText, setDeleteAllCodesConfirmText] = useState('');
 
@@ -286,7 +287,7 @@ export default function QHuntModal({
 
   // Handle delete player
   const handleDeletePlayer = async (playerId: string) => {
-    if (!codeId || !confirm(isRTL ? 'למחוק את השחקן?' : 'Delete this player?')) return;
+    if (!codeId) return;
 
     setDeletingPlayerId(playerId);
     try {
@@ -989,7 +990,7 @@ export default function QHuntModal({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeletePlayer(player.id);
+                                setPlayerToDelete(player);
                               }}
                               disabled={deletingPlayerId === player.id}
                               className="p-2 rounded-lg hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors"
@@ -2584,6 +2585,75 @@ export default function QHuntModal({
                 }}
               >
                 {isRTL ? 'אפס משחק' : 'Reset Game'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Player Confirmation Modal */}
+      {playerToDelete && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setPlayerToDelete(null)}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6"
+            style={{ background: '#1a1a2e' }}
+            onClick={(e) => e.stopPropagation()}
+            dir={isRTL ? 'rtl' : 'ltr'}
+          >
+            {/* Warning Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+            </div>
+
+            {/* Player Info */}
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-2xl overflow-hidden">
+                {playerToDelete.avatarType === 'selfie' ? (
+                  <img src={playerToDelete.avatarValue} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  playerToDelete.avatarValue
+                )}
+              </div>
+              <h3 className="text-xl font-bold text-white">{playerToDelete.name}</h3>
+            </div>
+
+            {/* Warning text */}
+            <p className="text-center text-gray-400 text-sm mb-6">
+              {isRTL
+                ? 'האם למחוק את השחקן? פעולה זו לא ניתנת לביטול.'
+                : 'Delete this player? This action cannot be undone.'}
+            </p>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPlayerToDelete(null)}
+                className="flex-1 px-4 py-3 rounded-xl font-medium transition-colors"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#ffffff',
+                }}
+              >
+                {isRTL ? 'ביטול' : 'Cancel'}
+              </button>
+              <button
+                onClick={async () => {
+                  const player = playerToDelete;
+                  setPlayerToDelete(null);
+                  await handleDeletePlayer(player.id);
+                }}
+                className="flex-1 px-4 py-3 rounded-xl font-medium transition-colors"
+                style={{
+                  background: '#ef4444',
+                  color: '#ffffff',
+                }}
+              >
+                {isRTL ? 'מחק' : 'Delete'}
               </button>
             </div>
           </div>

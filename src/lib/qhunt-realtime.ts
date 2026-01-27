@@ -266,6 +266,29 @@ export async function removeFromLeaderboard(
 }
 
 /**
+ * Decrement player counts when deleting a player
+ */
+export async function decrementPlayerCounts(
+  codeId: string,
+  wasPlaying: boolean,
+  wasFinished: boolean
+): Promise<void> {
+  const statsRef = ref(realtimeDb, getStatsPath(codeId));
+
+  await runTransaction(statsRef, (currentStats: QHuntStats | null) => {
+    if (!currentStats) return currentStats;
+
+    return {
+      ...currentStats,
+      totalPlayers: Math.max(0, currentStats.totalPlayers - 1),
+      playersPlaying: wasPlaying ? Math.max(0, currentStats.playersPlaying - 1) : currentStats.playersPlaying,
+      playersFinished: wasFinished ? Math.max(0, currentStats.playersFinished - 1) : currentStats.playersFinished,
+      lastUpdated: Date.now(),
+    };
+  });
+}
+
+/**
  * Batch update entire leaderboard
  */
 export async function batchUpdateLeaderboard(
