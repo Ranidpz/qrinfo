@@ -175,10 +175,6 @@ function AnimatedLeaderboard({
   if (entries.length === 0) {
     return (
       <div className="leaderboard-empty">
-        <div className="empty-icon-container">
-          <span className="empty-icon">🎯</span>
-          <div className="empty-glow" />
-        </div>
         <span className="empty-text">
           {lang === 'he' ? 'ממתינים לשחקנים...' : 'Waiting for players...'}
         </span>
@@ -189,38 +185,10 @@ function AnimatedLeaderboard({
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 24px;
             padding: 80px 40px;
             background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
             border-radius: 24px;
             border: 2px dashed rgba(255,255,255,0.15);
-          }
-
-          .empty-icon-container {
-            position: relative;
-          }
-
-          .empty-icon {
-            font-size: 4rem;
-            opacity: 0.7;
-            animation: floatIcon 3s ease-in-out infinite;
-          }
-
-          .empty-glow {
-            position: absolute;
-            inset: -20px;
-            background: radial-gradient(circle, var(--qhunt-primary)30, transparent 70%);
-            animation: pulseGlow 2s ease-in-out infinite;
-          }
-
-          @keyframes floatIcon {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-          }
-
-          @keyframes pulseGlow {
-            0%, 100% { opacity: 0.3; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.2); }
           }
 
           .empty-text {
@@ -693,25 +661,16 @@ export function QHuntDisplay({
 
           <div className="stats-display">
             <div className="stat-card">
-              <span className="stat-icon">👥</span>
-              <div className="stat-content">
-                <AnimatedNumber value={stats?.totalPlayers || 0} className="stat-number" />
-                <span className="stat-label">{t.players}</span>
-              </div>
+              <AnimatedNumber value={stats?.totalPlayers || 0} className="stat-number" />
+              <span className="stat-label">{t.players}</span>
             </div>
             <div className="stat-card playing">
-              <span className="stat-icon">🎮</span>
-              <div className="stat-content">
-                <AnimatedNumber value={stats?.playersPlaying || 0} className="stat-number" />
-                <span className="stat-label">{t.playing}</span>
-              </div>
+              <AnimatedNumber value={stats?.playersPlaying || 0} className="stat-number" />
+              <span className="stat-label">{t.playing}</span>
             </div>
             <div className="stat-card finished">
-              <span className="stat-icon">🏁</span>
-              <div className="stat-content">
-                <AnimatedNumber value={stats?.playersFinished || 0} className="stat-number" />
-                <span className="stat-label">{t.finished}</span>
-              </div>
+              <AnimatedNumber value={stats?.playersFinished || 0} className="stat-number" />
+              <span className="stat-label">{t.finished}</span>
             </div>
           </div>
         </div>
@@ -966,21 +925,12 @@ export function QHuntDisplay({
 
         .stat-card {
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 12px;
-          padding: 12px 20px;
+          padding: 12px 24px;
           background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
           border-radius: 16px;
           border: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .stat-card .stat-icon {
-          font-size: 1.5rem;
-        }
-
-        .stat-content {
-          display: flex;
-          flex-direction: column;
         }
 
         .stat-card :global(.stat-number) {
@@ -1003,6 +953,7 @@ export function QHuntDisplay({
           color: rgba(255,255,255,0.5);
           text-transform: uppercase;
           letter-spacing: 0.5px;
+          margin-top: 4px;
         }
 
         /* Main content */
