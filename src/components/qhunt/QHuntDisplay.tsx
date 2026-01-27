@@ -263,7 +263,6 @@ function AnimatedLeaderboard({
                   </div>
                   {entry.isFinished && entry.finishedAt && (
                     <span className="finish-date">
-                      <span className="date-icon">📅</span>
                       {formatFinishedDate(entry.finishedAt)}
                     </span>
                   )}
@@ -436,16 +435,9 @@ function AnimatedLeaderboard({
         }
 
         .finish-date {
-          display: flex;
-          align-items: center;
-          gap: 4px;
           font-size: 0.75rem;
           color: rgba(255,255,255,0.5);
           white-space: nowrap;
-        }
-
-        .date-icon {
-          font-size: 0.7rem;
         }
 
         .player-name {
@@ -529,10 +521,6 @@ function AnimatedLeaderboard({
 
           .finish-date {
             font-size: 0.65rem;
-          }
-
-          .date-icon {
-            font-size: 0.6rem;
           }
 
           .player-name {
@@ -671,8 +659,8 @@ export function QHuntDisplay({
         </div>
       </div>
 
-      {/* Mobile Header with Q Logo */}
-      <a href="https://qr.playzones.app" className="mobile-logo-header mobile-only">
+      {/* Header with Q Logo */}
+      <a href="https://qr.playzones.app" className="q-logo-header">
         <img src="/theQ.png" alt="The Q" className="q-logo" />
       </a>
 
@@ -780,19 +768,19 @@ export function QHuntDisplay({
           overflow: hidden;
         }
 
-        /* Mobile Q Logo Header */
-        .mobile-logo-header {
-          display: none;
+        /* Q Logo Header */
+        .q-logo-header {
+          display: flex;
           position: relative;
           z-index: 10;
           direction: ltr;
           justify-content: flex-start;
-          padding: 12px 16px;
+          padding: 16px 48px;
           text-decoration: none;
         }
 
-        .mobile-logo-header .q-logo {
-          height: 40px;
+        .q-logo-header .q-logo {
+          height: 44px;
           width: auto;
           filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
         }
@@ -1026,6 +1014,7 @@ export function QHuntDisplay({
         .section-header {
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 12px;
           margin-bottom: 24px;
         }
@@ -1121,9 +1110,12 @@ export function QHuntDisplay({
 
         /* ============ MOBILE RESPONSIVE ============ */
         @media (max-width: 768px) {
-          /* Show mobile Q logo header */
-          .mobile-logo-header {
-            display: flex;
+          .q-logo-header {
+            padding: 12px 16px;
+          }
+
+          .q-logo-header .q-logo {
+            height: 36px;
           }
 
           .display-header {
