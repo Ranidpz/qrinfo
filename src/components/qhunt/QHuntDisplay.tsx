@@ -195,6 +195,17 @@ function AnimatedLeaderboard({
             font-size: 1.3rem;
             color: rgba(255,255,255,0.5);
           }
+
+          @media (max-width: 768px) {
+            .leaderboard-empty {
+              padding: 40px 20px;
+              border-radius: 16px;
+            }
+
+            .empty-text {
+              font-size: 1rem;
+            }
+          }
         `}</style>
       </div>
     );
@@ -241,7 +252,17 @@ function AnimatedLeaderboard({
               <div className="row-player">
                 <div className={`player-avatar ${entry.avatarType === 'selfie' ? 'photo' : ''}`}>
                   {entry.avatarType === 'selfie' && entry.avatarValue?.startsWith('http') ? (
-                    <img src={entry.avatarValue} alt="" />
+                    <img
+                      src={entry.avatarValue}
+                      alt=""
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        if (target.parentElement) {
+                          target.parentElement.innerHTML = '👤';
+                        }
+                      }}
+                    />
                   ) : (
                     entry.avatarValue || '🎮'
                   )}
@@ -255,8 +276,8 @@ function AnimatedLeaderboard({
                 )}
               </div>
 
-              {/* Stats */}
-              <div className="row-stats">
+              {/* Stats - Desktop */}
+              <div className="row-stats desktop-only">
                 <div className="stat-item">
                   <span className="stat-icon">🎯</span>
                   <span className="stat-value">{entry.scansCount}</span>
@@ -269,8 +290,27 @@ function AnimatedLeaderboard({
                 )}
               </div>
 
-              {/* Score */}
-              <div className="row-score">
+              {/* Score + Stats combined - Mobile */}
+              <div className="row-score-mobile mobile-only">
+                <div className="score-main">
+                  <AnimatedNumber
+                    value={entry.score}
+                    className="score-value"
+                    duration={600}
+                  />
+                </div>
+                <div className="score-details">
+                  {entry.isFinished && entry.gameTime && (
+                    <span className="detail-item">{formatGameDuration(entry.gameTime)}</span>
+                  )}
+                  {!entry.isFinished && (
+                    <span className="detail-item">{entry.scansCount} סריקות</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Score - Desktop */}
+              <div className="row-score desktop-only">
                 <AnimatedNumber
                   value={entry.score}
                   className="score-value"
@@ -503,9 +543,17 @@ function AnimatedLeaderboard({
           box-shadow: 0 0 10px currentColor;
         }
 
+        /* Show/Hide utilities */
+        .mobile-only {
+          display: none;
+        }
+
+        .desktop-only {
+          display: flex;
+        }
+
         /* Stats */
         .row-stats {
-          display: flex;
           align-items: center;
           gap: 24px;
         }
@@ -533,7 +581,7 @@ function AnimatedLeaderboard({
           font-family: 'SF Mono', 'Courier New', monospace;
         }
 
-        /* Score */
+        /* Score - Desktop */
         .row-score {
           text-align: right;
         }
@@ -543,6 +591,31 @@ function AnimatedLeaderboard({
           font-weight: 800;
           color: var(--rank-color);
           text-shadow: 0 0 20px var(--rank-color);
+        }
+
+        /* Score + Stats - Mobile */
+        .row-score-mobile {
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+        }
+
+        .row-score-mobile .score-main :global(.score-value) {
+          font-size: 1.3rem;
+          font-weight: 800;
+          color: var(--rank-color);
+          text-shadow: 0 0 15px var(--rank-color);
+        }
+
+        .row-score-mobile .score-details {
+          display: flex;
+          gap: 8px;
+          font-size: 0.7rem;
+          color: rgba(255,255,255,0.6);
+        }
+
+        .row-score-mobile .detail-item {
+          white-space: nowrap;
         }
 
         /* Status */
@@ -561,6 +634,120 @@ function AnimatedLeaderboard({
           font-size: 1.1rem;
           color: #000;
           box-shadow: 0 0 20px var(--qhunt-success);
+        }
+
+        /* ============ MOBILE RESPONSIVE ============ */
+        @media (max-width: 768px) {
+          .leaderboard {
+            border-radius: 16px;
+          }
+
+          .leaderboard-row {
+            grid-template-columns: 50px 1fr auto;
+            gap: 10px;
+            padding: 12px 14px;
+          }
+
+          .row-rank {
+            gap: 4px;
+          }
+
+          .rank-badge {
+            font-size: 1.2rem;
+          }
+
+          .rank-glow {
+            inset: -5px;
+          }
+
+          .rank-change {
+            font-size: 0.6rem;
+            padding: 2px 4px;
+          }
+
+          .row-player {
+            gap: 10px;
+            min-width: 0;
+          }
+
+          .player-avatar {
+            width: 38px;
+            height: 38px;
+            font-size: 1.4rem;
+            border-radius: 10px;
+          }
+
+          .player-name {
+            font-size: 0.95rem;
+            max-width: 100px;
+          }
+
+          .player-team-dot {
+            width: 10px;
+            height: 10px;
+          }
+
+          /* Show mobile-only, hide desktop-only */
+          .mobile-only {
+            display: flex;
+          }
+
+          .desktop-only {
+            display: none !important;
+          }
+
+          .row-score-mobile .score-main :global(.score-value) {
+            font-size: 1.2rem;
+          }
+
+          .row-score-mobile .score-details {
+            font-size: 0.65rem;
+          }
+
+          .row-status {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+          }
+
+          .status-badge {
+            width: 24px;
+            height: 24px;
+            font-size: 0.8rem;
+          }
+        }
+
+        @media (max-width: 400px) {
+          .leaderboard-row {
+            grid-template-columns: 40px 1fr auto;
+            gap: 6px;
+            padding: 10px 12px;
+          }
+
+          .rank-badge {
+            font-size: 1rem;
+          }
+
+          .player-avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 1.2rem;
+            border-radius: 8px;
+          }
+
+          .player-name {
+            font-size: 0.85rem;
+            max-width: 70px;
+          }
+
+          .row-score-mobile .score-main :global(.score-value) {
+            font-size: 1rem;
+          }
+
+          .row-score-mobile .score-details {
+            font-size: 0.6rem;
+            gap: 6px;
+          }
         }
       `}</style>
     </div>
@@ -1061,6 +1248,156 @@ export function QHuntDisplay({
           font-weight: 700;
           color: var(--qhunt-success);
           text-shadow: 0 0 10px var(--qhunt-success);
+        }
+
+        /* ============ MOBILE RESPONSIVE ============ */
+        @media (max-width: 768px) {
+          .display-header {
+            flex-direction: column;
+            gap: 16px;
+            padding: 16px;
+            text-align: center;
+          }
+
+          .header-left {
+            flex-direction: column;
+            gap: 8px;
+          }
+
+          .event-logo {
+            height: 40px;
+          }
+
+          .game-title {
+            font-size: 1.6rem;
+          }
+
+          .header-right {
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+          }
+
+          .timer-display {
+            padding: 10px 20px;
+            width: fit-content;
+          }
+
+          .timer-icon {
+            font-size: 1.2rem;
+          }
+
+          .timer-value {
+            font-size: 1.4rem;
+          }
+
+          .stats-display {
+            width: 100%;
+            justify-content: center;
+            gap: 8px;
+          }
+
+          .stat-card {
+            padding: 8px 12px;
+            min-width: 70px;
+          }
+
+          .stat-card :global(.stat-number) {
+            font-size: 1.3rem;
+          }
+
+          .stat-label {
+            font-size: 0.65rem;
+          }
+
+          /* Main content */
+          .display-main {
+            grid-template-columns: 1fr !important;
+            padding: 16px;
+            gap: 20px;
+            min-height: auto;
+          }
+
+          .section-header {
+            margin-bottom: 12px;
+          }
+
+          .section-icon {
+            font-size: 1.2rem;
+          }
+
+          .section-title {
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+          }
+
+          /* Hide scans feed on mobile or make it inline */
+          .scans-feed {
+            position: relative;
+            bottom: auto;
+            right: auto;
+            width: 100%;
+            margin-top: 20px;
+          }
+
+          /* Reduce background effects on mobile for performance */
+          .bg-glow {
+            filter: blur(100px);
+          }
+
+          .glow-1 {
+            width: 300px;
+            height: 300px;
+          }
+
+          .glow-2 {
+            width: 250px;
+            height: 250px;
+          }
+
+          .glow-3 {
+            display: none;
+          }
+
+          .bg-grid {
+            background-size: 40px 40px;
+          }
+
+          .bg-particles .particle {
+            display: none;
+          }
+        }
+
+        /* Extra small screens */
+        @media (max-width: 400px) {
+          .display-header {
+            padding: 12px;
+          }
+
+          .game-title {
+            font-size: 1.4rem;
+          }
+
+          .stat-card {
+            padding: 6px 10px;
+            min-width: 60px;
+          }
+
+          .stat-card :global(.stat-number) {
+            font-size: 1.1rem;
+          }
+
+          .stat-label {
+            font-size: 0.6rem;
+          }
+
+          .display-main {
+            padding: 12px;
+          }
+
+          .section-title {
+            font-size: 1rem;
+          }
         }
       `}</style>
     </div>

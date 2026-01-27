@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import {
   QHuntConfig,
   QHuntPlayer,
   QHuntRegistrationResult,
+  QHuntLeaderboardEntry,
+  QHuntStats,
 } from '@/types/qhunt';
 
 export async function POST(request: Request) {
@@ -109,6 +111,19 @@ export async function POST(request: Request) {
         };
         await playerRef.update(updates);
 
+        // Sync profile changes to Realtime DB leaderboard using Admin SDK
+        try {
+          const adminRtdb = getAdminRtdb();
+          const leaderboardEntryRef = adminRtdb.ref(`qhunt/${codeId}/leaderboard/${player.id}`);
+          await leaderboardEntryRef.update({
+            playerName: name,
+            avatarType,
+            avatarValue,
+          });
+        } catch (rtdbError) {
+          console.error('Error updating Realtime DB on profile update:', rtdbError);
+        }
+
         // Return updated player data
         return NextResponse.json({
           success: true,
@@ -147,6 +162,88 @@ export async function POST(request: Request) {
     };
 
     await playerRef.set(newPlayer);
+
+    // Add player to Realtime DB leaderboard immediately for live display
+    try {
+      const adminRtdb = getAdminRtdb();
+
+      // Find team color if in team mode
+      let teamColor: string | undefined;
+      if (teamId) {
+        const team = config.teams.find(t => t.id === teamId);
+        teamColor = team?.color;
+      }
+
+      // Add to leaderboard (avoid undefined values - RTDB doesn't accept them)
+      const leaderboardEntry: QHuntLeaderboardEntry = {
+        playerId: newPlayer.id,
+        playerName: newPlayer.name,
+        avatarType: newPlayer.avatarType,
+        avatarValue: newPlayer.avatarValue,
+        score: 0,
+        scansCount: 0,
+        isFinished: false,
+        rank: 0,
+      };
+
+      // Only add optional fields if they have values
+      if (newPlayer.teamId) {
+        leaderboardEntry.teamId = newPlayer.teamId;
+      }
+      if (teamColor) {
+        leaderboardEntry.teamColor = teamColor;
+      }
+
+      const leaderboardEntryRef = adminRtdb.ref(`qhunt/${codeId}/leaderboard/${newPlayer.id}`);
+      await leaderboardEntryRef.set(leaderboardEntry);
+
+      // Increment total players using transaction
+      const statsRef = adminRtdb.ref(`qhunt/${codeId}/stats`);
+      await statsRef.transaction((currentStats: QHuntStats | null) => {
+        if (!currentStats) {
+          return {
+            totalPlayers: 1,
+            playersPlaying: 0,
+            playersFinished: 0,
+            totalScans: 0,
+            avgScore: 0,
+            topScore: 0,
+            lastUpdated: Date.now(),
+          };
+        }
+        return {
+          ...currentStats,
+          totalPlayers: (currentStats.totalPlayers || 0) + 1,
+          lastUpdated: Date.now(),
+        };
+      });
+
+      // Recalculate ranks
+      const leaderboardRef = adminRtdb.ref(`qhunt/${codeId}/leaderboard`);
+      const snapshot = await leaderboardRef.get();
+
+      if (snapshot.exists()) {
+        const entries = Object.values(snapshot.val()) as QHuntLeaderboardEntry[];
+
+        // Sort by score (desc), then by game time (asc)
+        entries.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          if (a.gameTime && b.gameTime) return a.gameTime - b.gameTime;
+          return 0;
+        });
+
+        // Update ranks
+        const updates: Record<string, QHuntLeaderboardEntry> = {};
+        entries.forEach((entry, index) => {
+          updates[entry.playerId] = { ...entry, rank: index + 1 };
+        });
+
+        await leaderboardRef.set(updates);
+      }
+    } catch (rtdbError) {
+      console.error('Error updating Realtime DB on register:', rtdbError);
+      // Don't fail the request, player is registered in Firestore
+    }
 
     return NextResponse.json({
       success: true,

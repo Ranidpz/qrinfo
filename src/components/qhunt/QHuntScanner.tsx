@@ -620,9 +620,17 @@ export function QHuntScanner({
         )}
       </div>
 
+      {/* Scan instruction */}
+      {!showManualEntry && (
+        <div className="scan-instruction">
+          {lang === 'he' ? 'פשוט סורקים, לא צריך ללחוץ על כלום' : 'Just scan - no need to tap anything'}
+        </div>
+      )}
+
       {/* Bottom actions */}
       {!showManualEntry && (
         <div className="scanner-actions">
+          {/* Manual entry - smaller, secondary */}
           <button
             className="manual-entry-btn"
             onClick={() => setShowManualEntry(true)}
@@ -631,13 +639,31 @@ export function QHuntScanner({
             <span className="btn-icon">⌨️</span>
             {t.enterCode}
           </button>
+
+          {/* Encouraging progress message - clickable to access end game */}
           <button
-            className="end-game-btn"
+            className="progress-encouragement"
             onClick={() => setShowEndGameModal(true)}
             disabled={isProcessing}
           >
-            <span className="btn-icon">🏁</span>
-            {lang === 'he' ? 'סיימתי!' : 'I\'m done!'}
+            <span className="encouragement-text">
+              {player.scansCount > 0 ? (
+                actualTargetCount - player.scansCount > 0 ? (
+                  lang === 'he'
+                    ? `כל הכבוד! נשארו רק עוד ${actualTargetCount - player.scansCount} קודים`
+                    : `Great job! Only ${actualTargetCount - player.scansCount} codes left`
+                ) : (
+                  lang === 'he' ? 'מצאתם את כל הקודים!' : 'You found all codes!'
+                )
+              ) : (
+                lang === 'he'
+                  ? `מצאו ${actualTargetCount} קודים - בהצלחה!`
+                  : `Find ${actualTargetCount} codes - good luck!`
+              )}
+            </span>
+            <span className="encouragement-subtext">
+              {lang === 'he' ? 'לחצו כאן לסיום' : 'Tap here to finish'}
+            </span>
           </button>
         </div>
       )}
@@ -1147,26 +1173,27 @@ export function QHuntScanner({
         .mission-indicator {
           background: color-mix(in srgb, var(--type-color, #00ff88) 15%, transparent);
           border: 2px solid var(--type-color, #00ff88);
-          border-radius: 10px;
-          padding: 10px 14px;
+          border-radius: 12px;
+          padding: 12px 16px;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           justify-content: center;
           box-shadow: 0 0 15px var(--type-glow, rgba(0, 255, 136, 0.3));
           flex-shrink: 0;
         }
 
         .mission-label {
-          color: rgba(255, 255, 255, 0.8);
-          font-size: 0.95rem;
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 1.15rem;
+          font-weight: 500;
         }
 
         .mission-type {
           color: var(--type-color, #00ff88);
-          font-weight: 700;
-          font-size: 1.1rem;
-          text-shadow: 0 0 8px var(--type-glow, rgba(0, 255, 136, 0.5));
+          font-weight: 800;
+          font-size: 1.35rem;
+          text-shadow: 0 0 10px var(--type-glow, rgba(0, 255, 136, 0.5));
         }
 
         /* Scanner main */
@@ -1352,36 +1379,46 @@ export function QHuntScanner({
           font-weight: 600;
         }
 
+        /* Scan instruction */
+        .scan-instruction {
+          text-align: center;
+          color: rgba(255, 255, 255, 0.5);
+          font-size: 0.9rem;
+          padding: 8px 0 4px;
+          flex-shrink: 0;
+        }
+
         /* Actions */
         .scanner-actions {
-          padding-top: 12px;
+          padding-top: 8px;
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
         }
 
         .manual-entry-btn {
           width: 100%;
-          padding: 16px;
-          font-size: 1.1rem;
-          font-weight: 600;
+          padding: 12px;
+          font-size: 0.95rem;
+          font-weight: 500;
           font-family: 'Assistant', sans-serif;
-          background: rgba(255, 255, 255, 0.06);
-          border: 2px solid rgba(255, 255, 255, 0.25);
-          border-radius: 14px;
-          color: #fff;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 10px;
+          color: rgba(255, 255, 255, 0.7);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 10px;
+          gap: 8px;
           transition: all 0.3s ease;
         }
 
         .manual-entry-btn:hover:not(:disabled) {
-          background: rgba(255, 255, 255, 0.12);
-          border-color: #00ff88;
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.3);
+          color: #fff;
         }
 
         .manual-entry-btn:disabled {
@@ -1389,36 +1426,48 @@ export function QHuntScanner({
           cursor: not-allowed;
         }
 
-        .end-game-btn {
+        .btn-icon {
+          font-size: 1.1rem;
+        }
+
+        /* Progress encouragement */
+        .progress-encouragement {
           width: 100%;
-          padding: 14px;
-          font-size: 1.05rem;
-          font-weight: 600;
+          padding: 14px 16px;
           font-family: 'Assistant', sans-serif;
-          background: rgba(255, 136, 0, 0.1);
-          border: 2px solid rgba(255, 136, 0, 0.4);
+          background: linear-gradient(135deg, rgba(0, 255, 136, 0.12), rgba(0, 200, 100, 0.08));
+          border: 2px solid rgba(0, 255, 136, 0.35);
           border-radius: 14px;
-          color: #ff8800;
           cursor: pointer;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          justify-content: center;
-          gap: 10px;
+          gap: 4px;
           transition: all 0.3s ease;
         }
 
-        .end-game-btn:hover:not(:disabled) {
-          background: rgba(255, 136, 0, 0.2);
-          border-color: #ff8800;
+        .progress-encouragement:hover:not(:disabled) {
+          background: linear-gradient(135deg, rgba(0, 255, 136, 0.18), rgba(0, 200, 100, 0.12));
+          border-color: rgba(0, 255, 136, 0.5);
+          transform: translateY(-1px);
         }
 
-        .end-game-btn:disabled {
+        .progress-encouragement:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
 
-        .btn-icon {
-          font-size: 1.4rem;
+        .encouragement-text {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: #00ff88;
+          text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
+
+        .encouragement-subtext {
+          font-size: 0.8rem;
+          font-weight: 400;
+          color: rgba(255, 255, 255, 0.5);
         }
 
         /* Mobile optimizations for short screens */
@@ -1469,16 +1518,21 @@ export function QHuntScanner({
           }
 
           .mission-indicator {
-            padding: 8px 12px;
-            border-radius: 8px;
+            padding: 10px 14px;
+            border-radius: 10px;
           }
 
           .mission-label {
-            font-size: 0.85rem;
+            font-size: 1rem;
           }
 
           .mission-type {
-            font-size: 0.95rem;
+            font-size: 1.15rem;
+          }
+
+          .scan-instruction {
+            font-size: 0.85rem;
+            padding: 6px 0 2px;
           }
 
           .scanner-container {
@@ -1513,23 +1567,31 @@ export function QHuntScanner({
           }
 
           .scanner-actions {
-            padding-top: 8px;
+            padding-top: 6px;
+            gap: 8px;
           }
 
           .manual-entry-btn {
-            padding: 14px;
-            font-size: 1rem;
+            padding: 10px;
+            font-size: 0.9rem;
+            border-radius: 10px;
+          }
+
+          .progress-encouragement {
+            padding: 12px 14px;
             border-radius: 12px;
           }
 
-          .end-game-btn {
-            padding: 12px;
-            font-size: 0.95rem;
-            border-radius: 12px;
+          .encouragement-text {
+            font-size: 1rem;
+          }
+
+          .encouragement-subtext {
+            font-size: 0.75rem;
           }
 
           .btn-icon {
-            font-size: 1.2rem;
+            font-size: 1rem;
           }
         }
 
@@ -1581,15 +1643,20 @@ export function QHuntScanner({
           }
 
           .mission-indicator {
-            padding: 6px 10px;
+            padding: 8px 12px;
           }
 
           .mission-label {
-            font-size: 0.8rem;
+            font-size: 0.9rem;
           }
 
           .mission-type {
-            font-size: 0.9rem;
+            font-size: 1rem;
+          }
+
+          .scan-instruction {
+            font-size: 0.8rem;
+            padding: 4px 0 2px;
           }
 
           .scanner-container {
@@ -1603,14 +1670,26 @@ export function QHuntScanner({
             height: 130px;
           }
 
-          .manual-entry-btn {
-            padding: 12px;
-            font-size: 0.95rem;
+          .scanner-actions {
+            gap: 6px;
           }
 
-          .end-game-btn {
-            padding: 10px;
+          .manual-entry-btn {
+            padding: 8px;
+            font-size: 0.85rem;
+          }
+
+          .progress-encouragement {
+            padding: 10px 12px;
+            border-radius: 10px;
+          }
+
+          .encouragement-text {
             font-size: 0.9rem;
+          }
+
+          .encouragement-subtext {
+            font-size: 0.7rem;
           }
         }
       `}</style>

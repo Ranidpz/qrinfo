@@ -1,23 +1,14 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import {
   QHuntConfig,
   QHuntPlayer,
   QHuntScan,
   QHuntScanResult,
   QHuntScanMethod,
+  QHuntLeaderboardEntry,
   CODE_TYPE_CONFIG,
 } from '@/types/qhunt';
-import {
-  updateLeaderboardEntry,
-  updateStatsAfterScan,
-  addRecentScan,
-  trimRecentScans,
-  incrementPlayersFinished,
-  recalculateRanks,
-  batchUpdateTeamScores,
-} from '@/lib/qhunt-realtime';
 import { calculateTeamScores } from '@/lib/qhunt';
 
 export async function POST(request: Request) {
@@ -44,11 +35,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if code exists and get config
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
+    const adminDb = getAdminDb();
 
-    if (!codeDoc.exists()) {
+    // Check if code exists and get config
+    const codeRef = adminDb.collection('codes').doc(codeId);
+    const codeDoc = await codeRef.get();
+
+    if (!codeDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'CODE_NOT_FOUND' } as QHuntScanResult,
         { status: 404 }
@@ -57,7 +50,7 @@ export async function POST(request: Request) {
 
     // Find QHunt media item
     const codeData = codeDoc.data();
-    const qhuntMedia = codeData.media?.find(
+    const qhuntMedia = codeData?.media?.find(
       (m: { type: string }) => m.type === 'qhunt'
     );
 
@@ -79,10 +72,10 @@ export async function POST(request: Request) {
     }
 
     // Get player
-    const playerRef = doc(db, 'codes', codeId, 'qhunt_players', playerId);
-    const playerDoc = await getDoc(playerRef);
+    const playerRef = adminDb.collection('codes').doc(codeId).collection('qhunt_players').doc(playerId);
+    const playerDoc = await playerRef.get();
 
-    if (!playerDoc.exists()) {
+    if (!playerDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'NOT_REGISTERED' } as QHuntScanResult,
         { status: 400 }
@@ -112,7 +105,7 @@ export async function POST(request: Request) {
       const elapsed = Date.now() - player.gameStartedAt;
       if (elapsed > config.gameDurationSeconds * 1000) {
         // Mark player as finished due to time
-        await updateDoc(playerRef, {
+        await playerRef.update({
           isFinished: true,
           gameEndedAt: player.gameStartedAt + config.gameDurationSeconds * 1000,
         });
@@ -152,15 +145,13 @@ export async function POST(request: Request) {
     }
 
     // Check if already scanned this code
-    const scansRef = collection(db, 'codes', codeId, 'qhunt_scans');
-    const existingScanQuery = query(
-      scansRef,
-      where('playerId', '==', playerId),
-      where('codeValue', '==', codeValue.toLowerCase()),
-      where('isValid', '==', true),
-      limit(1)
-    );
-    const existingScanSnapshot = await getDocs(existingScanQuery);
+    const scansRef = adminDb.collection('codes').doc(codeId).collection('qhunt_scans');
+    const existingScanQuery = scansRef
+      .where('playerId', '==', playerId)
+      .where('codeValue', '==', codeValue.toLowerCase())
+      .where('isValid', '==', true)
+      .limit(1);
+    const existingScanSnapshot = await existingScanQuery.get();
 
     if (!existingScanSnapshot.empty) {
       return NextResponse.json(
@@ -170,12 +161,10 @@ export async function POST(request: Request) {
     }
 
     // Calculate scan duration (time since last scan or game start)
-    const lastScanQuery = query(
-      scansRef,
-      where('playerId', '==', playerId),
-      where('isValid', '==', true)
-    );
-    const lastScanSnapshot = await getDocs(lastScanQuery);
+    const lastScanQuery = scansRef
+      .where('playerId', '==', playerId)
+      .where('isValid', '==', true);
+    const lastScanSnapshot = await lastScanQuery.get();
     let lastScanTime = player.gameStartedAt;
     lastScanSnapshot.docs.forEach(doc => {
       const scan = doc.data();
@@ -200,8 +189,8 @@ export async function POST(request: Request) {
     };
 
     // Save scan
-    const scanRef = doc(db, 'codes', codeId, 'qhunt_scans', scanId);
-    await setDoc(scanRef, scan);
+    const scanDocRef = adminDb.collection('codes').doc(codeId).collection('qhunt_scans').doc(scanId);
+    await scanDocRef.set(scan);
 
     // Calculate new score
     const newScore = player.currentScore + huntCode.points;
@@ -230,10 +219,12 @@ export async function POST(request: Request) {
       playerUpdate.gameEndedAt = Date.now();
     }
 
-    await updateDoc(playerRef, playerUpdate);
+    await playerRef.update(playerUpdate);
 
-    // Update Realtime DB
+    // Update Realtime DB using Admin SDK
     try {
+      const adminRtdb = getAdminRtdb();
+
       // Find team color
       let teamColor: string | undefined;
       if (player.teamId) {
@@ -241,27 +232,79 @@ export async function POST(request: Request) {
         teamColor = team?.color;
       }
 
-      await updateLeaderboardEntry(codeId, {
+      // Update leaderboard entry (avoid undefined values - RTDB doesn't accept them)
+      const leaderboardEntry: QHuntLeaderboardEntry = {
         playerId: player.id,
         playerName: player.name,
         avatarType: player.avatarType,
         avatarValue: player.avatarValue,
-        teamId: player.teamId,
-        teamColor,
         score: newScore,
         scansCount: newScansCount,
-        gameTime: isGameComplete && player.gameStartedAt
-          ? Date.now() - player.gameStartedAt
-          : undefined,
         isFinished: isGameComplete,
         rank: 0,
+      };
+
+      // Only add optional fields if they have values
+      if (player.teamId) {
+        leaderboardEntry.teamId = player.teamId;
+      }
+      if (teamColor) {
+        leaderboardEntry.teamColor = teamColor;
+      }
+      if (isGameComplete && player.gameStartedAt) {
+        leaderboardEntry.gameTime = Date.now() - player.gameStartedAt;
+      }
+
+      const leaderboardEntryRef = adminRtdb.ref(`qhunt/${codeId}/leaderboard/${player.id}`);
+      await leaderboardEntryRef.set(leaderboardEntry);
+
+      // Update stats after scan
+      const statsRef = adminRtdb.ref(`qhunt/${codeId}/stats`);
+      await statsRef.transaction((currentStats) => {
+        if (!currentStats) return currentStats;
+
+        const updates: Record<string, unknown> = {
+          ...currentStats,
+          totalScans: (currentStats.totalScans || 0) + 1,
+          topScore: Math.max(currentStats.topScore || 0, newScore),
+          lastUpdated: Date.now(),
+        };
+
+        if (isGameComplete) {
+          updates.playersPlaying = Math.max(0, (currentStats.playersPlaying || 0) - 1);
+          updates.playersFinished = (currentStats.playersFinished || 0) + 1;
+        }
+
+        return updates;
       });
 
-      await updateStatsAfterScan(codeId, newScore);
-      await recalculateRanks(codeId);
+      // Recalculate ranks
+      const leaderboardRef = adminRtdb.ref(`qhunt/${codeId}/leaderboard`);
+      const snapshot = await leaderboardRef.get();
+
+      if (snapshot.exists()) {
+        const entries = Object.values(snapshot.val()) as QHuntLeaderboardEntry[];
+
+        // Sort by score (desc), then by game time (asc)
+        entries.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          if (a.gameTime && b.gameTime) return a.gameTime - b.gameTime;
+          return 0;
+        });
+
+        // Update ranks
+        const updates: Record<string, QHuntLeaderboardEntry> = {};
+        entries.forEach((entry, index) => {
+          updates[entry.playerId] = { ...entry, rank: index + 1 };
+        });
+
+        await leaderboardRef.set(updates);
+      }
 
       // Add to recent scans feed
-      await addRecentScan(codeId, {
+      const recentScansRef = adminRtdb.ref(`qhunt/${codeId}/recentScans`);
+      const newScanRef = recentScansRef.push();
+      await newScanRef.set({
         id: scanId,
         playerId: player.id,
         playerName: player.name,
@@ -270,16 +313,30 @@ export async function POST(request: Request) {
         points: huntCode.points,
         scannedAt: Date.now(),
       });
-      await trimRecentScans(codeId, 20);
 
-      if (isGameComplete) {
-        await incrementPlayersFinished(codeId);
+      // Trim recent scans to keep only latest 20
+      const recentSnapshot = await recentScansRef.get();
+      if (recentSnapshot.exists()) {
+        const scans = recentSnapshot.val() as Record<string, { scannedAt: number }>;
+        const scanEntries = Object.entries(scans);
+        if (scanEntries.length > 20) {
+          scanEntries.sort((a, b) => b[1].scannedAt - a[1].scannedAt);
+          const toRemove = scanEntries.slice(20);
+          for (const [key] of toRemove) {
+            await adminRtdb.ref(`qhunt/${codeId}/recentScans/${key}`).remove();
+          }
+        }
       }
 
       // Update team scores if in team mode
       if (config.mode === 'teams' && config.teams.length > 0) {
         const teamScores = await calculateTeamScores(codeId, config.teams);
-        await batchUpdateTeamScores(codeId, teamScores);
+        const teamScoresRef = adminRtdb.ref(`qhunt/${codeId}/teamScores`);
+        const teamsData: Record<string, unknown> = {};
+        teamScores.forEach(team => {
+          teamsData[team.teamId] = team;
+        });
+        await teamScoresRef.set(teamsData);
       }
     } catch (rtdbError) {
       console.error('Error updating Realtime DB:', rtdbError);

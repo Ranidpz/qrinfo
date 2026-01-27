@@ -124,6 +124,8 @@ export default function QHuntModal({
   const [players, setPlayers] = useState<QHuntPlayerDisplay[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Single code modal state
   const [selectedCode, setSelectedCode] = useState<QHuntCode | null>(null);
@@ -184,6 +186,35 @@ export default function QHuntModal({
       console.error('Error fetching players:', error);
     } finally {
       setLoadingPlayers(false);
+    }
+  };
+
+  // Sync players from Firestore to Realtime DB leaderboard
+  const syncToLeaderboard = async () => {
+    if (!codeId) return;
+
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const response = await fetch('/api/qhunt/sync-leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSyncMessage(isRTL ? `סונכרנו ${data.synced} שחקנים` : `Synced ${data.synced} players`);
+        setTimeout(() => setSyncMessage(null), 3000);
+      } else {
+        setSyncMessage(data.error || (isRTL ? 'שגיאה בסנכרון' : 'Sync error'));
+        setTimeout(() => setSyncMessage(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error syncing leaderboard:', error);
+      setSyncMessage(isRTL ? 'שגיאה בסנכרון' : 'Sync error');
+      setTimeout(() => setSyncMessage(null), 3000);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -845,14 +876,28 @@ export default function QHuntModal({
                     <Trophy className="w-5 h-5 text-amber-400" />
                     {isRTL ? 'טבלת מובילים' : 'Leaderboard'}
                   </h3>
-                  <button
-                    onClick={fetchPlayers}
-                    disabled={loadingPlayers}
-                    className="text-sm px-3 py-1.5 rounded-lg transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.1)', color: '#9ca3af' }}
-                  >
-                    {loadingPlayers ? <Loader2 className="w-4 h-4 animate-spin" /> : (isRTL ? 'רענן' : 'Refresh')}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {syncMessage && (
+                      <span className="text-xs text-green-400">{syncMessage}</span>
+                    )}
+                    <button
+                      onClick={syncToLeaderboard}
+                      disabled={syncing || players.length === 0}
+                      className="text-sm px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa' }}
+                      title={isRTL ? 'סנכרן שחקנים קיימים ללידרבורד' : 'Sync existing players to leaderboard'}
+                    >
+                      {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : (isRTL ? 'סנכרן' : 'Sync')}
+                    </button>
+                    <button
+                      onClick={fetchPlayers}
+                      disabled={loadingPlayers}
+                      className="text-sm px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ background: 'rgba(255,255,255,0.1)', color: '#9ca3af' }}
+                    >
+                      {loadingPlayers ? <Loader2 className="w-4 h-4 animate-spin" /> : (isRTL ? 'רענן' : 'Refresh')}
+                    </button>
+                  </div>
                 </div>
 
                 {loadingPlayers ? (
@@ -901,6 +946,13 @@ export default function QHuntModal({
                                   src={player.avatarValue}
                                   alt=""
                                   className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    if (target.parentElement) {
+                                      target.parentElement.innerHTML = '👤';
+                                    }
+                                  }}
                                 />
                               ) : player.avatarType === 'emoji' ? (
                                 player.avatarValue

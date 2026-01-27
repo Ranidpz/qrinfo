@@ -149,7 +149,34 @@ export async function updateQHuntStats(
 }
 
 /**
- * Increment players playing count
+ * Increment total players count (on registration)
+ */
+export async function incrementTotalPlayers(codeId: string): Promise<void> {
+  const statsRef = ref(realtimeDb, getStatsPath(codeId));
+
+  await runTransaction(statsRef, (currentStats: QHuntStats | null) => {
+    if (!currentStats) {
+      return {
+        totalPlayers: 1,
+        playersPlaying: 0,
+        playersFinished: 0,
+        totalScans: 0,
+        avgScore: 0,
+        topScore: 0,
+        lastUpdated: Date.now(),
+      };
+    }
+
+    return {
+      ...currentStats,
+      totalPlayers: currentStats.totalPlayers + 1,
+      lastUpdated: Date.now(),
+    };
+  });
+}
+
+/**
+ * Increment players playing count (on game start)
  */
 export async function incrementPlayersPlaying(codeId: string): Promise<void> {
   const statsRef = ref(realtimeDb, getStatsPath(codeId));
@@ -169,7 +196,6 @@ export async function incrementPlayersPlaying(codeId: string): Promise<void> {
 
     return {
       ...currentStats,
-      totalPlayers: currentStats.totalPlayers + 1,
       playersPlaying: currentStats.playersPlaying + 1,
       lastUpdated: Date.now(),
     };

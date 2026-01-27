@@ -23,9 +23,20 @@ function getAdminApp(): App {
 
   // Check for service account credentials
   const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-  const databaseURL = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL ||
-    `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`;
+  // Build database URL - check multiple sources
+  let databaseURL = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
+  if (!databaseURL && projectId) {
+    databaseURL = `https://${projectId}-default-rtdb.firebaseio.com`;
+  }
+
+  // Log for debugging
+  console.log('[Firebase Admin] Initializing with:', {
+    hasServiceAccount: !!serviceAccount,
+    projectId: projectId || 'NOT SET',
+    databaseURL: databaseURL || 'NOT SET',
+  });
 
   if (serviceAccount) {
     try {
