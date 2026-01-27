@@ -362,14 +362,27 @@ export function QHuntPlayerView({
           to { transform: rotate(360deg); }
         }
 
-        /* Desktop: keep elements contained inside phone */
+        /* Desktop: centered container */
         @media (min-width: 768px) {
+          .qhunt-player-view {
+            max-width: 430px;
+            margin: 40px auto;
+            border-radius: 32px;
+            box-shadow:
+              0 0 0 1px rgba(255, 255, 255, 0.08),
+              0 25px 60px -12px rgba(0, 0, 0, 0.5),
+              0 0 40px -10px rgba(59, 130, 246, 0.15);
+            min-height: auto;
+            overflow: visible;
+          }
+
           .qhunt-bg-effects {
             position: absolute;
+            border-radius: 32px;
           }
 
           .qhunt-content {
-            min-height: unset;
+            min-height: auto;
           }
         }
       `}</style>

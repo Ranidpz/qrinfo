@@ -563,7 +563,7 @@ export function QHuntRegistration({
           padding-bottom: env(safe-area-inset-bottom, 16px);
           display: flex;
           flex-direction: column;
-          min-height: 100%;
+          flex: 1;
           overflow-x: hidden;
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
@@ -572,6 +572,14 @@ export function QHuntRegistration({
         @media (min-height: 700px) {
           .qhunt-registration {
             padding-top: 24px;
+          }
+        }
+
+        /* Desktop: no scroll needed */
+        @media (min-width: 768px) {
+          .qhunt-registration {
+            overflow: visible;
+            padding: 32px 24px;
           }
         }
 
@@ -695,6 +703,14 @@ export function QHuntRegistration({
           height: 100%;
         }
 
+        /* Desktop: no scroll */
+        @media (min-width: 768px) {
+          .qhunt-registration-step {
+            overflow: visible;
+            gap: 16px;
+          }
+        }
+
         .registration-name-section {
           flex-shrink: 0;
         }
@@ -713,7 +729,7 @@ export function QHuntRegistration({
 
         .registration-step-footer {
           flex-shrink: 0;
-          padding-top: 8px;
+          padding-top: 16px;
           background: linear-gradient(to top, var(--qhunt-bg, #0a0f1a) 80%, transparent);
           margin: 0 -16px -24px;
           padding-left: 16px;
@@ -725,14 +741,22 @@ export function QHuntRegistration({
           margin-top: 0;
         }
 
+        /* Desktop: simpler footer without gradient */
+        @media (min-width: 768px) {
+          .registration-step-footer {
+            background: transparent;
+            margin: 0;
+            padding: 24px 0 0;
+          }
+        }
+
         .avatar-scroll-area {
-          flex: 1;
-          overflow-y: scroll;
+          overflow-y: auto;
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
           overscroll-behavior: contain;
-          min-height: 100px;
-          max-height: 180px;
+          min-height: 80px;
+          max-height: 160px;
           padding: 4px 0;
           margin: 0 -4px;
           padding-left: 4px;
@@ -744,7 +768,15 @@ export function QHuntRegistration({
 
         @media (min-height: 700px) {
           .avatar-scroll-area {
-            max-height: 200px; /* More rows on taller screens */
+            max-height: 180px;
+          }
+        }
+
+        /* Desktop: no scroll, show all avatars */
+        @media (min-width: 768px) {
+          .avatar-scroll-area {
+            overflow: visible;
+            max-height: none;
           }
         }
 
@@ -966,41 +998,32 @@ export function QHuntRegistration({
         /* Emoji grid */
         .qhunt-emoji-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 6px;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
           max-width: 100%;
           padding: 0 4px;
-        }
-
-        @media (min-width: 360px) {
-          .qhunt-emoji-grid {
-            grid-template-columns: repeat(5, 1fr);
-          }
         }
 
         @media (min-width: 420px) {
           .qhunt-emoji-grid {
             grid-template-columns: repeat(6, 1fr);
-            gap: 8px;
           }
         }
 
         .qhunt-emoji-btn {
+          width: 100%;
           aspect-ratio: 1;
-          font-size: 1.4rem;
+          font-size: 1.6rem;
           background: #ffffff08;
           border: 2px solid #ffffff15;
-          border-radius: 10px;
+          border-radius: 12px;
           cursor: pointer;
           transition: all 0.2s ease;
           animation: fadeIn 0.3s ease-out backwards;
-        }
-
-        @media (min-width: 400px) {
-          .qhunt-emoji-btn {
-            font-size: 1.6rem;
-            border-radius: 12px;
-          }
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
         }
 
         @keyframes fadeIn {
