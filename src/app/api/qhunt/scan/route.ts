@@ -207,8 +207,17 @@ export async function POST(request: Request) {
     const newScore = player.currentScore + huntCode.points;
     const newScansCount = player.scansCount + 1;
 
-    // Check if game complete (found all codes)
-    const isGameComplete = newScansCount >= config.targetCodeCount;
+    // Calculate actual target based on assigned type (if type-based hunting)
+    let actualTargetCount = config.targetCodeCount;
+    if (config.enableTypeBasedHunting && player.assignedCodeType) {
+      // Count active codes of the player's assigned type
+      actualTargetCount = config.codes.filter(
+        c => c.isActive && c.codeType === player.assignedCodeType
+      ).length;
+    }
+
+    // Check if game complete (found all codes of assigned type)
+    const isGameComplete = newScansCount >= actualTargetCount;
 
     // Update player
     const playerUpdate: Partial<QHuntPlayer> = {
@@ -281,6 +290,7 @@ export async function POST(request: Request) {
       scan,
       newScore,
       isGameComplete,
+      hint: huntCode.hint,
     } as QHuntScanResult);
   } catch (error) {
     console.error('Error processing scan:', error);

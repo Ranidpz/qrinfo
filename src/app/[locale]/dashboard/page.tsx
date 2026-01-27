@@ -194,7 +194,7 @@ export default function DashboardPage() {
       (error) => {
         console.error('Error subscribing to 24h views:', error);
       },
-      user.uid
+      user.id
     );
 
     // Subscribe to total views (real-time updates from codes collection)

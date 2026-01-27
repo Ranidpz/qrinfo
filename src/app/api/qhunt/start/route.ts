@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 import {
   QHuntConfig,
   QHuntPlayer,
   QHuntCodeType,
 } from '@/types/qhunt';
-import {
-  updateLeaderboardEntry,
-  incrementPlayersPlaying,
-} from '@/lib/qhunt-realtime';
 import { assignRandomCodeType } from '@/lib/qhunt';
 
 export async function POST(request: Request) {
@@ -26,11 +21,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if code exists and get config
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
+    const adminDb = getAdminDb();
 
-    if (!codeDoc.exists()) {
+    // Check if code exists and get config
+    const codeRef = adminDb.collection('codes').doc(codeId);
+    const codeDoc = await codeRef.get();
+
+    if (!codeDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'Code not found' },
         { status: 404 }
@@ -39,7 +36,7 @@ export async function POST(request: Request) {
 
     // Find QHunt media item
     const codeData = codeDoc.data();
-    const qhuntMedia = codeData.media?.find(
+    const qhuntMedia = codeData?.media?.find(
       (m: { type: string }) => m.type === 'qhunt'
     );
 
@@ -52,8 +49,9 @@ export async function POST(request: Request) {
 
     const config: QHuntConfig = qhuntMedia.qhuntConfig;
 
-    // Check if game phase allows starting
-    if (config.currentPhase !== 'registration' && config.currentPhase !== 'playing') {
+    // Check if game phase allows starting (default to 'registration' if not set)
+    const currentPhase = config.currentPhase || 'registration';
+    if (currentPhase !== 'registration' && currentPhase !== 'playing') {
       return NextResponse.json(
         { success: false, error: 'Game not in startable phase' },
         { status: 400 }
@@ -61,10 +59,10 @@ export async function POST(request: Request) {
     }
 
     // Get player
-    const playerRef = doc(db, 'codes', codeId, 'qhunt_players', playerId);
-    const playerDoc = await getDoc(playerRef);
+    const playerRef = adminDb.collection('codes').doc(codeId).collection('qhunt_players').doc(playerId);
+    const playerDoc = await playerRef.get();
 
-    if (!playerDoc.exists()) {
+    if (!playerDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'Player not registered' },
         { status: 400 }
@@ -85,8 +83,8 @@ export async function POST(request: Request) {
     }
 
     // Get all players to balance code type assignment
-    const playersRef = collection(db, 'codes', codeId, 'qhunt_players');
-    const playersSnapshot = await getDocs(playersRef);
+    const playersRef = adminDb.collection('codes').doc(codeId).collection('qhunt_players');
+    const playersSnapshot = await playersRef.get();
     const existingAssignments: Record<string, QHuntCodeType> = {};
 
     playersSnapshot.docs.forEach(doc => {
@@ -107,38 +105,15 @@ export async function POST(request: Request) {
 
     const gameStartedAt = Date.now();
 
-    // Update player
-    await updateDoc(playerRef, {
+    // Update player - only include defined values
+    const updateData: Record<string, unknown> = {
       gameStartedAt,
-      assignedCodeType,
-    });
-
-    // Update Realtime DB
-    try {
-      await incrementPlayersPlaying(codeId);
-
-      // Find team color if in team mode
-      let teamColor: string | undefined;
-      if (player.teamId) {
-        const team = config.teams.find(t => t.id === player.teamId);
-        teamColor = team?.color;
-      }
-
-      await updateLeaderboardEntry(codeId, {
-        playerId: player.id,
-        playerName: player.name,
-        avatarType: player.avatarType,
-        avatarValue: player.avatarValue,
-        teamId: player.teamId,
-        teamColor,
-        score: 0,
-        scansCount: 0,
-        isFinished: false,
-        rank: 0, // Will be recalculated
-      });
-    } catch (rtdbError) {
-      console.error('Error updating Realtime DB:', rtdbError);
+    };
+    if (assignedCodeType) {
+      updateData.assignedCodeType = assignedCodeType;
     }
+
+    await playerRef.update(updateData);
 
     return NextResponse.json({
       success: true,
@@ -149,8 +124,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error starting game:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: `Start error: ${errorMessage}` },
       { status: 500 }
     );
   }

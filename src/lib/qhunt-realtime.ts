@@ -412,7 +412,13 @@ export function subscribeToQHuntLeaderboard(
     onUpdate(entries);
   };
 
-  onValue(leaderboardRef, callback);
+  const errorCallback = (error: Error) => {
+    console.error('[QHunt] Leaderboard subscription error:', error.message);
+    // Return empty array on error so the UI can handle gracefully
+    onUpdate([]);
+  };
+
+  onValue(leaderboardRef, callback, errorCallback);
 
   return () => off(leaderboardRef, 'value', callback);
 }

@@ -52,10 +52,17 @@ export interface EnhancedCellRegistration {
   checkedInAt?: Date;              // When checked in
   checkedInBy?: string;            // Admin who approved
 
+  // Slot transfer tracking
+  transferredFrom?: string;        // Original cellId before transfer
+  transferredAt?: Date;            // When transferred
+
   // Timestamps
   registeredAt: Date;
   updatedAt?: Date;
 }
+
+// Check-in scenario type (detected during QR scan)
+export type CheckinScenario = 'ON_TIME' | 'EARLY' | 'LATE' | 'WRONG_DATE';
 
 // Preset avatar options
 export const PRESET_AVATARS = [
@@ -138,6 +145,8 @@ export interface Booth {
   isActive: boolean;               // Can hide without deleting
   defaultCapacity?: number;        // Default max registrations per time slot
   slotCapacities?: Record<number, number>; // Per-slot capacity overrides { slotIndex: capacity }
+  overbookingPercentage?: number;  // Allow registrations beyond capacity (0-50%, default 10)
+  maxRegistrationsPerPhone?: number; // Max times same phone can register for this booth per day (default: 1)
   backgroundColor?: string;        // Optional custom color for header
 
   // Per-booth schedule settings (for Timeline View)
@@ -168,6 +177,7 @@ export interface BoothCell {
 
   // Capacity - important for booth mode
   capacity?: number;               // Override booth default capacity
+  overbookingPercentage?: number;  // Override booth overbooking (0-50%, default from booth)
   enableRSVP?: boolean;            // Enable registration for this slot
 
   // Break mode - booth not active during this time

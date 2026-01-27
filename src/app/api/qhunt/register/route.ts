@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 import {
   QHuntConfig,
   QHuntPlayer,
   QHuntRegistrationResult,
 } from '@/types/qhunt';
-import { initQHuntSession, qhuntSessionExists } from '@/lib/qhunt-realtime';
 
 export async function POST(request: Request) {
   try {
@@ -37,11 +35,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if code exists and get config
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
+    // Get Admin Firestore
+    const adminDb = getAdminDb();
 
-    if (!codeDoc.exists()) {
+    // Check if code exists and get config
+    const codeRef = adminDb.collection('codes').doc(codeId);
+    const codeDoc = await codeRef.get();
+
+    if (!codeDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'Code not found' },
         { status: 404 }
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
 
     // Find QHunt media item
     const codeData = codeDoc.data();
-    const qhuntMedia = codeData.media?.find(
+    const qhuntMedia = codeData?.media?.find(
       (m: { type: string }) => m.type === 'qhunt'
     );
 
@@ -63,8 +64,11 @@ export async function POST(request: Request) {
 
     const config: QHuntConfig = qhuntMedia.qhuntConfig;
 
-    // Check if registration is open
-    if (config.currentPhase !== 'registration') {
+    // Check if registration/updates are allowed
+    const currentPhase = config.currentPhase || 'registration';
+    // Allow registration during 'registration' phase
+    // Allow profile updates during 'playing' phase (for existing players)
+    if (currentPhase !== 'registration' && currentPhase !== 'playing') {
       return NextResponse.json(
         { success: false, error: 'GAME_NOT_OPEN' } as QHuntRegistrationResult,
         { status: 400 }
@@ -90,17 +94,43 @@ export async function POST(request: Request) {
     }
 
     // Check if player already registered
-    const playerRef = doc(db, 'codes', codeId, 'qhunt_players', playerId);
-    const existingPlayer = await getDoc(playerRef);
+    const playerRef = adminDb.collection('codes').doc(codeId).collection('qhunt_players').doc(playerId);
+    const existingPlayer = await playerRef.get();
 
-    if (existingPlayer.exists()) {
-      // Return existing player data
+    if (existingPlayer.exists) {
       const player = existingPlayer.data() as QHuntPlayer;
+
+      // If avatar changed, update the player profile (allow during gameplay)
+      if (avatarType !== player.avatarType || avatarValue !== player.avatarValue || name !== player.name) {
+        const updates: Partial<QHuntPlayer> = {
+          name,
+          avatarType,
+          avatarValue,
+        };
+        await playerRef.update(updates);
+
+        // Return updated player data
+        return NextResponse.json({
+          success: true,
+          player: { ...player, ...updates },
+          assignedCodeType: player.assignedCodeType,
+        } as QHuntRegistrationResult);
+      }
+
+      // Return existing player data (no changes)
       return NextResponse.json({
         success: true,
         player,
         assignedCodeType: player.assignedCodeType,
       } as QHuntRegistrationResult);
+    }
+
+    // New registrations only allowed during registration phase
+    if (currentPhase !== 'registration') {
+      return NextResponse.json(
+        { success: false, error: 'GAME_NOT_OPEN' } as QHuntRegistrationResult,
+        { status: 400 }
+      );
     }
 
     // Create new player
@@ -109,24 +139,14 @@ export async function POST(request: Request) {
       name,
       avatarType,
       avatarValue,
-      teamId: config.mode === 'teams' ? teamId : undefined,
       registeredAt: Date.now(),
       currentScore: 0,
       scansCount: 0,
       isFinished: false,
+      ...(config.mode === 'teams' && teamId ? { teamId } : {}),
     };
 
-    await setDoc(playerRef, newPlayer);
-
-    // Initialize Realtime DB session if needed
-    try {
-      const sessionExists = await qhuntSessionExists(codeId);
-      if (!sessionExists) {
-        await initQHuntSession(codeId);
-      }
-    } catch (rtdbError) {
-      console.error('Error checking/initializing RTDB session:', rtdbError);
-    }
+    await playerRef.set(newPlayer);
 
     return NextResponse.json({
       success: true,
@@ -134,8 +154,10 @@ export async function POST(request: Request) {
     } as QHuntRegistrationResult);
   } catch (error) {
     console.error('Error registering player:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error details:', errorMessage);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: `Registration error: ${errorMessage}` },
       { status: 500 }
     );
   }

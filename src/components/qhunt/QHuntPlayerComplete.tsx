@@ -7,6 +7,7 @@
  * - Celebration animation
  * - Big score display
  * - Scan history
+ * - Tap anywhere to try again
  */
 
 import React, { useEffect, useState } from 'react';
@@ -25,6 +26,7 @@ interface QHuntPlayerCompleteProps {
   scans: QHuntScan[];
   config: QHuntConfig;
   lang: 'he' | 'en';
+  onTryAgain?: () => void;
 }
 
 export function QHuntPlayerComplete({
@@ -33,13 +35,19 @@ export function QHuntPlayerComplete({
   scans,
   config,
   lang,
+  onTryAgain,
 }: QHuntPlayerCompleteProps) {
   const t = QHUNT_TRANSLATIONS[lang];
   const { leaderboard } = useQHuntLeaderboard(codeId);
   const [showConfetti, setShowConfetti] = useState(true);
+  const [showTryAgainModal, setShowTryAgainModal] = useState(false);
 
-  // Find player's rank
-  const playerRank = leaderboard.find(e => e.playerId === player.id)?.rank || 0;
+  // Find player's rank - fallback to calculating from leaderboard position
+  const leaderboardEntry = leaderboard.find(e => e.playerId === player.id);
+  const leaderboardIndex = leaderboard.findIndex(e => e.playerId === player.id);
+  // Use rank from entry, or calculate from position (if found, index >= 0)
+  const playerRank = leaderboardEntry?.rank ||
+    (leaderboardIndex >= 0 ? leaderboardIndex + 1 : null);
 
   // Calculate game time
   const gameTime = player.gameEndedAt && player.gameStartedAt
@@ -57,8 +65,64 @@ export function QHuntPlayerComplete({
     return () => clearTimeout(timer);
   }, []);
 
+  // Handle screen tap
+  const handleScreenTap = () => {
+    if (onTryAgain && !showTryAgainModal) {
+      setShowTryAgainModal(true);
+    }
+  };
+
+  // Handle confirm try again
+  const handleConfirmTryAgain = () => {
+    setShowTryAgainModal(false);
+    onTryAgain?.();
+  };
+
   return (
-    <div className="qhunt-complete">
+    <div className="qhunt-complete" onClick={handleScreenTap}>
+      {/* Try Again Modal */}
+      {showTryAgainModal && (
+        <div className="try-again-modal-overlay" onClick={(e) => e.stopPropagation()}>
+          <div className="try-again-modal">
+            <div className="modal-icon">🚀</div>
+            <h3 className="modal-title">
+              {lang === 'he' ? 'רוצים לשפר את התוצאה?' : 'Want to beat your score?'}
+            </h3>
+            <p className="modal-text">
+              {lang === 'he'
+                ? 'הרשמו שוב ונסו להגיע למקום גבוה יותר בטבלה!'
+                : 'Register again and climb higher on the leaderboard!'}
+            </p>
+            <div className="modal-stats">
+              <div className="modal-stat">
+                <span className="modal-stat-value">{player.currentScore}</span>
+                <span className="modal-stat-label">{lang === 'he' ? 'נקודות' : 'points'}</span>
+              </div>
+              <div className="modal-stat">
+                <span className="modal-stat-value">
+                  {playerRank ? `#${playerRank}` : '#—'}
+                </span>
+                <span className="modal-stat-label">{lang === 'he' ? 'דירוג' : 'rank'}</span>
+              </div>
+            </div>
+            <div className="modal-buttons">
+              <button
+                className="modal-btn modal-btn-cancel"
+                onClick={() => setShowTryAgainModal(false)}
+              >
+                {lang === 'he' ? 'אולי אח״כ' : 'Maybe later'}
+              </button>
+              <button
+                className="modal-btn modal-btn-confirm"
+                onClick={handleConfirmTryAgain}
+              >
+                {lang === 'he' ? 'יאללה!' : "Let's go!"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confetti effect */}
       {showConfetti && (
         <div className="confetti-container">
@@ -85,7 +149,13 @@ export function QHuntPlayerComplete({
 
       {/* Score card */}
       <div className="score-card">
-        <div className="player-avatar">{player.avatarValue}</div>
+        <div className={`player-avatar ${player.avatarType === 'selfie' ? 'photo-avatar' : ''}`}>
+          {player.avatarType === 'selfie' && player.avatarValue ? (
+            <img src={player.avatarValue} alt="" className="avatar-img" />
+          ) : (
+            player.avatarValue || '🎮'
+          )}
+        </div>
         <div className="player-name">{player.name}</div>
 
         <div className="score-display">
@@ -105,7 +175,9 @@ export function QHuntPlayerComplete({
           </div>
           <div className="stat-divider" />
           <div className="stat">
-            <span className="stat-value rank">#{playerRank || '—'}</span>
+            <span className="stat-value rank">
+              {playerRank ? `#${playerRank}` : (leaderboard.length === 0 ? '...' : '#—')}
+            </span>
             <span className="stat-label">{t.rank}</span>
           </div>
         </div>
@@ -136,24 +208,27 @@ export function QHuntPlayerComplete({
         </div>
       )}
 
-      {/* Share or view leaderboard hint */}
-      <div className="complete-footer">
-        <p className="footer-text">
-          {lang === 'he'
-            ? 'צפו בלוח התוצאות על המסך הגדול!'
-            : 'Watch the leaderboard on the big screen!'}
-        </p>
-      </div>
+      {/* Tap hint at bottom */}
+      {onTryAgain && (
+        <div className="tap-hint">
+          <span className="tap-hint-text">
+            {lang === 'he' ? 'לחצו לנסות שוב' : 'Tap to try again'}
+          </span>
+        </div>
+      )}
 
       <style jsx>{`
         .qhunt-complete {
           min-height: 100vh;
           min-height: 100dvh;
           padding: 24px 16px;
+          padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
           display: flex;
           flex-direction: column;
           position: relative;
-          overflow: hidden;
+          overflow-x: hidden;
+          overflow-y: auto;
+          cursor: pointer;
         }
 
         /* Confetti */
@@ -220,8 +295,8 @@ export function QHuntPlayerComplete({
 
         /* Score card */
         .score-card {
-          background: linear-gradient(135deg, #ffffff10, #ffffff05);
-          border: 2px solid var(--qhunt-primary)40;
+          background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+          border: 2px solid color-mix(in srgb, var(--qhunt-primary) 30%, transparent);
           border-radius: 24px;
           padding: 24px;
           text-align: center;
@@ -239,6 +314,26 @@ export function QHuntPlayerComplete({
         .player-avatar {
           font-size: 3rem;
           margin-bottom: 8px;
+          width: 80px;
+          height: 80px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .player-avatar.photo-avatar {
+          border-radius: 50%;
+          overflow: hidden;
+          border: 3px solid var(--qhunt-primary);
+          box-shadow: 0 0 20px color-mix(in srgb, var(--qhunt-primary) 30%, transparent);
+        }
+
+        .player-avatar .avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
 
         .player-name {
@@ -370,17 +465,170 @@ export function QHuntPlayerComplete({
           font-family: 'Courier New', monospace;
         }
 
-        /* Footer */
-        .complete-footer {
-          text-align: center;
-          padding-top: 20px;
-          animation: slideUp 0.5s ease-out 0.6s backwards;
+        /* Try Again Modal */
+        .try-again-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.85);
+          backdrop-filter: blur(12px);
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          animation: fadeIn 0.25s ease;
         }
 
-        .footer-text {
-          margin: 0;
-          color: #ffffff60;
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .try-again-modal {
+          background: linear-gradient(145deg, #1a2035, #0d1220);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 24px;
+          padding: 28px 24px;
+          max-width: 340px;
+          width: 100%;
+          text-align: center;
+          animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            0 0 40px color-mix(in srgb, var(--qhunt-primary) 15%, transparent),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes modalSlideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .modal-icon {
+          font-size: 3.5rem;
+          margin-bottom: 12px;
+          animation: rocketBounce 1s ease-in-out infinite;
+        }
+
+        @keyframes rocketBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
+
+        .modal-title {
+          font-size: 1.4rem;
+          font-weight: 800;
+          color: #fff;
+          margin: 0 0 8px;
+          text-shadow: 0 0 20px color-mix(in srgb, var(--qhunt-primary) 40%, transparent);
+        }
+
+        .modal-text {
+          font-size: 0.95rem;
+          color: rgba(255, 255, 255, 0.7);
+          margin: 0 0 16px;
+          line-height: 1.5;
+        }
+
+        .modal-stats {
+          display: flex;
+          justify-content: center;
+          gap: 24px;
+          margin-bottom: 20px;
+          padding: 12px 16px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 12px;
+        }
+
+        .modal-stat {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .modal-stat-value {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: var(--qhunt-primary);
+          text-shadow: 0 0 15px var(--qhunt-primary);
+        }
+
+        .modal-stat-label {
+          font-size: 0.7rem;
+          color: rgba(255, 255, 255, 0.5);
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        .modal-buttons {
+          display: flex;
+          gap: 12px;
+        }
+
+        .modal-btn {
+          flex: 1;
+          padding: 14px 16px;
+          font-size: 0.95rem;
+          font-weight: 700;
+          font-family: 'Assistant', sans-serif;
+          border: none;
+          border-radius: 14px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+
+        .modal-btn-cancel {
+          background: rgba(255, 255, 255, 0.08);
+          color: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .modal-btn-cancel:hover {
+          background: rgba(255, 255, 255, 0.12);
+          color: #fff;
+        }
+
+        .modal-btn-confirm {
+          background: linear-gradient(135deg, var(--qhunt-secondary), var(--qhunt-primary));
+          color: #fff;
+          box-shadow: 0 4px 20px color-mix(in srgb, var(--qhunt-primary) 30%, transparent);
+        }
+
+        .modal-btn-confirm:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 30px color-mix(in srgb, var(--qhunt-primary) 50%, transparent);
+        }
+
+        .modal-btn-confirm:active {
+          transform: translateY(0);
+        }
+
+        .btn-emoji {
+          font-size: 1.1rem;
+        }
+
+        /* Tap hint */
+        .tap-hint {
+          text-align: center;
+          padding: 16px 0;
+          flex-shrink: 0;
+        }
+
+        .tap-hint-text {
           font-size: 0.9rem;
+          font-weight: 500;
+          color: var(--qhunt-primary);
+          opacity: 0.7;
         }
       `}</style>
     </div>

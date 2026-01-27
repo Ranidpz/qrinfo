@@ -24,7 +24,10 @@ import {
   Trash2,
   Menu,
   Home,
+  ArrowRightLeft,
+  Target,
 } from 'lucide-react';
+import type { CheckinScenario } from '@/types/weeklycal';
 
 interface ScanResult {
   registration: {
@@ -38,6 +41,9 @@ interface ScanResult {
     isVerified: boolean;
     checkedIn: boolean;
     checkedInAt?: string;
+    cellId: string;
+    boothId?: string;
+    startSlotIndex?: number;
   };
   activity: {
     title: string;
@@ -45,9 +51,16 @@ interface ScanResult {
     boothName: string;
     date: string;
     backgroundColor: string;
+    cellId: string;
+    startSlotIndex: number;
   };
   alreadyCheckedIn: boolean;
   checkedInAt?: string;
+  scenario?: CheckinScenario;
+  participationsToday: number;
+  transferred?: boolean;
+  transferredFrom?: string;
+  transferredTo?: string;
 }
 
 interface Registration {
@@ -77,6 +90,17 @@ interface ActivityInfo {
   boothName?: string;
   backgroundColor?: string;
   capacity?: number;
+  startSlotIndex?: number;
+}
+
+interface SlotOption {
+  cellId: string;
+  boothId: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  startSlotIndex: number;
+  boothName?: string;
 }
 
 type ScanState = 'scanning' | 'loading' | 'result' | 'error';
@@ -101,6 +125,12 @@ export default function CheckinScannerPage() {
   const [error, setError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
 
+  // Slot selector state
+  const [todaySlots, setTodaySlots] = useState<SlotOption[]>([]);
+  const [currentSlot, setCurrentSlot] = useState<SlotOption | null>(null);
+  const [showSlotSelector, setShowSlotSelector] = useState(false);
+  const [todayDate, setTodayDate] = useState<string>('');
+
   // Participants list state
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [activities, setActivities] = useState<ActivityInfo[]>([]);
@@ -118,22 +148,93 @@ export default function CheckinScannerPage() {
   const isProcessingRef = useRef(false);
   const autoResetTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch event title
+  // Fetch event title and today's slots
   useEffect(() => {
-    const fetchEventTitle = async () => {
+    const fetchEventData = async () => {
       try {
         const response = await fetch(`/api/codes/${codeId}`);
         if (response.ok) {
           const data = await response.json();
           setEventTitle(data.code?.title || '');
+
+          // Get today's slots for slot selector
+          const config = data.code?.media?.[0]?.weeklycalConfig;
+          if (config?.boothDays) {
+            const today = new Date().toISOString().split('T')[0];
+            setTodayDate(today);
+
+            const todayDay = config.boothDays.find((day: { date: string }) => day.date === today);
+            if (todayDay) {
+              const booths = todayDay.booths?.length > 0 ? todayDay.booths : config.defaultBooths || [];
+              const cells = todayDay.cells || [];
+              const timeSlots = todayDay.timeSlots || [];
+
+              // Build slot options from cells
+              const slots: SlotOption[] = cells
+                .filter((cell: { enableRSVP?: boolean; isBreak?: boolean }) => cell.enableRSVP !== false && !cell.isBreak)
+                .map((cell: { id: string; boothId: string; title: string; startSlotIndex: number }) => {
+                  const slot = timeSlots[cell.startSlotIndex || 0];
+                  const booth = booths.find((b: { id: string }) => b.id === cell.boothId);
+                  return {
+                    cellId: cell.id,
+                    boothId: cell.boothId,
+                    title: cell.title,
+                    startTime: slot?.startTime || '',
+                    endTime: slot?.endTime || '',
+                    startSlotIndex: cell.startSlotIndex || 0,
+                    boothName: booth?.name,
+                  };
+                })
+                .sort((a: SlotOption, b: SlotOption) => a.startSlotIndex - b.startSlotIndex);
+
+              setTodaySlots(slots);
+
+              // Auto-detect current slot based on time
+              const now = new Date();
+              const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+              let detectedSlot: SlotOption | null = null;
+              for (const slot of slots) {
+                const [startHour, startMin] = slot.startTime.split(':').map(Number);
+                const [endHour, endMin] = slot.endTime.split(':').map(Number);
+                const startMinutes = startHour * 60 + startMin;
+                const endMinutes = endHour * 60 + endMin;
+
+                if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+                  detectedSlot = slot;
+                  break;
+                }
+              }
+
+              // If no current slot found, use the next upcoming slot or first slot
+              if (!detectedSlot && slots.length > 0) {
+                for (const slot of slots) {
+                  const [startHour, startMin] = slot.startTime.split(':').map(Number);
+                  const startMinutes = startHour * 60 + startMin;
+                  if (currentMinutes < startMinutes) {
+                    detectedSlot = slot;
+                    break;
+                  }
+                }
+                // If all slots passed, use the last one
+                if (!detectedSlot) {
+                  detectedSlot = slots[slots.length - 1];
+                }
+              }
+
+              if (detectedSlot) {
+                setCurrentSlot(detectedSlot);
+              }
+            }
+          }
         }
       } catch (err) {
-        console.error('Error fetching event title:', err);
+        console.error('Error fetching event data:', err);
       }
     };
 
     if (codeId) {
-      fetchEventTitle();
+      fetchEventData();
     }
   }, [codeId]);
 
@@ -262,6 +363,7 @@ export default function CheckinScannerPage() {
                   boothName: booth?.name,
                   backgroundColor: cell.backgroundColor,
                   capacity: cell.capacity,
+                  startSlotIndex: cell.startSlotIndex,
                 });
               });
             });
@@ -282,6 +384,17 @@ export default function CheckinScannerPage() {
     return () => clearInterval(interval);
   }, [viewMode, codeId]);
 
+  // Build scanner context
+  const getScannerContext = useCallback(() => {
+    if (!currentSlot || !todayDate) return undefined;
+    return {
+      currentCellId: currentSlot.cellId,
+      currentSlotIndex: currentSlot.startSlotIndex,
+      currentDate: todayDate,
+      currentBoothId: currentSlot.boothId,
+    };
+  }, [currentSlot, todayDate]);
+
   // Handle QR code scan
   const handleScan = useCallback(async (decodedText: string) => {
     if (isProcessingRef.current) return;
@@ -300,6 +413,7 @@ export default function CheckinScannerPage() {
         body: JSON.stringify({
           qrToken: decodedText,
           action: 'query',
+          scannerContext: getScannerContext(),
         }),
       });
 
@@ -328,7 +442,7 @@ export default function CheckinScannerPage() {
       setScanState('error');
       scheduleReset();
     }
-  }, [isRTL]);
+  }, [isRTL, getScannerContext]);
 
   const scheduleReset = (delay: number = 5000) => {
     if (autoResetTimerRef.current) {
@@ -361,6 +475,7 @@ export default function CheckinScannerPage() {
         body: JSON.stringify({
           qrToken: scanResult.registration.qrToken,
           action: 'checkin',
+          scannerContext: getScannerContext(),
         }),
       });
 
@@ -378,6 +493,49 @@ export default function CheckinScannerPage() {
     } catch (err) {
       console.error('[Scanner] Error approving check-in:', err);
       setError(isRTL ? 'שגיאה באישור כניסה' : 'Error approving check-in');
+      setScanState('error');
+      scheduleReset();
+    }
+  };
+
+  // Handle transfer to current slot
+  const handleTransfer = async () => {
+    if (!scanResult || !currentSlot) return;
+
+    setScanState('loading');
+
+    try {
+      const response = await fetch('/api/weeklycal/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          qrToken: scanResult.registration.qrToken,
+          action: 'transfer',
+          scannerContext: getScannerContext(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (errorData.errorCode === 'CAPACITY_EXCEEDED') {
+          setError(isRTL ? 'המשבצת הנוכחית מלאה' : 'Current slot is full');
+        } else if (errorData.errorCode === 'WRONG_DATE') {
+          setError(isRTL ? 'לא ניתן להעביר ליום אחר' : 'Cannot transfer to different day');
+        } else {
+          setError(isRTL ? 'שגיאה בהעברה' : 'Transfer failed');
+        }
+        setScanState('error');
+        scheduleReset();
+        return;
+      }
+
+      const data: ScanResult = await response.json();
+      setScanResult(data);
+      setScanState('result');
+      scheduleReset(3000);
+    } catch (err) {
+      console.error('[Scanner] Error transferring:', err);
+      setError(isRTL ? 'שגיאה בהעברה' : 'Transfer failed');
       setScanState('error');
       scheduleReset();
     }
@@ -501,6 +659,39 @@ export default function CheckinScannerPage() {
       });
     } catch {
       return dateStr;
+    }
+  };
+
+  // Get scenario display info
+  const getScenarioInfo = (scenario?: CheckinScenario) => {
+    if (!scenario) return null;
+    switch (scenario) {
+      case 'ON_TIME':
+        return {
+          label: isRTL ? 'בזמן' : 'On Time',
+          color: 'bg-green-500/20 text-green-300 border-green-500/30',
+          icon: '✓',
+        };
+      case 'EARLY':
+        return {
+          label: isRTL ? 'הרשמה לפעילות מאוחרת יותר' : 'Registered for later slot',
+          color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+          icon: '🕐',
+        };
+      case 'LATE':
+        return {
+          label: isRTL ? 'הפעילות כבר עברה' : 'Activity has passed',
+          color: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+          icon: '⏰',
+        };
+      case 'WRONG_DATE':
+        return {
+          label: isRTL ? 'רשום ליום אחר' : 'Registered for different day',
+          color: 'bg-red-500/20 text-red-300 border-red-500/30',
+          icon: '📅',
+        };
+      default:
+        return null;
     }
   };
 
@@ -727,6 +918,32 @@ export default function CheckinScannerPage() {
       {viewMode === 'scanner' ? (
         /* Scanner View - Fill available space */
         <div className="flex-1 relative overflow-hidden flex flex-col bg-black min-h-0">
+          {/* Slot Selector Bar */}
+          {todaySlots.length > 0 && scanState === 'scanning' && (
+            <div className="bg-gray-800/80 backdrop-blur px-4 py-2 flex items-center justify-between shrink-0 border-b border-gray-700">
+              <div className="flex items-center gap-2 text-white/70 text-sm">
+                <Target className="w-4 h-4 text-cyan-400" />
+                <span>{isRTL ? 'סריקה עבור:' : 'Scanning for:'}</span>
+              </div>
+              <button
+                onClick={() => setShowSlotSelector(true)}
+                className="bg-cyan-500/20 text-cyan-400 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-cyan-500/30 transition-colors"
+              >
+                {currentSlot ? (
+                  <>
+                    <Clock className="w-4 h-4" />
+                    <span dir="ltr">{currentSlot.startTime}</span>
+                    <span>-</span>
+                    <span className="truncate max-w-[100px]">{currentSlot.title}</span>
+                  </>
+                ) : (
+                  <span>{isRTL ? 'בחר משבצת' : 'Select slot'}</span>
+                )}
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Camera Container - Centered square */}
           <div className="flex-1 flex items-center justify-center p-4 min-h-0">
             <div className="relative w-64 h-64 sm:w-72 sm:h-72">
@@ -748,6 +965,56 @@ export default function CheckinScannerPage() {
               )}
             </div>
           </div>
+
+          {/* Slot Selector Modal */}
+          {showSlotSelector && (
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-30 flex items-center justify-center p-4">
+              <div className="bg-gray-900 rounded-2xl w-full max-w-md max-h-[70vh] overflow-hidden border border-gray-700">
+                <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">
+                    {isRTL ? 'בחר משבצת לסריקה' : 'Select slot to scan'}
+                  </h3>
+                  <button
+                    onClick={() => setShowSlotSelector(false)}
+                    className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="overflow-y-auto max-h-[50vh] p-2">
+                  {todaySlots.map((slot) => (
+                    <button
+                      key={slot.cellId}
+                      onClick={() => {
+                        setCurrentSlot(slot);
+                        setShowSlotSelector(false);
+                      }}
+                      className={`w-full p-3 mb-2 rounded-xl text-right transition-colors ${
+                        currentSlot?.cellId === slot.cellId
+                          ? 'bg-cyan-500/20 border border-cyan-500/50'
+                          : 'bg-gray-800/50 hover:bg-gray-800 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="bg-gray-700 px-2 py-1 rounded text-cyan-400 text-sm font-mono" dir="ltr">
+                          {slot.startTime}
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-white font-medium">{slot.title}</div>
+                          {slot.boothName && (
+                            <div className="text-gray-400 text-sm">{slot.boothName}</div>
+                          )}
+                        </div>
+                        {currentSlot?.cellId === slot.cellId && (
+                          <Check className="w-5 h-5 text-cyan-400" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Loading Overlay */}
           {scanState === 'loading' && (
@@ -785,11 +1052,27 @@ export default function CheckinScannerPage() {
 
           {/* Result Overlay */}
           {scanState === 'result' && scanResult && (
-            <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 overflow-y-auto">
               <div
-                className="rounded-3xl p-6 max-w-md w-full shadow-2xl"
+                className="rounded-3xl p-6 max-w-md w-full shadow-2xl my-4"
                 style={{ backgroundColor: scanResult.activity.backgroundColor }}
               >
+                {/* Transfer Success Badge */}
+                {scanResult.transferred && (
+                  <div className="bg-green-500/20 border border-green-500/30 text-green-300 px-4 py-2 rounded-xl text-center mb-4 flex items-center justify-center gap-2">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>{isRTL ? 'הועבר ונרשם כניסה בהצלחה' : 'Transferred and checked in'}</span>
+                  </div>
+                )}
+
+                {/* Scenario Badge */}
+                {scanResult.scenario && scanResult.scenario !== 'ON_TIME' && !scanResult.transferred && (
+                  <div className={`${getScenarioInfo(scanResult.scenario)?.color} border px-4 py-2 rounded-xl text-center mb-4 flex items-center justify-center gap-2`}>
+                    <span>{getScenarioInfo(scanResult.scenario)?.icon}</span>
+                    <span>{getScenarioInfo(scanResult.scenario)?.label}</span>
+                  </div>
+                )}
+
                 {/* Avatar */}
                 <div className="text-center mb-4">
                   {scanResult.registration.avatarType === 'emoji' && scanResult.registration.avatarUrl && (
@@ -845,6 +1128,25 @@ export default function CheckinScannerPage() {
                   )}
                 </div>
 
+                {/* Participation Counter */}
+                {scanResult.participationsToday > 0 && (
+                  <div className="flex items-center justify-center gap-2 text-white/80 bg-white/10 px-4 py-2 rounded-xl mb-4">
+                    <span className="text-lg">🎯</span>
+                    <span>
+                      {isRTL
+                        ? `השתתף ${scanResult.participationsToday} פעמים היום`
+                        : `Participated ${scanResult.participationsToday} times today`}
+                    </span>
+                  </div>
+                )}
+
+                {/* High participation warning */}
+                {scanResult.participationsToday >= 3 && (
+                  <div className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-3 py-2 rounded-lg text-sm text-center mb-4">
+                    {isRTL ? '⚠️ משתתף פעיל - כבר השתתף ב-3+ פעילויות היום' : '⚠️ Active participant - 3+ activities today'}
+                  </div>
+                )}
+
                 {/* Status & Actions */}
                 {scanResult.registration.checkedIn ? (
                   <div className="text-center">
@@ -870,6 +1172,18 @@ export default function CheckinScannerPage() {
                         {isRTL ? 'טרם נכנס' : 'Not yet checked in'}
                       </span>
                     </div>
+
+                    {/* Transfer Button - Show for EARLY/LATE scenarios */}
+                    {currentSlot && scanResult.scenario && ['EARLY', 'LATE'].includes(scanResult.scenario) && (
+                      <button
+                        onClick={handleTransfer}
+                        className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg"
+                      >
+                        <ArrowRightLeft className="w-5 h-5" />
+                        {isRTL ? 'העבר למשבצת הנוכחית וסמן כניסה' : 'Transfer to current slot & check in'}
+                      </button>
+                    )}
+
                     <button
                       onClick={handleApproveCheckin}
                       className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg"

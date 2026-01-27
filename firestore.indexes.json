@@ -1,6 +1,38 @@
 {
   "indexes": [
     {
+      "collectionGroup": "qhunt_scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "playerId", "order": "ASCENDING" },
+        { "fieldPath": "scannedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "qhunt_scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "playerId", "order": "ASCENDING" },
+        { "fieldPath": "codeValue", "order": "ASCENDING" },
+        { "fieldPath": "isValid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "qhunt_scans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "playerId", "order": "ASCENDING" },
+        { "fieldPath": "isValid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "qhunt_players",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "currentScore", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "verificationCodes",
       "queryScope": "COLLECTION",
       "fields": [

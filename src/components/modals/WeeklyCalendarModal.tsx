@@ -5240,6 +5240,8 @@ function BoothSettingsEditor({
   const [durationMinutes, setDurationMinutes] = useState(booth.durationMinutes || 10);
   const [bufferMinutes, setBufferMinutes] = useState(booth.bufferMinutes || 5);
   const [defaultCapacity, setDefaultCapacity] = useState(booth.defaultCapacity || 10);
+  const [overbookingPercentage, setOverbookingPercentage] = useState(booth.overbookingPercentage ?? 10);
+  const [maxRegistrationsPerPhone, setMaxRegistrationsPerPhone] = useState(booth.maxRegistrationsPerPhone ?? 1);
   const [backgroundColor, setBackgroundColor] = useState(booth.backgroundColor || CELL_COLOR_PALETTE[0]);
 
   // Check if time settings changed
@@ -5258,6 +5260,8 @@ function BoothSettingsEditor({
       durationMinutes,
       bufferMinutes,
       defaultCapacity,
+      overbookingPercentage,
+      maxRegistrationsPerPhone,
       backgroundColor,
     });
     onClose();
@@ -5271,6 +5275,8 @@ function BoothSettingsEditor({
       durationMinutes,
       bufferMinutes,
       defaultCapacity,
+      overbookingPercentage,
+      maxRegistrationsPerPhone,
       backgroundColor,
     });
     onGenerateSlots({ duration: durationMinutes, buffer: bufferMinutes, startTime, endTime });
@@ -5361,19 +5367,59 @@ function BoothSettingsEditor({
           </div>
         </div>
 
-        {/* Default Capacity */}
+        {/* Default Capacity and Overbooking */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {isRTL ? 'קיבולת ברירת מחדל' : 'Default Capacity'}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={defaultCapacity}
+              onChange={(e) => setDefaultCapacity(parseInt(e.target.value) || 10)}
+              className="input w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              {isRTL ? 'אוברבוקינג %' : 'Overbooking %'}
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={50}
+              value={overbookingPercentage}
+              onChange={(e) => setOverbookingPercentage(parseInt(e.target.value) || 0)}
+              className="input w-full"
+            />
+            <p className="text-xs text-text-tertiary mt-1">
+              {isRTL
+                ? `מאפשר עד ${Math.floor(defaultCapacity * (1 + overbookingPercentage / 100))} רישומים`
+                : `Allows up to ${Math.floor(defaultCapacity * (1 + overbookingPercentage / 100))} registrations`}
+            </p>
+          </div>
+        </div>
+
+        {/* Max Registrations Per Phone */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-text-secondary mb-1">
-            {isRTL ? 'קיבולת ברירת מחדל' : 'Default Capacity'}
+            {isRTL ? 'מקסימום הרשמות לטלפון' : 'Max Registrations per Phone'}
           </label>
           <input
             type="number"
             min={1}
-            max={100}
-            value={defaultCapacity}
-            onChange={(e) => setDefaultCapacity(parseInt(e.target.value) || 10)}
+            max={10}
+            value={maxRegistrationsPerPhone}
+            onChange={(e) => setMaxRegistrationsPerPhone(parseInt(e.target.value) || 1)}
             className="input w-24"
           />
+          <p className="text-xs text-text-tertiary mt-1">
+            {isRTL
+              ? `כל טלפון יוכל להירשם עד ${maxRegistrationsPerPhone} פעמים לחוויה זו ביום`
+              : `Each phone can register up to ${maxRegistrationsPerPhone} times for this booth per day`}
+          </p>
         </div>
 
         {/* Color Picker */}

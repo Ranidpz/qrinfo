@@ -487,7 +487,7 @@ export default function CodeEditPage({ params }: PageProps) {
       (error) => {
         console.error('Error subscribing to views:', error);
       },
-      user.uid
+      user.id
     );
 
     return () => {
@@ -2138,6 +2138,50 @@ export default function CodeEditPage({ params }: PageProps) {
       alert(tErrors('createCodeError'));
     } finally {
       setAddingQHunt(false);
+    }
+  };
+
+  // Handler for resetting Q.Hunt game
+  const handleResetQHunt = async () => {
+    if (!code || !editingQHuntId) return;
+
+    try {
+      const response = await fetch('/api/qhunt/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId: code.id,
+          mediaId: editingQHuntId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to reset game');
+      }
+
+      // Update local state with reset config
+      const updatedMedia = code.media.map((m) => {
+        if (m.id === editingQHuntId && m.qhuntConfig) {
+          // Remove gameStartedAt and gameEndedAt from the config
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { gameStartedAt, gameEndedAt, ...restConfig } = m.qhuntConfig;
+          return {
+            ...m,
+            qhuntConfig: {
+              ...restConfig,
+              currentPhase: 'registration' as const,
+              lastResetAt: Date.now(),
+            },
+          };
+        }
+        return m;
+      });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+    } catch (error) {
+      console.error('Error resetting Q.Hunt:', error);
+      throw error;
     }
   };
 
@@ -3952,8 +3996,11 @@ export default function CodeEditPage({ params }: PageProps) {
           setEditingQHuntId(null);
         }}
         onSave={handleSaveQHunt}
+        onReset={editingQHuntId ? handleResetQHunt : undefined}
         loading={addingQHunt}
         initialConfig={editingQHuntId ? code?.media.find(m => m.id === editingQHuntId)?.qhuntConfig : undefined}
+        shortId={code.shortId}
+        codeId={code.id}
       />
 
       {/* Q.Treasure Modal */}

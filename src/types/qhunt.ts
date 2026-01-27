@@ -25,6 +25,7 @@ export interface QHuntCode {
   codeType: QHuntCodeType;        // Color/type for type-based hunting
   points: number;                 // Points awarded for scanning
   label?: string;                 // Display name (e.g., "Station 1")
+  hint?: string;                  // Hint for finding the next code
   isActive: boolean;
   createdAt: number;
 }
@@ -100,6 +101,14 @@ export interface QHuntBranding {
   successColor: string;           // Successful scans (neon green)
   warningColor: string;           // Wrong type alerts (amber)
   eventLogo?: string;
+  // Intro content for ready screen
+  introVideoUrl?: string;         // Video URL to show on ready screen
+  introVideoEnabled?: boolean;    // Toggle to show/hide intro video
+  introText?: string;             // Hebrew intro text
+  introTextEn?: string;           // English intro text
+  // Animated background effects
+  showGridAnimation?: boolean;    // Show animated grid lines
+  showGlowingOrbs?: boolean;      // Show floating glowing orbs
 }
 
 // =============================================================
@@ -265,6 +274,7 @@ export interface QHuntScanResult {
   newScore?: number;
   isGameComplete?: boolean;
   correctType?: QHuntCodeType;    // Show what type they should find
+  hint?: string;                  // Hint from scanned code for next code
 }
 
 // Player registration
@@ -288,9 +298,16 @@ export interface QHuntRegistrationResult {
 // Default Configuration
 // =============================================================
 export const DEFAULT_QHUNT_EMOJI_PALETTE = [
-  '🏃', '🎯', '⭐', '🔥', '💪', '🚀',
+  // Row 1 - Stars & Power
+  '⭐', '🎯', '🏃', '🔥', '💪', '🚀',
+  // Row 2 - Gaming & Achievement
   '🎮', '🏆', '👑', '💎', '🌟', '⚡',
-  '🦊', '🐺', '🦁', '🐯', '🦅', '🐉'
+  // Row 3 - Animals
+  '🦊', '🐺', '🦁', '🐯', '🦅', '🐉',
+  // Row 4 - Fantasy & Magic
+  '🧙', '🧝', '🧛', '👻', '🦸', '🥷',
+  // Row 5 - More fun
+  '🤖', '👽', '🎃', '🦄', '🐙', '🦋', '😎',
 ];
 
 export const DEFAULT_QHUNT_CONFIG: QHuntConfig = {
@@ -310,6 +327,35 @@ export const DEFAULT_QHUNT_CONFIG: QHuntConfig = {
     secondaryColor: '#ff00aa',
     successColor: '#00ff88',
     warningColor: '#ffaa00',
+    showGridAnimation: true,
+    showGlowingOrbs: true,
+    introVideoEnabled: false,
+    introText: `ברוכים הבאים לציד הקודים! 🎯
+
+הגמדים השובבים ברחו עם הקודים שלהם והחביאו אותם בכל מקום!
+לכל גמד יש צבע משלו.
+
+📋 החוקים:
+• מיד אחרי ההרשמה תקבלו צבע משימה
+• חפשו רק קודים בצבע שלכם
+• סרקו כמה שיותר מהר - המשחק על זמן!
+
+💡 טיפ: אם התייאשתם, לחצו "סיים משחק"
+
+בהצלחה! 🚀`,
+    introTextEn: `Welcome to the Code Hunt! 🎯
+
+The mischievous gnomes ran away with their codes and hid them everywhere!
+Each gnome has their own color.
+
+📋 The Rules:
+• After registration you'll get a mission color
+• Search only for codes in YOUR color
+• Scan as fast as you can - it's a race against time!
+
+💡 Tip: If you're stuck, tap "End Game"
+
+Good luck! 🚀`,
   },
   sound: {
     enabled: true,
@@ -442,12 +488,12 @@ export const QHUNT_TRANSLATIONS = {
     timeRemaining: 'זמן נותר',
     yourScore: 'הנקודות שלך',
     yourMission: 'המשימה שלך',
-    findCodes: 'מצאו קודים',
+    findCodes: 'מצאו רק את הקודים בצבע',
 
     // Feedback
     correctCode: 'מצוין!',
-    wrongType: 'סוג קוד שגוי!',
-    lookFor: 'חפשו קודים',
+    wrongType: 'הקוד שגוי!',
+    lookFor: 'המשימה שלכם קודים בצבע',
     alreadyScanned: 'הקוד הזה כבר נסרק',
     codeNotFound: 'קוד לא נמצא',
     gameComplete: 'סיימתם!',

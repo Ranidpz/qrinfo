@@ -442,6 +442,10 @@ export async function updateQRCode(
       if (m.selfiebeamContent) (mediaItem as Record<string, unknown>).selfiebeamContent = m.selfiebeamContent;
       if (m.qvoteConfig) (mediaItem as Record<string, unknown>).qvoteConfig = m.qvoteConfig;
       if (m.weeklycalConfig) (mediaItem as Record<string, unknown>).weeklycalConfig = m.weeklycalConfig;
+      if (m.qhuntConfig) (mediaItem as Record<string, unknown>).qhuntConfig = m.qhuntConfig;
+      if (m.qstageConfig) (mediaItem as Record<string, unknown>).qstageConfig = m.qstageConfig;
+      if (m.qtreasureConfig) (mediaItem as Record<string, unknown>).qtreasureConfig = m.qtreasureConfig;
+      if (m.qchallengeConfig) (mediaItem as Record<string, unknown>).qchallengeConfig = m.qchallengeConfig;
       if (m.pdfSettings) (mediaItem as Record<string, unknown>).pdfSettings = m.pdfSettings;
       return mediaItem;
     });

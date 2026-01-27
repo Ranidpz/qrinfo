@@ -128,10 +128,11 @@ export function QHuntManualEntry({
 
       <style jsx>{`
         .manual-entry {
-          flex: 1;
           display: flex;
           flex-direction: column;
-          padding: 16px;
+          height: 100%;
+          min-height: 0;
+          padding: 12px;
           animation: slideIn 0.3s ease-out;
         }
 
@@ -143,7 +144,8 @@ export function QHuntManualEntry({
         }
 
         .entry-header {
-          margin-bottom: 24px;
+          flex-shrink: 0;
+          margin-bottom: 16px;
         }
 
         .back-btn {
@@ -151,8 +153,8 @@ export function QHuntManualEntry({
           align-items: center;
           gap: 8px;
           padding: 10px 16px;
-          background: #ffffff10;
-          border: 1px solid #ffffff20;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
           border-radius: 10px;
           color: #fff;
           font-family: 'Assistant', sans-serif;
@@ -162,8 +164,8 @@ export function QHuntManualEntry({
         }
 
         .back-btn:hover {
-          background: #ffffff20;
-          border-color: var(--qhunt-primary);
+          background: rgba(255, 255, 255, 0.2);
+          border-color: #00ff88;
         }
 
         .entry-content {
@@ -171,96 +173,90 @@ export function QHuntManualEntry({
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
-          gap: 24px;
+          gap: 16px;
+          min-height: 0;
+          overflow-y: auto;
         }
 
         .entry-title {
-          font-size: 1.5rem;
+          font-size: 1.3rem;
           font-weight: 700;
           color: #fff;
           margin: 0;
           text-align: center;
+          flex-shrink: 0;
         }
 
         .code-input-container {
           width: 100%;
           max-width: 300px;
           position: relative;
+          flex-shrink: 0;
         }
 
         .code-input {
           width: 100%;
-          padding: 20px;
-          font-size: 2rem;
+          padding: 16px;
+          font-size: 1.8rem;
           font-weight: 700;
           font-family: 'Courier New', monospace;
-          letter-spacing: 0.2em;
+          letter-spacing: 0.15em;
           text-align: center;
-          background: #ffffff08;
-          border: none;
+          background: rgba(255, 255, 255, 0.08);
+          border: 2px solid rgba(0, 255, 136, 0.3);
           border-radius: 16px;
-          color: var(--qhunt-primary);
+          color: #00ff88;
           outline: none;
           text-transform: uppercase;
         }
 
         .code-input:focus {
-          background: #ffffff12;
+          background: rgba(255, 255, 255, 0.12);
+          border-color: #00ff88;
+          box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
         }
 
         .code-input::placeholder {
-          color: #ffffff30;
+          color: rgba(255, 255, 255, 0.3);
           letter-spacing: 0.1em;
         }
 
         .input-underline {
-          position: absolute;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 0;
-          height: 3px;
-          background: var(--qhunt-primary);
-          border-radius: 2px;
-          transition: width 0.3s ease;
-        }
-
-        .code-input:focus + .input-underline {
-          width: 80%;
-          box-shadow: 0 0 10px var(--qhunt-primary);
+          display: none;
         }
 
         /* Quick keys */
         .quick-keys {
           display: grid;
           grid-template-columns: repeat(6, 1fr);
-          gap: 8px;
+          gap: 6px;
           width: 100%;
           max-width: 320px;
+          flex-shrink: 0;
         }
 
         .quick-key {
           aspect-ratio: 1;
-          font-size: 1.3rem;
+          font-size: 1.2rem;
           font-weight: 700;
           font-family: 'Courier New', monospace;
-          background: #ffffff10;
-          border: 2px solid #ffffff20;
-          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          border-radius: 10px;
           color: #fff;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .quick-key:hover:not(:disabled) {
-          background: var(--qhunt-primary)20;
-          border-color: var(--qhunt-primary);
+          background: rgba(0, 255, 136, 0.2);
+          border-color: #00ff88;
           transform: scale(1.05);
         }
 
         .quick-key:active:not(:disabled) {
           transform: scale(0.95);
+          background: rgba(0, 255, 136, 0.3);
         }
 
         .quick-key:disabled {
@@ -271,23 +267,25 @@ export function QHuntManualEntry({
         .quick-key.backspace {
           grid-column: span 2;
           aspect-ratio: auto;
-          font-size: 1.5rem;
+          font-size: 1.4rem;
         }
 
-        /* Actions */
+        /* Actions - Fixed at bottom */
         .entry-actions {
-          padding-top: 24px;
+          flex-shrink: 0;
+          padding-top: 16px;
+          padding-bottom: env(safe-area-inset-bottom, 8px);
         }
 
         .submit-btn {
           width: 100%;
-          padding: 18px 32px;
-          font-size: 1.3rem;
+          padding: 16px 32px;
+          font-size: 1.2rem;
           font-weight: 700;
           font-family: 'Assistant', sans-serif;
-          background: linear-gradient(135deg, var(--qhunt-success), var(--qhunt-success)cc);
+          background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
           border: none;
-          border-radius: 16px;
+          border-radius: 14px;
           color: #000;
           cursor: pointer;
           display: flex;
@@ -295,17 +293,24 @@ export function QHuntManualEntry({
           justify-content: center;
           gap: 10px;
           transition: all 0.3s ease;
-          box-shadow: 0 4px 20px var(--qhunt-success)40;
+          box-shadow: 0 4px 20px rgba(0, 255, 136, 0.4);
         }
 
         .submit-btn:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 6px 30px var(--qhunt-success)60;
+          box-shadow: 0 6px 30px rgba(0, 255, 136, 0.6);
+        }
+
+        .submit-btn:active:not(:disabled) {
+          transform: translateY(0);
         }
 
         .submit-btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+          background: #333;
+          color: #666;
+          box-shadow: none;
         }
 
         .btn-loading {
@@ -319,6 +324,31 @@ export function QHuntManualEntry({
 
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+
+        /* Mobile optimizations */
+        @media (max-height: 600px) {
+          .entry-content {
+            gap: 12px;
+          }
+          .entry-title {
+            font-size: 1.1rem;
+          }
+          .code-input {
+            padding: 12px;
+            font-size: 1.5rem;
+          }
+          .quick-keys {
+            gap: 4px;
+          }
+          .quick-key {
+            font-size: 1rem;
+            border-radius: 8px;
+          }
+          .submit-btn {
+            padding: 14px 24px;
+            font-size: 1.1rem;
+          }
         }
       `}</style>
     </div>

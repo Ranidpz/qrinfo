@@ -71,6 +71,8 @@ export async function POST(request: NextRequest) {
       action,
       count = 1,
       capacity,       // Optional capacity for validation
+      overbookingPercentage, // Optional overbooking percentage (0-50, default 10)
+      maxRegistrationsPerPhone, // Max times same phone can register for this booth per day (default: 1)
     } = body;
 
     // Either weekStartDate (weekly mode) or boothDate+boothId (booth mode) required
@@ -137,11 +139,43 @@ export async function POST(request: NextRequest) {
               { status: 409 }
             );
           }
+
+          // Check max registrations per phone per booth per day (in booth mode)
+          if (isBoothMode && maxRegistrationsPerPhone !== undefined && maxRegistrationsPerPhone > 0) {
+            const normalizedPhone = phone.replace(/\D/g, '');
+            // Count all registrations for this phone in this booth on this day (across all slots)
+            const phoneBoothRegs = snapshot.docs.filter(docSnap => {
+              const data = docSnap.data();
+              const regPhone = (data.phone || '').replace(/\D/g, '');
+              return regPhone === normalizedPhone &&
+                data.boothId === boothId &&
+                data.boothDate === boothDate &&
+                data.visitorId !== visitorId; // Don't count own registration
+            });
+
+            if (phoneBoothRegs.length >= maxRegistrationsPerPhone) {
+              console.log('WeeklyCal RSVP: Max registrations per booth exceeded', { phone, boothId, count: phoneBoothRegs.length, max: maxRegistrationsPerPhone });
+              return NextResponse.json(
+                {
+                  error: 'Max registrations per booth exceeded',
+                  message: maxRegistrationsPerPhone === 1
+                    ? 'מספר הטלפון הזה כבר רשום לחוויה זו היום'
+                    : `מספר הטלפון הזה כבר רשום ${phoneBoothRegs.length} פעמים לחוויה זו היום (מקסימום ${maxRegistrationsPerPhone})`,
+                  currentRegistrations: phoneBoothRegs.length,
+                  maxAllowed: maxRegistrationsPerPhone,
+                },
+                { status: 409 }
+              );
+            }
+          }
         }
 
         // Capacity validation if capacity is provided
         if (capacity !== undefined && capacity > 0) {
-          console.log('WeeklyCal RSVP: Checking capacity', capacity);
+          // Apply overbooking percentage (default 10%, max 50%)
+          const overbookingPct = Math.max(0, Math.min(50, overbookingPercentage ?? 10));
+          const effectiveCapacity = Math.floor(capacity * (1 + overbookingPct / 100));
+          console.log('WeeklyCal RSVP: Checking capacity', { capacity, overbookingPct, effectiveCapacity });
 
           // Calculate current count for this cell (excluding current visitor)
           let currentCount = 0;
@@ -152,17 +186,19 @@ export async function POST(request: NextRequest) {
             }
           });
 
-          // Check if new registration would exceed capacity
+          // Check if new registration would exceed effective capacity (with overbooking)
           const requestedCount = Math.max(1, Math.min(10, count));
-          if (currentCount + requestedCount > capacity) {
-            const availableSlots = Math.max(0, capacity - currentCount);
-            console.log('WeeklyCal RSVP: Capacity exceeded', { currentCount, requestedCount, capacity, availableSlots });
+          if (currentCount + requestedCount > effectiveCapacity) {
+            const availableSlots = Math.max(0, effectiveCapacity - currentCount);
+            console.log('WeeklyCal RSVP: Capacity exceeded', { currentCount, requestedCount, capacity, effectiveCapacity, availableSlots });
             return NextResponse.json(
               {
                 error: 'Capacity exceeded',
                 currentCount,
                 capacity,
+                effectiveCapacity,
                 availableSlots,
+                overbookingApplied: overbookingPct > 0,
               },
               { status: 409 }
             );

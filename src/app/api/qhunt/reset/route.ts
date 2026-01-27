@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
+import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { QHuntConfig, DEFAULT_QHUNT_CONFIG } from '@/types/qhunt';
-import { resetQHuntSession } from '@/lib/qhunt-realtime';
 
 export async function POST(request: Request) {
   try {
@@ -18,11 +16,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if code exists
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
+    // Get Admin Firestore
+    const adminDb = getAdminDb();
 
-    if (!codeDoc.exists()) {
+    // Check if code exists
+    const codeRef = adminDb.collection('codes').doc(codeId);
+    const codeDoc = await codeRef.get();
+
+    if (!codeDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'Code not found' },
         { status: 404 }
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
 
     // Find QHunt media item
     const codeData = codeDoc.data();
-    const mediaIndex = codeData.media?.findIndex(
+    const mediaIndex = codeData?.media?.findIndex(
       (m: { id: string }) => m.id === mediaId
     );
 
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const qhuntMedia = codeData.media[mediaIndex];
+    const qhuntMedia = codeData!.media[mediaIndex];
     if (!qhuntMedia.qhuntConfig) {
       return NextResponse.json(
         { success: false, error: 'QHunt not configured' },
@@ -52,11 +53,11 @@ export async function POST(request: Request) {
 
     const config: QHuntConfig = qhuntMedia.qhuntConfig;
 
-    // Reset config (keep codes, teams, branding, etc.)
-    const resetConfig: Partial<QHuntConfig> = {
+    // Build reset config - remove game timing fields, reset phase and stats
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resetQHuntConfig: any = {
+      ...config,
       currentPhase: 'registration',
-      gameStartedAt: undefined,
-      gameEndedAt: undefined,
       lastResetAt: Date.now(),
       stats: {
         ...DEFAULT_QHUNT_CONFIG.stats,
@@ -64,42 +65,63 @@ export async function POST(request: Request) {
       },
     };
 
+    // Remove game timing fields (don't use undefined, just delete them)
+    delete resetQHuntConfig.gameStartedAt;
+    delete resetQHuntConfig.gameEndedAt;
+
     // Update Firestore config
-    const updatedMedia = [...codeData.media];
+    const updatedMedia = [...codeData!.media];
     updatedMedia[mediaIndex] = {
       ...updatedMedia[mediaIndex],
-      qhuntConfig: {
-        ...config,
-        ...resetConfig,
-      },
+      qhuntConfig: resetQHuntConfig,
     };
 
-    await updateDoc(codeRef, { media: updatedMedia });
+    await codeRef.update({ media: updatedMedia });
 
-    // Delete all players and scans from Firestore
-    const batch = writeBatch(db);
+    // Delete all players and scans from Firestore using Admin SDK
+    const batch = adminDb.batch();
 
     // Delete players
-    const playersRef = collection(db, 'codes', codeId, 'qhunt_players');
-    const playersSnapshot = await getDocs(playersRef);
+    const playersRef = codeRef.collection('qhunt_players');
+    const playersSnapshot = await playersRef.get();
     playersSnapshot.docs.forEach(doc => {
       batch.delete(doc.ref);
     });
 
     // Delete scans
-    const scansRef = collection(db, 'codes', codeId, 'qhunt_scans');
-    const scansSnapshot = await getDocs(scansRef);
+    const scansRef = codeRef.collection('qhunt_scans');
+    const scansSnapshot = await scansRef.get();
     scansSnapshot.docs.forEach(doc => {
       batch.delete(doc.ref);
     });
 
     await batch.commit();
 
-    // Reset Realtime DB
+    // Reset Realtime DB using Admin SDK
     try {
-      await resetQHuntSession(codeId);
+      const adminRtdb = getAdminRtdb();
+      const sessionRef = adminRtdb.ref(`qhunt/${codeId}`);
+      await sessionRef.update({
+        status: 'registration',
+        countdownStartedAt: null,
+        gameStartedAt: null,
+        stats: {
+          totalPlayers: 0,
+          playersPlaying: 0,
+          playersFinished: 0,
+          totalScans: 0,
+          avgScore: 0,
+          topScore: 0,
+          lastUpdated: Date.now(),
+        },
+        leaderboard: null,
+        teamScores: null,
+        recentScans: null,
+        lastUpdated: Date.now(),
+      });
     } catch (rtdbError) {
       console.error('Error resetting Realtime DB:', rtdbError);
+      // Don't fail the entire reset if RTDB fails
     }
 
     return NextResponse.json({
@@ -108,8 +130,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error resetting game:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error details:', errorMessage);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: `Reset error: ${errorMessage}` },
       { status: 500 }
     );
   }

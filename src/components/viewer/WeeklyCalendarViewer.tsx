@@ -1493,6 +1493,8 @@ export default function WeeklyCalendarViewer({
                                 action: 'register',
                                 count: boothRegCount,
                                 capacity: boothRegModal.cell.capacity,
+                                overbookingPercentage: boothRegModal.cell.overbookingPercentage ?? currentBooth.overbookingPercentage ?? 10,
+                                maxRegistrationsPerPhone: currentBooth.maxRegistrationsPerPhone ?? 1,
                               }),
                             });
 
@@ -1502,6 +1504,8 @@ export default function WeeklyCalendarViewer({
                                 alert(isRTL ? `הפעילות מלאה! נשארו רק ${errorData.availableSlots} מקומות` : `Activity is full! Only ${errorData.availableSlots} spots left`);
                               } else if (errorData.error === 'Phone already registered') {
                                 alert(isRTL ? 'מספר הטלפון הזה כבר רשום לפעילות זו' : 'This phone number is already registered for this activity');
+                              } else if (errorData.error === 'Max registrations per booth exceeded') {
+                                alert(isRTL ? errorData.message : `You have already registered ${errorData.currentRegistrations} times for this booth today (max ${errorData.maxAllowed})`);
                               }
                               return;
                             }

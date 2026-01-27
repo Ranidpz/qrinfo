@@ -70,6 +70,36 @@ service cloud.firestore {
         // The API validates visitorId before calling delete
         allow delete: if true;
       }
+
+      // Q.Hunt Players subcollection
+      match /qhunt_players/{playerId} {
+        // Anyone can read players (for leaderboard)
+        allow read: if true;
+        // Anyone can create a player (registration)
+        allow create: if true;
+        // Player can update their own data, or owner/admin can manage
+        allow update: if true;
+        // Only owner or admin can delete players
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+
+      // Q.Hunt Scans subcollection
+      match /qhunt_scans/{scanId} {
+        // Anyone can read scans (for tracking)
+        allow read: if true;
+        // Anyone can create a scan (during game)
+        allow create: if true;
+        // No updates to scans
+        allow update: if false;
+        // Only owner or admin can delete scans
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
     }
 
     // ViewLogs collection - IMPORTANT: Allow anyone to create (for anonymous QR scanning)

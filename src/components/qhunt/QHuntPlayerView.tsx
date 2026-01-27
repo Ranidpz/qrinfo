@@ -31,6 +31,15 @@ function getVisitorId(): string {
   return visitorId;
 }
 
+// Generate a new unique player ID (for "Try Again")
+function generateNewPlayerId(): string {
+  const newId = `player_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('qhunt_visitor_id', newId);
+  }
+  return newId;
+}
+
 interface QHuntPlayerViewProps {
   codeId: string;
   mediaId: string;
@@ -44,10 +53,11 @@ export function QHuntPlayerView({
   initialConfig,
   shortId,
 }: QHuntPlayerViewProps) {
-  const [playerId] = useState(() => getVisitorId());
+  const [playerId, setPlayerId] = useState(() => getVisitorId());
   const [isRegistered, setIsRegistered] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [showCountdown, setShowCountdown] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const { config, loading: configLoading } = useQHuntConfig(codeId, mediaId);
   const { player, scans, refreshPlayer, refreshScans } = useQHuntPlayer(codeId, playerId);
@@ -85,11 +95,13 @@ export function QHuntPlayerView({
   }, []);
 
   // Handle countdown complete
-  const handleCountdownComplete = useCallback(() => {
+  const handleCountdownComplete = useCallback(async () => {
     setShowCountdown(false);
     setHasStarted(true);
+    // Refresh player data to get the gameStartedAt timestamp
+    await refreshPlayer();
     sounds.playCountdown();
-  }, [sounds]);
+  }, [sounds, refreshPlayer]);
 
   // Handle scan complete
   const handleScanComplete = useCallback(async (isGameComplete: boolean) => {
@@ -115,6 +127,29 @@ export function QHuntPlayerView({
     sounds.playScanError();
   }, [sounds]);
 
+  // Handle edit profile (from scanner)
+  const handleEditProfile = useCallback(() => {
+    setIsEditingProfile(true);
+  }, []);
+
+  // Handle returning from edit profile
+  const handleReturnToGame = useCallback(async () => {
+    await refreshPlayer();
+    setIsEditingProfile(false);
+  }, [refreshPlayer]);
+
+  // Handle "Try Again" - creates a new player entry and starts fresh
+  const handleTryAgain = useCallback(() => {
+    // Generate a new player ID so old entry stays on leaderboard
+    const newId = generateNewPlayerId();
+    setPlayerId(newId);
+    // Reset all state to go back to registration
+    setIsRegistered(false);
+    setHasStarted(false);
+    setShowCountdown(false);
+    setIsEditingProfile(false);
+  }, []);
+
   // Determine what to render based on state
   const renderContent = () => {
     // Show countdown overlay
@@ -137,12 +172,28 @@ export function QHuntPlayerView({
           scans={scans}
           config={activeConfig}
           lang={lang}
+          onTryAgain={handleTryAgain}
         />
       );
     }
 
-    // Player is playing
-    if (hasStarted && player?.gameStartedAt) {
+    // Player is editing profile mid-game
+    if (isEditingProfile && player) {
+      return (
+        <QHuntRegistration
+          codeId={codeId}
+          config={activeConfig}
+          existingPlayer={player}
+          onRegister={handleReturnToGame}
+          onStart={handleReturnToGame}
+          lang={lang}
+          isEditMode
+        />
+      );
+    }
+
+    // Player is playing (either local state says started or player data has gameStartedAt)
+    if (player && (hasStarted || player.gameStartedAt)) {
       return (
         <QHuntScanner
           codeId={codeId}
@@ -150,6 +201,7 @@ export function QHuntPlayerView({
           config={activeConfig}
           onScanComplete={handleScanComplete}
           onScanError={handleScanError}
+          onEditProfile={handleEditProfile}
           lang={lang}
         />
       );
@@ -195,9 +247,15 @@ export function QHuntPlayerView({
     >
       {/* Animated background */}
       <div className="qhunt-bg-effects">
-        <div className="qhunt-grid-lines" />
-        <div className="qhunt-glow-orb qhunt-glow-orb-1" />
-        <div className="qhunt-glow-orb qhunt-glow-orb-2" />
+        {activeConfig.branding.showGridAnimation !== false && (
+          <div className="qhunt-grid-lines" />
+        )}
+        {activeConfig.branding.showGlowingOrbs !== false && (
+          <>
+            <div className="qhunt-glow-orb qhunt-glow-orb-1" />
+            <div className="qhunt-glow-orb qhunt-glow-orb-2" />
+          </>
+        )}
       </div>
 
       {/* Main content */}
@@ -232,8 +290,8 @@ export function QHuntPlayerView({
           position: absolute;
           inset: 0;
           background-image:
-            linear-gradient(var(--qhunt-primary)05 1px, transparent 1px),
-            linear-gradient(90deg, var(--qhunt-primary)05 1px, transparent 1px);
+            linear-gradient(color-mix(in srgb, var(--qhunt-primary) 5%, transparent) 1px, transparent 1px),
+            linear-gradient(90deg, color-mix(in srgb, var(--qhunt-primary) 5%, transparent) 1px, transparent 1px);
           background-size: 50px 50px;
           animation: gridMove 20s linear infinite;
         }
@@ -292,7 +350,7 @@ export function QHuntPlayerView({
         .qhunt-loading-spinner {
           width: 60px;
           height: 60px;
-          border: 3px solid var(--qhunt-primary)30;
+          border: 3px solid color-mix(in srgb, var(--qhunt-primary) 25%, transparent);
           border-top-color: var(--qhunt-primary);
           border-radius: 50%;
           animation: spin 1s linear infinite;

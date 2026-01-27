@@ -1594,6 +1594,24 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             title={currentMedia.title || 'ענן מילים'}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
+        ) : isQHunt || isQStage || isQTreasure || isQChallenge ? (
+          // Special media types without config - show setup required message
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-8">
+            <div className="text-6xl mb-6">
+              {isQHunt ? '🎯' : isQStage ? '🎤' : isQTreasure ? '🗺️' : '🎮'}
+            </div>
+            <p className="text-xl font-bold mb-2">
+              {isQHunt ? 'Q.Hunt' : isQStage ? 'Q.Stage' : isQTreasure ? 'Q.Treasure' : 'Q.Challenge'}
+            </p>
+            <p className="text-gray-400 text-center">
+              המשחק טרם הוגדר. יש להגדיר את המשחק מהדשבורד.
+            </p>
+          </div>
+        ) : !currentMedia.url ? (
+          // Media item without URL - show placeholder
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+            <p className="text-lg text-gray-400">אין תוכן להצגה</p>
+          </div>
         ) : (
           // Single image - use ImageGalleryViewer for link button support
           <ImageGalleryViewer
