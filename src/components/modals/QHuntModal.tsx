@@ -249,6 +249,10 @@ export default function QHuntModal({
   const [showDeleteAllCodesModal, setShowDeleteAllCodesModal] = useState(false);
   const [deleteAllCodesConfirmText, setDeleteAllCodesConfirmText] = useState('');
 
+  // Reset game confirmation modal
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+
   // Handle delete player
   const handleDeletePlayer = async (playerId: string) => {
     if (!codeId || !confirm(isRTL ? 'למחוק את השחקן?' : 'Delete this player?')) return;
@@ -959,7 +963,7 @@ export default function QHuntModal({
                     {isRTL ? 'אזור מסוכן' : 'Danger Zone'}
                   </h3>
                   <button
-                    onClick={handleReset}
+                    onClick={() => setShowResetConfirmModal(true)}
                     disabled={!onReset || resetting}
                     className="flex items-center gap-2 px-4 py-3 rounded-xl border border-red-500 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -2255,7 +2259,7 @@ export default function QHuntModal({
                   {isRTL ? 'אזור מסוכן' : 'Danger Zone'}
                 </h3>
                 <button
-                  onClick={handleReset}
+                  onClick={() => setShowResetConfirmModal(true)}
                   disabled={!onReset || resetting}
                   className="flex items-center gap-2 px-4 py-3 rounded-xl border border-red-500 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -2435,6 +2439,99 @@ export default function QHuntModal({
                 }}
               >
                 {isRTL ? 'מחק הכל' : 'Delete All'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Game Confirmation Modal */}
+      {showResetConfirmModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => {
+            setShowResetConfirmModal(false);
+            setResetConfirmText('');
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6"
+            style={{ background: '#1a1a2e' }}
+            onClick={(e) => e.stopPropagation()}
+            dir={isRTL ? 'rtl' : 'ltr'}
+          >
+            {/* Warning Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+                <RotateCcw className="w-8 h-8 text-red-500" />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-xl font-bold text-center text-white mb-2">
+              {isRTL ? 'איפוס משחק' : 'Reset Game'}
+            </h3>
+
+            {/* Warning text */}
+            <p className="text-center text-gray-400 text-sm mb-4">
+              {isRTL
+                ? `פעולה זו תמחק ${players.length} שחקנים ואת כל הסריקות לצמיתות. לא ניתן לשחזר פעולה זו.`
+                : `This will permanently delete ${players.length} players and all scans. This action cannot be undone.`}
+            </p>
+
+            {/* Confirmation input */}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-2 text-center">
+                {isRTL
+                  ? 'הקלידו "מחיקה" לאישור:'
+                  : 'Type "delete" to confirm:'}
+              </label>
+              <input
+                type="text"
+                value={resetConfirmText}
+                onChange={(e) => setResetConfirmText(e.target.value)}
+                placeholder={isRTL ? 'מחיקה' : 'delete'}
+                className="w-full px-4 py-3 rounded-xl text-center text-lg font-medium"
+                style={{
+                  background: '#0f172a',
+                  border: '2px solid #374151',
+                  color: '#ffffff',
+                }}
+                autoFocus
+              />
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowResetConfirmModal(false);
+                  setResetConfirmText('');
+                }}
+                className="flex-1 px-4 py-3 rounded-xl font-medium transition-colors"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#ffffff',
+                }}
+              >
+                {isRTL ? 'ביטול' : 'Cancel'}
+              </button>
+              <button
+                onClick={async () => {
+                  setShowResetConfirmModal(false);
+                  setResetConfirmText('');
+                  await handleReset();
+                }}
+                disabled={(isRTL ? resetConfirmText !== 'מחיקה' : resetConfirmText.toLowerCase() !== 'delete')}
+                className="flex-1 px-4 py-3 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: (isRTL ? resetConfirmText === 'מחיקה' : resetConfirmText.toLowerCase() === 'delete')
+                    ? '#ef4444'
+                    : 'rgba(239, 68, 68, 0.3)',
+                  color: '#ffffff',
+                }}
+              >
+                {isRTL ? 'אפס משחק' : 'Reset Game'}
               </button>
             </div>
           </div>
