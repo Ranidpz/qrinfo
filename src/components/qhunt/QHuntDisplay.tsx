@@ -606,9 +606,7 @@ function AnimatedLeaderboard({
           flex-direction: column;
           align-items: flex-end;
           gap: 4px;
-          padding: 8px 12px;
-          background: rgba(255,255,255,0.05);
-          border-radius: 12px 4px 4px 12px;
+          padding: 8px 0;
         }
 
         .row-score-mobile .score-with-rank {
@@ -671,11 +669,26 @@ function AnimatedLeaderboard({
             grid-template-columns: 1fr auto;
             gap: 12px;
             padding: 12px 16px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: none;
+            margin-bottom: 8px;
+            border-radius: 16px;
           }
 
           .leaderboard-row:last-child {
-            border-bottom: none;
+            margin-bottom: 0;
+          }
+
+          /* Override top-3 gradients for mobile - full rounded corners */
+          .leaderboard-row.top-1 {
+            background: linear-gradient(90deg, rgba(255,215,0,0.2), rgba(255,215,0,0.05) 70%, transparent);
+          }
+
+          .leaderboard-row.top-2 {
+            background: linear-gradient(90deg, rgba(192,192,192,0.15), rgba(192,192,192,0.05) 70%, transparent);
+          }
+
+          .leaderboard-row.top-3 {
+            background: linear-gradient(90deg, rgba(205,127,50,0.15), rgba(205,127,50,0.05) 70%, transparent);
           }
 
           /* Hide rank column on mobile - rank is now shown with score */
@@ -737,7 +750,7 @@ function AnimatedLeaderboard({
         @media (max-width: 400px) {
           .leaderboard-row {
             gap: 10px;
-            padding: 10px 0;
+            padding: 10px 12px;
           }
 
           .player-avatar {
@@ -954,13 +967,14 @@ export function QHuntDisplay({
           display: none;
           position: relative;
           z-index: 10;
+          direction: ltr;
           justify-content: flex-start;
           padding: 12px 16px;
           text-decoration: none;
         }
 
         .mobile-logo-header .q-logo {
-          height: 32px;
+          height: 40px;
           width: auto;
           filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
         }
