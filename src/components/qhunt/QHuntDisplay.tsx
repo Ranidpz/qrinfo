@@ -748,7 +748,23 @@ export function QHuntDisplay({
                   className="feed-item"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  <span className="feed-avatar">{scan.avatarValue}</span>
+                  <span className={`feed-avatar ${scan.avatarValue?.startsWith('http') ? 'photo' : ''}`}>
+                    {scan.avatarValue?.startsWith('http') ? (
+                      <img
+                        src={scan.avatarValue}
+                        alt=""
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          if (target.parentElement) {
+                            target.parentElement.textContent = '🎮';
+                          }
+                        }}
+                      />
+                    ) : (
+                      scan.avatarValue || '🎮'
+                    )}
+                  </span>
                   <span className="feed-name">{scan.playerName}</span>
                   <span className="feed-points">+{scan.points}</span>
                 </div>
@@ -1083,6 +1099,23 @@ export function QHuntDisplay({
 
         .feed-avatar {
           font-size: 1.4rem;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .feed-avatar.photo {
+          border-radius: 50%;
+          overflow: hidden;
+        }
+
+        .feed-avatar.photo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
 
         .feed-name {
