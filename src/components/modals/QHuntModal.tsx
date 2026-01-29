@@ -912,8 +912,14 @@ export default function QHuntModal({
                     <div className="space-y-2">
                       {activePlayers.map(player => {
                         const elapsedMs = player.gameStartedAt ? Date.now() - player.gameStartedAt : 0;
-                        const elapsedMinutes = Math.floor(elapsedMs / 60000);
-                        const elapsedSeconds = Math.floor((elapsedMs % 60000) / 1000);
+                        const totalSeconds = Math.floor(elapsedMs / 1000);
+                        const hours = Math.floor(totalSeconds / 3600);
+                        const minutes = Math.floor((totalSeconds % 3600) / 60);
+                        const seconds = totalSeconds % 60;
+                        const timeStr = hours > 0
+                          ? `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+                          : `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                        const isStuck = hours >= 1; // Consider stuck if playing for 1+ hours
                         const team = config.teams?.find(t => t.id === player.teamId);
 
                         return (
@@ -949,8 +955,9 @@ export default function QHuntModal({
 
                             {/* Play time */}
                             <div className="text-right">
-                              <div className="font-mono text-amber-400 text-lg">
-                                {elapsedMinutes}:{elapsedSeconds.toString().padStart(2, '0')}
+                              <div className={`font-mono text-lg ${isStuck ? 'text-red-400' : 'text-amber-400'}`}>
+                                {timeStr}
+                                {isStuck && <span className="text-xs mr-1">⚠️</span>}
                               </div>
                               <div className="text-xs text-gray-400">
                                 {player.scansCount} {isRTL ? 'סריקות' : 'scans'} • {player.currentScore} {isRTL ? 'נק׳' : 'pts'}
