@@ -281,6 +281,9 @@ export default function QHuntModal({
   const [showDeleteAllCodesModal, setShowDeleteAllCodesModal] = useState(false);
   const [deleteAllCodesConfirmText, setDeleteAllCodesConfirmText] = useState('');
 
+  // Reset player state
+  const [resettingPlayerId, setResettingPlayerId] = useState<string | null>(null);
+
   // Reset game confirmation modal
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -303,6 +306,31 @@ export default function QHuntModal({
       console.error('Error deleting player:', error);
     } finally {
       setDeletingPlayerId(null);
+    }
+  };
+
+  // Handle reset player (back to registration)
+  const handleResetPlayer = async (playerId: string) => {
+    if (!codeId) return;
+
+    setResettingPlayerId(playerId);
+    try {
+      const response = await fetch(`/api/qhunt/players?codeId=${codeId}&playerId=${playerId}`, {
+        method: 'PATCH',
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Update local state - reset the player's game data
+        setPlayers(prev => prev.map(p =>
+          p.id === playerId
+            ? { ...p, gameStartedAt: undefined, gameEndedAt: undefined, isFinished: false, currentScore: 0, scansCount: 0 }
+            : p
+        ));
+      }
+    } catch (error) {
+      console.error('Error resetting player:', error);
+    } finally {
+      setResettingPlayerId(null);
     }
   };
 
@@ -869,6 +897,89 @@ export default function QHuntModal({
                   <div className="text-sm text-gray-400">{isRTL ? 'סה"כ נקודות' : 'Total Points'}</div>
                 </div>
               </div>
+
+              {/* Active Players Section - shows players currently playing */}
+              {(() => {
+                const activePlayers = players.filter(p => p.gameStartedAt && !p.isFinished);
+                if (activePlayers.length === 0) return null;
+
+                return (
+                  <div className="rounded-xl p-4" style={{ background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+                    <h3 className="font-semibold text-amber-400 flex items-center gap-2 mb-3">
+                      <Play className="w-5 h-5" />
+                      {isRTL ? `משחקים עכשיו (${activePlayers.length})` : `Active Players (${activePlayers.length})`}
+                    </h3>
+                    <div className="space-y-2">
+                      {activePlayers.map(player => {
+                        const elapsedMs = player.gameStartedAt ? Date.now() - player.gameStartedAt : 0;
+                        const elapsedMinutes = Math.floor(elapsedMs / 60000);
+                        const elapsedSeconds = Math.floor((elapsedMs % 60000) / 1000);
+                        const team = config.teams?.find(t => t.id === player.teamId);
+
+                        return (
+                          <div
+                            key={player.id}
+                            className="flex items-center gap-3 p-3 rounded-lg"
+                            style={{ background: 'rgba(0,0,0,0.3)' }}
+                          >
+                            {/* Avatar */}
+                            <div
+                              className="w-10 h-10 rounded-full flex items-center justify-center text-xl overflow-hidden"
+                              style={{ background: 'rgba(255,255,255,0.1)' }}
+                            >
+                              {player.avatarType === 'selfie' && player.avatarValue ? (
+                                <img src={player.avatarValue} alt="" className="w-full h-full object-cover" />
+                              ) : player.avatarType === 'emoji' ? (
+                                player.avatarValue
+                              ) : (
+                                '👤'
+                              )}
+                            </div>
+
+                            {/* Name & Team */}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-white truncate">{player.name}</div>
+                              {team && (
+                                <div className="text-xs text-gray-400 flex items-center gap-1">
+                                  <span style={{ color: team.color }}>●</span>
+                                  {team.name}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Play time */}
+                            <div className="text-right">
+                              <div className="font-mono text-amber-400 text-lg">
+                                {elapsedMinutes}:{elapsedSeconds.toString().padStart(2, '0')}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {player.scansCount} {isRTL ? 'סריקות' : 'scans'} • {player.currentScore} {isRTL ? 'נק׳' : 'pts'}
+                              </div>
+                            </div>
+
+                            {/* Reset button */}
+                            <button
+                              onClick={() => handleResetPlayer(player.id)}
+                              disabled={resettingPlayerId === player.id}
+                              className="p-2 rounded-lg hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 transition-colors"
+                              title={isRTL ? 'איפוס שחקן (חזרה להרשמה)' : 'Reset player (back to registration)'}
+                            >
+                              {resettingPlayerId === player.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3 text-center">
+                      {isRTL ? 'לחץ על כפתור האיפוס להחזיר שחקן למסך ההרשמה' : 'Click reset to send player back to registration'}
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* Players List */}
               <div>
