@@ -774,7 +774,8 @@ export function QHuntDisplay({
 
       <style jsx>{`
         .qhunt-display {
-          min-height: 100vh;
+          height: 100vh;
+          height: 100dvh;
           background: var(--qhunt-bg);
           font-family: 'Assistant', sans-serif;
           color: #fff;
@@ -784,13 +785,11 @@ export function QHuntDisplay({
           flex-direction: column;
         }
 
-        /* Fixed Header Section */
+        /* Fixed Header Section - truly fixed at top */
         .fixed-header {
-          position: sticky;
-          top: 0;
+          flex-shrink: 0;
           z-index: 20;
           background: var(--qhunt-bg);
-          flex-shrink: 0;
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
@@ -860,9 +859,10 @@ export function QHuntDisplay({
           color: var(--qhunt-success);
         }
 
-        /* Scrollable main content */
+        /* Scrollable main content - this is the ONLY part that scrolls */
         .display-main.scrollable {
           flex: 1;
+          min-height: 0;
           overflow-y: auto;
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
@@ -1101,7 +1101,6 @@ export function QHuntDisplay({
           grid-template-columns: ${isTeamMode ? '1fr 1fr' : '1fr'};
           gap: 40px;
           padding: 32px 48px;
-          min-height: calc(100vh - 140px);
         }
 
         .section-header {
@@ -1303,12 +1302,12 @@ export function QHuntDisplay({
             font-size: 0.65rem;
           }
 
-          /* Main content */
+          /* Main content - still needs to scroll on mobile */
           .display-main {
             grid-template-columns: 1fr !important;
             padding: 8px 16px 16px;
             gap: 16px;
-            min-height: auto;
+            min-height: 0;
           }
 
           .section-header {
