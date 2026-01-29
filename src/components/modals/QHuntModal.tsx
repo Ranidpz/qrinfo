@@ -281,7 +281,7 @@ export default function QHuntModal({
   const [showDeleteAllCodesModal, setShowDeleteAllCodesModal] = useState(false);
   const [deleteAllCodesConfirmText, setDeleteAllCodesConfirmText] = useState('');
 
-  // Reset player state
+  // End player game state
   const [resettingPlayerId, setResettingPlayerId] = useState<string | null>(null);
 
   // Reset game confirmation modal
@@ -309,8 +309,8 @@ export default function QHuntModal({
     }
   };
 
-  // Handle reset player (back to registration)
-  const handleResetPlayer = async (playerId: string) => {
+  // Handle end player game (mark as finished, keep their score)
+  const handleEndPlayerGame = async (playerId: string) => {
     if (!codeId) return;
 
     setResettingPlayerId(playerId);
@@ -320,15 +320,15 @@ export default function QHuntModal({
       });
       const data = await response.json();
       if (data.success) {
-        // Update local state - reset the player's game data
+        // Update local state - mark player as finished
         setPlayers(prev => prev.map(p =>
           p.id === playerId
-            ? { ...p, gameStartedAt: undefined, gameEndedAt: undefined, isFinished: false, currentScore: 0, scansCount: 0 }
+            ? { ...p, gameEndedAt: Date.now(), isFinished: true }
             : p
         ));
       }
     } catch (error) {
-      console.error('Error resetting player:', error);
+      console.error('Error ending player game:', error);
     } finally {
       setResettingPlayerId(null);
     }
@@ -964,17 +964,17 @@ export default function QHuntModal({
                               </div>
                             </div>
 
-                            {/* Reset button */}
+                            {/* End game button */}
                             <button
-                              onClick={() => handleResetPlayer(player.id)}
+                              onClick={() => handleEndPlayerGame(player.id)}
                               disabled={resettingPlayerId === player.id}
-                              className="p-2 rounded-lg hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 transition-colors"
-                              title={isRTL ? 'איפוס שחקן (חזרה להרשמה)' : 'Reset player (back to registration)'}
+                              className="p-2 rounded-lg hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
+                              title={isRTL ? 'סיום משחק (שמור נקודות)' : 'End game (keep score)'}
                             >
                               {resettingPlayerId === player.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
-                                <RotateCcw className="w-4 h-4" />
+                                <Square className="w-4 h-4" />
                               )}
                             </button>
                           </div>
@@ -982,7 +982,7 @@ export default function QHuntModal({
                       })}
                     </div>
                     <p className="text-xs text-gray-500 mt-3 text-center">
-                      {isRTL ? 'לחץ על כפתור האיפוס להחזיר שחקן למסך ההרשמה' : 'Click reset to send player back to registration'}
+                      {isRTL ? 'לחץ על ⏹ לסיום המשחק - הנקודות יישמרו' : 'Click ⏹ to end game - score will be kept'}
                     </p>
                   </div>
                 );

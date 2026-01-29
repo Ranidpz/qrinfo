@@ -110,7 +110,7 @@ export async function DELETE(request: Request) {
   }
 }
 
-// PATCH - Reset a player's game state (back to registration)
+// PATCH - End a player's game (mark as finished, keep their score)
 export async function PATCH(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -138,61 +138,57 @@ export async function PATCH(request: Request) {
     }
 
     const playerData = playerDoc.data();
-    const wasPlaying = playerData?.gameStartedAt && !playerData?.isFinished;
-    const wasFinished = playerData?.isFinished === true;
 
-    // Reset player game state (keep name, avatar, teamId)
-    await playerRef.update({
-      gameStartedAt: null,
-      gameEndedAt: null,
-      isFinished: false,
-      currentScore: 0,
-      scansCount: 0,
-    });
-
-    // Delete player's scans
-    const scansRef = adminDb.collection('codes').doc(codeId).collection('qhunt_scans');
-    const scansSnapshot = await scansRef.where('playerId', '==', playerId).get();
-    if (!scansSnapshot.empty) {
-      const batch = adminDb.batch();
-      scansSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
+    // Only process if player is actually playing (not already finished)
+    if (!playerData?.gameStartedAt || playerData?.isFinished) {
+      return NextResponse.json(
+        { success: false, error: 'Player is not currently playing' },
+        { status: 400 }
+      );
     }
+
+    const now = Date.now();
+    const gameTime = now - playerData.gameStartedAt;
+
+    // Mark player as finished (keep their score)
+    await playerRef.update({
+      gameEndedAt: now,
+      isFinished: true,
+      finishedAt: now,
+      gameTime: gameTime,
+    });
 
     // Update realtime database
     try {
       const adminRtdb = getAdminRtdb();
 
-      // Remove from leaderboard
+      // Update leaderboard entry to show as finished
       const leaderboardRef = adminRtdb.ref(`qhunt/${codeId}/leaderboard/${playerId}`);
-      await leaderboardRef.remove();
+      await leaderboardRef.update({
+        isFinished: true,
+        finishedAt: now,
+        gameTime: gameTime,
+      });
 
-      // Update stats - decrement playersPlaying or playersFinished
+      // Update stats - move from playing to finished
       const statsRef = adminRtdb.ref(`qhunt/${codeId}/stats`);
       const statsSnapshot = await statsRef.get();
       const currentStats = statsSnapshot.val();
 
       if (currentStats) {
-        const updates: Record<string, number> = {
-          lastUpdated: Date.now(),
-        };
-
-        if (wasPlaying) {
-          updates.playersPlaying = Math.max(0, (currentStats.playersPlaying || 0) - 1);
-        }
-        if (wasFinished) {
-          updates.playersFinished = Math.max(0, (currentStats.playersFinished || 0) - 1);
-        }
-
-        await statsRef.update(updates);
+        await statsRef.update({
+          playersPlaying: Math.max(0, (currentStats.playersPlaying || 0) - 1),
+          playersFinished: (currentStats.playersFinished || 0) + 1,
+          lastUpdated: now,
+        });
       }
     } catch (rtdbError) {
       console.error('RTDB update error (non-fatal):', rtdbError);
     }
 
-    return NextResponse.json({ success: true, message: 'Player reset to registration' });
+    return NextResponse.json({ success: true, message: 'Player game ended' });
   } catch (error) {
-    console.error('Error resetting player:', error);
+    console.error('Error ending player game:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       { success: false, error: `Error: ${errorMessage}` },
