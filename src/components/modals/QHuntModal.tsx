@@ -981,8 +981,10 @@ export default function QHuntModal({
                         );
                       })}
                     </div>
-                    <p className="text-xs text-gray-500 mt-3 text-center">
-                      {isRTL ? 'לחץ על ⏹ לסיום המשחק - הנקודות יישמרו' : 'Click ⏹ to end game - score will be kept'}
+                    <p className="text-xs text-gray-500 mt-3 text-center flex items-center justify-center gap-1">
+                      {isRTL ? 'לחץ על' : 'Click'}
+                      <Square className="w-3 h-3 inline text-red-400" />
+                      {isRTL ? 'לסיום המשחק - הנקודות יישמרו' : 'to end game - score will be kept'}
                     </p>
                   </div>
                 );
