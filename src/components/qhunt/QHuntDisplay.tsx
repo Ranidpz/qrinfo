@@ -659,52 +659,90 @@ export function QHuntDisplay({
         </div>
       </div>
 
-      {/* Header with Q Logo */}
-      <a href="https://qr.playzones.app" className="q-logo-header">
-        <img src="/theQ.png" alt="The Q" className="q-logo" />
-      </a>
+      {/* Fixed Header Section */}
+      <div className="fixed-header">
+        {/* Header with Q Logo */}
+        <a href="https://qr.playzones.app" className="q-logo-header">
+          <img src="/theQ.png" alt="The Q" className="q-logo" />
+        </a>
 
-      {/* Header */}
-      <header className="display-header">
-        <div className="header-left">
-          {activeConfig.branding.eventLogo && (
-            <img src={activeConfig.branding.eventLogo} alt="" className="event-logo" />
-          )}
-          <div className="game-title-wrapper">
-            <h1 className="game-title">
-              {activeConfig.branding.gameTitle || (lang === 'he' ? 'ציד קודים' : 'Code Hunt')}
-            </h1>
-            <div className="title-glow" />
-          </div>
-        </div>
-
-        <div className="header-right">
-          {phase === 'playing' && activeConfig.gameDurationSeconds > 0 && (
-            <div className={`timer-display ${timeRemaining <= 60 ? 'urgent' : ''}`}>
-              <span className="timer-icon">⏱️</span>
-              <span className="timer-value">{formattedTime}</span>
-            </div>
-          )}
-
-          <div className="stats-display">
-            <div className="stat-card">
-              <AnimatedNumber value={stats?.totalPlayers || 0} className="stat-number" duration={1200} />
-              <span className="stat-label">{t.players}</span>
-            </div>
-            <div className="stat-card playing">
-              <AnimatedNumber value={stats?.playersPlaying || 0} className="stat-number" duration={1200} />
-              <span className="stat-label">{t.playing}</span>
-            </div>
-            <div className="stat-card finished">
-              <AnimatedNumber value={stats?.playersFinished || 0} className="stat-number" duration={1200} />
-              <span className="stat-label">{t.finished}</span>
+        {/* Header */}
+        <header className="display-header">
+          <div className="header-left">
+            {activeConfig.branding.eventLogo && (
+              <img src={activeConfig.branding.eventLogo} alt="" className="event-logo" />
+            )}
+            <div className="game-title-wrapper">
+              <h1 className="game-title">
+                {activeConfig.branding.gameTitle || (lang === 'he' ? 'ציד קודים' : 'Code Hunt')}
+              </h1>
+              <div className="title-glow" />
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* Main content */}
-      <main className="display-main">
+          <div className="header-right">
+            {phase === 'playing' && activeConfig.gameDurationSeconds > 0 && (
+              <div className={`timer-display ${timeRemaining <= 60 ? 'urgent' : ''}`}>
+                <span className="timer-icon">⏱️</span>
+                <span className="timer-value">{formattedTime}</span>
+              </div>
+            )}
+
+            <div className="stats-display">
+              <div className="stat-card">
+                <AnimatedNumber value={stats?.playersFinished || 0} className="stat-number" duration={1200} />
+                <span className="stat-label">{t.finished}</span>
+              </div>
+              <div className="stat-card playing">
+                <AnimatedNumber value={stats?.playersPlaying || 0} className="stat-number" duration={1200} />
+                <span className="stat-label">{t.playing}</span>
+              </div>
+              <div className="stat-card">
+                <AnimatedNumber value={stats?.totalPlayers || 0} className="stat-number" duration={1200} />
+                <span className="stat-label">{t.players}</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Recent scans feed - in fixed header */}
+        {recentScans.length > 0 && (
+          <aside className="scans-feed-fixed">
+            <div className="feed-list-horizontal">
+              {recentScans.slice(0, 5).map((scan, index) => (
+                <div
+                  key={scan.id}
+                  className="feed-item-compact"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <span className={`feed-avatar-small ${scan.avatarValue?.startsWith('http') ? 'photo' : ''}`}>
+                    {scan.avatarValue?.startsWith('http') ? (
+                      <img
+                        src={scan.avatarValue}
+                        alt=""
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          if (target.parentElement) {
+                            target.parentElement.textContent = '🎮';
+                          }
+                        }}
+                      />
+                    ) : (
+                      scan.avatarValue || '🎮'
+                    )}
+                  </span>
+                  <span className="feed-name-small">{scan.playerName}</span>
+                  <span className="feed-points-small">+{scan.points}</span>
+                </div>
+              ))}
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {/* Scrollable Main content */}
+      <main className="display-main scrollable">
         {/* Leaderboard */}
         <section className="leaderboard-section">
           <div className="section-header">
@@ -732,46 +770,6 @@ export function QHuntDisplay({
           </section>
         )}
 
-        {/* Recent scans feed */}
-        {recentScans.length > 0 && (
-          <aside className="scans-feed">
-            <div className="feed-header">
-              <span className="feed-icon">⚡</span>
-              <h3 className="feed-title">
-                {lang === 'he' ? 'סריקות אחרונות' : 'Recent Scans'}
-              </h3>
-            </div>
-            <div className="feed-list">
-              {recentScans.slice(0, 5).map((scan, index) => (
-                <div
-                  key={scan.id}
-                  className="feed-item"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <span className={`feed-avatar ${scan.avatarValue?.startsWith('http') ? 'photo' : ''}`}>
-                    {scan.avatarValue?.startsWith('http') ? (
-                      <img
-                        src={scan.avatarValue}
-                        alt=""
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          if (target.parentElement) {
-                            target.parentElement.textContent = '🎮';
-                          }
-                        }}
-                      />
-                    ) : (
-                      scan.avatarValue || '🎮'
-                    )}
-                  </span>
-                  <span className="feed-name">{scan.playerName}</span>
-                  <span className="feed-points">+{scan.points}</span>
-                </div>
-              ))}
-            </div>
-          </aside>
-        )}
       </main>
 
       <style jsx>{`
@@ -782,6 +780,92 @@ export function QHuntDisplay({
           color: #fff;
           position: relative;
           overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* Fixed Header Section */
+        .fixed-header {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          background: var(--qhunt-bg);
+          flex-shrink: 0;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Recent scans in fixed header */
+        .scans-feed-fixed {
+          padding: 8px 24px 12px;
+          background: linear-gradient(to bottom, var(--qhunt-bg), transparent);
+        }
+
+        .feed-list-horizontal {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+          scrollbar-width: none;
+        }
+
+        .feed-list-horizontal::-webkit-scrollbar {
+          display: none;
+        }
+
+        .feed-item-compact {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 12px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          flex-shrink: 0;
+          animation: feedSlideIn 0.3s ease-out backwards;
+        }
+
+        .feed-avatar-small {
+          width: 24px;
+          height: 24px;
+          font-size: 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .feed-avatar-small.photo {
+          border-radius: 50%;
+          overflow: hidden;
+        }
+
+        .feed-avatar-small.photo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .feed-name-small {
+          font-size: 0.85rem;
+          font-weight: 600;
+          white-space: nowrap;
+          max-width: 80px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .feed-points-small {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--qhunt-success);
+        }
+
+        /* Scrollable main content */
+        .display-main.scrollable {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
         }
 
         /* Q Logo Header */
@@ -1097,6 +1181,17 @@ export function QHuntDisplay({
           }
         }
 
+        @keyframes feedSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
         .feed-avatar {
           font-size: 1.4rem;
           width: 32px;
@@ -1229,7 +1324,32 @@ export function QHuntDisplay({
             letter-spacing: 1px;
           }
 
-          /* Hide scans feed on mobile or make it inline */
+          /* Horizontal scans feed in fixed header - mobile */
+          .scans-feed-fixed {
+            padding: 4px 12px 8px;
+          }
+
+          .feed-item-compact {
+            padding: 4px 10px;
+            gap: 6px;
+          }
+
+          .feed-avatar-small {
+            width: 20px;
+            height: 20px;
+            font-size: 0.85rem;
+          }
+
+          .feed-name-small {
+            font-size: 0.75rem;
+            max-width: 60px;
+          }
+
+          .feed-points-small {
+            font-size: 0.75rem;
+          }
+
+          /* Hide old scans feed on mobile or make it inline */
           .scans-feed {
             position: relative;
             bottom: auto;
@@ -1304,6 +1424,19 @@ export function QHuntDisplay({
 
           .section-title {
             font-size: 1rem;
+          }
+
+          .scans-feed-fixed {
+            padding: 4px 8px 6px;
+          }
+
+          .feed-item-compact {
+            padding: 3px 8px;
+          }
+
+          .feed-name-small {
+            font-size: 0.7rem;
+            max-width: 50px;
           }
         }
       `}</style>
