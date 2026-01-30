@@ -513,7 +513,20 @@ export function QHuntScanner({
         >
           <div className={`profile-avatar ${player.avatarType === 'selfie' ? 'photo-avatar' : ''}`}>
             {player.avatarType === 'selfie' && player.avatarValue ? (
-              <img src={player.avatarValue} alt="" className="avatar-img" />
+              <img
+                src={player.avatarValue}
+                alt=""
+                className="avatar-img"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.textContent = '🎮';
+                    parent.classList.remove('photo-avatar');
+                  }
+                }}
+              />
             ) : (
               player.avatarValue || '🎮'
             )}

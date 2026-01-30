@@ -252,8 +252,10 @@ function AnimatedLeaderboard({
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.style.display = 'none';
-                          if (target.parentElement) {
-                            target.parentElement.innerHTML = '👤';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.textContent = '🎮';
+                            parent.classList.remove('photo');
                           }
                         }}
                       />
@@ -594,6 +596,8 @@ export function QHuntDisplay({
   mediaId,
   initialConfig,
 }: QHuntDisplayProps) {
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+
   const {
     config,
     liveData,
@@ -611,6 +615,18 @@ export function QHuntDisplay({
     liveData?.gameStartedAt || activeConfig.gameStartedAt,
     activeConfig.gameDurationSeconds
   );
+
+  // Keyboard shortcut: Control key to toggle header
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setHeaderCollapsed(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Determine language
   const lang = activeConfig.language === 'auto' ? 'he' : activeConfig.language;
@@ -661,8 +677,8 @@ export function QHuntDisplay({
 
       {/* Fixed Header Section */}
       <div className="fixed-header">
-        {/* Header with Q Logo */}
-        <a href="https://qr.playzones.app" className="q-logo-header">
+        {/* Header with Q Logo - Press Ctrl to toggle */}
+        <a href="https://qr.playzones.app" className={`q-logo-header ${headerCollapsed ? 'collapsed' : ''}`}>
           <img src="/theQ.png" alt="The Q" className="q-logo" />
         </a>
 
@@ -705,40 +721,6 @@ export function QHuntDisplay({
           </div>
         </header>
 
-        {/* Recent scans feed - in fixed header */}
-        {recentScans.length > 0 && (
-          <aside className="scans-feed-fixed">
-            <div className="feed-list-horizontal">
-              {recentScans.slice(0, 5).map((scan, index) => (
-                <div
-                  key={scan.id}
-                  className="feed-item-compact"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <span className={`feed-avatar-small ${scan.avatarValue?.startsWith('http') ? 'photo' : ''}`}>
-                    {scan.avatarValue?.startsWith('http') ? (
-                      <img
-                        src={scan.avatarValue}
-                        alt=""
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          if (target.parentElement) {
-                            target.parentElement.textContent = '🎮';
-                          }
-                        }}
-                      />
-                    ) : (
-                      scan.avatarValue || '🎮'
-                    )}
-                  </span>
-                  <span className="feed-name-small">{scan.playerName}</span>
-                  <span className="feed-points-small">+{scan.points}</span>
-                </div>
-              ))}
-            </div>
-          </aside>
-        )}
       </div>
 
       {/* Scrollable Main content */}
@@ -772,6 +754,47 @@ export function QHuntDisplay({
 
       </main>
 
+      {/* Recent scans feed - floating on the side */}
+      {recentScans.length > 0 && (
+        <aside className="scans-feed-floating">
+          <div className="feed-header">
+            <span className="feed-icon">⚡</span>
+            <span className="feed-title">{lang === 'he' ? 'סריקות אחרונות' : 'Recent Scans'}</span>
+          </div>
+          <div className="feed-list-vertical">
+            {recentScans.slice(0, 5).map((scan, index) => (
+              <div
+                key={scan.id}
+                className="feed-item-vertical"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <span className={`feed-avatar ${scan.avatarValue?.startsWith('http') ? 'photo' : ''}`}>
+                  {scan.avatarValue?.startsWith('http') ? (
+                    <img
+                      src={scan.avatarValue}
+                      alt=""
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        if (target.parentElement) {
+                          target.parentElement.textContent = '🎮';
+                        }
+                      }}
+                    />
+                  ) : (
+                    scan.avatarValue || '🎮'
+                  )}
+                </span>
+                <div className="feed-info">
+                  <span className="feed-name">{scan.playerName}</span>
+                  <span className="feed-points">+{scan.points}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+      )}
+
       <style jsx>{`
         .qhunt-display {
           height: 100vh;
@@ -793,68 +816,105 @@ export function QHuntDisplay({
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
-        /* Recent scans in fixed header */
-        .scans-feed-fixed {
-          padding: 8px 24px 12px;
-          background: linear-gradient(to bottom, var(--qhunt-bg), transparent);
+        /* Floating recent scans on the side */
+        .scans-feed-floating {
+          position: fixed;
+          left: 24px;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 30;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(10px);
+          border-radius: 16px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 16px;
+          max-width: 200px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
 
-        .feed-list-horizontal {
-          display: flex;
-          gap: 12px;
-          overflow-x: auto;
-          padding-bottom: 4px;
-          scrollbar-width: none;
+        [dir="rtl"] .scans-feed-floating {
+          left: auto;
+          right: 24px;
         }
 
-        .feed-list-horizontal::-webkit-scrollbar {
-          display: none;
-        }
-
-        .feed-item-compact {
+        .feed-header {
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 6px 12px;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .feed-icon {
+          font-size: 1.2rem;
+        }
+
+        .feed-title {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.8);
+          white-space: nowrap;
+        }
+
+        .feed-list-vertical {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .feed-item-vertical {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px;
           background: rgba(255, 255, 255, 0.05);
-          border-radius: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          flex-shrink: 0;
+          border-radius: 12px;
           animation: feedSlideIn 0.3s ease-out backwards;
         }
 
-        .feed-avatar-small {
-          width: 24px;
-          height: 24px;
-          font-size: 1rem;
+        .feed-avatar {
+          width: 32px;
+          height: 32px;
+          font-size: 1.2rem;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
         }
 
-        .feed-avatar-small.photo {
+        .feed-avatar.photo {
           border-radius: 50%;
           overflow: hidden;
+          padding: 0;
+          background: transparent;
         }
 
-        .feed-avatar-small.photo img {
+        .feed-avatar.photo img {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
 
-        .feed-name-small {
+        .feed-info {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+
+        .feed-name {
           font-size: 0.85rem;
           font-weight: 600;
           white-space: nowrap;
-          max-width: 80px;
           overflow: hidden;
           text-overflow: ellipsis;
+          max-width: 100px;
         }
 
-        .feed-points-small {
-          font-size: 0.85rem;
+        .feed-points {
+          font-size: 0.8rem;
           font-weight: 700;
           color: var(--qhunt-success);
         }
@@ -880,6 +940,16 @@ export function QHuntDisplay({
           height: 71px;
           text-decoration: none;
           background: var(--qhunt-bg);
+          transition: height 0.3s ease-out, padding 0.3s ease-out, opacity 0.3s ease-out;
+          overflow: hidden;
+        }
+
+        .q-logo-header.collapsed {
+          height: 0;
+          padding-top: 0;
+          padding-bottom: 0;
+          opacity: 0;
+          pointer-events: none;
         }
 
         .q-logo-header .q-logo {
@@ -1323,38 +1393,9 @@ export function QHuntDisplay({
             letter-spacing: 1px;
           }
 
-          /* Horizontal scans feed in fixed header - mobile */
-          .scans-feed-fixed {
-            padding: 4px 12px 8px;
-          }
-
-          .feed-item-compact {
-            padding: 4px 10px;
-            gap: 6px;
-          }
-
-          .feed-avatar-small {
-            width: 20px;
-            height: 20px;
-            font-size: 0.85rem;
-          }
-
-          .feed-name-small {
-            font-size: 0.75rem;
-            max-width: 60px;
-          }
-
-          .feed-points-small {
-            font-size: 0.75rem;
-          }
-
-          /* Hide old scans feed on mobile or make it inline */
-          .scans-feed {
-            position: relative;
-            bottom: auto;
-            right: auto;
-            width: 100%;
-            margin-top: 20px;
+          /* Hide floating scans feed on mobile */
+          .scans-feed-floating {
+            display: none;
           }
 
           /* Reduce background effects on mobile for performance */
@@ -1423,19 +1464,6 @@ export function QHuntDisplay({
 
           .section-title {
             font-size: 1rem;
-          }
-
-          .scans-feed-fixed {
-            padding: 4px 8px 6px;
-          }
-
-          .feed-item-compact {
-            padding: 3px 8px;
-          }
-
-          .feed-name-small {
-            font-size: 0.7rem;
-            max-width: 50px;
           }
         }
       `}</style>

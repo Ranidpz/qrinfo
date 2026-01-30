@@ -364,7 +364,15 @@ export function QHuntRegistration({
                     {isUploading ? (
                       <span className="upload-spinner" />
                     ) : photoUrl && avatarType === 'selfie' ? (
-                      <img src={photoUrl} alt="avatar" className="photo-preview" />
+                      <img
+                        src={photoUrl}
+                        alt="avatar"
+                        className="photo-preview"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                        }}
+                      />
                     ) : (
                       <span className="upload-icon">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -472,7 +480,20 @@ export function QHuntRegistration({
               <div className="profile-avatar-frame">
                 <div className={`profile-avatar ${avatarType === 'selfie' ? 'photo-avatar' : ''}`}>
                   {avatarType === 'selfie' && photoUrl ? (
-                    <img src={photoUrl} alt="avatar" className="avatar-photo" />
+                    <img
+                      src={photoUrl}
+                      alt="avatar"
+                      className="avatar-photo"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.textContent = '🎮';
+                          parent.classList.remove('photo-avatar');
+                        }
+                      }}
+                    />
                   ) : (
                     selectedEmoji || existingPlayer?.avatarValue
                   )}

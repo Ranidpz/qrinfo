@@ -133,7 +133,26 @@ export function QHuntLeaderboard({
 
               {/* Player info */}
               <div className="row-player">
-                <span className="player-avatar">{entry.avatarValue}</span>
+                <div className={`player-avatar ${entry.avatarType === 'selfie' ? 'photo' : ''}`}>
+                  {entry.avatarType === 'selfie' && entry.avatarValue?.startsWith('http') ? (
+                    <img
+                      src={entry.avatarValue}
+                      alt=""
+                      onError={(e) => {
+                        // Fallback to default emoji on error
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.textContent = '🎮';
+                          parent.classList.remove('photo');
+                        }
+                      }}
+                    />
+                  ) : (
+                    entry.avatarValue || '🎮'
+                  )}
+                </div>
                 <span className="player-name">{entry.playerName}</span>
                 {entry.teamColor && (
                   <span
@@ -284,6 +303,25 @@ export function QHuntLeaderboard({
 
         .player-avatar {
           font-size: 1.8rem;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .player-avatar.photo {
+          border-radius: 50%;
+          overflow: hidden;
+          background: #ffffff10;
+          border: 2px solid var(--qhunt-primary);
+        }
+
+        .player-avatar.photo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
 
         .player-name {

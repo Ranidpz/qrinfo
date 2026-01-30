@@ -194,7 +194,20 @@ export function QHuntPlayerComplete({
       <div className="score-card">
         <div className={`player-avatar ${player.avatarType === 'selfie' ? 'photo-avatar' : ''}`}>
           {player.avatarType === 'selfie' && player.avatarValue ? (
-            <img src={player.avatarValue} alt="" className="avatar-img" />
+            <img
+              src={player.avatarValue}
+              alt=""
+              className="avatar-img"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.textContent = '🎮';
+                  parent.classList.remove('photo-avatar');
+                }
+              }}
+            />
           ) : (
             player.avatarValue || '🎮'
           )}
@@ -305,9 +318,22 @@ export function QHuntPlayerComplete({
                       className={`leaderboard-row ${isTop3 ? `top-${entry.rank}` : ''} ${isCurrentPlayer ? 'current-player' : ''}`}
                       style={{ '--row-index': index } as React.CSSProperties}
                     >
-                      <div className="row-avatar">
+                      <div className={`row-avatar ${entry.avatarType === 'selfie' ? 'photo' : ''}`}>
                         {entry.avatarType === 'selfie' && entry.avatarValue?.startsWith('http') ? (
-                          <img src={entry.avatarValue} alt="" className="avatar-img" />
+                          <img
+                            src={entry.avatarValue}
+                            alt=""
+                            className="avatar-img"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.textContent = '🎮';
+                                parent.classList.remove('photo');
+                              }
+                            }}
+                          />
                         ) : (
                           entry.avatarValue || '🎮'
                         )}
@@ -936,6 +962,12 @@ export function QHuntPlayerComplete({
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+
+        .row-avatar.photo {
+          border-radius: 50%;
+          border: 2px solid var(--qhunt-primary);
+          background: rgba(255,255,255,0.05);
         }
 
         .row-info {
