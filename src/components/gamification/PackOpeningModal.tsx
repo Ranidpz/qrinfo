@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { X, Gift, Sparkles } from 'lucide-react';
 import { PendingPack, PackOpening, RARITY_CONFIG, PrizeRarity } from '@/types';
 import { claimPrize } from '@/lib/lottery';
@@ -334,13 +334,15 @@ function PrizeCard({
 // Particles Component
 function Particles({ rarity }: { rarity: PrizeRarity }) {
   const count = rarity === 'legendary' ? 30 : 15;
-  const particles = Array.from({ length: count }, (_, i) => ({
-    id: i,
-    left: Math.random() * 100,
-    delay: Math.random() * 2,
-    duration: 2 + Math.random() * 2,
-    size: rarity === 'legendary' ? 10 + Math.random() * 15 : 8 + Math.random() * 10,
-  }));
+  const particles = useMemo(() =>
+    Array.from({ length: count }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 2,
+      duration: 2 + Math.random() * 2,
+      size: rarity === 'legendary' ? 10 + Math.random() * 15 : 8 + Math.random() * 10,
+    }))
+  , [count, rarity]);
 
   const emoji = rarity === 'legendary' ? '🌟' : '✨';
 

@@ -17,7 +17,7 @@ export default function LanguageSwitcher() {
 
   // Ensure component is mounted before rendering (prevents hydration issues)
   useEffect(() => {
-    setMounted(true);
+    setTimeout(() => setMounted(true), 0);
   }, []);
 
   // Close dropdown when clicking outside

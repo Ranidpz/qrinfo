@@ -235,7 +235,7 @@ export default function CodeCard({
     const duration = startValue === 0 ? 1000 : 500; // Longer animation on first load
     const startTime = Date.now();
 
-    setIsAnimating(true);
+    setTimeout(() => setIsAnimating(true), 0);
 
     const animate = () => {
       const elapsed = Date.now() - startTime;

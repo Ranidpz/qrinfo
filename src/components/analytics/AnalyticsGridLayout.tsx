@@ -27,7 +27,7 @@ export default function AnalyticsGridLayout({ sections, onResetLayout }: Analyti
 
   // Initialize order from sections or localStorage
   useEffect(() => {
-    setMounted(true);
+    setTimeout(() => setMounted(true), 0);
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {

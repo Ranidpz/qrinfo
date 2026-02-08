@@ -30,12 +30,12 @@ export default function AccessibilityButton() {
 
     if (savedFontSize) {
       const size = parseInt(savedFontSize);
-      setFontSize(size);
+      setTimeout(() => setFontSize(size), 0);
       document.documentElement.style.fontSize = `${size}%`;
     }
 
     if (savedContrast === 'true') {
-      setHighContrast(true);
+      setTimeout(() => setHighContrast(true), 0);
       document.documentElement.classList.add('high-contrast');
     }
   }, []);

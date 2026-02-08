@@ -49,7 +49,7 @@ export default function WinnerCelebration({
       duration: 3 + Math.random() * 2,
       color: colors[Math.floor(Math.random() * colors.length)],
     }));
-    setConfetti(newConfetti);
+    setTimeout(() => setConfetti(newConfetti), 0);
 
     // Animate in
     setTimeout(() => setIsVisible(true), 100);

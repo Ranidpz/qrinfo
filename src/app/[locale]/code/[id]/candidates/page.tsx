@@ -47,7 +47,7 @@ function AnimatedNumber({ value, duration = 500 }: { value: number; duration?: n
 
     // If values are the same, no need to animate
     if (startValue === endValue) {
-      setDisplayValue(endValue);
+      setTimeout(() => setDisplayValue(endValue), 0);
       return;
     }
 

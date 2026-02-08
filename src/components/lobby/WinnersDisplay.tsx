@@ -38,6 +38,15 @@ export default function WinnersDisplay({
   const [winners, setWinners] = useState<PackOpening[]>([]);
   const [celebratingWinner, setCelebratingWinner] = useState<PackOpening | null>(null);
   const [seenWinnerIds, setSeenWinnerIds] = useState<Set<string>>(new Set());
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every second for time ago calculations
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Listen to real-time winner updates
   useEffect(() => {
@@ -87,7 +96,7 @@ export default function WinnersDisplay({
 
   // Format time ago
   const formatTimeAgo = (date: Date) => {
-    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    const seconds = Math.floor((currentTime - date.getTime()) / 1000);
 
     if (seconds < 60) return locale === 'he' ? 'הרגע' : 'Just now';
     if (seconds < 3600) {

@@ -49,7 +49,7 @@ const translations = {
 };
 
 export default function PacksClient({ routeId }: PacksClientProps) {
-  const [locale, setLocale] = useState<'he' | 'en'>('he');
+  const [locale, setLocale] = useState<'he' | 'en'>(() => getBrowserLocale());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [routeTitle, setRouteTitle] = useState<string>('');
@@ -60,11 +60,6 @@ export default function PacksClient({ routeId }: PacksClientProps) {
   const t = translations[locale];
   const isRTL = locale === 'he';
   const Arrow = isRTL ? ArrowLeft : ArrowRight;
-
-  // Get locale on mount
-  useEffect(() => {
-    setLocale(getBrowserLocale());
-  }, []);
 
   // Load route and packs
   useEffect(() => {
