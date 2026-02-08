@@ -2,6 +2,7 @@ import { put, del, list } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import sharp from 'sharp';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 // Avatar upload for registration - stores in codeId/avatars folder
 // Converts any image format (including HEIC) to WebP
@@ -38,6 +39,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Visitor ID is required' }, { status: 400 });
     }
 
+    // Resolve ownerId from code document for organized blob path
+    let ownerId: string | null = null;
+    try {
+      const adminDb = getAdminDb();
+      const codeDoc = await adminDb.collection('codes').doc(codeId).get();
+      if (codeDoc.exists) {
+        ownerId = codeDoc.data()?.ownerId || null;
+      }
+    } catch (err) {
+      console.error('Failed to resolve ownerId for avatar:', err);
+    }
+
     // Validate file size (2MB max for avatars)
     const maxSize = 2 * 1024 * 1024;
     if (file.size > maxSize) {
@@ -53,13 +66,25 @@ export async function POST(request: NextRequest) {
       ? Buffer.from(phone).toString('base64url').slice(0, 12)
       : visitorId.slice(0, 12);
 
-    const avatarPath = `avatars/${codeId}/${identifier}`;
+    // Organized path: {ownerId}/{codeId}/avatars/{identifier}
+    // Legacy fallback: avatars/{codeId}/{identifier}
+    const legacyPath = `avatars/${codeId}/${identifier}`;
+    const avatarPath = ownerId
+      ? `${ownerId}/${codeId}/avatars/${identifier}`
+      : legacyPath;
 
-    // Delete existing avatar if any
+    // Delete existing avatar if any (check both new and legacy paths)
     try {
       const existingBlobs = await list({ prefix: avatarPath });
       for (const blob of existingBlobs.blobs) {
         await del(blob.url);
+      }
+      // Also clean up legacy path if we're using the new path
+      if (ownerId) {
+        const legacyBlobs = await list({ prefix: legacyPath });
+        for (const blob of legacyBlobs.blobs) {
+          await del(blob.url);
+        }
       }
     } catch {
       // Ignore errors when listing/deleting - might not exist

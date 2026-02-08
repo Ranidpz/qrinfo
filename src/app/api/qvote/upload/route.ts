@@ -1,6 +1,7 @@
 import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 // Compress and create thumbnail
 async function processImage(file: File): Promise<{ main: Blob; thumbnail: Blob }> {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const codeId = formData.get('codeId') as string;
-    const ownerId = formData.get('ownerId') as string;
+    let ownerId = formData.get('ownerId') as string;
 
     if (!file || !codeId) {
       return NextResponse.json(
@@ -64,13 +65,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve ownerId from Firestore if not provided by client
+    if (!ownerId && codeId) {
+      try {
+        const adminDb = getAdminDb();
+        const codeDoc = await adminDb.collection('codes').doc(codeId).get();
+        if (codeDoc.exists) {
+          ownerId = codeDoc.data()?.ownerId || '';
+        }
+      } catch (err) {
+        console.error('Failed to resolve ownerId for QVote upload:', err);
+      }
+    }
+
     // Generate unique filename
     const timestamp = Date.now();
     const photoId = `qvote_${timestamp}_${Math.random().toString(36).substring(7)}`;
     const extension = file.type === 'image/webp' ? 'webp' : 'jpg';
 
     // Build path with owner folder structure: {ownerId}/{codeId}/qvote/photos/...
-    // If ownerId is not provided, fall back to codeId-only structure for backwards compatibility
     const basePath = ownerId ? `${ownerId}/${codeId}/qvote` : `qvote/${codeId}`;
 
     // Upload main image

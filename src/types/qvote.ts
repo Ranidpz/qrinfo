@@ -58,6 +58,9 @@ export interface QVoteBranding {
   landingImageSize?: number;          // File size in bytes
   landingImagePosition?: ImagePositionConfig;  // Position/crop config for landing image
   logoUrl?: string;                   // Logo URL for header
+  logoScale?: number;                 // Logo scale factor (0.3 to 2.0, default 1.0)
+  logoName?: string;                  // Original logo file name
+  logoSize?: number;                  // Logo file size in bytes
   categoryImages?: Record<string, string>;  // Image per category ID
   categoryImagePositions?: Record<string, ImagePositionConfig>;  // Position config per category ID
   imageOverlayOpacity?: number;       // Overlay opacity (0-80) for landing image
@@ -277,6 +280,7 @@ export interface Vote {
   candidateId: string;
   voterId: string;                  // Visitor ID from localStorage
   round: VoteRound;                 // 1 = regular, 2 = finals
+  phone?: string | null;            // Normalized phone number if verification enabled
   createdAt: Date;
 }
 

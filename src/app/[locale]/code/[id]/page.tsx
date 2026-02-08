@@ -1735,12 +1735,13 @@ export default function CodeEditPage({ params }: PageProps) {
   };
 
   // Handler for adding/editing Q.Vote
-  const handleSaveQVote = async (config: QVoteConfig, landingImageFile?: File) => {
+  const handleSaveQVote = async (config: QVoteConfig, landingImageFile?: File, logoFile?: File) => {
     if (!code || !user) return;
 
     setAddingQVote(true);
     try {
       let landingImageUrl: string | undefined;
+      let logoUrl: string | undefined;
       let totalImageSize = 0;
 
       // Upload landing image if provided
@@ -1763,19 +1764,61 @@ export default function CodeEditPage({ params }: PageProps) {
         totalImageSize += uploadData.size;
       }
 
+      console.log('[handleSaveQVote] logoFile:', logoFile, 'config.branding.logoUrl:', config.branding.logoUrl);
+      if (logoFile) {
+        const logoFormData = new FormData();
+        logoFormData.append('file', logoFile);
+        logoFormData.append('userId', user.id);
+
+        const logoUploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: logoFormData,
+        });
+
+        if (!logoUploadResponse.ok) {
+          throw new Error('Failed to upload logo');
+        }
+
+        const logoUploadData = await logoUploadResponse.json();
+        logoUrl = logoUploadData.url;
+        totalImageSize += logoUploadData.size;
+      }
+
+      // Clean blob URLs from branding before saving to Firestore
+      const cleanBranding = { ...config.branding };
+      if (cleanBranding.logoUrl?.startsWith('blob:')) {
+        delete cleanBranding.logoUrl;
+        delete cleanBranding.logoName;
+        delete cleanBranding.logoSize;
+      }
+
       // Create Q.Vote config with uploaded image URL (remove undefined values for Firestore)
       const qvoteConfig = removeUndefined({
         ...config,
         branding: {
-          ...config.branding,
-          landingImage: landingImageUrl || config.branding.landingImage,
+          ...cleanBranding,
+          landingImage: landingImageUrl || cleanBranding.landingImage,
           // Save image metadata if new image was uploaded
           ...(landingImageFile && landingImageUrl ? {
             landingImageName: landingImageFile.name,
             landingImageSize: totalImageSize,
           } : {}),
+          // Save logo URL from upload or preserve existing logo
+          ...(logoUrl || cleanBranding.logoUrl ? { logoUrl: logoUrl || cleanBranding.logoUrl } : {}),
+          // Save logo metadata (new upload or preserve existing)
+          ...(logoFile && logoUrl ? {
+            logoName: logoFile.name,
+            logoSize: logoFile.size,
+          } : cleanBranding.logoName && cleanBranding.logoSize ? {
+            logoName: cleanBranding.logoName,
+            logoSize: cleanBranding.logoSize,
+          } : {}),
+          // Preserve logo scale
+          ...(cleanBranding.logoScale !== undefined ? { logoScale: cleanBranding.logoScale } : {}),
         },
       }) as QVoteConfig;
+
+      console.log('[handleSaveQVote] FINAL logoUrl:', logoUrl, 'qvoteConfig.branding.logoUrl:', qvoteConfig.branding.logoUrl, 'qvoteConfig.branding.logoScale:', qvoteConfig.branding.logoScale);
 
       let updatedMedia: MediaItem[];
 
@@ -4013,6 +4056,9 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveQTreasure}
         loading={addingQTreasure}
         initialConfig={editingQTreasureId ? code?.media.find(m => m.id === editingQTreasureId)?.qtreasureConfig : undefined}
+        shortId={code.shortId}
+        ownerId={user?.id}
+        folderId={code.folderId}
       />
 
       {/* Q.Challenge Modal */}

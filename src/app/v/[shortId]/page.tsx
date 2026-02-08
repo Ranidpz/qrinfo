@@ -1,5 +1,6 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getQRCodeByShortId } from '@/lib/db';
+import { resolveStationShortId } from '@/lib/qtreasure';
 import ViewerClient from './ViewerClient';
 
 // Force dynamic to prevent caching - always fetch fresh data
@@ -9,10 +10,14 @@ interface ViewerPageProps {
   params: Promise<{
     shortId: string;
   }>;
+  searchParams: Promise<{
+    station?: string;
+  }>;
 }
 
-export default async function ViewerPage({ params }: ViewerPageProps) {
+export default async function ViewerPage({ params, searchParams }: ViewerPageProps) {
   const { shortId } = await params;
+  const { station: stationParam } = await searchParams;
 
   try {
     const code = await getQRCodeByShortId(shortId);
@@ -20,7 +25,17 @@ export default async function ViewerPage({ params }: ViewerPageProps) {
     // Debug logging
     console.log('[ViewerPage] Code loaded:', code?.title, 'folderId:', code?.folderId);
 
+    // If code not found, check if this is a station shortId
     if (!code || !code.isActive) {
+      // Try to resolve as station shortId
+      const stationInfo = await resolveStationShortId(shortId);
+
+      if (stationInfo.found && stationInfo.mainCodeShortId) {
+        // Redirect to main game with station parameter
+        redirect(`/v/${stationInfo.mainCodeShortId}?station=${shortId}`);
+      }
+
+      // Not a station either - 404
       notFound();
     }
 
@@ -57,6 +72,7 @@ export default async function ViewerPage({ params }: ViewerPageProps) {
         ownerId={code.ownerId}
         folderId={code.folderId}
         landingPageConfig={code.landingPageConfig}
+        scannedStationShortId={stationParam}
       />
     );
   } catch (error) {

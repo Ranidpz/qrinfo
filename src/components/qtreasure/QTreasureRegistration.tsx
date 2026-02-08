@@ -20,6 +20,7 @@ interface QTreasureRegistrationProps {
   isRegistered?: boolean;
   onComplete: (firstStation?: QTreasureStation) => void;
   onStart: () => void;
+  stationAccessMessage?: string | null;
 }
 
 const translations = {
@@ -65,6 +66,7 @@ export function QTreasureRegistration({
   isRegistered = false,
   onComplete,
   onStart,
+  stationAccessMessage,
 }: QTreasureRegistrationProps) {
   const t = translations[lang];
   const isRTL = lang === 'he';
@@ -189,6 +191,14 @@ export function QTreasureRegistration({
         <h1 className="title">{gameTitle}</h1>
         <p className="subtitle">{t.subtitle}</p>
       </div>
+
+      {/* Station access message - shown when user scanned a station directly */}
+      {stationAccessMessage && (
+        <div className="station-message">
+          <span className="message-icon">⚠️</span>
+          <p>{stationAccessMessage}</p>
+        </div>
+      )}
 
       {/* Stats preview */}
       <div className="stats-preview">
@@ -371,6 +381,43 @@ export function QTreasureRegistration({
           font-size: 1rem;
           font-style: italic;
           margin: 0;
+        }
+
+        .station-message {
+          width: 100%;
+          max-width: 400px;
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2));
+          border: 2px solid rgba(245, 158, 11, 0.5);
+          border-radius: 12px;
+          padding: 1rem;
+          margin-bottom: 1.5rem;
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .station-message .message-icon {
+          font-size: 1.5rem;
+          flex-shrink: 0;
+        }
+
+        .station-message p {
+          margin: 0;
+          color: #f5d670;
+          font-size: 0.95rem;
+          line-height: 1.5;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         .stats-preview {

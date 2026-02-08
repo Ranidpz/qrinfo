@@ -16,9 +16,11 @@ import {
   Eye,
   ImageIcon,
   Video,
-  ChevronUp,
   ChevronDown,
-  Link as LinkIcon,
+  QrCode,
+  Copy,
+  Printer,
+  ExternalLink,
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import {
@@ -35,6 +37,26 @@ import {
 } from '@/types/qtreasure';
 import MobilePreviewModal from './MobilePreviewModal';
 
+// Helper function to remove undefined/null values from objects (Firestore doesn't accept undefined)
+function cleanUndefinedValues<T extends object>(obj: T): T {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined || value === null) {
+      continue; // Skip undefined/null values
+    }
+    if (Array.isArray(value)) {
+      result[key] = value.map(item =>
+        typeof item === 'object' && item !== null ? cleanUndefinedValues(item) : item
+      );
+    } else if (typeof value === 'object' && value !== null) {
+      result[key] = cleanUndefinedValues(value as object);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result as T;
+}
+
 interface QTreasureModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -43,6 +65,9 @@ interface QTreasureModalProps {
   initialConfig?: QTreasureConfig;
   shortId?: string;
   existingStationQRs?: { shortId: string; title: string }[];
+  // Required for auto-creating station QR codes
+  ownerId?: string;
+  folderId?: string | null;
 }
 
 // Preset colors for Q.Treasure (forest/gold theme)
@@ -62,6 +87,8 @@ export default function QTreasureModal({
   initialConfig,
   shortId,
   existingStationQRs = [],
+  ownerId,
+  folderId,
 }: QTreasureModalProps) {
   const t = useTranslations('modals');
   const tCommon = useTranslations('common');
@@ -111,6 +138,48 @@ export default function QTreasureModal({
 
   // Drag state for stations
   const [draggedStation, setDraggedStation] = useState<string | null>(null);
+
+  // Station QR creation state
+  const [creatingQRForStation, setCreatingQRForStation] = useState<string | null>(null);
+
+  // Create QR code for a station
+  const createStationQR = async (stationId: string) => {
+    if (!ownerId || !shortId) {
+      alert(isRTL ? 'יש לשמור את הקוד הראשי קודם' : 'Please save the main code first');
+      return;
+    }
+
+    const station = stations.find(s => s.id === stationId);
+    if (!station) return;
+
+    setCreatingQRForStation(stationId);
+    try {
+      const response = await fetch('/api/qtreasure/create-station-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ownerId,
+          stationTitle: station.title || `תחנה ${station.order}`,
+          stationOrder: station.order,
+          parentCodeShortId: shortId,
+          folderId: folderId || undefined,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // Update station with the new shortId
+        updateStation(stationId, { stationShortId: result.shortId });
+      } else {
+        alert(isRTL ? `שגיאה ביצירת QR: ${result.error}` : `Error creating QR: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating station QR:', error);
+      alert(isRTL ? 'שגיאה ביצירת QR לתחנה' : 'Error creating station QR');
+    } finally {
+      setCreatingQRForStation(null);
+    }
+  };
 
   // Load initial config
   useEffect(() => {
@@ -206,21 +275,30 @@ export default function QTreasureModal({
       outOfOrderWarningEn,
       completion: {
         ...completionConfig,
-        customMessage,
-        customMessageEn,
+        ...(customMessage ? { customMessage } : {}),
+        ...(customMessageEn ? { customMessageEn } : {}),
       },
       branding: {
         ...branding,
-        gameTitle: gameTitle || undefined,
-        gameTitleEn: gameTitleEn || undefined,
+        ...(gameTitle ? { gameTitle } : {}),
+        ...(gameTitleEn ? { gameTitleEn } : {}),
       },
       language,
-      stats: initialConfig?.stats || DEFAULT_QTREASURE_CONFIG.stats,
-      gameStartedAt: initialConfig?.gameStartedAt,
-      lastResetAt: initialConfig?.lastResetAt,
+      stats: initialConfig?.stats || {
+        totalPlayers: 0,
+        playersPlaying: 0,
+        playersCompleted: 0,
+        avgCompletionTimeMs: 0,
+        fastestTimeMs: 0,
+        lastUpdated: Date.now(),
+      },
+      ...(initialConfig?.gameStartedAt ? { gameStartedAt: initialConfig.gameStartedAt } : {}),
+      ...(initialConfig?.lastResetAt ? { lastResetAt: initialConfig.lastResetAt } : {}),
     };
 
-    await onSave(config);
+    // Clean undefined values before saving to Firestore
+    const cleanedConfig = cleanUndefinedValues(config);
+    await onSave(cleanedConfig);
   };
 
   if (!isOpen) return null;
@@ -297,203 +375,393 @@ export default function QTreasureModal({
           <div className="flex-1 overflow-y-auto p-6">
             {/* Branding Tab */}
             {activeTab === 'branding' && (
-              <div className="space-y-6">
-                {/* Game Title */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {isRTL ? 'שם המשחק (עברית)' : 'Game Title (Hebrew)'}
-                    </label>
-                    <input
-                      type="text"
-                      value={gameTitle}
-                      onChange={(e) => setGameTitle(e.target.value)}
-                      placeholder={isRTL ? 'ציד אוצרות' : 'Treasure Hunt'}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {isRTL ? 'שם המשחק (אנגלית)' : 'Game Title (English)'}
-                    </label>
-                    <input
-                      type="text"
-                      value={gameTitleEn}
-                      onChange={(e) => setGameTitleEn(e.target.value)}
-                      placeholder="Treasure Hunt"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
+              <div className="flex gap-6" style={{ flexDirection: isRTL ? 'row-reverse' : 'row' }}>
+                {/* Phone Preview - Left Side */}
+                <div className="flex-shrink-0">
+                  <div className="sticky top-0">
+                    {/* Phone Frame */}
+                    <div
+                      className="relative mx-auto"
+                      style={{
+                        width: '220px',
+                        height: '440px',
+                        borderRadius: '32px',
+                        background: '#1a1a1a',
+                        padding: '8px',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.1)',
+                      }}
+                    >
+                      {/* Notch */}
+                      <div
+                        className="absolute top-2 left-1/2 -translate-x-1/2 z-10"
+                        style={{
+                          width: '80px',
+                          height: '24px',
+                          background: '#1a1a1a',
+                          borderRadius: '0 0 16px 16px',
+                        }}
+                      />
+                      {/* Screen */}
+                      <div
+                        className="relative w-full h-full overflow-hidden"
+                        style={{
+                          borderRadius: '24px',
+                          backgroundColor: branding.backgroundColor,
+                          backgroundImage: branding.backgroundImage ? `url(${branding.backgroundImage})` : 'none',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }}
+                      >
+                        {/* Decorative pattern overlay - Ancient/Quest style */}
+                        <div
+                          className="absolute inset-0 pointer-events-none opacity-10"
+                          style={{
+                            backgroundImage: `
+                              radial-gradient(circle at 20% 80%, ${branding.primaryColor}40 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, ${branding.accentColor}30 0%, transparent 40%)
+                            `,
+                          }}
+                        />
+
+                        {/* Content */}
+                        <div className="relative flex flex-col items-center h-full p-4 pt-10 text-center" dir={isRTL ? 'rtl' : 'ltr'}>
+                          {/* Logo */}
+                          {branding.eventLogo && (
+                            <img
+                              src={branding.eventLogo}
+                              alt="Logo"
+                              className="h-8 object-contain mb-2"
+                            />
+                          )}
+
+                          {/* Game Title */}
+                          <h3
+                            className="text-lg font-bold mb-1"
+                            style={{ color: branding.primaryColor }}
+                          >
+                            {gameTitle || (isRTL ? 'ציד האוצר' : 'Treasure Hunt')}
+                          </h3>
+
+                          {/* Subtitle */}
+                          <p className="text-xs mb-4 opacity-80" style={{ color: '#fff' }}>
+                            {isRTL ? 'הצטרפו להרפתקה' : 'Join the adventure'}
+                          </p>
+
+                          {/* Progress indicator */}
+                          <div className="flex items-center gap-2 mb-4">
+                            <span className="text-xs" style={{ color: branding.accentColor }}>
+                              {isRTL ? `${stations.length || 5} תחנות` : `${stations.length || 5} stations`}
+                            </span>
+                          </div>
+
+                          {/* Name Input Preview */}
+                          <div
+                            className="w-full rounded-lg py-2.5 px-3 mb-3 text-xs text-center"
+                            style={{
+                              background: 'rgba(255,255,255,0.1)',
+                              border: `2px solid ${branding.primaryColor}40`,
+                              color: '#ffffff80',
+                            }}
+                          >
+                            {isRTL ? 'הכניסו את שמכם...' : 'Enter your name...'}
+                          </div>
+
+                          {/* Emoji Grid Preview */}
+                          <div className="grid grid-cols-4 gap-1.5 mb-4 w-full">
+                            {(registrationConfig.emojiPalette || DEFAULT_QTREASURE_EMOJI_PALETTE).slice(0, 8).map((emoji, i) => (
+                              <div
+                                key={i}
+                                className="aspect-square flex items-center justify-center rounded-lg text-base"
+                                style={{
+                                  background: i === 0 ? `${branding.primaryColor}30` : 'rgba(255,255,255,0.08)',
+                                  border: i === 0 ? `2px solid ${branding.primaryColor}` : '2px solid rgba(255,255,255,0.1)',
+                                }}
+                              >
+                                {emoji}
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Start Button */}
+                          <button
+                            className="w-full py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2"
+                            style={{
+                              background: `linear-gradient(135deg, ${branding.successColor}, ${branding.successColor}dd)`,
+                              color: '#000',
+                              boxShadow: `0 4px 15px ${branding.successColor}40`,
+                            }}
+                          >
+                            <span>🗺️</span>
+                            <span>{isRTL ? 'התחילו את המסע!' : 'Start the Quest!'}</span>
+                          </button>
+
+                          {/* XP indicator */}
+                          <div
+                            className="flex items-center gap-1 mt-3 text-xs"
+                            style={{ color: branding.warningColor }}
+                          >
+                            <span>✨</span>
+                            <span>{isRTL ? `+${xpPerStation} XP לתחנה` : `+${xpPerStation} XP per station`}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preview label */}
+                    <p className="text-center mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      {isRTL ? 'תצוגה מקדימה' : 'Live Preview'}
+                    </p>
                   </div>
                 </div>
 
-                {/* Colors */}
-                <div className="space-y-4">
-                  <h3 className="font-medium text-gray-900 dark:text-white">
-                    {isRTL ? 'צבעים' : 'Colors'}
-                  </h3>
+                {/* Controls - Right Side */}
+                <div className="flex-1 space-y-5 min-w-0">
+                  {/* Preset Themes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {isRTL ? 'ערכות נושא מוכנות' : 'Color Themes'}
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { name: isRTL ? 'יער' : 'Forest', bg: '#0d1f17', primary: '#d4af37', accent: '#f5d670', success: '#00ff88', warning: '#ffaa00' },
+                        { name: isRTL ? 'מדבר' : 'Desert', bg: '#1a150a', primary: '#f59e0b', accent: '#fbbf24', success: '#84cc16', warning: '#ef4444' },
+                        { name: isRTL ? 'אוקיינוס' : 'Ocean', bg: '#0a1a1a', primary: '#06b6d4', accent: '#22d3ee', success: '#10b981', warning: '#f59e0b' },
+                        { name: isRTL ? 'לילה' : 'Night', bg: '#0f0a1a', primary: '#a855f7', accent: '#c084fc', success: '#22c55e', warning: '#fbbf24' },
+                        { name: isRTL ? 'שקיעה' : 'Sunset', bg: '#1a0a0a', primary: '#ef4444', accent: '#f97316', success: '#84cc16', warning: '#fbbf24' },
+                        { name: isRTL ? 'אמרלד' : 'Emerald', bg: '#0a1a0f', primary: '#10b981', accent: '#34d399', success: '#22c55e', warning: '#f59e0b' },
+                        { name: isRTL ? 'רויאל' : 'Royal', bg: '#0f172a', primary: '#3b82f6', accent: '#60a5fa', success: '#22c55e', warning: '#f59e0b' },
+                        { name: isRTL ? 'ורוד' : 'Rose', bg: '#1a0a14', primary: '#ec4899', accent: '#f472b6', success: '#a3e635', warning: '#fbbf24' },
+                      ].map((theme) => (
+                        <button
+                          key={theme.name}
+                          onClick={() => setBranding({
+                            ...branding,
+                            backgroundColor: theme.bg,
+                            primaryColor: theme.primary,
+                            accentColor: theme.accent,
+                            successColor: theme.success,
+                            warningColor: theme.warning,
+                          })}
+                          className="relative p-2 rounded-lg border-2 transition-all hover:scale-105"
+                          style={{
+                            background: theme.bg,
+                            borderColor: branding.primaryColor === theme.primary ? theme.primary : 'transparent',
+                          }}
+                        >
+                          <div className="flex gap-0.5 mb-1 justify-center">
+                            <div className="w-3 h-3 rounded-full" style={{ background: theme.primary }} />
+                            <div className="w-3 h-3 rounded-full" style={{ background: theme.accent }} />
+                            <div className="w-3 h-3 rounded-full" style={{ background: theme.success }} />
+                          </div>
+                          <span className="text-xs font-medium" style={{ color: theme.primary }}>
+                            {theme.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Game Title */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {isRTL ? 'שם המשחק (עברית)' : 'Game Title (Hebrew)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={gameTitle}
+                        onChange={(e) => setGameTitle(e.target.value)}
+                        placeholder={isRTL ? 'ציד אוצרות' : 'Treasure Hunt'}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {isRTL ? 'שם המשחק (אנגלית)' : 'Game Title (English)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={gameTitleEn}
+                        onChange={(e) => setGameTitleEn(e.target.value)}
+                        placeholder="Treasure Hunt"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
 
                   {/* Background Color */}
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {isRTL ? 'צבע רקע' : 'Background'}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {isRTL ? 'צבע רקע' : 'Background Color'}
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {presetColors.background.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setBranding({ ...branding, backgroundColor: color })}
-                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                            branding.backgroundColor === color
-                              ? 'border-amber-500 scale-110'
-                              : 'border-transparent hover:scale-105'
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                    <div className="flex items-center gap-3">
                       <input
                         type="color"
                         value={branding.backgroundColor}
                         onChange={(e) => setBranding({ ...branding, backgroundColor: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer"
+                        className="w-10 h-10 rounded-lg cursor-pointer flex-shrink-0"
                       />
+                      <div className="flex flex-wrap gap-1.5">
+                        {presetColors.background.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setBranding({ ...branding, backgroundColor: color })}
+                            className="w-7 h-7 rounded-md border-2 transition-transform hover:scale-110"
+                            style={{
+                              background: color,
+                              borderColor: branding.backgroundColor === color ? '#d4af37' : 'transparent',
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
 
                   {/* Primary Color */}
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {isRTL ? 'צבע ראשי' : 'Primary'}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {isRTL ? 'צבע ראשי (זהב)' : 'Primary Color (Gold)'}
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {presetColors.primary.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setBranding({ ...branding, primaryColor: color })}
-                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                            branding.primaryColor === color
-                              ? 'border-amber-500 scale-110'
-                              : 'border-transparent hover:scale-105'
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                    <div className="flex items-center gap-3">
                       <input
                         type="color"
                         value={branding.primaryColor}
                         onChange={(e) => setBranding({ ...branding, primaryColor: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer"
+                        className="w-10 h-10 rounded-lg cursor-pointer flex-shrink-0"
                       />
+                      <div className="flex flex-wrap gap-1.5">
+                        {presetColors.primary.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setBranding({ ...branding, primaryColor: color })}
+                            className="w-7 h-7 rounded-md border-2 transition-transform hover:scale-110"
+                            style={{
+                              background: color,
+                              borderColor: branding.primaryColor === color ? '#fff' : 'transparent',
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
 
                   {/* Accent Color */}
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {isRTL ? 'צבע משני' : 'Accent'}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {isRTL ? 'צבע משני' : 'Accent Color'}
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {presetColors.accent.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setBranding({ ...branding, accentColor: color })}
-                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                            branding.accentColor === color
-                              ? 'border-amber-500 scale-110'
-                              : 'border-transparent hover:scale-105'
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                    <div className="flex items-center gap-3">
                       <input
                         type="color"
                         value={branding.accentColor}
                         onChange={(e) => setBranding({ ...branding, accentColor: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer"
+                        className="w-10 h-10 rounded-lg cursor-pointer flex-shrink-0"
                       />
+                      <div className="flex flex-wrap gap-1.5">
+                        {presetColors.accent.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setBranding({ ...branding, accentColor: color })}
+                            className="w-7 h-7 rounded-md border-2 transition-transform hover:scale-110"
+                            style={{
+                              background: color,
+                              borderColor: branding.accentColor === color ? '#fff' : 'transparent',
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
 
                   {/* Success Color */}
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {isRTL ? 'צבע הצלחה' : 'Success'}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {isRTL ? 'צבע הצלחה' : 'Success Color'}
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {presetColors.success.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setBranding({ ...branding, successColor: color })}
-                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                            branding.successColor === color
-                              ? 'border-amber-500 scale-110'
-                              : 'border-transparent hover:scale-105'
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                    <div className="flex items-center gap-3">
                       <input
                         type="color"
                         value={branding.successColor}
                         onChange={(e) => setBranding({ ...branding, successColor: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer"
+                        className="w-10 h-10 rounded-lg cursor-pointer flex-shrink-0"
                       />
+                      <div className="flex flex-wrap gap-1.5">
+                        {presetColors.success.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setBranding({ ...branding, successColor: color })}
+                            className="w-7 h-7 rounded-md border-2 transition-transform hover:scale-110"
+                            style={{
+                              background: color,
+                              borderColor: branding.successColor === color ? '#fff' : 'transparent',
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
 
                   {/* Warning Color */}
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      {isRTL ? 'צבע אזהרה' : 'Warning'}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {isRTL ? 'צבע אזהרה' : 'Warning Color'}
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {presetColors.warning.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setBranding({ ...branding, warningColor: color })}
-                          className={`w-8 h-8 rounded-lg border-2 transition-all ${
-                            branding.warningColor === color
-                              ? 'border-amber-500 scale-110'
-                              : 'border-transparent hover:scale-105'
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                    <div className="flex items-center gap-3">
                       <input
                         type="color"
                         value={branding.warningColor}
                         onChange={(e) => setBranding({ ...branding, warningColor: e.target.value })}
-                        className="w-8 h-8 rounded-lg cursor-pointer"
+                        className="w-10 h-10 rounded-lg cursor-pointer flex-shrink-0"
                       />
+                      <div className="flex flex-wrap gap-1.5">
+                        {presetColors.warning.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setBranding({ ...branding, warningColor: color })}
+                            className="w-7 h-7 rounded-md border-2 transition-transform hover:scale-110"
+                            style={{
+                              background: color,
+                              borderColor: branding.warningColor === color ? '#fff' : 'transparent',
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Background Image */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {isRTL ? 'תמונת רקע (URL)' : 'Background Image (URL)'}
-                  </label>
-                  <input
-                    type="url"
-                    value={branding.backgroundImage || ''}
-                    onChange={(e) => setBranding({ ...branding, backgroundImage: e.target.value || undefined })}
-                    placeholder="https://..."
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  />
-                </div>
+                  {/* Background Image */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {isRTL ? 'תמונת רקע (URL)' : 'Background Image (URL)'}
+                    </label>
+                    <input
+                      type="url"
+                      value={branding.backgroundImage || ''}
+                      onChange={(e) => setBranding(prev => {
+                        const { backgroundImage, ...rest } = prev;
+                        return e.target.value ? { ...prev, backgroundImage: e.target.value } : rest;
+                      })}
+                      placeholder="https://..."
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
 
-                {/* Event Logo */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {isRTL ? 'לוגו אירוע (URL)' : 'Event Logo (URL)'}
-                  </label>
-                  <input
-                    type="url"
-                    value={branding.eventLogo || ''}
-                    onChange={(e) => setBranding({ ...branding, eventLogo: e.target.value || undefined })}
-                    placeholder="https://..."
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  />
+                  {/* Event Logo */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {isRTL ? 'לוגו אירוע (URL)' : 'Event Logo (URL)'}
+                    </label>
+                    <input
+                      type="url"
+                      value={branding.eventLogo || ''}
+                      onChange={(e) => setBranding(prev => {
+                        const { eventLogo, ...rest } = prev;
+                        return e.target.value ? { ...prev, eventLogo: e.target.value } : rest;
+                      })}
+                      placeholder="https://..."
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -501,17 +769,69 @@ export default function QTreasureModal({
             {/* Stations Tab */}
             {activeTab === 'stations' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h3 className="font-medium text-gray-900 dark:text-white">
                     {isRTL ? `${stations.length} תחנות` : `${stations.length} Stations`}
                   </h3>
-                  <button
-                    onClick={addStation}
-                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {isRTL ? 'הוסף תחנה' : 'Add Station'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Print all QR codes button */}
+                    {stations.filter(s => s.stationShortId).length > 0 && (
+                      <button
+                        onClick={() => {
+                          const stationsWithQR = stations.filter(s => s.stationShortId);
+                          const printWindow = window.open('', '_blank');
+                          if (printWindow) {
+                            const baseUrl = window.location.origin;
+                            printWindow.document.write(`
+                              <!DOCTYPE html>
+                              <html dir="${isRTL ? 'rtl' : 'ltr'}">
+                              <head>
+                                <title>${isRTL ? 'קודי QR לתחנות' : 'Station QR Codes'}</title>
+                                <style>
+                                  body { font-family: Arial, sans-serif; padding: 20px; }
+                                  .station { page-break-after: always; text-align: center; padding: 40px; }
+                                  .station:last-child { page-break-after: avoid; }
+                                  .station-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                                  .station-order { font-size: 48px; color: #d4af37; margin-bottom: 20px; }
+                                  .qr-code { margin: 20px auto; }
+                                  .station-url { font-size: 14px; color: #666; margin-top: 10px; }
+                                  @media print { .no-print { display: none; } }
+                                </style>
+                              </head>
+                              <body>
+                                <button class="no-print" onclick="window.print()" style="padding: 10px 20px; font-size: 16px; margin-bottom: 20px;">
+                                  ${isRTL ? 'הדפס' : 'Print'}
+                                </button>
+                                ${stationsWithQR.map(s => `
+                                  <div class="station">
+                                    <div class="station-order">${isRTL ? 'תחנה' : 'Station'} ${s.order}</div>
+                                    <div class="station-title">${s.title || ''}</div>
+                                    <div class="qr-code">
+                                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${baseUrl}/v/${s.stationShortId}`)}" alt="QR Code" />
+                                    </div>
+                                    <div class="station-url">${baseUrl}/v/${s.stationShortId}</div>
+                                  </div>
+                                `).join('')}
+                              </body>
+                              </html>
+                            `);
+                            printWindow.document.close();
+                          }
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 border border-amber-500 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                      >
+                        <Printer className="w-4 h-4" />
+                        {isRTL ? 'הדפס QR' : 'Print QRs'}
+                      </button>
+                    )}
+                    <button
+                      onClick={addStation}
+                      className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      {isRTL ? 'הוסף תחנה' : 'Add Station'}
+                    </button>
+                  </div>
                 </div>
 
                 {stations.length === 0 ? (
@@ -526,52 +846,116 @@ export default function QTreasureModal({
                     {stations.map((station, index) => (
                       <div
                         key={station.id}
-                        className={`border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden ${
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedStation(station.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          // Add visual feedback
+                          (e.currentTarget as HTMLElement).style.opacity = '0.5';
+                        }}
+                        onDragEnd={(e) => {
+                          setDraggedStation(null);
+                          (e.currentTarget as HTMLElement).style.opacity = '1';
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (!draggedStation || draggedStation === station.id) return;
+
+                          // Find indices
+                          const fromIndex = stations.findIndex(s => s.id === draggedStation);
+                          const toIndex = stations.findIndex(s => s.id === station.id);
+
+                          if (fromIndex === -1 || toIndex === -1) return;
+
+                          // Reorder
+                          const newStations = [...stations];
+                          const [removed] = newStations.splice(fromIndex, 1);
+                          newStations.splice(toIndex, 0, removed);
+
+                          // Update order numbers
+                          const reordered = newStations.map((s, i) => ({ ...s, order: i + 1 }));
+                          setStations(reordered);
+                          setDraggedStation(null);
+                        }}
+                        className={`border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden transition-all ${
                           !station.isActive ? 'opacity-60' : ''
+                        } ${draggedStation === station.id ? 'ring-2 ring-amber-500' : ''} ${
+                          draggedStation && draggedStation !== station.id ? 'border-dashed border-amber-400' : ''
                         }`}
                       >
                         {/* Station header */}
                         <div
-                          className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 cursor-pointer"
-                          onClick={() => setExpandedStation(expandedStation === station.id ? null : station.id)}
+                          className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50"
                         >
-                          <GripVertical className="w-5 h-5 text-gray-400" />
-                          <span className="w-8 h-8 flex items-center justify-center bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full font-bold text-sm">
+                          {/* Drag handle */}
+                          <div
+                            className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                            title={isRTL ? 'גרור לשינוי סדר' : 'Drag to reorder'}
+                          >
+                            <GripVertical className="w-5 h-5 text-gray-400" />
+                          </div>
+
+                          <span className="w-8 h-8 flex items-center justify-center bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full font-bold text-sm flex-shrink-0">
                             {station.order}
                           </span>
-                          <div className="flex-1 min-w-0">
+
+                          {/* Station title - clickable to expand */}
+                          <div
+                            className="flex-1 min-w-0 cursor-pointer"
+                            onClick={() => setExpandedStation(expandedStation === station.id ? null : station.id)}
+                          >
                             <p className="font-medium text-gray-900 dark:text-white truncate">
                               {station.title || `${isRTL ? 'תחנה' : 'Station'} ${station.order}`}
                             </p>
-                            {station.stationShortId && (
-                              <p className="text-xs text-gray-500 flex items-center gap-1">
-                                <LinkIcon className="w-3 h-3" />
-                                {station.stationShortId}
-                              </p>
-                            )}
                           </div>
 
-                          {/* Move buttons */}
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); moveStation(station.id, 'up'); }}
-                              disabled={index === 0}
-                              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-30"
-                            >
-                              <ChevronUp className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); moveStation(station.id, 'down'); }}
-                              disabled={index === stations.length - 1}
-                              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded disabled:opacity-30"
-                            >
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
+                          {/* QR Code preview in row */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {station.stationShortId ? (
+                              <div className="flex items-center gap-2">
+                                {/* Small QR preview */}
+                                <img
+                                  src={`https://api.qrserver.com/v1/create-qr-code/?size=48x48&data=${encodeURIComponent(`${typeof window !== 'undefined' ? window.location.origin : ''}/v/${station.stationShortId}`)}`}
+                                  alt="QR"
+                                  className="w-12 h-12 rounded border border-gray-200 dark:border-gray-600 bg-white"
+                                />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(`${window.location.origin}/v/${station.stationShortId}`);
+                                  }}
+                                  className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500"
+                                  title={isRTL ? 'העתק קישור' : 'Copy link'}
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); createStationQR(station.id); }}
+                                disabled={creatingQRForStation === station.id || !ownerId}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50 text-sm"
+                                title={!ownerId ? (isRTL ? 'שמור קודם' : 'Save first') : ''}
+                              >
+                                {creatingQRForStation === station.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <QrCode className="w-4 h-4" />
+                                    <span>{isRTL ? 'צור QR' : 'Create QR'}</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
                           </div>
 
                           <button
                             onClick={(e) => { e.stopPropagation(); deleteStation(station.id); }}
-                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex-shrink-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -695,37 +1079,66 @@ export default function QTreasureModal({
                               </div>
                             </div>
 
-                            {/* Link to Station QR */}
+                            {/* Station QR Code */}
                             <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1 flex items-center gap-2">
-                                <LinkIcon className="w-4 h-4" />
-                                {isRTL ? 'קישור לקוד QR של התחנה' : 'Link to Station QR'}
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                                <QrCode className="w-4 h-4" />
+                                {isRTL ? 'קוד QR של התחנה' : 'Station QR Code'}
                               </label>
-                              {existingStationQRs.length > 0 ? (
-                                <select
-                                  value={station.stationShortId || ''}
-                                  onChange={(e) => updateStation(station.id, { stationShortId: e.target.value || undefined })}
-                                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                                >
-                                  <option value="">{isRTL ? 'בחר קוד QR...' : 'Select QR code...'}</option>
-                                  {existingStationQRs.map(qr => (
-                                    <option key={qr.shortId} value={qr.shortId}>
-                                      {qr.title} ({qr.shortId})
-                                    </option>
-                                  ))}
-                                </select>
+
+                              {station.stationShortId ? (
+                                /* QR exists - show it with actions */
+                                <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                                  <QrCode className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                  <code className="flex-1 text-sm font-mono text-emerald-700 dark:text-emerald-300">
+                                    {station.stationShortId}
+                                  </code>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(`${window.location.origin}/v/${station.stationShortId}`);
+                                    }}
+                                    className="p-1.5 hover:bg-emerald-200 dark:hover:bg-emerald-800 rounded text-emerald-600 dark:text-emerald-400"
+                                    title={isRTL ? 'העתק קישור' : 'Copy link'}
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </button>
+                                  <a
+                                    href={`/v/${station.stationShortId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 hover:bg-emerald-200 dark:hover:bg-emerald-800 rounded text-emerald-600 dark:text-emerald-400"
+                                    title={isRTL ? 'פתח בחלון חדש' : 'Open in new tab'}
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </a>
+                                </div>
                               ) : (
-                                <input
-                                  type="text"
-                                  value={station.stationShortId || ''}
-                                  onChange={(e) => updateStation(station.id, { stationShortId: e.target.value })}
-                                  placeholder="abc123"
-                                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
-                                />
+                                /* No QR - show create button */
+                                <div className="space-y-2">
+                                  <button
+                                    onClick={() => createStationQR(station.id)}
+                                    disabled={creatingQRForStation === station.id || !ownerId}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+                                  >
+                                    {creatingQRForStation === station.id ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        {isRTL ? 'יוצר QR...' : 'Creating QR...'}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <QrCode className="w-4 h-4" />
+                                        {isRTL ? 'צור QR לתחנה' : 'Create Station QR'}
+                                      </>
+                                    )}
+                                  </button>
+                                  {!ownerId && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                                      {isRTL ? 'שמור את הקוד הראשי קודם' : 'Save the main code first'}
+                                    </p>
+                                  )}
+                                </div>
                               )}
-                              <p className="text-xs text-gray-500 mt-1">
-                                {isRTL ? 'ה-Short ID של קוד ה-QR שימוקם בתחנה זו' : 'The Short ID of the QR code placed at this station'}
-                              </p>
                             </div>
 
                             {/* XP and Active */}

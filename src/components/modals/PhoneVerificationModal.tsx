@@ -49,6 +49,7 @@ const translations = {
     verifyFailed: 'האימות נכשל, נסה שוב',
     noCodeFound: 'לא נמצא קוד אימות פעיל',
     sendCodeFailed: 'שליחת הקוד נכשלה, נסה שוב',
+    unauthorizedPhone: 'המספר שלך לא מאושר להצבעה. פנה/י למנהל התחרות להוספה לרשימה',
     attemptsRemaining: 'נותרו {count} ניסיונות',
     cancel: 'ביטול',
     votesRemaining: 'נותרו לך {count} הצבעות',
@@ -80,6 +81,7 @@ const translations = {
     verifyFailed: 'Verification failed, try again',
     noCodeFound: 'No active verification code found',
     sendCodeFailed: 'Failed to send code, try again',
+    unauthorizedPhone: 'Your number is not authorized to vote. Contact the competition manager to be added',
     attemptsRemaining: '{count} attempts remaining',
     cancel: 'Cancel',
     votesRemaining: 'You have {count} votes remaining',
@@ -193,6 +195,8 @@ export default function PhoneVerificationModal({
           setError(t.alreadyVoted);
         } else if (data.errorCode === 'ALREADY_VOTED_ALL') {
           setError(t.alreadyVotedAll);
+        } else if (data.errorCode === 'UNAUTHORIZED_PHONE') {
+          setError(t.unauthorizedPhone);
         } else {
           // Use Hebrew translation for generic errors
           setError(t.sendCodeFailed);

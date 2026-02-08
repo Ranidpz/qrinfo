@@ -14,7 +14,7 @@ import QVoteViewer from '@/components/viewer/QVoteViewer';
 import WeeklyCalendarViewer from '@/components/viewer/WeeklyCalendarViewer';
 import { QStageDisplay, QStageMobileVoter } from '@/components/qstage';
 import { QHuntPlayerView, QHuntDisplay } from '@/components/qhunt';
-import { QTreasurePlayerView } from '@/components/qtreasure';
+import { QTreasurePlayerView, QTreasureDisplay } from '@/components/qtreasure';
 import QChallengeViewer from '@/components/viewer/QChallengeViewer';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
 import LandingPageViewer from '@/components/viewer/LandingPageViewer';
@@ -168,6 +168,7 @@ interface ViewerClientProps {
   ownerId: string;
   folderId?: string; // For route/XP tracking
   landingPageConfig?: LandingPageConfig; // Landing page configuration for mixed media
+  scannedStationShortId?: string; // Station shortId if user scanned a station QR directly
 }
 
 // Loading spinner with percentage
@@ -1041,7 +1042,7 @@ const ImageGalleryViewer = memo(({
 });
 ImageGalleryViewer.displayName = 'ImageGalleryViewer';
 
-export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId, folderId, landingPageConfig }: ViewerClientProps) {
+export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId, folderId, landingPageConfig, scannedStationShortId }: ViewerClientProps) {
   // Get browser locale for translations
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = viewerTranslations[locale];
@@ -1376,6 +1377,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                 mediaId={activeViewer.media.id}
                 initialConfig={activeViewer.media.qtreasureConfig}
                 shortId={shortId}
+                scannedStationShortId={scannedStationShortId}
               />
             )}
             {activeViewer.type === 'qchallenge' && !Array.isArray(activeViewer.media) && (
@@ -1548,12 +1550,17 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             <QHuntPlayerView codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qhuntConfig} shortId={shortId} />
           )
         ) : isQTreasure && currentMedia.qtreasureConfig ? (
-          <QTreasurePlayerView
-            codeId={codeId}
-            mediaId={currentMedia.id}
-            initialConfig={currentMedia.qtreasureConfig}
-            shortId={shortId}
-          />
+          isDisplayMode ? (
+            <QTreasureDisplay codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qtreasureConfig} />
+          ) : (
+            <QTreasurePlayerView
+              codeId={codeId}
+              mediaId={currentMedia.id}
+              initialConfig={currentMedia.qtreasureConfig}
+              shortId={shortId}
+              scannedStationShortId={scannedStationShortId}
+            />
+          )
         ) : isQChallenge ? (
           <QChallengeViewer
             codeId={codeId}

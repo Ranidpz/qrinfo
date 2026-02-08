@@ -292,6 +292,67 @@ export function findStationByShortId(
 }
 
 /**
+ * Resolve a station shortId to find the parent Q.Treasure game
+ * Used when someone scans a station QR directly (not from within the app)
+ */
+export interface ResolveStationResult {
+  found: boolean;
+  mainCodeId?: string;
+  mainCodeShortId?: string;
+  stationId?: string;
+  stationOrder?: number;
+  totalStations?: number;
+  gameTitle?: string;
+}
+
+export async function resolveStationShortId(stationShortId: string): Promise<ResolveStationResult> {
+  try {
+    // Search all codes for a Q.Treasure with this station shortId
+    const codesRef = collection(db, 'codes');
+    const codesSnapshot = await getDocs(query(codesRef));
+
+    for (const codeDoc of codesSnapshot.docs) {
+      const codeData = codeDoc.data();
+
+      // Find qtreasure media item
+      const qtreasureMedia = codeData.media?.find(
+        (m: { type: string }) => m.type === 'qtreasure'
+      );
+
+      if (!qtreasureMedia?.qtreasureConfig) continue;
+
+      const config: QTreasureConfig = qtreasureMedia.qtreasureConfig;
+
+      // Check if any station has this shortId
+      const station = config.stations.find(
+        (s: QTreasureStation) => s.isActive && s.stationShortId === stationShortId
+      );
+
+      if (station) {
+        const activeStations = config.stations.filter((s: QTreasureStation) => s.isActive);
+
+        return {
+          found: true,
+          mainCodeId: codeDoc.id,
+          mainCodeShortId: codeData.shortId,
+          stationId: station.id,
+          stationOrder: station.order,
+          totalStations: activeStations.length,
+          gameTitle: config.branding?.gameTitle || 'ציד אוצרות',
+        };
+      }
+    }
+
+    // Not found - this shortId is not a station
+    return { found: false };
+
+  } catch (error) {
+    console.error('Error resolving station shortId:', error);
+    return { found: false };
+  }
+}
+
+/**
  * Process a station scan - the main game logic
  */
 export async function processTreasureScan(

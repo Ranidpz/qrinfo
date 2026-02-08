@@ -107,10 +107,48 @@ async function compressImage(file: File, maxSizeKB: number = 800): Promise<{ blo
   return { blob: blob!, originalSize, compressedSize: blob!.size };
 }
 
+// Compress PNG logo while preserving transparency (no WebP, no background fill)
+async function compressLogoImage(file: File, maxDimension: number = 800): Promise<{ blob: Blob; originalSize: number; compressedSize: number }> {
+  const originalSize = file.size;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d')!;
+
+  let img: ImageBitmap | HTMLImageElement;
+  try {
+    img = await createImageBitmap(file);
+  } catch {
+    img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Failed to load image'));
+      image.src = URL.createObjectURL(file);
+    });
+  }
+
+  let { width, height } = img;
+  if (width > maxDimension || height > maxDimension) {
+    const ratio = Math.min(maxDimension / width, maxDimension / height);
+    width = Math.round(width * ratio);
+    height = Math.round(height * ratio);
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  // clearRect preserves transparency (no white fill)
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const blob = await new Promise<Blob>((resolve) => {
+    canvas.toBlob((b) => resolve(b!), 'image/png');
+  });
+
+  return { blob, originalSize, compressedSize: blob.size };
+}
+
 interface QVoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (config: QVoteConfig, landingImageFile?: File) => Promise<void>;
+  onSave: (config: QVoteConfig, landingImageFile?: File, logoFile?: File) => Promise<void>;
   loading?: boolean;
   initialConfig?: QVoteConfig;
   shortId?: string;
@@ -192,6 +230,14 @@ export default function QVoteModal({
   const [tempImagePosition, setTempImagePosition] = useState<ImagePositionConfig>(DEFAULT_IMAGE_POSITION);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Logo image state
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoInfo, setLogoInfo] = useState<ImageFileInfo | null>(null);
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const [isCompressingLogo, setIsCompressingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
   // Gamification
   const [gamificationEnabled, setGamificationEnabled] = useState(false);
   const [xpPerVote, setXpPerVote] = useState(10);
@@ -211,6 +257,8 @@ export default function QVoteModal({
   const [isParsingVoters, setIsParsingVoters] = useState(false);
   const [voterParseError, setVoterParseError] = useState('');
   const voterFileInputRef = useRef<HTMLInputElement>(null);
+  const [manualPhone, setManualPhone] = useState('');
+  const [manualPhoneError, setManualPhoneError] = useState('');
 
   // Tablet/Kiosk mode settings
   const [tabletMode, setTabletMode] = useState<QVoteTabletModeConfig>(DEFAULT_TABLET_MODE_CONFIG);
@@ -263,7 +311,14 @@ export default function QVoteModal({
         }
         setFormFields(initialConfig.formFields);
         setCategories(initialConfig.categories);
-        setBranding(initialConfig.branding);
+        // Strip blob URLs from branding state (they don't survive page refresh)
+        const cleanBranding = { ...initialConfig.branding };
+        if (cleanBranding.logoUrl?.startsWith('blob:')) {
+          delete cleanBranding.logoUrl;
+          delete cleanBranding.logoName;
+          delete cleanBranding.logoSize;
+        }
+        setBranding(cleanBranding);
         setGamificationEnabled(initialConfig.gamification.enabled);
         setXpPerVote(initialConfig.gamification.xpPerVote);
         setXpForPackThreshold(initialConfig.gamification.xpForPackThreshold);
@@ -275,6 +330,17 @@ export default function QVoteModal({
               name: initialConfig.branding.landingImageName,
               originalSize: initialConfig.branding.landingImageSize,
               compressedSize: initialConfig.branding.landingImageSize,
+            });
+          }
+        }
+        // Load logo preview if exists
+        if (initialConfig.branding.logoUrl && !initialConfig.branding.logoUrl.startsWith('blob:')) {
+          setLogoPreview(initialConfig.branding.logoUrl);
+          if (initialConfig.branding.logoName && initialConfig.branding.logoSize) {
+            setLogoInfo({
+              name: initialConfig.branding.logoName,
+              originalSize: initialConfig.branding.logoSize,
+              compressedSize: initialConfig.branding.logoSize,
             });
           }
         }
@@ -332,12 +398,15 @@ export default function QVoteModal({
         setXpPerVote(10);
         setXpForPackThreshold(50);
         setLandingImagePreview(null);
+        setLogoPreview(null);
+        setLogoInfo(null);
         setMessages(defaultMessages);
         setVerification(DEFAULT_VERIFICATION_CONFIG);
         setTabletMode(DEFAULT_TABLET_MODE_CONFIG);
       }
       setLandingImageFile(null);
       setLandingImageInfo(null);
+      setLogoFile(null);
       setAuthorizedVotersFile(null);
       setVoterParseError('');
       setError('');
@@ -397,6 +466,52 @@ export default function QVoteModal({
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/') && !isCompressingLanding) {
       processLandingImage(file);
+    }
+  };
+
+  // Process and compress logo image (preserve PNG transparency)
+  const processLogoImage = async (file: File) => {
+    setIsCompressingLogo(true);
+    try {
+      const { blob, originalSize, compressedSize } = await compressLogoImage(file);
+      const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
+      setLogoFile(compressedFile);
+      const url = URL.createObjectURL(blob);
+      setLogoPreview(url);
+      setLogoInfo({ name: file.name, originalSize, compressedSize });
+    } catch (error) {
+      console.error('Error compressing logo:', error);
+    } finally {
+      setIsCompressingLogo(false);
+    }
+  };
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && !isCompressingLogo) {
+      processLogoImage(file);
+    }
+  };
+
+  const handleLogoDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isCompressingLogo) setIsDraggingLogo(true);
+  };
+
+  const handleLogoDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingLogo(false);
+  };
+
+  const handleLogoDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingLogo(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/') && !isCompressingLogo) {
+      processLogoImage(file);
     }
   };
 
@@ -587,6 +702,8 @@ export default function QVoteModal({
         ...branding,
         // Only include landingImage if it has a value
         ...(landingImagePreview ? { landingImage: landingImagePreview } : {}),
+        // Only include logoUrl if it's a real URL (not a blob preview URL)
+        ...(logoPreview && !logoPreview.startsWith('blob:') ? { logoUrl: logoPreview } : {}),
         buttonTexts: {
           registration: buttonTexts.registration,
           preparation: buttonTexts.preparation,
@@ -610,7 +727,8 @@ export default function QVoteModal({
       ...(tabletMode.enabled ? { tabletMode } : {}),
     };
 
-    await onSave(config, landingImageFile || undefined);
+    console.log('[QVoteModal] handleSave - logoFile:', logoFile, 'logoPreview:', logoPreview, 'branding.logoUrl:', branding.logoUrl, 'branding.logoScale:', branding.logoScale);
+    await onSave(config, landingImageFile || undefined, logoFile || undefined);
   };
 
   if (!isOpen) return null;
@@ -1050,6 +1168,18 @@ export default function QVoteModal({
 
                       {/* Content */}
                       <div className="relative z-10 text-center">
+                        {/* Logo */}
+                        {logoPreview && (
+                          <img
+                            src={logoPreview}
+                            alt="Logo"
+                            className="mx-auto -mb-1 object-contain"
+                            style={{
+                              maxHeight: `${80 * (branding.logoScale ?? 1)}px`,
+                              maxWidth: '200px',
+                            }}
+                          />
+                        )}
                         {branding.landingTitle && (
                           <h1
                             className="text-2xl font-bold mb-2"
@@ -1102,11 +1232,13 @@ export default function QVoteModal({
 
               {/* Form Controls */}
               <div className="flex-1 space-y-5">
-                {/* Landing Image */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-text-primary">
-                    {isRTL ? 'תמונת נחיתה' : 'Landing Image'}
-                  </label>
+                {/* Landing Image & Logo Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Landing Image */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-text-primary">
+                      {isRTL ? 'תמונת נחיתה' : 'Landing Image'}
+                    </label>
                   <div
                     onClick={() => !isCompressingLanding && fileInputRef.current?.click()}
                     onDragOver={handleLandingImageDragOver}
@@ -1208,13 +1340,128 @@ export default function QVoteModal({
                       </div>
                     )}
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLandingImageSelect}
-                  />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLandingImageSelect}
+                    />
+                  </div>
+
+                  {/* Logo Image */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-text-primary">
+                      {isRTL ? 'לוגו (שקוף)' : 'Logo (transparent)'}
+                    </label>
+                  <div
+                    onClick={() => !isCompressingLogo && logoInputRef.current?.click()}
+                    onDragOver={handleLogoDragOver}
+                    onDragLeave={handleLogoDragLeave}
+                    onDrop={handleLogoDrop}
+                    className={`relative h-20 rounded-xl overflow-hidden bg-bg-secondary border-2 border-dashed cursor-pointer transition-all ${
+                      isDraggingLogo
+                        ? 'border-accent bg-accent/10 scale-[1.02]'
+                        : 'border-border hover:border-accent'
+                    } ${isCompressingLogo ? 'opacity-70 cursor-wait' : ''}`}
+                  >
+                    {isCompressingLogo ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-text-secondary">
+                        <Loader2 className="w-6 h-6 mb-1 animate-spin" />
+                        <span className="text-xs">{isRTL ? 'מעבד...' : 'Processing...'}</span>
+                      </div>
+                    ) : logoPreview ? (
+                      <div className="flex items-center gap-3 p-3 h-full">
+                        {/* Checkerboard background to show transparency */}
+                        <div
+                          className="h-full aspect-square rounded-lg flex items-center justify-center overflow-hidden"
+                          style={{
+                            backgroundImage: 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+                            backgroundSize: '10px 10px',
+                            backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
+                          }}
+                        >
+                          <img
+                            src={logoPreview}
+                            alt="Logo"
+                            className="h-full object-contain"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {logoInfo ? (
+                            <>
+                              <p className="text-sm text-text-primary font-medium truncate">
+                                {logoInfo.name}
+                              </p>
+                              <p className="text-xs text-success" dir="ltr">
+                                {formatFileSize(logoInfo.compressedSize)}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-text-primary font-medium">
+                              {isRTL ? 'לוגו קיים' : 'Existing logo'}
+                            </p>
+                          )}
+                          <p className="text-xs text-accent mt-0.5">
+                            {isRTL ? 'לחצו להחלפה' : 'Click to replace'}
+                          </p>
+                        </div>
+                        {/* Scale Slider */}
+                        <div
+                          className="flex flex-col items-center gap-0.5 px-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-[10px] text-text-secondary whitespace-nowrap">
+                            {Math.round((branding.logoScale ?? 1) * 100)}%
+                          </span>
+                          <input
+                            type="range"
+                            min="0.3"
+                            max="4"
+                            step="0.1"
+                            value={branding.logoScale ?? 1}
+                            onChange={(e) =>
+                              setBranding({
+                                ...branding,
+                                logoScale: parseFloat(e.target.value),
+                              })
+                            }
+                            className="w-16 h-1.5 bg-bg-hover rounded-lg appearance-none cursor-pointer accent-accent"
+                          />
+                        </div>
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLogoFile(null);
+                            setLogoPreview(null);
+                            setLogoInfo(null);
+                            // Remove logo fields from branding
+                            const { logoUrl, logoScale, logoName, logoSize, ...restBranding } = branding;
+                            setBranding(restBranding);
+                          }}
+                          className="p-2 rounded-lg bg-danger/20 hover:bg-danger/30 text-danger transition-all"
+                          title={isRTL ? 'מחק לוגו' : 'Delete logo'}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-text-secondary">
+                        <Upload className="w-6 h-6 mb-1" />
+                        <span className="text-xs">{isRTL ? 'לחצו או גררו לוגו PNG' : 'Click or drag PNG logo'}</span>
+                      </div>
+                    )}
+                  </div>
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png"
+                      className="hidden"
+                      onChange={handleLogoSelect}
+                    />
+                  </div>
                 </div>
 
                 {/* Title & Phase Selector Row */}
@@ -1682,7 +1929,65 @@ export default function QVoteModal({
                         </p>
                       )}
 
-                      {/* Voters Count */}
+                      {/* Add single number */}
+                      <div className="flex gap-2">
+                        <input
+                          type="tel"
+                          value={manualPhone}
+                          onChange={(e) => { setManualPhone(e.target.value); setManualPhoneError(''); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const cleaned = manualPhone.trim();
+                              if (!cleaned) return;
+                              if (!isValidIsraeliMobile(cleaned)) {
+                                setManualPhoneError(isRTL ? 'מספר לא תקין' : 'Invalid number');
+                                return;
+                              }
+                              const normalized = normalizePhoneNumber(cleaned);
+                              const existing = verification.authorizedVoters || [];
+                              if (existing.some(v => v.phone === normalized)) {
+                                setManualPhoneError(isRTL ? 'המספר כבר ברשימה' : 'Number already in list');
+                                return;
+                              }
+                              setVerification({ ...verification, authorizedVoters: [...existing, { phone: normalized }] });
+                              setManualPhone('');
+                              setManualPhoneError('');
+                            }
+                          }}
+                          placeholder={isRTL ? 'הוסף מספר טלפון...' : 'Add phone number...'}
+                          className="flex-1 px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent/50"
+                          dir="ltr"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cleaned = manualPhone.trim();
+                            if (!cleaned) return;
+                            if (!isValidIsraeliMobile(cleaned)) {
+                              setManualPhoneError(isRTL ? 'מספר לא תקין' : 'Invalid number');
+                              return;
+                            }
+                            const normalized = normalizePhoneNumber(cleaned);
+                            const existing = verification.authorizedVoters || [];
+                            if (existing.some(v => v.phone === normalized)) {
+                              setManualPhoneError(isRTL ? 'המספר כבר ברשימה' : 'Number already in list');
+                              return;
+                            }
+                            setVerification({ ...verification, authorizedVoters: [...existing, { phone: normalized }] });
+                            setManualPhone('');
+                            setManualPhoneError('');
+                          }}
+                          className="px-3 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {manualPhoneError && (
+                        <p className="text-xs text-danger">{manualPhoneError}</p>
+                      )}
+
+                      {/* Voters Count & List */}
                       {verification.authorizedVoters && verification.authorizedVoters.length > 0 && (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
@@ -1701,28 +2006,36 @@ export default function QVoteModal({
                             </button>
                           </div>
 
-                          {/* Preview first 5 voters */}
-                          <div className="space-y-1 max-h-40 overflow-y-auto">
-                            {verification.authorizedVoters.slice(0, 5).map((voter, i) => (
+                          {/* Voters list with delete buttons */}
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {verification.authorizedVoters.map((voter, i) => (
                               <div
                                 key={i}
-                                className="flex items-center justify-between text-xs bg-bg-tertiary px-3 py-2 rounded-lg"
+                                className="flex items-center justify-between text-xs bg-bg-tertiary px-3 py-2 rounded-lg group"
                               >
                                 <span className="text-text-primary font-mono" dir="ltr">
                                   {voter.phone.replace('+972', '0')}
                                 </span>
-                                {voter.name && (
-                                  <span className="text-text-secondary truncate max-w-[150px]">
-                                    {voter.name}
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  {voter.name && (
+                                    <span className="text-text-secondary truncate max-w-[120px]">
+                                      {voter.name}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...(verification.authorizedVoters || [])];
+                                      updated.splice(i, 1);
+                                      setVerification({ ...verification, authorizedVoters: updated });
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-danger/20 text-text-secondary hover:text-danger transition-all"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
                               </div>
                             ))}
-                            {verification.authorizedVoters.length > 5 && (
-                              <p className="text-xs text-text-secondary text-center py-1">
-                                +{verification.authorizedVoters.length - 5} {isRTL ? 'נוספים' : 'more'}
-                              </p>
-                            )}
                           </div>
                         </div>
                       )}

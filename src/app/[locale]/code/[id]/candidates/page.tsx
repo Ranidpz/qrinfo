@@ -7,6 +7,28 @@ import { db } from '@/lib/firebase';
 import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, createCandidate, deleteAllQVoteData, recalculateStats, resetAllVotes } from '@/lib/qvote';
 import { QRCodeSVG } from 'qrcode.react';
 
+// Helper function to remove undefined values from objects (Firestore doesn't accept undefined)
+function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const result = {} as T;
+  for (const key in obj) {
+    const value = obj[key];
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      result[key] = value.map((item) => {
+        if (item !== null && typeof item === 'object' && !(item instanceof Date)) {
+          return removeUndefined(item as Record<string, unknown>);
+        }
+        return item;
+      }) as T[typeof key];
+    } else if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+      result[key] = removeUndefined(value as Record<string, unknown>) as T[typeof key];
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 // Animated number component with smooth counting animation
 function AnimatedNumber({ value, duration = 500 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -211,6 +233,7 @@ import {
   Tags,
 } from 'lucide-react';
 import QVoteModal from '@/components/modals/QVoteModal';
+import QVoteVotersModal from '@/components/modals/QVoteVotersModal';
 import { MediaItem } from '@/types';
 import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
 
@@ -281,6 +304,9 @@ export default function QVoteCandidatesPage() {
   // Reset votes modal state
   const [showResetVotesModal, setShowResetVotesModal] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
+
+  // Voters modal state
+  const [showVotersModal, setShowVotersModal] = useState(false);
 
   // Upload zone collapsed state
   const [showUploadZone, setShowUploadZone] = useState(false);
@@ -1382,7 +1408,10 @@ export default function QVoteCandidatesPage() {
                   <AnimatedNumber value={approvedCount} />
                 </p>
               </div>
-              <div className="bg-bg-secondary rounded-xl p-4">
+              <button
+                onClick={() => setShowVotersModal(true)}
+                className="bg-bg-secondary rounded-xl p-4 hover:bg-bg-hover transition-colors cursor-pointer text-start w-full"
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <Sparkles className="w-4 h-4 text-accent" />
                   <span className="text-text-secondary text-sm">{isRTL ? 'קולות' : 'Votes'}</span>
@@ -1390,7 +1419,7 @@ export default function QVoteCandidatesPage() {
                 <p className="text-2xl font-bold text-accent">
                   <AnimatedNumber value={totalVotes} />
                 </p>
-              </div>
+              </button>
             </div>
 
             {/* QR Code for Testing - Clickable */}
@@ -2713,18 +2742,91 @@ export default function QVoteCandidatesPage() {
           onClose={() => setShowSettingsModal(false)}
           initialConfig={qvoteConfig || undefined}
           shortId={code?.shortId}
-          onSave={async (config) => {
+          onSave={async (config, landingImageFile?: File, logoFile?: File) => {
             try {
+              let landingImageUrl: string | undefined;
+              let logoUrl: string | undefined;
+
+              // Upload landing image if provided
+              if (landingImageFile && user) {
+                const formData = new FormData();
+                formData.append('file', landingImageFile);
+                formData.append('userId', user.id);
+
+                const uploadResponse = await fetch('/api/upload', {
+                  method: 'POST',
+                  body: formData,
+                });
+
+                if (uploadResponse.ok) {
+                  const uploadData = await uploadResponse.json();
+                  landingImageUrl = uploadData.url;
+                }
+              }
+
+              // Upload logo if provided
+              if (logoFile && user) {
+                const logoFormData = new FormData();
+                logoFormData.append('file', logoFile);
+                logoFormData.append('userId', user.id);
+
+                const logoUploadResponse = await fetch('/api/upload', {
+                  method: 'POST',
+                  body: logoFormData,
+                });
+
+                if (logoUploadResponse.ok) {
+                  const logoUploadData = await logoUploadResponse.json();
+                  logoUrl = logoUploadData.url;
+                }
+              }
+
+              // Clean blob URLs from branding before saving to Firestore
+              const cleanBranding = { ...config.branding };
+              if (cleanBranding.logoUrl?.startsWith('blob:')) {
+                delete cleanBranding.logoUrl;
+                delete cleanBranding.logoName;
+                delete cleanBranding.logoSize;
+              }
+
+              // Create updated config with uploaded files
+              const updatedConfig = {
+                ...config,
+                branding: {
+                  ...cleanBranding,
+                  landingImage: landingImageUrl || cleanBranding.landingImage,
+                  ...(landingImageFile && landingImageUrl ? {
+                    landingImageName: landingImageFile.name,
+                    landingImageSize: landingImageFile.size,
+                  } : {}),
+                  // Save logo URL from upload or preserve existing logo
+                  ...(logoUrl || cleanBranding.logoUrl ? { logoUrl: logoUrl || cleanBranding.logoUrl } : {}),
+                  // Save logo metadata (new upload or preserve existing)
+                  ...(logoFile && logoUrl ? {
+                    logoName: logoFile.name,
+                    logoSize: logoFile.size,
+                  } : cleanBranding.logoName && cleanBranding.logoSize ? {
+                    logoName: cleanBranding.logoName,
+                    logoSize: cleanBranding.logoSize,
+                  } : {}),
+                  // Preserve logo scale
+                  ...(cleanBranding.logoScale !== undefined ? { logoScale: cleanBranding.logoScale } : {}),
+                },
+              };
+
+              // Clean undefined values before saving to Firestore
+              const cleanConfig = removeUndefined(updatedConfig as unknown as Record<string, unknown>);
+
               // Update the qvoteConfig in Firestore
               if (code?.media && qvoteMediaItem) {
                 const updatedMedia = code.media.map((m) =>
                   m.id === qvoteMediaItem.id || m.type === 'qvote'
-                    ? { ...m, qvoteConfig: config }
+                    ? { ...m, qvoteConfig: cleanConfig }
                     : m
                 );
                 await updateDoc(doc(db, 'codes', codeId), { media: updatedMedia });
               }
-              setQvoteConfig(config);
+              setQvoteConfig(cleanConfig as typeof updatedConfig);
               setShowSettingsModal(false);
             } catch (error) {
               console.error('Error saving QVote config:', error);
@@ -2732,6 +2834,14 @@ export default function QVoteCandidatesPage() {
           }}
         />
       )}
+
+      {/* Voters Modal */}
+      <QVoteVotersModal
+        isOpen={showVotersModal}
+        onClose={() => setShowVotersModal(false)}
+        codeId={codeId}
+        locale={locale}
+      />
 
       {/* Reset Votes Confirmation Modal */}
       {showResetVotesModal && (

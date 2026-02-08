@@ -15,3 +15,6 @@ export { QTreasureComplete } from './QTreasureComplete';
 // UI components
 export { QTreasureTimer, QTreasureTimerInline } from './QTreasureTimer';
 export { QTreasureLeaderboard, QTreasureLeaderboardMini } from './QTreasureLeaderboard';
+
+// Display/Big screen components
+export { QTreasureDisplay } from './QTreasureDisplay';

@@ -900,7 +900,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   }
 
   // Determine if we should show landing page (moved up for correct flow)
-  const hasLandingContent = config.branding.landingImage || config.branding.landingTitle || config.branding.landingTitleEn || config.branding.landingSubtitle || config.branding.landingSubtitleEn;
+  const hasLandingContent = config.branding.landingImage || config.branding.landingTitle || config.branding.landingTitleEn || config.branding.landingSubtitle || config.branding.landingSubtitleEn || config.branding.logoUrl;
 
   // Get button text based on current phase and locale
   const getButtonText = () => {
@@ -990,6 +990,18 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
         {/* Content */}
         <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center">
+          {/* Logo */}
+          {config.branding.logoUrl && (
+            <img
+              src={config.branding.logoUrl}
+              alt=""
+              className="-mb-2 object-contain drop-shadow-lg animate-bounce-in"
+              style={{
+                maxHeight: `${120 * (config.branding.logoScale ?? 1)}px`,
+                maxWidth: '80%',
+              }}
+            />
+          )}
           {/* Title & Subtitle */}
           {(getLocalizedTitle() || getLocalizedSubtitle()) && (
             <div className="mb-8">

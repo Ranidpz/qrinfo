@@ -42,6 +42,7 @@ interface QTreasurePlayerViewProps {
   mediaId: string;
   initialConfig: QTreasureConfig;
   shortId: string;
+  scannedStationShortId?: string; // Station shortId if user scanned a station QR directly
 }
 
 export function QTreasurePlayerView({
@@ -49,11 +50,13 @@ export function QTreasurePlayerView({
   mediaId,
   initialConfig,
   shortId,
+  scannedStationShortId,
 }: QTreasurePlayerViewProps) {
   const [playerId] = useState(() => getVisitorId());
   const [isRegistered, setIsRegistered] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [currentStation, setCurrentStation] = useState<QTreasureStation | null>(null);
+  const [stationAccessMessage, setStationAccessMessage] = useState<string | null>(null);
 
   const { config, loading: configLoading } = useQTreasureConfig(codeId, mediaId);
   const { player, refreshPlayer } = useQTreasurePlayer(codeId, playerId);
@@ -91,6 +94,60 @@ export function QTreasurePlayerView({
       }
     }
   }, [player, activeConfig.stations]);
+
+  // Handle direct station scan - check if player can access it
+  useEffect(() => {
+    if (!scannedStationShortId || !activeConfig.stations.length) return;
+
+    // Find the scanned station
+    const scannedStation = activeConfig.stations.find(
+      s => s.isActive && s.stationShortId === scannedStationShortId
+    );
+
+    if (!scannedStation) {
+      // Station not found in config
+      setStationAccessMessage(null);
+      return;
+    }
+
+    // If player not registered or not started, they'll go through normal registration flow
+    if (!player || !player.startedAt) {
+      // Set message to show after registration that they scanned a station
+      const stationOrder = scannedStation.order;
+      if (stationOrder > 1) {
+        setStationAccessMessage(
+          lang === 'he'
+            ? `סרקת את תחנה ${stationOrder}, אבל צריך להתחיל מההתחלה! הירשם והתחל את המסע.`
+            : `You scanned station ${stationOrder}, but you need to start from the beginning! Register and begin your journey.`
+        );
+      }
+      return;
+    }
+
+    // Player is active - check if they can access this station
+    const expectedNextOrder = player.currentStationIndex + 1;
+    const scannedOrder = scannedStation.order;
+
+    if (scannedOrder < expectedNextOrder) {
+      // Already completed this station
+      setStationAccessMessage(
+        lang === 'he'
+          ? `כבר השלמת את תחנה ${scannedOrder}! המשך לתחנה ${expectedNextOrder}.`
+          : `You already completed station ${scannedOrder}! Continue to station ${expectedNextOrder}.`
+      );
+    } else if (scannedOrder > expectedNextOrder && !activeConfig.allowOutOfOrder) {
+      // Trying to skip ahead
+      setStationAccessMessage(
+        lang === 'he'
+          ? `צריך להשלים את תחנה ${expectedNextOrder} קודם! אי אפשר לדלג.`
+          : `You need to complete station ${expectedNextOrder} first! No skipping allowed.`
+      );
+    } else if (scannedOrder === expectedNextOrder) {
+      // This is the correct station - clear any message and let normal flow handle it
+      setStationAccessMessage(null);
+      setCurrentStation(scannedStation);
+    }
+  }, [scannedStationShortId, activeConfig.stations, activeConfig.allowOutOfOrder, player, lang]);
 
   // Handle registration complete
   const handleRegistrationComplete = useCallback(async (firstStation?: QTreasureStation) => {
@@ -153,7 +210,7 @@ export function QTreasurePlayerView({
       );
     }
 
-    // Not registered yet
+    // Not registered yet - show registration with optional message about scanned station
     if (!isRegistered) {
       return (
         <QTreasureRegistration
@@ -163,6 +220,7 @@ export function QTreasurePlayerView({
           lang={lang}
           onComplete={handleRegistrationComplete}
           onStart={handleHuntStart}
+          stationAccessMessage={stationAccessMessage}
         />
       );
     }
@@ -178,21 +236,72 @@ export function QTreasurePlayerView({
           isRegistered={true}
           onComplete={handleRegistrationComplete}
           onStart={handleHuntStart}
+          stationAccessMessage={stationAccessMessage}
         />
       );
     }
 
-    // Active hunt
+    // Active hunt - show station access message if trying to access wrong station
     return (
-      <QTreasureStationView
-        codeId={codeId}
-        playerId={playerId}
-        config={activeConfig}
-        station={currentStation}
-        progress={progress}
-        lang={lang}
-        onStationComplete={handleStationComplete}
-      />
+      <>
+        {stationAccessMessage && (
+          <div className="station-access-message">
+            <div className="message-content">
+              <span className="message-icon">⚠️</span>
+              <p>{stationAccessMessage}</p>
+            </div>
+            <style jsx>{`
+              .station-access-message {
+                position: fixed;
+                top: ${activeConfig.timer?.showToPlayer ? '4rem' : '1rem'};
+                left: 1rem;
+                right: 1rem;
+                z-index: 40;
+                animation: slideDown 0.3s ease-out;
+              }
+              .message-content {
+                background: linear-gradient(135deg, rgba(245, 158, 11, 0.95), rgba(217, 119, 6, 0.95));
+                border: 2px solid #d4af37;
+                border-radius: 12px;
+                padding: 1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+              }
+              .message-icon {
+                font-size: 1.5rem;
+              }
+              p {
+                margin: 0;
+                color: #1a1a1a;
+                font-weight: 600;
+                font-size: 0.95rem;
+                line-height: 1.4;
+              }
+              @keyframes slideDown {
+                from {
+                  opacity: 0;
+                  transform: translateY(-20px);
+                }
+                to {
+                  opacity: 1;
+                  transform: translateY(0);
+                }
+              }
+            `}</style>
+          </div>
+        )}
+        <QTreasureStationView
+          codeId={codeId}
+          playerId={playerId}
+          config={activeConfig}
+          station={currentStation}
+          progress={progress}
+          lang={lang}
+          onStationComplete={handleStationComplete}
+        />
+      </>
     );
   };
 
