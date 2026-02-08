@@ -67,8 +67,8 @@ export default function DevicePieChart({ data }: DevicePieChartProps) {
               borderRadius: '8px',
               color: 'var(--text-primary)',
             }}
-            formatter={(value: number, name: string) => [
-              `${value} (${Math.round((value / total) * 100)}%)`,
+            formatter={(value: number | undefined, name: string) => [
+              `${value ?? 0} (${Math.round(((value ?? 0) / total) * 100)}%)`,
               name,
             ]}
           />
