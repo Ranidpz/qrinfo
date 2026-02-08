@@ -66,7 +66,7 @@ export default function ViewsChart({ data }: ViewsChartProps) {
                 color: 'var(--text-primary)',
               }}
               labelStyle={{ color: 'var(--text-secondary)' }}
-              formatter={(value: number) => [value, t('views')]}
+              formatter={(value: number | undefined) => [value ?? 0, t('views')]}
             />
             <Line
               type="monotone"

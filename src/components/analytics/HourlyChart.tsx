@@ -74,7 +74,7 @@ export default function HourlyChart({ data }: HourlyChartProps) {
                 color: 'var(--text-primary)',
               }}
               labelFormatter={(label) => `${hourLabel} ${label}`}
-              formatter={(value: number) => [value, t('views')]}
+              formatter={(value: number | undefined) => [value ?? 0, t('views')]}
             />
             <Bar dataKey="views" radius={[4, 4, 0, 0]}>
               {chartData.map((entry, index) => (
