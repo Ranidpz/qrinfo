@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { doc, getDoc, collection, query, where, orderBy, limit, onSnapshot, Timestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PackOpening, RARITY_CONFIG, UserGalleryImage } from '@/types';
@@ -53,6 +53,7 @@ export default function LobbyClient({ routeId, locale }: LobbyClientProps) {
   const [seenWinnerIds, setSeenWinnerIds] = useState<Set<string>>(new Set());
   const [galleryImages, setGalleryImages] = useState<UserGalleryImage[]>([]);
   const [copied, setCopied] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   // Shuffle grid background state
   const gridColumns = 5;
@@ -120,8 +121,8 @@ export default function LobbyClient({ routeId, locale }: LobbyClientProps) {
           });
         });
 
-        // Shuffle images for variety
-        const shuffled = allImages.sort(() => Math.random() - 0.5);
+        // Shuffle images for variety (using Math.random in effect is OK)
+        const shuffled = [...allImages].sort(() => Math.random() - 0.5);
         setGalleryImages(shuffled);
         imagesRef.current = shuffled;
 
@@ -321,9 +322,17 @@ export default function LobbyClient({ routeId, locale }: LobbyClientProps) {
     return () => unsubscribe();
   }, [routeId, isLoading, error, seenWinnerIds.size]);
 
+  // Update current time every second for time ago calculations
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Format time ago
   const formatTimeAgo = (date: Date) => {
-    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    const seconds = Math.floor((currentTime - date.getTime()) / 1000);
     if (seconds < 60) return locale === 'he' ? 'הרגע' : 'Just now';
     if (seconds < 3600) {
       const minutes = Math.floor(seconds / 60);
@@ -552,20 +561,32 @@ export default function LobbyClient({ routeId, locale }: LobbyClientProps) {
       </div>
 
       {/* Winner Celebration Overlay */}
-      {celebratingWinner && (
+      {celebratingWinner && (() => {
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const confettiParticles = useMemo(() => {
+          return Array.from({ length: 50 }).map((_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            backgroundColor: ['#F59E0B', '#8B5CF6', '#EC4899', '#10B981', '#3B82F6'][Math.floor(Math.random() * 5)],
+            animationDelay: Math.random() * 3,
+            animationDuration: 3 + Math.random() * 2,
+          }));
+        }, [celebratingWinner.id]);
+
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-fadeIn">
           {/* Confetti */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {Array.from({ length: 50 }).map((_, i) => (
+            {confettiParticles.map((particle) => (
               <div
-                key={i}
+                key={particle.id}
                 className="absolute w-4 h-4 rounded-full animate-confetti"
                 style={{
-                  left: `${Math.random() * 100}%`,
+                  left: `${particle.left}%`,
                   top: '-20px',
-                  backgroundColor: ['#F59E0B', '#8B5CF6', '#EC4899', '#10B981', '#3B82F6'][Math.floor(Math.random() * 5)],
-                  animationDelay: `${Math.random() * 3}s`,
-                  animationDuration: `${3 + Math.random() * 2}s`,
+                  backgroundColor: particle.backgroundColor,
+                  animationDelay: `${particle.animationDelay}s`,
+                  animationDuration: `${particle.animationDuration}s`,
                 }}
               />
             ))}
@@ -600,7 +621,8 @@ export default function LobbyClient({ routeId, locale }: LobbyClientProps) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* CSS Animations */}
       <style jsx>{`

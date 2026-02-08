@@ -239,7 +239,7 @@ const PDFFlipBookViewer = memo(({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const flipbookId = useRef(`real3d_${Date.now()}`);
+  const flipbookId = useRef(() => `real3d_${Date.now()}`);
 
   // Get translations based on browser locale
   const t = viewerTranslations[getBrowserLocale()];
@@ -816,7 +816,7 @@ const ImageGalleryViewer = memo(({
   useEffect(() => {
     const media = mediaItems[currentPage];
     if (!media?.linkUrl) {
-      setShowLinkButton(false);
+      setTimeout(() => setShowLinkButton(false), 0);
       return;
     }
 
@@ -1058,6 +1058,13 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
     return false;
   });
 
+  // Loading states - must be declared before useEffect that uses them
+  const [loading, setLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loadMessage, setLoadMessage] = useState(t.loadingContent);
+  const [showContent, setShowContent] = useState(false);
+  const loadedCount = useRef(0);
+
   useEffect(() => {
     const browserLocale = getBrowserLocale();
     setLocale(browserLocale);
@@ -1077,12 +1084,6 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
         });
     }
   }, []);
-
-  const [loading, setLoading] = useState(true);
-  const [loadProgress, setLoadProgress] = useState(0);
-  const [loadMessage, setLoadMessage] = useState(t.loadingContent);
-  const [showContent, setShowContent] = useState(false);
-  const loadedCount = useRef(0);
 
   // Track link clicks (fire and forget)
   const trackLinkClick = useCallback((linkUrl: string, source: LinkSource) => {

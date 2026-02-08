@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
     let activityTitle = '';
     let activityTime = '';
     let boothName = '';
-    let boothDate = regData.boothDate || '';
+    const boothDate = regData.boothDate || '';
     let backgroundColor = '#3B82F6';
     let regCellStartSlotIndex = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

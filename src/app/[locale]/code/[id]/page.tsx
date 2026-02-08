@@ -3,6 +3,7 @@
 import { useState, useEffect, use, useRef } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
+import * as LucideIcons from 'lucide-react';
 import {
   ArrowRight,
   Save,
@@ -48,6 +49,7 @@ import {
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode, getSiblingCodes } from '@/lib/db';
+import { ICON_PATHS } from '@/lib/iconPaths';
 import { subscribeToCodeViews } from '@/lib/analytics';
 import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign, LandingPageConfig } from '@/types';
 import { QVoteConfig } from '@/types/qvote';
@@ -718,8 +720,7 @@ export default function CodeEditPage({ params }: PageProps) {
         ctx.font = `${fontSize}px Arial, sans-serif`;
         ctx.fillText(sign.value, centerX, centerY);
       } else if (sign.type === 'icon') {
-        // Import icon paths dynamically
-        const { ICON_PATHS } = require('@/lib/iconPaths');
+        // Use imported icon paths
         const iconData = ICON_PATHS[sign.value];
         if (iconData) {
           const iconSize = signRadius * 1.3;
@@ -1493,7 +1494,7 @@ export default function CodeEditPage({ params }: PageProps) {
         }
       }
 
-      let uploadedImageUrls: string[] = [...(content.images || [])];
+      const uploadedImageUrls: string[] = [...(content.images || [])];
       let totalImageSize = 0;
 
       // Upload any new images
@@ -1623,8 +1624,8 @@ export default function CodeEditPage({ params }: PageProps) {
         }
       }
 
-      let uploadedImageUrls: string[] = [...(content.images || [])];
-      let uploadedLogoUrls: string[] = [...(content.companyLogos || [])];
+      const uploadedImageUrls: string[] = [...(content.images || [])];
+      const uploadedLogoUrls: string[] = [...(content.companyLogos || [])];
       let totalImageSize = 0;
 
       // Upload any new images
@@ -2022,7 +2023,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
     setAddingQStage(true);
     try {
-      let finalConfig = { ...config };
+      const finalConfig = { ...config };
       let totalMediaSize = 0;
 
       // Get existing media item to check for old images to delete
@@ -2564,7 +2565,7 @@ export default function CodeEditPage({ params }: PageProps) {
   const handleSaveLandingPage = async (config: LandingPageConfig, backgroundImageFile?: File) => {
     if (!code || !user) return;
 
-    let finalConfig = { ...config };
+    const finalConfig = { ...config };
 
     // Upload background image if provided
     if (backgroundImageFile) {
@@ -2726,8 +2727,7 @@ export default function CodeEditPage({ params }: PageProps) {
                           />
                         ) : code.widgets.qrSign.type === 'icon' ? (
                           (() => {
-                            const LucideIcons = require('lucide-react');
-                            const IconComponent = LucideIcons[code.widgets.qrSign.value];
+                            const IconComponent = LucideIcons[code.widgets.qrSign.value as keyof typeof LucideIcons];
                             return IconComponent ? (
                               <IconComponent size={containerSize * 0.55 * scale} color={code.widgets.qrSign.color} strokeWidth={2.5} />
                             ) : null;
