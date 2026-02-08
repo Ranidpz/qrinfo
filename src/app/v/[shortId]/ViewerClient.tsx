@@ -239,7 +239,7 @@ const PDFFlipBookViewer = memo(({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const flipbookId = useRef(() => `real3d_${Date.now()}`);
+  const [flipbookId] = useState(() => `real3d_${Date.now()}`);
 
   // Get translations based on browser locale
   const t = viewerTranslations[getBrowserLocale()];
@@ -306,7 +306,7 @@ const PDFFlipBookViewer = memo(({
         requestAnimationFrame(() => {
           setTimeout(() => {
             if (window.$ && containerRef.current) {
-              const $container = window.$(`#${flipbookId.current}`);
+              const $container = window.$(`#${flipbookId}`);
               if ($container && $container.flipBook) {
                 try {
                   // Use proxy for external PDF URLs to avoid CORS issues
@@ -410,7 +410,7 @@ const PDFFlipBookViewer = memo(({
 
       {/* Real3D FlipBook Container */}
       <div
-        id={flipbookId.current}
+        id={flipbookId}
         style={{ width: '100%', height: '100%' }}
       />
     </div>
