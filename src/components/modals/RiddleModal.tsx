@@ -82,7 +82,7 @@ function formatContent(text: string): string {
   }).join('');
 
   // Apply inline formatting
-  let formatted = formattedLines
+  const formatted = formattedLines
     // Bold: *text*
     .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
     // Italic: _text_

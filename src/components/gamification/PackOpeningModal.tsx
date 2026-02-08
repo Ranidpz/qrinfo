@@ -334,7 +334,7 @@ function PrizeCard({
 // Particles Component
 function Particles({ rarity }: { rarity: PrizeRarity }) {
   const count = rarity === 'legendary' ? 30 : 15;
-  const particles = useMemo(() =>
+  const [particles] = useState(() =>
     Array.from({ length: count }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
@@ -342,7 +342,7 @@ function Particles({ rarity }: { rarity: PrizeRarity }) {
       duration: 2 + Math.random() * 2,
       size: rarity === 'legendary' ? 10 + Math.random() * 15 : 8 + Math.random() * 10,
     }))
-  , [count, rarity]);
+  );
 
   const emoji = rarity === 'legendary' ? '🌟' : '✨';
 

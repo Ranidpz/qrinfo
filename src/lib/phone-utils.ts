@@ -16,7 +16,7 @@ const ISRAELI_LANDLINE_PREFIXES = ['02', '03', '04', '08', '09', '072', '073', '
  */
 export function normalizePhoneNumber(phone: string): string {
   // Remove all non-digit characters except +
-  let cleaned = phone.replace(/[^\d+]/g, '');
+  const cleaned = phone.replace(/[^\d+]/g, '');
 
   // If starts with +972, it's already normalized
   if (cleaned.startsWith('+972')) {

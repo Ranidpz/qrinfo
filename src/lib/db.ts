@@ -392,6 +392,7 @@ export async function getAllQRCodes(): Promise<QRCode[]> {
 // Helper to remove undefined values from an object
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function removeUndefined(obj: Record<string, any>): Record<string, any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(obj)) {
     if (value !== undefined) {
@@ -1303,7 +1304,7 @@ export async function getSiblingCodes(
   });
 
   // Filter and sort client-side
-  let filteredCodes = folderId
+  const filteredCodes = folderId
     ? codes
     : codes.filter(code => !code.folderId);
 

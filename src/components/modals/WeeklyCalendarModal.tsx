@@ -1393,7 +1393,7 @@ export default function WeeklyCalendarModal({
     // Check shift key from the event for copy operation
     const shouldCopy = e.shiftKey;
 
-    let newCells = [...currentWeek.cells];
+    const newCells = [...currentWeek.cells];
 
     if (shouldCopy) {
       // COPY: Create new cell at target location

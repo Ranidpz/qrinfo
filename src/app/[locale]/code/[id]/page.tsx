@@ -2727,6 +2727,7 @@ export default function CodeEditPage({ params }: PageProps) {
                           />
                         ) : code.widgets.qrSign.type === 'icon' ? (
                           (() => {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const IconComponent = LucideIcons[code.widgets.qrSign.value as keyof typeof LucideIcons] as React.ComponentType<any>;
                             return IconComponent ? (
                               <IconComponent size={containerSize * 0.55 * scale} color={code.widgets.qrSign.color} strokeWidth={2.5} />

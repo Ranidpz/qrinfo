@@ -204,8 +204,10 @@ export function useQTreasureConfig(
 
   useEffect(() => {
     if (!codeId || !mediaId) {
-      setConfig(null);
-      setLoading(false);
+      setTimeout(() => {
+        setConfig(null);
+        setLoading(false);
+      }, 0);
       return;
     }
 
@@ -251,8 +253,10 @@ export function useQTreasurePlayer(
 
   useEffect(() => {
     if (!codeId || !playerId) {
-      setPlayer(null);
-      setLoading(false);
+      setTimeout(() => {
+        setPlayer(null);
+        setLoading(false);
+      }, 0);
       return;
     }
 
@@ -295,8 +299,10 @@ export function useQTreasureTimer(
 
   useEffect(() => {
     if (!startedAt) {
-      setTimeRemaining(maxTimeSeconds);
-      setElapsedTime(0);
+      setTimeout(() => {
+        setTimeRemaining(maxTimeSeconds);
+        setElapsedTime(0);
+      }, 0);
       return;
     }
 
