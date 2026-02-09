@@ -11,6 +11,7 @@ on:
         options:
           - '01-load-page'
           - '02-vote-storm'
+          - '03-verified-vote-storm'
           - '04-sustained-load'
           - '05-spike-test'
           - 'all'
@@ -107,37 +108,43 @@ jobs:
         run: |
           SCENARIO="${{ github.event.inputs.scenario }}"
 
+          # Load verified voters from artifact (for scenario 03)
+          VERIFIED_VOTERS="[]"
+          if [ -f "stress-test/results/verified-voters.json" ]; then
+            VERIFIED_VOTERS=$(cat stress-test/results/verified-voters.json)
+          fi
+
           echo "================================================"
           echo "  Target: $BASE_URL/v/$SHORT_ID"
           echo "  Code ID: $CODE_ID"
           echo "  Candidates: $(echo $CANDIDATE_IDS | jq length)"
+          echo "  Verified Voters: $(echo $VERIFIED_VOTERS | jq length)"
           echo "  Max VUs: $K6_MAX_VUS"
           echo "================================================"
 
-          if [ "$SCENARIO" = "all" ]; then
-            echo "Running all scenarios..."
-            for file in stress-test/scenarios/0{1,2,4,5}*.js; do
-              echo ""
-              echo "=== Running: $(basename $file) ==="
-              k6 run \
-                --env BASE_URL="$BASE_URL" \
-                --env CODE_ID="$CODE_ID" \
-                --env SHORT_ID="$SHORT_ID" \
-                --env CANDIDATE_IDS="$CANDIDATE_IDS" \
-                --out json="stress-test/results/$(basename $file .js)-results.json" \
-                --summary-trend-stats="avg,min,med,max,p(90),p(95),p(99)" \
-                "$file" || true
-              echo ""
-            done
-          else
+          run_k6() {
+            local file="$1"
             k6 run \
               --env BASE_URL="$BASE_URL" \
               --env CODE_ID="$CODE_ID" \
               --env SHORT_ID="$SHORT_ID" \
               --env CANDIDATE_IDS="$CANDIDATE_IDS" \
-              --out json="stress-test/results/${SCENARIO}-results.json" \
+              --env VERIFIED_VOTERS="$VERIFIED_VOTERS" \
+              --out json="stress-test/results/$(basename $file .js)-results.json" \
               --summary-trend-stats="avg,min,med,max,p(90),p(95),p(99)" \
-              "stress-test/scenarios/${SCENARIO}.js"
+              "$file"
+          }
+
+          if [ "$SCENARIO" = "all" ]; then
+            echo "Running all scenarios..."
+            for file in stress-test/scenarios/0{1,2,3,4,5}*.js; do
+              echo ""
+              echo "=== Running: $(basename $file) ==="
+              run_k6 "$file" || true
+              echo ""
+            done
+          else
+            run_k6 "stress-test/scenarios/${SCENARIO}.js"
           fi
 
       - name: Upload results

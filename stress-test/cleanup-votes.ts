@@ -4,7 +4,7 @@
  * After a load test, this removes all votes created during the test
  * and resets candidate vote counts to 0, restoring the session to clean state.
  *
- * Also restores the original voting phase if it was changed.
+ * Also restores the original voting phase and verification setting if changed.
  */
 
 import { initializeApp, cert } from 'firebase-admin/app';
@@ -32,9 +32,13 @@ async function cleanup() {
   // Read test config
   let codeId: string;
   let originalPhase: string;
+  let originalVerification = 'false';
   try {
     codeId = readFileSync(join(__dirname, 'results', 'code-id.txt'), 'utf-8').trim();
     originalPhase = readFileSync(join(__dirname, 'results', 'original-phase.txt'), 'utf-8').trim();
+    try {
+      originalVerification = readFileSync(join(__dirname, 'results', 'original-verification.txt'), 'utf-8').trim();
+    } catch { /* optional file */ }
   } catch {
     console.log('No test config found. Nothing to clean up.');
     process.exit(0);
@@ -103,9 +107,37 @@ async function cleanup() {
     console.log(`  Deleted ${rateLimitsDeleted} rate limit entries`);
   }
 
-  // Step 5: Restore original phase if changed
-  if (originalPhase && originalPhase !== 'voting' && originalPhase !== 'finals') {
-    console.log(`Restoring phase to '${originalPhase}'...`);
+  // Step 5: Delete test verified voters
+  console.log('Cleaning test verified voters...');
+  let votersDeleted = 0;
+  while (true) {
+    const snapshot = await db.collection('verifiedVoters')
+      .where('codeId', '==', codeId)
+      .limit(400)
+      .get();
+    // Only delete stress-test voters (phone starts with +97250)
+    const testDocs = snapshot.docs.filter(doc => {
+      const data = doc.data();
+      return data.phone?.startsWith('+97250');
+    });
+    if (testDocs.length === 0) break;
+
+    const batch = db.batch();
+    testDocs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    votersDeleted += testDocs.length;
+    if (snapshot.size < 400) break;
+  }
+  if (votersDeleted > 0) {
+    console.log(`  Deleted ${votersDeleted} test verified voters`);
+  }
+
+  // Step 6: Restore original phase and verification setting
+  const needsPhaseRestore = originalPhase && originalPhase !== 'voting' && originalPhase !== 'finals';
+  const needsVerificationRestore = originalVerification === 'true';
+
+  if (needsPhaseRestore || needsVerificationRestore) {
+    console.log('Restoring original settings...');
     const codeDoc = await db.collection('codes').doc(codeId).get();
     const codeData = codeDoc.data();
     const media = codeData?.media || [];
@@ -114,20 +146,34 @@ async function cleanup() {
     if (qvoteMediaIndex !== -1) {
       const updatedMedia = [...media];
       const config = { ...updatedMedia[qvoteMediaIndex].qvoteConfig };
-      config.currentPhase = originalPhase;
-      delete config._originalPhase;
+
+      if (needsPhaseRestore) {
+        config.currentPhase = originalPhase;
+        delete config._originalPhase;
+        console.log(`  Phase restored to '${originalPhase}'`);
+      }
+
+      if (needsVerificationRestore) {
+        config.verification = {
+          ...(config.verification || {}),
+          enabled: true,
+        };
+        delete config.verification._originalEnabled;
+        console.log('  Verification re-enabled');
+      }
+
       updatedMedia[qvoteMediaIndex] = {
         ...updatedMedia[qvoteMediaIndex],
         qvoteConfig: config,
       };
       await db.collection('codes').doc(codeId).update({ media: updatedMedia });
-      console.log('  Phase restored');
     }
   }
 
   console.log(`\nCleanup complete!`);
   console.log(`  Votes deleted: ${votesDeleted}`);
   console.log(`  Candidates reset: ${candidatesSnapshot.size}`);
+  console.log(`  Test voters deleted: ${votersDeleted}`);
   console.log(`  Session ready for use`);
 
   process.exit(0);

@@ -11,9 +11,12 @@
  */
 
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { randomUUID } from 'crypto';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+
+const NUM_VERIFIED_VOTERS = 2000;
 
 async function setup() {
   const shortId = process.env.SHORT_ID;
@@ -83,7 +86,67 @@ async function setup() {
     console.log(`Phase is already '${currentPhase}' - good`);
   }
 
-  // Step 3: Get approved candidates
+  // Step 3: Temporarily disable verification for anonymous testing
+  const verificationEnabled = qvoteConfig.verification?.enabled === true;
+  if (verificationEnabled) {
+    console.log('Verification is enabled - temporarily disabling for anonymous test scenarios...');
+    const updatedMedia = [...media];
+    updatedMedia[qvoteMediaIndex] = {
+      ...updatedMedia[qvoteMediaIndex],
+      qvoteConfig: {
+        ...qvoteConfig,
+        currentPhase: updatedMedia[qvoteMediaIndex].qvoteConfig.currentPhase, // keep phase from step 2
+        verification: {
+          ...qvoteConfig.verification,
+          enabled: false,
+          _originalEnabled: true, // flag to restore later
+        },
+      },
+    };
+    await db.collection('codes').doc(codeId).update({ media: updatedMedia });
+    console.log('Verification temporarily disabled');
+  } else {
+    console.log('Verification is already disabled');
+  }
+
+  // Step 4: Create pre-verified voters for scenario 03
+  console.log(`Creating ${NUM_VERIFIED_VOTERS} pre-verified voters...`);
+  const verifiedVoters: { phone: string; sessionToken: string; voterId: string }[] = [];
+  const BATCH_SIZE = 400;
+
+  for (let batchStart = 0; batchStart < NUM_VERIFIED_VOTERS; batchStart += BATCH_SIZE) {
+    const vBatch = db.batch();
+    const batchEnd = Math.min(batchStart + BATCH_SIZE, NUM_VERIFIED_VOTERS);
+
+    for (let i = batchStart; i < batchEnd; i++) {
+      const phone = `+97250${String(i).padStart(7, '0')}`;
+      const normalizedPhone = phone.replace(/\D/g, '');
+      const sessionToken = randomUUID();
+      const voterId = `stress-voter-${randomUUID()}`;
+
+      vBatch.set(
+        db.collection('verifiedVoters').doc(`${codeId}_${normalizedPhone}`),
+        {
+          id: `${codeId}_${normalizedPhone}`,
+          codeId,
+          phone,
+          votesUsed: 0,
+          maxVotes: 1,
+          sessionToken,
+          sessionExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          lastVerifiedAt: new Date(),
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        }
+      );
+
+      verifiedVoters.push({ phone, sessionToken, voterId });
+    }
+    await vBatch.commit();
+    console.log(`  Created ${Math.min(batchEnd, NUM_VERIFIED_VOTERS)}/${NUM_VERIFIED_VOTERS} voters...`);
+  }
+
+  // Step 5: Get approved candidates
   const candidatesSnapshot = await db.collection('codes').doc(codeId)
     .collection('candidates')
     .where('isApproved', '==', true)
@@ -97,13 +160,15 @@ async function setup() {
     process.exit(1);
   }
 
-  // Step 4: Write output files
+  // Step 6: Write output files
   const resultsDir = join(__dirname, 'results');
   mkdirSync(resultsDir, { recursive: true });
 
   writeFileSync(join(resultsDir, 'code-id.txt'), codeId);
   writeFileSync(join(resultsDir, 'candidate-ids.json'), JSON.stringify(candidateIds));
   writeFileSync(join(resultsDir, 'original-phase.txt'), currentPhase || 'voting');
+  writeFileSync(join(resultsDir, 'original-verification.txt'), verificationEnabled ? 'true' : 'false');
+  writeFileSync(join(resultsDir, 'verified-voters.json'), JSON.stringify(verifiedVoters));
   writeFileSync(
     join(resultsDir, 'test-config.json'),
     JSON.stringify({
@@ -111,7 +176,9 @@ async function setup() {
       shortId,
       candidateIds,
       numCandidates: candidateIds.length,
+      numVerifiedVoters: NUM_VERIFIED_VOTERS,
       originalPhase: currentPhase,
+      verificationWasEnabled: verificationEnabled,
       createdAt: new Date().toISOString(),
     }, null, 2)
   );
@@ -120,6 +187,8 @@ async function setup() {
   console.log(`Code ID: ${codeId}`);
   console.log(`Short ID: ${shortId}`);
   console.log(`Candidates: ${candidateIds.length}`);
+  console.log(`Verified Voters: ${NUM_VERIFIED_VOTERS}`);
+  console.log(`Verification was: ${verificationEnabled ? 'enabled (now disabled for test)' : 'disabled'}`);
 
   process.exit(0);
 }
