@@ -45,3 +45,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 flipbook-jquery-plugin/
+
+# stress test results
+stress-test/results/*.json

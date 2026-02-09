@@ -2,21 +2,54 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { normalizePhoneNumber } from '@/lib/phone-utils';
-import type { VoteRound } from '@/types/qvote';
+import crypto from 'crypto';
+
+// --- Config cache (per serverless instance, 30s TTL) ---
+const configCache = new Map<string, { data: Record<string, unknown>; expiresAt: number }>();
+const CONFIG_CACHE_TTL = 30_000;
+
+// --- Origin validation ---
+function validateOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get('origin');
+  const host = request.headers.get('host');
+  if (!origin) return true; // Same-origin requests may not send origin header
+  if (!host) return false;
+  const allowedHosts = [host, 'localhost:3000', 'localhost:3001'];
+  return allowedHosts.some(h => origin.includes(h));
+}
+
+// --- Server-side fingerprint ---
+function generateFingerprint(request: NextRequest, codeId: string): string {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+  return crypto.createHash('sha256')
+    .update(`${ip}|${userAgent}|${codeId}`)
+    .digest('hex');
+}
 
 // POST: Submit votes using Admin SDK
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
   try {
+    // --- CSRF / Origin validation ---
+    if (!validateOrigin(request)) {
+      return NextResponse.json(
+        { error: 'Forbidden', errorCode: 'INVALID_ORIGIN' },
+        { status: 403 }
+      );
+    }
+
     const { codeId, voterId, candidateIds, round = 1, categoryId, phone, sessionToken } = await request.json();
 
-    if (!codeId) {
+    if (!codeId || typeof codeId !== 'string') {
       return NextResponse.json(
         { error: 'codeId is required' },
         { status: 400 }
       );
     }
 
-    if (!voterId) {
+    if (!voterId || typeof voterId !== 'string') {
       return NextResponse.json(
         { error: 'voterId is required' },
         { status: 400 }
@@ -30,20 +63,116 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = getAdminDb();
-
-    // Check if verification is enabled for this code
-    const codeDoc = await db.collection('codes').doc(codeId).get();
-    if (!codeDoc.exists) {
+    // Validate candidateIds are strings
+    if (!candidateIds.every((id: unknown) => typeof id === 'string' && id.length > 0)) {
       return NextResponse.json(
-        { error: 'Code not found' },
-        { status: 404 }
+        { error: 'All candidateIds must be non-empty strings' },
+        { status: 400 }
       );
     }
 
-    const codeData = codeDoc.data();
-    const qvoteMedia = codeData?.media?.find((m: { type: string }) => m.type === 'qvote');
-    const verificationConfig = qvoteMedia?.qvoteConfig?.verification;
+    const db = getAdminDb();
+
+    // --- Get code config (cached) ---
+    let codeData: Record<string, unknown> | undefined;
+    const cached = configCache.get(codeId);
+    if (cached && cached.expiresAt > Date.now()) {
+      codeData = cached.data;
+    } else {
+      const codeDoc = await db.collection('codes').doc(codeId).get();
+      if (!codeDoc.exists) {
+        return NextResponse.json(
+          { error: 'Code not found' },
+          { status: 404 }
+        );
+      }
+      codeData = codeDoc.data() as Record<string, unknown>;
+      configCache.set(codeId, { data: codeData, expiresAt: Date.now() + CONFIG_CACHE_TTL });
+    }
+
+    const media = codeData?.media as Array<{ type: string; qvoteConfig?: Record<string, unknown> }> | undefined;
+    const qvoteMedia = media?.find((m) => m.type === 'qvote');
+    const qvoteConfig = qvoteMedia?.qvoteConfig as Record<string, unknown> | undefined;
+    const verificationConfig = qvoteConfig?.verification as Record<string, unknown> | undefined;
+
+    // --- Fix 4: Validate voting phase ---
+    const currentPhase = qvoteConfig?.currentPhase;
+    if (currentPhase !== 'voting' && currentPhase !== 'finals') {
+      return NextResponse.json(
+        { error: 'Voting is not currently open', errorCode: 'VOTING_CLOSED' },
+        { status: 403 }
+      );
+    }
+
+    // --- Fix 5: Bound candidateIds length ---
+    const maxSelections = (qvoteConfig?.maxSelectionsPerVoter as number) || 3;
+    if (candidateIds.length > maxSelections) {
+      return NextResponse.json(
+        { error: `Maximum ${maxSelections} selections allowed`, errorCode: 'TOO_MANY_SELECTIONS' },
+        { status: 400 }
+      );
+    }
+
+    // --- Fix 2: Rate limiting (Firestore-based, distributed) ---
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ipRateLimitKey = `vote_ip_${clientIp}`;
+    const RATE_LIMIT_WINDOW = 60_000; // 1 minute
+    const IP_RATE_LIMIT_MAX = 30; // 30 votes per IP per minute
+
+    const ipRateLimitResult = await db.runTransaction(async (transaction) => {
+      const ref = db.collection('rateLimits').doc(ipRateLimitKey);
+      const doc = await transaction.get(ref);
+      const data = doc.data();
+      const now = Date.now();
+
+      if (!data || now > (data.resetAt as number)) {
+        transaction.set(ref, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+        return { allowed: true };
+      }
+      if ((data.count as number) >= IP_RATE_LIMIT_MAX) {
+        return { allowed: false };
+      }
+      transaction.update(ref, { count: FieldValue.increment(1) });
+      return { allowed: true };
+    });
+
+    if (!ipRateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait.', errorCode: 'RATE_LIMITED' },
+        { status: 429 }
+      );
+    }
+
+    // Per-voter rate limiting (10 votes per voter per minute)
+    const voterRateLimitKey = `vote_voter_${voterId}_${codeId}`;
+    const VOTER_RATE_LIMIT_MAX = 10;
+
+    const voterRateLimitResult = await db.runTransaction(async (transaction) => {
+      const ref = db.collection('rateLimits').doc(voterRateLimitKey);
+      const doc = await transaction.get(ref);
+      const data = doc.data();
+      const now = Date.now();
+
+      if (!data || now > (data.resetAt as number)) {
+        transaction.set(ref, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+        return { allowed: true };
+      }
+      if ((data.count as number) >= VOTER_RATE_LIMIT_MAX) {
+        return { allowed: false };
+      }
+      transaction.update(ref, { count: FieldValue.increment(1) });
+      return { allowed: true };
+    });
+
+    if (!voterRateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many votes. Please wait.', errorCode: 'RATE_LIMITED' },
+        { status: 429 }
+      );
+    }
+
+    // --- Fix 8: Server-side fingerprint for anonymous voting dedup ---
+    const fingerprint = generateFingerprint(request, codeId);
 
     // If verification is enabled, validate session
     if (verificationConfig?.enabled) {
@@ -87,9 +216,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if there are categories - if so, allow one vote per category
-      // instead of a total vote limit
       if (categoryId) {
-        // Check if user already voted in this specific category
         const existingCategoryVote = await db.collection('codes').doc(codeId)
           .collection('votes')
           .where('voterId', '==', voterId)
@@ -104,8 +231,6 @@ export async function POST(request: NextRequest) {
             { status: 403 }
           );
         }
-        // For category voting, we allow voting without incrementing the global counter
-        // The vote itself will be recorded in the votes collection
       } else {
         // No category - use the global vote limit
         const votesUsed = voterData?.votesUsed || 0;
@@ -117,11 +242,26 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Increment votes used for this verified voter (only for non-category voting)
+        // Increment votes used for this verified voter
         await db.collection('verifiedVoters').doc(verifiedVoterId).update({
           votesUsed: FieldValue.increment(1),
           updatedAt: FieldValue.serverTimestamp(),
         });
+      }
+    } else {
+      // --- Anonymous voting: check fingerprint for dedup ---
+      const fingerprintVote = await db.collection('codes').doc(codeId)
+        .collection('votes')
+        .where('fingerprint', '==', fingerprint)
+        .where('round', '==', round)
+        .limit(1)
+        .get();
+
+      if (!fingerprintVote.empty) {
+        return NextResponse.json(
+          { error: 'Already voted from this device', errorCode: 'DUPLICATE_DEVICE' },
+          { status: 403 }
+        );
       }
     }
 
@@ -129,27 +269,26 @@ export async function POST(request: NextRequest) {
     let votesSubmitted = 0;
 
     // Use a transaction to ensure atomicity
+    // Performance: Use getAll() instead of sequential gets
     await db.runTransaction(async (transaction) => {
-      // PHASE 1: Read all vote documents first
-      const voteRefs: { voteId: string; voteRef: FirebaseFirestore.DocumentReference; candidateId: string; exists: boolean }[] = [];
-
-      for (const candidateId of candidateIds) {
+      // PHASE 1: Read all vote documents at once
+      const voteEntries = candidateIds.map((candidateId: string) => {
         const voteId = `${voterId}_${candidateId}_${round}`;
         const voteRef = db.collection('codes').doc(codeId).collection('votes').doc(voteId);
-        const voteSnap = await transaction.get(voteRef);
-        voteRefs.push({
-          voteId,
-          voteRef,
-          candidateId,
-          exists: voteSnap.exists,
-        });
-      }
+        return { voteId, voteRef, candidateId };
+      });
+
+      const voteRefs = voteEntries.map(e => e.voteRef);
+      const voteSnaps = await transaction.getAll(...voteRefs);
 
       // PHASE 2: Perform all writes
-      for (const { voteId, voteRef, candidateId, exists } of voteRefs) {
+      voteEntries.forEach((entry, i) => {
+        const { voteId, voteRef, candidateId } = entry;
+        const exists = voteSnaps[i].exists;
+
         if (exists) {
           duplicates.push(candidateId);
-          continue;
+          return;
         }
 
         // Create vote document
@@ -160,7 +299,7 @@ export async function POST(request: NextRequest) {
           candidateId,
           voterId,
           round,
-          // Store phone number for verification tracking (if provided)
+          fingerprint,
           phone: phone ? normalizePhoneNumber(phone) : null,
           createdAt: FieldValue.serverTimestamp(),
         });
@@ -174,52 +313,34 @@ export async function POST(request: NextRequest) {
         });
 
         votesSubmitted++;
-      }
+      });
     });
 
-    // Update stats (outside transaction)
+    // --- Fix 3: Atomic stats update using dedicated stats document ---
     if (votesSubmitted > 0) {
       try {
-        const codeDoc = await db.collection('codes').doc(codeId).get();
-        if (codeDoc.exists) {
-          const data = codeDoc.data();
-          const qvoteMediaIndex = data?.media?.findIndex((m: { type: string }) => m.type === 'qvote');
-
-          if (qvoteMediaIndex !== undefined && qvoteMediaIndex !== -1) {
-            const currentStats = data?.media[qvoteMediaIndex]?.qvoteConfig?.stats || {
-              totalCandidates: 0,
-              approvedCandidates: 0,
-              totalVoters: 0,
-              totalVotes: 0,
-              lastUpdated: new Date(),
-            };
-
-            const updatedMedia = [...(data?.media || [])];
-            updatedMedia[qvoteMediaIndex] = {
-              ...updatedMedia[qvoteMediaIndex],
-              qvoteConfig: {
-                ...updatedMedia[qvoteMediaIndex].qvoteConfig,
-                stats: {
-                  ...currentStats,
-                  totalVotes: (currentStats.totalVotes || 0) + votesSubmitted,
-                  lastUpdated: new Date(),
-                },
-              },
-            };
-
-            await db.collection('codes').doc(codeId).update({
-              media: updatedMedia,
-              updatedAt: FieldValue.serverTimestamp(),
-            });
-          }
-        }
+        const statsRef = db.collection('codes').doc(codeId)
+          .collection('qvoteStats').doc('current');
+        await statsRef.set({
+          totalVotes: FieldValue.increment(votesSubmitted),
+          totalVoters: FieldValue.increment(1),
+          lastUpdated: FieldValue.serverTimestamp(),
+        }, { merge: true });
       } catch (statsError) {
         console.error('Error updating stats:', statsError);
-        // Don't fail the request if stats update fails
       }
     }
 
-    console.log(`[QVote Vote] Voter ${voterId} submitted ${votesSubmitted} votes for code: ${codeId}`);
+    const durationMs = Date.now() - startTime;
+    console.log(JSON.stringify({
+      event: 'vote_submitted',
+      codeId,
+      voterId: voterId.substring(0, 8),
+      votesSubmitted,
+      duplicates: duplicates.length,
+      durationMs,
+      timestamp: new Date().toISOString(),
+    }));
 
     return NextResponse.json({
       success: votesSubmitted > 0,

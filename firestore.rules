@@ -47,8 +47,8 @@ service cloud.firestore {
       match /votes/{voteId} {
         // Anyone can read votes (to check if already voted)
         allow read: if true;
-        // Anyone can create a vote (anonymous voting)
-        allow create: if true;
+        // Votes must go through API route (Admin SDK) to enforce rate limiting and verification
+        allow create: if false;
         // Only admin can update/delete votes
         allow update, delete: if isAdmin();
       }
@@ -207,33 +207,30 @@ service cloud.firestore {
     }
 
     // VerifiedVoters collection (phone verification for Q.Vote)
+    // All operations go through API routes using Admin SDK for security
     match /verifiedVoters/{voterId} {
-      // Anyone can read (to check session validity)
-      allow read: if true;
-      // Anyone can create (during phone verification)
-      allow create: if true;
-      // Anyone can update (session updates, vote tracking)
-      allow update: if true;
+      allow read: if false;
+      allow create: if false;
+      allow update: if false;
       // Only authenticated users can delete (during vote reset)
       allow delete: if request.auth != null;
     }
 
     // VerificationCodes collection (OTP codes for Q.Vote)
+    // All operations go through API routes using Admin SDK for security
     match /verificationCodes/{codeId} {
-      // Anyone can read (to verify OTP)
-      allow read: if true;
-      // Anyone can create (when requesting OTP)
-      allow create: if true;
-      // Anyone can update (increment attempts, mark as verified)
-      allow update: if true;
+      allow read: if false;
+      allow create: if false;
+      allow update: if false;
       // Only authenticated users can delete (during vote reset)
       allow delete: if request.auth != null;
     }
 
     // RateLimits collection (for OTP rate limiting)
+    // All operations go through API routes using Admin SDK for security
     match /rateLimits/{limitId} {
-      // Anyone can read/write (rate limiting is per-phone, not per-user)
-      allow read, write: if true;
+      allow read: if false;
+      allow write: if false;
     }
 
     // MessageLogs collection (for tracking sent messages)

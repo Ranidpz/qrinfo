@@ -1,0 +1,171 @@
+name: Q.Vote Load Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Test scenario to run'
+        required: true
+        default: '02-vote-storm'
+        type: choice
+        options:
+          - '01-load-page'
+          - '02-vote-storm'
+          - '03-verified-vote-storm'
+          - '04-sustained-load'
+          - '05-spike-test'
+          - 'all'
+      target_url:
+        description: 'Target URL (your Vercel deployment)'
+        required: true
+        default: 'https://qr.playzones.app'
+      max_vus:
+        description: 'Max virtual users (override default)'
+        required: false
+        default: '500'
+      duration_override:
+        description: 'Test duration override (e.g. 2m, 5m)'
+        required: false
+        default: ''
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  setup:
+    name: Setup Test Data
+    runs-on: ubuntu-latest
+    outputs:
+      code_id: ${{ steps.setup.outputs.code_id }}
+      short_id: ${{ steps.setup.outputs.short_id }}
+      candidate_ids: ${{ steps.setup.outputs.candidate_ids }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create test data in Firebase
+        id: setup
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+        run: |
+          npx tsx stress-test/setup-ci.ts
+          echo "code_id=$(cat stress-test/results/code-id.txt)" >> $GITHUB_OUTPUT
+          echo "short_id=stress-ci" >> $GITHUB_OUTPUT
+          echo "candidate_ids=$(cat stress-test/results/candidate-ids.json)" >> $GITHUB_OUTPUT
+
+      - name: Upload test config
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-config
+          path: stress-test/results/
+          retention-days: 1
+
+  load-test:
+    name: "Run: ${{ github.event.inputs.scenario }}"
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download test config
+        uses: actions/download-artifact@v4
+        with:
+          name: test-config
+          path: stress-test/results/
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run load test - ${{ github.event.inputs.scenario }}
+        env:
+          BASE_URL: ${{ github.event.inputs.target_url }}
+          CODE_ID: ${{ needs.setup.outputs.code_id }}
+          SHORT_ID: ${{ needs.setup.outputs.short_id }}
+          CANDIDATE_IDS: ${{ needs.setup.outputs.candidate_ids }}
+          K6_MAX_VUS: ${{ github.event.inputs.max_vus }}
+        run: |
+          SCENARIO="${{ github.event.inputs.scenario }}"
+
+          if [ "$SCENARIO" = "all" ]; then
+            echo "🚀 Running all scenarios..."
+            for file in stress-test/scenarios/*.js; do
+              echo ""
+              echo "═══════════════════════════════════════"
+              echo "  Running: $(basename $file)"
+              echo "═══════════════════════════════════════"
+              k6 run \
+                --env BASE_URL="$BASE_URL" \
+                --env CODE_ID="$CODE_ID" \
+                --env SHORT_ID="$SHORT_ID" \
+                --env CANDIDATE_IDS="$CANDIDATE_IDS" \
+                --out json="stress-test/results/$(basename $file .js)-results.json" \
+                --summary-trend-stats="avg,min,med,max,p(90),p(95),p(99)" \
+                "$file" || true
+              echo ""
+            done
+          else
+            echo "🚀 Running scenario: $SCENARIO"
+            k6 run \
+              --env BASE_URL="$BASE_URL" \
+              --env CODE_ID="$CODE_ID" \
+              --env SHORT_ID="$SHORT_ID" \
+              --env CANDIDATE_IDS="$CANDIDATE_IDS" \
+              --out json="stress-test/results/${SCENARIO}-results.json" \
+              --summary-trend-stats="avg,min,med,max,p(90),p(95),p(99)" \
+              "stress-test/scenarios/${SCENARIO}.js"
+          fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: stress-test/results/*-results.json
+          retention-days: 30
+
+  teardown:
+    name: Cleanup Test Data
+    runs-on: ubuntu-latest
+    needs: [setup, load-test]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download test config
+        uses: actions/download-artifact@v4
+        with:
+          name: test-config
+          path: stress-test/results/
+        continue-on-error: true
+
+      - name: Cleanup Firebase test data
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+        run: npx tsx stress-test/teardown-ci.ts
