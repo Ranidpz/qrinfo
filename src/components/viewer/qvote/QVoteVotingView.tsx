@@ -178,15 +178,15 @@ export default function QVoteVotingView({
   return (
     <div
       className="flex-1 flex flex-col relative overflow-hidden"
-      style={{ backgroundColor: brandingStyles.background }}
+      style={{ backgroundColor: '#11111b' }}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* Header with Logo, Category Name, and Back Button - Fixed */}
       <div
-        className="fixed top-0 left-0 right-0 px-4 py-3 z-50"
+        className="fixed top-0 left-0 right-0 px-4 py-3 z-50 backdrop-blur-md"
         style={{
-          backgroundColor: brandingStyles.background,
-          borderBottom: `1px solid ${brandingStyles.text}10`,
+          backgroundColor: 'rgba(17, 17, 27, 0.92)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
         }}
       >
         <div className="flex items-center gap-3">
@@ -194,8 +194,8 @@ export default function QVoteVotingView({
           {selectedCategory && config.categories.length > 0 && (
             <button
               onClick={handleBackClick}
-              className="p-2 -ms-2 rounded-full transition-colors hover:bg-black/10 active:scale-95"
-              style={{ color: brandingStyles.text }}
+              className="p-2 -ms-2 rounded-full transition-colors hover:bg-white/10 active:scale-95"
+              style={{ color: '#ffffff' }}
               title={isRTL ? 'חזרה לקטגוריות' : 'Back to categories'}
             >
               <ChevronLeft className="w-5 h-5" />
@@ -209,7 +209,7 @@ export default function QVoteVotingView({
                 {/* Category name */}
                 <h2
                   className="text-lg font-bold truncate"
-                  style={{ color: brandingStyles.text }}
+                  style={{ color: '#ffffff' }}
                 >
                   {(() => {
                     const category = config.categories.find(c => c.id === selectedCategory);
@@ -219,7 +219,7 @@ export default function QVoteVotingView({
                 {!hasVoted && (
                   <p
                     className="text-xs"
-                    style={{ color: `${brandingStyles.text}70` }}
+                    style={{ color: 'rgba(255,255,255,0.55)' }}
                   >
                     {t.selectUpTo.replace('{n}', String(config.maxSelectionsPerVoter))}
                   </p>
@@ -229,14 +229,14 @@ export default function QVoteVotingView({
               <>
                 <h2
                   className="text-lg font-bold truncate"
-                  style={{ color: brandingStyles.text }}
+                  style={{ color: '#ffffff' }}
                 >
                   {isFinalsPhase ? t.finalsTitle : t.votingTitle}
                 </h2>
                 {!hasVoted && (
                   <p
                     className="text-xs"
-                    style={{ color: `${brandingStyles.text}70` }}
+                    style={{ color: 'rgba(255,255,255,0.55)' }}
                   >
                     {t.selectUpTo.replace('{n}', String(config.maxSelectionsPerVoter))}
                   </p>
@@ -322,8 +322,8 @@ export default function QVoteVotingView({
             onClick={() => setShowResetConfirm(false)}
           />
           <div
-            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl"
-            style={{ backgroundColor: brandingStyles.background }}
+            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl backdrop-blur-md"
+            style={{ backgroundColor: 'rgba(26, 26, 46, 0.95)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
             <div className="text-center">
               <div
@@ -332,10 +332,10 @@ export default function QVoteVotingView({
               >
                 <RefreshCw className="w-7 h-7" style={{ color: brandingStyles.accent }} />
               </div>
-              <h3 className="text-lg font-bold mb-2" style={{ color: brandingStyles.text }}>
+              <h3 className="text-lg font-bold mb-2" style={{ color: '#ffffff' }}>
                 {t.confirmChangeVote || (isRTL ? 'לשנות את ההצבעה?' : 'Change your vote?')}
               </h3>
-              <p className="text-sm mb-6" style={{ color: `${brandingStyles.text}80` }}>
+              <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 {isRTL
                   ? 'ההצבעה הקודמת תבוטל ותוכלו לבחור מחדש'
                   : 'Your previous vote will be cancelled and you can choose again'}
@@ -345,8 +345,8 @@ export default function QVoteVotingView({
                   onClick={() => setShowResetConfirm(false)}
                   className="flex-1 py-3 rounded-xl font-medium transition-colors"
                   style={{
-                    backgroundColor: `${brandingStyles.text}10`,
-                    color: brandingStyles.text,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    color: '#ffffff',
                   }}
                 >
                   {t.cancel || (isRTL ? 'ביטול' : 'Cancel')}
@@ -378,8 +378,8 @@ export default function QVoteVotingView({
             onClick={() => setShowLeaveWarning(false)}
           />
           <div
-            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl"
-            style={{ backgroundColor: brandingStyles.background }}
+            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl backdrop-blur-md"
+            style={{ backgroundColor: 'rgba(26, 26, 46, 0.95)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
             <div className="text-center">
               <div
@@ -388,10 +388,10 @@ export default function QVoteVotingView({
               >
                 <AlertTriangle className="w-7 h-7 text-amber-500" />
               </div>
-              <h3 className="text-lg font-bold mb-2" style={{ color: brandingStyles.text }}>
+              <h3 className="text-lg font-bold mb-2" style={{ color: '#ffffff' }}>
                 {isRTL ? 'יש לך בחירות שלא נשמרו' : 'You have unsaved selections'}
               </h3>
-              <p className="text-sm mb-6" style={{ color: `${brandingStyles.text}80` }}>
+              <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 {isRTL
                   ? `בחרת ${selectedCandidates.length} מתוך ${config.maxSelectionsPerVoter}. אם תצאו עכשיו, הבחירות יימחקו.`
                   : `You selected ${selectedCandidates.length} of ${config.maxSelectionsPerVoter}. If you leave now, your selections will be lost.`}
@@ -414,8 +414,8 @@ export default function QVoteVotingView({
                   }}
                   className="flex-1 py-3 rounded-xl font-medium transition-colors"
                   style={{
-                    backgroundColor: `${brandingStyles.text}10`,
-                    color: brandingStyles.text,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    color: '#ffffff',
                   }}
                 >
                   {isRTL ? 'לצאת בכל זאת' : 'Leave Anyway'}
@@ -434,8 +434,8 @@ export default function QVoteVotingView({
             onClick={() => setShowExitToQ(false)}
           />
           <div
-            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl"
-            style={{ backgroundColor: brandingStyles.background }}
+            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl backdrop-blur-md"
+            style={{ backgroundColor: 'rgba(26, 26, 46, 0.95)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
             <div className="text-center">
               <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden bg-gradient-to-br from-purple-500 to-blue-500">
@@ -445,10 +445,10 @@ export default function QVoteVotingView({
                   className="w-10 h-10 object-contain"
                 />
               </div>
-              <h3 className="text-lg font-bold mb-2" style={{ color: brandingStyles.text }}>
+              <h3 className="text-lg font-bold mb-2" style={{ color: '#ffffff' }}>
                 {isRTL ? 'יציאה לפלטפורמת The Q' : 'Leaving to The Q Platform'}
               </h3>
-              <p className="text-sm mb-6" style={{ color: `${brandingStyles.text}80` }}>
+              <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 {isRTL
                   ? 'אתם עומדים לעזוב את ההצבעה לטאב חדש עם פלטפורמת The Q. אתם בטוחים?'
                   : "You're about to leave the voting for a new tab with The Q platform. Are you sure?"}
@@ -458,8 +458,8 @@ export default function QVoteVotingView({
                   onClick={() => setShowExitToQ(false)}
                   className="flex-1 py-3 rounded-xl font-medium transition-colors"
                   style={{
-                    backgroundColor: `${brandingStyles.text}10`,
-                    color: brandingStyles.text,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    color: '#ffffff',
                   }}
                 >
                   {isRTL ? 'לא, להישאר' : 'No, Stay'}
@@ -488,7 +488,7 @@ export default function QVoteVotingView({
         {displayCandidates.length === 0 ? (
           <div
             className="h-full flex items-center justify-center text-center p-8"
-            style={{ color: `${brandingStyles.text}60` }}
+            style={{ color: 'rgba(255,255,255,0.5)' }}
           >
             {t.noCandidates}
           </div>
@@ -597,11 +597,11 @@ export default function QVoteVotingView({
           }`}
         >
           <div
-            className="p-4"
+            className="p-4 backdrop-blur-md"
             style={{
-              backgroundColor: brandingStyles.background,
-              borderTop: `1px solid ${brandingStyles.text}15`,
-              boxShadow: `0 -4px 24px ${brandingStyles.text}10`,
+              backgroundColor: 'rgba(17, 17, 27, 0.92)',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.3)',
             }}
           >
           <button
