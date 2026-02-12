@@ -712,6 +712,24 @@ export default function QVoteCandidatesPage() {
     }
   };
 
+  const handleBulkUnapprove = async () => {
+    if (selectedCandidates.length === 0) return;
+    setUpdating('bulk');
+    try {
+      await batchUpdateCandidateStatus(codeId, selectedCandidates, { isApproved: false });
+      setCandidates((prev) =>
+        prev.map((c) =>
+          selectedCandidates.includes(c.id) ? { ...c, isApproved: false } : c
+        )
+      );
+      setSelectedCandidates([]);
+    } catch (error) {
+      console.error('Error bulk unapproving:', error);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (selectedCandidates.length === 0 || deletingBulk) return;
 
@@ -1780,6 +1798,18 @@ export default function QVoteCandidatesPage() {
                   <Check className="w-4 h-4" />
                 )}
                 {isRTL ? 'אשר הכל' : 'Approve All'}
+              </button>
+              <button
+                onClick={handleBulkUnapprove}
+                disabled={updating === 'bulk'}
+                className="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {updating === 'bulk' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                {isRTL ? 'בטל אישור' : 'Unapprove'}
               </button>
               {/* Assign Category Button */}
               {qvoteConfig?.categories && qvoteConfig.categories.length > 0 && (
