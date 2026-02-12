@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "qrinfo-905c9"
+    "default": "qrinfo-905c9",
+    "dev": "qrinfo-dev"
   }
 }
