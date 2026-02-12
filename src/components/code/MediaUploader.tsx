@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -43,6 +43,7 @@ interface MediaUploaderProps {
   onQHuntCreate?: () => void;
   onQTreasureCreate?: () => void;
   onQChallengeCreate?: () => void;
+  onQTagCreate?: () => void;
   maxSize?: number; // bytes
   accept?: string[];
   disabled?: boolean;
@@ -60,11 +61,12 @@ export default function MediaUploader({
   onQHuntCreate,
   onQTreasureCreate,
   onQChallengeCreate,
+  onQTagCreate,
   maxSize = 5 * 1024 * 1024, // 5MB default
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'minigames'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames'>('upload');
   const [linkUrl, setLinkUrl] = useState('');
   const [linkMode, setLinkMode] = useState<LinkMode>('url');
   const [showLinkModeDropdown, setShowLinkModeDropdown] = useState(false);
@@ -405,6 +407,7 @@ export default function MediaUploader({
           {onQHuntCreate && <TabButton tab="qhunt" label="Q.Hunt" icon={Crosshair} tooltip={t('tooltipQHunt') || 'Real-time code hunting game'} />}
           {onQTreasureCreate && <TabButton tab="qtreasure" label="מטמון" icon={Map} tooltip={t('tooltipQTreasure') || 'Treasure hunt with stations'} />}
           {onQChallengeCreate && <TabButton tab="qchallenge" label="טריוויה" icon={Trophy} tooltip={t('tooltipQChallenge') || 'Trivia quiz game'} />}
+          {onQTagCreate && <TabButton tab="qtag" label="Q.Tag" icon={Tag} tooltip={t('tooltipQTag') || 'Event registration & check-in'} />}
           <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} tooltip={t('tooltipMinigames')} />
         </div>
       )}
@@ -1008,6 +1011,30 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQChallenge') || 'Create Q.Challenge'}
+          </button>
+        </div>
+      ) : activeTab === 'qtag' ? (
+        /* Q.Tag event registration creation */
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
+              <Tag className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-start">
+              <h3 className="font-medium text-text-primary mb-1">
+                Q.Tag
+              </h3>
+              <p className="text-xs text-text-secondary">
+                {t('qtagDescription') || 'Event registration & check-in system'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onQTagCreate}
+            disabled={disabled}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            {t('createQTag') || 'Create Q.Tag'}
           </button>
         </div>
       ) : activeTab === 'minigames' ? (

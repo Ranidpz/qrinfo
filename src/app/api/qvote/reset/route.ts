@@ -1,42 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
-import { getAuth } from 'firebase-admin/auth';
-import { getApps } from 'firebase-admin/app';
 import { deleteAllQVoteData, recalculateStats } from '@/lib/qvote';
 import { getQRCodeByShortId } from '@/lib/db';
-
-// Helper to get admin app for auth verification
-function getAdminAuth() {
-  const apps = getApps();
-  const adminApp = apps.find((app) => app.name === 'firebase-admin');
-  if (!adminApp) throw new Error('Admin app not initialized');
-  return getAuth(adminApp);
-}
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
 
 // POST: Reset all Q.Vote data (candidates and votes) for a code
 export async function POST(request: NextRequest) {
   try {
-    // --- Authentication: Verify Firebase Auth token ---
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    let uid: string;
-    try {
-      const decodedToken = await getAdminAuth().verifyIdToken(token);
-      uid = decodedToken.uid;
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid authentication token' },
-        { status: 401 }
-      );
-    }
-
     const { codeId, shortId, confirmReset } = await request.json();
 
     // Require explicit confirmation
@@ -68,31 +37,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // --- Authorization: Verify ownership or admin role ---
-    const db = getAdminDb();
-    const codeDoc = await db.collection('codes').doc(actualCodeId).get();
-    if (!codeDoc.exists) {
-      return NextResponse.json(
-        { error: 'Code not found' },
-        { status: 404 }
-      );
-    }
+    // Auth + ownership check
+    const auth = await requireCodeOwner(request, actualCodeId);
+    if (isAuthError(auth)) return auth.response;
 
-    const codeData = codeDoc.data();
-    const isOwner = codeData?.ownerId === uid;
-
-    if (!isOwner) {
-      const userDoc = await db.collection('users').doc(uid).get();
-      const isSuperAdmin = userDoc.data()?.role === 'super_admin';
-      if (!isSuperAdmin) {
-        return NextResponse.json(
-          { error: 'Only the code owner or admin can reset voting data' },
-          { status: 403 }
-        );
-      }
-    }
-
-    console.log(`[QVote Reset] User ${uid} deleting all data for code: ${actualCodeId}`);
+    console.log(`[QVote Reset] User ${auth.uid} deleting all data for code: ${actualCodeId}`);
 
     // Delete all candidates and votes
     await deleteAllQVoteData(actualCodeId);

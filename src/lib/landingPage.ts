@@ -25,6 +25,7 @@ export const MEDIA_TYPE_INFO: Record<MediaType, {
   qhunt: { icon: 'Crosshair', labelHe: 'ציד קודים', labelEn: 'Code Hunt' },
   qtreasure: { icon: 'Map', labelHe: 'ציד אוצרות', labelEn: 'Treasure Hunt' },
   qchallenge: { icon: 'Trophy', labelHe: 'טריוויה', labelEn: 'Trivia' },
+  qtag: { icon: 'Tag', labelHe: 'רישום לאירוע', labelEn: 'Event Registration' },
 };
 
 /**

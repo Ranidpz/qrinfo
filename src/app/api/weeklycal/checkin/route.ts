@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import type { CheckinScenario } from '@/types/weeklycal';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+import { maskPhoneNumber } from '@/lib/phone-utils';
 
 interface ScannerContext {
   currentCellId: string;
@@ -60,6 +62,16 @@ interface CheckinResponse {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - prevent brute-force token guessing
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`weeklycal-checkin:${clientIp}`, RATE_LIMITS.CHECKIN);
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const {
       qrToken,
@@ -385,7 +397,7 @@ export async function POST(request: NextRequest) {
         registration: {
           id: newRegistrationId,
           nickname: regData.nickname || '',
-          phone: maskPhone(regData.phone || ''),
+          phone: maskPhoneNumber(regData.phone || ''),
           count: regData.count || 1,
           avatarUrl: regData.avatarUrl || null,
           avatarType: regData.avatarType || 'none',
@@ -435,7 +447,7 @@ export async function POST(request: NextRequest) {
       registration: {
         id: regDoc.id,
         nickname: regData.nickname || '',
-        phone: maskPhone(regData.phone || ''),
+        phone: maskPhoneNumber(regData.phone || ''),
         count: regData.count || 1,
         avatarUrl: regData.avatarUrl || null,
         avatarType: regData.avatarType || 'none',
@@ -480,15 +492,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-/**
- * Mask phone number for privacy
- */
-function maskPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length < 7) return phone;
-  const firstPart = digits.slice(0, 3);
-  const lastPart = digits.slice(-4);
-  return `${firstPart}-***-${lastPart}`;
 }

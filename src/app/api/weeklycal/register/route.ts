@@ -15,12 +15,13 @@ import { db } from '@/lib/firebase';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import { maskPhoneNumber } from '@/lib/phone-utils';
+import crypto from 'crypto';
 
-// Generate unique QR token for check-in
+// Generate cryptographically secure QR token for check-in
 function generateQRToken(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 10);
-  return `${timestamp}${random}`.toUpperCase();
+  return crypto.randomBytes(16).toString('hex').toUpperCase();
 }
 
 // POST: Register or unregister for a cell
@@ -423,10 +424,9 @@ export async function GET(request: NextRequest) {
           cellId: data.cellId,
           visitorId: data.visitorId,
           nickname: data.nickname,
-          phone: data.phone,
+          phone: data.phone ? maskPhoneNumber(data.phone) : null,
           avatarUrl: data.avatarUrl,
           avatarType: data.avatarType || 'none',
-          qrToken: data.qrToken,
           isVerified: data.isVerified || false,
           checkedIn: data.checkedIn || false,
           checkedInAt: data.checkedInAt instanceof Timestamp
@@ -512,6 +512,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Auth check: only code owner can update registrations
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
+
     const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
     const regDoc = await getDoc(registrationRef);
 
@@ -571,6 +575,10 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Auth check: only code owner can delete registrations
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
     const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
     const regDoc = await getDoc(registrationRef);

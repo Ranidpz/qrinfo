@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Search, Download, Loader2, Users, Phone, UserX, RefreshCw } from 'lucide-react';
 import { formatPhoneForDisplay } from '@/lib/phone-utils';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import * as XLSX from 'xlsx';
 
 interface VoterVote {
@@ -90,7 +91,7 @@ export default function QVoteVotersModal({
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(`/api/qvote/voters?codeId=${encodeURIComponent(codeId)}`);
+      const res = await fetchWithAuth(`/api/qvote/voters?codeId=${encodeURIComponent(codeId)}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setVoters(data.voters || []);

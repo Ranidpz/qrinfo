@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import sharp from 'sharp';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
 
 // Avatar upload for registration - stores in codeId/avatars folder
 // Converts any image format (including HEIC) to WebP
@@ -133,10 +134,16 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { url } = await request.json();
+    const { url, codeId } = await request.json();
 
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+    }
+
+    // Auth check: only code owner can delete avatars
+    if (codeId) {
+      const auth = await requireCodeOwner(request, codeId);
+      if (isAuthError(auth)) return auth.response;
     }
 
     // Only delete if it's an avatar URL

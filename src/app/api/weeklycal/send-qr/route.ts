@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { sendTemplateMessage, isINFORUConfigured } from '@/lib/inforu';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
 /**
  * Send QR code link via WhatsApp after successful verification
@@ -10,6 +12,16 @@ import { sendTemplateMessage, isINFORUConfigured } from '@/lib/inforu';
  */
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - prevent spam
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`send-qr:${clientIp}`, { maxRequests: 20, windowMs: 60 * 1000 });
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { registrationId, codeId, locale = 'he' } = body;
 
@@ -19,6 +31,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Auth check: only code owner can send QR messages
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
     // Check INFORU configuration
     if (!isINFORUConfigured()) {

@@ -42,6 +42,7 @@ import {
   QrCode,
   ScanLine,
 } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { useTranslations, useLocale } from 'next-intl';
 import {
   WeeklyCalendarConfig,
@@ -604,7 +605,7 @@ export default function WeeklyCalendarModal({
 
     setSavingEdit(true);
     try {
-      const response = await fetch('/api/weeklycal/register', {
+      const response = await fetchWithAuth('/api/weeklycal/register', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -641,7 +642,7 @@ export default function WeeklyCalendarModal({
 
     setDeletingRegistrationId(registrationId);
     try {
-      const response = await fetch(
+      const response = await fetchWithAuth(
         `/api/weeklycal/register?codeId=${codeId}&registrationId=${registrationId}`,
         { method: 'DELETE' }
       );

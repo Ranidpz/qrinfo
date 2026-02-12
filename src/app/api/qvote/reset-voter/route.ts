@@ -3,9 +3,53 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { VoteRound } from '@/types/qvote';
 
+// --- Origin validation ---
+function validateOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get('origin');
+  const host = request.headers.get('host');
+  if (!origin) return true;
+  if (!host) return false;
+  const allowedHosts = [host, 'localhost:3000', 'localhost:3001'];
+  return allowedHosts.some(h => origin.includes(h));
+}
+
 // POST: Reset a voter's votes (for vote change feature) using Admin SDK
 export async function POST(request: NextRequest) {
   try {
+    // Origin validation
+    if (!validateOrigin(request)) {
+      return NextResponse.json(
+        { error: 'Forbidden', errorCode: 'INVALID_ORIGIN' },
+        { status: 403 }
+      );
+    }
+
+    // Firestore-based rate limiting (survives serverless cold starts)
+    const db = getAdminDb();
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+
+    // IP rate limit: 5 resets per minute
+    const ipRateLimitResult = await db.runTransaction(async (transaction) => {
+      const ref = db.collection('rateLimits').doc(`reset_ip_${clientIp}`);
+      const doc = await transaction.get(ref);
+      const data = doc.data();
+      const now = Date.now();
+      if (!data || now > (data.resetAt as number)) {
+        transaction.set(ref, { count: 1, resetAt: now + 60_000 });
+        return { allowed: true };
+      }
+      if ((data.count as number) >= 5) return { allowed: false };
+      transaction.update(ref, { count: FieldValue.increment(1) });
+      return { allowed: true };
+    });
+
+    if (!ipRateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait.', errorCode: 'RATE_LIMITED' },
+        { status: 429 }
+      );
+    }
+
     const { shortId, codeId: providedCodeId, voterId, round = 1, categoryId } = await request.json();
 
     if (!voterId) {
@@ -15,7 +59,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = getAdminDb();
+    // Voter rate limit: 3 resets per voter per 5 minutes
+    const voterRateLimitResult = await db.runTransaction(async (transaction) => {
+      const ref = db.collection('rateLimits').doc(`reset_voter_${voterId}`);
+      const doc = await transaction.get(ref);
+      const data = doc.data();
+      const now = Date.now();
+      if (!data || now > (data.resetAt as number)) {
+        transaction.set(ref, { count: 1, resetAt: now + 5 * 60_000 });
+        return { allowed: true };
+      }
+      if ((data.count as number) >= 3) return { allowed: false };
+      transaction.update(ref, { count: FieldValue.increment(1) });
+      return { allowed: true };
+    });
+
+    if (!voterRateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many vote change requests. Please wait.', errorCode: 'RATE_LIMITED' },
+        { status: 429 }
+      );
+    }
     let codeId = providedCodeId;
 
     // Look up the actual codeId from shortId if not provided

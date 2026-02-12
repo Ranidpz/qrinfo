@@ -1,6 +1,8 @@
 import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
 
 // POST: Upload a gallery image to Vercel Blob
 // Note: Firestore update is done client-side to avoid permission issues
@@ -34,6 +36,20 @@ export async function POST(request: NextRequest) {
         { error: 'File, codeId and ownerId are required' },
         { status: 400 }
       );
+    }
+
+    // Validate that ownerId matches the code's actual owner (prevents path traversal)
+    try {
+      const adminDb = getAdminDb();
+      const codeDoc = await adminDb.collection('codes').doc(codeId).get();
+      if (!codeDoc.exists) {
+        return NextResponse.json({ error: 'Code not found' }, { status: 404 });
+      }
+      if (codeDoc.data()?.ownerId !== ownerId) {
+        return NextResponse.json({ error: 'Invalid ownerId' }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Failed to validate code' }, { status: 500 });
     }
 
     // Validate file type (only images allowed for gallery)
@@ -99,13 +115,19 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { imageUrl } = await request.json();
+    const { imageUrl, codeId } = await request.json();
 
     if (!imageUrl) {
       return NextResponse.json(
         { error: 'imageUrl is required' },
         { status: 400 }
       );
+    }
+
+    // Auth check: only code owner can delete gallery images
+    if (codeId) {
+      const auth = await requireCodeOwner(request, codeId);
+      if (isAuthError(auth)) return auth.response;
     }
 
     // Delete from Vercel Blob

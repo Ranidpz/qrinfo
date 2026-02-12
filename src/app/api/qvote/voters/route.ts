@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import { maskPhoneNumber } from '@/lib/phone-utils';
 
 // Check if name looks like a real name (not a filename)
 function isRealName(name: string | undefined): boolean {
@@ -24,6 +26,9 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
     const db = getAdminDb();
 
@@ -80,7 +85,7 @@ export async function GET(request: NextRequest) {
       if (!voterMap.has(voterId)) {
         voterMap.set(voterId, {
           voterId,
-          phone: data.phone || null,
+          phone: data.phone ? maskPhoneNumber(data.phone) : null,
           votes: [],
           firstVoteAt: createdAtISO,
           totalVotes: 0,

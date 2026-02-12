@@ -19,6 +19,7 @@ import QStageModal from '@/components/modals/QStageModal';
 import QHuntModal from '@/components/modals/QHuntModal';
 import QTreasureModal from '@/components/modals/QTreasureModal';
 import QChallengeModal from '@/components/modals/QChallengeModal';
+import QTagModal from '@/components/modals/QTagModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig, MediaType } from '@/types';
@@ -28,6 +29,7 @@ import { QStageConfig, DEFAULT_QSTAGE_CONFIG } from '@/types/qstage';
 import { QHuntConfig, DEFAULT_QHUNT_CONFIG } from '@/types/qhunt';
 import { QTreasureConfig } from '@/types/qtreasure';
 import { QChallengeConfig } from '@/types/qchallenge';
+import { QTagConfig } from '@/types/qtag';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
@@ -110,6 +112,9 @@ export default function DashboardPage() {
   const [addingQTreasure, setAddingQTreasure] = useState(false);
   const [qchallengeModalOpen, setQchallengeModalOpen] = useState(false);
   const [addingQChallenge, setAddingQChallenge] = useState(false);
+  const [qtagModalOpen, setQtagModalOpen] = useState(false);
+  const [addingQTag, setAddingQTag] = useState(false);
+  const [editingQTagCode, setEditingQTagCode] = useState<QRCodeType | null>(null);
 
   // Set initial view mode based on screen size (list for mobile, grid for desktop)
   useEffect(() => {
@@ -702,6 +707,164 @@ export default function DashboardPage() {
       alert(tErrors('updateCodeError') || 'Error updating');
     } finally {
       setAddingWeeklyCal(false);
+    }
+  };
+
+  const handleQTagCreate = async (config: QTagConfig, backgroundImageFile?: File, logoFile?: File) => {
+    if (!user) return;
+
+    setAddingQTag(true);
+
+    try {
+      let totalImageSize = 0;
+
+      // Upload background image if provided
+      if (backgroundImageFile) {
+        const formData = new FormData();
+        formData.append('file', backgroundImageFile);
+        formData.append('userId', user.id);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          config = {
+            ...config,
+            branding: {
+              ...config.branding,
+              backgroundImageUrl: data.url,
+              backgroundImageName: backgroundImageFile.name,
+              backgroundImageSize: data.size,
+            },
+          };
+          totalImageSize += data.size;
+        }
+      }
+
+      // Upload logo if provided
+      if (logoFile) {
+        const formData = new FormData();
+        formData.append('file', logoFile);
+        formData.append('userId', user.id);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          config = {
+            ...config,
+            branding: {
+              ...config.branding,
+              logoUrl: data.url,
+              logoName: logoFile.name,
+              logoSize: data.size,
+            },
+          };
+          totalImageSize += data.size;
+        }
+      }
+
+      const newCode = await createQRCode(user.id, config.eventName || 'Q.Tag', [
+        {
+          url: '',
+          type: 'qtag',
+          size: totalImageSize,
+          order: 0,
+          uploadedBy: user.id,
+          title: config.eventName || 'Q.Tag',
+          qtagConfig: config,
+        },
+      ], currentFolderId);
+
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+        await refreshUser();
+      }
+
+      setCodes((prev) => [newCode, ...prev]);
+      setQtagModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating Q.Tag:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQTag(false);
+    }
+  };
+
+  const handleQTagEdit = async (config: QTagConfig, backgroundImageFile?: File, logoFile?: File) => {
+    if (!editingQTagCode || !user) return;
+
+    setAddingQTag(true);
+
+    try {
+      let totalImageSize = 0;
+
+      // Upload background image if provided
+      if (backgroundImageFile) {
+        const formData = new FormData();
+        formData.append('file', backgroundImageFile);
+        formData.append('userId', user.id);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          config = {
+            ...config,
+            branding: {
+              ...config.branding,
+              backgroundImageUrl: data.url,
+              backgroundImageName: backgroundImageFile.name,
+              backgroundImageSize: data.size,
+            },
+          };
+          totalImageSize += data.size;
+        }
+      }
+
+      // Upload logo if provided
+      if (logoFile) {
+        const formData = new FormData();
+        formData.append('file', logoFile);
+        formData.append('userId', user.id);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          config = {
+            ...config,
+            branding: {
+              ...config.branding,
+              logoUrl: data.url,
+              logoName: logoFile.name,
+              logoSize: data.size,
+            },
+          };
+          totalImageSize += data.size;
+        }
+      }
+
+      const updatedMedia = [...editingQTagCode.media];
+      if (updatedMedia[0]) {
+        updatedMedia[0] = { ...updatedMedia[0], qtagConfig: config };
+      }
+
+      await updateQRCode(editingQTagCode.id, { media: updatedMedia });
+
+      setCodes((prev) =>
+        prev.map((code) =>
+          code.id === editingQTagCode.id
+            ? { ...code, media: updatedMedia }
+            : code
+        )
+      );
+
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+        await refreshUser();
+      }
+
+      setQtagModalOpen(false);
+      setEditingQTagCode(null);
+    } catch (error) {
+      console.error('Error updating Q.Tag:', error);
+      alert(tErrors('updateCodeError') || 'Error updating');
+    } finally {
+      setAddingQTag(false);
     }
   };
 
@@ -1319,6 +1482,17 @@ export default function DashboardPage() {
             mediaItem.weeklycalConfig = cleanObject({ ...m.weeklycalConfig });
           }
 
+          // Deep copy Q.Tag config but reset stats
+          if (m.qtagConfig) {
+            mediaItem.qtagConfig = cleanObject({
+              ...m.qtagConfig,
+              branding: cleanObject({ ...m.qtagConfig.branding, colors: { ...m.qtagConfig.branding.colors } }),
+              verification: cleanObject({ ...m.qtagConfig.verification }),
+              stats: { totalRegistered: 0, totalGuests: 0, totalArrived: 0, totalArrivedGuests: 0 },
+              currentPhase: 'registration',
+            });
+          }
+
           return mediaItem as Omit<typeof m, 'id' | 'createdAt'>;
         }),
         codeWithFolder.folderId || currentFolderId
@@ -1614,6 +1788,7 @@ export default function DashboardPage() {
                   onQHuntCreate={() => setQhuntModalOpen(true)}
                   onQTreasureCreate={() => setQtreasureModalOpen(true)}
                   onQChallengeCreate={() => setQchallengeModalOpen(true)}
+                  onQTagCreate={() => setQtagModalOpen(true)}
                   disabled={uploading}
                 />
               </div>
@@ -1967,6 +2142,9 @@ export default function DashboardPage() {
               onEdit={code.media[0]?.type === 'weeklycal' ? () => {
                 setEditingWeeklyCalCode(code);
                 setWeeklyCalModalOpen(true);
+              } : code.media[0]?.type === 'qtag' ? () => {
+                setEditingQTagCode(code);
+                setQtagModalOpen(true);
               } : undefined}
             />
           ))}
@@ -2135,6 +2313,18 @@ export default function DashboardPage() {
         onClose={() => setQvoteModalOpen(false)}
         onSave={handleQVoteCreate}
         loading={addingQVote}
+      />
+
+      {/* Q.Tag Modal */}
+      <QTagModal
+        isOpen={qtagModalOpen}
+        onClose={() => {
+          setQtagModalOpen(false);
+          setEditingQTagCode(null);
+        }}
+        onSave={editingQTagCode ? handleQTagEdit : handleQTagCreate}
+        loading={addingQTag}
+        initialConfig={editingQTagCode?.media[0]?.qtagConfig}
       />
 
       {/* Q.Stage Modal */}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Html5Qrcode } from 'html5-qrcode';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import {
   Camera,
   X,
@@ -586,7 +587,7 @@ export default function CheckinScannerPage() {
     if (!editingReg) return;
     setIsUpdating(true);
     try {
-      const response = await fetch(`/api/weeklycal/register`, {
+      const response = await fetchWithAuth(`/api/weeklycal/register`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -619,7 +620,7 @@ export default function CheckinScannerPage() {
     if (!deletingReg) return;
     setIsUpdating(true);
     try {
-      const response = await fetch(`/api/weeklycal/register`, {
+      const response = await fetchWithAuth(`/api/weeklycal/register`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

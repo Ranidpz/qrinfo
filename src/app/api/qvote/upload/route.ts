@@ -2,6 +2,7 @@ import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
 
 // Compress and create thumbnail
 async function processImage(file: File): Promise<{ main: Blob; thumbnail: Blob }> {
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: Remove a Q.Vote photo from Vercel Blob
+// DELETE: Remove a Q.Vote photo from Vercel Blob (admin only)
 export async function DELETE(request: NextRequest) {
   try {
     // Rate limiting
@@ -130,7 +131,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { imageUrl, thumbnailUrl } = await request.json();
+    const { imageUrl, thumbnailUrl, codeId } = await request.json();
+
+    // Auth check: only code owner can delete photos
+    if (codeId) {
+      const auth = await requireCodeOwner(request, codeId);
+      if (isAuthError(auth)) return auth.response;
+    }
 
     if (!imageUrl) {
       return NextResponse.json(

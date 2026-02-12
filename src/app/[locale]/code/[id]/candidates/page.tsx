@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { doc, getDoc, updateDoc, collection, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, createCandidate, deleteAllQVoteData, recalculateStats, resetAllVotes } from '@/lib/qvote';
@@ -742,10 +743,10 @@ export default function QVoteCandidatesPage() {
           // Delete photos from blob storage
           for (const photo of candidate.photos) {
             try {
-              await fetch('/api/qvote/upload', {
+              await fetchWithAuth('/api/qvote/upload', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageUrl: photo.url, thumbnailUrl: photo.thumbnailUrl }),
+                body: JSON.stringify({ imageUrl: photo.url, thumbnailUrl: photo.thumbnailUrl, codeId }),
               });
             } catch (photoError) {
               console.error('Error deleting photo:', photoError);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -224,6 +224,7 @@ export default function CodeCard({
       case 'selfiebeam': return tMedia('selfiebeam');
       case 'weeklycal': return tMedia('weeklycal');
       case 'qvote': return 'Q.Vote';
+      case 'qtag': return 'Q.Tag';
       default: return tMedia('image');
     }
   };
@@ -515,6 +516,10 @@ export default function CodeCard({
               <img src="/media/riddle.jpg" alt={title} className="w-full h-full object-cover" />
             ) : mediaType === 'selfiebeam' ? (
               <img src="/media/SELFIEBEAM.jpg" alt={title} className="w-full h-full object-cover" />
+            ) : mediaType === 'qtag' ? (
+              <div className="w-full h-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
+                <Tag className="w-6 h-6 text-white" />
+              </div>
             ) : thumbnail ? (
               <img src={thumbnail} alt={title} className="w-full h-full object-cover" />
             ) : (
@@ -787,6 +792,10 @@ export default function CodeCard({
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
+        ) : mediaType === 'qtag' ? (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-teal-500 to-emerald-600">
+            <Tag className="w-16 h-16 text-white/90" />
+          </div>
         ) : thumbnail ? (
           <img
             src={thumbnail}
