@@ -718,11 +718,14 @@ export default function DashboardPage() {
     try {
       let totalImageSize = 0;
 
-      // Upload background image if provided
+      // Upload background image if provided (resize to 1200px, convert to WebP)
       if (backgroundImageFile) {
         const formData = new FormData();
         formData.append('file', backgroundImageFile);
         formData.append('userId', user.id);
+        formData.append('convertToWebp', 'true');
+        formData.append('maxWidth', '1000');
+        formData.append('quality', '70');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
@@ -739,11 +742,14 @@ export default function DashboardPage() {
         }
       }
 
-      // Upload logo if provided
+      // Upload logo if provided (resize to 400px, convert to WebP with alpha)
       if (logoFile) {
         const formData = new FormData();
         formData.append('file', logoFile);
         formData.append('userId', user.id);
+        formData.append('convertToWebp', 'true');
+        formData.append('maxWidth', '400');
+        formData.append('quality', '90');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
@@ -796,11 +802,16 @@ export default function DashboardPage() {
     try {
       let totalImageSize = 0;
 
-      // Upload background image if provided
+      // Upload background image if provided (resize to 1200px, convert to WebP)
       if (backgroundImageFile) {
         const formData = new FormData();
         formData.append('file', backgroundImageFile);
         formData.append('userId', user.id);
+        formData.append('codeId', editingQTagCode.id);
+        formData.append('folder', 'qtag');
+        formData.append('convertToWebp', 'true');
+        formData.append('maxWidth', '1000');
+        formData.append('quality', '70');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
@@ -817,11 +828,16 @@ export default function DashboardPage() {
         }
       }
 
-      // Upload logo if provided
+      // Upload logo if provided (resize to 400px, convert to WebP with alpha)
       if (logoFile) {
         const formData = new FormData();
         formData.append('file', logoFile);
         formData.append('userId', user.id);
+        formData.append('codeId', editingQTagCode.id);
+        formData.append('folder', 'qtag');
+        formData.append('convertToWebp', 'true');
+        formData.append('maxWidth', '400');
+        formData.append('quality', '90');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
@@ -2325,6 +2341,8 @@ export default function DashboardPage() {
         onSave={editingQTagCode ? handleQTagEdit : handleQTagCreate}
         loading={addingQTag}
         initialConfig={editingQTagCode?.media[0]?.qtagConfig}
+        codeId={editingQTagCode?.id}
+        shortId={editingQTagCode?.shortId}
       />
 
       {/* Q.Stage Modal */}

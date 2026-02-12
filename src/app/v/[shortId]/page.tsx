@@ -12,12 +12,13 @@ interface ViewerPageProps {
   }>;
   searchParams: Promise<{
     station?: string;
+    token?: string;
   }>;
 }
 
 export default async function ViewerPage({ params, searchParams }: ViewerPageProps) {
   const { shortId } = await params;
-  const { station: stationParam } = await searchParams;
+  const { station: stationParam, token: tokenParam } = await searchParams;
 
   try {
     const code = await getQRCodeByShortId(shortId);
@@ -73,6 +74,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
         folderId={code.folderId}
         landingPageConfig={code.landingPageConfig}
         scannedStationShortId={stationParam}
+        qtagToken={tokenParam}
       />
     );
   } catch (error) {

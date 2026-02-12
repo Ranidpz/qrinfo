@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
 import crypto from 'crypto';
+import { sendQTagQRWhatsApp } from '@/lib/qtag-whatsapp';
 
 // Generate cryptographically secure QR token for check-in
 function generateQRToken(): string {
@@ -115,10 +116,38 @@ export async function POST(request: NextRequest) {
       .get();
 
     if (!existingGuest.empty) {
-      return NextResponse.json(
-        { error: 'Phone number already registered', errorCode: 'PHONE_EXISTS' },
-        { status: 409 }
-      );
+      const existingData = existingGuest.docs[0].data();
+
+      // Allow re-registration if the previous registration was not verified
+      if (!existingData.isVerified) {
+        // Clean up the old unverified registration
+        const oldBatch = db.batch();
+        oldBatch.delete(existingGuest.docs[0].ref);
+
+        // Clean up old token mapping
+        if (existingData.qrToken) {
+          oldBatch.delete(db.collection('qrTokenMappings').doc(existingData.qrToken));
+        }
+
+        // Decrement stats
+        const oldStatsRef = db.collection('codes').doc(codeId)
+          .collection('qtagStats').doc('current');
+        const oldStatsDoc = await oldStatsRef.get();
+        if (oldStatsDoc.exists) {
+          oldBatch.update(oldStatsRef, {
+            totalRegistered: FieldValue.increment(-1),
+            totalGuests: FieldValue.increment(-(1 + (existingData.plusOneCount || 0))),
+            lastUpdated: FieldValue.serverTimestamp(),
+          });
+        }
+
+        await oldBatch.commit();
+      } else {
+        return NextResponse.json(
+          { error: 'Phone number already registered', errorCode: 'PHONE_EXISTS' },
+          { status: 409 }
+        );
+      }
     }
 
     // Check capacity
@@ -191,6 +220,19 @@ export async function POST(request: NextRequest) {
     }
 
     await batch.commit();
+
+    // Fire-and-forget: Send QR link via WhatsApp if auto-verified (verification disabled)
+    if (guestData.isVerified && config.sendQrViaWhatsApp !== false) {
+      sendQTagQRWhatsApp({
+        codeId,
+        guestId: guestRef.id,
+        guestName: trimmedName,
+        guestPhone: normalizedPhone,
+        qrToken,
+        shortId: codeData.shortId,
+        eventName: config.eventName || '',
+      }).catch(err => console.error('[QTag Register] WhatsApp send error (non-blocking):', err));
+    }
 
     return NextResponse.json({
       success: true,

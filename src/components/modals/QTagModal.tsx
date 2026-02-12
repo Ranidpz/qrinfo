@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   X,
   Calendar,
@@ -11,9 +12,13 @@ import {
   Image as ImageIcon,
   Loader2,
   Upload,
+  ExternalLink,
+  ScanLine,
+  UserPlus,
+  Users,
 } from 'lucide-react';
-import type { QTagConfig } from '@/types/qtag';
-import { DEFAULT_QTAG_CONFIG, DEFAULT_QTAG_BRANDING } from '@/types/qtag';
+import type { QTagConfig, QTagSkin } from '@/types/qtag';
+import { DEFAULT_QTAG_CONFIG, DEFAULT_QTAG_BRANDING, QTAG_SKINS } from '@/types/qtag';
 
 interface QTagModalProps {
   isOpen: boolean;
@@ -21,11 +26,20 @@ interface QTagModalProps {
   onSave: (config: QTagConfig, backgroundImageFile?: File, logoFile?: File) => Promise<void>;
   loading?: boolean;
   initialConfig?: QTagConfig;
+  codeId?: string;
+  shortId?: string;
+  onManageGuests?: () => void;
 }
 
 type Tab = 'details' | 'branding' | 'settings';
 
-export default function QTagModal({ isOpen, onClose, onSave, loading, initialConfig }: QTagModalProps) {
+export default function QTagModal({ isOpen, onClose, onSave, loading, initialConfig, codeId, shortId, onManageGuests }: QTagModalProps) {
+  const t = useTranslations('modals');
+  const tCommon = useTranslations('common');
+  const locale = useLocale();
+  const isRTL = locale === 'he';
+  const isEditing = !!initialConfig;
+
   const [activeTab, setActiveTab] = useState<Tab>('details');
   const [config, setConfig] = useState<QTagConfig>(initialConfig || {
     ...DEFAULT_QTAG_CONFIG,
@@ -41,6 +55,35 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
   const [logoPreview, setLogoPreview] = useState<string | null>(
     initialConfig?.branding?.logoUrl || null
   );
+
+  // Drag-and-drop state
+  const [isDraggingBg, setIsDraggingBg] = useState(false);
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+
+  // Refs for file inputs
+  const bgInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Drag-and-drop counters (prevent flickering from child elements)
+  const dragCounterBg = useRef(0);
+  const dragCounterLogo = useRef(0);
+
+  // Reset state only when modal opens (not while already open)
+  const prevIsOpenRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !prevIsOpenRef.current) {
+      setConfig(initialConfig || {
+        ...DEFAULT_QTAG_CONFIG,
+        branding: { ...DEFAULT_QTAG_BRANDING },
+      });
+      setBackgroundPreview(initialConfig?.branding?.backgroundImageUrl || null);
+      setLogoPreview(initialConfig?.branding?.logoUrl || null);
+      setBackgroundFile(null);
+      setLogoFile(null);
+      setActiveTab('details');
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, initialConfig]);
 
   if (!isOpen) return null;
 
@@ -65,22 +108,73 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
     }));
   };
 
+  // Process image file (shared between click & drag)
+  const processFile = (file: File, target: 'background' | 'logo') => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    if (target === 'background') {
+      setBackgroundFile(file);
+      reader.onload = () => setBackgroundPreview(reader.result as string);
+    } else {
+      setLogoFile(file);
+      reader.onload = () => setLogoPreview(reader.result as string);
+    }
+    reader.readAsDataURL(file);
+  };
+
   const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setBackgroundFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setBackgroundPreview(reader.result as string);
-    reader.readAsDataURL(file);
+    if (file) processFile(file, 'background');
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setLogoFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setLogoPreview(reader.result as string);
-    reader.readAsDataURL(file);
+    if (file) processFile(file, 'logo');
+  };
+
+  // Drag-and-drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e: React.DragEvent, target: 'background' | 'logo') => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (target === 'background') {
+      dragCounterBg.current++;
+      setIsDraggingBg(true);
+    } else {
+      dragCounterLogo.current++;
+      setIsDraggingLogo(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent, target: 'background' | 'logo') => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (target === 'background') {
+      dragCounterBg.current--;
+      if (dragCounterBg.current === 0) setIsDraggingBg(false);
+    } else {
+      dragCounterLogo.current--;
+      if (dragCounterLogo.current === 0) setIsDraggingLogo(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, target: 'background' | 'logo') => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (target === 'background') {
+      dragCounterBg.current = 0;
+      setIsDraggingBg(false);
+    } else {
+      dragCounterLogo.current = 0;
+      setIsDraggingLogo(false);
+    }
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file, target);
   };
 
   const handleSave = async () => {
@@ -88,20 +182,58 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
   };
 
   const tabs: { id: Tab; label: string; icon: typeof Calendar }[] = [
-    { id: 'details', label: 'Event Details', icon: Calendar },
-    { id: 'branding', label: 'Branding', icon: Palette },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'details', label: t('qtagEventDetails'), icon: Calendar },
+    { id: 'branding', label: t('qtagBranding'), icon: Palette },
+    { id: 'settings', label: t('qtagSettingsTab'), icon: Settings },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl border border-white/10">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    >
+      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl border border-white/10">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-xl font-bold text-white font-assistant">Create Q.Tag</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
+          <h2 className="text-xl font-bold text-white font-assistant">
+            {isEditing ? t('qtagSettings') : t('qtagCreate')}
+          </h2>
+          <div className="flex items-center gap-2">
+            {/* Manage Guests button */}
+            {isEditing && codeId && onManageGuests && (
+              <button
+                onClick={() => { onClose(); onManageGuests(); }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-all text-sm font-assistant"
+              >
+                <Users className="w-4 h-4" />
+                {t('qtagManageGuests')}
+              </button>
+            )}
+            {/* Scanner button */}
+            {isEditing && codeId && (
+              <button
+                onClick={() => window.open(`/${locale}/dashboard/qtag/${codeId}/scanner`, '_blank')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-all text-sm font-assistant"
+              >
+                <ScanLine className="w-4 h-4" />
+                {t('qtagOpenScanner')}
+              </button>
+            )}
+            {/* Registration page button */}
+            {isEditing && shortId && (
+              <button
+                onClick={() => window.open(`/v/${shortId}`, '_blank')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all text-sm font-assistant"
+              >
+                <ExternalLink className="w-4 h-4" />
+                {t('qtagOpenRegistration')}
+              </button>
+            )}
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -122,240 +254,309 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
           ))}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5" dir="rtl">
-          {/* Event Details Tab */}
-          {activeTab === 'details' && (
-            <>
-              <Field label="Event Name" required>
-                <input
-                  type="text"
-                  value={config.eventName}
-                  onChange={(e) => updateConfig({ eventName: e.target.value })}
-                  placeholder="Event name..."
-                  className="input-field"
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Date" icon={<Calendar className="w-4 h-4" />}>
+        {/* Content: Form + Phone Preview side by side */}
+        <div className="flex-1 overflow-hidden flex min-h-0">
+          {/* Form */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5" dir="rtl">
+            {/* Event Details Tab */}
+            {activeTab === 'details' && (
+              <>
+                <Field label={t('qtagEventName')} required>
                   <input
-                    type="date"
-                    value={config.eventDate || ''}
-                    onChange={(e) => updateConfig({ eventDate: e.target.value })}
+                    type="text"
+                    value={config.eventName}
+                    onChange={(e) => updateConfig({ eventName: e.target.value })}
+                    placeholder={t('qtagEventNamePlaceholder')}
                     className="input-field"
-                    dir="ltr"
                   />
                 </Field>
-                <Field label="Time" icon={<Clock className="w-4 h-4" />}>
-                  <input
-                    type="time"
-                    value={config.eventTime || ''}
-                    onChange={(e) => updateConfig({ eventTime: e.target.value })}
-                    className="input-field"
-                    dir="ltr"
-                  />
-                </Field>
-              </div>
 
-              <Field label="Location" icon={<MapPin className="w-4 h-4" />}>
-                <input
-                  type="text"
-                  value={config.eventLocation || ''}
-                  onChange={(e) => updateConfig({ eventLocation: e.target.value })}
-                  placeholder="Location..."
-                  className="input-field"
-                />
-              </Field>
-
-              <Field label="Title (displayed on page)">
-                <input
-                  type="text"
-                  value={config.branding.title || ''}
-                  onChange={(e) => updateBranding({ title: e.target.value })}
-                  placeholder="Page title..."
-                  className="input-field"
-                />
-              </Field>
-
-              <Field label="Subtitle / Slogan">
-                <input
-                  type="text"
-                  value={config.branding.subtitle || ''}
-                  onChange={(e) => updateBranding({ subtitle: e.target.value })}
-                  placeholder="Subtitle..."
-                  className="input-field"
-                />
-              </Field>
-            </>
-          )}
-
-          {/* Branding Tab */}
-          {activeTab === 'branding' && (
-            <>
-              {/* Background Image */}
-              <Field label="Background Image">
-                <div
-                  className="relative w-full h-32 rounded-xl border-2 border-dashed border-white/20 overflow-hidden cursor-pointer hover:border-white/40 transition-colors"
-                  onClick={() => document.getElementById('bg-upload')?.click()}
-                >
-                  {backgroundPreview ? (
-                    <>
-                      <img src={backgroundPreview} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                        <Upload className="w-6 h-6 text-white" />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-white/40">
-                      <ImageIcon className="w-8 h-8 mb-2" />
-                      <span className="text-sm font-assistant">Upload background</span>
-                    </div>
-                  )}
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label={t('qtagDate')} icon={<Calendar className="w-4 h-4" />}>
+                    <input
+                      type="date"
+                      value={config.eventDate || ''}
+                      onChange={(e) => updateConfig({ eventDate: e.target.value })}
+                      className="input-field"
+                      dir="ltr"
+                    />
+                  </Field>
+                  <Field label={t('qtagTime')} icon={<Clock className="w-4 h-4" />}>
+                    <input
+                      type="time"
+                      value={config.eventTime || ''}
+                      onChange={(e) => updateConfig({ eventTime: e.target.value })}
+                      className="input-field"
+                      dir="ltr"
+                    />
+                  </Field>
                 </div>
-                <input id="bg-upload" type="file" accept="image/*" className="hidden" onChange={handleBackgroundUpload} />
-              </Field>
 
-              {/* Overlay opacity */}
-              {backgroundPreview && (
-                <Field label={`Overlay ${config.branding.imageOverlayOpacity || 40}%`}>
+                <Field label={t('qtagLocation')} icon={<MapPin className="w-4 h-4" />}>
                   <input
-                    type="range"
-                    min={0}
-                    max={80}
-                    value={config.branding.imageOverlayOpacity || 40}
-                    onChange={(e) => updateBranding({ imageOverlayOpacity: Number(e.target.value) })}
-                    className="w-full accent-blue-500"
-                    dir="ltr"
+                    type="text"
+                    value={config.eventLocation || ''}
+                    onChange={(e) => updateConfig({ eventLocation: e.target.value })}
+                    placeholder={t('qtagLocationPlaceholder')}
+                    className="input-field"
                   />
                 </Field>
-              )}
 
-              {/* Logo */}
-              <Field label="Logo">
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-20 h-20 rounded-xl border-2 border-dashed border-white/20 overflow-hidden cursor-pointer hover:border-white/40 transition-colors flex items-center justify-center"
-                    onClick={() => document.getElementById('logo-upload')?.click()}
-                    style={{ background: 'repeating-conic-gradient(#1f1f3a 0% 25%, #2a2a4a 0% 50%) 50% / 16px 16px' }}
-                  >
-                    {logoPreview ? (
-                      <img src={logoPreview} alt="" className="w-full h-full object-contain p-1" />
-                    ) : (
-                      <Upload className="w-5 h-5 text-white/40" />
+                <Field label={t('qtagPageTitle')}>
+                  <input
+                    type="text"
+                    value={config.branding.title || ''}
+                    onChange={(e) => updateBranding({ title: e.target.value })}
+                    placeholder={t('qtagPageTitlePlaceholder')}
+                    className="input-field"
+                  />
+                </Field>
+
+                <Field label={t('qtagSubtitle')}>
+                  <input
+                    type="text"
+                    value={config.branding.subtitle || ''}
+                    onChange={(e) => updateBranding({ subtitle: e.target.value })}
+                    placeholder={t('qtagSubtitlePlaceholder')}
+                    className="input-field"
+                  />
+                </Field>
+              </>
+            )}
+
+            {/* Branding Tab */}
+            {activeTab === 'branding' && (
+              <>
+                {/* Background Image + Logo — side by side */}
+                <div className="flex gap-3">
+                  {/* Background Image */}
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-xs text-white/50 font-assistant">{t('qtagBackgroundImage')}</label>
+                    <div
+                      className={`relative w-full h-24 rounded-xl border-2 border-dashed overflow-hidden cursor-pointer transition-all ${
+                        isDraggingBg
+                          ? 'border-blue-400 bg-blue-500/10 scale-[1.02]'
+                          : 'border-white/20 hover:border-white/40'
+                      }`}
+                      onClick={() => bgInputRef.current?.click()}
+                      onDragOver={handleDragOver}
+                      onDragEnter={(e) => handleDragEnter(e, 'background')}
+                      onDragLeave={(e) => handleDragLeave(e, 'background')}
+                      onDrop={(e) => handleDrop(e, 'background')}
+                    >
+                      {backgroundPreview ? (
+                        <>
+                          <img src={backgroundPreview} alt="" className="w-full h-full object-cover" />
+                          <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${isDraggingBg ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}>
+                            <Upload className="w-5 h-5 text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-white/40">
+                          <ImageIcon className="w-6 h-6 mb-1" />
+                          <span className="text-[10px] font-assistant">{t('qtagDragOrClickBackground')}</span>
+                        </div>
+                      )}
+                      {isDraggingBg && !backgroundPreview && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-blue-500/10">
+                          <Upload className="w-6 h-6 text-blue-400 animate-bounce" />
+                        </div>
+                      )}
+                    </div>
+                    <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={handleBackgroundUpload} />
+                    {backgroundPreview && (
+                      <div className="flex items-center justify-between text-[10px] text-white/40 font-assistant">
+                        <span className="truncate max-w-[120px]">{backgroundFile?.name || config.branding.backgroundImageName || ''}</span>
+                        <span dir="ltr">
+                          {backgroundFile
+                            ? `${(backgroundFile.size / 1024).toFixed(0)}KB`
+                            : config.branding.backgroundImageSize
+                              ? `${(config.branding.backgroundImageSize / 1024).toFixed(0)}KB`
+                              : ''
+                          }
+                        </span>
+                      </div>
                     )}
                   </div>
-                  {logoPreview && (
-                    <div className="flex-1">
-                      <label className="text-xs text-white/50 font-assistant">Scale: {(config.branding.logoScale || 1).toFixed(1)}x</label>
-                      <input
-                        type="range"
-                        min={0.3}
-                        max={2}
-                        step={0.1}
-                        value={config.branding.logoScale || 1}
-                        onChange={(e) => updateBranding({ logoScale: Number(e.target.value) })}
-                        className="w-full accent-blue-500"
-                        dir="ltr"
-                      />
+
+                  {/* Logo */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-white/50 font-assistant">{t('qtagLogo')}</label>
+                    <div
+                      className={`w-24 h-24 rounded-xl border-2 border-dashed overflow-hidden cursor-pointer transition-all flex items-center justify-center ${
+                        isDraggingLogo
+                          ? 'border-blue-400 bg-blue-500/10 scale-105'
+                          : 'border-white/20 hover:border-white/40'
+                      }`}
+                      onClick={() => logoInputRef.current?.click()}
+                      onDragOver={handleDragOver}
+                      onDragEnter={(e) => handleDragEnter(e, 'logo')}
+                      onDragLeave={(e) => handleDragLeave(e, 'logo')}
+                      onDrop={(e) => handleDrop(e, 'logo')}
+                      style={!isDraggingLogo ? { background: 'repeating-conic-gradient(#1f1f3a 0% 25%, #2a2a4a 0% 50%) 50% / 16px 16px' } : undefined}
+                    >
+                      {logoPreview ? (
+                        <img src={logoPreview} alt="" className="w-full h-full object-contain p-1" />
+                      ) : (
+                        <Upload className={`w-5 h-5 text-white/40 ${isDraggingLogo ? 'text-blue-400 animate-bounce' : ''}`} />
+                      )}
                     </div>
-                  )}
+                    <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  </div>
                 </div>
-                <input id="logo-upload" type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-              </Field>
 
-              {/* Colors */}
-              <div className="grid grid-cols-2 gap-3">
-                <ColorPicker label="Background" value={config.branding.colors.background} onChange={(v) => updateColors({ background: v })} />
-                <ColorPicker label="Text" value={config.branding.colors.text} onChange={(v) => updateColors({ text: v })} />
-                <ColorPicker label="Button" value={config.branding.colors.buttonBackground} onChange={(v) => updateColors({ buttonBackground: v })} />
-                <ColorPicker label="Button Text" value={config.branding.colors.buttonText} onChange={(v) => updateColors({ buttonText: v })} />
-              </div>
+                {/* Overlay + Logo scale — compact row */}
+                {(backgroundPreview || logoPreview) && (
+                  <div className="flex gap-4 items-end">
+                    {backgroundPreview && (
+                      <div className="flex-1 space-y-1">
+                        <label className="text-[10px] text-white/50 font-assistant">{t('qtagOverlay')} {config.branding.imageOverlayOpacity || 40}%</label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={80}
+                          value={config.branding.imageOverlayOpacity || 40}
+                          onChange={(e) => updateBranding({ imageOverlayOpacity: Number(e.target.value) })}
+                          className="w-full accent-blue-500"
+                          dir="ltr"
+                        />
+                      </div>
+                    )}
+                    {logoPreview && (
+                      <div className="flex-1 space-y-1">
+                        <label className="text-[10px] text-white/50 font-assistant">{t('qtagScale')} {(config.branding.logoScale || 1).toFixed(1)}x</label>
+                        <input
+                          type="range"
+                          min={0.3}
+                          max={2}
+                          step={0.1}
+                          value={config.branding.logoScale || 1}
+                          onChange={(e) => updateBranding({ logoScale: Number(e.target.value) })}
+                          className="w-full accent-blue-500"
+                          dir="ltr"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/* Register button text */}
-              <Field label="Register Button Text">
-                <input
-                  type="text"
-                  value={config.branding.registerButtonText || ''}
-                  onChange={(e) => updateBranding({ registerButtonText: e.target.value })}
-                  placeholder="Register Now"
-                  className="input-field"
+                {/* Skin Presets + Colors */}
+                <div className="space-y-3">
+                  <SkinSelector
+                    currentColors={config.branding.colors}
+                    onSelect={(skin) => updateBranding({
+                      colors: { ...skin.colors },
+                      imageOverlayOpacity: skin.imageOverlayOpacity,
+                    })}
+                    t={t}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <ColorPicker label={t('qtagColorBackground')} value={config.branding.colors.background} onChange={(v) => updateColors({ background: v })} />
+                    <ColorPicker label={t('qtagColorText')} value={config.branding.colors.text} onChange={(v) => updateColors({ text: v })} />
+                    <ColorPicker label={t('qtagColorButton')} value={config.branding.colors.buttonBackground} onChange={(v) => updateColors({ buttonBackground: v })} />
+                    <ColorPicker label={t('qtagColorButtonText')} value={config.branding.colors.buttonText} onChange={(v) => updateColors({ buttonText: v })} />
+                  </div>
+                </div>
+
+                {/* Register button text */}
+                <Field label={t('qtagRegisterButtonText')}>
+                  <input
+                    type="text"
+                    value={config.branding.registerButtonText || ''}
+                    onChange={(e) => updateBranding({ registerButtonText: e.target.value })}
+                    placeholder={t('qtagRegisterButtonPlaceholder')}
+                    className="input-field"
+                  />
+                </Field>
+              </>
+            )}
+
+            {/* Settings Tab */}
+            {activeTab === 'settings' && (
+              <>
+                <ToggleField
+                  label={t('qtagAllowPlusOne')}
+                  checked={config.allowPlusOne}
+                  onChange={(v) => updateConfig({ allowPlusOne: v })}
                 />
-              </Field>
-            </>
-          )}
 
-          {/* Settings Tab */}
-          {activeTab === 'settings' && (
-            <>
-              <ToggleField
-                label="Allow +1 Guests"
-                checked={config.allowPlusOne}
-                onChange={(v) => updateConfig({ allowPlusOne: v })}
-              />
+                {config.allowPlusOne && (
+                  <Field label={t('qtagMaxGuests')}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={config.maxGuestsPerRegistration}
+                      onChange={(e) => updateConfig({ maxGuestsPerRegistration: Math.max(1, Math.min(10, Number(e.target.value))) })}
+                      className="input-field w-24"
+                      dir="ltr"
+                    />
+                  </Field>
+                )}
 
-              {config.allowPlusOne && (
-                <Field label="Max Guests Per Registration">
+                {config.allowPlusOne && (
+                  <ToggleField
+                    label={t('qtagAskGuestGender')}
+                    checked={config.requireGuestGender}
+                    onChange={(v) => updateConfig({ requireGuestGender: v })}
+                  />
+                )}
+
+                <Field label={t('qtagMaxRegistrations')}>
                   <input
                     type="number"
-                    min={1}
-                    max={10}
-                    value={config.maxGuestsPerRegistration}
-                    onChange={(e) => updateConfig({ maxGuestsPerRegistration: Math.max(1, Math.min(10, Number(e.target.value))) })}
+                    min={0}
+                    value={config.maxRegistrations || 0}
+                    onChange={(e) => updateConfig({ maxRegistrations: Math.max(0, Number(e.target.value)) })}
                     className="input-field w-24"
                     dir="ltr"
                   />
                 </Field>
-              )}
 
-              {config.allowPlusOne && (
                 <ToggleField
-                  label="Ask Guest Gender"
-                  checked={config.requireGuestGender}
-                  onChange={(v) => updateConfig({ requireGuestGender: v })}
+                  label={t('qtagPhoneVerification')}
+                  checked={config.verification?.enabled ?? true}
+                  onChange={(v) => updateConfig({
+                    verification: { ...config.verification, enabled: v },
+                  })}
                 />
-              )}
 
-              <Field label="Max Registrations (0 = unlimited)">
-                <input
-                  type="number"
-                  min={0}
-                  value={config.maxRegistrations || 0}
-                  onChange={(e) => updateConfig({ maxRegistrations: Math.max(0, Number(e.target.value)) })}
-                  className="input-field w-24"
-                  dir="ltr"
+                <ToggleField
+                  label={t('qtagEnableScanner')}
+                  checked={config.scannerEnabled}
+                  onChange={(v) => updateConfig({ scannerEnabled: v })}
                 />
-              </Field>
 
-              <ToggleField
-                label="Phone Verification (WhatsApp)"
-                checked={config.verification?.enabled ?? true}
-                onChange={(v) => updateConfig({
-                  verification: { ...config.verification, enabled: v },
-                })}
-              />
+                {config.scannerEnabled && (
+                  <>
+                    <Field label={t('qtagScannerPin')}>
+                      <input
+                        type="text"
+                        value={config.scannerPin || ''}
+                        onChange={(e) => updateConfig({ scannerPin: e.target.value })}
+                        placeholder={t('qtagScannerPinPlaceholder')}
+                        className="input-field"
+                        maxLength={6}
+                        dir="ltr"
+                      />
+                    </Field>
+                    <ScannerCalculator t={t} />
+                  </>
+                )}
+              </>
+            )}
+          </div>
 
-              <ToggleField
-                label="Enable Scanner"
-                checked={config.scannerEnabled}
-                onChange={(v) => updateConfig({ scannerEnabled: v })}
-              />
-
-              {config.scannerEnabled && (
-                <Field label="Scanner PIN (optional)">
-                  <input
-                    type="text"
-                    value={config.scannerPin || ''}
-                    onChange={(e) => updateConfig({ scannerPin: e.target.value })}
-                    placeholder="Leave empty for open access"
-                    className="input-field"
-                    maxLength={6}
-                    dir="ltr"
-                  />
-                </Field>
-              )}
-            </>
-          )}
+          {/* Phone Preview */}
+          <div className="hidden lg:flex w-72 border-s border-white/10 items-center justify-center p-4 bg-black/20">
+            <PhonePreview
+              config={config}
+              backgroundPreview={backgroundPreview}
+              logoPreview={logoPreview}
+              t={t}
+              locale={locale}
+            />
+          </div>
         </div>
 
         {/* Footer */}
@@ -364,7 +565,7 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
             onClick={onClose}
             className="px-4 py-2.5 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all font-assistant"
           >
-            Cancel
+            {tCommon('cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -374,10 +575,10 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Creating...
+                {isEditing ? t('qtagUpdating') : t('qtagCreating')}
               </>
             ) : (
-              'Create Q.Tag'
+              isEditing ? t('qtagUpdate') : t('qtagCreate')
             )}
           </button>
         </div>
@@ -408,7 +609,138 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
   );
 }
 
-// Helper components
+// ── Phone Preview Component ──
+function PhonePreview({
+  config,
+  backgroundPreview,
+  logoPreview,
+  t,
+  locale,
+}: {
+  config: QTagConfig;
+  backgroundPreview: string | null;
+  logoPreview: string | null;
+  t: (key: string) => string;
+  locale: string;
+}) {
+  const branding = config.branding;
+  const overlayOpacity = branding.imageOverlayOpacity ?? 40;
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <span className="text-xs text-white/40 font-assistant">{t('qtagPreview')}</span>
+
+      {/* Phone frame */}
+      <div className="relative w-[210px] h-[420px] rounded-[32px] border-[3px] border-white/20 bg-black overflow-hidden shadow-2xl">
+        {/* Dynamic Island / Notch */}
+        <div className="absolute top-2 inset-x-0 flex justify-center z-20">
+          <div className="w-20 h-5 bg-black rounded-full" />
+        </div>
+
+        {/* Screen content */}
+        <div className="absolute inset-[3px] rounded-[28px] overflow-hidden">
+          {/* Background */}
+          {backgroundPreview ? (
+            <>
+              <img src={backgroundPreview} alt="" className="w-full h-full object-cover" />
+              <div
+                className="absolute inset-0"
+                style={{ backgroundColor: `rgba(0, 0, 0, ${overlayOpacity / 100})` }}
+              />
+            </>
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(135deg, ${branding.colors.background} 0%, ${branding.colors.accent || '#2d1b69'} 100%)` }}
+            />
+          )}
+
+          {/* Content */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 z-10">
+            {/* Logo */}
+            {logoPreview && (
+              <img
+                src={logoPreview}
+                alt=""
+                className="max-h-14 object-contain mb-3 drop-shadow-md"
+                style={{ transform: `scale(${branding.logoScale || 1})` }}
+              />
+            )}
+
+            {/* Event name (small label when custom title is set) */}
+            {branding.title && config.eventName && (
+              <p
+                className="text-[9px] mb-0.5 font-assistant opacity-60 line-clamp-1"
+                style={{ color: backgroundPreview ? '#ffffff' : branding.colors.text }}
+              >
+                {config.eventName}
+              </p>
+            )}
+
+            {/* Title */}
+            <h3
+              className="text-sm font-bold mb-1 line-clamp-2 font-assistant leading-tight"
+              style={{ color: backgroundPreview ? '#ffffff' : branding.colors.text }}
+            >
+              {branding.title || config.eventName || t('qtagEventNamePlaceholder')}
+            </h3>
+
+            {/* Subtitle */}
+            {branding.subtitle && (
+              <p
+                className="text-[10px] mb-2 line-clamp-1 font-assistant opacity-80"
+                style={{ color: backgroundPreview ? '#ffffff' : branding.colors.text }}
+              >
+                {branding.subtitle}
+              </p>
+            )}
+
+            {/* Event info pills */}
+            <div className="flex flex-wrap justify-center gap-1 mb-4">
+              {config.eventDate && (
+                <span className="text-[8px] px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
+                  <Calendar className="w-2 h-2 inline mr-0.5" />
+                  {new Date(config.eventDate).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', { day: 'numeric', month: 'short' })}
+                </span>
+              )}
+              {config.eventTime && (
+                <span className="text-[8px] px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
+                  <Clock className="w-2 h-2 inline mr-0.5" />
+                  {config.eventTime}
+                </span>
+              )}
+              {config.eventLocation && (
+                <span className="text-[8px] px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
+                  <MapPin className="w-2 h-2 inline mr-0.5" />
+                  <span className="max-w-[60px] truncate inline-block align-bottom">{config.eventLocation}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Register button */}
+            <div
+              className="px-5 py-2 rounded-xl text-[11px] font-semibold shadow-lg font-assistant flex items-center gap-1.5"
+              style={{
+                backgroundColor: branding.colors.buttonBackground,
+                color: branding.colors.buttonText,
+              }}
+            >
+              <UserPlus className="w-3 h-3" />
+              {branding.registerButtonText || t('qtagRegisterNow')}
+            </div>
+          </div>
+        </div>
+
+        {/* Home indicator */}
+        <div className="absolute bottom-1.5 inset-x-0 flex justify-center z-20">
+          <div className="w-16 h-1 bg-white/30 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Helper components ──
 function Field({ label, icon, required, children }: {
   label: string;
   icon?: React.ReactNode;
@@ -450,6 +782,110 @@ function ColorPicker({ label, value, onChange }: {
           dir="ltr"
         />
       </div>
+    </div>
+  );
+}
+
+function SkinSelector({ currentColors, onSelect, t }: {
+  currentColors: QTagConfig['branding']['colors'];
+  onSelect: (skin: QTagSkin) => void;
+  t: (key: string) => string;
+}) {
+  const skinLabels: Record<string, string> = {
+    dark: t('qtagSkinDark'),
+    light: t('qtagSkinLight'),
+  };
+
+  const isActive = (skin: QTagSkin) =>
+    skin.colors.background === currentColors.background &&
+    skin.colors.text === currentColors.text &&
+    skin.colors.buttonBackground === currentColors.buttonBackground &&
+    skin.colors.buttonText === currentColors.buttonText;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-white/50 font-assistant">{t('qtagSkins')}</span>
+      {QTAG_SKINS.map((skin) => {
+        const active = isActive(skin);
+        return (
+          <button
+            key={skin.id}
+            type="button"
+            onClick={() => onSelect(skin)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-medium font-assistant ${
+              active
+                ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-400/50'
+                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80'
+            }`}
+          >
+            <div
+              className="w-3 h-3 rounded-full border border-white/20"
+              style={{
+                background: `linear-gradient(135deg, ${skin.colors.background}, ${skin.colors.accent || skin.colors.background})`,
+              }}
+            />
+            {skinLabels[skin.id]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ScannerCalculator({ t }: { t: (key: string) => string }) {
+  const [guests, setGuests] = useState(500);
+  const [scanners, setScanners] = useState(2);
+
+  const SCANS_PER_MIN = 15; // ~4 sec per scan
+  const PEAK_FACTOR = 0.7;  // 70% arrive in peak window
+
+  const peakGuests = Math.round(guests * PEAK_FACTOR);
+  const totalScansPerMin = scanners * SCANS_PER_MIN;
+  const peakMinutes = Math.ceil(peakGuests / totalScansPerMin);
+  const recommended = Math.ceil(peakGuests / (20 * SCANS_PER_MIN)); // target: 20 min peak
+
+  return (
+    <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 space-y-3">
+      <div className="text-xs text-white/50 font-assistant font-medium">{t('qtagScannerCalc')}</div>
+      <div className="flex gap-3">
+        <div className="flex-1 space-y-1">
+          <label className="text-[10px] text-white/40 font-assistant">{t('qtagScannerCalcGuests')}</label>
+          <input
+            type="number"
+            value={guests}
+            onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
+            className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-mono text-center"
+            dir="ltr"
+            min={1}
+          />
+        </div>
+        <div className="flex-1 space-y-1">
+          <label className="text-[10px] text-white/40 font-assistant">{t('qtagScannerCalcScanners')}</label>
+          <input
+            type="number"
+            value={scanners}
+            onChange={(e) => setScanners(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+            className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-mono text-center"
+            dir="ltr"
+            min={1}
+            max={20}
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-xs font-assistant">
+        <div className="flex items-center gap-2">
+          <span className="text-white/40">{t('qtagScannerCalcPeakTime')}:</span>
+          <span className={`font-bold ${peakMinutes <= 20 ? 'text-green-400' : peakMinutes <= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+            {peakMinutes} {t('qtagScannerCalcMinutes')}
+          </span>
+        </div>
+        <span className="text-white/30">{totalScansPerMin} {t('qtagScannerCalcPerMin')}</span>
+      </div>
+      {recommended > scanners && (
+        <div className="text-[11px] text-amber-400/80 font-assistant">
+          {t('qtagScannerCalcRecommend').replace('{count}', String(recommended))}
+        </div>
+      )}
     </div>
   );
 }

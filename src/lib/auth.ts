@@ -1,6 +1,5 @@
 import { getAuth } from 'firebase-admin/auth';
-import { getApps } from 'firebase-admin/app';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, getAdminApp } from '@/lib/firebase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 
 // --- Types ---
@@ -20,10 +19,8 @@ type AuthOutcome = AuthResult | AuthError;
 // --- Core helpers ---
 
 function getAdminAuth() {
-  const apps = getApps();
-  const adminApp = apps.find((app) => app.name === 'firebase-admin');
-  if (!adminApp) throw new Error('Admin app not initialized');
-  return getAuth(adminApp);
+  const app = getAdminApp();
+  return getAuth(app);
 }
 
 /**

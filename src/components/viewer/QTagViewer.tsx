@@ -16,6 +16,7 @@ import {
   MapPin,
   Clock,
   X,
+  Navigation,
 } from 'lucide-react';
 import type { QTagConfig, QTagPhase } from '@/types/qtag';
 
@@ -24,9 +25,45 @@ interface QTagViewerProps {
   codeId: string;
   shortId: string;
   ownerId?: string;
+  qrTokenFromUrl?: string;
 }
 
-type ViewScreen = 'landing' | 'form' | 'verifying' | 'success' | 'closed';
+type ViewScreen = 'loading' | 'landing' | 'form' | 'verifying' | 'success' | 'closed';
+
+// localStorage helpers
+const STORAGE_KEY_PREFIX = 'qtag_guest_';
+
+interface StoredGuest {
+  guestId: string;
+  qrToken: string;
+  name: string;
+  plusOneCount: number;
+}
+
+function saveGuestToStorage(codeId: string, data: StoredGuest) {
+  try {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}${codeId}`, JSON.stringify(data));
+  } catch {
+    // localStorage may be unavailable (private browsing, etc.)
+  }
+}
+
+function loadGuestFromStorage(codeId: string): StoredGuest | null {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${codeId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearGuestFromStorage(codeId: string) {
+  try {
+    localStorage.removeItem(`${STORAGE_KEY_PREFIX}${codeId}`);
+  } catch {
+    // ignore
+  }
+}
 
 const translations = {
   he: {
@@ -67,6 +104,9 @@ const translations = {
     tooManyAttempts: 'יותר מדי ניסיונות',
     back: 'חזרה',
     guests: 'אורחים',
+    navigate: 'נווט לאירוע',
+    loading: 'טוען...',
+    welcomeBack: 'ברוכים השבים!',
   },
   en: {
     register: 'Event Registration',
@@ -106,12 +146,16 @@ const translations = {
     tooManyAttempts: 'Too many attempts',
     back: 'Back',
     guests: 'guests',
+    navigate: 'Navigate to event',
+    loading: 'Loading...',
+    welcomeBack: 'Welcome back!',
   },
 };
 
-export default function QTagViewer({ config: initialConfig, codeId, shortId }: QTagViewerProps) {
+export default function QTagViewer({ config: initialConfig, codeId, shortId, qrTokenFromUrl }: QTagViewerProps) {
   const [config, setConfig] = useState<QTagConfig>(initialConfig);
-  const [screen, setScreen] = useState<ViewScreen>('landing');
+  const [screen, setScreen] = useState<ViewScreen>('loading');
+  const [isReturningGuest, setIsReturningGuest] = useState(false);
   const locale = 'he'; // Default Hebrew
   const t = translations[locale];
   const isRTL = locale === 'he';
@@ -137,6 +181,62 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId }: Q
   const [resendCooldown, setResendCooldown] = useState(0);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
+  // Check URL token or localStorage for returning guest on mount
+  useEffect(() => {
+    const stored = loadGuestFromStorage(codeId);
+    const tokenToCheck = qrTokenFromUrl || stored?.qrToken;
+
+    if (!tokenToCheck) {
+      // No token available - show appropriate screen based on phase
+      setScreen(initialConfig.currentPhase === 'registration' ? 'landing' : 'closed');
+      return;
+    }
+
+    // Verify guest still exists via API
+    fetch(`/api/qtag/guest-status?codeId=${encodeURIComponent(codeId)}&token=${encodeURIComponent(tokenToCheck)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.exists) {
+          // Guest still exists - restore their data and show success
+          setName(data.name);
+          setQrToken(data.qrToken);
+          setGuestId(data.guestId || stored?.guestId || '');
+          setPlusOneCount(data.plusOneCount || 0);
+          setHasPlusOne((data.plusOneCount || 0) > 0);
+          setIsReturningGuest(true);
+          setScreen('success');
+
+          // Save to localStorage for future visits (especially when coming from WhatsApp link)
+          if (!stored || stored.qrToken !== tokenToCheck) {
+            saveGuestToStorage(codeId, {
+              guestId: data.guestId || stored?.guestId || '',
+              qrToken: tokenToCheck,
+              name: data.name,
+              plusOneCount: data.plusOneCount || 0,
+            });
+          }
+        } else {
+          // Guest was deleted - clear storage and show landing
+          clearGuestFromStorage(codeId);
+          setScreen(initialConfig.currentPhase === 'registration' ? 'landing' : 'closed');
+        }
+      })
+      .catch(() => {
+        // Network error - try to show with stored data if available
+        if (stored) {
+          setName(stored.name);
+          setQrToken(stored.qrToken);
+          setGuestId(stored.guestId);
+          setPlusOneCount(stored.plusOneCount || 0);
+          setHasPlusOne((stored.plusOneCount || 0) > 0);
+          setIsReturningGuest(true);
+          setScreen('success');
+        } else {
+          setScreen(initialConfig.currentPhase === 'registration' ? 'landing' : 'closed');
+        }
+      });
+  }, [codeId, initialConfig.currentPhase, qrTokenFromUrl]);
+
   // Real-time config updates
   useEffect(() => {
     if (!db || !codeId) return;
@@ -153,7 +253,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId }: Q
     return () => unsubscribe();
   }, [codeId]);
 
-  // Determine initial screen based on phase
+  // Handle phase changes (only when not on success screen)
   useEffect(() => {
     if (config.currentPhase !== 'registration' && screen === 'landing') {
       setScreen('closed');
@@ -241,6 +341,13 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId }: Q
         setScreen('verifying');
         await sendVerificationCode();
       } else {
+        // Save to localStorage for returning guests (no verification needed)
+        saveGuestToStorage(codeId, {
+          guestId: data.guestId,
+          qrToken: data.qrToken,
+          name: name.trim(),
+          plusOneCount: hasPlusOne ? plusOneCount : 0,
+        });
         setScreen('success');
       }
     } catch {
@@ -304,6 +411,15 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId }: Q
         return;
       }
 
+      // Save to localStorage for returning guests (after verification)
+      if (guestId && qrToken) {
+        saveGuestToStorage(codeId, {
+          guestId,
+          qrToken,
+          name: name.trim(),
+          plusOneCount: hasPlusOne ? plusOneCount : 0,
+        });
+      }
       setScreen('success');
     } catch {
       setVerifyError(t.errorGeneric);
@@ -759,26 +875,38 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId }: Q
   // ── Success Screen ──
   const renderSuccess = () => (
     <div
-      className="min-h-dvh flex flex-col items-center justify-center px-6"
+      className="min-h-dvh flex flex-col items-center justify-center px-6 py-8"
       style={{ backgroundColor: branding.colors.background }}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
-      <div className="w-full max-w-sm space-y-6 text-center">
+      <div className="w-full max-w-sm space-y-5 text-center">
         {/* Success icon */}
         <div
-          className="w-20 h-20 rounded-full flex items-center justify-center mx-auto"
+          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
           style={{ backgroundColor: '#22c55e' }}
         >
-          <Check className="w-10 h-10 text-white" />
+          <Check className="w-8 h-8 text-white" />
         </div>
 
         <h2 className="text-2xl font-bold font-assistant" style={{ color: branding.colors.text }}>
-          {t.successTitle}
+          {isReturningGuest ? t.welcomeBack : t.successTitle}
         </h2>
 
         <p className="text-sm opacity-70 font-assistant" style={{ color: branding.colors.text }}>
           {t.successMessage}
         </p>
+
+        {/* QR Code - first, for immediate scanning */}
+        {qrData && (
+          <div className="bg-white rounded-2xl p-6 mx-auto w-fit shadow-lg">
+            <QRCodeSVG
+              value={qrData}
+              size={200}
+              level="M"
+              includeMargin={false}
+            />
+          </div>
+        )}
 
         {/* Guest info summary */}
         <div
@@ -796,15 +924,65 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId }: Q
           )}
         </div>
 
-        {/* QR Code */}
-        {qrData && (
-          <div className="bg-white rounded-2xl p-6 mx-auto w-fit shadow-lg">
-            <QRCodeSVG
-              value={qrData}
-              size={200}
-              level="M"
-              includeMargin={false}
-            />
+        {/* Event details card */}
+        {(config.eventName || branding.title || config.eventDate || config.eventTime || config.eventLocation) && (
+          <div
+            className="rounded-xl px-4 py-3 space-y-2"
+            style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+          >
+            {/* Event name */}
+            {(branding.title || config.eventName) && (
+              <p className="font-bold text-base font-assistant" style={{ color: branding.colors.text }}>
+                {branding.title || config.eventName}
+              </p>
+            )}
+
+            {/* Date & Time */}
+            {(config.eventDate || config.eventTime) && (
+              <div className="flex items-center justify-center gap-3 text-sm" style={{ color: branding.colors.text, opacity: 0.8 }}>
+                {config.eventDate && (
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {new Date(config.eventDate).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
+                      day: 'numeric', month: 'long', year: 'numeric',
+                    })}
+                  </span>
+                )}
+                {config.eventDate && config.eventTime && (
+                  <span style={{ opacity: 0.4 }}>|</span>
+                )}
+                {config.eventTime && (
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    {config.eventTime}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Location + Waze navigation */}
+            {config.eventLocation && (
+              <div className="flex items-center justify-center gap-2 text-sm" style={{ color: branding.colors.text, opacity: 0.8 }}>
+                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="font-assistant">{config.eventLocation}</span>
+              </div>
+            )}
+
+            {config.eventLocation && (
+              <a
+                href={`https://waze.com/ul?q=${encodeURIComponent(config.eventLocation)}&navigate=yes`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all hover:scale-[1.02] active:scale-[0.98] font-assistant mt-1"
+                style={{
+                  backgroundColor: branding.colors.buttonBackground,
+                  color: branding.colors.buttonText,
+                }}
+              >
+                <Navigation className="w-4 h-4" />
+                {t.navigate}
+              </a>
+            )}
           </div>
         )}
       </div>
@@ -842,8 +1020,23 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId }: Q
     );
   };
 
+  // ── Loading Screen ──
+  const renderLoading = () => (
+    <div
+      className="min-h-dvh flex flex-col items-center justify-center"
+      style={{ backgroundColor: branding.colors.background }}
+    >
+      <Loader2 className="w-10 h-10 animate-spin" style={{ color: branding.colors.buttonBackground }} />
+      <p className="mt-4 text-sm opacity-60 font-assistant" style={{ color: branding.colors.text }}>
+        {t.loading}
+      </p>
+    </div>
+  );
+
   // ── Main Render ──
   switch (screen) {
+    case 'loading':
+      return renderLoading();
     case 'landing':
       return renderLanding();
     case 'form':
@@ -855,6 +1048,6 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId }: Q
     case 'closed':
       return renderClosed();
     default:
-      return renderLanding();
+      return renderLoading();
   }
 }

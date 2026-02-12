@@ -16,6 +16,7 @@ import { QStageDisplay, QStageMobileVoter } from '@/components/qstage';
 import { QHuntPlayerView, QHuntDisplay } from '@/components/qhunt';
 import { QTreasurePlayerView, QTreasureDisplay } from '@/components/qtreasure';
 import QChallengeViewer from '@/components/viewer/QChallengeViewer';
+import QTagViewer from '@/components/viewer/QTagViewer';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
 import LandingPageViewer from '@/components/viewer/LandingPageViewer';
 import { shouldShowLandingPage } from '@/lib/landingPage';
@@ -169,6 +170,7 @@ interface ViewerClientProps {
   folderId?: string; // For route/XP tracking
   landingPageConfig?: LandingPageConfig; // Landing page configuration for mixed media
   scannedStationShortId?: string; // Station shortId if user scanned a station QR directly
+  qtagToken?: string; // QR token from WhatsApp link for cross-device access
 }
 
 // Loading spinner with percentage
@@ -1042,7 +1044,7 @@ const ImageGalleryViewer = memo(({
 });
 ImageGalleryViewer.displayName = 'ImageGalleryViewer';
 
-export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId, folderId, landingPageConfig, scannedStationShortId }: ViewerClientProps) {
+export default function ViewerClient({ media, widgets, title, codeId, shortId, ownerId, folderId, landingPageConfig, scannedStationShortId, qtagToken }: ViewerClientProps) {
   // Get browser locale for translations
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = viewerTranslations[locale];
@@ -1145,6 +1147,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isQHunt = media.length === 1 && currentMedia?.type === 'qhunt';
   const isQTreasure = media.length === 1 && currentMedia?.type === 'qtreasure';
   const isQChallenge = media.length === 1 && currentMedia?.type === 'qchallenge';
+  const isQTag = media.length === 1 && currentMedia?.type === 'qtag';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
@@ -1390,6 +1393,15 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
                 locale={locale}
               />
             )}
+            {activeViewer.type === 'qtag' && !Array.isArray(activeViewer.media) && activeViewer.media.qtagConfig && (
+              <QTagViewer
+                config={activeViewer.media.qtagConfig}
+                codeId={codeId}
+                shortId={shortId}
+                ownerId={ownerId}
+                qrTokenFromUrl={qtagToken}
+              />
+            )}
           </div>
         ) : needsMixedSwiper ? (
           // Mixed media types - use swiper to navigate between all types
@@ -1570,6 +1582,14 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             shortId={shortId}
             locale={locale}
           />
+        ) : isQTag && currentMedia.qtagConfig ? (
+          <QTagViewer
+            config={currentMedia.qtagConfig}
+            codeId={codeId}
+            shortId={shortId}
+            ownerId={ownerId}
+            qrTokenFromUrl={qtagToken}
+          />
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} pdfSettings={currentMedia.pdfSettings} />
         ) : isAllPDFs && hasMultipleMedia ? (
@@ -1604,17 +1624,17 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             title={currentMedia.title || 'ענן מילים'}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
-        ) : isQHunt || isQStage || isQTreasure || isQChallenge ? (
+        ) : isQHunt || isQStage || isQTreasure || isQChallenge || isQTag ? (
           // Special media types without config - show setup required message
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-8">
             <div className="text-6xl mb-6">
-              {isQHunt ? '🎯' : isQStage ? '🎤' : isQTreasure ? '🗺️' : '🎮'}
+              {isQHunt ? '🎯' : isQStage ? '🎤' : isQTreasure ? '🗺️' : isQTag ? '🏷️' : '🎮'}
             </div>
             <p className="text-xl font-bold mb-2">
-              {isQHunt ? 'Q.Hunt' : isQStage ? 'Q.Stage' : isQTreasure ? 'Q.Treasure' : 'Q.Challenge'}
+              {isQHunt ? 'Q.Hunt' : isQStage ? 'Q.Stage' : isQTreasure ? 'Q.Treasure' : isQTag ? 'Q.Tag' : 'Q.Challenge'}
             </p>
             <p className="text-gray-400 text-center">
-              המשחק טרם הוגדר. יש להגדיר את המשחק מהדשבורד.
+              {isQTag ? 'דף ההרשמה טרם הוגדר. יש להגדיר מהדשבורד.' : 'המשחק טרם הוגדר. יש להגדיר את המשחק מהדשבורד.'}
             </p>
           </div>
         ) : !currentMedia.url ? (

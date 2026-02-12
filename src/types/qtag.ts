@@ -132,16 +132,44 @@ export interface QTagGuest {
   registeredByAdmin?: boolean;         // Admin-added vs self-registered
 }
 
-// Default branding
-export const DEFAULT_QTAG_BRANDING: QTagBranding = {
-  imageOverlayOpacity: 40,
-  logoScale: 1.0,
+// Skin presets
+export interface QTagSkin {
+  id: string;
+  colors: QTagBranding['colors'];
+  imageOverlayOpacity: number;
+}
+
+export const QTAG_SKIN_DARK: QTagSkin = {
+  id: 'dark',
   colors: {
     background: '#1a1a2e',
     text: '#ffffff',
     buttonBackground: '#3b82f6',
     buttonText: '#ffffff',
+    accent: '#2d1b69',
   },
+  imageOverlayOpacity: 40,
+};
+
+export const QTAG_SKIN_LIGHT: QTagSkin = {
+  id: 'light',
+  colors: {
+    background: '#faf9f6',
+    text: '#1e1e2e',
+    buttonBackground: '#1e1e2e',
+    buttonText: '#ffffff',
+    accent: '#e8e4ef',
+  },
+  imageOverlayOpacity: 20,
+};
+
+export const QTAG_SKINS = [QTAG_SKIN_DARK, QTAG_SKIN_LIGHT] as const;
+
+// Default branding
+export const DEFAULT_QTAG_BRANDING: QTagBranding = {
+  imageOverlayOpacity: QTAG_SKIN_DARK.imageOverlayOpacity,
+  logoScale: 1.0,
+  colors: { ...QTAG_SKIN_DARK.colors },
 };
 
 // Default config

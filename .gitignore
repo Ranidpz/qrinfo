@@ -29,6 +29,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+firebase-debug.log
+
+# duplicate node_modules (macOS copy artifact)
+node_modules*/
 
 # env files (can opt-in for committing if needed)
 .env*

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { collection, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
@@ -14,9 +15,7 @@ import {
   Download,
   Copy,
   Loader2,
-  UserPlus,
-  ChevronDown,
-  ExternalLink,
+  MessageCircle,
 } from 'lucide-react';
 import type { QTagGuest, QTagStats } from '@/types/qtag';
 
@@ -30,6 +29,7 @@ interface QTagGuestsModalProps {
 type FilterTab = 'all' | 'registered' | 'arrived' | 'cancelled';
 
 export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QTagGuestsModalProps) {
+  const t = useTranslations('modals');
   const [guests, setGuests] = useState<QTagGuest[]>([]);
   const [stats, setStats] = useState<QTagStats>({
     totalRegistered: 0, totalGuests: 0, totalArrived: 0, totalArrivedGuests: 0,
@@ -39,6 +39,9 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
+  const [confirmDeleteGuest, setConfirmDeleteGuest] = useState<{ id: string; name: string } | null>(null);
+  const [sendingQrGuestId, setSendingQrGuestId] = useState<string | null>(null);
 
   // Real-time guest updates
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
   const toggleArrival = useCallback(async (guest: QTagGuest) => {
     const newStatus = guest.status === 'arrived' ? 'registered' : 'arrived';
     try {
-      await fetchWithAuth('/api/qtag/guests', {
+      const res = await fetchWithAuth('/api/qtag/guests', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -102,20 +105,56 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
           status: newStatus,
         }),
       });
-    } catch {
-      // Error handled silently - real-time updates will reflect state
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('[QTag] Check-in failed:', res.status, data);
+      }
+    } catch (err) {
+      console.error('[QTag] Check-in error:', err);
     }
   }, [codeId]);
 
-  // Delete guest
-  const deleteGuest = useCallback(async (guestId: string) => {
-    if (!confirm('Are you sure you want to remove this guest?')) return;
+  // Delete guest - show confirmation first
+  const handleDeleteClick = useCallback((guest: QTagGuest) => {
+    setConfirmDeleteGuest({ id: guest.id, name: guest.name });
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!confirmDeleteGuest) return;
+    setDeletingGuestId(confirmDeleteGuest.id);
     try {
-      await fetchWithAuth(`/api/qtag/guests?codeId=${codeId}&guestId=${guestId}`, {
+      const res = await fetchWithAuth(`/api/qtag/guests?codeId=${codeId}&guestId=${confirmDeleteGuest.id}`, {
         method: 'DELETE',
       });
-    } catch {
-      // Error handled silently
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('[QTag] Delete failed:', res.status, data);
+      }
+    } catch (err) {
+      console.error('[QTag] Delete error:', err);
+    } finally {
+      setDeletingGuestId(null);
+      setConfirmDeleteGuest(null);
+    }
+  }, [codeId, confirmDeleteGuest]);
+
+  // Send QR via WhatsApp
+  const handleSendQR = useCallback(async (guest: QTagGuest) => {
+    setSendingQrGuestId(guest.id);
+    try {
+      const res = await fetchWithAuth('/api/qtag/send-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, guestId: guest.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('[QTag] Send QR failed:', res.status, data);
+      }
+    } catch (err) {
+      console.error('[QTag] Send QR error:', err);
+    } finally {
+      setSendingQrGuestId(null);
     }
   }, [codeId]);
 
@@ -166,14 +205,21 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
 
   if (!isOpen) return null;
 
+  const filterTabs: { key: FilterTab; label: string; count: number }[] = [
+    { key: 'all', label: t('qtagFilterAll'), count: guests.length },
+    { key: 'registered', label: t('qtagFilterRegistered'), count: guests.filter(g => g.status === 'registered').length },
+    { key: 'arrived', label: t('qtagFilterArrived'), count: guests.filter(g => g.status === 'arrived').length },
+    { key: 'cancelled', label: t('qtagFilterCancelled'), count: guests.filter(g => g.status === 'cancelled').length },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-white/10">
+      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-white/10 relative">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div>
-            <h2 className="text-xl font-bold text-white font-assistant">Guest Management</h2>
-            <p className="text-xs text-white/40 mt-0.5">Real-time updates</p>
+            <h2 className="text-xl font-bold text-white font-assistant">{t('qtagGuestManagement')}</h2>
+            <p className="text-xs text-white/40 mt-0.5">{t('qtagRealTimeUpdates')}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white">
             <X className="w-5 h-5" />
@@ -182,9 +228,9 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
 
         {/* Stats bar */}
         <div className="flex gap-2 px-6 py-3 border-b border-white/5">
-          <StatBadge label="Registered" value={stats.totalRegistered} total={stats.totalGuests} color="blue" />
-          <StatBadge label="Arrived" value={stats.totalArrived} total={stats.totalArrivedGuests} color="green" />
-          <StatBadge label="Pending" value={stats.totalRegistered - stats.totalArrived} color="amber" />
+          <StatBadge label={t('qtagRegistered')} value={stats.totalRegistered} total={stats.totalGuests} color="blue" t={t} />
+          <StatBadge label={t('qtagArrived')} value={stats.totalArrived} total={stats.totalArrivedGuests} color="green" t={t} />
+          <StatBadge label={t('qtagPending')} value={stats.totalRegistered - stats.totalArrived} color="amber" t={t} />
         </div>
 
         {/* Actions bar */}
@@ -196,7 +242,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
+              placeholder={t('qtagSearchGuests')}
               className="w-full ps-10 pe-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 font-assistant text-sm"
               dir="rtl"
             />
@@ -208,7 +254,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 transition-all text-xs font-assistant"
           >
             {copiedLink ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-            {copiedLink ? 'Copied!' : 'Scanner Link'}
+            {copiedLink ? t('qtagCopied') : t('qtagScannerLink')}
           </button>
 
           {/* Export */}
@@ -218,26 +264,23 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 transition-all text-xs font-assistant"
           >
             {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            Excel
+            {t('qtagExport')}
           </button>
         </div>
 
         {/* Filter tabs */}
         <div className="flex gap-1 px-6 py-2 border-b border-white/5">
-          {(['all', 'registered', 'arrived', 'cancelled'] as FilterTab[]).map(tab => (
+          {filterTabs.map(tab => (
             <button
-              key={tab}
-              onClick={() => setActiveFilter(tab)}
+              key={tab.key}
+              onClick={() => setActiveFilter(tab.key)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all font-assistant ${
-                activeFilter === tab
+                activeFilter === tab.key
                   ? 'bg-blue-500/20 text-blue-400'
                   : 'text-white/40 hover:text-white/60 hover:bg-white/5'
               }`}
             >
-              {tab === 'all' ? `All (${guests.length})` :
-               tab === 'registered' ? `Registered (${guests.filter(g => g.status === 'registered').length})` :
-               tab === 'arrived' ? `Arrived (${guests.filter(g => g.status === 'arrived').length})` :
-               `Cancelled (${guests.filter(g => g.status === 'cancelled').length})`}
+              {tab.label} ({tab.count})
             </button>
           ))}
         </div>
@@ -253,7 +296,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
           {!loading && filteredGuests.length === 0 && (
             <div className="text-center py-12 text-gray-500">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="font-assistant">No guests found</p>
+              <p className="font-assistant">{t('qtagNoGuests')}</p>
             </div>
           )}
 
@@ -287,11 +330,19 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
                   <span dir="ltr">{guest.phone}</span>
                   <span>|</span>
                   <Clock className="w-3 h-3" />
-                  <span>
-                    {new Date(guest.registeredAt).toLocaleString('he-IL', {
-                      hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
-                    })}
-                  </span>
+                  {guest.status === 'arrived' && guest.arrivedAt ? (
+                    <span className="text-green-400/70">
+                      {new Date(guest.arrivedAt).toLocaleString('he-IL', {
+                        hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
+                      })}
+                    </span>
+                  ) : (
+                    <span>
+                      {new Date(guest.registeredAt).toLocaleString('he-IL', {
+                        hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
+                      })}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -306,30 +357,86 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
                       : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  {guest.status === 'arrived' ? 'Arrived' : 'Check In'}
+                  {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
                 </button>
+
+                {/* Send QR via WhatsApp */}
+                {guest.phone && (
+                  <button
+                    onClick={() => handleSendQR(guest)}
+                    disabled={sendingQrGuestId === guest.id}
+                    title={guest.qrSentViaWhatsApp ? t('qtagResendQR') : t('qtagSendQR')}
+                    className={`p-1.5 rounded-lg transition-all disabled:opacity-50 ${
+                      guest.qrSentViaWhatsApp
+                        ? 'text-green-400/60 hover:text-green-400 hover:bg-green-500/10'
+                        : 'text-white/30 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {sendingQrGuestId === guest.id
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <MessageCircle className="w-3.5 h-3.5" />}
+                  </button>
+                )}
 
                 {/* Delete */}
                 <button
-                  onClick={() => deleteGuest(guest.id)}
-                  className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                  onClick={() => handleDeleteClick(guest)}
+                  disabled={deletingGuestId === guest.id}
+                  className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  {deletingGuestId === guest.id
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Trash2 className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Delete confirmation dialog */}
+        {confirmDeleteGuest && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-2xl">
+            <div className="bg-[#1e1e38] border border-white/10 rounded-xl p-6 mx-6 max-w-sm w-full shadow-2xl" dir="rtl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-semibold font-assistant text-sm">{t('qtagDeleteConfirm')}</h3>
+                  <p className="text-white/40 text-xs mt-0.5 font-assistant">{confirmDeleteGuest.name}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmDelete}
+                  disabled={!!deletingGuestId}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 font-medium text-sm transition-all font-assistant disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {deletingGuestId ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {t('qtagDeleteConfirmYes')}
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteGuest(null)}
+                  disabled={!!deletingGuestId}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-white/5 text-white/60 hover:bg-white/10 hover:text-white font-medium text-sm transition-all font-assistant"
+                >
+                  {t('qtagDeleteConfirmNo')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function StatBadge({ label, value, total, color }: {
+function StatBadge({ label, value, total, color, t }: {
   label: string;
   value: number;
   total?: number;
   color: 'blue' | 'green' | 'amber';
+  t: (key: string) => string;
 }) {
   const colors = {
     blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
@@ -340,7 +447,7 @@ function StatBadge({ label, value, total, color }: {
   return (
     <div className={`flex-1 text-center py-2 rounded-lg border ${colors[color]}`}>
       <div className="font-bold text-lg">{value}</div>
-      <div className="text-[10px] text-white/40">{label}{total !== undefined && total !== value ? ` (${total} total)` : ''}</div>
+      <div className="text-[10px] text-white/40">{label}{total !== undefined && total !== value ? ` (${total} ${t('qtagTotal')})` : ''}</div>
     </div>
   );
 }

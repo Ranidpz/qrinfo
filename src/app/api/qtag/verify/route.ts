@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
 import { generateOTPCode, hashOTPCode, verifyOTPCode } from '@/lib/verification';
 import { sendOTP } from '@/lib/inforu';
+import { sendQTagQRWhatsApp } from '@/lib/qtag-whatsapp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -202,6 +203,21 @@ export async function POST(request: NextRequest) {
         verifiedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
+
+      // Fire-and-forget: Send QR link via WhatsApp now that phone is verified
+      const qtagConfig = qtagMedia.qtagConfig;
+      if (qtagConfig.sendQrViaWhatsApp !== false) {
+        const guestData = guestDoc.data()!;
+        sendQTagQRWhatsApp({
+          codeId,
+          guestId,
+          guestName: guestData.name,
+          guestPhone: normalizedPhone,
+          qrToken: guestData.qrToken,
+          shortId: codeData.shortId,
+          eventName: qtagConfig.eventName || '',
+        }).catch(err => console.error('[QTag Verify] WhatsApp send error (non-blocking):', err));
+      }
 
       return NextResponse.json({
         success: true,

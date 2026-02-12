@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
     const codeId = formData.get('codeId') as string | null;
     const folder = formData.get('folder') as string | null;
     const convertToWebp = formData.get('convertToWebp') === 'true';
+    const maxWidth = formData.get('maxWidth') ? parseInt(formData.get('maxWidth') as string, 10) : null;
+    const quality = formData.get('quality') ? parseInt(formData.get('quality') as string, 10) : 85;
 
     if (!file) {
       return NextResponse.json(
@@ -43,11 +45,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size
+    // Images that will be resized/converted get a higher limit (20MB) since they'll be processed by sharp
+    const willBeProcessed = (convertToWebp || maxWidth) && file.type.startsWith('image/') && file.type !== 'image/gif';
+    const maxSize = willBeProcessed ? 20 * 1024 * 1024 : 5 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'File size exceeds 5MB limit' },
+        { error: `File size exceeds ${willBeProcessed ? '20MB' : '5MB'} limit` },
         { status: 400 }
       );
     }
@@ -58,14 +62,20 @@ export async function POST(request: NextRequest) {
       'image/png',
       'image/webp',
       'image/gif',
+      'image/heic',
+      'image/heif',
+      'image/avif',
+      'image/bmp',
+      'image/tiff',
       'video/mp4',
       'video/webm',
       'application/pdf',
     ];
 
     if (!allowedTypes.includes(file.type)) {
+      console.error('Upload rejected - file type not allowed:', file.type, 'name:', file.name);
       return NextResponse.json(
-        { error: 'File type not allowed' },
+        { error: 'File type not allowed', fileType: file.type },
         { status: 400 }
       );
     }
@@ -75,21 +85,39 @@ export async function POST(request: NextRequest) {
     let extension = file.name.split('.').pop() || 'bin';
     const randomSuffix = Math.random().toString(36).substring(7);
 
-    // Convert to WebP if requested (for images only)
+    // Process image: resize and/or convert to WebP
     let uploadData: File | Buffer = file;
-    const convertibleTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const convertibleTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/heic', 'image/heif', 'image/avif', 'image/bmp', 'image/tiff'];
+    const isImage = convertibleTypes.includes(file.type) || file.type === 'image/webp';
 
-    if (convertToWebp && convertibleTypes.includes(file.type)) {
+    if (isImage && (convertToWebp || maxWidth)) {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        uploadData = await sharp(buffer)
-          .webp({ quality: 85 })
-          .toBuffer();
-        extension = 'webp';
+        let pipeline = sharp(buffer);
+
+        // Resize if maxWidth is specified (preserve aspect ratio, don't enlarge)
+        if (maxWidth) {
+          pipeline = pipeline.resize({ width: maxWidth, fit: 'inside', withoutEnlargement: true });
+        }
+
+        // Convert to WebP (supports transparency/alpha)
+        if (convertToWebp && convertibleTypes.includes(file.type)) {
+          uploadData = await pipeline.webp({ quality, alphaQuality: 100 }).toBuffer();
+          extension = 'webp';
+        } else if (maxWidth) {
+          // Resize only, keep original format
+          if (file.type === 'image/png') {
+            uploadData = await pipeline.png({ quality: Math.min(quality, 100) }).toBuffer();
+          } else if (file.type === 'image/webp') {
+            uploadData = await pipeline.webp({ quality, alphaQuality: 100 }).toBuffer();
+          } else {
+            uploadData = await pipeline.jpeg({ quality }).toBuffer();
+          }
+        }
       } catch (conversionError) {
-        console.warn('WebP conversion failed, uploading original:', conversionError);
-        // Fall back to original file if conversion fails
+        console.warn('Image processing failed, uploading original:', conversionError);
+        // Fall back to original file if processing fails
       }
     }
 

@@ -24,7 +24,8 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
   // Check if we're on a full-screen page (no app shell needed)
   const isFullScreenPage = pathname?.includes('/marketing') ||
     pathname?.includes('/costume-competition') ||
-    pathname?.includes('/checkin');
+    pathname?.includes('/checkin') ||
+    pathname?.includes('/scanner');
 
   // Update html element with lang and dir attributes
   useEffect(() => {

@@ -2,6 +2,104 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import crypto from 'crypto';
+
+// POST: Quick-add a walk-in guest (admin only)
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { codeId, name, plusOneCount = 0 } = body;
+
+    if (!codeId) {
+      return NextResponse.json({ error: 'codeId is required' }, { status: 400 });
+    }
+
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
+
+    const db = getAdminDb();
+    const validPlusOne = Math.max(0, Math.min(10, Math.floor(plusOneCount || 0)));
+
+    // Auto-generate name if not provided
+    let guestName = name?.trim();
+    if (!guestName) {
+      // Count existing admin-added guests to generate a number
+      const existingSnap = await db.collection('codes').doc(codeId)
+        .collection('qtagGuests')
+        .where('registeredByAdmin', '==', true)
+        .count()
+        .get();
+      const count = existingSnap.data().count + 1;
+      guestName = `אורח #${count}`;
+    }
+
+    const qrToken = crypto.randomBytes(16).toString('hex').toUpperCase();
+    const guestRef = db.collection('codes').doc(codeId).collection('qtagGuests').doc();
+
+    const guestData = {
+      id: guestRef.id,
+      codeId,
+      name: guestName,
+      phone: '',
+      plusOneCount: validPlusOne,
+      plusOneDetails: [],
+      qrToken,
+      isVerified: true,
+      status: 'arrived',
+      arrivedAt: FieldValue.serverTimestamp(),
+      arrivedMarkedBy: 'admin',
+      qrSentViaWhatsApp: false,
+      registeredAt: FieldValue.serverTimestamp(),
+      registeredByAdmin: true,
+    };
+
+    const batch = db.batch();
+
+    batch.set(guestRef, guestData);
+
+    // Token mapping for potential future QR scan
+    batch.set(db.collection('qrTokenMappings').doc(qrToken), {
+      codeId,
+      guestId: guestRef.id,
+      type: 'qtag',
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    // Update stats (both registered + arrived)
+    const statsRef = db.collection('codes').doc(codeId)
+      .collection('qtagStats').doc('current');
+    const statsDoc = await statsRef.get();
+    const totalPeople = 1 + validPlusOne;
+
+    if (!statsDoc.exists) {
+      batch.set(statsRef, {
+        totalRegistered: 1,
+        totalGuests: totalPeople,
+        totalArrived: 1,
+        totalArrivedGuests: totalPeople,
+        lastUpdated: FieldValue.serverTimestamp(),
+      });
+    } else {
+      batch.update(statsRef, {
+        totalRegistered: FieldValue.increment(1),
+        totalGuests: FieldValue.increment(totalPeople),
+        totalArrived: FieldValue.increment(1),
+        totalArrivedGuests: FieldValue.increment(totalPeople),
+        lastUpdated: FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+
+    return NextResponse.json({ success: true, guestId: guestRef.id });
+  } catch (error) {
+    console.error('[QTag Guests POST] Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to add guest', details: String(error) },
+      { status: 500 }
+    );
+  }
+}
 
 // GET: List all guests for a code
 export async function GET(request: NextRequest) {

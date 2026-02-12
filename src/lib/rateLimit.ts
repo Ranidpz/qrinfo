@@ -108,8 +108,8 @@ export const RATE_LIMITS = {
   DELETE: { maxRequests: 30, windowMs: 60 * 1000 },
   // General API: 100 requests per minute
   API: { maxRequests: 100, windowMs: 60 * 1000 },
-  // Checkin: 30 scans per minute per IP
-  CHECKIN: { maxRequests: 30, windowMs: 60 * 1000 },
-  // Checkin failures: 10 failed lookups per 5 minutes (prevents brute-force)
-  CHECKIN_FAIL: { maxRequests: 10, windowMs: 5 * 60 * 1000 },
+  // Checkin: 120 scans per minute per IP (supports multiple scanners on same WiFi)
+  CHECKIN: { maxRequests: 120, windowMs: 60 * 1000 },
+  // Checkin failures: 20 failed lookups per 5 minutes (prevents brute-force)
+  CHECKIN_FAIL: { maxRequests: 20, windowMs: 5 * 60 * 1000 },
 };

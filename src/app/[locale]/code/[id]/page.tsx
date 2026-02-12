@@ -45,6 +45,7 @@ import {
   Crosshair,
   Map,
   Trophy,
+  Tag,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,6 +60,7 @@ import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { QHuntConfig } from '@/types/qhunt';
 import { QTreasureConfig } from '@/types/qtreasure';
 import { QChallengeConfig } from '@/types/qchallenge';
+import { QTagConfig } from '@/types/qtag';
 
 // Helper function to remove undefined values from an object (Firestore doesn't accept undefined)
 function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
@@ -101,6 +103,8 @@ import LandingPageModal from '@/components/modals/LandingPageModal';
 import QHuntModal from '@/components/modals/QHuntModal';
 import QTreasureModal from '@/components/modals/QTreasureModal';
 import QChallengeModal from '@/components/modals/QChallengeModal';
+import QTagModal from '@/components/modals/QTagModal';
+import QTagGuestsModal from '@/components/modals/QTagGuestsModal';
 import PDFSettingsModal, { DEFAULT_PDF_SETTINGS, PDFFlipbookSettings } from '@/components/editor/PDFSettingsModal';
 import { shouldShowLandingPage } from '@/lib/landingPage';
 import { clsx } from 'clsx';
@@ -213,6 +217,7 @@ export default function CodeEditPage({ params }: PageProps) {
   const tErrors = useTranslations('errors');
   const tUploader = useTranslations('uploader');
   const tMedia = useTranslations('media');
+  const tModals = useTranslations('modals');
   const locale = useLocale();
   const { user, refreshUser } = useAuth();
   const qrRef = useRef<HTMLDivElement>(null);
@@ -317,6 +322,12 @@ export default function CodeEditPage({ params }: PageProps) {
   const [qchallengeModalOpen, setQchallengeModalOpen] = useState(false);
   const [editingQChallengeId, setEditingQChallengeId] = useState<string | null>(null);
   const [addingQChallenge, setAddingQChallenge] = useState(false);
+
+  // Q.Tag modal state
+  const [qtagModalOpen, setQtagModalOpen] = useState(false);
+  const [editingQTagId, setEditingQTagId] = useState<string | null>(null);
+  const [addingQTag, setAddingQTag] = useState(false);
+  const [qtagGuestsModalOpen, setQtagGuestsModalOpen] = useState(false);
 
   // Widget modals state
   const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
@@ -803,6 +814,13 @@ export default function CodeEditPage({ params }: PageProps) {
             });
           }
           if (m.weeklycalConfig) mediaData.weeklycalConfig = m.weeklycalConfig;
+          if (m.qtagConfig) mediaData.qtagConfig = removeUndefined({
+            ...m.qtagConfig,
+            branding: removeUndefined({ ...m.qtagConfig.branding, colors: { ...m.qtagConfig.branding.colors } }),
+            verification: removeUndefined({ ...m.qtagConfig.verification }),
+            stats: { totalRegistered: 0, totalGuests: 0, totalArrived: 0, totalArrivedGuests: 0 },
+            currentPhase: 'registration',
+          });
           return mediaData as Omit<MediaItem, 'id' | 'createdAt'>;
         })
       );
@@ -897,6 +915,7 @@ export default function CodeEditPage({ params }: PageProps) {
       if (media.weeklycalConfig) mediaData.weeklycalConfig = media.weeklycalConfig;
       if (media.qvoteConfig) mediaData.qvoteConfig = media.qvoteConfig;
       if (media.qstageConfig) mediaData.qstageConfig = media.qstageConfig;
+      if (media.qtagConfig) mediaData.qtagConfig = media.qtagConfig;
       if (media.pdfSettings) mediaData.pdfSettings = media.pdfSettings;
       if (media.pageCount) mediaData.pageCount = media.pageCount;
       if (media.schedule) mediaData.schedule = media.schedule;
@@ -2414,6 +2433,104 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  // Handler for adding/editing Q.Tag
+  const handleSaveQTag = async (config: QTagConfig, backgroundImageFile?: File, logoFile?: File) => {
+    if (!code || !user) return;
+
+    setAddingQTag(true);
+    try {
+      const finalConfig = { ...config, branding: { ...config.branding, colors: { ...config.branding.colors } } };
+      let totalMediaSize = 0;
+
+      // Upload background image if provided (resize to 1200px, convert to WebP)
+      if (backgroundImageFile) {
+        const formData = new FormData();
+        formData.append('file', backgroundImageFile);
+        formData.append('userId', user.id);
+        formData.append('codeId', code.id);
+        formData.append('folder', 'qtag');
+        formData.append('convertToWebp', 'true');
+        formData.append('maxWidth', '1000');
+        formData.append('quality', '70');
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          finalConfig.branding.backgroundImageUrl = data.url;
+          finalConfig.branding.backgroundImageName = backgroundImageFile.name;
+          finalConfig.branding.backgroundImageSize = data.size;
+          totalMediaSize += data.size;
+        } else {
+          const err = await res.json().catch(() => ({}));
+          console.error('Background upload failed:', res.status, err, 'fileType:', backgroundImageFile.type, 'fileSize:', backgroundImageFile.size);
+        }
+      }
+
+      // Upload logo if provided (resize to 400px, convert to WebP with alpha)
+      if (logoFile) {
+        const formData = new FormData();
+        formData.append('file', logoFile);
+        formData.append('userId', user.id);
+        formData.append('codeId', code.id);
+        formData.append('folder', 'qtag');
+        formData.append('convertToWebp', 'true');
+        formData.append('maxWidth', '400');
+        formData.append('quality', '90');
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          finalConfig.branding.logoUrl = data.url;
+          finalConfig.branding.logoName = logoFile.name;
+          finalConfig.branding.logoSize = data.size;
+          totalMediaSize += data.size;
+        } else {
+          const err = await res.json().catch(() => ({}));
+          console.error('Logo upload failed:', res.status, err, 'fileType:', logoFile.type, 'fileSize:', logoFile.size);
+        }
+      }
+
+      const qtagConfig = removeUndefined(finalConfig) as QTagConfig;
+      let updatedMedia: MediaItem[];
+
+      if (editingQTagId) {
+        updatedMedia = code.media.map((m) =>
+          m.id === editingQTagId
+            ? { ...m, qtagConfig, updatedAt: new Date() }
+            : m
+        );
+      } else {
+        const newMediaId = `media_${Date.now()}`;
+        const newMedia: MediaItem = {
+          id: newMediaId,
+          url: '',
+          type: 'qtag',
+          size: totalMediaSize,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: config.eventName || 'Q.Tag',
+          qtagConfig,
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+        setEditingQTagId(newMediaId);
+      }
+
+      await updateQRCode(code.id, { media: updatedMedia });
+
+      if (totalMediaSize > 0) {
+        await updateUserStorage(user.id, totalMediaSize);
+        await refreshUser();
+      }
+
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+      setQtagModalOpen(false);
+    } catch (error) {
+      console.error('Error saving Q.Tag:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQTag(false);
+    }
+  };
+
   const handleSaveWhatsappWidget = async (config: CodeWidgets['whatsapp'] | undefined) => {
     if (!code) return;
 
@@ -3230,6 +3347,16 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
 
+                {/* Q.Tag Button */}
+                <Tooltip text="Q.Tag">
+                  <button
+                    onClick={() => setQtagModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <Tag className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
                 {/* Minigames Button - Coming Soon */}
                 <Tooltip text={t('minigamesComingSoon')}>
                   <button
@@ -3339,6 +3466,9 @@ export default function CodeEditPage({ params }: PageProps) {
                       } else if (media.type === 'qvote') {
                         // Go directly to candidate management
                         router.push(`/code/${code.id}/candidates`);
+                      } else if (media.type === 'qtag') {
+                        setEditingQTagId(media.id);
+                        setQtagModalOpen(true);
                       } else if (media.type === 'qstage') {
                         setEditingQStageId(media.id);
                         setQstageModalOpen(true);
@@ -3390,6 +3520,12 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Vote className="w-6 h-6 text-white" />
                       </div>
+                    ) : media.type === 'qtag' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-gradient-to-br from-teal-500 to-emerald-600"
+                      >
+                        <Tag className="w-6 h-6 text-white" />
+                      </div>
                     ) : media.type === 'qstage' ? (
                       <div
                         className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500"
@@ -3434,6 +3570,7 @@ export default function CodeEditPage({ params }: PageProps) {
                           : media.type === 'wordcloud' ? tMedia('wordcloud')
                           : media.type === 'weeklycal' ? (tMedia('weeklycal') || 'לוח פעילות')
                           : media.type === 'qvote' ? 'Q.Vote'
+                          : media.type === 'qtag' ? 'Q.Tag'
                           : media.type === 'qstage' ? 'Q.Stage'
                           : media.type === 'qhunt' ? 'Q.Hunt'
                           : media.type === 'qtreasure' ? 'Q.Treasure'
@@ -3463,7 +3600,7 @@ export default function CodeEditPage({ params }: PageProps) {
                         })()}
                       </p>
                     )}
-                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.filename && (
+                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.filename && (
                       <p className="text-xs text-text-secondary truncate mt-0.5" dir="ltr">
                         {media.filename}
                       </p>
@@ -3573,6 +3710,31 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
+                  {/* Edit + Manage Guests buttons for qtag */}
+                  {media.type === 'qtag' && (
+                    <>
+                      <Tooltip text={tModals('qtagManageGuests')}>
+                        <button
+                          onClick={() => setQtagGuestsModalOpen(true)}
+                          className="p-2 rounded-lg hover:bg-bg-hover text-accent"
+                        >
+                          <Users className="w-4 h-4" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip text={t('edit')}>
+                        <button
+                          onClick={() => {
+                            setEditingQTagId(media.id);
+                            setQtagModalOpen(true);
+                          }}
+                          className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </Tooltip>
+                    </>
+                  )}
+
                   {/* Edit button for qstage */}
                   {media.type === 'qstage' && (
                     <Tooltip text={t('edit')}>
@@ -3680,7 +3842,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   )}
 
                   {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, qstage, qhunt, qtreasure, or qchallenge */}
-                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && (
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && (
                     <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -4018,6 +4180,31 @@ export default function CodeEditPage({ params }: PageProps) {
         shortId={code.shortId}
         codeId={code.id}
       />
+
+      {/* Q.Tag Modal */}
+      <QTagModal
+        isOpen={qtagModalOpen}
+        onClose={() => {
+          setQtagModalOpen(false);
+          setEditingQTagId(null);
+        }}
+        onSave={handleSaveQTag}
+        loading={addingQTag}
+        initialConfig={editingQTagId ? code?.media.find(m => m.id === editingQTagId)?.qtagConfig : undefined}
+        codeId={code?.id}
+        shortId={code?.shortId}
+        onManageGuests={() => setQtagGuestsModalOpen(true)}
+      />
+
+      {/* Q.Tag Guests Modal */}
+      {code && (
+        <QTagGuestsModal
+          isOpen={qtagGuestsModalOpen}
+          onClose={() => setQtagGuestsModalOpen(false)}
+          codeId={code.id}
+          shortId={code.shortId}
+        />
+      )}
 
       {/* Q.Stage Modal */}
       <QStageModal

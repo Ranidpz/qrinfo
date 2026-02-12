@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert, App, getApp } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getDatabase, Database } from 'firebase-admin/database';
 
@@ -8,7 +8,7 @@ let adminApp: App;
 let adminDb: Firestore;
 let adminRtdb: Database;
 
-function getAdminApp(): App {
+export function getAdminApp(): App {
   if (adminApp) {
     return adminApp;
   }

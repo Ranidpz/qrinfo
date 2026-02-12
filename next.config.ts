@@ -5,7 +5,7 @@ const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   // Fix jsdom ESM issue with isomorphic-dompurify
-  serverExternalPackages: ['jsdom'],
+  serverExternalPackages: ['jsdom', 'xlsx'],
 
   // Security headers
   async headers() {
