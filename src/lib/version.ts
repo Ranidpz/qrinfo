@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.8.0';
+export const APP_VERSION = '1.12.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,29 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.12.0',
+    date: '2026-02-13',
+    isNew: true,
+    highlights: {
+      he: [
+        'Q.Tag - מערכת רישום והזמנות לאירועים עם QR',
+        'שליחת QR בוואטסאפ אוטומטית אחרי הרשמה',
+        'סורק כניסה עם PIN וקוד QR',
+        'הוספת אורחים מהירה מהסורק',
+        'אבטחה מוגברת - הרשאות על כל API routes',
+      ],
+      en: [
+        'Q.Tag - Event registration & invitation system with QR',
+        'Automatic WhatsApp QR delivery after registration',
+        'Entry scanner with PIN and QR code',
+        'Quick-add guests from scanner',
+        'Enhanced security - auth on all API routes',
+      ],
+    },
+  },
+  {
     version: '1.8.0',
     date: '2026-01-05',
-    isNew: true,
     highlights: {
       he: [
         'דף נחיתה שיווקי חדש עם עיצוב מינימליסטי',
