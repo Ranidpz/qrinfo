@@ -93,6 +93,17 @@ export default function QTagScannerPage() {
   const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
 
+  // Responsive layout detection - lg+ shows split view
+  const [isWideScreen, setIsWideScreen] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    setIsWideScreen(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsWideScreen(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   // Fetch scanner PIN from code document
   useEffect(() => {
     if (!db || !codeId) return;
@@ -189,8 +200,9 @@ export default function QTagScannerPage() {
   }, [codeId]);
 
   // Initialize scanner (only after PIN is unlocked)
+  // On desktop (lg+), always init scanner. On mobile, only when in scanner view.
   useEffect(() => {
-    if (viewMode !== 'scanner' || !pinUnlocked) return;
+    if ((!isWideScreen && viewMode !== 'scanner') || !pinUnlocked) return;
 
     let html5Qrcode: Html5Qrcode | null = null;
 
@@ -227,7 +239,7 @@ export default function QTagScannerPage() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, pinUnlocked]);
+  }, [viewMode, pinUnlocked, isWideScreen]);
 
   // Handle successful QR scan
   const handleScanSuccess = async (decodedText: string) => {
@@ -409,10 +421,10 @@ export default function QTagScannerPage() {
 
   // ── Scanner View ──
   const renderScanner = () => (
-    <div className="flex flex-col h-dvh bg-gray-950 text-white">
+    <div className="flex flex-col h-full bg-gray-950 text-white relative">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-900/80 backdrop-blur-md z-10">
-        <button onClick={() => setViewMode('list')} className="p-2 rounded-lg hover:bg-white/10">
+        <button onClick={() => setViewMode('list')} className="p-2 rounded-lg hover:bg-white/10 lg:hidden">
           <Users className="w-5 h-5" />
         </button>
         <h1 className="text-lg font-bold font-assistant">Q.Tag Scanner</h1>
@@ -509,10 +521,10 @@ export default function QTagScannerPage() {
         )}
       </div>
 
-      {/* FAB - Quick Add */}
+      {/* FAB - Quick Add (mobile scanner only, desktop shows in list panel) */}
       <button
         onClick={() => setShowQuickAdd(true)}
-        className="absolute bottom-6 left-6 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all active:scale-95 z-10"
+        className="absolute bottom-6 left-6 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all active:scale-95 z-10 lg:hidden"
       >
         <UserPlus className="w-6 h-6" />
       </button>
@@ -521,7 +533,7 @@ export default function QTagScannerPage() {
 
   // ── Guest List View ──
   const renderGuestList = () => (
-    <div className="flex flex-col h-dvh bg-[#1a1a2e] text-white relative" dir="rtl">
+    <div className="flex flex-col h-full bg-[#1a1a2e] text-white relative" dir="rtl">
       {/* Header */}
       <div className="border-b border-white/10">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4">

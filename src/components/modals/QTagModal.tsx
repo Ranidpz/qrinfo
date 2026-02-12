@@ -833,6 +833,7 @@ function SkinSelector({ currentColors, onSelect, t }: {
 }
 
 function ScannerCalculator({ t }: { t: (key: string) => string }) {
+  const [open, setOpen] = useState(false);
   const [guests, setGuests] = useState(500);
   const [scanners, setScanners] = useState(2);
 
@@ -845,45 +846,57 @@ function ScannerCalculator({ t }: { t: (key: string) => string }) {
   const recommended = Math.ceil(peakGuests / (20 * SCANS_PER_MIN)); // target: 20 min peak
 
   return (
-    <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 space-y-3">
-      <div className="text-xs text-white/50 font-assistant font-medium">{t('qtagScannerCalc')}</div>
-      <div className="flex gap-3">
-        <div className="flex-1 space-y-1">
-          <label className="text-[10px] text-white/40 font-assistant">{t('qtagScannerCalcGuests')}</label>
-          <input
-            type="number"
-            value={guests}
-            onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
-            className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-mono text-center"
-            dir="ltr"
-            min={1}
-          />
-        </div>
-        <div className="flex-1 space-y-1">
-          <label className="text-[10px] text-white/40 font-assistant">{t('qtagScannerCalcScanners')}</label>
-          <input
-            type="number"
-            value={scanners}
-            onChange={(e) => setScanners(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-            className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-mono text-center"
-            dir="ltr"
-            min={1}
-            max={20}
-          />
-        </div>
-      </div>
-      <div className="flex items-center justify-between text-xs font-assistant">
-        <div className="flex items-center gap-2">
-          <span className="text-white/40">{t('qtagScannerCalcPeakTime')}:</span>
-          <span className={`font-bold ${peakMinutes <= 20 ? 'text-green-400' : peakMinutes <= 40 ? 'text-amber-400' : 'text-red-400'}`}>
-            {peakMinutes} {t('qtagScannerCalcMinutes')}
-          </span>
-        </div>
-        <span className="text-white/30">{totalScansPerMin} {t('qtagScannerCalcPerMin')}</span>
-      </div>
-      {recommended > scanners && (
-        <div className="text-[11px] text-amber-400/80 font-assistant">
-          {t('qtagScannerCalcRecommend').replace('{count}', String(recommended))}
+    <div className="rounded-xl bg-white/[0.03] border border-white/5 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-2.5 text-xs text-white/50 font-assistant font-medium hover:bg-white/[0.03] transition-colors"
+      >
+        <span>{t('qtagScannerCalc')}</span>
+        <span className={`transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-3 border-t border-white/5">
+          <div className="flex gap-3 mt-3">
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] text-white/40 font-assistant">{t('qtagScannerCalcGuests')}</label>
+              <input
+                type="number"
+                value={guests}
+                onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-mono text-center"
+                dir="ltr"
+                min={1}
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] text-white/40 font-assistant">{t('qtagScannerCalcScanners')}</label>
+              <input
+                type="number"
+                value={scanners}
+                onChange={(e) => setScanners(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-mono text-center"
+                dir="ltr"
+                min={1}
+                max={20}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-xs font-assistant">
+            <div className="flex items-center gap-2">
+              <span className="text-white/40">{t('qtagScannerCalcPeakTime')}:</span>
+              <span className={`font-bold ${peakMinutes <= 20 ? 'text-green-400' : peakMinutes <= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                {peakMinutes} {t('qtagScannerCalcMinutes')}
+              </span>
+            </div>
+            <span className="text-white/30">{totalScansPerMin} {t('qtagScannerCalcPerMin')}</span>
+          </div>
+          {recommended > scanners && (
+            <div className="text-[11px] text-amber-400/80 font-assistant">
+              {t('qtagScannerCalcRecommend').replace('{count}', String(recommended))}
+            </div>
+          )}
+          <p className="text-[10px] text-white/25 font-assistant leading-relaxed">{t('qtagScannerCalcDisclaimer')}</p>
         </div>
       )}
     </div>

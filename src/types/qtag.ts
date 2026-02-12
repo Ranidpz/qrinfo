@@ -86,6 +86,9 @@ export interface QTagConfig {
   // Verification
   verification: QTagVerificationConfig;
 
+  // WhatsApp
+  sendQrViaWhatsApp: boolean;          // Send QR link via WhatsApp after registration
+
   // Scanner settings
   scannerEnabled: boolean;
   scannerPin?: string;                 // Optional PIN to access scanner
@@ -186,6 +189,7 @@ export const DEFAULT_QTAG_CONFIG: QTagConfig = {
     codeExpiryMinutes: 5,
     maxAttempts: 5,
   },
+  sendQrViaWhatsApp: true,
   scannerEnabled: true,
   branding: DEFAULT_QTAG_BRANDING,
 };

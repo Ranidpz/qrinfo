@@ -43,7 +43,8 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 ### Security
 - QR tokens: `crypto.randomBytes(16)` - NEVER `Date.now() + Math.random()`
 - Rate limiting: in-memory (`src/lib/rateLimit.ts`) resets per serverless instance. Use Firestore-based for critical paths.
-- WhatsApp/SMS API available via `src/lib/inforu.ts` (INFORU provider). Used for OTP verification.
+- WhatsApp/SMS API available via `src/lib/inforu.ts` (INFORU provider). Used for OTP verification and Q.Tag QR delivery.
+- Q.Tag WhatsApp QR: `src/lib/qtag-whatsapp.ts` sends entry QR link after registration. Template: `qtag_registration` (UTILITY). Cross-device: `/v/{shortId}?token={qrToken}`.
 
 ## Routing rules
 - `/v/`, `/gallery/`, `/lobby/`, `/packs/` - public, NO locale prefix (excluded from i18n middleware)
@@ -69,7 +70,8 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - `xlsx` package causes 500 errors in API routes unless added to `serverExternalPackages` in next.config.ts
 - Quick-add modal must use `fixed` positioning (not `absolute`) to work across scanner/list view modes
 - Scanner PIN gate: check `pinUnlocked` before initializing camera to avoid wasted camera starts
-
+- INFORU template example field has char limit - short examples (e.g. `jnCSYdJ?token=A`) are fine for Meta review
+- Desktop scanner: use `matchMedia('(min-width: 1024px)')` to detect wide screen and always init camera in split view
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**
