@@ -71,12 +71,14 @@ export async function GET(request: NextRequest) {
       { wch: 8 },  // Verified
     ];
 
-    const uint8 = new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }));
+    // Use base64 → Buffer for maximum Vercel serverless compatibility
+    const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+    const buffer = Buffer.from(base64, 'base64');
 
     const sanitizedName = eventName.replace(/[^a-zA-Z0-9\u0590-\u05FF]/g, '-');
     const dateStr = new Date().toISOString().split('T')[0];
 
-    return new NextResponse(uint8, {
+    return new Response(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="qtag-${sanitizedName}-${dateStr}.xlsx"`,
