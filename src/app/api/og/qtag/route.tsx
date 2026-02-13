@@ -2,9 +2,11 @@ import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
-export async function GET() {
-  // Fetch the actual PNG logo
-  const logoUrl = 'https://qr.playzones.app/theQ.png';
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+
+  const bgColor = searchParams.get('bg') || '#1a1a2e';
+  const logoUrl = searchParams.get('logo') || 'https://qr.playzones.app/theQ.png';
 
   return new ImageResponse(
     (
@@ -15,17 +17,14 @@ export async function GET() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#0f172a', // Dark slate-900
+          backgroundColor: bgColor,
         }}
       >
-        {/* The actual PNG logo */}
         <img
           src={logoUrl}
-          width={450}
-          height={450}
-          style={{
-            objectFit: 'contain',
-          }}
+          width={400}
+          height={400}
+          style={{ objectFit: 'contain' }}
         />
       </div>
     ),

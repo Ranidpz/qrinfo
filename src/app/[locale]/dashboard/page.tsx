@@ -28,6 +28,7 @@ import { getCandidates, bulkCreateCandidates } from '@/lib/qvote';
 import { QStageConfig, DEFAULT_QSTAGE_CONFIG } from '@/types/qstage';
 import { QHuntConfig, DEFAULT_QHUNT_CONFIG } from '@/types/qhunt';
 import { QTreasureConfig } from '@/types/qtreasure';
+import { compressImage, createCompressedFile } from '@/lib/imageCompression';
 import { QChallengeConfig } from '@/types/qchallenge';
 import { QTagConfig } from '@/types/qtag';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
@@ -718,10 +719,15 @@ export default function DashboardPage() {
     try {
       let totalImageSize = 0;
 
-      // Upload background image if provided (resize to 1200px, convert to WebP)
+      // Upload background image if provided (compress client-side first, then server processes)
       if (backgroundImageFile) {
+        let fileToUpload: File = backgroundImageFile;
+        if (backgroundImageFile.size > 3 * 1024 * 1024) {
+          const compressed = await compressImage(backgroundImageFile, { maxSizeKB: 2048, maxWidth: 2000, maxHeight: 2000 });
+          fileToUpload = createCompressedFile(compressed, backgroundImageFile.name);
+        }
         const formData = new FormData();
-        formData.append('file', backgroundImageFile);
+        formData.append('file', fileToUpload);
         formData.append('userId', user.id);
         formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '1000');
@@ -742,10 +748,15 @@ export default function DashboardPage() {
         }
       }
 
-      // Upload logo if provided (resize to 400px, convert to WebP with alpha)
+      // Upload logo if provided (compress client-side first, then server processes)
       if (logoFile) {
+        let fileToUpload: File = logoFile;
+        if (logoFile.size > 3 * 1024 * 1024) {
+          const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800 });
+          fileToUpload = createCompressedFile(compressed, logoFile.name);
+        }
         const formData = new FormData();
-        formData.append('file', logoFile);
+        formData.append('file', fileToUpload);
         formData.append('userId', user.id);
         formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '400');
@@ -802,10 +813,15 @@ export default function DashboardPage() {
     try {
       let totalImageSize = 0;
 
-      // Upload background image if provided (resize to 1200px, convert to WebP)
+      // Upload background image if provided (compress client-side first, then server processes)
       if (backgroundImageFile) {
+        let fileToUpload: File = backgroundImageFile;
+        if (backgroundImageFile.size > 3 * 1024 * 1024) {
+          const compressed = await compressImage(backgroundImageFile, { maxSizeKB: 2048, maxWidth: 2000, maxHeight: 2000 });
+          fileToUpload = createCompressedFile(compressed, backgroundImageFile.name);
+        }
         const formData = new FormData();
-        formData.append('file', backgroundImageFile);
+        formData.append('file', fileToUpload);
         formData.append('userId', user.id);
         formData.append('codeId', editingQTagCode.id);
         formData.append('folder', 'qtag');
@@ -828,10 +844,15 @@ export default function DashboardPage() {
         }
       }
 
-      // Upload logo if provided (resize to 400px, convert to WebP with alpha)
+      // Upload logo if provided (compress client-side first, then server processes)
       if (logoFile) {
+        let fileToUpload: File = logoFile;
+        if (logoFile.size > 3 * 1024 * 1024) {
+          const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800 });
+          fileToUpload = createCompressedFile(compressed, logoFile.name);
+        }
         const formData = new FormData();
-        formData.append('file', logoFile);
+        formData.append('file', fileToUpload);
         formData.append('userId', user.id);
         formData.append('codeId', editingQTagCode.id);
         formData.append('folder', 'qtag');

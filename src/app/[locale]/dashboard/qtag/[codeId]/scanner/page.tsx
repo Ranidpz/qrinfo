@@ -543,7 +543,7 @@ export default function QTagScannerPage() {
           </div>
           <button
             onClick={() => setViewMode('scanner')}
-            className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white"
+            className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white lg:hidden"
           >
             <Camera className="w-5 h-5" />
           </button>
@@ -788,7 +788,25 @@ export default function QTagScannerPage() {
 
   return (
     <>
-      {viewMode === 'scanner' ? renderScanner() : renderGuestList()}
+      <div className="h-dvh flex bg-gray-950">
+        {/* Scanner panel - always visible on lg+, toggle on mobile */}
+        <div className={`h-full ${
+          isWideScreen
+            ? 'w-[420px] flex-shrink-0 border-e border-white/10'
+            : viewMode === 'scanner' ? 'w-full' : 'hidden'
+        }`}>
+          {renderScanner()}
+        </div>
+
+        {/* Guest list panel - always visible on lg+, toggle on mobile */}
+        <div className={`h-full ${
+          isWideScreen
+            ? 'flex-1 min-w-0'
+            : viewMode === 'list' ? 'w-full' : 'hidden'
+        }`}>
+          {renderGuestList()}
+        </div>
+      </div>
 
       {/* Quick-add modal (shared across both views) */}
       {showQuickAdd && (

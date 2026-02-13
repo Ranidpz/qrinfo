@@ -108,6 +108,7 @@ import QTagGuestsModal from '@/components/modals/QTagGuestsModal';
 import PDFSettingsModal, { DEFAULT_PDF_SETTINGS, PDFFlipbookSettings } from '@/components/editor/PDFSettingsModal';
 import { shouldShowLandingPage } from '@/lib/landingPage';
 import { clsx } from 'clsx';
+import { compressImage, createCompressedFile } from '@/lib/imageCompression';
 import { Settings } from 'lucide-react';
 
 // Link type detection
@@ -2442,10 +2443,19 @@ export default function CodeEditPage({ params }: PageProps) {
       const finalConfig = { ...config, branding: { ...config.branding, colors: { ...config.branding.colors } } };
       let totalMediaSize = 0;
 
-      // Upload background image if provided (resize to 1200px, convert to WebP)
+      // Upload background image if provided (compress client-side to avoid Vercel 4.5MB body limit)
       if (backgroundImageFile) {
+        let fileToUpload = backgroundImageFile;
+        if (backgroundImageFile.type.startsWith('image/') && backgroundImageFile.type !== 'image/gif') {
+          try {
+            const compressed = await compressImage(backgroundImageFile, { maxWidth: 1000, maxHeight: 1000, quality: 0.7, maxSizeKB: 3500 });
+            fileToUpload = createCompressedFile(compressed, backgroundImageFile.name);
+          } catch (e) {
+            console.warn('Client-side compression failed, uploading original:', e);
+          }
+        }
         const formData = new FormData();
-        formData.append('file', backgroundImageFile);
+        formData.append('file', fileToUpload);
         formData.append('userId', user.id);
         formData.append('codeId', code.id);
         formData.append('folder', 'qtag');
@@ -2465,10 +2475,19 @@ export default function CodeEditPage({ params }: PageProps) {
         }
       }
 
-      // Upload logo if provided (resize to 400px, convert to WebP with alpha)
+      // Upload logo if provided (compress client-side, then server processes further)
       if (logoFile) {
+        let fileToUpload = logoFile;
+        if (logoFile.type.startsWith('image/') && logoFile.type !== 'image/gif') {
+          try {
+            const compressed = await compressImage(logoFile, { maxWidth: 400, maxHeight: 400, quality: 0.9, maxSizeKB: 500 });
+            fileToUpload = createCompressedFile(compressed, logoFile.name);
+          } catch (e) {
+            console.warn('Client-side compression failed, uploading original:', e);
+          }
+        }
         const formData = new FormData();
-        formData.append('file', logoFile);
+        formData.append('file', fileToUpload);
         formData.append('userId', user.id);
         formData.append('codeId', code.id);
         formData.append('folder', 'qtag');

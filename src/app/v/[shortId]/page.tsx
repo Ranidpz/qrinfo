@@ -93,6 +93,7 @@ function getDescriptionByMediaType(mediaType: string): string {
     riddle: 'מוזמנים לפתור את החידה 🧩',
     wordcloud: 'השתתפו בסקר בענן ☁️',
     weeklycal: 'צפו בלוח האירועים 📅',
+    qtag: 'הזמנה לאירוע 🎉',
   };
   return descriptions[mediaType] || 'תוכן QR דינמי';
 }
@@ -113,8 +114,22 @@ export async function generateMetadata({ params }: ViewerPageProps) {
     const primaryMediaType = code.media[0]?.type || 'default';
     const description = getDescriptionByMediaType(primaryMediaType);
 
-    // Use dynamic OG image with dark background, or custom ogImage if set
-    const ogImage = code.ogImage || `${baseUrl}/api/og`;
+    // Build OG image URL: custom upload > dynamic Q.Tag branding > default
+    let ogImage: string;
+
+    if (code.ogImage) {
+      ogImage = code.ogImage;
+    } else if (primaryMediaType === 'qtag' && code.media[0]?.qtagConfig) {
+      const branding = code.media[0].qtagConfig.branding;
+      const params = new URLSearchParams();
+      params.set('bg', branding.colors.background);
+      if (branding.logoUrl) {
+        params.set('logo', branding.logoUrl);
+      }
+      ogImage = `${baseUrl}/api/og/qtag?${params.toString()}`;
+    } else {
+      ogImage = `${baseUrl}/api/og`;
+    }
 
     return {
       title: `${code.title} - QR.info`,

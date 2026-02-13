@@ -72,6 +72,8 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Scanner PIN gate: check `pinUnlocked` before initializing camera to avoid wasted camera starts
 - INFORU template example field has char limit - short examples (e.g. `jnCSYdJ?token=A`) are fine for Meta review
 - Desktop scanner: use `matchMedia('(min-width: 1024px)')` to detect wide screen and always init camera in split view
+- Vercel Pro body size limit is 4.5MB - large image uploads (>3MB) MUST use client-side `compressImage()` before sending to `/api/upload`
+- New i18n keys for MediaUploader tabs (tooltip/description/create) must be added to both locale files or console warns MISSING_MESSAGE
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**
