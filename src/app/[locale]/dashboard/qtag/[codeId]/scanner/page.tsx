@@ -18,6 +18,7 @@ import {
   Search,
   Check,
   Trash2,
+  ChevronDown,
   Download,
   UserPlus,
   Plus,
@@ -82,6 +83,7 @@ export default function QTagScannerPage() {
   // Delete state
   const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
   const [confirmDeleteGuest, setConfirmDeleteGuest] = useState<{ id: string; name: string } | null>(null);
+  const [expandedGuestId, setExpandedGuestId] = useState<string | null>(null);
 
   // Export state
   const [exporting, setExporting] = useState(false);
@@ -538,10 +540,13 @@ export default function QTagScannerPage() {
     if (activeFilter === 'arrived' && g.status !== 'arrived') return false;
     if (activeFilter === 'cancelled' && g.status !== 'cancelled') return false;
 
-    // Search filter
+    // Search filter (name, phone, plus-one names)
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return g.name.toLowerCase().includes(q) || g.phone.includes(q);
+      if (g.name.toLowerCase().includes(q)) return true;
+      if (g.phone.includes(q)) return true;
+      if (g.plusOneDetails?.some(p => p.name?.toLowerCase().includes(q))) return true;
+      return false;
     }
 
     return true;
@@ -764,79 +769,112 @@ export default function QTagScannerPage() {
           </div>
         )}
 
-        {filteredGuests.map((guest) => (
-          <div
-            key={guest.id}
-            className="flex items-center gap-3 px-3 sm:px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-colors"
-          >
-            {/* Status dot */}
-            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-              guest.status === 'arrived' ? 'bg-green-400' :
-              guest.status === 'cancelled' ? 'bg-red-400' : 'bg-gray-500'
-            }`} />
-
-            {/* Guest info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-white text-sm font-assistant truncate">
-                  {guest.name}
-                </span>
-                {guest.plusOneCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 flex-shrink-0">
-                    +{guest.plusOneCount}
-                  </span>
-                )}
-                {guest.isVerified && (
-                  <Check className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-white/40 mt-0.5">
-                <span dir="ltr">{guest.phone}</span>
-                <span>|</span>
-                <Clock className="w-3 h-3" />
-                {guest.status === 'arrived' && guest.arrivedAt ? (
-                  <span className="text-green-400/70">
-                    {new Date(guest.arrivedAt).toLocaleString('he-IL', {
-                      hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
-                    })}
-                  </span>
-                ) : (
-                  <span>
-                    {new Date(guest.registeredAt).toLocaleString('he-IL', {
-                      hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
-                    })}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {/* Toggle arrival */}
+        {filteredGuests.map((guest) => {
+          const isExpanded = expandedGuestId === guest.id;
+          return (
+            <div
+              key={guest.id}
+              className="rounded-xl bg-white/[0.03] border border-white/5 transition-colors overflow-hidden"
+            >
+              {/* Collapsed row - tap to expand */}
               <button
-                onClick={() => toggleArrival(guest)}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all font-assistant ${
-                  guest.status === 'arrived'
-                    ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                    : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-                }`}
+                type="button"
+                onClick={() => setExpandedGuestId(isExpanded ? null : guest.id)}
+                className="flex items-center gap-3 px-3 sm:px-4 py-3 w-full text-start hover:bg-white/[0.04] transition-colors"
               >
-                {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
+                {/* Status dot */}
+                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                  guest.status === 'arrived' ? 'bg-green-400' :
+                  guest.status === 'cancelled' ? 'bg-red-400' : 'bg-gray-500'
+                }`} />
+
+                {/* Name + badges */}
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <span className="font-semibold text-white text-sm font-assistant truncate">
+                    {guest.name}
+                  </span>
+                  {guest.plusOneCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 flex-shrink-0">
+                      +{guest.plusOneCount}
+                    </span>
+                  )}
+                  {guest.isVerified && (
+                    <Check className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                  )}
+                </div>
+
+                {/* Check-in button + chevron */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); toggleArrival(guest); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); toggleArrival(guest); } }}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all font-assistant cursor-pointer ${
+                      guest.status === 'arrived'
+                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                        : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-white/30 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </div>
               </button>
 
-              {/* Delete */}
-              <button
-                onClick={() => handleDeleteClick(guest)}
-                disabled={deletingGuestId === guest.id}
-                className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
-              >
-                {deletingGuestId === guest.id
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <Trash2 className="w-3.5 h-3.5" />}
-              </button>
+              {/* Expanded details */}
+              {isExpanded && (
+                <div className="px-3 sm:px-4 pb-3 pt-0 border-t border-white/5 space-y-2.5">
+                  {/* Phone + time */}
+                  <div className="flex items-center gap-3 text-xs text-white/50 pt-2.5 flex-wrap">
+                    {guest.phone && <span dir="ltr">{guest.phone}</span>}
+                    {guest.phone && <span className="text-white/20">|</span>}
+                    {guest.status === 'arrived' && guest.arrivedAt ? (
+                      <span className="text-green-400/70">
+                        {t('qtagArrivedStatus')} {new Date(guest.arrivedAt).toLocaleString('he-IL', {
+                          hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
+                        })}
+                      </span>
+                    ) : (
+                      <span>
+                        {new Date(guest.registeredAt).toLocaleString('he-IL', {
+                          hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
+                        })}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Plus-one details */}
+                  {guest.plusOneCount > 0 && guest.plusOneDetails && guest.plusOneDetails.length > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-white/40">
+                      <Users className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>
+                        {guest.plusOneDetails
+                          .filter(p => p.name)
+                          .map(p => p.name)
+                          .join(', ') || `+${guest.plusOneCount}`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Delete action */}
+                  <div className="flex items-center pt-1">
+                    <button
+                      onClick={() => handleDeleteClick(guest)}
+                      disabled={deletingGuestId === guest.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-400/70 bg-red-500/10 hover:bg-red-500/15 transition-all disabled:opacity-50 font-assistant ms-auto"
+                    >
+                      {deletingGuestId === guest.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Trash2 className="w-3.5 h-3.5" />}
+                      {t('qtagDeleteConfirmYes')}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* FAB - Quick Add */}

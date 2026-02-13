@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.9';
+export const APP_VERSION = '1.12.10';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.9',
+    version: '1.12.10',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'כרטיסי אורחים מתרחבים גם בדף הסורק',
+        'חיפוש אורחים לפי טלפון ושמות +1 בסורק',
+      ],
+      en: [
+        'Expandable guest cards in scanner page',
+        'Search by phone and +1 names in scanner',
+      ],
+    },
+  },
+  {
+    version: '1.12.9',
+    date: '2026-02-13',
     highlights: {
       he: [
         'שיפור חוויית שחזור QR - הודעה ברורה אם הטלפון נמצא או לא',
