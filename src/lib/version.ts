@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.13';
+export const APP_VERSION = '1.12.14';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,21 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.13',
+    version: '1.12.14',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: כניסה מהירה במובייל - המתנה לאתחול Auth לפני שליחה',
+      ],
+      en: [
+        'Fix: Quick-add on mobile - wait for Auth initialization before requests',
+      ],
+    },
+  },
+  {
+    version: '1.12.13',
+    date: '2026-02-13',
     highlights: {
       he: [
         'תיקון: שליחת QR לוואטסאפ אחרי אימות טלפון',

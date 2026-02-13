@@ -1,4 +1,31 @@
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+
+/**
+ * Wait for Firebase Auth to finish initializing.
+ * On mobile devices, auth.currentUser can be null for a brief period
+ * after page load while Firebase restores the session from storage.
+ */
+function waitForAuth(timeoutMs = 5000): Promise<typeof auth.currentUser> {
+  if (auth.currentUser) return Promise.resolve(auth.currentUser);
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error('Not authenticated'));
+    }, timeoutMs);
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      clearTimeout(timer);
+      unsubscribe();
+      if (user) {
+        resolve(user);
+      } else {
+        reject(new Error('Not authenticated'));
+      }
+    });
+  });
+}
 
 /**
  * Fetch wrapper that attaches Firebase Auth Bearer token.
@@ -8,7 +35,7 @@ export async function fetchWithAuth(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const currentUser = auth.currentUser;
+  const currentUser = await waitForAuth();
   if (!currentUser) {
     throw new Error('Not authenticated');
   }
