@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[QTag Guests GET] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch guests', },
+      { error: 'Failed to fetch guests' },
       { status: 500 }
     );
   }
@@ -230,7 +230,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error('[QTag Guests PATCH] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to update guest', },
+      { error: 'Failed to update guest' },
       { status: 500 }
     );
   }
@@ -309,7 +309,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('[QTag Guests DELETE] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to delete guest', },
+      { error: 'Failed to delete guest' },
       { status: 500 }
     );
   }

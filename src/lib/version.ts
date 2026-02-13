@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.10';
+export const APP_VERSION = '1.12.11';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.10',
+    version: '1.12.11',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'הגדרות Q.Tag - תפריט פעולות נפתח במובייל במקום כפתורים צפופים',
+        'מודאל Q.Tag עולה מלמטה במובייל (bottom sheet)',
+        'הסרת כפתור נגישות במובייל',
+        'אבטחה: הסרת פרטי שגיאה מכל תשובות API',
+      ],
+      en: [
+        'Q.Tag settings - dropdown action menu on mobile instead of cramped buttons',
+        'Q.Tag modal slides up as bottom sheet on mobile',
+        'Removed accessibility button on mobile',
+        'Security: removed error details from all API responses',
+      ],
+    },
+  },
+  {
+    version: '1.12.10',
+    date: '2026-02-13',
     highlights: {
       he: [
         'כרטיסי אורחים מתרחבים גם בדף הסורק',
