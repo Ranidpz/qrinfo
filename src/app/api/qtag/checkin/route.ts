@@ -126,7 +126,14 @@ export async function POST(request: NextRequest) {
       const result = await db.runTransaction(async (transaction) => {
         const guestRef = db.collection('codes').doc(codeId!)
           .collection('qtagGuests').doc(guestId!);
-        const freshDoc = await transaction.get(guestRef);
+        const statsRef = db.collection('codes').doc(codeId!)
+          .collection('qtagStats').doc('current');
+
+        // All reads must happen before any writes in Firestore transactions
+        const [freshDoc, statsDoc] = await Promise.all([
+          transaction.get(guestRef),
+          transaction.get(statsRef),
+        ]);
 
         if (!freshDoc.exists) {
           return { error: 'Guest not found' };
@@ -143,18 +150,13 @@ export async function POST(request: NextRequest) {
           };
         }
 
-        // Mark as arrived
+        // All writes after all reads
         transaction.update(guestRef, {
           status: 'arrived',
           arrivedAt: FieldValue.serverTimestamp(),
           arrivedMarkedBy: 'scanner',
           updatedAt: FieldValue.serverTimestamp(),
         });
-
-        // Increment stats atomically
-        const statsRef = db.collection('codes').doc(codeId!)
-          .collection('qtagStats').doc('current');
-        const statsDoc = await transaction.get(statsRef);
 
         if (statsDoc.exists) {
           transaction.update(statsRef, {

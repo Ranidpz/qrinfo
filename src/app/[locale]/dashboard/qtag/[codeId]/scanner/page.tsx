@@ -105,6 +105,7 @@ export default function QTagScannerPage() {
   const isDraggingDivider = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
+  const [scannerRestartKey, setScannerRestartKey] = useState(0);
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
@@ -170,6 +171,8 @@ export default function QTagScannerPage() {
     try {
       localStorage.setItem(SCANNER_WIDTH_KEY, String(scannerWidth));
     } catch { /* ignore */ }
+    // Restart scanner so qrbox overlay recalculates for new panel size
+    setScannerRestartKey(k => k + 1);
   }, [scannerWidth]);
 
   const handleDividerDoubleClick = useCallback(() => {
@@ -177,6 +180,7 @@ export default function QTagScannerPage() {
     try {
       localStorage.setItem(SCANNER_WIDTH_KEY, String(SCANNER_DEFAULT_WIDTH));
     } catch { /* ignore */ }
+    setScannerRestartKey(k => k + 1);
   }, []);
 
   // Fetch scanner PIN from code document
@@ -320,7 +324,7 @@ export default function QTagScannerPage() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, pinUnlocked, isWideScreen]);
+  }, [viewMode, pinUnlocked, isWideScreen, scannerRestartKey]);
 
   // Handle successful QR scan
   const handleScanSuccess = async (decodedText: string) => {

@@ -747,3 +747,26 @@ body {
   animation: logo-bounce-in-fast 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
 }
 
+/* ========== Q.Tag Scanner - responsive camera in split view ========== */
+#qtag-scanner {
+  position: relative;
+}
+
+#qtag-scanner video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+#qtag-scanner img {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  /* Hide the library's default shaded region - we let the video fill the container */
+  #qtag-scanner > div[style] {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
