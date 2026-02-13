@@ -107,6 +107,11 @@ const translations = {
     navigate: 'נווט לאירוע',
     loading: 'טוען...',
     welcomeBack: 'ברוכים השבים!',
+    alreadyRegistered: 'כבר נרשמתי',
+    recoverQR: 'שלחו לי שוב את הQR',
+    recoverMessage: 'הכניסו את הטלפון שנרשמתם איתו',
+    recoverSent: 'אם מספר זה רשום, שלחנו לינק לוואטסאפ שלכם',
+    recoverSending: 'שולח...',
   },
   en: {
     register: 'Event Registration',
@@ -149,6 +154,11 @@ const translations = {
     navigate: 'Navigate to event',
     loading: 'Loading...',
     welcomeBack: 'Welcome back!',
+    alreadyRegistered: 'Already registered?',
+    recoverQR: 'Send me my QR again',
+    recoverMessage: 'Enter the phone number you registered with',
+    recoverSent: 'If this number is registered, we sent a link to your WhatsApp',
+    recoverSending: 'Sending...',
   },
 };
 
@@ -180,6 +190,12 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  // Recovery state (already registered flow)
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryPhone, setRecoveryPhone] = useState('');
+  const [recoverySending, setRecoverySending] = useState(false);
+  const [recoverySent, setRecoverySent] = useState(false);
 
   // Check URL token or localStorage for returning guest on mount
   useEffect(() => {
@@ -468,6 +484,27 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
     }
   };
 
+  // Resend QR to WhatsApp (recovery flow)
+  const handleRecoverQR = async () => {
+    const rawPhone = recoveryPhone.replace(/\D/g, '');
+    if (rawPhone.length < 9 || rawPhone.length > 10) return;
+
+    setRecoverySending(true);
+    try {
+      await fetch('/api/qtag/resend-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, phone: rawPhone }),
+      });
+      // Always show success (endpoint doesn't reveal if phone exists)
+      setRecoverySent(true);
+    } catch {
+      setRecoverySent(true);
+    } finally {
+      setRecoverySending(false);
+    }
+  };
+
   // QR data for the guest
   const qrData = qrToken ? JSON.stringify({ t: 'qtag', c: codeId, tk: qrToken }) : '';
 
@@ -590,6 +627,53 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
           <UserPlus className="w-5 h-5" />
           {branding.registerButtonText || t.registerButton}
         </button>
+
+        {/* Already registered? Recovery flow */}
+        {!showRecovery ? (
+          <button
+            onClick={() => { setShowRecovery(true); setRecoverySent(false); setRecoveryPhone(''); }}
+            className="mt-4 text-sm underline opacity-60 hover:opacity-100 transition-opacity font-assistant"
+            style={{ color: branding.backgroundImageUrl ? '#ffffff' : branding.colors.text }}
+          >
+            {t.alreadyRegistered}
+          </button>
+        ) : (
+          <div
+            className="mt-4 w-full max-w-xs rounded-2xl p-4 space-y-3"
+            style={{ backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(12px)' }}
+            dir={isRTL ? 'rtl' : 'ltr'}
+          >
+            {recoverySent ? (
+              <p className="text-sm text-center font-assistant" style={{ color: branding.backgroundImageUrl ? '#ffffff' : branding.colors.text }}>
+                {t.recoverSent}
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-center opacity-80 font-assistant" style={{ color: branding.backgroundImageUrl ? '#ffffff' : branding.colors.text }}>
+                  {t.recoverMessage}
+                </p>
+                <input
+                  type="tel"
+                  value={recoveryPhone}
+                  onChange={(e) => setRecoveryPhone(formatPhoneInput(e.target.value))}
+                  placeholder={t.phonePlaceholder}
+                  maxLength={12}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:border-transparent font-assistant text-sm text-center"
+                  dir="ltr"
+                />
+                <button
+                  onClick={handleRecoverQR}
+                  disabled={recoverySending || recoveryPhone.replace(/\D/g, '').length < 9}
+                  className="w-full py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 font-assistant"
+                  style={{ backgroundColor: branding.colors.buttonBackground, color: branding.colors.buttonText }}
+                >
+                  {recoverySending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {recoverySending ? t.recoverSending : t.recoverQR}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <style jsx>{`

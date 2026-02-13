@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.7';
+export const APP_VERSION = '1.12.8';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,21 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.7',
+    version: '1.12.8',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'כפתור "כבר נרשמתי" - שליחה חוזרת של QR לוואטסאפ לפי טלפון',
+      ],
+      en: [
+        '"Already registered?" button - resend QR to WhatsApp by phone',
+      ],
+    },
+  },
+  {
+    version: '1.12.7',
+    date: '2026-02-13',
     highlights: {
       he: [
         'רשימת אורחים - כרטיסים מתרחבים בלחיצה עם פרטי +1, פעולות ומחיקה',

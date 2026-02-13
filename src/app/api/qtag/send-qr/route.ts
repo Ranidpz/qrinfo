@@ -65,8 +65,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.success) {
+      console.error('[QTag SendQR] WhatsApp send failed:', result.error);
       return NextResponse.json(
-        { error: 'Failed to send WhatsApp', details: result.error },
+        { error: 'Failed to send WhatsApp' },
         { status: 500 }
       );
     }
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[QTag SendQR] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to send QR link', details: String(error) },
+      { error: 'Failed to send QR link' },
       { status: 500 }
     );
   }
