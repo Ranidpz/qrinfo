@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
     const guest = guestDoc.data();
 
     // Send QR via WhatsApp (awaited so Vercel doesn't terminate before it completes)
+    console.log(`[QTag ResendQR] Guest found: name="${guest.name}", phone="${guest.phone}", qrToken="${guest.qrToken?.slice(0, 4)}...", shortId="${codeData.shortId}"`);
     let whatsappSent = false;
     let whatsappError: string | undefined;
     try {

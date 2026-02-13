@@ -71,6 +71,14 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedPhone = normalizePhoneNumber(phone);
+
+    // Reject placeholder/test phone numbers (050-000-0000 passes validation but is the form placeholder)
+    if (normalizedPhone === '+972500000000') {
+      return NextResponse.json(
+        { error: 'Invalid phone number', errorCode: 'INVALID_PHONE' },
+        { status: 400 }
+      );
+    }
     const validPlusOne = Math.max(0, Math.min(10, Math.floor(plusOneCount)));
 
     // Validate plusOneDetails structure (omit keys rather than setting undefined — Firestore rejects undefined)
@@ -261,8 +269,9 @@ export async function POST(request: NextRequest) {
 
     // Send QR link via WhatsApp (awaited so Vercel doesn't terminate before it completes)
     if (config.sendQrViaWhatsApp !== false) {
+      console.log(`[QTag Register] Sending QR WhatsApp: phone="${normalizedPhone}", shortId="${codeData.shortId}"`);
       try {
-        await sendQTagQRWhatsApp({
+        const whatsappResult = await sendQTagQRWhatsApp({
           codeId,
           guestId: guestRef.id,
           guestName: trimmedName,
@@ -271,6 +280,9 @@ export async function POST(request: NextRequest) {
           shortId: codeData.shortId,
           eventName: config.eventName || '',
         });
+        if (!whatsappResult.success) {
+          console.error(`[QTag Register] WhatsApp send failed: ${whatsappResult.error}`);
+        }
       } catch (err) {
         console.error('[QTag Register] WhatsApp send error (non-blocking):', err);
       }
