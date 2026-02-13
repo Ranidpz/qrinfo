@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.0';
+export const APP_VERSION = '1.12.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.0',
+    version: '1.12.1',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון העלאת תמונות גדולות - דחיסה אוטומטית בצד הלקוח',
+        'סורק Q.Tag בתצוגת מסך מפוצל בדסקטופ',
+        'תמונת OG מותאמת לכל Q.Tag',
+        'תיקון תרגומים חסרים ב-Q.Tag',
+      ],
+      en: [
+        'Fixed large image uploads - automatic client-side compression',
+        'Q.Tag scanner in split-screen view on desktop',
+        'Custom OG image per Q.Tag',
+        'Fixed missing Q.Tag translations',
+      ],
+    },
+  },
+  {
+    version: '1.12.0',
+    date: '2026-02-13',
     highlights: {
       he: [
         'Q.Tag - מערכת רישום והזמנות לאירועים עם QR',
