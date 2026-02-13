@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
-import * as XLSX from 'xlsx';
 import { formatPhoneForDisplay } from '@/lib/phone-utils';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 
@@ -53,6 +52,9 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Dynamic import to avoid Vercel serverless bundling issues
+    const XLSX = await import('xlsx');
+
     // Create workbook
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
@@ -85,7 +87,8 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[QTag Export] Error:', error);
+    console.error('[QTag Export] Error:', error instanceof Error ? error.message : error);
+    console.error('[QTag Export] Stack:', error instanceof Error ? error.stack : 'no stack');
     return NextResponse.json(
       { error: 'Failed to export' },
       { status: 500 }
