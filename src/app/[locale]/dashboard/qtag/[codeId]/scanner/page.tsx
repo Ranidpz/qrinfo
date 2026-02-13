@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
-import { collection, doc, getDoc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Virtuoso } from 'react-virtuoso';
+import { useQTagGuests } from '@/hooks/useQTagGuests';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Html5Qrcode } from 'html5-qrcode';
 import {
   Camera,
@@ -29,7 +32,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import * as XLSX from 'xlsx';
 import { formatPhoneForDisplay } from '@/lib/phone-utils';
-import type { QTagGuest, QTagStats } from '@/types/qtag';
+import type { QTagGuest } from '@/types/qtag';
 
 interface ScanResult {
   guest: {
@@ -50,6 +53,113 @@ interface ScanResult {
 type ScannerState = 'scanning' | 'loading' | 'result' | 'error';
 type ViewMode = 'scanner' | 'list';
 type FilterTab = 'all' | 'registered' | 'arrived' | 'cancelled';
+
+// Memoized guest row for scanner — prevents re-rendering all visible rows on single change
+const ScannerGuestRow = memo(function ScannerGuestRow({
+  guest,
+  isExpanded,
+  onToggle,
+  onCheckIn,
+  onDelete,
+  deleting,
+  t,
+}: {
+  guest: QTagGuest;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onCheckIn: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+  t: (key: string) => string;
+}) {
+  return (
+    <div className="rounded-xl bg-white/[0.03] border border-white/5 transition-colors overflow-hidden mb-1.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-3 px-3 sm:px-4 py-3 w-full text-start hover:bg-white/[0.04] transition-colors"
+      >
+        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+          guest.status === 'arrived' ? 'bg-green-400' :
+          guest.status === 'cancelled' ? 'bg-red-400' : 'bg-gray-500'
+        }`} />
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <span className="font-semibold text-white text-sm font-assistant truncate">
+            {guest.name}
+          </span>
+          {guest.plusOneCount > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 flex-shrink-0">
+              +{guest.plusOneCount}
+            </span>
+          )}
+          {guest.isVerified && (
+            <Check className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); onCheckIn(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onCheckIn(); } }}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all font-assistant cursor-pointer ${
+              guest.status === 'arrived'
+                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-white/30 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+      {isExpanded && (
+        <div className="px-3 sm:px-4 pb-3 pt-0 border-t border-white/5 space-y-2.5">
+          <div className="flex items-center gap-3 text-xs text-white/50 pt-2.5 flex-wrap">
+            {guest.phone && <span dir="ltr">{guest.phone}</span>}
+            {guest.phone && <span className="text-white/20">|</span>}
+            {guest.status === 'arrived' && guest.arrivedAt ? (
+              <span className="text-green-400/70">
+                {t('qtagArrivedStatus')} {new Date(guest.arrivedAt).toLocaleString('he-IL', {
+                  hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
+                })}
+              </span>
+            ) : (
+              <span>
+                {new Date(guest.registeredAt).toLocaleString('he-IL', {
+                  hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
+                })}
+              </span>
+            )}
+          </div>
+          {guest.plusOneCount > 0 && guest.plusOneDetails && guest.plusOneDetails.length > 0 && (
+            <div className="flex items-center gap-2 text-xs text-white/40">
+              <Users className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>
+                {guest.plusOneDetails
+                  .filter(p => p.name)
+                  .map(p => p.name)
+                  .join(', ') || `+${guest.plusOneCount}`}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center pt-1">
+            <button
+              onClick={onDelete}
+              disabled={deleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-400/70 bg-red-500/10 hover:bg-red-500/15 transition-all disabled:opacity-50 font-assistant ms-auto"
+            >
+              {deleting
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Trash2 className="w-3.5 h-3.5" />}
+              {t('qtagDeleteConfirmYes')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 export default function QTagScannerPage() {
   const params = useParams();
@@ -79,14 +189,10 @@ export default function QTagScannerPage() {
   const [scannerReady, setScannerReady] = useState(false);
   const processingRef = useRef(false);
 
-  // Guest list state (real-time)
-  const [guests, setGuests] = useState<QTagGuest[]>([]);
-  const [stats, setStats] = useState<QTagStats>({
-    totalRegistered: 0, totalGuests: 0, totalArrived: 0, totalArrivedGuests: 0,
-  });
+  // Guest list state (real-time via shared hook)
+  const { guests, stats, loading: loadingGuests } = useQTagGuests(codeId);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
-  const [loadingGuests, setLoadingGuests] = useState(true);
 
   // Delete state
   const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
@@ -249,54 +355,8 @@ export default function QTagScannerPage() {
     }
   };
 
-  // Real-time guest updates via Firestore onSnapshot
-  useEffect(() => {
-    if (!db || !codeId) return;
-
-    setLoadingGuests(true);
-    const guestsRef = collection(db, 'codes', codeId, 'qtagGuests');
-    const unsubscribe = onSnapshot(guestsRef, (snapshot) => {
-      const guestList: QTagGuest[] = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          codeId: data.codeId,
-          name: data.name,
-          phone: data.phone,
-          plusOneCount: data.plusOneCount || 0,
-          plusOneDetails: data.plusOneDetails || [],
-          qrToken: data.qrToken,
-          isVerified: data.isVerified || false,
-          verifiedAt: data.verifiedAt instanceof Timestamp ? data.verifiedAt.toDate() : undefined,
-          status: data.status || 'registered',
-          arrivedAt: data.arrivedAt instanceof Timestamp ? data.arrivedAt.toDate() : undefined,
-          arrivedMarkedBy: data.arrivedMarkedBy,
-          qrSentViaWhatsApp: data.qrSentViaWhatsApp || false,
-          qrSentAt: data.qrSentAt instanceof Timestamp ? data.qrSentAt.toDate() : undefined,
-          registeredAt: data.registeredAt instanceof Timestamp ? data.registeredAt.toDate() : new Date(),
-          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : undefined,
-          registeredByAdmin: data.registeredByAdmin || false,
-        };
-      });
-
-      // Sort by registeredAt descending
-      guestList.sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime());
-      setGuests(guestList);
-
-      // Compute stats
-      const arrived = guestList.filter(g => g.status === 'arrived');
-      setStats({
-        totalRegistered: guestList.filter(g => g.status !== 'cancelled').length,
-        totalGuests: guestList.reduce((sum, g) => g.status !== 'cancelled' ? sum + 1 + g.plusOneCount : sum, 0),
-        totalArrived: arrived.length,
-        totalArrivedGuests: arrived.reduce((sum, g) => sum + 1 + g.plusOneCount, 0),
-      });
-
-      setLoadingGuests(false);
-    });
-
-    return () => unsubscribe();
-  }, [codeId]);
+  // Debounced search for performance with large guest lists
+  const debouncedSearch = useDebouncedValue(searchQuery, 250);
 
   // Initialize scanner (only after PIN is unlocked)
   // On desktop (lg+), always init scanner. On mobile, only when in scanner view.
@@ -571,31 +631,32 @@ export default function QTagScannerPage() {
     }
   };
 
-  // Filter guests
-  const filteredGuests = guests.filter(g => {
-    // Tab filter
-    if (activeFilter === 'registered' && g.status !== 'registered') return false;
-    if (activeFilter === 'arrived' && g.status !== 'arrived') return false;
-    if (activeFilter === 'cancelled' && g.status !== 'cancelled') return false;
+  // Memoized filtered guest list
+  const filteredGuests = useMemo(() => {
+    return guests.filter(g => {
+      if (activeFilter === 'registered' && g.status !== 'registered') return false;
+      if (activeFilter === 'arrived' && g.status !== 'arrived') return false;
+      if (activeFilter === 'cancelled' && g.status !== 'cancelled') return false;
 
-    // Search filter (name, phone, plus-one names)
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (g.name.toLowerCase().includes(q)) return true;
-      if (g.phone.includes(q)) return true;
-      if (g.plusOneDetails?.some(p => p.name?.toLowerCase().includes(q))) return true;
-      return false;
-    }
+      if (debouncedSearch) {
+        const q = debouncedSearch.toLowerCase();
+        if (g.name.toLowerCase().includes(q)) return true;
+        if (g.phone.includes(q)) return true;
+        if (g.plusOneDetails?.some(p => p.name?.toLowerCase().includes(q))) return true;
+        return false;
+      }
 
-    return true;
-  });
+      return true;
+    });
+  }, [guests, activeFilter, debouncedSearch]);
 
-  const filterTabs: { key: FilterTab; label: string; count: number }[] = [
-    { key: 'all', label: t('qtagFilterAll'), count: guests.length },
-    { key: 'registered', label: t('qtagFilterRegistered'), count: guests.filter(g => g.status === 'registered').length },
-    { key: 'arrived', label: t('qtagFilterArrived'), count: guests.filter(g => g.status === 'arrived').length },
-    { key: 'cancelled', label: t('qtagFilterCancelled'), count: guests.filter(g => g.status === 'cancelled').length },
-  ];
+  // Memoized tab counts
+  const filterTabs = useMemo(() => [
+    { key: 'all' as FilterTab, label: t('qtagFilterAll'), count: guests.length },
+    { key: 'registered' as FilterTab, label: t('qtagFilterRegistered'), count: guests.filter(g => g.status === 'registered').length },
+    { key: 'arrived' as FilterTab, label: t('qtagFilterArrived'), count: guests.filter(g => g.status === 'arrived').length },
+    { key: 'cancelled' as FilterTab, label: t('qtagFilterCancelled'), count: guests.filter(g => g.status === 'cancelled').length },
+  ], [guests, t]);
 
   // ── Scanner View ──
   const renderScanner = () => (
@@ -812,126 +873,36 @@ export default function QTagScannerPage() {
       </div>
 
       {/* Guest list */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-2 space-y-1.5">
-        {loadingGuests && (
+      <div className="flex-1 min-h-0">
+        {loadingGuests ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
           </div>
-        )}
-
-        {!loadingGuests && filteredGuests.length === 0 && (
+        ) : filteredGuests.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="font-assistant">{t('qtagNoGuests')}</p>
           </div>
+        ) : (
+          <Virtuoso
+            data={filteredGuests}
+            overscan={200}
+            style={{ height: '100%' }}
+            itemContent={(_index, guest) => (
+              <div className="px-4 sm:px-6 first:pt-2 last:pb-2">
+                <ScannerGuestRow
+                  guest={guest}
+                  isExpanded={expandedGuestId === guest.id}
+                  onToggle={() => setExpandedGuestId(expandedGuestId === guest.id ? null : guest.id)}
+                  onCheckIn={() => toggleArrival(guest)}
+                  onDelete={() => handleDeleteClick(guest)}
+                  deleting={deletingGuestId === guest.id}
+                  t={t}
+                />
+              </div>
+            )}
+          />
         )}
-
-        {filteredGuests.map((guest) => {
-          const isExpanded = expandedGuestId === guest.id;
-          return (
-            <div
-              key={guest.id}
-              className="rounded-xl bg-white/[0.03] border border-white/5 transition-colors overflow-hidden"
-            >
-              {/* Collapsed row - tap to expand */}
-              <button
-                type="button"
-                onClick={() => setExpandedGuestId(isExpanded ? null : guest.id)}
-                className="flex items-center gap-3 px-3 sm:px-4 py-3 w-full text-start hover:bg-white/[0.04] transition-colors"
-              >
-                {/* Status dot */}
-                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                  guest.status === 'arrived' ? 'bg-green-400' :
-                  guest.status === 'cancelled' ? 'bg-red-400' : 'bg-gray-500'
-                }`} />
-
-                {/* Name + badges */}
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className="font-semibold text-white text-sm font-assistant truncate">
-                    {guest.name}
-                  </span>
-                  {guest.plusOneCount > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 flex-shrink-0">
-                      +{guest.plusOneCount}
-                    </span>
-                  )}
-                  {guest.isVerified && (
-                    <Check className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                  )}
-                </div>
-
-                {/* Check-in button + chevron */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); toggleArrival(guest); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); toggleArrival(guest); } }}
-                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all font-assistant cursor-pointer ${
-                      guest.status === 'arrived'
-                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                        : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-white/30 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                </div>
-              </button>
-
-              {/* Expanded details */}
-              {isExpanded && (
-                <div className="px-3 sm:px-4 pb-3 pt-0 border-t border-white/5 space-y-2.5">
-                  {/* Phone + time */}
-                  <div className="flex items-center gap-3 text-xs text-white/50 pt-2.5 flex-wrap">
-                    {guest.phone && <span dir="ltr">{guest.phone}</span>}
-                    {guest.phone && <span className="text-white/20">|</span>}
-                    {guest.status === 'arrived' && guest.arrivedAt ? (
-                      <span className="text-green-400/70">
-                        {t('qtagArrivedStatus')} {new Date(guest.arrivedAt).toLocaleString('he-IL', {
-                          hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
-                        })}
-                      </span>
-                    ) : (
-                      <span>
-                        {new Date(guest.registeredAt).toLocaleString('he-IL', {
-                          hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
-                        })}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Plus-one details */}
-                  {guest.plusOneCount > 0 && guest.plusOneDetails && guest.plusOneDetails.length > 0 && (
-                    <div className="flex items-center gap-2 text-xs text-white/40">
-                      <Users className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span>
-                        {guest.plusOneDetails
-                          .filter(p => p.name)
-                          .map(p => p.name)
-                          .join(', ') || `+${guest.plusOneCount}`}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Delete action */}
-                  <div className="flex items-center pt-1">
-                    <button
-                      onClick={() => handleDeleteClick(guest)}
-                      disabled={deletingGuestId === guest.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-red-400/70 bg-red-500/10 hover:bg-red-500/15 transition-all disabled:opacity-50 font-assistant ms-auto"
-                    >
-                      {deletingGuestId === guest.id
-                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        : <Trash2 className="w-3.5 h-3.5" />}
-                      {t('qtagDeleteConfirmYes')}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
       </div>
 
       {/* FAB - Quick Add */}

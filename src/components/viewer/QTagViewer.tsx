@@ -89,6 +89,9 @@ const translations = {
     eventEnded: 'האירוע הסתיים',
     eventFull: 'האירוע מלא',
     phoneExists: 'מספר הטלפון הזה כבר רשום',
+    sendMeLink: 'שלחו לי את הלינק בוואטסאפ',
+    linkSent: 'הלינק נשלח בוואטסאפ!',
+    linkSendFailed: 'שליחת הוואטסאפ נכשלה',
     invalidPhone: 'מספר טלפון לא תקין',
     nameTooShort: 'שם חייב להכיל לפחות 2 תווים',
     errorGeneric: 'שגיאה בהרשמה, נסו שוב',
@@ -148,6 +151,9 @@ const translations = {
     eventEnded: 'The event has ended',
     eventFull: 'Event is full',
     phoneExists: 'This phone number is already registered',
+    sendMeLink: 'Send me the link via WhatsApp',
+    linkSent: 'Link sent via WhatsApp!',
+    linkSendFailed: 'WhatsApp send failed',
     invalidPhone: 'Invalid phone number',
     nameTooShort: 'Name must be at least 2 characters',
     errorGeneric: 'Registration failed, please try again',
@@ -224,6 +230,12 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
   const [recoveryFound, setRecoveryFound] = useState(false);
   const [recoveryWhatsappSent, setRecoveryWhatsappSent] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
+  // Phone-exists resend state (resend link from form error)
+  const [phoneExistsError, setPhoneExistsError] = useState(false);
+  const [resendingLink, setResendingLink] = useState(false);
+  const [resendLinkResult, setResendLinkResult] = useState<'sent' | 'failed' | null>(null);
+  const [resendLinkError, setResendLinkError] = useState<string | null>(null);
 
   // Cancel state
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -339,6 +351,9 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
   // Submit registration
   const handleSubmit = async () => {
     setError(null);
+    setPhoneExistsError(false);
+    setResendLinkResult(null);
+    setResendLinkError(null);
 
     // Validate
     if (name.trim().length < 2) {
@@ -375,6 +390,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
       if (!res.ok) {
         if (data.errorCode === 'PHONE_EXISTS') {
           setError(t.phoneExists);
+          setPhoneExistsError(true);
         } else if (data.errorCode === 'INVALID_PHONE') {
           setError(t.invalidPhone);
         } else if (data.errorCode === 'CAPACITY_FULL') {
@@ -545,6 +561,34 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
       setRecoverySent(true);
     } finally {
       setRecoverySending(false);
+    }
+  };
+
+  // Resend link from form (phone already registered)
+  const handleResendLinkFromForm = async () => {
+    const rawPhone = phone.replace(/\D/g, '');
+    if (rawPhone.length < 9 || rawPhone.length > 10) return;
+
+    setResendingLink(true);
+    setResendLinkResult(null);
+    setResendLinkError(null);
+    try {
+      const res = await fetch('/api/qtag/resend-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, phone: rawPhone }),
+      });
+      const data = await res.json();
+      if (data.found && data.whatsappSent) {
+        setResendLinkResult('sent');
+      } else {
+        setResendLinkResult('failed');
+        setResendLinkError(data.whatsappError || null);
+      }
+    } catch {
+      setResendLinkResult('failed');
+    } finally {
+      setResendingLink(false);
     }
   };
 
@@ -968,8 +1012,50 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
 
         {/* Error message */}
         {error && (
-          <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20">
+          <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 space-y-3">
             <p className="text-red-400 text-sm font-assistant">{error}</p>
+
+            {/* Resend link button when phone already registered */}
+            {phoneExistsError && !resendLinkResult && (
+              <button
+                onClick={handleResendLinkFromForm}
+                disabled={resendingLink}
+                className="w-full py-3 rounded-xl font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 font-assistant"
+                style={{
+                  backgroundColor: branding.colors.buttonBackground,
+                  color: branding.colors.buttonText,
+                }}
+              >
+                {resendingLink ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t.recoverSending}
+                  </>
+                ) : (
+                  t.sendMeLink
+                )}
+              </button>
+            )}
+
+            {/* Resend result */}
+            {phoneExistsError && resendLinkResult === 'sent' && (
+              <p className="text-sm font-assistant text-center" style={{ color: '#22c55e' }}>
+                <Check className="w-4 h-4 inline-block mb-0.5 me-1" />
+                {t.linkSent}
+              </p>
+            )}
+            {phoneExistsError && resendLinkResult === 'failed' && (
+              <div className="text-center space-y-1">
+                <p className="text-sm font-assistant" style={{ color: '#f59e0b' }}>
+                  {t.linkSendFailed}
+                </p>
+                {resendLinkError && (
+                  <p className="text-xs font-mono opacity-60" style={{ color: '#f59e0b' }}>
+                    {resendLinkError}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

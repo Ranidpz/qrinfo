@@ -54,9 +54,14 @@ export async function GET(request: NextRequest) {
 
     const guest = guestDoc.data()!;
 
-    // Don't return data for cancelled guests
+    // Return limited data for cancelled guests (so they can uncancel)
     if (guest.status === 'cancelled') {
-      return NextResponse.json({ exists: false });
+      return NextResponse.json({
+        exists: false,
+        cancelled: true,
+        name: guest.name,
+        qrToken: token,
+      });
     }
 
     return NextResponse.json({

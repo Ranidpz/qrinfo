@@ -62,12 +62,12 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 ## Gotchas
 - `node_modules 2` dir appears randomly - delete it, causes build failures
 - Firebase CLI `deploy --only firestore:indexes` silently skips indexes - always verify in Console
-- `jsdom` and `xlsx` in `serverExternalPackages` (next.config.ts) - needed for isomorphic-dompurify and Excel export
+- `jsdom` and `xlsx` in `serverExternalPackages` (next.config.ts) - `jsdom` needed for isomorphic-dompurify. `xlsx` kept but Excel export moved client-side.
 - Q.Tag WhatsApp templates: `src/lib/qtag-whatsapp.ts` sends QR links via INFORU after registration/verification
 
 ## Lessons Learned
 <!-- Add bugs, root causes, and solutions here. Keep entries one-line when possible. -->
-- `xlsx` package causes 500 errors in API routes unless added to `serverExternalPackages` in next.config.ts
+- Excel export: ALWAYS generate xlsx **client-side** (`XLSX.writeFile()` in browser), NEVER server-side in API routes. The `xlsx` package is unreliable on Vercel serverless even with `serverExternalPackages`. Pattern: build rows from state → `XLSX.utils.json_to_sheet()` → `XLSX.writeFile()`. See `QVoteVotersModal.tsx` and `QTagGuestsModal.tsx` for reference.
 - Quick-add modal must use `fixed` positioning (not `absolute`) to work across scanner/list view modes
 - Scanner PIN gate: check `pinUnlocked` before initializing camera to avoid wasted camera starts
 - INFORU template example field has char limit - short examples (e.g. `jnCSYdJ?token=A`) are fine for Meta review

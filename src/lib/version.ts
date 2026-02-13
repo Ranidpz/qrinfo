@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.19';
+export const APP_VERSION = '1.12.20';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.19',
+    version: '1.12.20',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'ביצועים: רשימת אורחים עם Virtual Scroll - תומך ב-5,000+ אורחים בלי לאט',
+        'ביצועים: עדכונים מצטברים מ-Firestore (docChanges) במקום טעינה מחדש של הכל',
+        'ביטול הרשמה - כפתור ביטול/שחזור לאורח רשום',
+        'שליחה חוזרת של לינק כשהטלפון כבר רשום',
+      ],
+      en: [
+        'Performance: Virtual scroll guest list - supports 5,000+ guests without lag',
+        'Performance: Incremental Firestore updates (docChanges) instead of full reload',
+        'Cancel registration - cancel/uncancel button for registered guests',
+        'Resend link when phone is already registered',
+      ],
+    },
+  },
+  {
+    version: '1.12.19',
+    date: '2026-02-13',
     highlights: {
       he: [
         'QR כניסה סריק מכל מצלמה - פותח דף הרשמה לאירוע',
