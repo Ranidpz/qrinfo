@@ -512,8 +512,10 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
     }
   };
 
-  // QR data for the guest
-  const qrData = qrToken ? JSON.stringify({ t: 'qtag', c: codeId, tk: qrToken }) : '';
+  // QR data for the guest - URL format so regular cameras open the registration page
+  const qrData = qrToken && shortId
+    ? `${process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app'}/v/${shortId}?token=${qrToken}`
+    : '';
 
   // ── Landing Screen ──
   const renderLanding = () => (

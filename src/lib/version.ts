@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.17';
+export const APP_VERSION = '1.12.18';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,15 +14,15 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.17',
+    version: '1.12.18',
     date: '2026-02-13',
     isNew: true,
     highlights: {
       he: [
-        'תיקון ייצוא אקסל - dynamic import של xlsx למניעת שגיאת 500 בוורסל',
+        'תיקון ייצוא אקסל - ייצוא ישירות מהדפדפן (לא דרך שרת)',
       ],
       en: [
-        'Fix Excel export - dynamic xlsx import to prevent Vercel 500 error',
+        'Fix Excel export - client-side generation (no server dependency)',
       ],
     },
   },

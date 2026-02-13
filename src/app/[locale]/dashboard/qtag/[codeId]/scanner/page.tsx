@@ -27,6 +27,8 @@ import {
   QrCode,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import * as XLSX from 'xlsx';
+import { formatPhoneForDisplay } from '@/lib/phone-utils';
 import type { QTagGuest, QTagStats } from '@/types/qtag';
 
 interface ScanResult {
@@ -352,15 +354,23 @@ export default function QTagScannerPage() {
     setScannerState('loading');
 
     try {
-      // Parse QR data
-      let qrToken: string;
+      // Parse QR data - supports both URL format (new) and JSON format (legacy)
+      let qrToken: string | undefined;
       try {
         const parsed = JSON.parse(decodedText);
-        if (parsed.t !== 'qtag' || !parsed.tk) {
-          throw new Error('Not a Q.Tag QR code');
+        if (parsed.t === 'qtag' && parsed.tk) {
+          qrToken = parsed.tk;
         }
-        qrToken = parsed.tk;
       } catch {
+        // Not JSON - try URL format
+        try {
+          const url = new URL(decodedText);
+          qrToken = url.searchParams.get('token') || undefined;
+        } catch {
+          // Neither JSON nor URL
+        }
+      }
+      if (!qrToken) {
         setScannerState('error');
         setScanError(t('qtagInvalidQR'));
         autoResetScanner(3000);
@@ -502,22 +512,30 @@ export default function QTagScannerPage() {
     }
   }, [codeId, confirmDeleteGuest]);
 
-  // Export to Excel
-  const handleExport = async () => {
+  // Export to Excel (client-side generation)
+  const handleExport = () => {
     setExporting(true);
     try {
-      const res = await fetchWithAuth(`/api/qtag/export?codeId=${codeId}`);
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `qtag-export-${new Date().toISOString().split('T')[0]}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch {
-      // Silent
+      const rows = guests.map(g => ({
+        'Name': g.name,
+        'Phone': formatPhoneForDisplay(g.phone || ''),
+        '+1 Count': g.plusOneCount || 0,
+        '+1 Name': g.plusOneDetails?.[0]?.name || '',
+        '+1 Gender': g.plusOneDetails?.[0]?.gender === 'male' ? 'Male' : g.plusOneDetails?.[0]?.gender === 'female' ? 'Female' : '',
+        'Status': g.status === 'arrived' ? 'Arrived' : g.status === 'cancelled' ? 'Cancelled' : 'Registered',
+        'Registered At': g.registeredAt ? new Date(g.registeredAt).toLocaleString('he-IL') : '',
+        'Arrived At': g.arrivedAt ? new Date(g.arrivedAt).toLocaleString('he-IL') : '',
+        'Verified': g.isVerified ? 'Yes' : 'No',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      worksheet['!cols'] = [
+        { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 10 },
+        { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 8 },
+      ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Guests');
+      XLSX.writeFile(workbook, `qtag-export-${new Date().toISOString().split('T')[0]}.xlsx`);
     } finally {
       setExporting(false);
     }
