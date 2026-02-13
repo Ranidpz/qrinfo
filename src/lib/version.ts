@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.1';
+export const APP_VERSION = '1.12.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.1',
+    version: '1.12.2',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'סורק Q.Tag - פס פיצול נגרר בין המצלמה לרשימה בדסקטופ',
+        'מלבן כיוון QR מותאם אוטומטית לגודל הפאנל',
+      ],
+      en: [
+        'Q.Tag scanner - draggable split divider between camera and list on desktop',
+        'QR viewfinder auto-adapts to panel size',
+      ],
+    },
+  },
+  {
+    version: '1.12.1',
+    date: '2026-02-13',
     highlights: {
       he: [
         'תיקון העלאת תמונות גדולות - דחיסה אוטומטית בצד הלקוח',

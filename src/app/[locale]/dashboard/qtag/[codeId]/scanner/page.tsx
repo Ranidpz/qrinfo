@@ -96,12 +96,87 @@ export default function QTagScannerPage() {
   // Responsive layout detection - lg+ shows split view
   const [isWideScreen, setIsWideScreen] = useState(false);
 
+  // Resizable split panel (desktop only)
+  const SCANNER_MIN_WIDTH = 300;
+  const SCANNER_MAX_RATIO = 0.6;
+  const SCANNER_DEFAULT_WIDTH = 420;
+  const SCANNER_WIDTH_KEY = 'qtag-scanner-panel-width';
+  const [scannerWidth, setScannerWidth] = useState(SCANNER_DEFAULT_WIDTH);
+  const isDraggingDivider = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
     setIsWideScreen(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsWideScreen(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Load saved scanner panel width from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SCANNER_WIDTH_KEY);
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= SCANNER_MIN_WIDTH) {
+          setScannerWidth(parsed);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Clamp scanner width on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      const maxWidth = window.innerWidth * SCANNER_MAX_RATIO;
+      setScannerWidth(prev => Math.min(prev, maxWidth));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Drag divider handlers (desktop only)
+  const handleDividerPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    isDraggingDivider.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = scannerWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [scannerWidth]);
+
+  const handleDividerPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingDivider.current) return;
+    const isRTL = document.documentElement.dir === 'rtl';
+    const deltaX = e.clientX - dragStartX.current;
+    const adjustedDelta = isRTL ? -deltaX : deltaX;
+    const maxWidth = window.innerWidth * SCANNER_MAX_RATIO;
+    const newWidth = Math.min(
+      Math.max(dragStartWidth.current + adjustedDelta, SCANNER_MIN_WIDTH),
+      maxWidth
+    );
+    setScannerWidth(newWidth);
+  }, []);
+
+  const handleDividerPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingDivider.current) return;
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    isDraggingDivider.current = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    try {
+      localStorage.setItem(SCANNER_WIDTH_KEY, String(scannerWidth));
+    } catch { /* ignore */ }
+  }, [scannerWidth]);
+
+  const handleDividerDoubleClick = useCallback(() => {
+    setScannerWidth(SCANNER_DEFAULT_WIDTH);
+    try {
+      localStorage.setItem(SCANNER_WIDTH_KEY, String(SCANNER_DEFAULT_WIDTH));
+    } catch { /* ignore */ }
   }, []);
 
   // Fetch scanner PIN from code document
@@ -215,7 +290,13 @@ export default function QTagScannerPage() {
           { facingMode: 'environment' },
           {
             fps: 10,
-            qrbox: { width: 250, height: 250 },
+            qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+              const size = Math.min(
+                Math.max(Math.min(viewfinderWidth, viewfinderHeight) * 0.7, 200),
+                350
+              );
+              return { width: size, height: size };
+            },
             aspectRatio: 1,
           },
           handleScanSuccess,
@@ -790,13 +871,39 @@ export default function QTagScannerPage() {
     <>
       <div className="h-dvh flex bg-gray-950">
         {/* Scanner panel - always visible on lg+, toggle on mobile */}
-        <div className={`h-full ${
-          isWideScreen
-            ? 'w-[420px] flex-shrink-0 border-e border-white/10'
-            : viewMode === 'scanner' ? 'w-full' : 'hidden'
-        }`}>
+        <div
+          className={`h-full overflow-hidden ${
+            isWideScreen
+              ? 'flex-shrink-0'
+              : viewMode === 'scanner' ? 'w-full' : 'hidden'
+          }`}
+          style={isWideScreen ? { width: scannerWidth } : undefined}
+        >
           {renderScanner()}
         </div>
+
+        {/* Resizable divider - desktop only */}
+        {isWideScreen && (
+          <div
+            className="h-full flex-shrink-0 relative group"
+            style={{ width: 1 }}
+            onPointerDown={handleDividerPointerDown}
+            onPointerMove={handleDividerPointerMove}
+            onPointerUp={handleDividerPointerUp}
+            onDoubleClick={handleDividerDoubleClick}
+          >
+            {/* Visible line */}
+            <div className="absolute inset-y-0 start-0 w-px bg-white/10 group-hover:bg-blue-500/50 transition-colors" />
+            {/* Wider invisible hit area */}
+            <div className="absolute inset-y-0 -start-2.5 w-6 cursor-col-resize" />
+            {/* Drag handle indicator (centered dots) */}
+            <div className="absolute top-1/2 -translate-y-1/2 -start-1.5 w-3 h-8 rounded-full bg-white/5 group-hover:bg-white/15 flex flex-col items-center justify-center gap-0.5 transition-opacity opacity-0 group-hover:opacity-100">
+              <div className="w-0.5 h-0.5 rounded-full bg-white/40" />
+              <div className="w-0.5 h-0.5 rounded-full bg-white/40" />
+              <div className="w-0.5 h-0.5 rounded-full bg-white/40" />
+            </div>
+          </div>
+        )}
 
         {/* Guest list panel - always visible on lg+, toggle on mobile */}
         <div className={`h-full ${
