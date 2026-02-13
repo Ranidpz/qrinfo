@@ -328,7 +328,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[WeeklyCal Verify] Error:', error);
     return NextResponse.json(
-      { error: 'Verification failed', details: String(error) },
+      { error: 'Verification failed' },
       { status: 500 }
     );
   }

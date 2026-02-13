@@ -50,7 +50,7 @@ export async function GET(
   } catch (error) {
     console.error('[API codes] Error fetching code:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch code', details: String(error) },
+      { error: 'Failed to fetch code' },
       { status: 500 }
     );
   }

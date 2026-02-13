@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[WeeklyCal Participant] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch registration', details: String(error) },
+      { error: 'Failed to fetch registration' },
       { status: 500 }
     );
   }

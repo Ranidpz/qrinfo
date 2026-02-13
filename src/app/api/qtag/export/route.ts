@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[QTag Export] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to export', details: String(error) },
+      { error: 'Failed to export' },
       { status: 500 }
     );
   }

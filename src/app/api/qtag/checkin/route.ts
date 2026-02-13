@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[QTag Checkin] Error:', error);
     return NextResponse.json(
-      { error: 'Check-in failed', details: String(error) },
+      { error: 'Check-in failed' },
       { status: 500 }
     );
   }

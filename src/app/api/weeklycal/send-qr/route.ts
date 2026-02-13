@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[WeeklyCal SendQR] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to send QR link', details: String(error) },
+      { error: 'Failed to send QR link' },
       { status: 500 }
     );
   }

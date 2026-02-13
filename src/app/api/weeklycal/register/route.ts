@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('WeeklyCal RSVP error:', error);
     return NextResponse.json(
-      { error: 'Failed to process registration', details: String(error) },
+      { error: 'Failed to process registration' },
       { status: 500 }
     );
   }
@@ -486,7 +486,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('WeeklyCal get registrations error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch registrations', details: String(error) },
+      { error: 'Failed to fetch registrations' },
       { status: 500 }
     );
   }
@@ -537,7 +537,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error('WeeklyCal PATCH error:', error);
     return NextResponse.json(
-      { error: 'Failed to update registration', details: String(error) },
+      { error: 'Failed to update registration' },
       { status: 500 }
     );
   }
@@ -608,7 +608,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('WeeklyCal DELETE error:', error);
     return NextResponse.json(
-      { error: 'Failed to delete registration', details: String(error) },
+      { error: 'Failed to delete registration' },
       { status: 500 }
     );
   }
