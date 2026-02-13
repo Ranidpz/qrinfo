@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.6';
+export const APP_VERSION = '1.12.7';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.6',
+    version: '1.12.7',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'רשימת אורחים - כרטיסים מתרחבים בלחיצה עם פרטי +1, פעולות ומחיקה',
+        'חיפוש אורחים לפי טלפון ושמות +1',
+        'זיכרון אורח חוזר - QR זמין מיד בכניסה חוזרת לדף',
+        'מסך הצלחה - שם אירוע, תאריך, שעה וניווט בוויז',
+      ],
+      en: [
+        'Guest list - expandable cards with +1 details, actions and delete',
+        'Search guests by phone and +1 names',
+        'Returning guest memory - QR available immediately on revisit',
+        'Success screen - event name, date, time and Waze navigation',
+      ],
+    },
+  },
+  {
+    version: '1.12.6',
+    date: '2026-02-13',
     highlights: {
       he: [
         'תיקון הרשמת אורחים - אורח נוצר רק אחרי אימות טלפון בוואטסאפ',
