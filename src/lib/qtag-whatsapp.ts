@@ -39,7 +39,7 @@ function getAuthHeader(): string {
   return `Basic ${Buffer.from(`${INFORU_API_USER}:${INFORU_API_TOKEN}`).toString('base64')}`;
 }
 
-export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ success: boolean; error?: string }> {
+export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ success: boolean; error?: string; requestId?: string; statusId?: number }> {
   if (!isINFORUConfigured()) {
     console.warn('[QTag WhatsApp] INFORU not configured, skipping WhatsApp send');
     return { success: false, error: 'INFORU not configured' };
@@ -54,26 +54,30 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
     formattedPhone = '972' + formattedPhone.substring(1);
   }
 
+  console.log(`[QTag WhatsApp] Sending to ${formattedPhone}, template=${QTAG_TEMPLATE_ID}, suffix=${qrLinkSuffix.slice(0, 20)}...`);
+
   try {
+    const payload = {
+      Data: {
+        TemplateId: QTAG_TEMPLATE_ID,
+        TemplateParameters: [
+          { Name: '[#1#]', Type: 'Text', Value: params.guestName },
+          { Name: '[#2#]', Type: 'Text', Value: params.eventName },
+        ],
+        Buttons: [
+          { Type: 'URL', FieldName: QTAG_BUTTON_NAME, Value: qrLinkSuffix },
+        ],
+        Recipients: [{ Phone: formattedPhone }],
+      },
+    };
+
     const response = await fetch(`${INFORU_API_BASE_URL}/api/v2/WhatsApp/SendWhatsApp`, {
       method: 'POST',
       headers: {
         'Authorization': getAuthHeader(),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        Data: {
-          TemplateId: QTAG_TEMPLATE_ID,
-          TemplateParameters: [
-            { Name: '[#1#]', Type: 'Text', Value: params.guestName },
-            { Name: '[#2#]', Type: 'Text', Value: params.eventName },
-          ],
-          Buttons: [
-            { Type: 'URL', FieldName: QTAG_BUTTON_NAME, Value: qrLinkSuffix },
-          ],
-          Recipients: [{ Phone: formattedPhone }],
-        },
-      }),
+      body: JSON.stringify(payload),
     });
 
     const responseText = await response.text();
@@ -101,13 +105,13 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
           qrSentAt: FieldValue.serverTimestamp(),
         });
 
-      console.log(`[QTag WhatsApp] QR link sent to ${formattedPhone} for event "${params.eventName}"`);
-      return { success: true };
+      console.log(`[QTag WhatsApp] QR link sent to ${formattedPhone} for event "${params.eventName}", RequestId=${result.RequestId}`);
+      return { success: true, requestId: result.RequestId, statusId: result.StatusId };
     }
 
     const errorMessage = result.StatusDescription || result.DetailedDescription || 'Unknown error';
-    console.error(`[QTag WhatsApp] Failed:`, errorMessage);
-    return { success: false, error: errorMessage };
+    console.error(`[QTag WhatsApp] Failed: StatusId=${result.StatusId}, ${errorMessage}`);
+    return { success: false, error: errorMessage, statusId: result.StatusId };
   } catch (error) {
     console.error('[QTag WhatsApp] Error:', error);
     return { success: false, error: String(error) };

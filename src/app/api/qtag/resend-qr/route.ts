@@ -79,8 +79,10 @@ export async function POST(request: NextRequest) {
     const guest = guestDoc.data();
 
     // Send QR via WhatsApp (awaited so Vercel doesn't terminate before it completes)
+    let whatsappSent = false;
+    let whatsappError: string | undefined;
     try {
-      await sendQTagQRWhatsApp({
+      const result = await sendQTagQRWhatsApp({
         codeId,
         guestId: guestDoc.id,
         guestName: guest.name,
@@ -89,11 +91,17 @@ export async function POST(request: NextRequest) {
         shortId: codeData.shortId,
         eventName: qtagConfig?.eventName || '',
       });
+      whatsappSent = result.success;
+      if (!result.success) {
+        whatsappError = result.error;
+        console.error('[QTag ResendQR] WhatsApp send failed:', result.error);
+      }
     } catch (err) {
       console.error('[QTag ResendQR] WhatsApp send error:', err);
+      whatsappError = 'Send failed';
     }
 
-    return NextResponse.json({ success: true, found: true });
+    return NextResponse.json({ success: true, found: true, whatsappSent, whatsappError });
   } catch (error) {
     console.error('[QTag ResendQR] Error:', error);
     return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });

@@ -111,6 +111,7 @@ const translations = {
     recoverQR: 'שלחו לי שוב את הQR',
     recoverMessage: 'הכניסו את הטלפון שנרשמתם איתו',
     recoverSent: 'הקוד שלכם לאירוע נשלח שוב בוואטסאפ',
+    recoverSendFailed: 'המספר נמצא אך שליחת הוואטסאפ נכשלה',
     recoverNotFound: 'מספר זה לא נמצא במערכת',
     recoverNotFoundHint: 'אפשר להירשם עכשיו',
     recoverSending: 'שולח...',
@@ -160,6 +161,7 @@ const translations = {
     recoverQR: 'Send me my QR again',
     recoverMessage: 'Enter the phone number you registered with',
     recoverSent: 'Your event code was resent via WhatsApp',
+    recoverSendFailed: 'Number found but WhatsApp send failed',
     recoverNotFound: 'This number was not found in our system',
     recoverNotFoundHint: 'You can register now',
     recoverSending: 'Sending...',
@@ -201,6 +203,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
   const [recoverySending, setRecoverySending] = useState(false);
   const [recoverySent, setRecoverySent] = useState(false);
   const [recoveryFound, setRecoveryFound] = useState(false);
+  const [recoveryWhatsappSent, setRecoveryWhatsappSent] = useState(false);
 
   // Check URL token or localStorage for returning guest on mount
   useEffect(() => {
@@ -503,9 +506,11 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
       });
       const data = await res.json();
       setRecoveryFound(!!data.found);
+      setRecoveryWhatsappSent(!!data.whatsappSent);
       setRecoverySent(true);
     } catch {
       setRecoveryFound(false);
+      setRecoveryWhatsappSent(false);
       setRecoverySent(true);
     } finally {
       setRecoverySending(false);
@@ -654,10 +659,14 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
           >
             {recoverySent ? (
               <div className="space-y-3 text-center">
-                {recoveryFound ? (
+                {recoveryFound && recoveryWhatsappSent ? (
                   <p className="text-sm font-assistant" style={{ color: '#22c55e' }}>
                     <Check className="w-4 h-4 inline-block mb-0.5 me-1" />
                     {t.recoverSent}
+                  </p>
+                ) : recoveryFound && !recoveryWhatsappSent ? (
+                  <p className="text-sm font-assistant" style={{ color: '#f59e0b' }}>
+                    {t.recoverSendFailed}
                   </p>
                 ) : (
                   <>
