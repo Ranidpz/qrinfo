@@ -71,12 +71,12 @@ export async function GET(request: NextRequest) {
       { wch: 8 },  // Verified
     ];
 
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const uint8 = new Uint8Array(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }));
 
     const sanitizedName = eventName.replace(/[^a-zA-Z0-9\u0590-\u05FF]/g, '-');
     const dateStr = new Date().toISOString().split('T')[0];
 
-    return new NextResponse(buffer, {
+    return new NextResponse(uint8, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="qtag-${sanitizedName}-${dateStr}.xlsx"`,

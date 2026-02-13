@@ -74,6 +74,7 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Desktop scanner: use `matchMedia('(min-width: 1024px)')` to detect wide screen and always init camera in split view
 - Vercel Pro body size limit is 4.5MB - large image uploads (>3MB) MUST use client-side `compressImage()` before sending to `/api/upload`
 - New i18n keys for MediaUploader tabs (tooltip/description/create) must be added to both locale files or console warns MISSING_MESSAGE
+- Firestore transactions: ALL reads (`transaction.get()`) MUST happen before ANY writes (`transaction.update/set/delete`) - even with Admin SDK. Use `Promise.all` to batch reads upfront.
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**
