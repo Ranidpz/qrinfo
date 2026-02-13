@@ -79,6 +79,8 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Never return `details: String(error)` in API responses — leaks internal stack traces. Log server-side only.
 - INFORU WhatsApp URL buttons: must be in separate `Buttons` array with `FieldName` matching button label, NOT in `TemplateParameters`. Error -2505 = missing buttons.
 - Vercel serverless: never use fire-and-forget (`.catch()` without `await`). Function terminates after response, killing background ops. Always `await` inside try-catch.
+- `fetchWithAuth` must use `onAuthStateChanged` (not `auth.currentUser` directly) — on mobile, Firebase Auth init is slow and `currentUser` is null during early interactions.
+- Mobile scanner UX: always `window.scrollTo({ top: 0 })` when switching view modes or opening modals — prevents user seeing a confusing mid-scroll position.
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**
