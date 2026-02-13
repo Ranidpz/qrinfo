@@ -10,12 +10,12 @@ import {
   Search,
   Users,
   Check,
-  Clock,
   Trash2,
   Download,
   Copy,
   Loader2,
   MessageCircle,
+  ChevronDown,
 } from 'lucide-react';
 import type { QTagGuest, QTagStats } from '@/types/qtag';
 
@@ -42,6 +42,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
   const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
   const [confirmDeleteGuest, setConfirmDeleteGuest] = useState<{ id: string; name: string } | null>(null);
   const [sendingQrGuestId, setSendingQrGuestId] = useState<string | null>(null);
+  const [expandedGuestId, setExpandedGuestId] = useState<string | null>(null);
 
   // Real-time guest updates
   useEffect(() => {
@@ -194,10 +195,13 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
     if (activeFilter === 'arrived' && g.status !== 'arrived') return false;
     if (activeFilter === 'cancelled' && g.status !== 'cancelled') return false;
 
-    // Search filter
+    // Search filter (name, phone, plus-one names)
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return g.name.toLowerCase().includes(q) || g.phone.includes(q);
+      if (g.name.toLowerCase().includes(q)) return true;
+      if (g.phone.includes(q)) return true;
+      if (g.plusOneDetails?.some(p => p.name?.toLowerCase().includes(q))) return true;
+      return false;
     }
 
     return true;

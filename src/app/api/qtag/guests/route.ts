@@ -199,22 +199,27 @@ export async function PATCH(request: NextRequest) {
       if (oldData.status !== status) {
         const statsRef = db.collection('codes').doc(codeId)
           .collection('qtagStats').doc('current');
+        const statsDoc = await statsRef.get();
 
         if (status === 'arrived' && oldData.status !== 'arrived') {
           updates.arrivedAt = FieldValue.serverTimestamp();
           updates.arrivedMarkedBy = 'admin';
-          await statsRef.update({
-            totalArrived: FieldValue.increment(1),
-            totalArrivedGuests: FieldValue.increment(1 + (oldData.plusOneCount || 0)),
-            lastUpdated: FieldValue.serverTimestamp(),
-          });
+          if (statsDoc.exists) {
+            await statsRef.update({
+              totalArrived: FieldValue.increment(1),
+              totalArrivedGuests: FieldValue.increment(1 + (oldData.plusOneCount || 0)),
+              lastUpdated: FieldValue.serverTimestamp(),
+            });
+          }
         } else if (oldData.status === 'arrived' && status !== 'arrived') {
           updates.arrivedAt = null;
-          await statsRef.update({
-            totalArrived: FieldValue.increment(-1),
-            totalArrivedGuests: FieldValue.increment(-(1 + (oldData.plusOneCount || 0))),
-            lastUpdated: FieldValue.serverTimestamp(),
-          });
+          if (statsDoc.exists) {
+            await statsRef.update({
+              totalArrived: FieldValue.increment(-1),
+              totalArrivedGuests: FieldValue.increment(-(1 + (oldData.plusOneCount || 0))),
+              lastUpdated: FieldValue.serverTimestamp(),
+            });
+          }
         }
       }
     }

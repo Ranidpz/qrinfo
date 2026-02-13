@@ -558,7 +558,8 @@
     "qtagGuestNamePlaceholder": "אורח",
     "qtagPlusOneGuests": "אורחים נוספים",
     "qtagAddGuest": "הוסף",
-    "qtagAdding": "מוסיף..."
+    "qtagAdding": "מוסיף...",
+    "qtagUndoCheckin": "בטל צ׳ק-אין"
   },
   "code": {
     "duplicate": "שכפל קוד",

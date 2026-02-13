@@ -93,6 +93,10 @@ export default function QTagScannerPage() {
   const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
 
+  // Undo check-in state
+  const [undoingCheckin, setUndoingCheckin] = useState(false);
+  const autoResetTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Responsive layout detection - lg+ shows split view
   const [isWideScreen, setIsWideScreen] = useState(false);
 
@@ -376,12 +380,58 @@ export default function QTagScannerPage() {
 
   // Auto-reset scanner after showing result
   const autoResetScanner = (delayMs: number) => {
-    setTimeout(() => {
+    if (autoResetTimerRef.current) {
+      clearTimeout(autoResetTimerRef.current);
+    }
+    autoResetTimerRef.current = setTimeout(() => {
       setScannerState('scanning');
       setScanResult(null);
       setScanError(null);
       processingRef.current = false;
+      setUndoingCheckin(false);
+      autoResetTimerRef.current = null;
     }, delayMs);
+  };
+
+  // Undo check-in from scanner overlay
+  const handleUndoCheckin = async () => {
+    if (!scanResult || undoingCheckin) return;
+
+    // Cancel auto-reset while processing
+    if (autoResetTimerRef.current) {
+      clearTimeout(autoResetTimerRef.current);
+      autoResetTimerRef.current = null;
+    }
+
+    setUndoingCheckin(true);
+    try {
+      const res = await fetchWithAuth('/api/qtag/guests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId,
+          guestId: scanResult.guest.id,
+          status: 'registered',
+        }),
+      });
+
+      if (res.ok) {
+        // Reset scanner immediately
+        setScannerState('scanning');
+        setScanResult(null);
+        setScanError(null);
+        processingRef.current = false;
+        setUndoingCheckin(false);
+      } else {
+        console.error('[QTag] Undo check-in failed:', res.status);
+        setUndoingCheckin(false);
+        autoResetScanner(3000);
+      }
+    } catch (err) {
+      console.error('[QTag] Undo check-in error:', err);
+      setUndoingCheckin(false);
+      autoResetScanner(3000);
+    }
   };
 
   // Toggle arrival status (same as modal)
@@ -580,6 +630,20 @@ export default function QTagScannerPage() {
                   </span>
                 </div>
               )}
+
+              {/* Undo check-in button */}
+              <button
+                onClick={handleUndoCheckin}
+                disabled={undoingCheckin}
+                className="mt-2 px-4 py-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white text-sm font-assistant transition-all disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
+              >
+                {undoingCheckin ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <X className="w-3.5 h-3.5" />
+                )}
+                {t('qtagUndoCheckin')}
+              </button>
             </div>
           </div>
         )}

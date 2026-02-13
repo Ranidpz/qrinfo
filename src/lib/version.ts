@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.4';
+export const APP_VERSION = '1.12.5';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,14 +14,16 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.4',
+    version: '1.12.5',
     date: '2026-02-13',
     isNew: true,
     highlights: {
       he: [
+        'כפתור ביטול צ׳ק-אין בסורק Q.Tag',
         'תיקון ייצוא אקסל ברשימת אורחים Q.Tag',
       ],
       en: [
+        'Undo check-in button in Q.Tag scanner',
         'Fixed Q.Tag guest list Excel export',
       ],
     },

@@ -313,6 +313,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
             name: plusOneName.trim() || undefined,
             gender: plusOneGender || undefined,
           }] : [],
+          locale,
         }),
       });
 
@@ -327,21 +328,25 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
           setError(t.eventFull);
         } else if (data.errorCode === 'REGISTRATION_CLOSED') {
           setError(t.registrationClosed);
+        } else if (data.errorCode === 'SEND_FAILED') {
+          setError(t.errorGeneric);
         } else {
           setError(data.error || t.errorGeneric);
         }
         return;
       }
 
-      setGuestId(data.guestId);
-      setQrToken(data.qrToken);
-
       // If verification is needed, go to verify screen
+      // Note: when verification is enabled, register sends the first OTP inline
+      // so we don't need to call sendVerificationCode() here
       if (config.verification?.enabled && !data.isVerified) {
         setScreen('verifying');
-        await sendVerificationCode();
+        setVerificationSent(true);
+        setResendCooldown(60);
       } else {
-        // Save to localStorage for returning guests (no verification needed)
+        // No verification: guest was created immediately
+        setGuestId(data.guestId);
+        setQrToken(data.qrToken);
         saveGuestToStorage(codeId, {
           guestId: data.guestId,
           qrToken: data.qrToken,
@@ -397,7 +402,6 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
           phone: phone.replace(/\D/g, ''),
           action: 'verify',
           code,
-          guestId,
         }),
       });
 
@@ -407,15 +411,25 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
         if (data.errorCode === 'INVALID_CODE') setVerifyError(t.invalidCode);
         else if (data.errorCode === 'EXPIRED') setVerifyError(t.codeExpired);
         else if (data.errorCode === 'BLOCKED') setVerifyError(t.tooManyAttempts);
+        else if (data.errorCode === 'CAPACITY_FULL') setVerifyError(t.eventFull);
+        else if (data.errorCode === 'PHONE_EXISTS') setVerifyError(t.phoneExists);
+        else if (data.errorCode === 'NO_PENDING_DATA') setVerifyError(t.errorGeneric);
         else setVerifyError(data.error || t.errorGeneric);
         return;
       }
 
-      // Save to localStorage for returning guests (after verification)
-      if (guestId && qrToken) {
+      // Guest was created by the verify endpoint — extract guestId and qrToken
+      const verifiedGuestId = data.guestId;
+      const verifiedQrToken = data.qrToken;
+
+      setGuestId(verifiedGuestId);
+      setQrToken(verifiedQrToken);
+
+      // Save to localStorage for returning guests
+      if (verifiedGuestId && verifiedQrToken) {
         saveGuestToStorage(codeId, {
-          guestId,
-          qrToken,
+          guestId: verifiedGuestId,
+          qrToken: verifiedQrToken,
           name: name.trim(),
           plusOneCount: hasPlusOne ? plusOneCount : 0,
         });

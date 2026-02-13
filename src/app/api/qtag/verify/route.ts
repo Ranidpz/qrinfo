@@ -6,6 +6,12 @@ import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
 import { generateOTPCode, hashOTPCode, verifyOTPCode } from '@/lib/verification';
 import { sendOTP } from '@/lib/inforu';
 import { sendQTagQRWhatsApp } from '@/lib/qtag-whatsapp';
+import crypto from 'crypto';
+
+// Generate cryptographically secure QR token for check-in
+function generateQRToken(): string {
+  return crypto.randomBytes(16).toString('hex').toUpperCase();
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { codeId, phone, action, code: otpCode, guestId, locale = 'he' } = body;
+    const { codeId, phone, action, code: otpCode, locale = 'he' } = body;
 
     if (!codeId || !phone || !action) {
       return NextResponse.json(
@@ -63,6 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const verificationConfig = qtagMedia.qtagConfig.verification;
+    const qtagConfig = qtagMedia.qtagConfig;
     const phoneDigits = normalizedPhone.replace(/\D/g, '');
 
     if (action === 'send') {
@@ -78,11 +85,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Carry forward pendingRegistration from latest existing verification doc
+      let pendingRegistration = null;
+      const existingDocs = await db.collection('verificationCodes')
+        .where('codeId', '==', codeId)
+        .where('phone', '==', normalizedPhone)
+        .where('type', '==', 'qtag')
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+
+      if (!existingDocs.empty) {
+        pendingRegistration = existingDocs.docs[0].data().pendingRegistration || null;
+      }
+
       // Generate OTP
       const otp = generateOTPCode(verificationConfig.codeLength || 4);
       const otpHash = hashOTPCode(otp);
 
-      // Store verification code
+      // Store verification code with carried-forward pending data
       const verificationRef = db.collection('verificationCodes')
         .doc(`qtag_${codeId}_${phoneDigits}_${Date.now()}`);
 
@@ -96,6 +117,7 @@ export async function POST(request: NextRequest) {
         type: 'qtag',
         createdAt: FieldValue.serverTimestamp(),
         expiresAt: new Date(Date.now() + (verificationConfig.codeExpiryMinutes || 5) * 60 * 1000),
+        ...(pendingRegistration ? { pendingRegistration } : {}),
       });
 
       // Send OTP via WhatsApp/SMS
@@ -121,9 +143,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'verify') {
-      if (!otpCode || !guestId) {
+      if (!otpCode) {
         return NextResponse.json(
-          { error: 'Missing code or guestId' },
+          { error: 'Missing verification code' },
           { status: 400 }
         );
       }
@@ -180,40 +202,110 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Extract pending registration data
+      const pendingData = verificationData.pendingRegistration;
+      if (!pendingData) {
+        return NextResponse.json(
+          { error: 'Registration data not found. Please register again.', errorCode: 'NO_PENDING_DATA' },
+          { status: 400 }
+        );
+      }
+
+      // Re-check phone uniqueness (race condition guard)
+      const existingGuest = await db.collection('codes').doc(codeId)
+        .collection('qtagGuests')
+        .where('phone', '==', normalizedPhone)
+        .limit(1)
+        .get();
+
+      if (!existingGuest.empty) {
+        return NextResponse.json(
+          { error: 'Phone number already registered', errorCode: 'PHONE_EXISTS' },
+          { status: 409 }
+        );
+      }
+
+      // Re-check capacity
+      const statsRef = db.collection('codes').doc(codeId)
+        .collection('qtagStats').doc('current');
+      const statsDoc = await statsRef.get();
+
+      if (qtagConfig.maxRegistrations && qtagConfig.maxRegistrations > 0) {
+        const currentCount = statsDoc.exists ? (statsDoc.data()?.totalRegistered || 0) : 0;
+        if (currentCount >= qtagConfig.maxRegistrations) {
+          return NextResponse.json(
+            { error: 'Event is full', errorCode: 'CAPACITY_FULL' },
+            { status: 409 }
+          );
+        }
+      }
+
+      // Create guest document, token mapping, and update stats
+      const qrToken = generateQRToken();
+      const guestRef = db.collection('codes').doc(codeId).collection('qtagGuests').doc();
+
+      const guestData = {
+        id: guestRef.id,
+        codeId,
+        name: pendingData.name,
+        phone: pendingData.phone,
+        plusOneCount: pendingData.plusOneCount || 0,
+        plusOneDetails: pendingData.plusOneDetails || [],
+        qrToken,
+        isVerified: true,
+        verifiedAt: FieldValue.serverTimestamp(),
+        status: 'registered',
+        qrSentViaWhatsApp: false,
+        registeredAt: FieldValue.serverTimestamp(),
+        registeredByAdmin: false,
+      };
+
+      const batch = db.batch();
+
       // Mark verification code as verified
-      await verificationDoc.ref.update({
+      batch.update(verificationDoc.ref, {
         status: 'verified',
         verifiedAt: FieldValue.serverTimestamp(),
       });
 
-      // Mark guest as verified
-      const guestRef = db.collection('codes').doc(codeId)
-        .collection('qtagGuests').doc(guestId);
-      const guestDoc = await guestRef.get();
+      // Create guest
+      batch.set(guestRef, guestData);
 
-      if (!guestDoc.exists) {
-        return NextResponse.json(
-          { error: 'Guest not found' },
-          { status: 404 }
-        );
-      }
-
-      await guestRef.update({
-        isVerified: true,
-        verifiedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
+      // Create token mapping for fast check-in lookup
+      batch.set(db.collection('qrTokenMappings').doc(qrToken), {
+        codeId,
+        guestId: guestRef.id,
+        type: 'qtag',
+        createdAt: FieldValue.serverTimestamp(),
       });
 
-      // Fire-and-forget: Send QR link via WhatsApp now that phone is verified
-      const qtagConfig = qtagMedia.qtagConfig;
+      // Update stats
+      if (!statsDoc.exists) {
+        batch.set(statsRef, {
+          totalRegistered: 1,
+          totalGuests: 1 + (pendingData.plusOneCount || 0),
+          totalArrived: 0,
+          totalArrivedGuests: 0,
+          lastUpdated: FieldValue.serverTimestamp(),
+        });
+      } else {
+        batch.update(statsRef, {
+          totalRegistered: FieldValue.increment(1),
+          totalGuests: FieldValue.increment(1 + (pendingData.plusOneCount || 0)),
+          lastUpdated: FieldValue.serverTimestamp(),
+        });
+      }
+
+      await batch.commit();
+
+      // Fire-and-forget: Send QR link via WhatsApp
       if (qtagConfig.sendQrViaWhatsApp !== false) {
-        const guestData = guestDoc.data()!;
         sendQTagQRWhatsApp({
           codeId,
-          guestId,
-          guestName: guestData.name,
+          guestId: guestRef.id,
+          guestName: pendingData.name,
           guestPhone: normalizedPhone,
-          qrToken: guestData.qrToken,
+          qrToken,
           shortId: codeData.shortId,
           eventName: qtagConfig.eventName || '',
         }).catch(err => console.error('[QTag Verify] WhatsApp send error (non-blocking):', err));
@@ -222,6 +314,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         isVerified: true,
+        guestId: guestRef.id,
+        qrToken,
       });
     }
 
