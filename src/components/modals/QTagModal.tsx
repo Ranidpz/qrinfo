@@ -371,9 +371,9 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
             {activeTab === 'branding' && (
               <>
                 {/* Background Image + Logo — side by side */}
-                <div className="flex gap-3">
+                <div className="flex gap-2.5 sm:gap-3">
                   {/* Background Image */}
-                  <div className="flex-1 space-y-1.5">
+                  <div className="flex-1 min-w-0 space-y-1.5">
                     <label className="text-xs text-white/50 font-assistant">{t('qtagBackgroundImage')}</label>
                     <div
                       className={`relative w-full h-24 rounded-xl border-2 border-dashed overflow-hidden cursor-pointer transition-all ${
@@ -423,10 +423,10 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
                   </div>
 
                   {/* Logo */}
-                  <div className="space-y-1.5">
+                  <div className="shrink-0 space-y-1.5">
                     <label className="text-xs text-white/50 font-assistant">{t('qtagLogo')}</label>
                     <div
-                      className={`w-24 h-24 rounded-xl border-2 border-dashed overflow-hidden cursor-pointer transition-all flex items-center justify-center ${
+                      className={`w-20 h-24 sm:w-24 rounded-xl border-2 border-dashed overflow-hidden cursor-pointer transition-all flex items-center justify-center ${
                         isDraggingLogo
                           ? 'border-blue-400 bg-blue-500/10 scale-105'
                           : 'border-white/20 hover:border-white/40'
@@ -450,7 +450,7 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
 
                 {/* Overlay + Logo scale — compact row */}
                 {(backgroundPreview || logoPreview) && (
-                  <div className="flex gap-4 items-end">
+                  <div className="flex flex-col gap-2 min-[420px]:flex-row min-[420px]:gap-4 min-[420px]:items-end">
                     {backgroundPreview && (
                       <div className="flex-1 space-y-1">
                         <label className="text-[10px] text-white/50 font-assistant">{t('qtagOverlay')} {config.branding.imageOverlayOpacity || 40}%</label>
@@ -493,7 +493,7 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
                     })}
                     t={t}
                   />
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2 min-[420px]:gap-3">
                     <ColorPicker label={t('qtagColorBackground')} value={config.branding.colors.background} onChange={(v) => updateColors({ background: v })} />
                     <ColorPicker label={t('qtagColorText')} value={config.branding.colors.text} onChange={(v) => updateColors({ text: v })} />
                     <ColorPicker label={t('qtagColorButton')} value={config.branding.colors.buttonBackground} onChange={(v) => updateColors({ buttonBackground: v })} />
@@ -807,21 +807,31 @@ function ColorPicker({ label, value, onChange }: {
   value: string;
   onChange: (value: string) => void;
 }) {
+  const colorRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="space-y-1.5">
       <label className="text-xs text-white/50 font-assistant">{label}</label>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent"
-        />
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => colorRef.current?.click()}
+          className="shrink-0 w-10 h-10 rounded-xl border-2 border-white/15 shadow-inner cursor-pointer transition-all hover:border-white/30 hover:scale-105 active:scale-95"
+          style={{ backgroundColor: value }}
+        >
+          <input
+            ref={colorRef}
+            type="color"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="sr-only"
+          />
+        </button>
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-white text-xs font-mono"
+          className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-mono"
           dir="ltr"
         />
       </div>
@@ -846,7 +856,7 @@ function SkinSelector({ currentColors, onSelect, t }: {
     skin.colors.buttonText === currentColors.buttonText;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <span className="text-xs text-white/50 font-assistant">{t('qtagSkins')}</span>
       {QTAG_SKINS.map((skin) => {
         const active = isActive(skin);

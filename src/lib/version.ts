@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.11';
+export const APP_VERSION = '1.12.12';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.11',
+    version: '1.12.12',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון בוחר צבעים במובייל - כפתור צבע גדול ומעוצב',
+        'תצוגת מיתוג רספונסיבית - עמודה בודדת בנייד צר',
+      ],
+      en: [
+        'Fixed color pickers on mobile - large styled color button',
+        'Responsive branding layout - single column on narrow mobile',
+      ],
+    },
+  },
+  {
+    version: '1.12.11',
+    date: '2026-02-13',
     highlights: {
       he: [
         'הגדרות Q.Tag - תפריט פעולות נפתח במובייל במקום כפתורים צפופים',
