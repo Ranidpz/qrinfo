@@ -24,7 +24,9 @@ import {
   Plus,
   Minus,
   Lock,
+  QrCode,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { QTagGuest, QTagStats } from '@/types/qtag';
 
 interface ScanResult {
@@ -87,6 +89,10 @@ export default function QTagScannerPage() {
 
   // Export state
   const [exporting, setExporting] = useState(false);
+
+  // Registration QR modal state
+  const [showRegQR, setShowRegQR] = useState(false);
+  const [shortId, setShortId] = useState<string | null>(null);
 
   // Quick-add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -198,6 +204,8 @@ export default function QTagScannerPage() {
         const codeDoc = await getDoc(doc(db, 'codes', codeId));
         if (codeDoc.exists()) {
           const data = codeDoc.data();
+          // Extract shortId for registration QR
+          if (data.shortId) setShortId(data.shortId);
           // scannerPin is inside the media item's qtagConfig
           const media = data.media || [];
           const qtagMedia = media.find((m: { qtagConfig?: unknown }) => m.qtagConfig);
@@ -316,7 +324,7 @@ export default function QTagScannerPage() {
         setScannerReady(true);
       } catch (err) {
         console.error('Failed to start scanner:', err);
-        setScanError('Failed to access camera. Please allow camera permission.');
+        setScanError(t('qtagCameraError'));
       }
     };
 
@@ -350,7 +358,7 @@ export default function QTagScannerPage() {
         qrToken = parsed.tk;
       } catch {
         setScannerState('error');
-        setScanError('QR code is not valid for this event');
+        setScanError(t('qtagInvalidQR'));
         autoResetScanner(3000);
         return;
       }
@@ -365,7 +373,7 @@ export default function QTagScannerPage() {
 
       if (!res.ok) {
         setScannerState('error');
-        setScanError(data.errorCode === 'NOT_FOUND' ? 'Guest not found' : data.error);
+        setScanError(data.errorCode === 'NOT_FOUND' ? t('qtagGuestNotFound') : data.error);
         autoResetScanner(3000);
         return;
       }
@@ -375,7 +383,7 @@ export default function QTagScannerPage() {
       autoResetScanner(4000);
     } catch {
       setScannerState('error');
-      setScanError('Connection error. Please try again.');
+      setScanError(t('qtagConnectionError'));
       autoResetScanner(3000);
     }
   };
@@ -386,13 +394,21 @@ export default function QTagScannerPage() {
       clearTimeout(autoResetTimerRef.current);
     }
     autoResetTimerRef.current = setTimeout(() => {
-      setScannerState('scanning');
-      setScanResult(null);
-      setScanError(null);
-      processingRef.current = false;
-      setUndoingCheckin(false);
-      autoResetTimerRef.current = null;
+      dismissOverlay();
     }, delayMs);
+  };
+
+  // Dismiss result/error overlay (tap or auto)
+  const dismissOverlay = () => {
+    if (autoResetTimerRef.current) {
+      clearTimeout(autoResetTimerRef.current);
+      autoResetTimerRef.current = null;
+    }
+    setScannerState('scanning');
+    setScanResult(null);
+    setScanError(null);
+    processingRef.current = false;
+    setUndoingCheckin(false);
   };
 
   // Undo check-in from scanner overlay
@@ -596,12 +612,18 @@ export default function QTagScannerPage() {
           </div>
         )}
 
-        {/* Result overlay */}
+        {/* Result overlay - tap anywhere to dismiss */}
         {scannerState === 'result' && scanResult && (
-          <div className="absolute inset-0 flex items-center justify-center p-6 bg-gray-950/90 backdrop-blur-sm">
-            <div className={`w-full max-w-sm rounded-2xl p-6 text-center space-y-4 ${
-              scanResult.alreadyArrived ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-green-500/10 border border-green-500/30'
-            }`}>
+          <div
+            className="absolute inset-0 flex items-center justify-center p-6 bg-gray-950/90 backdrop-blur-sm cursor-pointer"
+            onClick={dismissOverlay}
+          >
+            <div
+              className={`w-full max-w-sm rounded-2xl p-6 text-center space-y-4 ${
+                scanResult.alreadyArrived ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-green-500/10 border border-green-500/30'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
               {scanResult.alreadyArrived ? (
                 <AlertCircle className="w-16 h-16 text-amber-400 mx-auto" />
               ) : (
@@ -622,14 +644,14 @@ export default function QTagScannerPage() {
               <div className={`text-lg font-semibold ${
                 scanResult.alreadyArrived ? 'text-amber-400' : 'text-green-400'
               }`}>
-                {scanResult.alreadyArrived ? 'Already Checked In' : 'Checked In!'}
+                {scanResult.alreadyArrived ? t('qtagAlreadyCheckedIn') : t('qtagCheckedIn')}
               </div>
 
               {scanResult.guest.registeredAt && (
                 <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
                   <Clock className="w-3.5 h-3.5" />
                   <span>
-                    Registered: {new Date(scanResult.guest.registeredAt).toLocaleString('he-IL', {
+                    {t('qtagRegisteredAt')} {new Date(scanResult.guest.registeredAt).toLocaleString('he-IL', {
                       hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
                     })}
                   </span>
@@ -653,13 +675,16 @@ export default function QTagScannerPage() {
           </div>
         )}
 
-        {/* Error overlay */}
+        {/* Error overlay - tap anywhere to dismiss */}
         {scannerState === 'error' && (
-          <div className="absolute inset-0 flex items-center justify-center p-6 bg-gray-950/90 backdrop-blur-sm">
+          <div
+            className="absolute inset-0 flex items-center justify-center p-6 bg-gray-950/90 backdrop-blur-sm cursor-pointer"
+            onClick={dismissOverlay}
+          >
             <div className="w-full max-w-sm rounded-2xl p-6 text-center space-y-4 bg-red-500/10 border border-red-500/30">
               <X className="w-16 h-16 text-red-400 mx-auto" />
               <p className="text-red-400 text-lg font-semibold font-assistant">
-                {scanError || 'Scan failed'}
+                {scanError || t('qtagScanFailed')}
               </p>
             </div>
           </div>
@@ -669,7 +694,7 @@ export default function QTagScannerPage() {
         {scannerState === 'scanning' && scannerReady && (
           <div className="absolute bottom-8 inset-x-0 flex justify-center">
             <div className="px-6 py-3 rounded-full bg-black/60 backdrop-blur-md text-white text-sm font-assistant">
-              Point camera at guest QR code
+              {t('qtagScanPrompt')}
             </div>
           </div>
         )}
@@ -695,12 +720,22 @@ export default function QTagScannerPage() {
             <h2 className="text-xl font-bold text-white font-assistant">{t('qtagGuestManagement')}</h2>
             <p className="text-xs text-white/40 mt-0.5">{t('qtagRealTimeUpdates')}</p>
           </div>
-          <button
-            onClick={() => setViewMode('scanner')}
-            className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white lg:hidden"
-          >
-            <Camera className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {shortId && (
+              <button
+                onClick={() => setShowRegQR(true)}
+                className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white"
+              >
+                <QrCode className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => setViewMode('scanner')}
+              className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white lg:hidden"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1020,6 +1055,42 @@ export default function QTagScannerPage() {
           {renderGuestList()}
         </div>
       </div>
+
+      {/* Registration QR modal */}
+      {showRegQR && shortId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowRegQR(false)}
+        >
+          <div
+            className="bg-[#1e1e38] border border-white/10 rounded-xl p-6 mx-6 max-w-sm w-full shadow-2xl"
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-white font-bold font-assistant text-base">{t('qtagRegistrationLink')}</h3>
+              <button
+                onClick={() => setShowRegQR(false)}
+                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center gap-4">
+              <div className="bg-white rounded-xl p-4">
+                <QRCodeSVG
+                  value={`${process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app'}/v/${shortId}`}
+                  size={220}
+                  level="H"
+                  includeMargin={false}
+                />
+              </div>
+              <p className="text-white/40 text-xs font-assistant">{t('qtagScanToRegister')}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick-add modal (shared across both views) */}
       {showQuickAdd && (
