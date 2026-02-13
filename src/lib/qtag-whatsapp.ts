@@ -17,7 +17,7 @@ interface SendQTagQRParams {
   eventName: string;
 }
 
-const QTAG_TEMPLATE_NAME = 'qtag_registration';
+const QTAG_TEMPLATE_ID = process.env.INFORU_TEMPLATE_QTAG_REGISTRATION || '242341';
 
 export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ success: boolean; error?: string }> {
   if (!isINFORUConfigured()) {
@@ -41,7 +41,7 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
   try {
     const result = await sendTemplateMessage(
       params.guestPhone,
-      QTAG_TEMPLATE_NAME,
+      QTAG_TEMPLATE_ID,
       templateParams,
       'whatsapp'
     );
