@@ -58,8 +58,7 @@ export async function POST(request: NextRequest) {
     // Load code data
     const codeDoc = await db.collection('codes').doc(codeId).get();
     if (!codeDoc.exists) {
-      // Don't reveal if code exists - return generic success
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, found: false });
     }
     const codeData = codeDoc.data()!;
     const qtagConfig = codeData.media?.find((m: { type: string }) => m.type === 'qtag')?.qtagConfig;
@@ -73,8 +72,7 @@ export async function POST(request: NextRequest) {
       .get();
 
     if (guestSnapshot.empty) {
-      // Don't reveal if guest exists - return generic success
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, found: false });
     }
 
     const guestDoc = guestSnapshot.docs[0];
@@ -91,7 +89,7 @@ export async function POST(request: NextRequest) {
       eventName: qtagConfig?.eventName || '',
     }).catch(err => console.error('[QTag ResendQR] WhatsApp send error:', err));
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, found: true });
   } catch (error) {
     console.error('[QTag ResendQR] Error:', error);
     return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });

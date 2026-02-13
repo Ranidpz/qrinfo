@@ -110,7 +110,9 @@ const translations = {
     alreadyRegistered: 'כבר נרשמתי',
     recoverQR: 'שלחו לי שוב את הQR',
     recoverMessage: 'הכניסו את הטלפון שנרשמתם איתו',
-    recoverSent: 'אם מספר זה רשום, שלחנו לינק לוואטסאפ שלכם',
+    recoverSent: 'הקוד שלכם לאירוע נשלח שוב בוואטסאפ',
+    recoverNotFound: 'מספר זה לא נמצא במערכת',
+    recoverNotFoundHint: 'אפשר להירשם עכשיו',
     recoverSending: 'שולח...',
   },
   en: {
@@ -157,7 +159,9 @@ const translations = {
     alreadyRegistered: 'Already registered?',
     recoverQR: 'Send me my QR again',
     recoverMessage: 'Enter the phone number you registered with',
-    recoverSent: 'If this number is registered, we sent a link to your WhatsApp',
+    recoverSent: 'Your event code was resent via WhatsApp',
+    recoverNotFound: 'This number was not found in our system',
+    recoverNotFoundHint: 'You can register now',
     recoverSending: 'Sending...',
   },
 };
@@ -196,6 +200,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
   const [recoveryPhone, setRecoveryPhone] = useState('');
   const [recoverySending, setRecoverySending] = useState(false);
   const [recoverySent, setRecoverySent] = useState(false);
+  const [recoveryFound, setRecoveryFound] = useState(false);
 
   // Check URL token or localStorage for returning guest on mount
   useEffect(() => {
@@ -491,14 +496,16 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
 
     setRecoverySending(true);
     try {
-      await fetch('/api/qtag/resend-qr', {
+      const res = await fetch('/api/qtag/resend-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ codeId, phone: rawPhone }),
       });
-      // Always show success (endpoint doesn't reveal if phone exists)
+      const data = await res.json();
+      setRecoveryFound(!!data.found);
       setRecoverySent(true);
     } catch {
+      setRecoveryFound(false);
       setRecoverySent(true);
     } finally {
       setRecoverySending(false);
@@ -631,7 +638,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
         {/* Already registered? Recovery flow */}
         {!showRecovery ? (
           <button
-            onClick={() => { setShowRecovery(true); setRecoverySent(false); setRecoveryPhone(''); }}
+            onClick={() => { setShowRecovery(true); setRecoverySent(false); setRecoveryFound(false); setRecoveryPhone(''); }}
             className="mt-4 text-sm underline opacity-60 hover:opacity-100 transition-opacity font-assistant"
             style={{ color: branding.backgroundImageUrl ? '#ffffff' : branding.colors.text }}
           >
@@ -644,9 +651,27 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
             dir={isRTL ? 'rtl' : 'ltr'}
           >
             {recoverySent ? (
-              <p className="text-sm text-center font-assistant" style={{ color: branding.backgroundImageUrl ? '#ffffff' : branding.colors.text }}>
-                {t.recoverSent}
-              </p>
+              <div className="space-y-3 text-center">
+                {recoveryFound ? (
+                  <p className="text-sm font-assistant" style={{ color: '#22c55e' }}>
+                    <Check className="w-4 h-4 inline-block mb-0.5 me-1" />
+                    {t.recoverSent}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm font-assistant" style={{ color: '#f87171' }}>
+                      {t.recoverNotFound}
+                    </p>
+                    <button
+                      onClick={() => { setShowRecovery(false); setRecoverySent(false); setScreen('form'); }}
+                      className="px-5 py-2.5 rounded-xl font-semibold text-sm transition-all hover:scale-105 active:scale-95 font-assistant"
+                      style={{ backgroundColor: branding.colors.buttonBackground, color: branding.colors.buttonText }}
+                    >
+                      {t.recoverNotFoundHint}
+                    </button>
+                  </>
+                )}
+              </div>
             ) : (
               <>
                 <p className="text-sm text-center opacity-80 font-assistant" style={{ color: branding.backgroundImageUrl ? '#ffffff' : branding.colors.text }}>

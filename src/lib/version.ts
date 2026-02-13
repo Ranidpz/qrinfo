@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.8';
+export const APP_VERSION = '1.12.9';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,21 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.8',
+    version: '1.12.9',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור חוויית שחזור QR - הודעה ברורה אם הטלפון נמצא או לא',
+      ],
+      en: [
+        'Improved QR recovery UX - clear feedback if phone is found or not',
+      ],
+    },
+  },
+  {
+    version: '1.12.8',
+    date: '2026-02-13',
     highlights: {
       he: [
         'כפתור "כבר נרשמתי" - שליחה חוזרת של QR לוואטסאפ לפי טלפון',
