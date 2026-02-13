@@ -45,8 +45,6 @@ export async function sendWhatsAppOTP(
   code: string,
   locale: 'he' | 'en' = 'he'
 ): Promise<INFORUSendResult> {
-  validateConfig();
-
   // Select template based on locale
   const templateId = locale === 'he' ? WHATSAPP_TEMPLATE_ID_HE : WHATSAPP_TEMPLATE_ID_EN;
 
@@ -59,6 +57,7 @@ export async function sendWhatsAppOTP(
   console.log(`[INFORU] Sending WhatsApp OTP to ${formattedPhone} using template ${templateId}`);
 
   try {
+    validateConfig();
     // INFORU WhatsApp OTP API endpoint
     const response = await fetch(`${INFORU_API_BASE_URL}/api/v2/WhatsApp/SendWhatsApp`, {
       method: 'POST',
@@ -137,8 +136,6 @@ export async function sendSMSOTP(
   code: string,
   locale: 'he' | 'en' = 'he'
 ): Promise<INFORUSendResult> {
-  validateConfig();
-
   // Message templates (shorter for SMS)
   const messages = {
     he: `קוד אימות: ${code}`,
@@ -156,6 +153,7 @@ export async function sendSMSOTP(
   console.log(`[INFORU] Sending SMS OTP to ${formattedPhone}`);
 
   try {
+    validateConfig();
     // INFORU SMS API endpoint
     const response = await fetch(`${INFORU_API_BASE_URL}/api/v2/SMS/SendSms`, {
       method: 'POST',
@@ -225,8 +223,6 @@ export async function sendTemplateMessage(
   parameters: string[],
   method: 'whatsapp' | 'sms' = 'whatsapp'
 ): Promise<INFORUSendResult> {
-  validateConfig();
-
   // Format phone number
   let formattedPhone = phone.replace(/\D/g, '');
   if (formattedPhone.startsWith('0')) {
@@ -240,6 +236,7 @@ export async function sendTemplateMessage(
   const templateId = process.env[templateIdEnvVar] || templateName;
 
   try {
+    validateConfig();
     // Build template parameters
     // Note: INFORU template for booth_qr_code uses [#6#] to [#10#]
     const startIndex = templateName === 'booth_qr_code' ? 6 : 1;

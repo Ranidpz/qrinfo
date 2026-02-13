@@ -73,11 +73,11 @@ export async function POST(request: NextRequest) {
     const normalizedPhone = normalizePhoneNumber(phone);
     const validPlusOne = Math.max(0, Math.min(10, Math.floor(plusOneCount)));
 
-    // Validate plusOneDetails structure
+    // Validate plusOneDetails structure (omit keys rather than setting undefined — Firestore rejects undefined)
     const sanitizedPlusOneDetails = Array.isArray(plusOneDetails)
       ? plusOneDetails.slice(0, 10).map((detail: { name?: string; gender?: string }) => ({
-          name: typeof detail?.name === 'string' ? detail.name.trim().slice(0, 50) : undefined,
-          gender: detail?.gender === 'male' || detail?.gender === 'female' ? detail.gender : undefined,
+          ...(typeof detail?.name === 'string' ? { name: detail.name.trim().slice(0, 50) } : {}),
+          ...(detail?.gender === 'male' || detail?.gender === 'female' ? { gender: detail.gender } : {}),
         }))
       : [];
 
