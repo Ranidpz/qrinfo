@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.18';
+export const APP_VERSION = '1.12.19';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,15 +14,19 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.18',
+    version: '1.12.19',
     date: '2026-02-13',
     isNew: true,
     highlights: {
       he: [
-        'תיקון ייצוא אקסל - ייצוא ישירות מהדפדפן (לא דרך שרת)',
+        'QR כניסה סריק מכל מצלמה - פותח דף הרשמה לאירוע',
+        'כפתור QR הרשמה בסורק - הדיילת מציגה לינק הרשמה בלחיצה',
+        'תיקון ייצוא אקסל - ייצוא ישירות מהדפדפן',
       ],
       en: [
-        'Fix Excel export - client-side generation (no server dependency)',
+        'Entry QR scannable by any camera - opens event registration page',
+        'Registration QR button in scanner - hostess shows registration link with one tap',
+        'Fix Excel export - client-side generation',
       ],
     },
   },
