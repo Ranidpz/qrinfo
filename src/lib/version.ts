@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.5';
+export const APP_VERSION = '1.12.6';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.5',
+    version: '1.12.6',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון הרשמת אורחים - אורח נוצר רק אחרי אימות טלפון בוואטסאפ',
+        'אבטחה: ולידציה על קלט הרשמה + הסרת פרטי שגיאה מתשובות API',
+      ],
+      en: [
+        'Fix guest registration - guest created only after WhatsApp phone verification',
+        'Security: input validation on registration + removed error details from API responses',
+      ],
+    },
+  },
+  {
+    version: '1.12.5',
+    date: '2026-02-13',
     highlights: {
       he: [
         'כפתור ביטול צ׳ק-אין בסורק Q.Tag',

@@ -45,6 +45,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate codeId format
+    if (typeof codeId !== 'string' || !/^[a-zA-Z0-9]{10,30}$/.test(codeId)) {
+      return NextResponse.json(
+        { error: 'Invalid codeId format' },
+        { status: 400 }
+      );
+    }
+
     // Validate name
     const trimmedName = name.trim();
     if (trimmedName.length < 2 || trimmedName.length > 50) {
@@ -64,6 +72,14 @@ export async function POST(request: NextRequest) {
 
     const normalizedPhone = normalizePhoneNumber(phone);
     const validPlusOne = Math.max(0, Math.min(10, Math.floor(plusOneCount)));
+
+    // Validate plusOneDetails structure
+    const sanitizedPlusOneDetails = Array.isArray(plusOneDetails)
+      ? plusOneDetails.slice(0, 10).map((detail: { name?: string; gender?: string }) => ({
+          name: typeof detail?.name === 'string' ? detail.name.trim().slice(0, 50) : undefined,
+          gender: detail?.gender === 'male' || detail?.gender === 'female' ? detail.gender : undefined,
+        }))
+      : [];
 
     const db = getAdminDb();
 
@@ -163,17 +179,17 @@ export async function POST(request: NextRequest) {
           name: trimmedName,
           phone: normalizedPhone,
           plusOneCount: validPlusOne,
-          plusOneDetails: plusOneDetails || [],
+          plusOneDetails: sanitizedPlusOneDetails,
         },
       });
 
       // Send OTP via WhatsApp/SMS
-      const { locale = 'he' } = body;
+      const locale = body.locale === 'en' ? 'en' : 'he';
       const sendResult = await sendOTP(
         normalizedPhone,
         otp,
         config.verification.method || 'whatsapp',
-        locale as 'he' | 'en'
+        locale
       );
 
       if (!sendResult.result.success) {
@@ -201,7 +217,7 @@ export async function POST(request: NextRequest) {
       name: trimmedName,
       phone: normalizedPhone,
       plusOneCount: validPlusOne,
-      plusOneDetails: plusOneDetails || [],
+      plusOneDetails: sanitizedPlusOneDetails,
       qrToken,
       isVerified: true,
       status: 'registered',
@@ -266,7 +282,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Q.Tag register error:', error);
     return NextResponse.json(
-      { error: 'Failed to register', details: String(error) },
+      { error: 'Failed to register' },
       { status: 500 }
     );
   }

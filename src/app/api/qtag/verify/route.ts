@@ -34,11 +34,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { codeId, phone, action, code: otpCode, locale = 'he' } = body;
+    const { codeId, phone, action, code: otpCode } = body;
+    const locale = body.locale === 'en' ? 'en' : 'he';
 
     if (!codeId || !phone || !action) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Validate codeId format
+    if (typeof codeId !== 'string' || !/^[a-zA-Z0-9]{10,30}$/.test(codeId)) {
+      return NextResponse.json(
+        { error: 'Invalid codeId format' },
         { status: 400 }
       );
     }
@@ -125,7 +134,7 @@ export async function POST(request: NextRequest) {
         normalizedPhone,
         otp,
         verificationConfig.method || 'whatsapp',
-        locale as 'he' | 'en'
+        locale
       );
 
       if (!result.result.success) {
@@ -326,7 +335,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Q.Tag verify error:', error);
     return NextResponse.json(
-      { error: 'Verification failed', details: String(error) },
+      { error: 'Verification failed' },
       { status: 500 }
     );
   }
