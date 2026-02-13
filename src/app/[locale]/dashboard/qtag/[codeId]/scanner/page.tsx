@@ -65,7 +65,11 @@ export default function QTagScannerPage() {
   const [scannerState, setScannerState] = useState<ScannerState>('scanning');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('scanner');
+  const [viewMode, _setViewMode] = useState<ViewMode>('scanner');
+  const setViewMode = useCallback((mode: ViewMode) => {
+    _setViewMode(mode);
+    window.scrollTo({ top: 0 });
+  }, []);
 
   // Scanner ref
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -584,7 +588,7 @@ export default function QTagScannerPage() {
           <Users className="w-5 h-5" />
         </button>
         <h1 className="text-lg font-bold font-assistant">Q.Tag Scanner</h1>
-        <div className="flex items-center gap-2 text-xs">
+        <button onClick={() => setViewMode('list')} className="flex items-center gap-2 text-xs cursor-pointer hover:opacity-80 transition-opacity lg:pointer-events-none">
           <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400">
             {stats.totalArrived}
           </span>
@@ -592,7 +596,7 @@ export default function QTagScannerPage() {
           <span className="px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">
             {stats.totalRegistered}
           </span>
-        </div>
+        </button>
       </div>
 
       {/* Scanner area */}
@@ -702,7 +706,7 @@ export default function QTagScannerPage() {
 
       {/* FAB - Quick Add (mobile scanner only, desktop shows in list panel) */}
       <button
-        onClick={() => setShowQuickAdd(true)}
+        onClick={() => { setShowQuickAdd(true); window.scrollTo({ top: 0 }); }}
         className="absolute bottom-6 left-6 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all active:scale-95 z-10 lg:hidden"
       >
         <UserPlus className="w-6 h-6" />
@@ -723,7 +727,7 @@ export default function QTagScannerPage() {
           <div className="flex items-center gap-1">
             {shortId && (
               <button
-                onClick={() => setShowRegQR(true)}
+                onClick={() => { setShowRegQR(true); window.scrollTo({ top: 0 }); }}
                 className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white"
               >
                 <QrCode className="w-5 h-5" />
@@ -914,7 +918,7 @@ export default function QTagScannerPage() {
 
       {/* FAB - Quick Add */}
       <button
-        onClick={() => setShowQuickAdd(true)}
+        onClick={() => { setShowQuickAdd(true); window.scrollTo({ top: 0 }); }}
         className="absolute bottom-6 left-6 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all active:scale-95 z-10"
       >
         <UserPlus className="w-6 h-6" />

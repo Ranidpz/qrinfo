@@ -4,7 +4,7 @@
  *
  * INFORU template 242341 (qtag_registration) has:
  *   Body: [#1#] Guest name, [#2#] Event name
- *   URL Button "צפייה בקוד הכניסה": dynamic URL
+ *   URL Button "צפייה בקוד הכניסה": dynamic suffix (base URL https://qr.playzones.app/v/ is in template)
  *
  * The URL button MUST be sent in a separate Buttons array (not in TemplateParameters).
  */
@@ -45,8 +45,8 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
     return { success: false, error: 'INFORU not configured' };
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app';
-  const qrLink = `${baseUrl}/v/${params.shortId}?token=${params.qrToken}`;
+  // URL button suffix only — the template base URL is already https://qr.playzones.app/v/
+  const qrLinkSuffix = `${params.shortId}?token=${params.qrToken}`;
 
   // Format phone number
   let formattedPhone = params.guestPhone.replace(/\D/g, '');
@@ -69,7 +69,7 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
             { Name: '[#2#]', Type: 'Text', Value: params.eventName },
           ],
           Buttons: [
-            { Type: 'URL', FieldName: QTAG_BUTTON_NAME, Value: qrLink },
+            { Type: 'URL', FieldName: QTAG_BUTTON_NAME, Value: qrLinkSuffix },
           ],
           Recipients: [{ Phone: formattedPhone }],
         },

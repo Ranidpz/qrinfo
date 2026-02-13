@@ -77,6 +77,8 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Firestore transactions: ALL reads (`transaction.get()`) MUST happen before ANY writes (`transaction.update/set/delete`) - even with Admin SDK. Use `Promise.all` to batch reads upfront.
 - Q.Tag registration with verification: guest record is created ONLY after OTP verification (not on form submit). Pending data stored in `verificationCodes` doc's `pendingRegistration` field.
 - Never return `details: String(error)` in API responses — leaks internal stack traces. Log server-side only.
+- INFORU WhatsApp URL buttons: must be in separate `Buttons` array with `FieldName` matching button label, NOT in `TemplateParameters`. Error -2505 = missing buttons.
+- Vercel serverless: never use fire-and-forget (`.catch()` without `await`). Function terminates after response, killing background ops. Always `await` inside try-catch.
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**
