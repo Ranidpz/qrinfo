@@ -259,17 +259,21 @@ export async function POST(request: NextRequest) {
 
     await batch.commit();
 
-    // Fire-and-forget: Send QR link via WhatsApp
+    // Send QR link via WhatsApp (awaited so Vercel doesn't terminate before it completes)
     if (config.sendQrViaWhatsApp !== false) {
-      sendQTagQRWhatsApp({
-        codeId,
-        guestId: guestRef.id,
-        guestName: trimmedName,
-        guestPhone: normalizedPhone,
-        qrToken,
-        shortId: codeData.shortId,
-        eventName: config.eventName || '',
-      }).catch(err => console.error('[QTag Register] WhatsApp send error (non-blocking):', err));
+      try {
+        await sendQTagQRWhatsApp({
+          codeId,
+          guestId: guestRef.id,
+          guestName: trimmedName,
+          guestPhone: normalizedPhone,
+          qrToken,
+          shortId: codeData.shortId,
+          eventName: config.eventName || '',
+        });
+      } catch (err) {
+        console.error('[QTag Register] WhatsApp send error (non-blocking):', err);
+      }
     }
 
     return NextResponse.json({

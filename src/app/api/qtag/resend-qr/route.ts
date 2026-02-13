@@ -78,16 +78,20 @@ export async function POST(request: NextRequest) {
     const guestDoc = guestSnapshot.docs[0];
     const guest = guestDoc.data();
 
-    // Send QR via WhatsApp (fire-and-forget)
-    sendQTagQRWhatsApp({
-      codeId,
-      guestId: guestDoc.id,
-      guestName: guest.name,
-      guestPhone: guest.phone,
-      qrToken: guest.qrToken,
-      shortId: codeData.shortId,
-      eventName: qtagConfig?.eventName || '',
-    }).catch(err => console.error('[QTag ResendQR] WhatsApp send error:', err));
+    // Send QR via WhatsApp (awaited so Vercel doesn't terminate before it completes)
+    try {
+      await sendQTagQRWhatsApp({
+        codeId,
+        guestId: guestDoc.id,
+        guestName: guest.name,
+        guestPhone: guest.phone,
+        qrToken: guest.qrToken,
+        shortId: codeData.shortId,
+        eventName: qtagConfig?.eventName || '',
+      });
+    } catch (err) {
+      console.error('[QTag ResendQR] WhatsApp send error:', err);
+    }
 
     return NextResponse.json({ success: true, found: true });
   } catch (error) {

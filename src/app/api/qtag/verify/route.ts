@@ -307,17 +307,21 @@ export async function POST(request: NextRequest) {
 
       await batch.commit();
 
-      // Fire-and-forget: Send QR link via WhatsApp
+      // Send QR link via WhatsApp (awaited so Vercel doesn't terminate before it completes)
       if (qtagConfig.sendQrViaWhatsApp !== false) {
-        sendQTagQRWhatsApp({
-          codeId,
-          guestId: guestRef.id,
-          guestName: pendingData.name,
-          guestPhone: normalizedPhone,
-          qrToken,
-          shortId: codeData.shortId,
-          eventName: qtagConfig.eventName || '',
-        }).catch(err => console.error('[QTag Verify] WhatsApp send error (non-blocking):', err));
+        try {
+          await sendQTagQRWhatsApp({
+            codeId,
+            guestId: guestRef.id,
+            guestName: pendingData.name,
+            guestPhone: normalizedPhone,
+            qrToken,
+            shortId: codeData.shortId,
+            eventName: qtagConfig.eventName || '',
+          });
+        } catch (err) {
+          console.error('[QTag Verify] WhatsApp send error (non-blocking):', err);
+        }
       }
 
       return NextResponse.json({

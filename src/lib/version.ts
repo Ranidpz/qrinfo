@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.12';
+export const APP_VERSION = '1.12.13';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,21 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.12',
+    version: '1.12.13',
     date: '2026-02-13',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: שליחת QR לוואטסאפ אחרי אימות טלפון',
+      ],
+      en: [
+        'Fix: WhatsApp QR delivery after phone verification',
+      ],
+    },
+  },
+  {
+    version: '1.12.12',
+    date: '2026-02-13',
     highlights: {
       he: [
         'תיקון בוחר צבעים במובייל - כפתור צבע גדול ומעוצב',
