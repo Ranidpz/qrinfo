@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[QTag Guests POST] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to add guest', },
+      { error: 'Failed to add guest' },
       { status: 500 }
     );
   }
