@@ -16,6 +16,7 @@ import {
   MapPin,
   Clock,
   X,
+  XCircle,
   Navigation,
 } from 'lucide-react';
 import type { QTagConfig, QTagPhase } from '@/types/qtag';
@@ -28,7 +29,7 @@ interface QTagViewerProps {
   qrTokenFromUrl?: string;
 }
 
-type ViewScreen = 'loading' | 'landing' | 'form' | 'verifying' | 'success' | 'closed';
+type ViewScreen = 'loading' | 'landing' | 'form' | 'verifying' | 'success' | 'cancelled' | 'closed';
 
 // localStorage helpers
 const STORAGE_KEY_PREFIX = 'qtag_guest_';
@@ -115,6 +116,15 @@ const translations = {
     recoverNotFound: 'מספר זה לא נמצא במערכת',
     recoverNotFoundHint: 'אפשר להירשם עכשיו',
     recoverSending: 'שולח...',
+    cantMakeIt: 'לא מגיע/ה?',
+    cancelRegistration: 'ביטול הרשמה',
+    areYouSure: 'בטוח/ה?',
+    yesCancel: 'כן, בטל',
+    registrationCancelled: 'ההרשמה בוטלה',
+    cancelledMessage: 'ביטלתם את ההרשמה לאירוע',
+    changedMind: 'שינית דעה? חזרו להרשמה',
+    cancelling: 'מבטל...',
+    restoring: 'משחזר...',
   },
   en: {
     register: 'Event Registration',
@@ -165,6 +175,15 @@ const translations = {
     recoverNotFound: 'This number was not found in our system',
     recoverNotFoundHint: 'You can register now',
     recoverSending: 'Sending...',
+    cantMakeIt: "Can't make it?",
+    cancelRegistration: 'Cancel registration',
+    areYouSure: 'Are you sure?',
+    yesCancel: 'Yes, cancel',
+    registrationCancelled: 'Registration Cancelled',
+    cancelledMessage: 'You cancelled your event registration',
+    changedMind: 'Changed your mind? Restore registration',
+    cancelling: 'Cancelling...',
+    restoring: 'Restoring...',
   },
 };
 
@@ -204,6 +223,11 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
   const [recoverySent, setRecoverySent] = useState(false);
   const [recoveryFound, setRecoveryFound] = useState(false);
   const [recoveryWhatsappSent, setRecoveryWhatsappSent] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
+  // Cancel state
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   // Check URL token or localStorage for returning guest on mount
   useEffect(() => {
@@ -239,6 +263,11 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
               plusOneCount: data.plusOneCount || 0,
             });
           }
+        } else if (data.cancelled) {
+          // Guest cancelled their registration - show cancelled screen with uncancel option
+          setName(data.name || '');
+          setQrToken(data.qrToken || tokenToCheck);
+          setScreen('cancelled');
         } else {
           // Guest was deleted - clear storage and show landing
           clearGuestFromStorage(codeId);
@@ -507,13 +536,57 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
       const data = await res.json();
       setRecoveryFound(!!data.found);
       setRecoveryWhatsappSent(!!data.whatsappSent);
+      setRecoveryError(data.whatsappError || null);
       setRecoverySent(true);
     } catch {
       setRecoveryFound(false);
       setRecoveryWhatsappSent(false);
+      setRecoveryError('Network error');
       setRecoverySent(true);
     } finally {
       setRecoverySending(false);
+    }
+  };
+
+  // Cancel / uncancel registration
+  const handleCancelRegistration = async () => {
+    if (cancelling || !qrToken) return;
+    setCancelling(true);
+    try {
+      const res = await fetch('/api/qtag/cancel-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrToken, action: 'cancel' }),
+      });
+      if (res.ok) {
+        clearGuestFromStorage(codeId);
+        setShowCancelConfirm(false);
+        setScreen('cancelled');
+      }
+    } catch {
+      // Silent
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleUncancelRegistration = async () => {
+    if (cancelling || !qrToken) return;
+    setCancelling(true);
+    try {
+      const res = await fetch('/api/qtag/cancel-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrToken, action: 'uncancel' }),
+      });
+      if (res.ok) {
+        saveGuestToStorage(codeId, { guestId: guestId || '', qrToken, name, plusOneCount });
+        setScreen('success');
+      }
+    } catch {
+      // Silent
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -665,9 +738,16 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
                     {t.recoverSent}
                   </p>
                 ) : recoveryFound && !recoveryWhatsappSent ? (
-                  <p className="text-sm font-assistant" style={{ color: '#f59e0b' }}>
-                    {t.recoverSendFailed}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-sm font-assistant" style={{ color: '#f59e0b' }}>
+                      {t.recoverSendFailed}
+                    </p>
+                    {recoveryError && (
+                      <p className="text-xs font-mono opacity-60" style={{ color: '#f59e0b' }}>
+                        {recoveryError}
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <>
                     <p className="text-sm font-assistant" style={{ color: '#f87171' }}>
@@ -1119,6 +1199,68 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
             )}
           </div>
         )}
+        {/* Cancel registration link */}
+        {!showCancelConfirm ? (
+          <button
+            onClick={() => setShowCancelConfirm(true)}
+            className="text-xs opacity-30 hover:opacity-60 transition-opacity font-assistant mt-2"
+            style={{ color: branding.colors.text }}
+          >
+            {t.cantMakeIt} {t.cancelRegistration}
+          </button>
+        ) : (
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <span className="text-xs font-assistant" style={{ color: branding.colors.text, opacity: 0.6 }}>
+              {t.areYouSure}
+            </span>
+            <button
+              onClick={handleCancelRegistration}
+              disabled={cancelling}
+              className="text-xs px-3 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors font-assistant"
+            >
+              {cancelling ? t.cancelling : t.yesCancel}
+            </button>
+            <button
+              onClick={() => setShowCancelConfirm(false)}
+              className="text-xs opacity-40 hover:opacity-70 transition-opacity font-assistant"
+              style={{ color: branding.colors.text }}
+            >
+              {t.back}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ── Cancelled Screen ──
+  const renderCancelled = () => (
+    <div
+      className="min-h-dvh flex flex-col items-center justify-center px-6 py-8"
+      style={{ backgroundColor: branding.colors.background }}
+      dir={isRTL ? 'rtl' : 'ltr'}
+    >
+      <div className="w-full max-w-sm space-y-5 text-center">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto bg-red-500/20">
+          <XCircle className="w-8 h-8 text-red-400" />
+        </div>
+
+        <h2 className="text-2xl font-bold font-assistant" style={{ color: branding.colors.text }}>
+          {t.registrationCancelled}
+        </h2>
+
+        <p className="text-sm opacity-70 font-assistant" style={{ color: branding.colors.text }}>
+          {t.cancelledMessage}
+        </p>
+
+        <button
+          onClick={handleUncancelRegistration}
+          disabled={cancelling}
+          className="text-sm underline opacity-60 hover:opacity-100 transition-opacity font-assistant"
+          style={{ color: branding.colors.text }}
+        >
+          {cancelling ? t.restoring : t.changedMind}
+        </button>
       </div>
     </div>
   );
@@ -1179,6 +1321,8 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
       return renderVerification();
     case 'success':
       return renderSuccess();
+    case 'cancelled':
+      return renderCancelled();
     case 'closed':
       return renderClosed();
     default:
