@@ -72,7 +72,7 @@ export default function AccessibilityButton() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-20 left-4 z-50 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110"
+        className="fixed bottom-20 left-4 z-50 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hidden sm:flex items-center justify-center transition-all hover:scale-110"
         aria-label={labels.settings}
         title={labels.settings}
       >

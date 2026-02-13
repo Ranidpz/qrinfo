@@ -16,6 +16,7 @@ import {
   ScanLine,
   UserPlus,
   Users,
+  MoreVertical,
 } from 'lucide-react';
 import type { QTagConfig, QTagSkin } from '@/types/qtag';
 import { DEFAULT_QTAG_CONFIG, DEFAULT_QTAG_BRANDING, QTAG_SKINS } from '@/types/qtag';
@@ -41,6 +42,7 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
   const isEditing = !!initialConfig;
 
   const [activeTab, setActiveTab] = useState<Tab>('details');
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [config, setConfig] = useState<QTagConfig>(initialConfig || {
     ...DEFAULT_QTAG_CONFIG,
     branding: { ...DEFAULT_QTAG_BRANDING },
@@ -189,46 +191,87 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
     >
-      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl border border-white/10">
+      <div className="bg-[#1a1a2e] rounded-t-2xl sm:rounded-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col shadow-2xl border border-white/10 border-b-0 sm:border-b">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-xl font-bold text-white font-assistant">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/10">
+          <h2 className="text-lg sm:text-xl font-bold text-white font-assistant">
             {isEditing ? t('qtagSettings') : t('qtagCreate')}
           </h2>
-          <div className="flex items-center gap-2">
-            {/* Manage Guests button */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Desktop: inline buttons */}
             {isEditing && codeId && onManageGuests && (
               <button
                 onClick={() => { onClose(); onManageGuests(); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-all text-sm font-assistant"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-all text-sm font-assistant"
               >
                 <Users className="w-4 h-4" />
                 {t('qtagManageGuests')}
               </button>
             )}
-            {/* Scanner button */}
             {isEditing && codeId && (
               <button
                 onClick={() => window.open(`/${locale}/dashboard/qtag/${codeId}/scanner`, '_blank')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-all text-sm font-assistant"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-all text-sm font-assistant"
               >
                 <ScanLine className="w-4 h-4" />
                 {t('qtagOpenScanner')}
               </button>
             )}
-            {/* Registration page button */}
             {isEditing && shortId && (
               <button
                 onClick={() => window.open(`/v/${shortId}`, '_blank')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all text-sm font-assistant"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all text-sm font-assistant"
               >
                 <ExternalLink className="w-4 h-4" />
                 {t('qtagOpenRegistration')}
               </button>
+            )}
+            {/* Mobile: dropdown menu */}
+            {isEditing && codeId && (
+              <div className="relative sm:hidden">
+                <button
+                  onClick={() => setActionsOpen(!actionsOpen)}
+                  className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+                {actionsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
+                    <div className={`absolute top-full ${isRTL ? 'left-0' : 'right-0'} mt-1 z-20 min-w-[200px] bg-[#1e1e3a] rounded-xl border border-white/10 shadow-2xl overflow-hidden`}>
+                      {onManageGuests && (
+                        <button
+                          onClick={() => { setActionsOpen(false); onClose(); onManageGuests(); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-3 text-purple-400 hover:bg-white/5 transition-colors text-sm font-assistant"
+                        >
+                          <Users className="w-4 h-4" />
+                          {t('qtagManageGuests')}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setActionsOpen(false); window.open(`/${locale}/dashboard/qtag/${codeId}/scanner`, '_blank'); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-emerald-400 hover:bg-white/5 transition-colors text-sm font-assistant"
+                      >
+                        <ScanLine className="w-4 h-4" />
+                        {t('qtagOpenScanner')}
+                      </button>
+                      {shortId && (
+                        <button
+                          onClick={() => { setActionsOpen(false); window.open(`/v/${shortId}`, '_blank'); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-3 text-blue-400 hover:bg-white/5 transition-colors text-sm font-assistant"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          {t('qtagOpenRegistration')}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors">
               <X className="w-5 h-5" />
@@ -237,19 +280,19 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
         </div>
 
         {/* Tabs */}
-        <div className="flex px-6 pt-3 gap-1 border-b border-white/5">
+        <div className="flex px-3 sm:px-6 pt-2 sm:pt-3 gap-0.5 sm:gap-1 border-b border-white/5">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-sm font-medium transition-all font-assistant ${
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 flex-1 sm:flex-none px-2 sm:px-4 py-2 sm:py-2.5 rounded-t-lg text-xs sm:text-sm font-medium transition-all font-assistant ${
                 activeTab === tab.id
                   ? 'bg-white/10 text-white border-b-2 border-blue-400'
                   : 'text-white/50 hover:text-white/80 hover:bg-white/5'
               }`}
             >
               <tab.icon className="w-4 h-4" />
-              {tab.label}
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
@@ -257,7 +300,7 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
         {/* Content: Form + Phone Preview side by side */}
         <div className="flex-1 overflow-hidden flex min-h-0">
           {/* Form */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5" dir="rtl">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4 space-y-4 sm:space-y-5" dir="rtl">
             {/* Event Details Tab */}
             {activeTab === 'details' && (
               <>
@@ -560,17 +603,17 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-white/10">
+        <div className="flex justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-white/10">
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all font-assistant"
+            className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all font-assistant text-sm sm:text-base"
           >
             {tCommon('cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={loading || !config.eventName.trim()}
-            className="px-6 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-assistant"
+            className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-assistant text-sm sm:text-base"
           >
             {loading ? (
               <>
