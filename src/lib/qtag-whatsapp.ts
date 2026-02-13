@@ -85,7 +85,9 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
 
     if (!response.ok) {
       console.error('[QTag WhatsApp] API error:', response.status, responseText);
-      return { success: false, error: `API error: ${response.status}` };
+      // Include truncated response for debugging
+      const truncated = responseText.slice(0, 200);
+      return { success: false, error: `API error: ${response.status} | ${truncated}` };
     }
 
     let result;
