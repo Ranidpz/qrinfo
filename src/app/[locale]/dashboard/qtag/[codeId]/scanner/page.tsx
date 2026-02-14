@@ -75,10 +75,12 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
 }) {
   return (
     <div className="rounded-xl bg-white/[0.03] border border-white/5 transition-colors overflow-hidden mb-1.5">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onToggle}
-        className="flex items-center gap-3 px-3 sm:px-4 py-3 w-full text-start hover:bg-white/[0.04] transition-colors"
+        onKeyDown={(e) => { if (e.key === 'Enter') onToggle(); }}
+        className="flex items-center gap-3 px-3 sm:px-4 py-3 w-full text-start hover:bg-white/[0.04] transition-colors cursor-pointer"
       >
         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
           guest.status === 'arrived' ? 'bg-green-400' :
@@ -98,22 +100,20 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
           )}
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); onCheckIn(); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onCheckIn(); } }}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all font-assistant cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all font-assistant ${
               guest.status === 'arrived'
-                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white'
+                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 active:bg-green-500/40'
+                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white active:bg-white/15'
             }`}
           >
             {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
-          </span>
+          </button>
           <ChevronDown className={`w-4 h-4 text-white/30 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
         </div>
-      </button>
+      </div>
       {isExpanded && (
         <div className="px-3 sm:px-4 pb-3 pt-0 border-t border-white/5 space-y-2.5">
           <div className="flex items-center gap-3 text-xs text-white/50 pt-2.5 flex-wrap">
