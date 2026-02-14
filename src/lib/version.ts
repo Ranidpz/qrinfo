@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.20';
+export const APP_VERSION = '1.12.21';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.12.21',
+    date: '2026-02-14',
+    isNew: true,
+    highlights: {
+      he: [
+        'אבטחה: קוד QR מוגן - סריקה עם מצלמה רגילה פותחת דף הרשמה (לא פרטי אורח)',
+        'כפתור החלפת מצלמה בסורק - קדמית/אחורית',
+      ],
+      en: [
+        'Security: Private QR code - regular camera scan opens registration (not guest details)',
+        'Camera flip button in scanner - front/back toggle',
+      ],
+    },
+  },
+  {
     version: '1.12.20',
     date: '2026-02-13',
-    isNew: true,
     highlights: {
       he: [
         'ביצועים: רשימת אורחים עם Virtual Scroll - תומך ב-5,000+ אורחים בלי לאט',

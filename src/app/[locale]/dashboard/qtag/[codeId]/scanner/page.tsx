@@ -28,6 +28,7 @@ import {
   Minus,
   Lock,
   QrCode,
+  SwitchCamera,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import * as XLSX from 'xlsx';
@@ -230,6 +231,7 @@ export default function QTagScannerPage() {
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
   const [scannerRestartKey, setScannerRestartKey] = useState(0);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
@@ -371,7 +373,7 @@ export default function QTagScannerPage() {
         scannerRef.current = html5Qrcode;
 
         await html5Qrcode.start(
-          { facingMode: 'environment' },
+          { facingMode },
           {
             fps: 10,
             qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
@@ -404,7 +406,7 @@ export default function QTagScannerPage() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, pinUnlocked, isWideScreen, scannerRestartKey]);
+  }, [viewMode, pinUnlocked, isWideScreen, scannerRestartKey, facingMode]);
 
   // Handle successful QR scan
   const handleScanSuccess = async (decodedText: string) => {
@@ -422,10 +424,17 @@ export default function QTagScannerPage() {
           qrToken = parsed.tk;
         }
       } catch {
-        // Not JSON - try URL format
+        // Not JSON - try URL format (supports ?token= and #token)
         try {
           const url = new URL(decodedText);
           qrToken = url.searchParams.get('token') || undefined;
+          // Hash fragment format: /v/{shortId}#{token} (privacy-safe, hash not sent to server)
+          if (!qrToken && url.hash) {
+            const hashValue = url.hash.slice(1);
+            if (/^[A-Fa-f0-9]{32}$/.test(hashValue)) {
+              qrToken = hashValue;
+            }
+          }
         } catch {
           // Neither JSON nor URL
         }
@@ -667,15 +676,23 @@ export default function QTagScannerPage() {
           <Users className="w-5 h-5" />
         </button>
         <h1 className="text-lg font-bold font-assistant">Q.Tag Scanner</h1>
-        <button onClick={() => setViewMode('list')} className="flex items-center gap-2 text-xs cursor-pointer hover:opacity-80 transition-opacity lg:pointer-events-none">
-          <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400">
-            {stats.totalArrived}
-          </span>
-          <span className="text-gray-400">/</span>
-          <span className="px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">
-            {stats.totalRegistered}
-          </span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setFacingMode(prev => prev === 'environment' ? 'user' : 'environment')}
+            className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+          >
+            <SwitchCamera className="w-5 h-5" />
+          </button>
+          <button onClick={() => setViewMode('list')} className="flex items-center gap-2 text-xs cursor-pointer hover:opacity-80 transition-opacity lg:pointer-events-none">
+            <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400">
+              {stats.totalArrived}
+            </span>
+            <span className="text-gray-400">/</span>
+            <span className="px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">
+              {stats.totalRegistered}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Scanner area */}

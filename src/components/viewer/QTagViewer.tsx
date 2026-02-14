@@ -634,9 +634,9 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
     }
   };
 
-  // QR data for the guest - URL format so regular cameras open the registration page
+  // QR data for the guest - hash fragment so regular cameras open registration page (hash is never sent to server)
   const qrData = qrToken && shortId
-    ? `${process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app'}/v/${shortId}?token=${qrToken}`
+    ? `${process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app'}/v/${shortId}#${qrToken}`
     : '';
 
   // ── Landing Screen ──
@@ -714,7 +714,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
             >
               <Calendar className="w-3.5 h-3.5" />
               {new Date(config.eventDate).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
-                day: 'numeric', month: 'long', year: 'numeric',
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
               })}
             </span>
           )}
@@ -1244,7 +1244,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
                   <span className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(config.eventDate).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US', {
-                      day: 'numeric', month: 'long', year: 'numeric',
+                      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
                     })}
                   </span>
                 )}

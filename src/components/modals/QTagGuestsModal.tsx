@@ -323,7 +323,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-white/10 relative">
+      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-2xl h-[90vh] flex flex-col shadow-2xl border border-white/10 relative">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div>
