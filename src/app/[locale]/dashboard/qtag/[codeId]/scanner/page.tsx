@@ -64,6 +64,7 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
   onDelete,
   deleting,
   toggling,
+  toggleError,
   t,
 }: {
   guest: QTagGuest;
@@ -72,6 +73,7 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
   onCheckIn: () => void;
   onDelete: () => void;
   toggling: boolean;
+  toggleError: boolean;
   deleting: boolean;
   t: (key: string) => string;
 }) {
@@ -106,24 +108,30 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
           <ChevronDown className={`w-4 h-4 text-white/30 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
         </div>
         {/* Check-in button: separate touch target, not nested */}
-        <button
-          type="button"
-          onClick={onCheckIn}
-          disabled={toggling}
-          className={`min-h-[44px] min-w-[60px] px-3 py-2 rounded-lg text-xs font-medium transition-all font-assistant flex-shrink-0 ${
-            toggling
-              ? 'bg-white/5 text-white/30'
-              : guest.status === 'arrived'
-                ? 'bg-green-500/20 text-green-400 active:bg-green-500/40'
-                : 'bg-white/5 text-white/50 active:bg-white/15 active:text-white'
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => { if (!toggling) onCheckIn(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !toggling) onCheckIn(); }}
+          className={`min-h-[44px] min-w-[60px] px-3 py-2 rounded-lg text-xs font-medium font-assistant flex-shrink-0 select-none cursor-pointer flex items-center justify-center ${
+            toggleError
+              ? 'bg-red-500/20 text-red-400'
+              : toggling
+                ? 'bg-white/5 text-white/30'
+                : guest.status === 'arrived'
+                  ? 'bg-green-500/20 text-green-400 active:bg-green-500/40'
+                  : 'bg-white/5 text-white/50 active:bg-white/15 active:text-white'
           }`}
+          style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
         >
           {toggling ? (
             <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+          ) : toggleError ? (
+            <AlertCircle className="w-4 h-4 mx-auto" />
           ) : (
             guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')
           )}
-        </button>
+        </div>
       </div>
       {isExpanded && (
         <div className="px-3 sm:px-4 pb-3 pt-0 border-t border-white/5 space-y-2.5">
@@ -208,6 +216,7 @@ export default function QTagScannerPage() {
 
   // Toggle arrival state
   const [togglingGuestId, setTogglingGuestId] = useState<string | null>(null);
+  const [toggleErrorGuestId, setToggleErrorGuestId] = useState<string | null>(null);
 
   // Delete state
   const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
@@ -549,9 +558,11 @@ export default function QTagScannerPage() {
     }
   };
 
-  // Toggle arrival status (same as modal)
+  // Toggle arrival status - uses ref for double-tap guard (stable callback for memo)
+  const togglingRef = useRef(false);
   const toggleArrival = useCallback(async (guest: QTagGuest) => {
-    if (togglingGuestId) return; // Prevent double-tap
+    if (togglingRef.current) return;
+    togglingRef.current = true;
     setTogglingGuestId(guest.id);
     const newStatus = guest.status === 'arrived' ? 'registered' : 'arrived';
     try {
@@ -570,10 +581,14 @@ export default function QTagScannerPage() {
       }
     } catch (err) {
       console.error('[QTag] Check-in error:', err);
+      // Flash error on button for 2 seconds
+      setToggleErrorGuestId(guest.id);
+      setTimeout(() => setToggleErrorGuestId(null), 2000);
     } finally {
+      togglingRef.current = false;
       setTogglingGuestId(null);
     }
-  }, [codeId, togglingGuestId]);
+  }, [codeId]);
 
   // Delete guest
   const handleDeleteClick = useCallback((guest: QTagGuest) => {
@@ -932,6 +947,7 @@ export default function QTagScannerPage() {
                   onCheckIn={() => toggleArrival(guest)}
                   onDelete={() => handleDeleteClick(guest)}
                   toggling={togglingGuestId === guest.id}
+                  toggleError={toggleErrorGuestId === guest.id}
                   deleting={deletingGuestId === guest.id}
                   t={t}
                 />
