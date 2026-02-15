@@ -75,44 +75,46 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
 }) {
   return (
     <div className="rounded-xl bg-white/[0.03] border border-white/5 transition-colors overflow-hidden mb-1.5">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={(e) => { if (e.key === 'Enter') onToggle(); }}
-        className="flex items-center gap-3 px-3 sm:px-4 py-3 w-full text-start hover:bg-white/[0.04] transition-colors cursor-pointer"
-      >
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-          guest.status === 'arrived' ? 'bg-green-400' :
-          guest.status === 'cancelled' ? 'bg-red-400' : 'bg-gray-500'
-        }`} />
-        <div className="flex-1 min-w-0 flex items-center gap-2">
-          <span className="font-semibold text-white text-sm font-assistant truncate">
-            {guest.name}
-          </span>
-          {guest.plusOneCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 flex-shrink-0">
-              +{guest.plusOneCount}
+      <div className="flex items-center gap-3 px-3 sm:px-4 py-3 w-full">
+        {/* Tappable area: name + expand toggle */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onToggle}
+          onKeyDown={(e) => { if (e.key === 'Enter') onToggle(); }}
+          className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer"
+        >
+          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+            guest.status === 'arrived' ? 'bg-green-400' :
+            guest.status === 'cancelled' ? 'bg-red-400' : 'bg-gray-500'
+          }`} />
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <span className="font-semibold text-white text-sm font-assistant truncate">
+              {guest.name}
             </span>
-          )}
-          {guest.isVerified && (
-            <Check className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-          )}
+            {guest.plusOneCount > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 flex-shrink-0">
+                +{guest.plusOneCount}
+              </span>
+            )}
+            {guest.isVerified && (
+              <Check className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+            )}
+          </div>
+          <ChevronDown className={`w-4 h-4 text-white/30 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onCheckIn(); }}
-            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all font-assistant ${
-              guest.status === 'arrived'
-                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 active:bg-green-500/40'
-                : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white active:bg-white/15'
-            }`}
-          >
-            {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
-          </button>
-          <ChevronDown className={`w-4 h-4 text-white/30 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-        </div>
+        {/* Check-in button: separate touch target, not nested */}
+        <button
+          type="button"
+          onClick={onCheckIn}
+          className={`min-h-[44px] min-w-[60px] px-3 py-2 rounded-lg text-xs font-medium transition-all font-assistant flex-shrink-0 ${
+            guest.status === 'arrived'
+              ? 'bg-green-500/20 text-green-400 active:bg-green-500/40'
+              : 'bg-white/5 text-white/50 active:bg-white/15 active:text-white'
+          }`}
+        >
+          {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
+        </button>
       </div>
       {isExpanded && (
         <div className="px-3 sm:px-4 pb-3 pt-0 border-t border-white/5 space-y-2.5">
