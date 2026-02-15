@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.21';
+export const APP_VERSION = '1.12.22';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.12.22',
+    date: '2026-02-15',
+    isNew: true,
+    highlights: {
+      he: [
+        'תיקון: לוגו שקוף נשמר בלי רקע לבן',
+        'תיקון: לוגו לא חוסם את הכותרת בדף הרשמה',
+        'מודאל הגדרות Q.Tag נשאר פתוח אחרי עדכון',
+      ],
+      en: [
+        'Fix: Transparent logo saved without white background',
+        'Fix: Logo no longer covers title on registration page',
+        'Q.Tag settings modal stays open after update',
+      ],
+    },
+  },
+  {
     version: '1.12.21',
     date: '2026-02-14',
-    isNew: true,
     highlights: {
       he: [
         'אבטחה: קוד QR מוגן - סריקה עם מצלמה רגילה פותחת דף הרשמה (לא פרטי אורח)',

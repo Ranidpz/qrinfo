@@ -2,6 +2,7 @@
   "common": {
     "save": "שמור",
     "saving": "שומר...",
+    "saved": "!נשמר",
     "cancel": "ביטול",
     "delete": "מחק",
     "deleteForever": "מחק לצמיתות",

@@ -752,7 +752,7 @@ export default function DashboardPage() {
       if (logoFile) {
         let fileToUpload: File = logoFile;
         if (logoFile.size > 3 * 1024 * 1024) {
-          const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800 });
+          const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
           fileToUpload = createCompressedFile(compressed, logoFile.name);
         }
         const formData = new FormData();
@@ -848,7 +848,7 @@ export default function DashboardPage() {
       if (logoFile) {
         let fileToUpload: File = logoFile;
         if (logoFile.size > 3 * 1024 * 1024) {
-          const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800 });
+          const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
           fileToUpload = createCompressedFile(compressed, logoFile.name);
         }
         const formData = new FormData();
@@ -895,8 +895,8 @@ export default function DashboardPage() {
         await refreshUser();
       }
 
-      setQtagModalOpen(false);
-      setEditingQTagCode(null);
+      // Update editingQTagCode so modal preview stays in sync
+      setEditingQTagCode(prev => prev ? { ...prev, media: updatedMedia } : prev);
     } catch (error) {
       console.error('Error updating Q.Tag:', error);
       alert(tErrors('updateCodeError') || 'Error updating');

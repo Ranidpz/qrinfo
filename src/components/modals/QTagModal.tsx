@@ -17,6 +17,7 @@ import {
   UserPlus,
   Users,
   MoreVertical,
+  Check,
 } from 'lucide-react';
 import type { QTagConfig, QTagSkin } from '@/types/qtag';
 import { DEFAULT_QTAG_CONFIG, DEFAULT_QTAG_BRANDING, QTAG_SKINS } from '@/types/qtag';
@@ -61,6 +62,7 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
   // Drag-and-drop state
   const [isDraggingBg, setIsDraggingBg] = useState(false);
   const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   // Refs for file inputs
   const bgInputRef = useRef<HTMLInputElement>(null);
@@ -181,6 +183,12 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
 
   const handleSave = async () => {
     await onSave(config, backgroundFile || undefined, logoFile || undefined);
+    // Clear file states after successful upload (files are now on server)
+    setBackgroundFile(null);
+    setLogoFile(null);
+    // Brief "saved" feedback
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   const tabs: { id: Tab; label: string; icon: typeof Calendar }[] = [
@@ -613,12 +621,19 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
           <button
             onClick={handleSave}
             disabled={loading || !config.eventName.trim()}
-            className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-assistant text-sm sm:text-base"
+            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-assistant text-sm sm:text-base ${
+              saved ? 'bg-green-500' : 'bg-blue-500 hover:bg-blue-600'
+            }`}
           >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
                 {isEditing ? t('qtagUpdating') : t('qtagCreating')}
+              </>
+            ) : saved ? (
+              <>
+                <Check className="w-4 h-4" />
+                {tCommon('saved') || 'Saved'}
               </>
             ) : (
               isEditing ? t('qtagUpdate') : t('qtagCreate')
@@ -705,8 +720,8 @@ function PhonePreview({
               <img
                 src={logoPreview}
                 alt=""
-                className="max-h-14 object-contain mb-3 drop-shadow-md"
-                style={{ transform: `scale(${branding.logoScale || 1})` }}
+                className="object-contain mb-3 drop-shadow-md max-w-[70%]"
+                style={{ maxHeight: `${56 * (branding.logoScale || 1)}px` }}
               />
             )}
 

@@ -7,7 +7,7 @@ export interface CompressionResult {
   blob: Blob;
   originalSize: number;
   compressedSize: number;
-  format: 'webp' | 'jpeg';
+  format: 'webp' | 'jpeg' | 'png';
 }
 
 export interface CompressionOptions {
@@ -15,6 +15,7 @@ export interface CompressionOptions {
   maxWidth?: number;   // Max width in pixels (default: 1200)
   maxHeight?: number;  // Max height in pixels (default: 1200)
   quality?: number;    // Initial quality 0-1 (default: 0.8)
+  preserveAlpha?: boolean; // Skip white background fill to preserve PNG transparency (default: false)
 }
 
 const DEFAULT_OPTIONS: Required<CompressionOptions> = {
@@ -22,6 +23,7 @@ const DEFAULT_OPTIONS: Required<CompressionOptions> = {
   maxWidth: 1200,
   maxHeight: 1200,
   quality: 0.8,
+  preserveAlpha: false,
 };
 
 /**
@@ -48,8 +50,9 @@ export async function compressImage(
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const originalSize = file.size;
   const useWebP = supportsWebP();
-  const format = useWebP ? 'webp' : 'jpeg';
-  const mimeType = useWebP ? 'image/webp' : 'image/jpeg';
+  // When preserving alpha, avoid JPEG (no alpha support) — use PNG as fallback
+  const format: 'webp' | 'jpeg' | 'png' = useWebP ? 'webp' : (opts.preserveAlpha ? 'png' : 'jpeg');
+  const mimeType = format === 'webp' ? 'image/webp' : (format === 'png' ? 'image/png' : 'image/jpeg');
 
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
@@ -73,9 +76,11 @@ export async function compressImage(
   canvas.width = width;
   canvas.height = height;
 
-  // Draw with white background (for transparency handling)
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
+  // Draw image (optionally with white background for non-transparent images)
+  if (!opts.preserveAlpha) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+  }
   ctx.drawImage(img, 0, 0, width, height);
 
   // Revoke the object URL to free memory
@@ -123,7 +128,9 @@ export async function compressImage(
  * Get the file extension for a compression result
  */
 export function getCompressedExtension(result: CompressionResult): string {
-  return result.format === 'webp' ? 'webp' : 'jpg';
+  if (result.format === 'webp') return 'webp';
+  if (result.format === 'png') return 'png';
+  return 'jpg';
 }
 
 /**
@@ -135,8 +142,8 @@ export function createCompressedFile(
 ): File {
   const ext = getCompressedExtension(result);
   const baseName = originalName.replace(/\.[^/.]+$/, '');
-  const mimeType = result.format === 'webp' ? 'image/webp' : 'image/jpeg';
-  return new File([result.blob], `${baseName}.${ext}`, { type: mimeType });
+  const mimeTypes = { webp: 'image/webp', png: 'image/png', jpeg: 'image/jpeg' };
+  return new File([result.blob], `${baseName}.${ext}`, { type: mimeTypes[result.format] });
 }
 
 /**
