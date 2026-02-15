@@ -63,6 +63,7 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
   onCheckIn,
   onDelete,
   deleting,
+  toggling,
   t,
 }: {
   guest: QTagGuest;
@@ -70,6 +71,7 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
   onToggle: () => void;
   onCheckIn: () => void;
   onDelete: () => void;
+  toggling: boolean;
   deleting: boolean;
   t: (key: string) => string;
 }) {
@@ -107,13 +109,20 @@ const ScannerGuestRow = memo(function ScannerGuestRow({
         <button
           type="button"
           onClick={onCheckIn}
+          disabled={toggling}
           className={`min-h-[44px] min-w-[60px] px-3 py-2 rounded-lg text-xs font-medium transition-all font-assistant flex-shrink-0 ${
-            guest.status === 'arrived'
-              ? 'bg-green-500/20 text-green-400 active:bg-green-500/40'
-              : 'bg-white/5 text-white/50 active:bg-white/15 active:text-white'
+            toggling
+              ? 'bg-white/5 text-white/30'
+              : guest.status === 'arrived'
+                ? 'bg-green-500/20 text-green-400 active:bg-green-500/40'
+                : 'bg-white/5 text-white/50 active:bg-white/15 active:text-white'
           }`}
         >
-          {guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')}
+          {toggling ? (
+            <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+          ) : (
+            guest.status === 'arrived' ? t('qtagArrivedStatus') : t('qtagCheckIn')
+          )}
         </button>
       </div>
       {isExpanded && (
@@ -196,6 +205,9 @@ export default function QTagScannerPage() {
   const { guests, stats, loading: loadingGuests } = useQTagGuests(codeId);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+
+  // Toggle arrival state
+  const [togglingGuestId, setTogglingGuestId] = useState<string | null>(null);
 
   // Delete state
   const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
@@ -539,6 +551,8 @@ export default function QTagScannerPage() {
 
   // Toggle arrival status (same as modal)
   const toggleArrival = useCallback(async (guest: QTagGuest) => {
+    if (togglingGuestId) return; // Prevent double-tap
+    setTogglingGuestId(guest.id);
     const newStatus = guest.status === 'arrived' ? 'registered' : 'arrived';
     try {
       const res = await fetchWithAuth('/api/qtag/guests', {
@@ -556,8 +570,10 @@ export default function QTagScannerPage() {
       }
     } catch (err) {
       console.error('[QTag] Check-in error:', err);
+    } finally {
+      setTogglingGuestId(null);
     }
-  }, [codeId]);
+  }, [codeId, togglingGuestId]);
 
   // Delete guest
   const handleDeleteClick = useCallback((guest: QTagGuest) => {
@@ -915,6 +931,7 @@ export default function QTagScannerPage() {
                   onToggle={() => setExpandedGuestId(expandedGuestId === guest.id ? null : guest.id)}
                   onCheckIn={() => toggleArrival(guest)}
                   onDelete={() => handleDeleteClick(guest)}
+                  toggling={togglingGuestId === guest.id}
                   deleting={deletingGuestId === guest.id}
                   t={t}
                 />
