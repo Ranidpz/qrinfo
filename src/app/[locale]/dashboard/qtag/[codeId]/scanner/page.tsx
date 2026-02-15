@@ -558,37 +558,34 @@ export default function QTagScannerPage() {
     }
   };
 
-  // Toggle arrival status - uses ref for double-tap guard (stable callback for memo)
+  // Toggle arrival status via public checkin endpoint (no auth needed - works on any device)
   const togglingRef = useRef(false);
   const toggleArrival = useCallback(async (guest: QTagGuest) => {
-    if (togglingRef.current) return;
+    if (togglingRef.current || !guest.qrToken) return;
     togglingRef.current = true;
     setTogglingGuestId(guest.id);
-    const newStatus = guest.status === 'arrived' ? 'registered' : 'arrived';
+    const action = guest.status === 'arrived' ? 'undo' : 'checkin';
     try {
-      const res = await fetchWithAuth('/api/qtag/guests', {
-        method: 'PATCH',
+      const res = await fetch('/api/qtag/checkin', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codeId,
-          guestId: guest.id,
-          status: newStatus,
-        }),
+        body: JSON.stringify({ qrToken: guest.qrToken, action }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        console.error('[QTag] Check-in failed:', res.status, data);
+        console.error('[QTag] Toggle failed:', res.status, data);
+        setToggleErrorGuestId(guest.id);
+        setTimeout(() => setToggleErrorGuestId(null), 2000);
       }
     } catch (err) {
-      console.error('[QTag] Check-in error:', err);
-      // Flash error on button for 2 seconds
+      console.error('[QTag] Toggle error:', err);
       setToggleErrorGuestId(guest.id);
       setTimeout(() => setToggleErrorGuestId(null), 2000);
     } finally {
       togglingRef.current = false;
       setTogglingGuestId(null);
     }
-  }, [codeId]);
+  }, []);
 
   // Delete guest
   const handleDeleteClick = useCallback((guest: QTagGuest) => {

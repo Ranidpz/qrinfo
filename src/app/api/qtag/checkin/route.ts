@@ -26,9 +26,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (action !== 'query' && action !== 'checkin') {
+    if (action !== 'query' && action !== 'checkin' && action !== 'undo') {
       return NextResponse.json(
-        { error: 'Invalid action. Use "query" or "checkin"' },
+        { error: 'Invalid action. Use "query", "checkin", or "undo"' },
         { status: 400 }
       );
     }
@@ -196,6 +196,62 @@ export async function POST(request: NextRequest) {
         checkedInAt: result.alreadyArrived
           ? result.arrivedAt
           : new Date().toISOString(),
+      });
+    }
+
+    // Undo action - reverse check-in (set back to registered)
+    if (action === 'undo') {
+      if (guestData.status !== 'arrived') {
+        return NextResponse.json({
+          guest: {
+            id: guestDoc.id,
+            name: guestData.name,
+            phone: maskPhoneNumber(guestData.phone || ''),
+            status: guestData.status,
+          },
+          alreadyUndone: true,
+        });
+      }
+
+      await db.runTransaction(async (transaction) => {
+        const guestRef = db.collection('codes').doc(codeId!)
+          .collection('qtagGuests').doc(guestId!);
+        const statsRef = db.collection('codes').doc(codeId!)
+          .collection('qtagStats').doc('current');
+
+        const [freshDoc, statsDoc] = await Promise.all([
+          transaction.get(guestRef),
+          transaction.get(statsRef),
+        ]);
+
+        if (!freshDoc.exists) return;
+        const freshData = freshDoc.data()!;
+        if (freshData.status !== 'arrived') return;
+
+        transaction.update(guestRef, {
+          status: 'registered',
+          arrivedAt: null,
+          arrivedMarkedBy: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        if (statsDoc.exists) {
+          transaction.update(statsRef, {
+            totalArrived: FieldValue.increment(-1),
+            totalArrivedGuests: FieldValue.increment(-(1 + (freshData.plusOneCount || 0))),
+            lastUpdated: FieldValue.serverTimestamp(),
+          });
+        }
+      });
+
+      return NextResponse.json({
+        guest: {
+          id: guestDoc.id,
+          name: guestData.name,
+          phone: maskPhoneNumber(guestData.phone || ''),
+          status: 'registered',
+        },
+        success: true,
       });
     }
 
