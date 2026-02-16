@@ -2475,25 +2475,15 @@ export default function CodeEditPage({ params }: PageProps) {
         }
       }
 
-      // Upload logo if provided (compress client-side, then server processes further)
+      // Upload logo: always compress client-side as PNG to preserve transparency, then upload raw (no server-side Sharp)
       if (logoFile) {
-        let fileToUpload = logoFile;
-        if (logoFile.type.startsWith('image/') && logoFile.type !== 'image/gif') {
-          try {
-            const compressed = await compressImage(logoFile, { maxWidth: 400, maxHeight: 400, quality: 0.9, maxSizeKB: 500 });
-            fileToUpload = createCompressedFile(compressed, logoFile.name);
-          } catch (e) {
-            console.warn('Client-side compression failed, uploading original:', e);
-          }
-        }
+        const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
+        const fileToUpload = createCompressedFile(compressed, logoFile.name);
         const formData = new FormData();
         formData.append('file', fileToUpload);
         formData.append('userId', user.id);
         formData.append('codeId', code.id);
         formData.append('folder', 'qtag');
-        formData.append('convertToWebp', 'true');
-        formData.append('maxWidth', '400');
-        formData.append('quality', '90');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
@@ -2537,11 +2527,10 @@ export default function CodeEditPage({ params }: PageProps) {
 
       if (totalMediaSize > 0) {
         await updateUserStorage(user.id, totalMediaSize);
-        await refreshUser();
       }
 
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
-      setQtagModalOpen(false);
+      // Don't close modal — let user continue editing or close manually
     } catch (error) {
       console.error('Error saving Q.Tag:', error);
       alert(tErrors('createCodeError'));
