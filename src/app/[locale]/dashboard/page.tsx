@@ -881,7 +881,9 @@ export default function DashboardPage() {
 
       if (totalImageSize > 0) {
         await updateUserStorage(user.id, totalImageSize);
-        await refreshUser();
+        // Don't call refreshUser() here — it triggers useEffect([user]) which resets
+        // the entire page state (setCodes([]), setLoading(true)), closing the modal.
+        // Storage bar updates on next page load.
       }
 
       // Update editingQTagCode so modal preview stays in sync
