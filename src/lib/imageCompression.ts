@@ -50,8 +50,8 @@ export async function compressImage(
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const originalSize = file.size;
   const useWebP = supportsWebP();
-  // When preserving alpha, avoid JPEG (no alpha support) — use PNG as fallback
-  const format: 'webp' | 'jpeg' | 'png' = useWebP ? 'webp' : (opts.preserveAlpha ? 'png' : 'jpeg');
+  // When preserving alpha, always use PNG (lossless alpha). Canvas WebP encoding can degrade alpha at quality < 1.
+  const format: 'webp' | 'jpeg' | 'png' = opts.preserveAlpha ? 'png' : (useWebP ? 'webp' : 'jpeg');
   const mimeType = format === 'webp' ? 'image/webp' : (format === 'png' ? 'image/png' : 'image/jpeg');
 
   const canvas = document.createElement('canvas');

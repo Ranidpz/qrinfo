@@ -748,19 +748,13 @@ export default function DashboardPage() {
         }
       }
 
-      // Upload logo if provided (compress client-side first, then server processes)
-      // Logo keeps PNG format to preserve transparency (no convertToWebp)
+      // Upload logo: always compress client-side as PNG to preserve transparency, then upload raw (no server-side Sharp)
       if (logoFile) {
-        let fileToUpload: File = logoFile;
-        if (logoFile.size > 3 * 1024 * 1024) {
-          const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
-          fileToUpload = createCompressedFile(compressed, logoFile.name);
-        }
+        const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
+        const fileToUpload = createCompressedFile(compressed, logoFile.name);
         const formData = new FormData();
         formData.append('file', fileToUpload);
         formData.append('userId', user.id);
-        formData.append('maxWidth', '400');
-        formData.append('quality', '90');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
@@ -845,20 +839,15 @@ export default function DashboardPage() {
       }
 
       // Upload logo if provided (compress client-side first, then server processes)
-      // Logo keeps PNG format to preserve transparency (no convertToWebp)
+      // Upload logo: always compress client-side as PNG to preserve transparency, then upload raw (no server-side Sharp)
       if (logoFile) {
-        let fileToUpload: File = logoFile;
-        if (logoFile.size > 3 * 1024 * 1024) {
-          const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
-          fileToUpload = createCompressedFile(compressed, logoFile.name);
-        }
+        const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
+        const fileToUpload = createCompressedFile(compressed, logoFile.name);
         const formData = new FormData();
         formData.append('file', fileToUpload);
         formData.append('userId', user.id);
         formData.append('codeId', editingQTagCode.id);
         formData.append('folder', 'qtag');
-        formData.append('maxWidth', '400');
-        formData.append('quality', '90');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();

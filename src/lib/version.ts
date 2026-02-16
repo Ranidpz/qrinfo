@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.23';
+export const APP_VERSION = '1.12.24';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,15 +14,15 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.23',
+    version: '1.12.24',
     date: '2026-02-16',
     isNew: true,
     highlights: {
       he: [
-        'תיקון: לוגו שקוף נשמר בפורמט PNG (ללא המרה ל-WebP) לשמירת שקיפות',
+        'תיקון: לוגו שקוף נשמר כ-PNG (ללא המרה בצד השרת) לשמירת שקיפות מלאה',
       ],
       en: [
-        'Fix: Transparent logo kept as PNG (no WebP conversion) to preserve alpha',
+        'Fix: Transparent logo saved as PNG (no server-side conversion) for full alpha preservation',
       ],
     },
   },
