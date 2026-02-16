@@ -893,6 +893,8 @@ export default function DashboardPage() {
       alert(tErrors('updateCodeError') || 'Error updating');
     } finally {
       setAddingQTag(false);
+      // Force modal to stay open after edit — something unknown is closing it
+      setQtagModalOpen(true);
     }
   };
 
@@ -2347,6 +2349,7 @@ export default function DashboardPage() {
       <QTagModal
         isOpen={qtagModalOpen}
         onClose={() => {
+          console.trace('[QTag] onClose called');
           setQtagModalOpen(false);
           setEditingQTagCode(null);
         }}
