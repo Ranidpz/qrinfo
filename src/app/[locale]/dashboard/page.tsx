@@ -749,6 +749,7 @@ export default function DashboardPage() {
       }
 
       // Upload logo if provided (compress client-side first, then server processes)
+      // Logo keeps PNG format to preserve transparency (no convertToWebp)
       if (logoFile) {
         let fileToUpload: File = logoFile;
         if (logoFile.size > 3 * 1024 * 1024) {
@@ -758,7 +759,6 @@ export default function DashboardPage() {
         const formData = new FormData();
         formData.append('file', fileToUpload);
         formData.append('userId', user.id);
-        formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '400');
         formData.append('quality', '90');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -845,6 +845,7 @@ export default function DashboardPage() {
       }
 
       // Upload logo if provided (compress client-side first, then server processes)
+      // Logo keeps PNG format to preserve transparency (no convertToWebp)
       if (logoFile) {
         let fileToUpload: File = logoFile;
         if (logoFile.size > 3 * 1024 * 1024) {
@@ -856,7 +857,6 @@ export default function DashboardPage() {
         formData.append('userId', user.id);
         formData.append('codeId', editingQTagCode.id);
         formData.append('folder', 'qtag');
-        formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '400');
         formData.append('quality', '90');
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
