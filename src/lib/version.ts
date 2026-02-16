@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.27';
+export const APP_VERSION = '1.12.28';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,15 +14,17 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.27',
+    version: '1.12.28',
     date: '2026-02-16',
     isNew: true,
     highlights: {
       he: [
+        'שיפור: סליידר גודל לוגו עד פי 4',
         'תיקון: לוגו שקוף נשמר כ-PNG לשמירת שקיפות מלאה',
         'תיקון: מודאל הגדרות Q.Tag לא נסגר אחרי עדכון',
       ],
       en: [
+        'Improvement: Logo scale slider up to 4x',
         'Fix: Transparent logo saved as PNG for full alpha preservation',
         'Fix: Q.Tag settings modal stays open after update',
       ],

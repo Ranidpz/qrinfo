@@ -483,7 +483,7 @@ export default function QTagModal({ isOpen, onClose, onSave, loading, initialCon
                         <input
                           type="range"
                           min={0.3}
-                          max={2}
+                          max={4}
                           step={0.1}
                           value={config.branding.logoScale || 1}
                           onChange={(e) => updateBranding({ logoScale: Number(e.target.value) })}
@@ -726,7 +726,7 @@ function PhonePreview({
                 src={logoPreview}
                 alt=""
                 className="object-contain mb-3 drop-shadow-md max-w-[70%]"
-                style={{ maxHeight: `${56 * (branding.logoScale || 1)}px` }}
+                style={{ maxHeight: `${Math.min(56 * (branding.logoScale || 1), 160)}px` }}
               />
             )}
 

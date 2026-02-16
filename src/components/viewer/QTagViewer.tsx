@@ -676,6 +676,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
             className="object-contain drop-shadow-lg mb-6 max-w-[70%]"
             style={{
               maxHeight: `${120 * (branding.logoScale ?? 1)}px`,
+              maxWidth: '85%',
               animation: 'bounceIn 0.6s ease-out',
             }}
           />
@@ -1368,7 +1369,7 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
             src={branding.logoUrl}
             alt=""
             className="object-contain mb-6 max-w-[70%]"
-            style={{ maxHeight: `${100 * (branding.logoScale ?? 1)}px` }}
+            style={{ maxHeight: `${100 * (branding.logoScale ?? 1)}px`, maxWidth: '85%' }}
           />
         )}
 
