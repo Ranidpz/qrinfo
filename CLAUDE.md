@@ -55,7 +55,7 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - ES imports only, no `require()` (ESLint enforced)
 - `@/*` → `./src/*`
 - Dark mode: `dark` class on `<html>`
-- Image uploads: always `convertToWebp: true` via Sharp → Vercel Blob path `{userId}/{codeId}/{file}`. Users have storage quotas (see `STORAGE_LIMITS` in types).
+- Image uploads: `convertToWebp: true` via Sharp → Vercel Blob. Exception: logos with transparency — upload as PNG (no server-side Sharp) with `preserveAlpha: true` in `compressImage()`. Users have storage quotas (see `STORAGE_LIMITS` in types).
 - Firestore: `serverTimestamp()` for doc create, `Timestamp.now()` for nested objects
 - i18n: `useTranslations()` from next-intl. Both `en.json` and `he.json` must be updated together.
 
@@ -81,6 +81,9 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Vercel serverless: never use fire-and-forget (`.catch()` without `await`). Function terminates after response, killing background ops. Always `await` inside try-catch.
 - `fetchWithAuth` must use `onAuthStateChanged` (not `auth.currentUser` directly) — on mobile, Firebase Auth init is slow and `currentUser` is null during early interactions.
 - Mobile scanner UX: always `window.scrollTo({ top: 0 })` when switching view modes or opening modals — prevents user seeing a confusing mid-scroll position.
+- Q.Tag modal exists on BOTH `dashboard/page.tsx` AND `code/[id]/page.tsx` — each has its own save handler. Fixes must be applied to BOTH files.
+- Canvas `toBlob('image/webp', quality)` at quality < 1.0 destroys alpha. For transparent images, use PNG format. `compressImage({ preserveAlpha: true })` handles this.
+- `refreshUser()` creates a new user object reference → triggers `useEffect([user])` → resets page state. Don't call after modal saves.
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**
