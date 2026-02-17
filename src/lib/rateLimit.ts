@@ -102,8 +102,10 @@ export function getClientIp(request: Request): string {
 export const RATE_LIMITS = {
   // Upload: 10 uploads per minute
   UPLOAD: { maxRequests: 10, windowMs: 60 * 1000 },
-  // Gallery upload: 20 uploads per minute (smaller files)
+  // Gallery upload: 20 uploads per minute (smaller files, public/unauthenticated)
   GALLERY_UPLOAD: { maxRequests: 20, windowMs: 60 * 1000 },
+  // Bulk upload: 100 uploads per minute (admin bulk operations like Q.Vote candidates)
+  BULK_UPLOAD: { maxRequests: 100, windowMs: 60 * 1000 },
   // Delete: 30 deletes per minute
   DELETE: { maxRequests: 30, windowMs: 60 * 1000 },
   // General API: 100 requests per minute

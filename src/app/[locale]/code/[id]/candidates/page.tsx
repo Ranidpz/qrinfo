@@ -5,7 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { doc, getDoc, updateDoc, collection, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, createCandidate, deleteAllQVoteData, recalculateStats, resetAllVotes } from '@/lib/qvote';
+import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, createCandidate, bulkCreateCandidates, deleteAllQVoteData, recalculateStats, resetAllVotes } from '@/lib/qvote';
+import { uploadQueue } from '@/lib/uploadQueue';
+import type { BatchUploadProgress } from '@/lib/uploadQueue';
 import { QRCodeSVG } from 'qrcode.react';
 
 // Helper function to remove undefined values from objects (Firestore doesn't accept undefined)
@@ -269,8 +271,16 @@ export default function QVoteCandidatesPage() {
   // Bulk upload state
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [uploadProgress, setUploadProgress] = useState<{
+    phase: 'compressing' | 'uploading' | 'creating' | 'done';
+    current: number;
+    total: number;
+    succeeded: number;
+    failed: number;
+    failedFiles: string[];
+  }>({ phase: 'compressing', current: 0, total: 0, succeeded: 0, failed: 0, failedFiles: [] });
   const bulkUploadRef = useRef<HTMLInputElement>(null);
+  const MAX_BULK_UPLOAD = 100; // Max files per batch
 
   // Manual add state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -807,6 +817,12 @@ export default function QVoteCandidatesPage() {
     const files = Array.from(e.dataTransfer.files).filter((f) =>
       f.type.startsWith('image/')
     );
+    if (files.length > MAX_BULK_UPLOAD) {
+      alert(isRTL
+        ? `ניתן להעלות עד ${MAX_BULK_UPLOAD} קבצים בכל מנה. נבחרו ${files.length} קבצים.`
+        : `Maximum ${MAX_BULK_UPLOAD} files per batch. You selected ${files.length} files.`);
+      return;
+    }
     if (files.length > 0) {
       await handleBulkImageUpload(files);
     }
@@ -815,6 +831,12 @@ export default function QVoteCandidatesPage() {
   const handleBulkFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) {
+      if (files.length > MAX_BULK_UPLOAD) {
+        alert(isRTL
+          ? `ניתן להעלות עד ${MAX_BULK_UPLOAD} קבצים בכל מנה. נבחרו ${files.length} קבצים.`
+          : `Maximum ${MAX_BULK_UPLOAD} files per batch. You selected ${files.length} files.`);
+        return;
+      }
       await handleBulkImageUpload(files);
     }
     if (bulkUploadRef.current) {
@@ -826,76 +848,116 @@ export default function QVoteCandidatesPage() {
     if (uploadingImages) return;
 
     setUploadingImages(true);
-    setUploadProgress({ current: 0, total: files.length });
 
-    const newCandidates: Candidate[] = [];
+    // Phase 1: Compress all images
+    setUploadProgress({ phase: 'compressing', current: 0, total: files.length, succeeded: 0, failed: 0, failedFiles: [] });
+
+    const compressedItems: { formData: FormData; filename: string; originalIndex: number }[] = [];
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setUploadProgress({ current: i + 1, total: files.length });
-
+      setUploadProgress(prev => ({ ...prev, current: i + 1 }));
       try {
-        // Compress image before upload (target 300KB, max 1200px)
-        const compressed = await compressImage(file, { maxSizeKB: 300, maxWidth: 1200, maxHeight: 1200 });
-        const compressedFile = createCompressedFile(compressed, file.name);
-        console.log(`Compressed ${file.name}: ${formatBytes(compressed.originalSize)} → ${formatBytes(compressed.compressedSize)}`);
+        const compressed = await compressImage(files[i], { maxSizeKB: 300, maxWidth: 1200, maxHeight: 1200 });
+        const compressedFile = createCompressedFile(compressed, files[i].name);
+        console.log(`Compressed ${files[i].name}: ${formatBytes(compressed.originalSize)} → ${formatBytes(compressed.compressedSize)}`);
 
-        const formDataUpload = new FormData();
-        formDataUpload.append('file', compressedFile);
-        formDataUpload.append('codeId', codeId);
-        if (code?.ownerId) {
-          formDataUpload.append('ownerId', code.ownerId);
-        }
+        const formData = new FormData();
+        formData.append('file', compressedFile);
+        formData.append('codeId', codeId);
+        if (code?.ownerId) formData.append('ownerId', code.ownerId);
 
-        const response = await fetch('/api/qvote/upload', {
-          method: 'POST',
-          body: formDataUpload,
-        });
-
-        if (!response.ok) continue;
-
-        const data = await response.json();
-        const candidateName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-        const candidate = await createCandidate(codeId, {
-          source: 'producer',
-          name: candidateName,
-          formData: { name: candidateName },
-          photos: [{
-            id: data.id,
-            url: data.url,
-            thumbnailUrl: data.thumbnailUrl || data.url,
-            order: 0,
-            uploadedAt: new Date(),
-            size: data.size, // Store compressed file size
-          }],
-          isApproved: true,
-          isFinalist: false,
-          isHidden: false,
-          displayOrder: candidates.length + i,
-          // Add category if selected
-          ...(uploadCategoryId && {
-            categoryId: uploadCategoryId,
-            categoryIds: [uploadCategoryId],
-          }),
-        });
-
-        newCandidates.push(candidate);
+        compressedItems.push({ formData, filename: files[i].name, originalIndex: i });
       } catch (error) {
-        console.error(`Error processing ${file.name}:`, error);
+        console.error(`Compression failed for ${files[i].name}:`, error);
       }
     }
 
-    if (newCandidates.length > 0) {
-      setCandidates((prev) => {
-        // Filter out any duplicates based on ID
-        const existingIds = new Set(prev.map((c) => c.id));
-        const uniqueNew = newCandidates.filter((c) => !existingIds.has(c.id));
-        return [...prev, ...uniqueNew];
-      });
+    if (compressedItems.length === 0) {
+      setUploadingImages(false);
+      setUploadProgress({ phase: 'done', current: 0, total: files.length, succeeded: 0, failed: files.length, failedFiles: files.map(f => f.name) });
+      return;
     }
 
+    // Phase 2: Upload via queue (3 concurrent, auto-retry on 429)
+    setUploadProgress({ phase: 'uploading', current: 0, total: compressedItems.length, succeeded: 0, failed: 0, failedFiles: [] });
+
+    const uploadResults = await uploadQueue.uploadBatch(
+      compressedItems.map(item => ({ formData: item.formData, label: item.filename })),
+      '/api/qvote/upload',
+      (progress: BatchUploadProgress) => {
+        setUploadProgress(prev => ({
+          ...prev,
+          current: progress.completed + progress.failed,
+          succeeded: progress.completed,
+          failed: progress.failed,
+        }));
+      }
+    );
+
+    // Phase 3: Batch create candidates in Firestore
+    if (uploadResults.successful.length > 0) {
+      setUploadProgress(prev => ({ ...prev, phase: 'creating' }));
+
+      try {
+        const candidateData = uploadResults.successful.map(({ index, data }) => {
+          const item = compressedItems[index];
+          const candidateName = item.filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+          const uploadData = data as { id: string; url: string; thumbnailUrl?: string; size: number };
+
+          return {
+            source: 'producer' as const,
+            name: candidateName,
+            formData: { name: candidateName },
+            photos: [{
+              id: uploadData.id,
+              url: uploadData.url,
+              thumbnailUrl: uploadData.thumbnailUrl || uploadData.url,
+              order: 0,
+              uploadedAt: new Date(),
+              size: uploadData.size,
+            }],
+            isApproved: true,
+            isFinalist: false,
+            isHidden: false,
+            displayOrder: candidates.length + item.originalIndex,
+            ...(uploadCategoryId && {
+              categoryId: uploadCategoryId,
+              categoryIds: [uploadCategoryId],
+            }),
+          };
+        });
+
+        const result = await bulkCreateCandidates(codeId, candidateData);
+
+        if (result.candidates.length > 0) {
+          setCandidates((prev) => {
+            const existingIds = new Set(prev.map((c) => c.id));
+            const uniqueNew = result.candidates.filter((c) => !existingIds.has(c.id));
+            return [...prev, ...uniqueNew];
+          });
+        }
+      } catch (error) {
+        console.error('Batch candidate creation failed:', error);
+      }
+    }
+
+    // Phase 4: Done - show summary
+    const failedFiles = uploadResults.failed.map(f => f.label);
+    setUploadProgress({
+      phase: 'done',
+      current: compressedItems.length,
+      total: files.length,
+      succeeded: uploadResults.successful.length,
+      failed: uploadResults.failed.length,
+      failedFiles,
+    });
+
     setUploadingImages(false);
-    setUploadProgress({ current: 0, total: 0 });
+
+    // Auto-dismiss success after 5 seconds
+    if (failedFiles.length === 0) {
+      setTimeout(() => setUploadProgress(prev => prev.phase === 'done' ? { ...prev, phase: 'done', total: 0 } : prev), 5000);
+    }
   };
 
   // Bulk assign categories to selected candidates
@@ -1873,20 +1935,48 @@ export default function QVoteCandidatesPage() {
                 : 'border-border'
             }`}
           >
-            {uploadingImages ? (
+            {uploadingImages || (uploadProgress.phase === 'done' && uploadProgress.total > 0) ? (
               <div className="flex flex-col items-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-accent" />
+                {uploadProgress.phase !== 'done' && (
+                  <Loader2 className="w-8 h-8 animate-spin text-accent" />
+                )}
                 <p className="text-text-primary font-medium">
-                  {isRTL
-                    ? `מעלה ${uploadProgress.current} מתוך ${uploadProgress.total}...`
-                    : `Uploading ${uploadProgress.current} of ${uploadProgress.total}...`}
+                  {uploadProgress.phase === 'compressing' && (isRTL
+                    ? `דוחס תמונות... ${uploadProgress.current}/${uploadProgress.total}`
+                    : `Compressing... ${uploadProgress.current}/${uploadProgress.total}`)}
+                  {uploadProgress.phase === 'uploading' && (isRTL
+                    ? `מעלה... ${uploadProgress.current}/${uploadProgress.total}`
+                    : `Uploading... ${uploadProgress.current}/${uploadProgress.total}`)}
+                  {uploadProgress.phase === 'creating' && (isRTL
+                    ? 'יוצר מועמדים...'
+                    : 'Creating candidates...')}
+                  {uploadProgress.phase === 'done' && (isRTL
+                    ? `הועלו ${uploadProgress.succeeded} מתוך ${uploadProgress.total}`
+                    : `Uploaded ${uploadProgress.succeeded} of ${uploadProgress.total}`)}
                 </p>
-                <div className="w-full max-w-xs h-1.5 bg-bg-secondary rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent transition-all"
-                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-                  />
-                </div>
+                {uploadProgress.phase !== 'done' && uploadProgress.total > 0 && (
+                  <div className="w-full max-w-xs h-1.5 bg-bg-secondary rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-all"
+                      style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                    />
+                  </div>
+                )}
+                {uploadProgress.phase === 'done' && uploadProgress.failed > 0 && (
+                  <p className="text-red-500 text-sm">
+                    {isRTL
+                      ? `${uploadProgress.failed} קבצים נכשלו: ${uploadProgress.failedFiles.slice(0, 3).join(', ')}${uploadProgress.failedFiles.length > 3 ? '...' : ''}`
+                      : `${uploadProgress.failed} files failed: ${uploadProgress.failedFiles.slice(0, 3).join(', ')}${uploadProgress.failedFiles.length > 3 ? '...' : ''}`}
+                  </p>
+                )}
+                {uploadProgress.phase === 'done' && (
+                  <button
+                    onClick={() => setUploadProgress(prev => ({ ...prev, total: 0 }))}
+                    className="text-sm text-accent hover:underline"
+                  >
+                    {isRTL ? 'סגור' : 'Dismiss'}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4">

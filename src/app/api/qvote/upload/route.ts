@@ -22,9 +22,10 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limiting
     const clientIp = getClientIp(request);
-    const rateLimit = checkRateLimit(`qvote-upload:${clientIp}`, RATE_LIMITS.GALLERY_UPLOAD);
+    const rateLimit = checkRateLimit(`qvote-upload:${clientIp}`, RATE_LIMITS.BULK_UPLOAD);
 
     if (!rateLimit.success) {
+      const retryAfterSeconds = Math.max(Math.ceil((rateLimit.resetTime - Date.now()) / 1000), 1);
       return NextResponse.json(
         { error: 'Too many uploads. Try again in a minute.' },
         {
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
           headers: {
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': rateLimit.resetTime.toString(),
+            'Retry-After': retryAfterSeconds.toString(),
           }
         }
       );

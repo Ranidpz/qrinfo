@@ -13,6 +13,17 @@ interface QueuedUpload {
   reject: (error: Error) => void;
 }
 
+export interface BatchUploadProgress {
+  completed: number;
+  failed: number;
+  total: number;
+}
+
+export interface BatchUploadResult {
+  successful: { index: number; data: unknown }[];
+  failed: { index: number; label: string; error: string }[];
+}
+
 class UploadQueue {
   private queue: QueuedUpload[] = [];
   private activeUploads = 0;
@@ -41,6 +52,47 @@ class UploadQueue {
       this.queue.push(upload);
       this.processQueue();
     });
+  }
+
+  /**
+   * Upload a batch of files with progress tracking.
+   * All items are queued at once (3 concurrent, auto-retry on 429).
+   * Returns results for each item (success or failure).
+   */
+  async uploadBatch(
+    items: { formData: FormData; label: string }[],
+    endpoint: string,
+    onProgress?: (progress: BatchUploadProgress) => void,
+    maxRetries = 3
+  ): Promise<BatchUploadResult> {
+    let completed = 0;
+    let failed = 0;
+    const total = items.length;
+
+    const promises = items.map((item, index) =>
+      this.upload(item.formData, endpoint, maxRetries)
+        .then((data) => {
+          completed++;
+          onProgress?.({ completed, failed, total });
+          return { status: 'fulfilled' as const, index, data };
+        })
+        .catch((error: Error) => {
+          failed++;
+          onProgress?.({ completed, failed, total });
+          return { status: 'rejected' as const, index, label: item.label, error: error.message };
+        })
+    );
+
+    const results = await Promise.all(promises);
+
+    return {
+      successful: results
+        .filter((r): r is { status: 'fulfilled'; index: number; data: unknown } => r.status === 'fulfilled')
+        .map(({ index, data }) => ({ index, data })),
+      failed: results
+        .filter((r): r is { status: 'rejected'; index: number; label: string; error: string } => r.status === 'rejected')
+        .map(({ index, label, error }) => ({ index, label, error })),
+    };
   }
 
   /**
