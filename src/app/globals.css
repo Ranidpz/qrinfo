@@ -447,9 +447,8 @@ body {
   animation: qvote-shimmer 2s ease-in-out infinite;
 }
 
-/* QVote Swiper GPU acceleration for smoother animations */
+/* QVote Swiper - backface hidden prevents flickering during 3D transforms */
 .swiper-cards .swiper-slide {
-  will-change: transform;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }

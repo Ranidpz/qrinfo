@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.29';
+export const APP_VERSION = '1.12.30';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.29',
+    version: '1.12.30',
     date: '2026-02-17',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: דף הצבעה קורס במובייל עם 74+ מועמדים',
+        'תיקון: אנימציית כרטיסים נשברת בדסקטופ (מריחה)',
+        'שיפור: טעינה חכמה - רק תמונות קרובות נטענות לזיכרון',
+      ],
+      en: [
+        'Fix: Voting page crashes on mobile with 74+ candidates',
+        'Fix: Card animation glitches on desktop (smearing)',
+        'Improvement: Smart loading - only nearby images loaded to memory',
+      ],
+    },
+  },
+  {
+    version: '1.12.29',
+    date: '2026-02-17',
     highlights: {
       he: [
         'תיקון: העלאת מועמדים בכמות גדולה (74+) - כל הקבצים עולים בהצלחה',

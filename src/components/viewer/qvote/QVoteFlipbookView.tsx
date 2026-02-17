@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useRef, useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { EffectCards, Virtual } from 'swiper/modules';
+import { EffectCards } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
 import { Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import type { Candidate } from '@/types/qvote';
@@ -130,6 +130,8 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
             const hasTwoPhotos = photos.length === 2;
             const photo = photos[0];
             const isLoaded = loadedImages.has(candidate.id);
+            // Only render full content for nearby slides (±3) to save memory
+            const isNearby = Math.abs(index - currentIndex) <= 3;
 
             return (
               <SwiperSlide key={candidate.id} className="!flex items-center justify-center">
@@ -137,125 +139,136 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
                   onClick={() => handleSelect(candidate.id)}
                   className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl cursor-pointer transition-transform active:scale-[0.98]"
                   style={{
-                    backgroundColor: '#f3f4f6',
+                    backgroundColor: '#1f2937',
                     boxShadow: isSelected
                       ? `0 0 0 4px ${accentColor}, 0 25px 50px -12px rgba(0,0,0,0.4)`
                       : '0 25px 50px -12px rgba(0,0,0,0.25)',
                   }}
                 >
-                  {/* Loading spinner */}
-                  {!isLoaded && !hasTwoPhotos && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10">
-                      <div className="relative">
-                        <Loader2 className="w-16 h-16 animate-spin text-white/60" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-white/80 text-sm font-bold">
-                            {Math.round((loadedImages.size / candidates.length) * 100)}%
-                          </span>
+                  {isNearby ? (
+                    <>
+                      {/* Loading spinner */}
+                      {!isLoaded && !hasTwoPhotos && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10">
+                          <div className="relative">
+                            <Loader2 className="w-16 h-16 animate-spin text-white/60" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-white/80 text-sm font-bold">
+                                {Math.round((loadedImages.size / candidates.length) * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                          <p className="mt-4 text-white/70 text-sm font-medium">
+                            {isRTL ? 'טוען מועמדים...' : 'Loading candidates...'}
+                          </p>
                         </div>
+                      )}
+
+                      {/* Image */}
+                      <div className="absolute inset-0">
+                        {hasTwoPhotos ? (
+                          <QVoteBoomerangImage photos={photos} className="w-full h-full" enabled={isNearby} />
+                        ) : (
+                          <img
+                            src={photo?.thumbnailUrl || photo?.url}
+                            alt=""
+                            className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+                            onLoad={() => handleImageLoad(candidate.id)}
+                            loading="eager"
+                          />
+                        )}
                       </div>
-                      <p className="mt-4 text-white/70 text-sm font-medium">
-                        {isRTL ? 'טוען מועמדים...' : 'Loading candidates...'}
-                      </p>
-                    </div>
-                  )}
 
-                  {/* Image */}
-                  <div className="absolute inset-0">
-                    {hasTwoPhotos ? (
-                      <QVoteBoomerangImage photos={photos} className="w-full h-full" />
-                    ) : (
-                      <img
-                        src={photo?.thumbnailUrl || photo?.url}
-                        alt=""
-                        className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-                        onLoad={() => handleImageLoad(candidate.id)}
-                        loading={Math.abs(index - currentIndex) < 3 ? 'eager' : 'lazy'}
-                      />
-                    )}
-                  </div>
-
-                  {/* Selection indicator - green like submit button */}
-                  {isSelected && (
-                    <div
-                      className="absolute top-4 end-4 w-14 h-14 rounded-full flex items-center justify-center z-20 animate-qvote-check"
-                      style={{
-                        backgroundColor: '#22c55e',
-                        boxShadow: '0 4px 24px rgba(34, 197, 94, 0.5)',
-                      }}
-                    >
-                      <Check className="w-8 h-8 text-white" strokeWidth={3} />
-                    </div>
-                  )}
-
-                  {/* Tap hint on first slides */}
-                  {index < 2 && !hasVoted && !isSelected && (
-                    <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                      <div className="flex flex-col items-center gap-3 animate-pulse">
+                      {/* Selection indicator - green like submit button */}
+                      {isSelected && (
                         <div
-                          className="w-20 h-20 rounded-full border-3 flex items-center justify-center"
-                          style={{ borderColor: 'white', backgroundColor: 'rgba(0,0,0,0.3)' }}
-                        >
-                          <span className="text-4xl">👆</span>
-                        </div>
-                        <span className="text-white text-sm font-semibold px-4 py-2 rounded-full bg-black/50 backdrop-blur-sm">
-                          {isRTL ? 'לחצו לבחירה' : 'Tap to select'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Bottom info gradient - only show if there's real content */}
-                  {(() => {
-                    // Check if name looks like a real name (not a filename)
-                    const isRealName = candidate.name &&
-                      !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
-                      !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe)/i) &&
-                      !candidate.name.match(/^\d{5,}/) &&
-                      !candidate.name.match(/[_-]\d+$/);
-
-                    const hasContent = (showNames && isRealName) || showVoteCount;
-
-                    if (hasContent) {
-                      return (
-                        <div
-                          className="absolute bottom-0 inset-x-0 p-4 z-10"
+                          className="absolute top-4 end-4 w-14 h-14 rounded-full flex items-center justify-center z-20 animate-qvote-check"
                           style={{
-                            background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                            backgroundColor: '#22c55e',
+                            boxShadow: '0 4px 24px rgba(34, 197, 94, 0.5)',
                           }}
                         >
-                          <div className="flex items-end justify-between">
-                            <div className="flex-1 min-w-0">
-                              {showNames && isRealName && (
-                                <h3 className="text-white text-xl font-bold truncate drop-shadow-lg">
-                                  {candidate.name}
-                                </h3>
-                              )}
-                              {showVoteCount && (
-                                <p className="text-white/80 text-sm mt-0.5">
-                                  {isFinalsPhase ? candidate.finalsVoteCount : candidate.voteCount} {isRTL ? 'קולות' : 'votes'}
-                                </p>
-                              )}
-                            </div>
+                          <Check className="w-8 h-8 text-white" strokeWidth={3} />
+                        </div>
+                      )}
 
-                            {/* Counter */}
-                            <div className="text-white/90 text-sm font-semibold px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm">
+                      {/* Tap hint on first slides */}
+                      {index < 2 && !hasVoted && !isSelected && (
+                        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                          <div className="flex flex-col items-center gap-3 animate-pulse">
+                            <div
+                              className="w-20 h-20 rounded-full border-3 flex items-center justify-center"
+                              style={{ borderColor: 'white', backgroundColor: 'rgba(0,0,0,0.3)' }}
+                            >
+                              <span className="text-4xl">👆</span>
+                            </div>
+                            <span className="text-white text-sm font-semibold px-4 py-2 rounded-full bg-black/50 backdrop-blur-sm">
+                              {isRTL ? 'לחצו לבחירה' : 'Tap to select'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bottom info gradient - only show if there's real content */}
+                      {(() => {
+                        // Check if name looks like a real name (not a filename)
+                        const isRealName = candidate.name &&
+                          !candidate.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i) &&
+                          !candidate.name.match(/^(IMG|DSC|Photo|Screenshot|Firefly|Adobe)/i) &&
+                          !candidate.name.match(/^\d{5,}/) &&
+                          !candidate.name.match(/[_-]\d+$/);
+
+                        const hasContent = (showNames && isRealName) || showVoteCount;
+
+                        if (hasContent) {
+                          return (
+                            <div
+                              className="absolute bottom-0 inset-x-0 p-4 z-10"
+                              style={{
+                                background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                              }}
+                            >
+                              <div className="flex items-end justify-between">
+                                <div className="flex-1 min-w-0">
+                                  {showNames && isRealName && (
+                                    <h3 className="text-white text-xl font-bold truncate drop-shadow-lg">
+                                      {candidate.name}
+                                    </h3>
+                                  )}
+                                  {showVoteCount && (
+                                    <p className="text-white/80 text-sm mt-0.5">
+                                      {isFinalsPhase ? candidate.finalsVoteCount : candidate.voteCount} {isRTL ? 'קולות' : 'votes'}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Counter */}
+                                <div className="text-white/90 text-sm font-semibold px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm">
+                                  {index + 1} / {candidates.length}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        /* Counter only when no name/votes */
+                        return (
+                          <div className="absolute bottom-4 end-4 z-10">
+                            <div className="text-white/90 text-sm font-semibold px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
                               {index + 1} / {candidates.length}
                             </div>
                           </div>
-                        </div>
-                      );
-                    }
-
-                    /* Counter only when no name/votes */
-                    return (
-                      <div className="absolute bottom-4 end-4 z-10">
-                        <div className="text-white/90 text-sm font-semibold px-3 py-1.5 rounded-full bg-black/30 backdrop-blur-sm">
-                          {index + 1} / {candidates.length}
-                        </div>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    /* Placeholder for distant slides - lightweight, no images */
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-white/30 text-sm font-semibold">
+                        {index + 1} / {candidates.length}
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
                 </div>
               </SwiperSlide>
             );
