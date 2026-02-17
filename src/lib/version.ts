@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.28';
+export const APP_VERSION = '1.12.29';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.12.29',
+    date: '2026-02-17',
+    isNew: true,
+    highlights: {
+      he: [
+        'תיקון: העלאת מועמדים בכמות גדולה (74+) - כל הקבצים עולים בהצלחה',
+        'שיפור: העלאה מקבילית (3 בו-זמנית) עם retry אוטומטי',
+        'שיפור: מד התקדמות עם שלבים - דחיסה, העלאה, יצירת מועמדים',
+      ],
+      en: [
+        'Fix: Bulk candidate upload (74+) - all files upload successfully',
+        'Improvement: Parallel upload (3 concurrent) with auto-retry',
+        'Improvement: Phase-based progress - compress, upload, create candidates',
+      ],
+    },
+  },
+  {
     version: '1.12.28',
     date: '2026-02-16',
-    isNew: true,
     highlights: {
       he: [
         'שיפור: סליידר גודל לוגו עד פי 4',
