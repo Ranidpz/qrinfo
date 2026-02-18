@@ -655,6 +655,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
                 setShowVoteSuccessMessage(true);
                 const delay = config.tabletMode.resetDelaySeconds || 5;
                 setTabletResetCountdown(delay);
+                setSubmitting(false);
               } else {
                 // Go back to categories page
                 setSelectedCategory(null);
@@ -672,6 +673,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
             // Start tablet mode countdown if enabled (only for non-category voting)
             const delay = config.tabletMode.resetDelaySeconds || 5;
             setTabletResetCountdown(delay);
+            setSubmitting(false);
           }
         }
         return; // Success or handled, exit retry loop
@@ -754,6 +756,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   // Reset for next voter in tablet mode
   const resetForNextVoter = useCallback(() => {
     // Reset voting state
+    setSubmitting(false);
     setVotedCategories({});
     setSelectedCandidates([]);
     setTabletResetCountdown(null);

@@ -255,6 +255,7 @@ export default function QVoteCandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'finalists'>('all');
+  const [sortBy, setSortBy] = useState<'default' | 'votes'>('default');
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]); // Empty = all categories
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -509,7 +510,7 @@ export default function QVoteCandidatesPage() {
       return true;
     });
 
-    return deduped.filter((c) => {
+    const filtered = deduped.filter((c) => {
       // Status filter
       let passesFilter = true;
       switch (filter) {
@@ -538,7 +539,12 @@ export default function QVoteCandidatesPage() {
       if (!searchQuery) return true;
       return getCandidateSearchText(c).includes(searchQuery.toLowerCase());
     });
-  }, [candidates, filter, categoryFilter, searchQuery]);
+
+    if (sortBy === 'votes') {
+      return [...filtered].sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0));
+    }
+    return filtered;
+  }, [candidates, filter, categoryFilter, searchQuery, sortBy]);
 
   // Actions
   const handleApprove = async (candidateId: string, approve: boolean) => {
@@ -1785,6 +1791,20 @@ export default function QVoteCandidatesPage() {
                   <List className="w-5 h-5" />
                 </button>
               </div>
+
+              {/* Sort by votes toggle */}
+              <button
+                onClick={() => setSortBy(prev => prev === 'default' ? 'votes' : 'default')}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                  sortBy === 'votes'
+                    ? 'bg-amber-500 text-white shadow-md'
+                    : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-hover'
+                }`}
+                title={isRTL ? 'מיון לפי קולות' : 'Sort by votes'}
+              >
+                <Trophy className="w-4 h-4" />
+                {isRTL ? 'דירוג' : 'Rank'}
+              </button>
 
               {/* Filter Pills */}
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
