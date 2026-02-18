@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.31';
+export const APP_VERSION = '1.12.32';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.31',
+    version: '1.12.32',
     date: '2026-02-18',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: מצב טאבלט/קיוסק - הצבעה חוזרת עובדת ללא תקיעה',
+        'תיקון: שרת מאפשר הצבעות חוזרות ממכשיר אחד במצב טאבלט',
+        'חדש: כפתור מיון לפי קולות בדף ניהול מועמדים',
+      ],
+      en: [
+        'Fix: Tablet/kiosk mode - repeat voting works without getting stuck',
+        'Fix: Server allows repeat votes from same device in tablet mode',
+        'New: Sort by votes button on candidates management page',
+      ],
+    },
+  },
+  {
+    version: '1.12.31',
+    date: '2026-02-18',
     highlights: {
       he: [
         'אמינות: הצבעה עם retry אוטומטי שקוף - לא מפספסים הצבעות',

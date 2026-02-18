@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
     const qvoteMedia = media?.find((m) => m.type === 'qvote');
     const qvoteConfig = qvoteMedia?.qvoteConfig as Record<string, unknown> | undefined;
     const verificationConfig = qvoteConfig?.verification as Record<string, unknown> | undefined;
+    const tabletModeConfig = qvoteConfig?.tabletMode as Record<string, unknown> | undefined;
+    const isTabletMode = tabletModeConfig?.enabled === true;
 
     // --- Fix 4: Validate voting phase ---
     const currentPhase = qvoteConfig?.currentPhase;
@@ -248,8 +250,8 @@ export async function POST(request: NextRequest) {
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
-    } else {
-      // --- Anonymous voting: check fingerprint for dedup ---
+    } else if (!isTabletMode) {
+      // --- Anonymous voting: check fingerprint for dedup (skip in tablet mode) ---
       const fingerprintVote = await db.collection('codes').doc(codeId)
         .collection('votes')
         .where('fingerprint', '==', fingerprint)

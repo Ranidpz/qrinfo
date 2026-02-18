@@ -6,7 +6,7 @@ import { onSnapshot, collection, query, where, orderBy, doc } from 'firebase/fir
 import { db } from '@/lib/firebase';
 import { getCandidates, getVoterVotes, createCandidate } from '@/lib/qvote';
 import { MediaItem } from '@/types';
-import { getOrCreateVisitorId } from '@/lib/xp';
+import { getOrCreateVisitorId, generateVisitorId, VISITOR_ID_KEY } from '@/lib/xp';
 import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
 import { getBrowserLocale } from '@/lib/publicTranslations';
 import { Check, Loader2, Vote, Camera, ChevronLeft, ChevronRight, Trophy, Clock, Users, X, Plus, Trash2, UserPlus, Shield, Move } from 'lucide-react';
@@ -774,6 +774,9 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       const storageKey = `qvote-verification-${codeId}`;
       localStorage.removeItem(storageKey);
     }
+
+    // Generate new visitorId for next voter (prevents vote document ID collisions)
+    localStorage.setItem(VISITOR_ID_KEY, generateVisitorId());
 
     // Return to landing page for next voter
     setShowLanding(true);
