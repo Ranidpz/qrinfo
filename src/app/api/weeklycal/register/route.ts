@@ -5,7 +5,6 @@ import {
   getDocs,
   getDoc,
   setDoc,
-  deleteDoc,
   query,
   where,
   serverTimestamp,
@@ -254,9 +253,10 @@ export async function POST(request: NextRequest) {
           console.error('WeeklyCal RSVP: Failed to create qrTokenMapping:', mappingError);
         }
       } else {
-        // Unregister from the cell
+        // Unregister from the cell (use Admin SDK to bypass rules)
         console.log('WeeklyCal RSVP: Unregistering');
-        await deleteDoc(registrationRef);
+        const adminDb = getAdminDb();
+        await adminDb.collection('codes').doc(codeId).collection('cellRegistrations').doc(registrationId).delete();
         console.log('WeeklyCal RSVP: Unregistration complete');
       }
     } catch (writeError) {
@@ -602,7 +602,9 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    await deleteDoc(registrationRef);
+    // Use Admin SDK for delete (rules lock client-side delete)
+    const adminDb = getAdminDb();
+    await adminDb.collection('codes').doc(codeId).collection('cellRegistrations').doc(registrationId).delete();
 
     return NextResponse.json({ success: true });
   } catch (error) {

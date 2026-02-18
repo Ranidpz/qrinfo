@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart, Package, Smartphone, CreditCard, TrendingUp, Camera, ScanLine, Gift, Monitor, ClipboardList, HelpCircle, Drama } from 'lucide-react';
+import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart, Package, Smartphone, CreditCard, TrendingUp, HelpCircle, Drama } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -65,7 +65,7 @@ const navItems: NavItem[] = [
   { href: '/guide', icon: HelpCircle, labelKey: 'guide' },
   { href: '/marketing', icon: QrCode, labelKey: 'whatIsQ', dividerBefore: true },
   { href: '/costume-competition', icon: Drama, labelKey: 'costumeCompetition' },
-  { href: '#qtag', icon: Ticket, labelKey: 'qtag', badge: 'comingSoon', disabled: true, dividerBefore: true },
+  { href: '/qtag', icon: Ticket, labelKey: 'qtag', dividerBefore: true },
   { href: '#qorder', icon: ShoppingCart, labelKey: 'qOrder', badge: 'comingSoon', disabled: true },
   { href: '/admin/users', icon: Users, labelKey: 'userManagement', roles: ['super_admin'], dividerBefore: true },
 ];
@@ -85,7 +85,6 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
   const tCommon = useTranslations('common');
   const tNotifications = useTranslations('notifications');
   const tQOrder = useTranslations('qOrderModal');
-  const tQTag = useTranslations('qTagModal');
 
   // Notification state
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -94,7 +93,6 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
 
   // Coming Soon modal states
   const [showQOrderModal, setShowQOrderModal] = useState(false);
-  const [showQTagModal, setShowQTagModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -295,7 +293,6 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
                       <button
                         onClick={() => {
                           if (item.labelKey === 'qOrder') setShowQOrderModal(true);
-                          if (item.labelKey === 'qtag') setShowQTagModal(true);
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary opacity-70 hover:opacity-100 hover:bg-bg-hover/50 transition-all cursor-pointer"
                       >
@@ -661,91 +658,6 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
         </div>
       )}
 
-      {/* Q.Tag Coming Soon Modal */}
-      {showQTagModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-bg-secondary rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            {/* Header with gradient */}
-            <div className="relative bg-gradient-to-br from-orange-500 via-pink-500 to-purple-600 p-6 text-center">
-              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRjMC0yIDItNCAyLTRzLTItMi00LTJjLTIgMC00IDItNCAyczIgMiA0IDJjMiAwIDQtMiA0LTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30"></div>
-              <div className="relative">
-                <div className="w-20 h-20 mx-auto mb-4 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                  <Ticket className="w-10 h-10 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold text-white mb-1">Q.Tag</h2>
-                <p className="text-white/80 text-sm">{tQTag('subtitle')}</p>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              <p className="text-text-primary text-center mb-6 leading-relaxed">
-                {tQTag('description')}
-              </p>
-
-              {/* Features list */}
-              <div className="space-y-2.5 mb-6">
-                <div className="flex items-center gap-3 text-text-secondary">
-                  <div className="w-7 h-7 rounded-full bg-orange-500/10 flex items-center justify-center shrink-0">
-                    <Camera className="w-3.5 h-3.5 text-orange-500" />
-                  </div>
-                  <span className="text-sm">{tQTag('feature1')}</span>
-                </div>
-                <div className="flex items-center gap-3 text-text-secondary">
-                  <div className="w-7 h-7 rounded-full bg-pink-500/10 flex items-center justify-center shrink-0">
-                    <ScanLine className="w-3.5 h-3.5 text-pink-500" />
-                  </div>
-                  <span className="text-sm">{tQTag('feature2')}</span>
-                </div>
-                <div className="flex items-center gap-3 text-text-secondary">
-                  <div className="w-7 h-7 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
-                    <Gift className="w-3.5 h-3.5 text-purple-500" />
-                  </div>
-                  <span className="text-sm">{tQTag('feature3')}</span>
-                </div>
-                <div className="flex items-center gap-3 text-text-secondary">
-                  <div className="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
-                    <ClipboardList className="w-3.5 h-3.5 text-blue-500" />
-                  </div>
-                  <span className="text-sm">{tQTag('feature4')}</span>
-                </div>
-                <div className="flex items-center gap-3 text-text-secondary">
-                  <div className="w-7 h-7 rounded-full bg-cyan-500/10 flex items-center justify-center shrink-0">
-                    <Monitor className="w-3.5 h-3.5 text-cyan-500" />
-                  </div>
-                  <span className="text-sm">{tQTag('feature5')}</span>
-                </div>
-              </div>
-
-              {/* Coming Soon badge */}
-              <div className="text-center mb-4">
-                <span className="inline-block px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold text-sm animate-pulse">
-                  {tCommon('comingSoon')}
-                </span>
-              </div>
-
-              {/* WhatsApp Contact Button */}
-              <a
-                href="https://wa.me/972773006306"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-medium transition-colors mb-3"
-              >
-                <WhatsAppIcon className="w-5 h-5" />
-                <span>{tQTag('contact')}</span>
-              </a>
-
-              {/* Close button */}
-              <button
-                onClick={() => setShowQTagModal(false)}
-                className="w-full py-3 rounded-xl bg-bg-hover hover:bg-bg-primary text-text-primary font-medium transition-colors"
-              >
-                {tCommon('close')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

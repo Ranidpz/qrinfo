@@ -66,9 +66,8 @@ service cloud.firestore {
             get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
             isAdmin()
           ));
-        // Anyone can delete a registration (document ID contains visitorId which is the secret)
-        // The API validates visitorId before calling delete
-        allow delete: if true;
+        // Deletes only via Admin SDK (API route validates ownership)
+        allow delete: if false;
       }
 
       // Q.Hunt Players subcollection
@@ -224,8 +223,8 @@ service cloud.firestore {
       allow read: if false;
       allow create: if false;
       allow update: if false;
-      // Only authenticated users can delete (during vote reset)
-      allow delete: if request.auth != null;
+      // Deletes only via Admin SDK (vote reset API route)
+      allow delete: if false;
     }
 
     // VerificationCodes collection (OTP codes for Q.Vote)
@@ -234,8 +233,8 @@ service cloud.firestore {
       allow read: if false;
       allow create: if false;
       allow update: if false;
-      // Only authenticated users can delete (during vote reset)
-      allow delete: if request.auth != null;
+      // Deletes only via Admin SDK (vote reset API route)
+      allow delete: if false;
     }
 
     // RateLimits collection (for OTP rate limiting)

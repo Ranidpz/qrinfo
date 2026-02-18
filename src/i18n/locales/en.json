@@ -78,7 +78,8 @@
       "analytics": "Analytics",
       "gamification": "Gamification",
       "sharing": "Sharing & Distribution",
-      "tipsAndTricks": "Tips & Tricks"
+      "tipsAndTricks": "Tips & Tricks",
+      "qtag": "Q.Tag - Event Registration"
     },
     "questions": {
       "createFirstCode": "How do I create my first QR code?",
@@ -239,7 +240,20 @@
       "imagePositioningAnswer": "When uploading images (landing image, candidates, categories), click the position button to adjust the image. The tool allows dragging and zooming to choose which part of the image will be displayed. You can switch between device previews (mobile, tablet, kiosk) to see how the image will look on each.",
 
       "imageSafeZone": "What is the \"safe zone\" in images?",
-      "imageSafeZoneAnswer": "The safe zone is the central part of the image that is guaranteed to be visible on all devices. Important content like logos, text, or faces should be placed in this area. In the positioning tool, the safe zone is marked with a dashed green border, and areas that may be cropped are darkened."
+      "imageSafeZoneAnswer": "The safe zone is the central part of the image that is guaranteed to be visible on all devices. Important content like logos, text, or faces should be placed in this area. In the positioning tool, the safe zone is marked with a dashed green border, and areas that may be cropped are darkened.",
+
+      "whatIsQtag": "What is Q.Tag?",
+      "whatIsQtagAnswer": "Q.Tag is a smart registration and check-in system for events. Guests register through an online form, receive a personal QR code via WhatsApp, and at the event the scanner identifies them instantly. Includes real-time guest management, arrival statistics, and support for plus-ones (+1).",
+      "setupQtagEvent": "How do I set up a Q.Tag event?",
+      "setupQtagEventAnswer": "Create a new code and select \"Q.Tag\". Set up event details: name, date, time, and location. In the \"Branding\" tab customize the design - background, logo, colors, and style. In the \"Settings\" tab set registration limits, plus-ones, and scanner PIN code.",
+      "qtagPhoneVerification": "How does phone verification work?",
+      "qtagPhoneVerificationAnswer": "When you enable \"Phone Verification\" in settings, guests enter their phone number during registration and receive a verification code via WhatsApp. Registration only completes after successful verification. This prevents duplicate registrations and ensures real phone numbers.",
+      "qtagScanner": "How do I use the check-in scanner?",
+      "qtagScannerAnswer": "Click \"Scanner\" on the Q.Tag management page. Point the camera at the guest's QR code - the system identifies them instantly and shows their details. You can protect the scanner with a PIN code. There's also manual check-in and quick guest addition.",
+      "qtagGuestManagement": "How do I manage the guest list?",
+      "qtagGuestManagementAnswer": "On the Q.Tag management page click \"Guest Management\". You'll see all registered guests with real-time status (registered/arrived/cancelled). You can search, filter by status, undo check-in, delete guests, and export to Excel.",
+      "qtagWhatsAppQR": "How do I send QR via WhatsApp?",
+      "qtagWhatsAppQRAnswer": "When a guest registers with phone verification, they automatically receive a QR link via WhatsApp. You can also resend from the guest management page - click \"Send QR via WhatsApp\" next to the guest's name."
     }
   },
   "sidebar": {
@@ -1017,6 +1031,125 @@
     "feature4": "Documentation and analytics on visitors and usage",
     "feature5": "Animated gallery screen of visitors (optional)",
     "contact": "For details and early registration"
+  },
+  "qtagMarketing": {
+    "meta": {
+      "title": "Q.Tag - Smart Event Registration | The Q",
+      "description": "Digital event registration system - custom signup page, QR check-in, real-time tracking and scanner sharing with staff"
+    },
+    "header": {
+      "backToDashboard": "Back to Dashboard",
+      "cta": "Create Event"
+    },
+    "hero": {
+      "title": "Smart Event Registration",
+      "subtitle": "End-to-end digital registration system",
+      "description": "Create a branded registration page for your event in minutes, send QR codes to guests via WhatsApp, scan at the door and know exactly how many people are inside",
+      "cta": "Create Your First Event",
+      "ctaSecondary": "Learn More",
+      "trust1": "Real-time Tracking",
+      "trust2": "WhatsApp QR Delivery",
+      "trust3": "Secure Scanning"
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "subtitle": "From event setup to door scanning — in 4 simple steps",
+      "steps": [
+        {
+          "number": "01",
+          "title": "Create Your Event",
+          "description": "Set name, date and location. Design your registration page with your logo and brand colors"
+        },
+        {
+          "number": "02",
+          "title": "Share the Link",
+          "description": "Send the registration link via WhatsApp, social media, or embed it on your website"
+        },
+        {
+          "number": "03",
+          "title": "Guests Register",
+          "description": "Registration includes name, phone, optional selfie and WhatsApp verification. Each guest gets a personal QR"
+        },
+        {
+          "number": "04",
+          "title": "Scan at the Door",
+          "description": "Scan each guest's QR at entry. See in real-time how many have arrived"
+        }
+      ]
+    },
+    "features": {
+      "title": "Everything You Need for a Successful Event",
+      "subtitle": "A complete registration system with tools you actually need",
+      "items": [
+        {
+          "title": "Selfie or Anonymous Registration",
+          "description": "Guests register with a photo and name, or anonymously — you choose"
+        },
+        {
+          "title": "Personal QR for Each Guest",
+          "description": "Every guest receives a unique QR code sent directly to their WhatsApp"
+        },
+        {
+          "title": "Check-in Scanning with Timestamp",
+          "description": "Fast QR scanning at entry with precise date and time documentation"
+        },
+        {
+          "title": "Share Scanners with Security Code",
+          "description": "Share scanning access with hostesses and staff — they get a PIN-secured link, no app needed"
+        },
+        {
+          "title": "Real-time Dashboard",
+          "description": "Know at any moment how many people have entered, how many registered and how many with plus-ones"
+        },
+        {
+          "title": "Plus-One Management",
+          "description": "Guests can register companions with name and details — everything documented and managed"
+        },
+        {
+          "title": "Analytics & Documentation",
+          "description": "Excel export, arrival statistics, peak times and full event analysis"
+        },
+        {
+          "title": "Guest Photo Gallery",
+          "description": "Enable an animated gallery displaying registered guests — perfect for an entrance screen"
+        }
+      ]
+    },
+    "highlights": {
+      "scanner": {
+        "title": "Share Scanners with Your Team",
+        "description": "No app download needed. Send hostesses a secure PIN-protected link — they scan from their phone and you see data in real-time",
+        "points": [
+          "Scan link with PIN — no app installation",
+          "Each scan is tagged to the scanner operator",
+          "Set up as many scanners as you need"
+        ]
+      },
+      "dashboard": {
+        "title": "Know Exactly What's Happening at Your Event",
+        "description": "While the event is running, you see exactly how many people are inside, who arrived and when, and how many more are expected",
+        "points": [
+          "Real-time arrival counter",
+          "Guest list with arrival status",
+          "Full report export to Excel in one click"
+        ]
+      }
+    },
+    "community": {
+      "title": "How Do You Build Event Registration Today?",
+      "subtitle": "We'd love to hear from you! Tell us how you manage registration and check-in at your events, and we'll show you how Q.Tag can help",
+      "cta": "Tell Us on WhatsApp"
+    },
+    "cta": {
+      "title": "Ready to Upgrade Your Event Registration?",
+      "subtitle": "Create your first event for free and start receiving registrations in minutes",
+      "button": "Create Event Now",
+      "whatsapp": "Questions? Talk to us"
+    },
+    "footer": {
+      "product": "The Q - One Code. Endless Experiences",
+      "backToDashboard": "Back to Dashboard"
+    }
   },
   "verification": {
     "title": "Phone Verification",

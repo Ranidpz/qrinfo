@@ -34,8 +34,8 @@ import { fetchWithAuth } from '@/lib/fetchWithAuth';
 const res = await fetchWithAuth('/api/some-endpoint?codeId=xxx');
 ```
 
-### Locked collections (writes ONLY via Admin SDK)
-`votes`, `verifiedVoters`, `verificationCodes`, `rateLimits` - client create = `if false`
+### Locked collections (ALL client writes = `if false`, Admin SDK only)
+`votes`, `verifiedVoters`, `verificationCodes`, `rateLimits`, `qtagGuests`, `qtagStats`, `cellRegistrations` (delete)
 
 ### Phone numbers
 Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPhoneNumber()` in API responses.
@@ -45,6 +45,13 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Rate limiting: in-memory (`src/lib/rateLimit.ts`) resets per serverless instance. Use Firestore-based for critical paths.
 - WhatsApp/SMS API available via `src/lib/inforu.ts` (INFORU provider). Used for OTP verification and Q.Tag QR delivery.
 - Q.Tag WhatsApp QR: `src/lib/qtag-whatsapp.ts` sends entry QR link after registration. Template: `qtag_registration` (UTILITY). Cross-device: `/v/{shortId}?token={qrToken}`.
+
+### Backup & Disaster Recovery (Production - `qrinfo-905c9`)
+- **PITR** enabled (7-day point-in-time recovery, restore to any minute)
+- **Scheduled backups**: daily (7d retention) + weekly on Sunday (14w retention)
+- **Database delete protection** enabled (prevents accidental DB deletion)
+- Manage via REST API (no gcloud CLI installed): use Firebase refresh token from `~/.config/configstore/firebase-tools.json`
+- Verify: `GET https://firestore.googleapis.com/v1/projects/qrinfo-905c9/databases/(default)/backupSchedules`
 
 ## Routing rules
 - `/v/`, `/gallery/`, `/lobby/`, `/packs/` - public, NO locale prefix (excluded from i18n middleware)
@@ -84,6 +91,7 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Q.Tag modal exists on BOTH `dashboard/page.tsx` AND `code/[id]/page.tsx` — each has its own save handler. Fixes must be applied to BOTH files.
 - Canvas `toBlob('image/webp', quality)` at quality < 1.0 destroys alpha. For transparent images, use PNG format. `compressImage({ preserveAlpha: true })` handles this.
 - `refreshUser()` creates a new user object reference → triggers `useEffect([user])` → resets page state. Don't call after modal saves.
+- Q.Vote tablet/kiosk mode: vote API MUST skip fingerprint dedup when `tabletMode.enabled` (same device = same fingerprint). Client `resetForNextVoter` MUST regenerate `visitorId` in localStorage (prevents vote doc ID collisions). ALL success paths in `submitVoteWithCredentials` MUST call `setSubmitting(false)` before starting the tablet countdown.
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**

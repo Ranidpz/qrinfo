@@ -137,6 +137,15 @@ export default function DashboardPage() {
     }
   }, [searchParams]);
 
+  // Handle ?create=qtag param from Q.Tag marketing page
+  useEffect(() => {
+    const createParam = searchParams.get('create');
+    if (createParam === 'qtag') {
+      setQtagModalOpen(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [searchParams]);
+
   // Load user's codes, folders and owner names (or global codes for guests)
   useEffect(() => {
     // Reset state when user changes (login/logout)
