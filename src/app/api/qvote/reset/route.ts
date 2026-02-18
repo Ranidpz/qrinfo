@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteAllQVoteData, recalculateStats } from '@/lib/qvote';
+import { resetAllVotesAdmin, deleteAllQVoteDataAdmin, recalculateStatsAdmin } from '@/lib/qvote-admin';
 import { getQRCodeByShortId } from '@/lib/db';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 
-// POST: Reset all Q.Vote data (candidates and votes) for a code
+// POST: Reset Q.Vote data for a code
+// mode: 'reset_votes' = keep candidates, clear votes + stats
+// mode: 'delete_all' = delete everything (candidates + votes)
 export async function POST(request: NextRequest) {
   try {
-    const { codeId, shortId, confirmReset } = await request.json();
+    const { codeId, shortId, confirmReset, mode = 'delete_all' } = await request.json();
 
     // Require explicit confirmation
     if (confirmReset !== 'DELETE_ALL_DATA') {
@@ -41,26 +43,33 @@ export async function POST(request: NextRequest) {
     const auth = await requireCodeOwner(request, actualCodeId);
     if (isAuthError(auth)) return auth.response;
 
-    console.log(`[QVote Reset] User ${auth.uid} deleting all data for code: ${actualCodeId}`);
+    if (mode === 'reset_votes') {
+      console.log(`[QVote Reset] User ${auth.uid} resetting votes for code: ${actualCodeId}`);
+      const result = await resetAllVotesAdmin(actualCodeId);
+      console.log(`[QVote Reset] Successfully reset ${result.deletedVotes} votes for code: ${actualCodeId}`);
 
-    // Delete all candidates and votes
-    await deleteAllQVoteData(actualCodeId);
+      return NextResponse.json({
+        success: true,
+        message: 'All votes have been reset',
+        deletedVotes: result.deletedVotes,
+        codeId: actualCodeId,
+      });
+    } else {
+      console.log(`[QVote Reset] User ${auth.uid} deleting all data for code: ${actualCodeId}`);
+      await deleteAllQVoteDataAdmin(actualCodeId);
+      await recalculateStatsAdmin(actualCodeId);
+      console.log(`[QVote Reset] Successfully deleted all data for code: ${actualCodeId}`);
 
-    // Recalculate stats (will be 0s)
-    await recalculateStats(actualCodeId);
-
-    console.log(`[QVote Reset] Successfully deleted all data for code: ${actualCodeId}`);
-
-    return NextResponse.json({
-      success: true,
-      message: 'All Q.Vote data has been deleted',
-      codeId: actualCodeId,
-    });
+      return NextResponse.json({
+        success: true,
+        message: 'All Q.Vote data has been deleted',
+        codeId: actualCodeId,
+      });
+    }
   } catch (error) {
     console.error('Q.Vote reset error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to reset Q.Vote data', details: errorMessage },
+      { error: 'Failed to reset Q.Vote data' },
       { status: 500 }
     );
   }

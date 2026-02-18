@@ -369,7 +369,7 @@ export default function MediaUploader({
     badge?: string;
     tooltip?: string;
   }) => (
-    <div className="relative">
+    <div className="relative min-w-0">
       {badge && (
         <span className="absolute -top-1 -right-1 sm:-top-2 sm:-left-2 sm:right-auto z-20 px-1.5 sm:px-3 py-0.5 text-[10px] sm:text-[15px] font-bold rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg whitespace-nowrap animate-pulse border border-white/20">
           ✨{badge}
@@ -379,14 +379,14 @@ export default function MediaUploader({
         onClick={() => setActiveTab(tab)}
         title={tooltip}
         className={clsx(
-          'w-full flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-lg text-xs font-medium transition-all border',
+          'w-full h-full flex flex-col items-center justify-center gap-1 py-2.5 px-1 sm:px-2 rounded-lg text-xs font-medium transition-all border overflow-hidden',
           activeTab === tab
             ? 'bg-accent text-white border-accent shadow-md'
             : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50 hover:text-accent'
         )}
       >
-        <Icon className="w-4 h-4" />
-        <span className="truncate">{label}</span>
+        <Icon className="w-4 h-4 shrink-0" />
+        <span className="w-full text-center line-clamp-2 leading-tight">{label}</span>
       </button>
     </div>
   );

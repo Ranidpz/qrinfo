@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { doc, getDoc, updateDoc, collection, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, createCandidate, bulkCreateCandidates, deleteAllQVoteData, recalculateStats, resetAllVotes } from '@/lib/qvote';
+import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, createCandidate, bulkCreateCandidates } from '@/lib/qvote';
 import { uploadQueue } from '@/lib/uploadQueue';
 import type { BatchUploadProgress } from '@/lib/uploadQueue';
 import { QRCodeSVG } from 'qrcode.react';
@@ -618,8 +618,15 @@ export default function QVoteCandidatesPage() {
 
     setDeletingAll(true);
     try {
-      await deleteAllQVoteData(codeId);
-      await recalculateStats(codeId);
+      const res = await fetchWithAuth('/api/qvote/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, confirmReset: 'DELETE_ALL_DATA', mode: 'delete_all' }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete');
+      }
       setCandidates([]);
       setSelectedCandidates([]);
       setShowDangerZone(false);
@@ -712,11 +719,18 @@ export default function QVoteCandidatesPage() {
 
     setResettingVotes(true);
     try {
-      const result = await resetAllVotes(codeId);
+      const res = await fetchWithAuth('/api/qvote/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, confirmReset: 'DELETE_ALL_DATA', mode: 'reset_votes' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset votes');
       alert(isRTL
-        ? `${result.deletedVotes} הצבעות נמחקו. ניתן להצביע מחדש.`
-        : `${result.deletedVotes} votes deleted. Voting can start again.`
+        ? `${data.deletedVotes} הצבעות נמחקו. ניתן להצביע מחדש.`
+        : `${data.deletedVotes} votes deleted. Voting can start again.`
       );
+      await refreshCandidates();
     } catch (error) {
       console.error('Error resetting votes:', error);
       alert(isRTL ? 'שגיאה באיפוס ההצבעות' : 'Error resetting votes');
@@ -3097,8 +3111,14 @@ export default function QVoteCandidatesPage() {
 
                   setResettingVotes(true);
                   try {
-                    const result = await resetAllVotes(codeId);
-                    console.log(`Reset ${result.deletedVotes} votes`);
+                    const res = await fetchWithAuth('/api/qvote/reset', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ codeId, confirmReset: 'DELETE_ALL_DATA', mode: 'reset_votes' }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Failed to reset votes');
+                    console.log(`Reset ${data.deletedVotes} votes`);
                     await refreshCandidates();
                     setShowResetVotesModal(false);
                     setResetConfirmText('');

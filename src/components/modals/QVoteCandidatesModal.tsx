@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { X, Check, XCircle, Eye, EyeOff, Trophy, Loader2, User, Calendar, Image as ImageIcon, RefreshCw, Trash2, Move } from 'lucide-react';
-import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus, deleteAllQVoteData, recalculateStats } from '@/lib/qvote';
+import { getCandidates, updateCandidate, deleteCandidate, batchUpdateCandidateStatus } from '@/lib/qvote';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { Candidate, ImagePositionConfig, DEFAULT_IMAGE_POSITION, CandidatePhoto } from '@/types/qvote';
 import { useLocale } from 'next-intl';
 import { ImagePositionEditor } from '@/components/image-preview';
@@ -146,8 +147,15 @@ export default function QVoteCandidatesModal({
 
     setDeletingAll(true);
     try {
-      await deleteAllQVoteData(codeId);
-      await recalculateStats(codeId);
+      const res = await fetchWithAuth('/api/qvote/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, confirmReset: 'DELETE_ALL_DATA', mode: 'delete_all' }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete');
+      }
       setCandidates([]);
       setSelectedCandidates([]);
     } catch (error) {

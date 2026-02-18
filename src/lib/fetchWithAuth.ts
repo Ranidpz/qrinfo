@@ -1,30 +1,25 @@
-import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 /**
  * Wait for Firebase Auth to finish initializing.
- * On mobile devices, auth.currentUser can be null for a brief period
- * after page load while Firebase restores the session from storage.
+ * On mobile devices (especially Android), auth.currentUser can be null
+ * while Firebase restores the session from IndexedDB.
+ * Uses authStateReady() which resolves only after the state is fully determined.
  */
-function waitForAuth(timeoutMs = 5000): Promise<typeof auth.currentUser> {
-  if (auth.currentUser) return Promise.resolve(auth.currentUser);
+async function waitForAuth(timeoutMs = 5000) {
+  if (auth.currentUser) return auth.currentUser;
 
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      unsubscribe();
-      reject(new Error('Not authenticated'));
-    }, timeoutMs);
+  await Promise.race([
+    auth.authStateReady(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Not authenticated')), timeoutMs)
+    ),
+  ]);
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      clearTimeout(timer);
-      unsubscribe();
-      if (user) {
-        resolve(user);
-      } else {
-        reject(new Error('Not authenticated'));
-      }
-    });
-  });
+  if (!auth.currentUser) {
+    throw new Error('Not authenticated');
+  }
+  return auth.currentUser;
 }
 
 /**

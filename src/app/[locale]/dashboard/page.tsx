@@ -89,7 +89,10 @@ export default function DashboardPage() {
   const [folderNameInput, setFolderNameInput] = useState('');
   const [uploadSectionCollapsed, setUploadSectionCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('uploadSectionCollapsed') === 'true';
+      const saved = localStorage.getItem('uploadSectionCollapsed');
+      if (saved !== null) return saved === 'true';
+      // Default: collapsed on mobile, open on desktop
+      return window.innerWidth < 640;
     }
     return false;
   });
@@ -97,6 +100,7 @@ export default function DashboardPage() {
   const [riddleModalOpen, setRiddleModalOpen] = useState(false);
   const [addingRiddle, setAddingRiddle] = useState(false);
   const [wordCloudModalOpen, setWordCloudModalOpen] = useState(false);
+  const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
   const [addingWordCloud, setAddingWordCloud] = useState(false);
   const [selfiebeamModalOpen, setSelfiebeamModalOpen] = useState(false);
   const [addingSelfiebeam, setAddingSelfiebeam] = useState(false);
@@ -1063,16 +1067,19 @@ export default function DashboardPage() {
 
     try {
       await transferCodeOwnership(transferModal.code.id, newOwnerId);
-      // Update only the ownerId - folder stays the same
+      // Update ownerId and clear folderId (transfer always moves to root)
       setCodes((prev) =>
         prev.map((c) =>
           c.id === transferModal.code?.id
-            ? { ...c, ownerId: newOwnerId }
+            ? { ...c, ownerId: newOwnerId, folderId: undefined }
             : c
         )
       );
       // Update owner names cache
       setOwnerNames((prev) => ({ ...prev, [newOwnerId]: newOwnerName }));
+      // Show success feedback
+      setTransferSuccess(newOwnerName);
+      setTimeout(() => setTransferSuccess(null), 4000);
     } catch (error) {
       console.error('Error transferring ownership:', error);
       alert(tErrors('transferError'));
@@ -2225,6 +2232,14 @@ export default function DashboardPage() {
         codeTitle={transferModal.code?.title || ''}
         currentOwnerId={transferModal.code?.ownerId || ''}
       />
+
+      {/* Transfer Success Toast */}
+      {transferSuccess && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 bg-green-500/15 border border-green-500/30 rounded-xl flex items-center gap-2 text-green-400 shadow-lg backdrop-blur-sm">
+          <Check className="w-4 h-4 flex-shrink-0" />
+          <span className="text-sm">{t('transferSuccess', { name: transferSuccess })}</span>
+        </div>
+      )}
 
       {/* Delete Folder Confirmation Modal */}
       {deleteFolderModal.isOpen && deleteFolderModal.folder && (

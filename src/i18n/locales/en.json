@@ -868,6 +868,7 @@
     "makeGlobal": "Make global",
     "removeGlobal": "Remove from global",
     "transferOwnership": "Transfer ownership",
+    "transferSuccess": "Code transferred successfully to {name}",
     "whatsappWidgetActive": "WhatsApp widget active",
     "edit": "Edit"
   },

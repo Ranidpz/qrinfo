@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.32';
+export const APP_VERSION = '1.12.33';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.12.32',
+    version: '1.12.33',
     date: '2026-02-18',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: איפוס הצבעות Q.Vote - שגיאת הרשאות Firebase תוקנה',
+        'תיקון: העברת בעלות מפושטת - קוד עובר לשורש של הבעלים החדש',
+        'שיפור: אתחול Auth מהיר יותר במובייל (authStateReady)',
+      ],
+      en: [
+        'Fix: Q.Vote reset votes - Firebase permissions error resolved',
+        'Fix: Simplified ownership transfer - code moves to new owner root',
+        'Improvement: Faster mobile Auth init (authStateReady)',
+      ],
+    },
+  },
+  {
+    version: '1.12.32',
+    date: '2026-02-18',
     highlights: {
       he: [
         'תיקון: מצב טאבלט/קיוסק - הצבעה חוזרת עובדת ללא תקיעה',

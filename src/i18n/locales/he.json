@@ -869,6 +869,7 @@
     "makeGlobal": "הפוך לגלובלי",
     "removeGlobal": "הסר מגלובלי",
     "transferOwnership": "העבר בעלות",
+    "transferSuccess": "הקוד הועבר בהצלחה ל-{name}",
     "whatsappWidgetActive": "ווידג׳ט WhatsApp פעיל",
     "edit": "עריכה"
   },
