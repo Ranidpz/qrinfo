@@ -120,6 +120,7 @@ const QVoteSelectedBubbles = memo(function QVoteSelectedBubbles({
                     src={photo.thumbnailUrl || photo.url}
                     alt=""
                     className="w-full h-full object-cover"
+                    onError={(e) => { const img = e.currentTarget; if (img.src !== photo.url) img.src = photo.url; }}
                     loading="lazy"
                   />
                 ) : (

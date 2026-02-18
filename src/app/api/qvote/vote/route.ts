@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const ipRateLimitKey = `vote_ip_${clientIp}`;
     const RATE_LIMIT_WINDOW = 60_000; // 1 minute
-    const IP_RATE_LIMIT_MAX = 30; // 30 votes per IP per minute
+    const IP_RATE_LIMIT_MAX = 60; // 60 votes per IP per minute (cellular CGNAT can share IPs)
 
     const ipRateLimitResult = await db.runTransaction(async (transaction) => {
       const ref = db.collection('rateLimits').doc(ipRateLimitKey);
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     if (!ipRateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait.', errorCode: 'RATE_LIMITED' },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': '5' } }
       );
     }
 
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
     if (!voterRateLimitResult.allowed) {
       return NextResponse.json(
         { error: 'Too many votes. Please wait.', errorCode: 'RATE_LIMITED' },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': '5' } }
       );
     }
 
@@ -349,9 +349,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Q.Vote submit vote error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to submit vote', details: errorMessage },
+      { error: 'Failed to submit vote' },
       { status: 500 }
     );
   }

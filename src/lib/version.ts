@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.30';
+export const APP_VERSION = '1.12.31';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.12.31',
+    date: '2026-02-18',
+    isNew: true,
+    highlights: {
+      he: [
+        'אמינות: הצבעה עם retry אוטומטי שקוף - לא מפספסים הצבעות',
+        'תיקון: תמונות ממוזערות לא נטענו (thumbnail 404)',
+        'אבטחה: הגבלת קצב הצבעות הורחבה ל-60/דקה לכל IP',
+      ],
+      en: [
+        'Reliability: Silent auto-retry on vote submission - no lost votes',
+        'Fix: Thumbnail images not loading (404)',
+        'Security: Vote IP rate limit increased to 60/min for cellular networks',
+      ],
+    },
+  },
+  {
     version: '1.12.30',
     date: '2026-02-17',
-    isNew: true,
     highlights: {
       he: [
         'תיקון: דף הצבעה קורס במובייל עם 74+ מועמדים',

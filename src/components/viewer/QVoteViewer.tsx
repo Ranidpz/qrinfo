@@ -503,153 +503,191 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   };
 
   // Submit vote with credentials (internal function)
+  // Silently retries transient failures (429, 5xx, network) with exponential backoff.
+  // The user only sees the spinner — retries are invisible.
   const submitVoteWithCredentials = async (phone?: string, sessionToken?: string) => {
     if (!visitorId || selectedCandidates.length === 0 || submitting) return;
 
     setSubmitting(true);
-    try {
-      const body: Record<string, unknown> = {
-        codeId,
-        voterId: visitorId,
-        candidateIds: selectedCandidates,
-        round,
-        categoryId: selectedCategory || undefined,
-      };
 
-      // Add verification credentials if verification is enabled
-      if (config.verification?.enabled) {
-        const usePhone = phone || verificationSession?.phone;
-        const useToken = sessionToken || verificationSession?.sessionToken;
-        if (usePhone && useToken) {
-          body.phone = usePhone;
-          body.sessionToken = useToken;
-        }
+    const MAX_RETRIES = 3;
+    const body: Record<string, unknown> = {
+      codeId,
+      voterId: visitorId,
+      candidateIds: selectedCandidates,
+      round,
+      categoryId: selectedCategory || undefined,
+    };
+
+    // Add verification credentials if verification is enabled
+    if (config.verification?.enabled) {
+      const usePhone = phone || verificationSession?.phone;
+      const useToken = sessionToken || verificationSession?.sessionToken;
+      if (usePhone && useToken) {
+        body.phone = usePhone;
+        body.sessionToken = useToken;
       }
+    }
 
-      const response = await fetch('/api/qvote/vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Exponential backoff on retries (1s, 2s, 4s)
+        if (attempt > 0) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
 
-      const result = await response.json();
+        const response = await fetch('/api/qvote/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
 
-      // Handle verification errors
-      if (!response.ok && result.errorCode) {
-        if (result.errorCode === 'VERIFICATION_REQUIRED' || result.errorCode === 'NOT_VERIFIED' ||
-            result.errorCode === 'INVALID_SESSION' || result.errorCode === 'SESSION_EXPIRED') {
-          // Clear stored session and show verification modal
-          const storageKey = `qvote-verification-${codeId}`;
-          localStorage.removeItem(storageKey);
-          setVerificationSession(null);
-          setPendingVoteAfterVerification(true);
-          setShowVerificationModal(true);
+        const result = await response.json();
+
+        // Handle business logic errors (NOT retryable)
+        if (!response.ok && result.errorCode) {
+          if (result.errorCode === 'VERIFICATION_REQUIRED' || result.errorCode === 'NOT_VERIFIED' ||
+              result.errorCode === 'INVALID_SESSION' || result.errorCode === 'SESSION_EXPIRED') {
+            // Clear stored session and show verification modal
+            const storageKey = `qvote-verification-${codeId}`;
+            localStorage.removeItem(storageKey);
+            setVerificationSession(null);
+            setPendingVoteAfterVerification(true);
+            setShowVerificationModal(true);
+            setSubmitting(false);
+            return;
+          }
+          if (result.errorCode === 'VOTE_LIMIT_REACHED') {
+            // User has no more votes
+            setVerificationSession(prev => prev ? { ...prev, votesRemaining: 0 } : null);
+            setSubmitting(false);
+            return;
+          }
+          if (result.errorCode === 'ALREADY_VOTED_CATEGORY') {
+            // User already voted in this category - go back to categories
+            const categoryKey = selectedCategory || '_global';
+            const newVotedCategories = { ...votedCategories, [categoryKey]: true };
+            setVotedCategories(newVotedCategories);
+
+            if (config.categories.length > 0) {
+              // Check if all active categories are now voted
+              const activeCategories = config.categories.filter(c => c.isActive);
+              const allCategoriesVoted = activeCategories.every(c => newVotedCategories[c.id]);
+
+              if (config.tabletMode?.enabled && allCategoriesVoted) {
+                // Tablet mode + all categories voted → start reset countdown
+                setShowVoteSuccessMessage(true);
+                const delay = config.tabletMode.resetDelaySeconds || 5;
+                setTabletResetCountdown(delay);
+              } else {
+                setSelectedCategory(null);
+                setShowCategorySelect(true);
+                setShowVoteSuccessMessage(true);
+                // Only auto-hide in tablet mode
+                if (config.tabletMode?.enabled) {
+                  setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+                }
+              }
+            }
+            setSelectedCandidates([]);
+            setSubmitting(false);
+            return;
+          }
+
+          // Other business errors (VOTING_CLOSED, DUPLICATE_DEVICE, etc.) — don't retry
           setSubmitting(false);
           return;
         }
-        if (result.errorCode === 'VOTE_LIMIT_REACHED') {
-          // User has no more votes
-          setVerificationSession(prev => prev ? { ...prev, votesRemaining: 0 } : null);
+
+        // Retryable: 429 (rate limited) or 5xx (server error)
+        if (response.status === 429 || response.status >= 500) {
+          if (attempt < MAX_RETRIES) {
+            console.warn(`[QVote] Vote attempt ${attempt + 1} failed (${response.status}), retrying silently...`);
+            continue;
+          }
+          // All retries exhausted — button resets so user can try again
+          console.error(`[QVote] Vote failed after ${MAX_RETRIES + 1} attempts (${response.status})`);
           setSubmitting(false);
           return;
         }
-        if (result.errorCode === 'ALREADY_VOTED_CATEGORY') {
-          // User already voted in this category - go back to categories
+
+        if (!response.ok) {
+          if (attempt < MAX_RETRIES) continue;
+          setSubmitting(false);
+          return;
+        }
+
+        if (result.success) {
+          // Mark this category as voted
           const categoryKey = selectedCategory || '_global';
-          const newVotedCategories = { ...votedCategories, [categoryKey]: true };
-          setVotedCategories(newVotedCategories);
+          setVotedCategories(prev => ({ ...prev, [categoryKey]: true }));
 
-          if (config.categories.length > 0) {
-            // Check if all active categories are now voted
+          // Update remaining votes
+          if (verificationSession) {
+            setVerificationSession(prev => prev ? {
+              ...prev,
+              votesRemaining: Math.max(0, prev.votesRemaining - 1),
+            } : null);
+          }
+
+          // If grace period is active, end it and transition to new phase
+          if (gracePeriodActive) {
+            if (gracePeriodTimerRef.current) {
+              clearInterval(gracePeriodTimerRef.current);
+            }
+            setGracePeriodActive(false);
+            setGracePeriodSeconds(0);
+            setUserPhase(config.currentPhase);
+          }
+
+          // If there are categories, go back to categories page with success message
+          if (config.categories.length > 0 && selectedCategory) {
+            // Check if all active categories will be voted after this vote
+            const newVotedCategories = { ...votedCategories, [categoryKey]: true };
             const activeCategories = config.categories.filter(c => c.isActive);
             const allCategoriesVoted = activeCategories.every(c => newVotedCategories[c.id]);
 
-            if (config.tabletMode?.enabled && allCategoriesVoted) {
-              // Tablet mode + all categories voted → start reset countdown
-              setShowVoteSuccessMessage(true);
-              const delay = config.tabletMode.resetDelaySeconds || 5;
-              setTabletResetCountdown(delay);
-            } else {
-              setSelectedCategory(null);
-              setShowCategorySelect(true);
-              setShowVoteSuccessMessage(true);
-              // Only auto-hide in tablet mode
-              if (config.tabletMode?.enabled) {
-                setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+            // Small delay to let the vote register visually
+            setTimeout(() => {
+              if (config.tabletMode?.enabled && allCategoriesVoted) {
+                // Tablet mode + all categories voted → start reset countdown
+                setShowVoteSuccessMessage(true);
+                const delay = config.tabletMode.resetDelaySeconds || 5;
+                setTabletResetCountdown(delay);
+              } else {
+                // Go back to categories page
+                setSelectedCategory(null);
+                setShowCategorySelect(true);
+                setSelectedCandidates([]);
+                setShowVoteSuccessMessage(true);
+                // Only auto-hide in tablet mode when not all categories voted
+                if (config.tabletMode?.enabled) {
+                  setTimeout(() => setShowVoteSuccessMessage(false), 4000);
+                }
+                // In regular mode, success message stays visible permanently
               }
-            }
+            }, 500);
+          } else if (config.tabletMode?.enabled) {
+            // Start tablet mode countdown if enabled (only for non-category voting)
+            const delay = config.tabletMode.resetDelaySeconds || 5;
+            setTabletResetCountdown(delay);
           }
-          setSelectedCandidates([]);
-          setSubmitting(false);
-          return;
         }
+        return; // Success or handled, exit retry loop
+
+      } catch (error) {
+        // Network error (fetch throws TypeError) — retryable
+        if (attempt < MAX_RETRIES) {
+          console.warn(`[QVote] Vote attempt ${attempt + 1} network error, retrying silently...`);
+          continue;
+        }
+        console.error('[QVote] Vote failed after all retries:', error);
       }
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to submit vote');
-      }
-
-      if (result.success) {
-        // Mark this category as voted
-        const categoryKey = selectedCategory || '_global';
-        setVotedCategories(prev => ({ ...prev, [categoryKey]: true }));
-
-        // Update remaining votes
-        if (verificationSession) {
-          setVerificationSession(prev => prev ? {
-            ...prev,
-            votesRemaining: Math.max(0, prev.votesRemaining - 1),
-          } : null);
-        }
-
-        // If grace period is active, end it and transition to new phase
-        if (gracePeriodActive) {
-          if (gracePeriodTimerRef.current) {
-            clearInterval(gracePeriodTimerRef.current);
-          }
-          setGracePeriodActive(false);
-          setGracePeriodSeconds(0);
-          setUserPhase(config.currentPhase);
-        }
-
-        // If there are categories, go back to categories page with success message
-        if (config.categories.length > 0 && selectedCategory) {
-          // Check if all active categories will be voted after this vote
-          const newVotedCategories = { ...votedCategories, [categoryKey]: true };
-          const activeCategories = config.categories.filter(c => c.isActive);
-          const allCategoriesVoted = activeCategories.every(c => newVotedCategories[c.id]);
-
-          // Small delay to let the vote register visually
-          setTimeout(() => {
-            if (config.tabletMode?.enabled && allCategoriesVoted) {
-              // Tablet mode + all categories voted → start reset countdown
-              setShowVoteSuccessMessage(true);
-              const delay = config.tabletMode.resetDelaySeconds || 5;
-              setTabletResetCountdown(delay);
-            } else {
-              // Go back to categories page
-              setSelectedCategory(null);
-              setShowCategorySelect(true);
-              setSelectedCandidates([]);
-              setShowVoteSuccessMessage(true);
-              // Only auto-hide in tablet mode when not all categories voted
-              if (config.tabletMode?.enabled) {
-                setTimeout(() => setShowVoteSuccessMessage(false), 4000);
-              }
-              // In regular mode, success message stays visible permanently
-            }
-          }, 500);
-        } else if (config.tabletMode?.enabled) {
-          // Start tablet mode countdown if enabled (only for non-category voting)
-          const delay = config.tabletMode.resetDelaySeconds || 5;
-          setTabletResetCountdown(delay);
-        }
-      }
-    } catch (error) {
-      console.error('Error submitting vote:', error);
-    } finally {
-      setSubmitting(false);
     }
+
+    // All retries exhausted or unhandled error — reset button
+    setSubmitting(false);
   };
 
   // Submit vote via API

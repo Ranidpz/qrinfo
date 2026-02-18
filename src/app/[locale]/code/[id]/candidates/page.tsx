@@ -1733,6 +1733,10 @@ export default function QVoteCandidatesPage() {
                           src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
                           alt=""
                           className="w-10 h-10 rounded-lg object-cover"
+                          onError={(e) => {
+                            const img = e.currentTarget;
+                            if (img.src !== candidate.photos[0].url) img.src = candidate.photos[0].url;
+                          }}
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center">
@@ -2139,6 +2143,10 @@ export default function QVoteCandidatesPage() {
                         className={`w-full h-full object-cover transition-all duration-300 ${
                           cardDraggingId === candidate.id ? 'opacity-50 scale-95' : 'group-hover:scale-105'
                         }`}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (img.src !== candidate.photos[0].url) img.src = candidate.photos[0].url;
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setZoomImageUrl(candidate.photos[0].url);
@@ -2448,6 +2456,10 @@ export default function QVoteCandidatesPage() {
                         className={`w-full h-full object-cover transition-opacity cursor-pointer ${
                           cardDraggingId === candidate.id ? 'opacity-50' : ''
                         }`}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (img.src !== candidate.photos[0].url) img.src = candidate.photos[0].url;
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setZoomImageUrl(candidate.photos[0].url);
@@ -3327,6 +3339,7 @@ export default function QVoteCandidatesPage() {
                               src={photo.thumbnailUrl || photo.url}
                               alt=""
                               className="w-full h-full object-cover"
+                              onError={(e) => { const img = e.currentTarget; if (img.src !== photo.url) img.src = photo.url; }}
                             />
                             <div className={`absolute inset-0 bg-black/50 transition-opacity flex items-center justify-center ${
                               isDraggingHere ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'

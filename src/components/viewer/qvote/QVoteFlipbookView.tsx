@@ -174,6 +174,7 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
                             alt=""
                             className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                             onLoad={() => handleImageLoad(candidate.id)}
+                            onError={(e) => { const img = e.currentTarget; if (photo?.url && img.src !== photo.url) img.src = photo.url; }}
                             loading="eager"
                           />
                         )}

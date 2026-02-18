@@ -4,19 +4,6 @@ import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 
-// Compress and create thumbnail
-async function processImage(file: File): Promise<{ main: Blob; thumbnail: Blob }> {
-  // For server-side, we just pass through - compression done on client
-  // In production, could use sharp for server-side processing
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  return {
-    main: new Blob([buffer], { type: file.type }),
-    thumbnail: new Blob([buffer], { type: file.type }), // Same for now
-  };
-}
-
 // POST: Upload a candidate photo to Vercel Blob
 export async function POST(request: NextRequest) {
   try {
@@ -89,18 +76,23 @@ export async function POST(request: NextRequest) {
     // Build path with owner folder structure: {ownerId}/{codeId}/qvote/photos/...
     const basePath = ownerId ? `${ownerId}/${codeId}/qvote` : `qvote/${codeId}`;
 
+    // Read file into buffer once — File stream may only be consumable once
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+
     // Upload main image
     const mainFilename = `${basePath}/photos/${photoId}.${extension}`;
-    const mainBlob = await put(mainFilename, file, {
+    const mainBlob = await put(mainFilename, fileBuffer, {
       access: 'public',
       addRandomSuffix: false,
+      contentType: file.type,
     });
 
     // Upload thumbnail (same for now - could resize server-side)
     const thumbnailFilename = `${basePath}/thumbs/${photoId}_thumb.${extension}`;
-    const thumbnailBlob = await put(thumbnailFilename, file, {
+    const thumbnailBlob = await put(thumbnailFilename, fileBuffer, {
       access: 'public',
       addRandomSuffix: false,
+      contentType: file.type,
     });
 
     return NextResponse.json({

@@ -128,6 +128,7 @@ const FlipbookResultCard = memo(function FlipbookResultCard({
           alt=""
           className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setImageLoaded(true)}
+          onError={(e) => { const img = e.currentTarget; if (photo.url && img.src !== photo.url) img.src = photo.url; }}
         />
       )}
 
@@ -207,6 +208,7 @@ const GridResultItem = memo(function GridResultItem({
           alt=""
           className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setImageLoaded(true)}
+          onError={(e) => { const img = e.currentTarget; if (photo.url && img.src !== photo.url) img.src = photo.url; }}
         />
       ) : (
         <div className="w-full h-full bg-gray-700 flex items-center justify-center">
@@ -355,6 +357,7 @@ const ListResultItem = memo(function ListResultItem({
             alt=""
             className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImageLoaded(true)}
+            onError={(e) => { const img = e.currentTarget; if (photo.url && img.src !== photo.url) img.src = photo.url; }}
           />
         ) : (
           <div className="w-full h-full bg-gray-700 flex items-center justify-center">
