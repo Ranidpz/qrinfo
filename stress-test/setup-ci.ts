@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-const NUM_CANDIDATES = 60;
+const NUM_CANDIDATES = 100;
 const NUM_VERIFIED_VOTERS = 500; // Less than local - CI has time limits
 const STRESS_TEST_CODE_ID = `stress-test-ci-${Date.now()}`;
 const STRESS_TEST_SHORT_ID = 'stress-ci';
@@ -43,12 +43,39 @@ async function setup() {
     ownerId: 'ci-test-owner',
     name: 'CI Stress Test',
     type: 'qvote',
+    isActive: true,
     media: [{
+      id: 'ci-stress-test-media',
       type: 'qvote',
+      createdAt: new Date(),
       qvoteConfig: {
         currentPhase: 'voting',
         maxSelectionsPerVoter: 3,
+        minSelectionsPerVoter: 1,
         maxVoteChanges: 0,
+        showVoteCount: false,
+        showNames: true,
+        enableCropping: true,
+        allowSelfRegistration: true,
+        enableFinals: false,
+        shuffleCandidates: true,
+        languageMode: 'choice',
+        schedule: {},
+        scheduleMode: 'manual',
+        formFields: [
+          { id: 'name', label: 'שם מלא', labelEn: 'Full Name', required: true, order: 0 },
+        ],
+        categories: [],
+        gamification: { enabled: false, xpPerVote: 10, xpForPackThreshold: 50 },
+        branding: {
+          colors: {
+            background: '#ffffff',
+            text: '#1f2937',
+            buttonBackground: '#3b82f6',
+            buttonText: '#ffffff',
+          },
+        },
+        messages: {},
         verification: { enabled: false },
         stats: {
           totalCandidates: NUM_CANDIDATES,

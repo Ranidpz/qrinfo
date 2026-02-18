@@ -19,10 +19,13 @@ import * as dotenv from 'dotenv';
 // Load environment variables from .env.local
 dotenv.config({ path: join(__dirname, '..', '.env.local') });
 
-const NUM_CANDIDATES = 60;
-const NUM_VERIFIED_VOTERS = 2000;
+// Configurable via environment variables for large-scale tests
+const NUM_CANDIDATES = parseInt(process.env.NUM_CANDIDATES || '100', 10);
+const NUM_VERIFIED_VOTERS = parseInt(process.env.NUM_VOTERS || '2000', 10);
 const STRESS_TEST_CODE_ID = 'stress-test-code';
 const STRESS_TEST_SHORT_ID = 'stress-test';
+
+console.log(`Config: ${NUM_CANDIDATES} candidates, ${NUM_VERIFIED_VOTERS} voters\n`);
 
 async function setup() {
   console.log('🔧 Setting up stress test data...\n');
@@ -51,14 +54,41 @@ async function setup() {
     ownerId: 'stress-test-owner',
     name: 'Stress Test Event',
     type: 'qvote',
+    isActive: true,
     media: [{
+      id: 'stress-test-media',
       type: 'qvote',
+      createdAt: new Date(),
       qvoteConfig: {
         currentPhase: 'voting',
         maxSelectionsPerVoter: 3,
+        minSelectionsPerVoter: 1,
         maxVoteChanges: 0,
+        showVoteCount: false,
+        showNames: true,
+        enableCropping: true,
+        allowSelfRegistration: true,
+        enableFinals: false,
+        shuffleCandidates: true,
+        languageMode: 'choice',
+        schedule: {},
+        scheduleMode: 'manual',
+        formFields: [
+          { id: 'name', label: 'שם מלא', labelEn: 'Full Name', required: true, order: 0 },
+        ],
+        categories: [],
+        gamification: { enabled: false, xpPerVote: 10, xpForPackThreshold: 50 },
+        branding: {
+          colors: {
+            background: '#ffffff',
+            text: '#1f2937',
+            buttonBackground: '#3b82f6',
+            buttonText: '#ffffff',
+          },
+        },
+        messages: {},
         verification: {
-          enabled: false, // Default to anonymous for basic tests
+          enabled: false,
         },
         stats: {
           totalCandidates: NUM_CANDIDATES,
@@ -74,47 +104,47 @@ async function setup() {
   });
   console.log(`  ✅ Code created: ${STRESS_TEST_CODE_ID}`);
 
-  // Step 2: Create candidates
+  // Step 2: Create candidates (batched, supports up to 200+)
   console.log(`\n📸 Creating ${NUM_CANDIDATES} test candidates...`);
   const candidateIds: string[] = [];
-  const batch1 = db.batch();
+  const CANDIDATE_BATCH_SIZE = 400;
 
-  for (let i = 0; i < NUM_CANDIDATES; i++) {
-    const candidateId = `stress-candidate-${i + 1}`;
-    candidateIds.push(candidateId);
+  for (let batchStart = 0; batchStart < NUM_CANDIDATES; batchStart += CANDIDATE_BATCH_SIZE) {
+    const batch = db.batch();
+    const batchEnd = Math.min(batchStart + CANDIDATE_BATCH_SIZE, NUM_CANDIDATES);
 
-    const ref = db.collection('codes').doc(STRESS_TEST_CODE_ID)
-      .collection('candidates').doc(candidateId);
+    for (let i = batchStart; i < batchEnd; i++) {
+      const candidateId = `stress-candidate-${i + 1}`;
+      candidateIds.push(candidateId);
 
-    batch1.set(ref, {
-      id: candidateId,
-      codeId: STRESS_TEST_CODE_ID,
-      name: `Test Candidate ${i + 1}`,
-      isApproved: true,
-      isFinalist: false,
-      isHidden: false,
-      voteCount: 0,
-      finalsVoteCount: 0,
-      displayOrder: i,
-      photos: [{
-        id: `photo-${i + 1}`,
-        url: `https://picsum.photos/seed/${i + 1}/400/600`,
-        thumbnailUrl: `https://picsum.photos/seed/${i + 1}/200/300`,
-        order: 0,
-        uploadedAt: new Date(),
-      }],
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+      const ref = db.collection('codes').doc(STRESS_TEST_CODE_ID)
+        .collection('candidates').doc(candidateId);
 
-    // Firestore batch limit is 500 operations
-    if ((i + 1) % 400 === 0) {
-      await batch1.commit();
-      console.log(`  ✅ Created ${i + 1}/${NUM_CANDIDATES} candidates`);
+      batch.set(ref, {
+        id: candidateId,
+        codeId: STRESS_TEST_CODE_ID,
+        name: `Test Candidate ${i + 1}`,
+        isApproved: true,
+        isFinalist: false,
+        isHidden: false,
+        voteCount: 0,
+        finalsVoteCount: 0,
+        displayOrder: i,
+        photos: [{
+          id: `photo-${i + 1}`,
+          url: `https://picsum.photos/seed/${i + 1}/400/600`,
+          thumbnailUrl: `https://picsum.photos/seed/${i + 1}/200/300`,
+          order: 0,
+          uploadedAt: new Date(),
+        }],
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
     }
+
+    await batch.commit();
+    console.log(`  ✅ Created ${batchEnd}/${NUM_CANDIDATES} candidates`);
   }
-  await batch1.commit();
-  console.log(`  ✅ All ${NUM_CANDIDATES} candidates created`);
 
   // Step 3: Create verified voters (for scenario 3)
   console.log(`\n📱 Creating ${NUM_VERIFIED_VOTERS} verified voters...`);
@@ -211,6 +241,11 @@ async function setup() {
 
   console.log('5️⃣  Spike Test (WhatsApp Blast):');
   console.log(`k6 run --env BASE_URL=https://qr.playzones.app --env SHORT_ID=${STRESS_TEST_SHORT_ID} --env CODE_ID=${STRESS_TEST_CODE_ID} --env CANDIDATE_IDS='${candidateIdsJson}' stress-test/scenarios/05-spike-test.js\n`);
+
+  console.log('9️⃣  Production Event (10K voters, 30 min compressed):');
+  console.log(`k6 run --env BASE_URL=https://qr.playzones.app --env SHORT_ID=${STRESS_TEST_SHORT_ID} --env CODE_ID=${STRESS_TEST_CODE_ID} --env CANDIDATE_IDS='${candidateIdsJson}' stress-test/scenarios/09-production-event.js\n`);
+
+  console.log('    Full 2.5 hour simulation: add --env FULL=1\n');
 
   console.log('───────────────────────────────────────────────────');
   console.log('💡 After tests, run: npx tsx stress-test/teardown.ts');
