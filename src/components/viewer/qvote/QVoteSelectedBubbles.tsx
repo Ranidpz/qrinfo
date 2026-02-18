@@ -3,6 +3,7 @@
 import { memo, useState, useCallback } from 'react';
 import { X } from 'lucide-react';
 import type { Candidate } from '@/types/qvote';
+import { getThumbSrc, onThumbError } from '@/lib/thumb-fallback';
 
 interface QVoteSelectedBubblesProps {
   candidates: Candidate[];
@@ -117,10 +118,10 @@ const QVoteSelectedBubbles = memo(function QVoteSelectedBubbles({
               >
                 {photo ? (
                   <img
-                    src={photo.thumbnailUrl || photo.url}
+                    src={getThumbSrc(photo.thumbnailUrl, photo.url)}
                     alt=""
                     className="w-full h-full object-cover"
-                    onError={(e) => { const img = e.currentTarget; if (img.src !== photo.url) img.src = photo.url; }}
+                    onError={(e) => onThumbError(e, photo.url, photo.thumbnailUrl)}
                     loading="lazy"
                   />
                 ) : (

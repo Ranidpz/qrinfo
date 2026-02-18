@@ -6,6 +6,7 @@ import { EffectCards } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
 import { Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import type { Candidate } from '@/types/qvote';
+import { getThumbSrc, onThumbError } from '@/lib/thumb-fallback';
 import QVoteBoomerangImage from './QVoteBoomerangImage';
 
 import 'swiper/css';
@@ -170,11 +171,11 @@ const QVoteFlipbookView = memo(function QVoteFlipbookView({
                           <QVoteBoomerangImage photos={photos} className="w-full h-full" enabled={isNearby} />
                         ) : (
                           <img
-                            src={photo?.thumbnailUrl || photo?.url}
+                            src={getThumbSrc(photo?.thumbnailUrl, photo?.url || '')}
                             alt=""
                             className={`w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                             onLoad={() => handleImageLoad(candidate.id)}
-                            onError={(e) => { const img = e.currentTarget; if (photo?.url && img.src !== photo.url) img.src = photo.url; }}
+                            onError={(e) => onThumbError(e, photo?.url || '', photo?.thumbnailUrl)}
                             loading="eager"
                           />
                         )}

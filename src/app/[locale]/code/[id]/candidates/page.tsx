@@ -298,6 +298,20 @@ export default function QVoteCandidatesPage() {
   const [editPhotoIndex, setEditPhotoIndex] = useState<number>(0);
   const editPhotoInputRef = useRef<HTMLInputElement>(null);
 
+  // Track failed thumbnail URLs to prevent infinite 404 loops on re-render
+  const failedThumbs = useRef(new Set<string>());
+  const getThumbSrc = useCallback((photos: { url: string; thumbnailUrl?: string }[]) => {
+    const thumb = photos[0]?.thumbnailUrl;
+    if (thumb && !failedThumbs.current.has(thumb)) return thumb;
+    return photos[0]?.url || '';
+  }, []);
+  const handleThumbError = useCallback((e: React.SyntheticEvent<HTMLImageElement>, mainUrl: string, thumbUrl?: string) => {
+    if (thumbUrl && !failedThumbs.current.has(thumbUrl)) {
+      failedThumbs.current.add(thumbUrl);
+      e.currentTarget.src = mainUrl;
+    }
+  }, []);
+
   // Inline name editing state
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState('');
@@ -1730,13 +1744,10 @@ export default function QVoteCandidatesPage() {
                     >
                       {candidate.photos[0] ? (
                         <img
-                          src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
+                          src={getThumbSrc(candidate.photos)}
                           alt=""
                           className="w-10 h-10 rounded-lg object-cover"
-                          onError={(e) => {
-                            const img = e.currentTarget;
-                            if (img.src !== candidate.photos[0].url) img.src = candidate.photos[0].url;
-                          }}
+                          onError={(e) => handleThumbError(e, candidate.photos[0].url, candidate.photos[0].thumbnailUrl)}
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center">
@@ -2138,15 +2149,12 @@ export default function QVoteCandidatesPage() {
                       </div>
                     ) : candidate.photos[0] ? (
                       <img
-                        src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
+                        src={getThumbSrc(candidate.photos)}
                         alt=""
                         className={`w-full h-full object-cover transition-all duration-300 ${
                           cardDraggingId === candidate.id ? 'opacity-50 scale-95' : 'group-hover:scale-105'
                         }`}
-                        onError={(e) => {
-                          const img = e.currentTarget;
-                          if (img.src !== candidate.photos[0].url) img.src = candidate.photos[0].url;
-                        }}
+                        onError={(e) => handleThumbError(e, candidate.photos[0].url, candidate.photos[0].thumbnailUrl)}
                         onClick={(e) => {
                           e.stopPropagation();
                           setZoomImageUrl(candidate.photos[0].url);
@@ -2451,15 +2459,12 @@ export default function QVoteCandidatesPage() {
                   ) : candidate.photos[0] ? (
                     <>
                       <img
-                        src={candidate.photos[0].thumbnailUrl || candidate.photos[0].url}
+                        src={getThumbSrc(candidate.photos)}
                         alt=""
                         className={`w-full h-full object-cover transition-opacity cursor-pointer ${
                           cardDraggingId === candidate.id ? 'opacity-50' : ''
                         }`}
-                        onError={(e) => {
-                          const img = e.currentTarget;
-                          if (img.src !== candidate.photos[0].url) img.src = candidate.photos[0].url;
-                        }}
+                        onError={(e) => handleThumbError(e, candidate.photos[0].url, candidate.photos[0].thumbnailUrl)}
                         onClick={(e) => {
                           e.stopPropagation();
                           setZoomImageUrl(candidate.photos[0].url);
@@ -3336,10 +3341,10 @@ export default function QVoteCandidatesPage() {
                         ) : photo ? (
                           <>
                             <img
-                              src={photo.thumbnailUrl || photo.url}
+                              src={photo.thumbnailUrl && !failedThumbs.current.has(photo.thumbnailUrl) ? photo.thumbnailUrl : photo.url}
                               alt=""
                               className="w-full h-full object-cover"
-                              onError={(e) => { const img = e.currentTarget; if (img.src !== photo.url) img.src = photo.url; }}
+                              onError={(e) => handleThumbError(e, photo.url, photo.thumbnailUrl)}
                             />
                             <div className={`absolute inset-0 bg-black/50 transition-opacity flex items-center justify-center ${
                               isDraggingHere ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'

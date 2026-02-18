@@ -3,6 +3,7 @@
 import { memo, useCallback, useRef, useEffect, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import type { Candidate } from '@/types/qvote';
+import { getThumbSrc, onThumbError } from '@/lib/thumb-fallback';
 
 interface QVoteListViewProps {
   candidates: Candidate[];
@@ -86,11 +87,11 @@ const ListItem = memo(function ListItem({
 
         {photo ? (
           <img
-            src={photo.thumbnailUrl || photo.url}
+            src={getThumbSrc(photo.thumbnailUrl, photo.url)}
             alt=""
             className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImageLoaded(true)}
-            onError={(e) => { const img = e.currentTarget; if (img.src !== photo.url) img.src = photo.url; }}
+            onError={(e) => onThumbError(e, photo.url, photo.thumbnailUrl)}
             loading="lazy"
           />
         ) : (

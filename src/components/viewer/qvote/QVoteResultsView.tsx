@@ -6,6 +6,7 @@ import { EffectCards, Autoplay } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
 import { ChevronLeft, ChevronRight, Trophy, Crown, Medal, Loader2, Settings, X, LayoutGrid, List, Layers } from 'lucide-react';
 import type { Candidate, QVoteFlipbookSettings } from '@/types/qvote';
+import { getThumbSrc, onThumbError } from '@/lib/thumb-fallback';
 import { DEFAULT_FLIPBOOK_SETTINGS } from '@/types/qvote';
 import QVoteViewModeSelector, { ViewMode } from './QVoteViewModeSelector';
 
@@ -124,11 +125,11 @@ const FlipbookResultCard = memo(function FlipbookResultCard({
       {/* Image */}
       {photo && (
         <img
-          src={photo.thumbnailUrl || photo.url}
+          src={getThumbSrc(photo.thumbnailUrl, photo.url)}
           alt=""
           className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setImageLoaded(true)}
-          onError={(e) => { const img = e.currentTarget; if (photo.url && img.src !== photo.url) img.src = photo.url; }}
+          onError={(e) => onThumbError(e, photo.url, photo.thumbnailUrl)}
         />
       )}
 
@@ -204,11 +205,11 @@ const GridResultItem = memo(function GridResultItem({
       {/* Image */}
       {photo ? (
         <img
-          src={photo.thumbnailUrl || photo.url}
+          src={getThumbSrc(photo.thumbnailUrl, photo.url)}
           alt=""
           className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setImageLoaded(true)}
-          onError={(e) => { const img = e.currentTarget; if (photo.url && img.src !== photo.url) img.src = photo.url; }}
+          onError={(e) => onThumbError(e, photo.url, photo.thumbnailUrl)}
         />
       ) : (
         <div className="w-full h-full bg-gray-700 flex items-center justify-center">
@@ -353,11 +354,11 @@ const ListResultItem = memo(function ListResultItem({
 
         {photo ? (
           <img
-            src={photo.thumbnailUrl || photo.url}
+            src={getThumbSrc(photo.thumbnailUrl, photo.url)}
             alt=""
             className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImageLoaded(true)}
-            onError={(e) => { const img = e.currentTarget; if (photo.url && img.src !== photo.url) img.src = photo.url; }}
+            onError={(e) => onThumbError(e, photo.url, photo.thumbnailUrl)}
           />
         ) : (
           <div className="w-full h-full bg-gray-700 flex items-center justify-center">
