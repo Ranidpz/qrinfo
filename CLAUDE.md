@@ -45,6 +45,7 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Rate limiting: in-memory (`src/lib/rateLimit.ts`) resets per serverless instance. Use Firestore-based for critical paths.
 - WhatsApp/SMS API available via `src/lib/inforu.ts` (INFORU provider). Used for OTP verification and Q.Tag QR delivery.
 - Q.Tag WhatsApp QR: `src/lib/qtag-whatsapp.ts` sends entry QR link after registration. Template: `qtag_registration` (UTILITY). Cross-device: `/v/{shortId}?token={qrToken}`.
+- Email notifications via `src/lib/resend.ts` (Resend Pro). Sends from `notifications@playzone.co.il`. New user registration triggers email to `info@playzone.co.il` via `/api/notify/new-user`.
 
 ### Backup & Disaster Recovery (Production - `qrinfo-905c9`)
 - **PITR** enabled (7-day point-in-time recovery, restore to any minute)

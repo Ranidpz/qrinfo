@@ -47,6 +47,7 @@ const CODE_ID = __ENV.CODE_ID;
 const SHORT_ID = __ENV.SHORT_ID;
 const CANDIDATE_IDS = JSON.parse(__ENV.CANDIDATE_IDS || '[]');
 const IS_FULL = __ENV.FULL === '1';
+const BYPASS_SECRET = __ENV.VERCEL_BYPASS || '';
 
 if (!CODE_ID) throw new Error('CODE_ID is required');
 if (!SHORT_ID) throw new Error('SHORT_ID is required');
@@ -161,10 +162,9 @@ export const options = {
 
 // ─── Page Load Function ──────────────────────────────────────
 export function pageLoad() {
-  const res = http.get(`${BASE_URL}/v/${SHORT_ID}`, {
-    tags: { name: 'page_load' },
-    redirects: 3,
-  });
+  const opts = { tags: { name: 'page_load' }, redirects: 3 };
+  if (BYPASS_SECRET) opts.headers = { 'x-vercel-protection-bypass': BYPASS_SECRET };
+  const res = http.get(`${BASE_URL}/v/${SHORT_ID}`, opts);
 
   pageLoadDuration.add(res.timings.duration);
 
@@ -201,6 +201,7 @@ export function submitVote() {
     'Content-Type': 'application/json',
     'Origin': BASE_URL,
   };
+  if (BYPASS_SECRET) headers['x-vercel-protection-bypass'] = BYPASS_SECRET;
 
   // Simulate real user: think time before submitting
   sleep(Math.random() * 3 + 1); // 1-4s browsing candidates

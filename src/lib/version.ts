@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.34';
+export const APP_VERSION = '1.12.35';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.12.35',
+    date: '2026-02-19',
+    isNew: true,
+    highlights: {
+      he: [
+        'חדש: התראת מייל למנהל כשמשתמש חדש נרשם (Resend)',
+        'חדש: Q.Tag נוסף למדריך למשתמש (6 שאלות ותשובות)',
+      ],
+      en: [
+        'New: Email notification to admin on new user registration (Resend)',
+        'New: Q.Tag added to user guide (6 Q&As)',
+      ],
+    },
+  },
+  {
     version: '1.12.34',
     date: '2026-02-18',
-    isNew: true,
     highlights: {
       he: [
         'חדש: דף שיווקי Q.Tag - רישום חכם לאירועים',

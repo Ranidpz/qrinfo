@@ -82,6 +82,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     await setDoc(doc(db, 'users', firebaseUser.uid), userData);
 
+    // Notify admins about new user (non-blocking)
+    firebaseUser.getIdToken().then(token => {
+      fetch('/api/notify/new-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          displayName,
+          email: firebaseUser.email,
+        }),
+      }).catch(() => {
+        console.warn('[Auth] Failed to send new user notification');
+      });
+    });
+
     return {
       id: firebaseUser.uid,
       email: firebaseUser.email || '',

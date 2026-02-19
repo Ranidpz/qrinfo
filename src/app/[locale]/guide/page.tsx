@@ -20,7 +20,8 @@ import {
   FolderOpen,
   Mic2,
   Crosshair,
-  Map
+  Map,
+  Ticket
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { clsx } from 'clsx';
@@ -146,6 +147,20 @@ const categories: FAQCategory[] = [
       { questionKey: 'createTreasureStations', answerKey: 'createTreasureStationsAnswer' },
       { questionKey: 'addCluesAndVideos', answerKey: 'addCluesAndVideosAnswer' },
       { questionKey: 'treasureProgress', answerKey: 'treasureProgressAnswer' },
+    ],
+  },
+  {
+    id: 'qtag',
+    icon: Ticket,
+    color: 'text-sky-500',
+    bgColor: 'bg-sky-500/10',
+    questions: [
+      { questionKey: 'whatIsQtag', answerKey: 'whatIsQtagAnswer' },
+      { questionKey: 'setupQtagEvent', answerKey: 'setupQtagEventAnswer' },
+      { questionKey: 'qtagPhoneVerification', answerKey: 'qtagPhoneVerificationAnswer' },
+      { questionKey: 'qtagScanner', answerKey: 'qtagScannerAnswer' },
+      { questionKey: 'qtagGuestManagement', answerKey: 'qtagGuestManagementAnswer' },
+      { questionKey: 'qtagWhatsAppQR', answerKey: 'qtagWhatsAppQRAnswer' },
     ],
   },
   {

@@ -52,3 +52,9 @@ flipbook-jquery-plugin/
 
 # stress test results
 stress-test/results/
+
+# AI agent skills (local dev tools)
+.agents/
+.agent/
+.claude/skills/
+.cursor/skills/
