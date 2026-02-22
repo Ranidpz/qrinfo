@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "qhunt": {
+      "$codeId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "qstage": {
+      "$codeId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "qchallenge": {
+      "$codeId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "qtreasure": {
+      "$codeId": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}
