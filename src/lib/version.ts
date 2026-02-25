@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.35';
+export const APP_VERSION = '1.12.36';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.12.36',
+    date: '2026-02-25',
+    isNew: true,
+    highlights: {
+      he: [
+        'תיקון: כניסה מהירה בסורק Q.Tag עובדת במובייל (אימות PIN במקום Firebase Auth)',
+        'תיקון: ביטול צ׳ק-אין ומחיקת אורח עובדים במובייל בסורק',
+      ],
+      en: [
+        'Fix: Q.Tag scanner quick-add works on mobile (PIN auth instead of Firebase Auth)',
+        'Fix: Undo check-in and delete guest work on mobile in scanner',
+      ],
+    },
+  },
+  {
     version: '1.12.35',
     date: '2026-02-19',
-    isNew: true,
     highlights: {
       he: [
         'חדש: התראת מייל למנהל כשמשתמש חדש נרשם (Resend)',

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Virtuoso } from 'react-virtuoso';
@@ -529,13 +528,14 @@ export default function QTagScannerPage() {
 
     setUndoingCheckin(true);
     try {
-      const res = await fetchWithAuth('/api/qtag/guests', {
-        method: 'PATCH',
+      const res = await fetch('/api/qtag/scanner-action', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           codeId,
+          action: 'undo-checkin',
+          scannerPin: expectedPinRef.current || undefined,
           guestId: scanResult.guest.id,
-          status: 'registered',
         }),
       });
 
@@ -596,8 +596,15 @@ export default function QTagScannerPage() {
     if (!confirmDeleteGuest) return;
     setDeletingGuestId(confirmDeleteGuest.id);
     try {
-      const res = await fetchWithAuth(`/api/qtag/guests?codeId=${codeId}&guestId=${confirmDeleteGuest.id}`, {
-        method: 'DELETE',
+      const res = await fetch('/api/qtag/scanner-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId,
+          action: 'delete',
+          scannerPin: expectedPinRef.current || undefined,
+          guestId: confirmDeleteGuest.id,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -640,16 +647,18 @@ export default function QTagScannerPage() {
     }
   };
 
-  // Quick-add guest
+  // Quick-add guest (uses scanner-action endpoint with PIN auth, no Firebase Auth needed)
   const handleQuickAdd = async () => {
     setQuickAddLoading(true);
     setQuickAddError(null);
     try {
-      const res = await fetchWithAuth('/api/qtag/guests', {
+      const res = await fetch('/api/qtag/scanner-action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           codeId,
+          action: 'quick-add',
+          scannerPin: expectedPinRef.current || undefined,
           name: quickAddName.trim() || undefined,
           plusOneCount: quickAddPlusOne,
         }),
