@@ -78,10 +78,10 @@ export default function QGamesQueue({
       {/* Searching animation */}
       <div className="relative mb-8">
         {/* Pulsing rings */}
-        <div className="absolute inset-0 w-24 h-24 rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '2s' }} />
-        <div className="absolute inset-0 w-24 h-24 rounded-full border-2 border-emerald-400/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
+        <div className="absolute inset-0 w-32 h-32 rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '2s' }} />
+        <div className="absolute inset-0 w-32 h-32 rounded-full border-2 border-emerald-400/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
 
-        <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center text-5xl relative z-10 ring-2 ring-emerald-400/30 overflow-hidden">
+        <div className="w-32 h-32 rounded-full bg-white/10 flex items-center justify-center text-6xl relative z-10 ring-2 ring-emerald-400/30 overflow-hidden">
           {playerAvatar.startsWith('http') ? (
             <img src={playerAvatar} alt="" className="w-full h-full object-cover" />
           ) : playerAvatar}
@@ -114,7 +114,7 @@ export default function QGamesQueue({
                 onClick={onPlayBot}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all active:scale-95 bg-gradient-to-r from-purple-600 to-indigo-600 text-white mb-2"
               >
-                🤖 {isRTL ? 'שחק נגד בוט' : 'Play vs Bot'}
+                🤖 {isRTL ? 'שחקו עם בוט' : 'Play vs Bot'}
               </button>
             )}
 

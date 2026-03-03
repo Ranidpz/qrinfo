@@ -311,7 +311,7 @@ export default function QGamesRegistration({
 
       {/* Selected Avatar Preview */}
       {!showCamera && (
-        <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-4xl mb-4 ring-2 ring-white/10 overflow-hidden">
+        <div className="w-28 h-28 rounded-full bg-white/10 flex items-center justify-center text-5xl mb-4 ring-2 ring-white/10 overflow-hidden">
           {avatarMode === 'selfie' && selfieUrl ? (
             <img src={selfieUrl} alt="" className="w-full h-full object-cover" />
           ) : (

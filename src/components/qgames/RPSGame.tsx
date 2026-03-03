@@ -319,7 +319,7 @@ export default function RPSGame({
         {/* VS + Round */}
         <div className="text-center">
           <p className="text-white/30 text-[10px] uppercase tracking-widest">{t('round')} {currentRound + 1}</p>
-          <p className="text-white/50 font-bold text-xs">{t('firstTo')} {firstTo}</p>
+          <p className="text-white/50 font-bold text-xs">{t('firstTo')}{firstTo}{t('points')}</p>
         </div>
 
         {/* Opponent side */}

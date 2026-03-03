@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.8';
+export const APP_VERSION = '1.13.9';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.8',
+    version: '1.13.9',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: טקסטים בריבים (צלמו סלפי, מחפשים לכם יריבים, שחקו עם בוט, עד 3 נקודות)',
+        'שיפור: תמונת אווטר גדולה יותר בהרשמה ובחיפוש יריב',
+      ],
+      en: [
+        'Improvement: Hebrew text polish (plural forms, better phrasing)',
+        'Improvement: Bigger avatar in registration and queue screens',
+      ],
+    },
+  },
+  {
+    version: '1.13.8',
+    date: '2026-03-03',
     highlights: {
       he: [
         'תיקון קריטי: משחק מולטיפלייר RPS עובד - תנועות נשמרות אטומית עם Admin SDK',
