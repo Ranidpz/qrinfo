@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.7';
+export const APP_VERSION = '1.13.8';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.7',
+    version: '1.13.8',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון קריטי: משחק מולטיפלייר RPS עובד - תנועות נשמרות אטומית עם Admin SDK',
+        'תיקון: RTDB null stripping גרם לשגיאת "Already submitted choice"',
+      ],
+      en: [
+        'Critical fix: Multiplayer RPS game works - moves saved atomically with Admin SDK',
+        'Fix: RTDB null stripping caused "Already submitted choice" error',
+      ],
+    },
+  },
+  {
+    version: '1.13.7',
+    date: '2026-03-03',
     highlights: {
       he: [
         'חדש: שיתוף טבלת מובילים בוואטסאפ + אתגור שחקנים',
