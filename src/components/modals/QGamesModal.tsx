@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { X, Gamepad2, Loader2, RotateCcw } from 'lucide-react';
+import { X, Gamepad2, Loader2, RotateCcw, ExternalLink } from 'lucide-react';
 import {
   QGamesConfig,
   QGameType,
@@ -18,6 +18,7 @@ interface QGamesModalProps {
   loading?: boolean;
   initialConfig?: QGamesConfig;
   codeId?: string;
+  shortId?: string;
   onReset?: () => void;
 }
 
@@ -28,6 +29,7 @@ export default function QGamesModal({
   loading,
   initialConfig,
   codeId,
+  shortId,
   onReset,
 }: QGamesModalProps) {
   const t = useTranslations('modals');
@@ -219,6 +221,19 @@ export default function QGamesModal({
             />
           </div>
 
+          {/* Play / Preview link (edit mode only) */}
+          {isEditing && shortId && (
+            <a
+              href={`/v/${shortId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-accent bg-accent/10 border border-accent/20 hover:bg-accent/20 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {isRTL ? 'פתח משחק' : 'Open Game'}
+            </a>
+          )}
+
           {/* Reset (edit mode only) */}
           {isEditing && onReset && (
             <button
@@ -269,8 +284,9 @@ function ToggleRow({
     <div className="flex items-center justify-between">
       <span className="text-sm text-text-primary">{label}</span>
       <button
+        dir="ltr"
         onClick={() => onChange(!checked)}
-        className={`relative w-10 h-6 rounded-full transition-colors ${
+        className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
           checked ? 'bg-accent' : 'bg-bg-secondary'
         }`}
       >

@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { QGamesConfig, QGamesPlayer } from '@/types/qgames';
-import { initQGamesSession, incrementQGamesPlayers } from '@/lib/qgames-realtime';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { QGamesPlayer } from '@/types/qgames';
 
 export async function POST(request: Request) {
   try {
@@ -24,11 +22,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get code and validate config
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
+    const adminDb = getAdminDb();
 
-    if (!codeDoc.exists()) {
+    // Get code and validate config
+    const codeDoc = await adminDb.collection('codes').doc(codeId).get();
+
+    if (!codeDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'Code not found' },
         { status: 404 }
@@ -36,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const codeData = codeDoc.data();
-    const gamesMedia = codeData.media?.find(
+    const gamesMedia = codeData?.media?.find(
       (m: { type: string }) => m.type === 'minigames'
     );
 
@@ -47,7 +46,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const config: QGamesConfig = gamesMedia.qgamesConfig;
+    const config = gamesMedia.qgamesConfig;
 
     if (config.phase !== 'active') {
       return NextResponse.json(
@@ -57,14 +56,15 @@ export async function POST(request: Request) {
     }
 
     // Check if player already exists
-    const playerRef = doc(db, 'codes', codeId, 'qgames_players', playerId);
-    const playerDoc = await getDoc(playerRef);
+    const playerRef = adminDb
+      .collection('codes').doc(codeId)
+      .collection('qgames_players').doc(playerId);
+    const playerDoc = await playerRef.get();
 
-    if (playerDoc.exists()) {
+    if (playerDoc.exists) {
       // Player already registered - update nickname/avatar and return
       const existingPlayer = playerDoc.data() as QGamesPlayer;
-      await setDoc(playerRef, {
-        ...existingPlayer,
+      await playerRef.update({
         nickname,
         avatarType,
         avatarValue,
@@ -100,11 +100,7 @@ export async function POST(request: Request) {
       lastPlayedAt: Date.now(),
     };
 
-    await setDoc(playerRef, player);
-
-    // Initialize RTDB session if needed + increment stats
-    await initQGamesSession(codeId);
-    await incrementQGamesPlayers(codeId);
+    await playerRef.set(player);
 
     return NextResponse.json({
       success: true,

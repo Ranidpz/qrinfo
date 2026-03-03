@@ -7,7 +7,6 @@ import { realtimeDb } from './firebase';
 import {
   ref,
   get,
-  runTransaction,
 } from 'firebase/database';
 import {
   QGAMES_PATHS,

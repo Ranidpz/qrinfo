@@ -61,6 +61,7 @@ import { QHuntConfig } from '@/types/qhunt';
 import { QTreasureConfig } from '@/types/qtreasure';
 import { QChallengeConfig } from '@/types/qchallenge';
 import { QTagConfig } from '@/types/qtag';
+import { QGamesConfig } from '@/types/qgames';
 
 // Helper function to remove undefined values from an object (Firestore doesn't accept undefined)
 function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
@@ -103,10 +104,12 @@ import LandingPageModal from '@/components/modals/LandingPageModal';
 import QHuntModal from '@/components/modals/QHuntModal';
 import QTreasureModal from '@/components/modals/QTreasureModal';
 import QChallengeModal from '@/components/modals/QChallengeModal';
+import QGamesModal from '@/components/modals/QGamesModal';
 import QTagModal from '@/components/modals/QTagModal';
 import QTagGuestsModal from '@/components/modals/QTagGuestsModal';
 import PDFSettingsModal, { DEFAULT_PDF_SETTINGS, PDFFlipbookSettings } from '@/components/editor/PDFSettingsModal';
 import { shouldShowLandingPage } from '@/lib/landingPage';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { clsx } from 'clsx';
 import { compressImage, createCompressedFile } from '@/lib/imageCompression';
 import { Settings } from 'lucide-react';
@@ -323,6 +326,11 @@ export default function CodeEditPage({ params }: PageProps) {
   const [qchallengeModalOpen, setQchallengeModalOpen] = useState(false);
   const [editingQChallengeId, setEditingQChallengeId] = useState<string | null>(null);
   const [addingQChallenge, setAddingQChallenge] = useState(false);
+
+  // Q.Games modal state
+  const [qgamesModalOpen, setQgamesModalOpen] = useState(false);
+  const [editingQGamesId, setEditingQGamesId] = useState<string | null>(null);
+  const [addingQGames, setAddingQGames] = useState(false);
 
   // Q.Tag modal state
   const [qtagModalOpen, setQtagModalOpen] = useState(false);
@@ -2434,6 +2442,66 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  // Handler for adding/editing Q.Games
+  const handleSaveQGames = async (config: QGamesConfig) => {
+    if (!code || !user) return;
+
+    setAddingQGames(true);
+    try {
+      const qgamesConfig = { ...config };
+      let updatedMedia: MediaItem[];
+
+      if (editingQGamesId) {
+        updatedMedia = code.media.map((m) =>
+          m.id === editingQGamesId
+            ? { ...m, qgamesConfig, updatedAt: new Date() }
+            : m
+        );
+      } else {
+        const newMediaId = `media_${Date.now()}`;
+        const newMedia: MediaItem = {
+          id: newMediaId,
+          url: '',
+          type: 'minigames',
+          size: 0,
+          order: code.media.length,
+          uploadedBy: user.id,
+          title: 'Q.Games',
+          qgamesConfig,
+          createdAt: new Date(),
+        };
+        updatedMedia = [...code.media, newMedia];
+        setEditingQGamesId(newMediaId);
+      }
+
+      await updateQRCode(code.id, { media: updatedMedia });
+      setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+    } catch (error) {
+      console.error('Error saving Q.Games:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQGames(false);
+    }
+  };
+
+  // Handler for resetting Q.Games
+  const handleResetQGames = async () => {
+    if (!code || !editingQGamesId) return;
+
+    try {
+      const response = await fetchWithAuth(`/api/qgames/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId: code.id }),
+      });
+      if (response.ok) {
+        alert(locale === 'he' ? 'המשחק אופס בהצלחה' : 'Game reset successfully');
+      }
+    } catch (error) {
+      console.error('Error resetting Q.Games:', error);
+    }
+  };
+
   // Handler for adding/editing Q.Tag
   const handleSaveQTag = async (config: QTagConfig, backgroundImageFile?: File, logoFile?: File) => {
     if (!code || !user) return;
@@ -3365,11 +3433,11 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
 
-                {/* Minigames Button - Coming Soon */}
-                <Tooltip text={t('minigamesComingSoon')}>
+                {/* Q.Games (Minigames) Button */}
+                <Tooltip text={t('createQGames')}>
                   <button
-                    disabled
-                    className="p-2 rounded-lg bg-bg-secondary text-text-secondary cursor-not-allowed opacity-50 flex items-center justify-center"
+                    onClick={() => setQgamesModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
                   >
                     <Gamepad2 className="w-4 h-4" />
                   </button>
@@ -3489,6 +3557,9 @@ export default function CodeEditPage({ params }: PageProps) {
                       } else if (media.type === 'qchallenge') {
                         setEditingQChallengeId(media.id);
                         setQchallengeModalOpen(true);
+                      } else if (media.type === 'minigames') {
+                        setEditingQGamesId(media.id);
+                        setQgamesModalOpen(true);
                       } else {
                         window.open(media.url, '_blank');
                       }
@@ -3558,6 +3629,12 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Trophy className="w-6 h-6 text-white" />
                       </div>
+                    ) : media.type === 'minigames' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+                      >
+                        <Gamepad2 className="w-6 h-6 text-white" />
+                      </div>
                     ) : (
                       <img
                         src={media.url}
@@ -3583,6 +3660,7 @@ export default function CodeEditPage({ params }: PageProps) {
                           : media.type === 'qhunt' ? 'Q.Hunt'
                           : media.type === 'qtreasure' ? 'Q.Treasure'
                           : media.type === 'qchallenge' ? 'Q.Challenge'
+                          : media.type === 'minigames' ? 'Q.Games'
                           : media.type.toUpperCase()}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
@@ -3608,7 +3686,7 @@ export default function CodeEditPage({ params }: PageProps) {
                         })()}
                       </p>
                     )}
-                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.filename && (
+                    {media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'link' && media.type !== 'wordcloud' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.type !== 'minigames' && media.filename && (
                       <p className="text-xs text-text-secondary truncate mt-0.5" dir="ltr">
                         {media.filename}
                       </p>
@@ -3803,6 +3881,33 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
+                  {/* Edit + Play buttons for minigames (Q.Games) */}
+                  {media.type === 'minigames' && (
+                    <>
+                      <Tooltip text={t('edit')}>
+                        <button
+                          onClick={() => {
+                            setEditingQGamesId(media.id);
+                            setQgamesModalOpen(true);
+                          }}
+                          className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip text={locale === 'he' ? 'פתח משחק' : 'Open Game'}>
+                        <a
+                          href={`/v/${code.shortId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-lg hover:bg-bg-hover text-accent"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </Tooltip>
+                    </>
+                  )}
+
                   {/* Gallery button for selfiebeam with gallery enabled */}
                   {media.type === 'selfiebeam' && media.selfiebeamContent?.galleryEnabled && (
                     <Tooltip text={t('selfieGallery', { count: code.userGallery?.length || 0 })}>
@@ -3849,8 +3954,8 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
-                  {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, qstage, qhunt, qtreasure, or qchallenge */}
-                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && (
+                  {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, qstage, qhunt, qtreasure, qchallenge, or minigames */}
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.type !== 'minigames' && (
                     <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -4267,6 +4372,21 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveQChallenge}
         loading={addingQChallenge}
         initialConfig={editingQChallengeId ? code?.media.find(m => m.id === editingQChallengeId)?.qchallengeConfig : undefined}
+        shortId={code.shortId}
+      />
+
+      {/* Q.Games Modal */}
+      <QGamesModal
+        isOpen={qgamesModalOpen}
+        onClose={() => {
+          setQgamesModalOpen(false);
+          setEditingQGamesId(null);
+        }}
+        onSave={handleSaveQGames}
+        onReset={editingQGamesId ? handleResetQGames : undefined}
+        loading={addingQGames}
+        initialConfig={editingQGamesId ? code?.media.find(m => m.id === editingQGamesId)?.qgamesConfig : undefined}
+        codeId={code.id}
         shortId={code.shortId}
       />
 

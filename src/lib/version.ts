@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.2';
+export const APP_VERSION = '1.13.3';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.2',
+    version: '1.13.3',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: שחק נגד בוט AI ב-Q.Games כשאין יריב',
+        'תיקון: Q.Games הרשמה, שמירת הגדרות, חוקי RTDB',
+        'שיפור: ניהול Q.Games מדף עריכת קוד',
+      ],
+      en: [
+        'New: Play vs AI Bot in Q.Games when no opponent available',
+        'Fix: Q.Games registration, config persistence, RTDB rules',
+        'Improvement: Q.Games management from code edit page',
+      ],
+    },
+  },
+  {
+    version: '1.13.2',
+    date: '2026-03-03',
     highlights: {
       he: [
         'תיקון: סריקת QR תחנה ב-Q.Treasure מפנה למשחק (redirect בצד שרת)',

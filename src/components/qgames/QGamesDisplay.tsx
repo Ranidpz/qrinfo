@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { QGamesConfig, QGamesLeaderboardEntry, QGamesStats, DEFAULT_QGAMES_CONFIG } from '@/types/qgames';
+import { useState } from 'react';
+import { QGamesConfig, DEFAULT_QGAMES_CONFIG } from '@/types/qgames';
 import { useQGamesLeaderboard, useQGamesStats } from '@/hooks/useQGamesRealtime';
 
 interface QGamesDisplayProps {

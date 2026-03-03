@@ -10,6 +10,7 @@ interface QGamesQueueProps {
   shortId: string;
   enableWhatsApp: boolean;
   onCancel: () => void;
+  onPlayBot?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
 }
@@ -21,6 +22,7 @@ export default function QGamesQueue({
   shortId,
   enableWhatsApp,
   onCancel,
+  onPlayBot,
   isRTL,
   t,
 }: QGamesQueueProps) {
@@ -95,19 +97,33 @@ export default function QGamesQueue({
         {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
       </div>
 
-      {/* WhatsApp invite */}
-      {showInvite && enableWhatsApp && (
-        <div className="w-full max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Invite + Bot options */}
+      {showInvite && (
+        <div className="w-full max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-3">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
             <p className="text-white/60 text-sm mb-3">{t('noOpponentYet')}</p>
-            <button
-              onClick={handleWhatsAppInvite}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all active:scale-95"
-              style={{ background: '#25D366', color: 'white' }}
-            >
-              <Share2 className="w-4 h-4" />
-              {t('inviteViaWhatsApp')}
-            </button>
+
+            {/* Play vs Bot */}
+            {onPlayBot && (
+              <button
+                onClick={onPlayBot}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all active:scale-95 bg-gradient-to-r from-purple-600 to-indigo-600 text-white mb-2"
+              >
+                🤖 {isRTL ? 'שחק נגד בוט' : 'Play vs Bot'}
+              </button>
+            )}
+
+            {/* WhatsApp invite */}
+            {enableWhatsApp && (
+              <button
+                onClick={handleWhatsAppInvite}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all active:scale-95"
+                style={{ background: '#25D366', color: 'white' }}
+              >
+                <Share2 className="w-4 h-4" />
+                {t('inviteViaWhatsApp')}
+              </button>
+            )}
           </div>
         </div>
       )}

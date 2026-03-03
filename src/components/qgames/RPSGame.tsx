@@ -21,6 +21,7 @@ interface RPSGameProps {
   onMatchEnd: (winnerId: string | null, p1Score: number, p2Score: number) => void;
   isRTL: boolean;
   t: (key: string) => string;
+  isBotMatch?: boolean;
 }
 
 export default function RPSGame({
@@ -39,8 +40,9 @@ export default function RPSGame({
   onMatchEnd,
   isRTL,
   t,
+  isBotMatch,
 }: RPSGameProps) {
-  const { state: rpsState } = useRPSState(codeId, matchId);
+  const { state: rpsState } = useRPSState(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
   const sounds = useQGamesSounds(enableSound);
 
   const [myChoice, setMyChoice] = useState<RPSChoice | null>(null);
@@ -52,13 +54,29 @@ export default function RPSGame({
   const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const matchEndedRef = useRef(false);
 
-  // Current round data
-  const currentRound = rpsState?.currentRound ?? 0;
-  const roundData = rpsState?.rounds?.[String(currentRound)] as RTDBRPSRound | undefined;
-  const timerDuration = roundData?.timerDuration ?? firstRoundTimer;
+  // Bot state (local game loop)
+  const [botRound, setBotRound] = useState(0);
+  const [botRoundData, setBotRoundData] = useState<RTDBRPSRound | null>(null);
+  const [botScores, setBotScores] = useState({ p1: 0, p2: 0 });
+  const botTimerStartRef = useRef<number>(Date.now());
+
+  // Start bot timer on mount and round changes
+  useEffect(() => {
+    if (isBotMatch) {
+      botTimerStartRef.current = Date.now();
+      setBotRoundData(null);
+    }
+  }, [isBotMatch, botRound]);
+
+  // Current round data - use bot state or RTDB state
+  const currentRound = isBotMatch ? botRound : (rpsState?.currentRound ?? 0);
+  const roundData = isBotMatch ? botRoundData : (rpsState?.rounds?.[String(currentRound)] as RTDBRPSRound | undefined);
+  const timerDuration = isBotMatch
+    ? (botRound === 0 ? firstRoundTimer : subsequentTimer)
+    : (roundData?.timerDuration ?? firstRoundTimer);
 
   const { timeLeft, isExpired, progress } = useCountdown(
-    roundData?.timerStartedAt ?? null,
+    isBotMatch ? botTimerStartRef.current : (roundData?.timerStartedAt ?? null),
     roundData?.revealed ? null : timerDuration
   );
 
@@ -73,7 +91,9 @@ export default function RPSGame({
     // Show the reveal for 2 seconds then transition
     revealTimeoutRef.current = setTimeout(() => {
       // Update display scores
-      setDisplayScores({ p1: rpsState?.player1Score ?? 0, p2: rpsState?.player2Score ?? 0 });
+      const p1s = isBotMatch ? botScores.p1 : (rpsState?.player1Score ?? 0);
+      const p2s = isBotMatch ? botScores.p2 : (rpsState?.player2Score ?? 0);
+      setDisplayScores({ p1: p1s, p2: p2s });
 
       // Score animation
       if (roundData.winner === 'player1') {
@@ -96,8 +116,8 @@ export default function RPSGame({
       }, 1000);
 
       // Check if match is over
-      const p1Score = rpsState?.player1Score ?? 0;
-      const p2Score = rpsState?.player2Score ?? 0;
+      const p1Score = p1s;
+      const p2Score = p2s;
       if (p1Score >= firstTo || p2Score >= firstTo) {
         if (!matchEndedRef.current) {
           matchEndedRef.current = true;
@@ -113,7 +133,12 @@ export default function RPSGame({
       // Start next round after 2.5s from reveal
       setTimeout(() => {
         const nextRound = currentRound + 1;
-        startNewRPSRound(codeId, matchId, nextRound, subsequentTimer);
+        if (isBotMatch) {
+          setBotRound(nextRound);
+          botTimerStartRef.current = Date.now();
+        } else {
+          startNewRPSRound(codeId, matchId, nextRound, subsequentTimer);
+        }
         setMyChoice(null);
         setRevealPhase('choosing');
         setLastRoundWinner(null);
@@ -149,6 +174,31 @@ export default function RPSGame({
     setIsSubmitting(true);
     sounds.playSelect();
 
+    if (isBotMatch) {
+      // Bot mode: generate random choice after a short delay
+      setTimeout(() => {
+        const botChoices: RPSChoice[] = ['rock', 'paper', 'scissors'];
+        const botChoice = botChoices[Math.floor(Math.random() * 3)];
+        const result = resolveRPS(choice, botChoice);
+
+        const newScores = { ...botScores };
+        if (result === 'player1') newScores.p1 += 1;
+        else if (result === 'player2') newScores.p2 += 1;
+
+        setBotScores(newScores);
+        setBotRoundData({
+          player1Choice: choice,
+          player2Choice: botChoice,
+          winner: result,
+          timerStartedAt: botTimerStartRef.current,
+          timerDuration,
+          revealed: true,
+        });
+        setIsSubmitting(false);
+      }, 800 + Math.random() * 1200); // 0.8-2s delay for realism
+      return;
+    }
+
     try {
       const response = await fetch('/api/qgames/move', {
         method: 'POST',
@@ -171,7 +221,7 @@ export default function RPSGame({
     } finally {
       setIsSubmitting(false);
     }
-  }, [myChoice, isSubmitting, revealPhase, codeId, matchId, playerId, sounds]);
+  }, [myChoice, isSubmitting, revealPhase, codeId, matchId, playerId, sounds, isBotMatch, botScores, timerDuration]);
 
   // Get opponent info based on player position
   const myNickname = isPlayer1 ? player1Nickname : player2Nickname;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   QGamesConfig,
   QGamesPlayer,
@@ -15,8 +15,6 @@ import {
   initQGamesSession,
   initRPSState,
   updateMatchStatus,
-  leaveQueue,
-  cleanupMatch,
 } from '@/lib/qgames-realtime';
 import {
   useQGamesQueueEntry,
@@ -127,7 +125,6 @@ interface QGamesViewerProps {
 
 export default function QGamesViewer({
   codeId,
-  mediaId,
   initialConfig,
   shortId,
   locale,
@@ -155,6 +152,18 @@ export default function QGamesViewer({
   const [player, setPlayer] = useState<QGamesPlayer | null>(null);
   const [selectedGame, setSelectedGame] = useState<QGameType | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
+  const [isBotMatch, setIsBotMatch] = useState(false);
+
+  // Bot match fake data
+  const [botMatchData, setBotMatchData] = useState<{
+    id: string;
+    player1Id: string;
+    player1Nickname: string;
+    player1AvatarValue: string;
+    player2Id: string;
+    player2Nickname: string;
+    player2AvatarValue: string;
+  } | null>(null);
 
   // Result state
   const [resultData, setResultData] = useState<{
@@ -166,16 +175,13 @@ export default function QGamesViewer({
     oppAvatar: string;
   } | null>(null);
 
-  // Visitor ID
-  const visitorIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    visitorIdRef.current = getOrCreateVisitorId();
-  }, []);
+  // Visitor ID (state instead of ref so React Compiler allows render-time access)
+  const [visitorId] = useState<string>(() => getOrCreateVisitorId());
 
   // Real-time subscriptions
   const { entry: queueEntry } = useQGamesQueueEntry(
     codeId,
-    phase === 'queue' ? visitorIdRef.current : null
+    phase === 'queue' ? visitorId : null
   );
   const { match } = useQGamesMatch(codeId, matchId);
   const { entries: leaderboardEntries } = useQGamesLeaderboard(codeId);
@@ -205,7 +211,7 @@ export default function QGamesViewer({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         codeId,
-        playerId: visitorIdRef.current,
+        playerId: visitorId,
         nickname,
         avatarType,
         avatarValue,
@@ -217,17 +223,17 @@ export default function QGamesViewer({
 
     setPlayer(data.player);
     setPhase('selector');
-  }, [codeId]);
+  }, [codeId, visitorId]);
 
   const handleSelectGame = useCallback(async (gameType: QGameType) => {
-    if (!player || !visitorIdRef.current) return;
+    if (!player || !visitorId) return;
 
     setSelectedGame(gameType);
     setPhase('queue');
 
     const result = await findOrWaitForOpponent(
       codeId,
-      visitorIdRef.current,
+      visitorId,
       player.nickname,
       player.avatarType,
       player.avatarValue,
@@ -239,17 +245,45 @@ export default function QGamesViewer({
       setPhase('vs');
     }
     // If 'waiting', the queue subscription will handle the match found event
-  }, [codeId, player]);
+  }, [codeId, player, visitorId]);
 
   const handleCancelQueue = useCallback(async () => {
-    if (visitorIdRef.current) {
-      await cancelMatchmaking(codeId, visitorIdRef.current);
+    if (visitorId) {
+      await cancelMatchmaking(codeId, visitorId);
     }
     setSelectedGame(null);
     setPhase('selector');
-  }, [codeId]);
+  }, [codeId, visitorId]);
+
+  const handlePlayBot = useCallback(async () => {
+    if (!player) return;
+
+    // Cancel any active matchmaking
+    if (visitorId) {
+      await cancelMatchmaking(codeId, visitorId);
+    }
+
+    setIsBotMatch(true);
+    const fakeBotMatch = {
+      id: `bot-${Date.now()}`,
+      player1Id: visitorId,
+      player1Nickname: player.nickname,
+      player1AvatarValue: player.avatarValue,
+      player2Id: 'bot',
+      player2Nickname: isRTL ? 'בוט' : 'Bot',
+      player2AvatarValue: '🤖',
+    };
+    setBotMatchData(fakeBotMatch);
+    setPhase('vs');
+  }, [player, visitorId, codeId, isRTL]);
 
   const handleVSCountdownComplete = useCallback(async () => {
+    if (isBotMatch) {
+      // Bot match: skip RTDB setup, go straight to playing
+      setPhase('playing');
+      return;
+    }
+
     if (!matchId || !selectedGame) return;
 
     // Start the game
@@ -260,41 +294,46 @@ export default function QGamesViewer({
     }
 
     setPhase('playing');
-  }, [codeId, matchId, selectedGame, config]);
+  }, [codeId, matchId, selectedGame, config, isBotMatch]);
 
   const handleMatchEnd = useCallback((winnerId: string | null, p1Score: number, p2Score: number) => {
-    if (!match || !player) return;
+    const activeMatch = isBotMatch ? botMatchData : match;
+    if (!activeMatch || !player) return;
 
-    const isPlayer1 = match.player1Id === visitorIdRef.current;
-    const iWon = winnerId === visitorIdRef.current;
+    const isP1 = activeMatch.player1Id === visitorId;
+    const iWon = winnerId === visitorId;
     const isDraw = winnerId === null;
 
     setResultData({
       isWinner: iWon,
       isDraw,
-      myScore: isPlayer1 ? p1Score : p2Score,
-      oppScore: isPlayer1 ? p2Score : p1Score,
-      oppNickname: isPlayer1 ? match.player2Nickname : match.player1Nickname,
-      oppAvatar: isPlayer1 ? match.player2AvatarValue : match.player1AvatarValue,
+      myScore: isP1 ? p1Score : p2Score,
+      oppScore: isP1 ? p2Score : p1Score,
+      oppNickname: isP1 ? activeMatch.player2Nickname : activeMatch.player1Nickname,
+      oppAvatar: isP1 ? activeMatch.player2AvatarValue : activeMatch.player1AvatarValue,
     });
 
-    // Persist match to Firestore
-    fetch('/api/qgames/finish', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        codeId,
-        matchId,
-        playerId: visitorIdRef.current,
-      }),
-    }).catch(console.error);
+    // Persist match to Firestore (skip for bot matches)
+    if (!isBotMatch) {
+      fetch('/api/qgames/finish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId,
+          matchId,
+          playerId: visitorId,
+        }),
+      }).catch(console.error);
+    }
 
     setPhase('result');
-  }, [match, player, codeId, matchId]);
+  }, [match, player, codeId, matchId, isBotMatch, botMatchData, visitorId]);
 
   const handlePlayAgain = useCallback(() => {
     setMatchId(null);
     setResultData(null);
+    setIsBotMatch(false);
+    setBotMatchData(null);
     if (selectedGame) {
       handleSelectGame(selectedGame);
     } else {
@@ -306,13 +345,14 @@ export default function QGamesViewer({
     setMatchId(null);
     setResultData(null);
     setSelectedGame(null);
+    setIsBotMatch(false);
+    setBotMatchData(null);
     setPhase('selector');
   }, []);
 
   // ============ Render ============
 
   const bgColor = config.branding.backgroundColor || '#0a0f1a';
-  const isPlayer1 = match?.player1Id === visitorIdRef.current;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
@@ -344,42 +384,53 @@ export default function QGamesViewer({
           shortId={shortId}
           enableWhatsApp={config.enableWhatsAppInvite}
           onCancel={handleCancelQueue}
+          onPlayBot={handlePlayBot}
           isRTL={isRTL}
           t={t}
         />
       )}
 
-      {phase === 'vs' && match && (
-        <QGamesVSScreen
-          player1Nickname={match.player1Nickname}
-          player1Avatar={match.player1AvatarValue}
-          player2Nickname={match.player2Nickname}
-          player2Avatar={match.player2AvatarValue}
-          gameEmoji={GAME_META[selectedGame || 'rps']?.emoji || '✊'}
-          onCountdownComplete={handleVSCountdownComplete}
-          isRTL={isRTL}
-        />
-      )}
+      {phase === 'vs' && (match || botMatchData) && (() => {
+        const vsMatch = isBotMatch ? botMatchData : match;
+        if (!vsMatch) return null;
+        return (
+          <QGamesVSScreen
+            player1Nickname={vsMatch.player1Nickname}
+            player1Avatar={vsMatch.player1AvatarValue}
+            player2Nickname={vsMatch.player2Nickname}
+            player2Avatar={vsMatch.player2AvatarValue}
+            gameEmoji={GAME_META[selectedGame || 'rps']?.emoji || '✊'}
+            onCountdownComplete={handleVSCountdownComplete}
+            isRTL={isRTL}
+          />
+        );
+      })()}
 
-      {phase === 'playing' && match && selectedGame === 'rps' && (
-        <RPSGame
-          codeId={codeId}
-          matchId={match.id}
-          playerId={visitorIdRef.current || ''}
-          isPlayer1={isPlayer1}
-          player1Nickname={match.player1Nickname}
-          player1Avatar={match.player1AvatarValue}
-          player2Nickname={match.player2Nickname}
-          player2Avatar={match.player2AvatarValue}
-          firstTo={config.rpsFirstTo}
-          firstRoundTimer={config.rpsFirstRoundTimer}
-          subsequentTimer={config.rpsSubsequentTimer}
-          enableSound={config.enableSound}
-          onMatchEnd={handleMatchEnd}
-          isRTL={isRTL}
-          t={t}
-        />
-      )}
+      {phase === 'playing' && (match || botMatchData) && selectedGame === 'rps' && (() => {
+        const gameMatch = isBotMatch ? botMatchData : match;
+        if (!gameMatch) return null;
+        const isP1 = gameMatch.player1Id === visitorId;
+        return (
+          <RPSGame
+            codeId={codeId}
+            matchId={gameMatch.id}
+            playerId={visitorId || ''}
+            isPlayer1={isP1}
+            player1Nickname={gameMatch.player1Nickname}
+            player1Avatar={gameMatch.player1AvatarValue}
+            player2Nickname={gameMatch.player2Nickname}
+            player2Avatar={gameMatch.player2AvatarValue}
+            firstTo={config.rpsFirstTo}
+            firstRoundTimer={config.rpsFirstRoundTimer}
+            subsequentTimer={config.rpsSubsequentTimer}
+            enableSound={config.enableSound}
+            onMatchEnd={handleMatchEnd}
+            isRTL={isRTL}
+            t={t}
+            isBotMatch={isBotMatch}
+          />
+        );
+      })()}
 
       {phase === 'result' && resultData && player && (
         <QGamesResult
@@ -404,14 +455,14 @@ export default function QGamesViewer({
         <>
           <QGamesLeaderboard
             entries={leaderboardEntries}
-            currentPlayerId={visitorIdRef.current || undefined}
+            currentPlayerId={visitorId || undefined}
             onBack={() => setPhase(resultData ? 'result' : 'selector')}
             isRTL={isRTL}
             t={t}
           />
           <QGamesMatchHistory
             codeId={codeId}
-            currentPlayerId={visitorIdRef.current || undefined}
+            currentPlayerId={visitorId || undefined}
             isRTL={isRTL}
             t={t}
           />
