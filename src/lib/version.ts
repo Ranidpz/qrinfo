@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.4';
+export const APP_VERSION = '1.13.5';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.4',
+    version: '1.13.5',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: היסטוריית סיבובים ב-Q.Games - רואים מה כל שחקן בחר בכל סיבוב',
+        'שיפור: תמיכה באווטר סלפי במסך המשחק',
+      ],
+      en: [
+        'New: Round history in Q.Games - see what each player chose per round',
+        'Improvement: Selfie avatar support in game screen',
+      ],
+    },
+  },
+  {
+    version: '1.13.4',
+    date: '2026-03-03',
     highlights: {
       he: [
         'חדש: סלפי כאווטר ב-Q.Games - צלם תמונה מהמצלמה',

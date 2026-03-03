@@ -8,6 +8,7 @@ interface QGamesQueueProps {
   gameName: string;
   playerAvatar: string;
   shortId: string;
+  inviterVisitorId?: string;
   enableWhatsApp: boolean;
   onCancel: () => void;
   onPlayBot?: () => void;
@@ -20,6 +21,7 @@ export default function QGamesQueue({
   gameName,
   playerAvatar,
   shortId,
+  inviterVisitorId,
   enableWhatsApp,
   onCancel,
   onPlayBot,
@@ -50,7 +52,8 @@ export default function QGamesQueue({
   }, []);
 
   const handleWhatsAppInvite = () => {
-    const shareUrl = `https://qr.playzones.app/v/${shortId}`;
+    const baseUrl = `https://qr.playzones.app/v/${shortId}`;
+    const shareUrl = inviterVisitorId ? `${baseUrl}?invite=${inviterVisitorId}` : baseUrl;
     const message = isRTL
       ? `🎮 בוא נשחק ${gameName}! ${shareUrl}`
       : `🎮 Let's play ${gameName}! ${shareUrl}`;

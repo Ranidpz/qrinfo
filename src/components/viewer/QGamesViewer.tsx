@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   QGamesConfig,
   QGamesPlayer,
@@ -10,11 +10,12 @@ import {
   DEFAULT_QGAMES_EMOJI_PALETTE,
 } from '@/types/qgames';
 import { getOrCreateVisitorId } from '@/lib/xp';
-import { findOrWaitForOpponent, cancelMatchmaking } from '@/lib/qgames-matchmaking';
+import { findOrWaitForOpponent, tryMatchFromQueue, cancelMatchmaking } from '@/lib/qgames-matchmaking';
 import {
   initQGamesSession,
   initRPSState,
   updateMatchStatus,
+  subscribeToQueue,
 } from '@/lib/qgames-realtime';
 import {
   useQGamesQueueEntry,
@@ -184,6 +185,17 @@ export default function QGamesViewer({
   // Visitor ID (state instead of ref so React Compiler allows render-time access)
   const [visitorId] = useState<string>(() => getOrCreateVisitorId());
 
+  // Read invite param from URL (WhatsApp direct invite)
+  const [inviteFrom] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('invite');
+    }
+    return null;
+  });
+
+  // Guard against concurrent match attempts
+  const matchingRef = useRef(false);
+
   // Real-time subscriptions
   const { entry: queueEntry } = useQGamesQueueEntry(
     codeId,
@@ -204,6 +216,62 @@ export default function QGamesViewer({
       setPhase('vs');
     }
   }, [queueEntry, phase]);
+
+  // Watch full queue for opponents while waiting (fixes race condition)
+  useEffect(() => {
+    if (phase !== 'queue' || !selectedGame || !player || !visitorId) return;
+
+    const unsubscribe = subscribeToQueue(codeId, async (entries) => {
+      if (matchingRef.current) return;
+
+      const hasOpponent = entries.some(
+        e => e.gameType === selectedGame && e.status === 'waiting' && e.id !== visitorId
+      );
+
+      if (hasOpponent) {
+        matchingRef.current = true;
+        try {
+          const result = await tryMatchFromQueue(
+            codeId, visitorId, player.nickname, player.avatarType,
+            player.avatarValue, selectedGame, inviteFrom || undefined
+          );
+          if (result.type === 'matched' && result.matchId) {
+            setMatchId(result.matchId);
+            setPhase('vs');
+          }
+        } finally {
+          matchingRef.current = false;
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [phase, codeId, selectedGame, visitorId, player, inviteFrom]);
+
+  // Re-add to queue if entry is removed while waiting (disconnect recovery)
+  useEffect(() => {
+    if (phase !== 'queue' || matchingRef.current) return;
+    if (!selectedGame || !player || !visitorId) return;
+    if (queueEntry !== null) return;
+
+    const reJoin = async () => {
+      matchingRef.current = true;
+      try {
+        const result = await findOrWaitForOpponent(
+          codeId, visitorId, player.nickname, player.avatarType,
+          player.avatarValue, selectedGame, inviteFrom || undefined
+        );
+        if (result.type === 'matched' && result.matchId) {
+          setMatchId(result.matchId);
+          setPhase('vs');
+        }
+      } finally {
+        matchingRef.current = false;
+      }
+    };
+
+    reJoin();
+  }, [queueEntry, phase, codeId, visitorId, selectedGame, player, inviteFrom]);
 
   // ============ Handlers ============
 
@@ -243,15 +311,16 @@ export default function QGamesViewer({
       player.nickname,
       player.avatarType,
       player.avatarValue,
-      gameType
+      gameType,
+      inviteFrom || undefined
     );
 
     if (result.type === 'matched' && result.matchId) {
       setMatchId(result.matchId);
       setPhase('vs');
     }
-    // If 'waiting', the queue subscription will handle the match found event
-  }, [codeId, player, visitorId]);
+    // If 'waiting', the queue watcher will handle matching when opponent appears
+  }, [codeId, player, visitorId, inviteFrom]);
 
   const handleCancelQueue = useCallback(async () => {
     if (visitorId) {
@@ -296,11 +365,15 @@ export default function QGamesViewer({
     await updateMatchStatus(codeId, matchId, 'playing');
 
     if (selectedGame === 'rps') {
-      await initRPSState(codeId, matchId, config.rpsFirstTo, config.rpsFirstRoundTimer);
+      // Only player1 initializes RPS state to avoid timestamp race
+      const isPlayer1 = match?.player1Id === visitorId;
+      if (isPlayer1) {
+        await initRPSState(codeId, matchId, config.rpsFirstTo, config.rpsFirstRoundTimer);
+      }
     }
 
     setPhase('playing');
-  }, [codeId, matchId, selectedGame, config, isBotMatch]);
+  }, [codeId, matchId, selectedGame, config, isBotMatch, match, visitorId]);
 
   const handleMatchEnd = useCallback((winnerId: string | null, p1Score: number, p2Score: number) => {
     const activeMatch = isBotMatch ? botMatchData : match;
@@ -390,6 +463,7 @@ export default function QGamesViewer({
           gameName={t(GAME_META[selectedGame]?.labelKey || selectedGame)}
           playerAvatar={player?.avatarValue || '😎'}
           shortId={shortId}
+          inviterVisitorId={visitorId}
           enableWhatsApp={config.enableWhatsAppInvite}
           onCancel={handleCancelQueue}
           onPlayBot={handlePlayBot}

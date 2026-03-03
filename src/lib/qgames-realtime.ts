@@ -379,7 +379,7 @@ export async function removeFromLeaderboard(
 /** Remove stale queue entries (older than maxAge ms) */
 export async function cleanupStaleQueue(
   codeId: string,
-  maxAgeMs: number = 60000
+  maxAgeMs: number = 300000
 ): Promise<void> {
   const queueRef = ref(realtimeDb, QGAMES_PATHS.queue(codeId));
   const snapshot = await get(queueRef);

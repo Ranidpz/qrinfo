@@ -51,6 +51,13 @@ export default function RPSGame({
   const [lastRoundWinner, setLastRoundWinner] = useState<string | null>(null);
   const [scoreAnimation, setScoreAnimation] = useState<{ player: 'p1' | 'p2'; show: boolean }>({ player: 'p1', show: false });
   const [displayScores, setDisplayScores] = useState({ p1: 0, p2: 0 });
+
+  // Round history for visual log
+  const [roundHistory, setRoundHistory] = useState<Array<{
+    myChoice: RPSChoice;
+    oppChoice: RPSChoice;
+    winner: 'me' | 'opp' | 'draw';
+  }>>([]);
   const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const matchEndedRef = useRef(false);
 
@@ -95,6 +102,17 @@ export default function RPSGame({
       const p2s = isBotMatch ? botScores.p2 : (rpsState?.player2Score ?? 0);
       setDisplayScores({ p1: p1s, p2: p2s });
 
+      // Add to round history
+      const myC = isPlayer1 ? roundData.player1Choice! : roundData.player2Choice!;
+      const oppC = isPlayer1 ? roundData.player2Choice! : roundData.player1Choice!;
+      setRoundHistory(prev => [...prev, {
+        myChoice: myC,
+        oppChoice: oppC,
+        winner: roundData.winner === (isPlayer1 ? 'player1' : 'player2') ? 'me'
+          : roundData.winner === (isPlayer1 ? 'player2' : 'player1') ? 'opp'
+          : 'draw',
+      }]);
+
       // Score animation
       if (roundData.winner === 'player1') {
         setScoreAnimation({ player: 'p1', show: true });
@@ -136,7 +154,8 @@ export default function RPSGame({
         if (isBotMatch) {
           setBotRound(nextRound);
           botTimerStartRef.current = Date.now();
-        } else {
+        } else if (isPlayer1) {
+          // Only player1 starts new rounds to avoid duplicate writes
           startNewRPSRound(codeId, matchId, nextRound, subsequentTimer);
         }
         setMyChoice(null);
@@ -248,8 +267,10 @@ export default function RPSGame({
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         {/* My side */}
         <div className="flex items-center gap-2 relative">
-          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-xl ring-2 ring-blue-400/30">
-            {myAvatar}
+          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-xl ring-2 ring-blue-400/30 overflow-hidden">
+            {myAvatar.startsWith('http') ? (
+              <img src={myAvatar} alt="" className="w-full h-full object-cover" />
+            ) : myAvatar}
           </div>
           <div>
             <p className="text-white text-xs font-medium truncate max-w-[80px]">{myNickname}</p>
@@ -273,8 +294,10 @@ export default function RPSGame({
             <p className="text-white text-xs font-medium truncate max-w-[80px] text-end">{oppNickname}</p>
             <p className="text-2xl font-black text-white tabular-nums text-end">{oppScore}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-xl ring-2 ring-red-400/30">
-            {oppAvatar}
+          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-xl ring-2 ring-red-400/30 overflow-hidden">
+            {oppAvatar.startsWith('http') ? (
+              <img src={oppAvatar} alt="" className="w-full h-full object-cover" />
+            ) : oppAvatar}
           </div>
           {scoreAnimation.show && scoreAnimation.player === (isPlayer1 ? 'p2' : 'p1') && (
             <span className="absolute -top-2 left-0 text-emerald-400 font-black text-lg animate-bounce">+1</span>
@@ -357,8 +380,83 @@ export default function RPSGame({
         )}
       </div>
 
+      {/* Round History Strip */}
+      {(() => {
+        const maxRounds = firstTo * 2 - 1;
+        return (
+          <div className="px-4 pt-2 pb-1">
+            <div className="flex justify-center items-center gap-1.5">
+              {Array.from({ length: maxRounds }).map((_, i) => {
+                const entry = roundHistory[i];
+
+                if (entry) {
+                  // Completed round
+                  const isWin = entry.winner === 'me';
+                  const isLoss = entry.winner === 'opp';
+                  return (
+                    <div
+                      key={i}
+                      className="flex flex-col items-center gap-0.5 animate-in fade-in zoom-in-95 duration-300"
+                    >
+                      {/* Opponent choice */}
+                      <div
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all ${
+                          isLoss ? 'bg-red-500/15 ring-1 ring-red-400/40' : 'bg-white/5'
+                        }`}
+                      >
+                        {RPS_EMOJI[entry.oppChoice]}
+                      </div>
+                      {/* Winner indicator line */}
+                      <div
+                        className={`w-6 h-0.5 rounded-full ${
+                          isWin ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' :
+                          isLoss ? 'bg-red-400 shadow-sm shadow-red-400/50' :
+                          'bg-yellow-400/60'
+                        }`}
+                      />
+                      {/* My choice */}
+                      <div
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all ${
+                          isWin ? 'bg-emerald-500/15 ring-1 ring-emerald-400/40' : 'bg-white/5'
+                        }`}
+                      >
+                        {RPS_EMOJI[entry.myChoice]}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Future round - empty placeholder
+                return (
+                  <div key={i} className="flex flex-col items-center gap-0.5">
+                    <div className="w-9 h-9 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-white/10" />
+                    </div>
+                    <div className="w-6 h-0.5 rounded-full bg-white/[0.06]" />
+                    <div className="w-9 h-9 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-white/10" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Legend: player names */}
+            <div className="flex justify-center gap-6 mt-1.5">
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-400/60" />
+                <span className="text-white/25 text-[9px] tracking-wide">{oppNickname}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/60" />
+                <span className="text-white/25 text-[9px] tracking-wide">{myNickname}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Choice Buttons - always at bottom */}
-      <div className="px-4 pb-8 pt-4">
+      <div className="px-4 pb-8 pt-3">
         <div className="flex justify-center gap-3">
           {(['rock', 'paper', 'scissors'] as RPSChoice[]).map((choice) => {
             const isSelected = myChoice === choice;
