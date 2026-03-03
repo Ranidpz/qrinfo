@@ -26,6 +26,7 @@ export const MEDIA_TYPE_INFO: Record<MediaType, {
   qtreasure: { icon: 'Map', labelHe: 'ציד אוצרות', labelEn: 'Treasure Hunt' },
   qchallenge: { icon: 'Trophy', labelHe: 'טריוויה', labelEn: 'Trivia' },
   qtag: { icon: 'Tag', labelHe: 'רישום לאירוע', labelEn: 'Event Registration' },
+  minigames: { icon: 'Gamepad2', labelHe: 'מיניגיימס', labelEn: 'Mini Games' },
 };
 
 /**
