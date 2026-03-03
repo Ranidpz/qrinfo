@@ -75,11 +75,20 @@ export function QTreasurePlayerView({
     activeConfig.timer?.maxTimeSeconds || 0
   );
 
-  // Determine language
-  const lang = activeConfig.language === 'auto'
+  // Determine language - allow player override
+  const [langOverride, setLangOverride] = useState<'he' | 'en' | null>(null);
+  const configLang = activeConfig.language === 'auto'
     ? (typeof navigator !== 'undefined' && navigator.language?.startsWith('he') ? 'he' : 'en')
     : activeConfig.language;
+  const lang = langOverride || configLang;
   const isRTL = lang === 'he';
+
+  const toggleLang = useCallback(() => {
+    setLangOverride(prev => {
+      const current = prev || configLang;
+      return current === 'he' ? 'en' : 'he';
+    });
+  }, [configLang]);
 
   // Check if player is registered and has started
   useEffect(() => {
@@ -411,6 +420,11 @@ export function QTreasurePlayerView({
         </div>
       )}
 
+      {/* Language toggle */}
+      <button className="lang-toggle" onClick={toggleLang}>
+        🌐 {lang === 'he' ? 'EN' : 'עב'}
+      </button>
+
       {/* Background effects */}
       <div className="bg-effects">
         <div className="fog fog-1" />
@@ -439,6 +453,30 @@ export function QTreasurePlayerView({
           right: 0.75rem;
           z-index: 40;
           padding: 0.5rem;
+        }
+
+        .lang-toggle {
+          position: fixed;
+          top: 3.5rem;
+          left: 0.75rem;
+          z-index: 40;
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.5rem 0.75rem;
+          background: rgba(13, 31, 23, 0.85);
+          border: 1px solid rgba(212, 175, 55, 0.3);
+          border-radius: 20px;
+          color: #d4af37;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .lang-toggle:hover {
+          background: rgba(13, 31, 23, 0.95);
+          border-color: rgba(212, 175, 55, 0.6);
         }
 
         .bg-effects {
