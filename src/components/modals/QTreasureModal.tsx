@@ -35,6 +35,7 @@ import {
   DEFAULT_QTREASURE_EMOJI_PALETTE,
   createNewStation,
 } from '@/types/qtreasure';
+import QRCode from 'qrcode';
 import MobilePreviewModal from './MobilePreviewModal';
 
 // Helper function to remove undefined/null values from objects (Firestore doesn't accept undefined)
@@ -141,6 +142,7 @@ export default function QTreasureModal({
 
   // Station QR creation state
   const [creatingQRForStation, setCreatingQRForStation] = useState<string | null>(null);
+  const [isPrintingQRs, setIsPrintingQRs] = useState(false);
 
   // Create QR code for a station
   const createStationQR = async (stationId: string) => {
@@ -178,6 +180,179 @@ export default function QTreasureModal({
       alert(isRTL ? 'שגיאה ביצירת QR לתחנה' : 'Error creating station QR');
     } finally {
       setCreatingQRForStation(null);
+    }
+  };
+
+  // Print all station QR codes
+  const printAllStationQRs = async () => {
+    const activeStations = stations.filter(s => s.isActive);
+    if (activeStations.length === 0) return;
+
+    if (!ownerId || !shortId) {
+      alert(isRTL ? 'יש לשמור את הקוד הראשי קודם' : 'Please save the main code first');
+      return;
+    }
+
+    setIsPrintingQRs(true);
+
+    try {
+      // Auto-create QR codes for stations that don't have them
+      const stationsNeedingQR = activeStations.filter(s => !s.stationShortId);
+      for (const station of stationsNeedingQR) {
+        try {
+          const response = await fetch('/api/qtreasure/create-station-qr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ownerId,
+              stationTitle: station.title || `תחנה ${station.order}`,
+              stationOrder: station.order,
+              parentCodeShortId: shortId,
+              folderId: folderId || undefined,
+            }),
+          });
+          const result = await response.json();
+          if (result.success) {
+            updateStation(station.id, { stationShortId: result.shortId });
+            station.stationShortId = result.shortId;
+          }
+        } catch (e) {
+          console.error('Error creating station QR:', e);
+        }
+      }
+
+      // Generate QR code data URLs locally
+      const baseUrl = window.location.origin;
+      const qrData: { station: QTreasureStation; dataUrl: string }[] = [];
+
+      for (const station of activeStations) {
+        if (!station.stationShortId) continue;
+        try {
+          const dataUrl = await QRCode.toDataURL(`${baseUrl}/v/${station.stationShortId}`, {
+            width: 300,
+            margin: 2,
+            color: { dark: '#000000', light: '#ffffff' },
+          });
+          qrData.push({ station, dataUrl });
+        } catch (e) {
+          console.error('Error generating QR:', e);
+        }
+      }
+
+      if (qrData.length === 0) {
+        alert(isRTL ? 'לא נוצרו קודי QR' : 'No QR codes were generated');
+        return;
+      }
+
+      // Open print window
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      const title = gameTitle || (isRTL ? 'ציד אוצרות' : 'Treasure Hunt');
+
+      const html = `
+        <!DOCTYPE html>
+        <html dir="${isRTL ? 'rtl' : 'ltr'}">
+        <head>
+          <title>${title} - ${isRTL ? 'קודי QR לתחנות' : 'Station QR Codes'}</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              padding: 20px;
+              background: #fff;
+            }
+            h1 {
+              text-align: center;
+              margin-bottom: 8px;
+              font-size: 28px;
+              color: #1a1a2e;
+            }
+            .subtitle {
+              text-align: center;
+              margin-bottom: 30px;
+              font-size: 14px;
+              color: #6b7280;
+            }
+            .stations-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 24px;
+              max-width: 800px;
+              margin: 0 auto;
+            }
+            .station-card {
+              border: 2px solid #d4af37;
+              border-radius: 16px;
+              padding: 24px;
+              text-align: center;
+              page-break-inside: avoid;
+              background: #fff;
+            }
+            .station-order {
+              font-size: 14px;
+              font-weight: 600;
+              color: #d4af37;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              margin-bottom: 4px;
+            }
+            .station-title {
+              font-size: 20px;
+              font-weight: bold;
+              color: #1a1a2e;
+              margin-bottom: 16px;
+            }
+            .qr-code {
+              width: 200px;
+              height: 200px;
+              margin: 0 auto 12px;
+            }
+            .station-url {
+              font-size: 11px;
+              color: #9ca3af;
+              word-break: break-all;
+            }
+            .station-xp {
+              margin-top: 8px;
+              font-size: 14px;
+              font-weight: 600;
+              color: #10b981;
+            }
+            @media print {
+              body { padding: 10px; }
+              .stations-grid { gap: 16px; }
+              .station-card { border-width: 1.5px; padding: 16px; }
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${title}</h1>
+          <div class="subtitle">${qrData.length} ${isRTL ? 'תחנות' : 'stations'}</div>
+          <div class="stations-grid">
+            ${qrData.map(({ station, dataUrl }) => `
+              <div class="station-card">
+                <div class="station-order">${isRTL ? 'תחנה' : 'Station'} ${station.order}</div>
+                <div class="station-title">${station.title || ''}</div>
+                <img class="qr-code" src="${dataUrl}" alt="Station ${station.order}" />
+                <div class="station-url">${baseUrl}/v/${station.stationShortId}</div>
+                <div class="station-xp">⭐ ${station.xpReward || xpPerStation} XP</div>
+              </div>
+            `).join('')}
+          </div>
+          <script>window.onload = () => window.print();</script>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(html);
+      printWindow.document.close();
+    } catch (error) {
+      console.error('Error printing QR codes:', error);
+      alert(isRTL ? 'שגיאה בהדפסת קודי QR' : 'Error printing QR codes');
+    } finally {
+      setIsPrintingQRs(false);
     }
   };
 
@@ -774,54 +949,22 @@ export default function QTreasureModal({
                     {isRTL ? `${stations.length} תחנות` : `${stations.length} Stations`}
                   </h3>
                   <div className="flex items-center gap-2">
-                    {/* Print all QR codes button */}
-                    {stations.filter(s => s.stationShortId).length > 0 && (
+                    {/* Print all QR codes button - always visible */}
+                    {stations.filter(s => s.isActive).length > 0 && (
                       <button
-                        onClick={() => {
-                          const stationsWithQR = stations.filter(s => s.stationShortId);
-                          const printWindow = window.open('', '_blank');
-                          if (printWindow) {
-                            const baseUrl = window.location.origin;
-                            printWindow.document.write(`
-                              <!DOCTYPE html>
-                              <html dir="${isRTL ? 'rtl' : 'ltr'}">
-                              <head>
-                                <title>${isRTL ? 'קודי QR לתחנות' : 'Station QR Codes'}</title>
-                                <style>
-                                  body { font-family: Arial, sans-serif; padding: 20px; }
-                                  .station { page-break-after: always; text-align: center; padding: 40px; }
-                                  .station:last-child { page-break-after: avoid; }
-                                  .station-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-                                  .station-order { font-size: 48px; color: #d4af37; margin-bottom: 20px; }
-                                  .qr-code { margin: 20px auto; }
-                                  .station-url { font-size: 14px; color: #666; margin-top: 10px; }
-                                  @media print { .no-print { display: none; } }
-                                </style>
-                              </head>
-                              <body>
-                                <button class="no-print" onclick="window.print()" style="padding: 10px 20px; font-size: 16px; margin-bottom: 20px;">
-                                  ${isRTL ? 'הדפס' : 'Print'}
-                                </button>
-                                ${stationsWithQR.map(s => `
-                                  <div class="station">
-                                    <div class="station-order">${isRTL ? 'תחנה' : 'Station'} ${s.order}</div>
-                                    <div class="station-title">${s.title || ''}</div>
-                                    <div class="qr-code">
-                                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${baseUrl}/v/${s.stationShortId}`)}" alt="QR Code" />
-                                    </div>
-                                    <div class="station-url">${baseUrl}/v/${s.stationShortId}</div>
-                                  </div>
-                                `).join('')}
-                              </body>
-                              </html>
-                            `);
-                            printWindow.document.close();
-                          }
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 border border-amber-500 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                        onClick={printAllStationQRs}
+                        disabled={isPrintingQRs}
+                        className="flex items-center gap-2 px-3 py-2 border border-amber-500 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
                       >
-                        <Printer className="w-4 h-4" />
-                        {isRTL ? 'הדפס QR' : 'Print QRs'}
+                        {isPrintingQRs ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Printer className="w-4 h-4" />
+                        )}
+                        {isPrintingQRs
+                          ? (isRTL ? 'מכין להדפסה...' : 'Preparing...')
+                          : (isRTL ? 'הדפס QR' : 'Print QRs')
+                        }
                       </button>
                     )}
                     <button
@@ -1014,6 +1157,67 @@ export default function QTreasureModal({
                                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm resize-none"
                                 />
                               </div>
+                            </div>
+
+                            {/* Answer Challenge */}
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                              <h4 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                                <span>🔐</span>
+                                {isRTL ? 'תשובה לאתגר (אופציונלי)' : 'Answer Challenge (optional)'}
+                              </h4>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                {isRTL
+                                  ? 'השחקנים יצטרכו להקליד את התשובה הנכונה לפני שיראו את הרמז לתחנה הבאה'
+                                  : 'Players must type the correct answer before seeing the hint for the next station'}
+                              </p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                    {isRTL ? 'תשובה (עברית)' : 'Answer (Hebrew)'}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={station.answer || ''}
+                                    onChange={(e) => updateStation(station.id, { answer: e.target.value })}
+                                    placeholder={isRTL ? 'לדוגמה: אהבת אמת' : 'e.g. true love'}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                                    {isRTL ? 'תשובה (אנגלית)' : 'Answer (English)'}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={station.answerEn || ''}
+                                    onChange={(e) => updateStation(station.id, { answerEn: e.target.value })}
+                                    placeholder={isRTL ? 'לדוגמה: true love' : 'e.g. true love'}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                                  />
+                                </div>
+                              </div>
+                              {/* Preview of letter squares */}
+                              {(station.answer || station.answerEn) && (
+                                <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                    {isRTL ? 'תצוגה מקדימה:' : 'Preview:'}
+                                  </p>
+                                  <div className="flex flex-wrap gap-1" dir={isRTL ? 'rtl' : 'ltr'}>
+                                    {(station.answer || station.answerEn || '').split('').map((char, i) => (
+                                      char === ' ' ? (
+                                        <div key={i} className="w-3" />
+                                      ) : (
+                                        <div
+                                          key={i}
+                                          className="w-8 h-8 border-2 border-amber-400 rounded flex items-center justify-center text-sm font-bold text-amber-600 dark:text-amber-400 bg-white dark:bg-gray-900"
+                                        >
+                                          {char}
+                                        </div>
+                                      )
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             {/* Video URL */}

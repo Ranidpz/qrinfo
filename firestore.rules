@@ -97,6 +97,57 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
+      // Q.Games Players subcollection
+      match /qgames_players/{playerId} {
+        allow read: if true;
+        allow create: if true;
+        allow update: if true;
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+
+      // Q.Games Matches subcollection (all writes via Admin SDK / API routes)
+      match /qgames_matches/{matchId} {
+        allow read: if true;
+        allow create, update: if false;
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+
+      // Q.Treasure Players subcollection
+      match /qtreasure_players/{playerId} {
+        // Anyone can read players (for leaderboard)
+        allow read: if true;
+        // Anyone can create a player (registration)
+        allow create: if true;
+        // Player can update their own data, or owner/admin can manage
+        allow update: if true;
+        // Only owner or admin can delete players
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+
+      // Q.Treasure Scans subcollection
+      match /qtreasure_scans/{scanId} {
+        // Anyone can read scans (for tracking)
+        allow read: if true;
+        // Anyone can create a scan (during game)
+        allow create: if true;
+        // No updates to scans
+        allow update: if false;
+        // Only owner or admin can delete scans
+        allow delete: if request.auth != null && (
+          get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+
       // Q.Hunt Scans subcollection
       match /qhunt_scans/{scanId} {
         // Anyone can read scans (for tracking)

@@ -20,6 +20,7 @@ import QHuntModal from '@/components/modals/QHuntModal';
 import QTreasureModal from '@/components/modals/QTreasureModal';
 import QChallengeModal from '@/components/modals/QChallengeModal';
 import QTagModal from '@/components/modals/QTagModal';
+import QGamesModal from '@/components/modals/QGamesModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
 import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig, MediaType } from '@/types';
@@ -30,6 +31,7 @@ import { QHuntConfig, DEFAULT_QHUNT_CONFIG } from '@/types/qhunt';
 import { QTreasureConfig } from '@/types/qtreasure';
 import { compressImage, createCompressedFile } from '@/lib/imageCompression';
 import { QChallengeConfig } from '@/types/qchallenge';
+import { QGamesConfig } from '@/types/qgames';
 import { QTagConfig } from '@/types/qtag';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -117,6 +119,8 @@ export default function DashboardPage() {
   const [addingQTreasure, setAddingQTreasure] = useState(false);
   const [qchallengeModalOpen, setQchallengeModalOpen] = useState(false);
   const [addingQChallenge, setAddingQChallenge] = useState(false);
+  const [qgamesModalOpen, setQgamesModalOpen] = useState(false);
+  const [addingQGames, setAddingQGames] = useState(false);
   const [qtagModalOpen, setQtagModalOpen] = useState(false);
   const [addingQTag, setAddingQTag] = useState(false);
   const [editingQTagCode, setEditingQTagCode] = useState<QRCodeType | null>(null);
@@ -1010,6 +1014,35 @@ export default function DashboardPage() {
     }
   };
 
+  const handleQGamesCreate = async (config: QGamesConfig) => {
+    if (!user) return;
+
+    setAddingQGames(true);
+
+    try {
+      const newCode = await createQRCode(user.id, 'Q.Games', [
+        {
+          url: '',
+          type: 'minigames' as MediaType,
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+          title: 'Q.Games',
+          qgamesConfig: config,
+        },
+      ], currentFolderId);
+
+      setCodes((prev) => [newCode, ...prev]);
+      setQgamesModalOpen(false);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating Q.Games:', error);
+      alert(tErrors('createCodeError'));
+    } finally {
+      setAddingQGames(false);
+    }
+  };
+
   const handleDelete = (code: QRCodeType) => {
     setDeleteModal({ isOpen: true, code });
   };
@@ -1835,6 +1868,7 @@ export default function DashboardPage() {
                   onQTreasureCreate={() => setQtreasureModalOpen(true)}
                   onQChallengeCreate={() => setQchallengeModalOpen(true)}
                   onQTagCreate={() => setQtagModalOpen(true)}
+                  onQGamesCreate={() => setQgamesModalOpen(true)}
                   disabled={uploading}
                 />
               </div>
@@ -2456,6 +2490,14 @@ export default function DashboardPage() {
         onClose={() => setQchallengeModalOpen(false)}
         onSave={handleQChallengeCreate}
         loading={addingQChallenge}
+      />
+
+      {/* Q.Games Modal */}
+      <QGamesModal
+        isOpen={qgamesModalOpen}
+        onClose={() => setQgamesModalOpen(false)}
+        onSave={handleQGamesCreate}
+        loading={addingQGames}
       />
 
       {/* Route Settings Modal for current folder */}

@@ -25,6 +25,10 @@ export interface QTreasureStation {
   videoUrl?: string;                // Optional YouTube video to show at station
   imageUrls?: string[];             // Optional images at station
 
+  // Answer challenge (optional - player must type correct answer to see hint)
+  answer?: string;                  // Correct answer (Hebrew)
+  answerEn?: string;                // Correct answer (English)
+
   // Hint to next station
   hintText?: string;                // Text hint for next location
   hintTextEn?: string;
@@ -353,6 +357,12 @@ export const QTREASURE_TRANSLATIONS = {
     stationsCompleted: 'תחנות שהושלמו',
     scanToVerify: 'סרקו את הקוד כדי לאמת',
 
+    // Answer challenge
+    answerChallenge: 'פתרו את האתגר',
+    typeAnswer: 'הקלידו את התשובה',
+    correctAnswer: 'תשובה נכונה!',
+    wrongAnswer: 'לא נכון, נסו שוב',
+
     // Errors
     stationNotFound: 'התחנה לא נמצאה',
     alreadyCompleted: 'כבר השלמתם תחנה זו',
@@ -390,6 +400,12 @@ export const QTREASURE_TRANSLATIONS = {
     currentStation: 'Current station',
     stationsCompleted: 'Stations completed',
     scanToVerify: 'Scan the code to verify',
+
+    // Answer challenge
+    answerChallenge: 'Solve the challenge',
+    typeAnswer: 'Type the answer',
+    correctAnswer: 'Correct!',
+    wrongAnswer: 'Wrong, try again',
 
     // Errors
     stationNotFound: 'Station not found',

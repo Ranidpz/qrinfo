@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server';
-import { createQRCode } from '@/lib/db';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+
+// Generate a unique short ID for QR codes
+function generateShortId(length: number = 6): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 /**
  * Create a QR code for a Q.Treasure station
- * This QR will redirect to the main game with the station parameter
+ * Uses Admin SDK to bypass Firestore auth rules (server-side operation)
  */
 export async function POST(request: Request) {
   try {
@@ -29,24 +40,43 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create a QR code that will be identified as a station
-    // The station shortId will be used to redirect to the main game
+    const db = getAdminDb();
+    const shortId = generateShortId();
     const title = `תחנה ${stationOrder}: ${stationTitle}`;
 
-    // Create empty media - the station QR just needs to exist
-    // The viewer will detect it's a station and redirect appropriately
-    const qrCode = await createQRCode(
+    const codeData: Record<string, unknown> = {
+      shortId,
       ownerId,
+      collaborators: [],
       title,
-      [], // Empty media - station logic handled by resolve-station API
-      folderId
-    );
+      media: [],
+      widgets: {
+        qrSign: {
+          enabled: true,
+          type: 'logo',
+          value: '/theQ.png',
+          color: '#000000',
+          backgroundColor: '#ffffff',
+          scale: 1.0,
+        },
+      },
+      views: 0,
+      isActive: true,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    if (folderId) {
+      codeData.folderId = folderId;
+    }
+
+    const docRef = await db.collection('codes').add(codeData);
 
     return NextResponse.json({
       success: true,
-      shortId: qrCode.shortId,
-      codeId: qrCode.id,
-      title: qrCode.title,
+      shortId,
+      codeId: docRef.id,
+      title,
     });
   } catch (error) {
     console.error('Error creating station QR:', error);

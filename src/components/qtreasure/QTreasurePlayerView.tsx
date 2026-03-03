@@ -190,6 +190,17 @@ export function QTreasurePlayerView({
     if (isComplete) {
       sounds.playHuntComplete();
       setCurrentStation(null);
+      // Clear answer challenge localStorage for this game
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith(`qtreasure_answer_${codeId}_`)) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      } catch { /* localStorage may be unavailable */ }
     } else if (nextStation) {
       sounds.playScanSuccess();
       setCurrentStation(nextStation);

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.12.36';
+export const APP_VERSION = '1.13.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.13.0',
+    date: '2026-03-03',
+    isNew: true,
+    highlights: {
+      he: [
+        'חדש: Q.Treasure - אתגר תשובה בתחנות (ריבועי אותיות כמו Wordle)',
+        'חדש: הדפסת כל קודי QR של תחנות ב-PDF (עם יצירה אוטומטית)',
+        'חדש: Q.Games - משחקי מולטיפלייר (אבן-נייר-מספריים)',
+        'תיקון: חוקי Firestore ל-Q.Treasure + יצירת QR תחנות עם Admin SDK',
+      ],
+      en: [
+        'New: Q.Treasure - station answer challenge (Wordle-style letter squares)',
+        'New: Print all station QR codes to PDF (with auto-creation)',
+        'New: Q.Games - multiplayer games (Rock-Paper-Scissors)',
+        'Fix: Firestore rules for Q.Treasure + station QR creation with Admin SDK',
+      ],
+    },
+  },
+  {
     version: '1.12.36',
     date: '2026-02-25',
-    isNew: true,
     highlights: {
       he: [
         'תיקון: כניסה מהירה בסורק Q.Tag עובדת במובייל (אימות PIN במקום Firebase Auth)',

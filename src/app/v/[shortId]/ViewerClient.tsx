@@ -17,6 +17,8 @@ import { QHuntPlayerView, QHuntDisplay } from '@/components/qhunt';
 import { QTreasurePlayerView, QTreasureDisplay } from '@/components/qtreasure';
 import QChallengeViewer from '@/components/viewer/QChallengeViewer';
 import QTagViewer from '@/components/viewer/QTagViewer';
+import QGamesViewer from '@/components/viewer/QGamesViewer';
+import QGamesDisplay from '@/components/qgames/QGamesDisplay';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
 import LandingPageViewer from '@/components/viewer/LandingPageViewer';
 import { shouldShowLandingPage } from '@/lib/landingPage';
@@ -1148,6 +1150,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isQTreasure = media.length === 1 && currentMedia?.type === 'qtreasure';
   const isQChallenge = media.length === 1 && currentMedia?.type === 'qchallenge';
   const isQTag = media.length === 1 && currentMedia?.type === 'qtag';
+  const isMinigames = media.length === 1 && currentMedia?.type === 'minigames';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
@@ -1590,6 +1593,12 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             ownerId={ownerId}
             qrTokenFromUrl={qtagToken}
           />
+        ) : isMinigames && currentMedia.qgamesConfig ? (
+          isDisplayMode ? (
+            <QGamesDisplay codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} />
+          ) : (
+            <QGamesViewer codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} shortId={shortId} />
+          )
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} pdfSettings={currentMedia.pdfSettings} />
         ) : isAllPDFs && hasMultipleMedia ? (
@@ -1624,14 +1633,14 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             title={currentMedia.title || 'ענן מילים'}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
-        ) : isQHunt || isQStage || isQTreasure || isQChallenge || isQTag ? (
+        ) : isQHunt || isQStage || isQTreasure || isQChallenge || isQTag || isMinigames ? (
           // Special media types without config - show setup required message
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-8">
             <div className="text-6xl mb-6">
-              {isQHunt ? '🎯' : isQStage ? '🎤' : isQTreasure ? '🗺️' : isQTag ? '🏷️' : '🎮'}
+              {isQHunt ? '🎯' : isQStage ? '🎤' : isQTreasure ? '🗺️' : isQTag ? '🏷️' : isMinigames ? '🎮' : '🎮'}
             </div>
             <p className="text-xl font-bold mb-2">
-              {isQHunt ? 'Q.Hunt' : isQStage ? 'Q.Stage' : isQTreasure ? 'Q.Treasure' : isQTag ? 'Q.Tag' : 'Q.Challenge'}
+              {isQHunt ? 'Q.Hunt' : isQStage ? 'Q.Stage' : isQTreasure ? 'Q.Treasure' : isQTag ? 'Q.Tag' : isMinigames ? 'Q.Games' : 'Q.Challenge'}
             </p>
             <p className="text-gray-400 text-center">
               {isQTag ? 'דף ההרשמה טרם הוגדר. יש להגדיר מהדשבורד.' : 'המשחק טרם הוגדר. יש להגדיר את המשחק מהדשבורד.'}

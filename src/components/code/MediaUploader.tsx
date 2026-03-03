@@ -44,6 +44,7 @@ interface MediaUploaderProps {
   onQTreasureCreate?: () => void;
   onQChallengeCreate?: () => void;
   onQTagCreate?: () => void;
+  onQGamesCreate?: () => void;
   maxSize?: number; // bytes
   accept?: string[];
   disabled?: boolean;
@@ -62,6 +63,7 @@ export default function MediaUploader({
   onQTreasureCreate,
   onQChallengeCreate,
   onQTagCreate,
+  onQGamesCreate,
   maxSize = 5 * 1024 * 1024, // 5MB default
   disabled = false,
 }: MediaUploaderProps) {
@@ -1038,7 +1040,6 @@ export default function MediaUploader({
           </button>
         </div>
       ) : activeTab === 'minigames' ? (
-        /* Minigames - coming soon */
         <div className="space-y-3">
           <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
             <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
@@ -1054,10 +1055,11 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            disabled
-            className="btn w-full bg-bg-secondary text-text-secondary cursor-not-allowed"
+            onClick={onQGamesCreate}
+            disabled={disabled || !onQGamesCreate}
+            className="btn btn-primary w-full disabled:opacity-50"
           >
-            {t('comingSoon')}
+            {t('createQGames') || 'Create Q.Games'}
           </button>
         </div>
       ) : null}
