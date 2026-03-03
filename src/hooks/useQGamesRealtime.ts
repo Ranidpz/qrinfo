@@ -3,7 +3,7 @@
  * Provides subscriptions for match state, queue, leaderboard, stats
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   QGamesStats,
   QGamesLeaderboardEntry,
@@ -262,6 +262,20 @@ export function useCountdown(
   duration: number | null
 ): UseCountdownResult {
   const [timeLeft, setTimeLeft] = useState(duration ?? 0);
+  const prevRef = useRef({ startedAt, duration });
+
+  // Compute immediate timeLeft when inputs change (before effect runs)
+  // This prevents stale isExpired=true on the first render of a new round
+  let effectiveTimeLeft = timeLeft;
+  if (startedAt !== prevRef.current.startedAt || duration !== prevRef.current.duration) {
+    prevRef.current = { startedAt, duration };
+    if (startedAt && duration) {
+      const elapsed = (Date.now() - startedAt) / 1000;
+      effectiveTimeLeft = Math.max(0, duration - elapsed);
+    } else {
+      effectiveTimeLeft = 0;
+    }
+  }
 
   useEffect(() => {
     if (!startedAt || !duration) {
@@ -282,9 +296,9 @@ export function useCountdown(
   }, [startedAt, duration]);
 
   return {
-    timeLeft,
-    isExpired: timeLeft <= 0 && startedAt !== null,
-    progress: duration ? timeLeft / duration : 0,
+    timeLeft: effectiveTimeLeft,
+    isExpired: effectiveTimeLeft <= 0 && startedAt !== null,
+    progress: duration ? effectiveTimeLeft / duration : 0,
   };
 }
 
