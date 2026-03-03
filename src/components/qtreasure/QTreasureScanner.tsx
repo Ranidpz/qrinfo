@@ -245,7 +245,7 @@ export function QTreasureScanner({
       <div className="scanner-container">
         {/* Close button */}
         <button className="close-btn" onClick={onClose}>
-          ✕
+          ✕ {t.close}
         </button>
 
         {/* Camera view */}
@@ -333,24 +333,25 @@ export function QTreasureScanner({
         .close-btn {
           position: absolute;
           top: 1rem;
-          right: 1rem;
-          width: 44px;
+          left: 1rem;
           height: 44px;
+          padding: 0 1rem;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(255, 255, 255, 0.1);
-          border: none;
-          border-radius: 50%;
+          gap: 0.5rem;
+          background: rgba(0, 0, 0, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 22px;
           color: white;
-          font-size: 1.25rem;
+          font-size: 1rem;
           cursor: pointer;
           transition: background 0.2s;
           z-index: 10;
         }
 
         .close-btn:hover {
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(0, 0, 0, 0.8);
         }
 
         .camera-wrapper {

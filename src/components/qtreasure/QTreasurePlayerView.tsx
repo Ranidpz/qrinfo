@@ -435,12 +435,10 @@ export function QTreasurePlayerView({
 
         .timer-overlay {
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 50;
-          padding: 0.75rem;
-          background: linear-gradient(to bottom, rgba(13, 31, 23, 0.95), transparent);
+          top: 3.5rem;
+          right: 0.75rem;
+          z-index: 40;
+          padding: 0.5rem;
         }
 
         .bg-effects {
