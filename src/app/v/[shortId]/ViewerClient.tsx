@@ -1598,7 +1598,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           isDisplayMode ? (
             <QGamesDisplay codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} />
           ) : (
-            <QGamesViewer codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} shortId={shortId} />
+            <QGamesViewer codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} shortId={shortId} ownerId={ownerId} />
           )
         ) : isPDF ? (
           <PDFFlipBookViewer url={currentMedia.url} title={title} onLoad={handleMediaLoad} onLinkClick={trackLinkClick} pdfSettings={currentMedia.pdfSettings} />

@@ -71,6 +71,8 @@ const translations: Record<string, Record<string, string>> = {
     you: 'אתה',
     pts: 'נק׳',
     recentMatches: 'משחקים אחרונים',
+    takeSelfie: 'צלם סלפי',
+    or: 'או',
   },
   en: {
     joinToPlay: 'Join the game!',
@@ -110,6 +112,8 @@ const translations: Record<string, Record<string, string>> = {
     you: 'You',
     pts: 'pts',
     recentMatches: 'Recent Matches',
+    takeSelfie: 'Take Selfie',
+    or: 'or',
   },
 };
 
@@ -120,6 +124,7 @@ interface QGamesViewerProps {
   mediaId: string;
   initialConfig: QGamesConfig;
   shortId: string;
+  ownerId: string;
   locale?: 'he' | 'en';
 }
 
@@ -127,6 +132,7 @@ export default function QGamesViewer({
   codeId,
   initialConfig,
   shortId,
+  ownerId,
   locale,
 }: QGamesViewerProps) {
   // Config merge with defaults
@@ -360,6 +366,8 @@ export default function QGamesViewer({
         <QGamesRegistration
           config={config}
           onRegister={handleRegister}
+          ownerId={ownerId}
+          codeId={codeId}
           isRTL={isRTL}
           t={t}
         />
