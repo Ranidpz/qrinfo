@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.10';
+export const APP_VERSION = '1.13.11';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.10',
+    version: '1.13.11',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: משחק מולטיפלייר RPS נתקע כשהניקוד הגיע ל-3 - סיום משחק לא זוהה בצד הלקוח',
+        'שיפור: היסטוריית סיבובים - הסיבוב האחרון בולט, קודמים מעומעמים',
+      ],
+      en: [
+        'Fix: Multiplayer RPS got stuck when score reached 3 - match end not detected on client',
+        'Improvement: Round history - latest round highlighted, older rounds dimmed',
+      ],
+    },
+  },
+  {
+    version: '1.13.10',
+    date: '2026-03-03',
     highlights: {
       he: [
         'תיקון קריטי: טיימר שפג תוקפו במולטיפלייר RPS לא שלח בחירה אוטומטית - המשחק נתקע',

@@ -73,6 +73,10 @@ export default function RPSGame({
   const matchEndedRef = useRef(false);
   const choiceSubmittedRef = useRef(false);
 
+  // Ref to always read latest rpsState in timeouts (avoids stale closure)
+  const rpsStateRef = useRef(rpsState);
+  rpsStateRef.current = rpsState;
+
   // Bot state (local game loop)
   const [botRound, setBotRound] = useState(0);
   const [botRoundData, setBotRoundData] = useState<RTDBRPSRound | null>(null);
@@ -110,9 +114,10 @@ export default function RPSGame({
 
     // Show the reveal for 2 seconds then transition
     revealTimeoutRef.current = setTimeout(() => {
-      // Update display scores
-      const p1s = isBotMatch ? botScores.p1 : (rpsState?.player1Score ?? 0);
-      const p2s = isBotMatch ? botScores.p2 : (rpsState?.player2Score ?? 0);
+      // Read latest scores via ref (avoids stale closure — scores arrive after revealed=true)
+      const latestState = rpsStateRef.current;
+      const p1s = isBotMatch ? botScores.p1 : (latestState?.player1Score ?? 0);
+      const p2s = isBotMatch ? botScores.p2 : (latestState?.player2Score ?? 0);
       setDisplayScores({ p1: p1s, p2: p2s });
 
       // Add to round history
@@ -427,10 +432,11 @@ export default function RPSGame({
               {roundHistory.map((entry, i) => {
                 const isWin = entry.winner === 'me';
                 const isLoss = entry.winner === 'opp';
+                const isLatest = i === roundHistory.length - 1;
                 return (
                   <div
                     key={i}
-                    className="flex flex-col items-center gap-[3px] animate-in fade-in zoom-in-95 duration-300 shrink-0"
+                    className={`flex flex-col items-center gap-[3px] shrink-0 ${isLatest ? 'animate-in fade-in zoom-in-95 duration-300' : 'opacity-50'}`}
                   >
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all ${
