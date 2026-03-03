@@ -105,6 +105,7 @@ export default function RPSGame({
     if (!roundData.player1Choice || !roundData.player2Choice) return;
 
     setRevealPhase('revealing');
+    setMyChoice(null); // Reset button highlight - revealed choices come from roundData
     sounds.playReveal();
 
     // Show the reveal for 2 seconds then transition
@@ -164,6 +165,7 @@ export default function RPSGame({
       setTimeout(() => {
         const nextRound = currentRound + 1;
         if (isBotMatch) {
+          setBotRoundData(null); // Clear BEFORE setBotRound to prevent stale revealed=true
           setBotRound(nextRound);
           botTimerStartRef.current = Date.now();
         } else if (isPlayer1) {
@@ -240,13 +242,34 @@ export default function RPSGame({
     }
   }, [myChoice, isSubmitting, revealPhase, codeId, matchId, playerId, sounds, isBotMatch, botScores, timerDuration]);
 
-  // Handle timer expiry (auto-lose if didn't choose)
+  // Handle timer expiry - forfeit round (opponent wins)
   useEffect(() => {
-    if (isExpired && revealPhase === 'choosing' && !myChoice && !choiceSubmittedRef.current) {
-      // Timer expired without choosing - submit random choice
+    if (!isExpired || revealPhase !== 'choosing' || myChoice || choiceSubmittedRef.current) return;
+
+    choiceSubmittedRef.current = true;
+
+    if (isBotMatch) {
+      // Forfeit: bot auto-wins this round with buzzer
+      sounds.playLoseRound();
+      const forfeitChoice: RPSChoice = 'rock';
+      const botWinMap: Record<RPSChoice, RPSChoice> = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
+
+      const newScores = { ...botScores };
+      newScores.p2 += 1; // bot (player2) gets +1
+      setBotScores(newScores);
+      setBotRoundData({
+        player1Choice: forfeitChoice,
+        player2Choice: botWinMap[forfeitChoice],
+        winner: 'player2',
+        timerStartedAt: botTimerStartRef.current,
+        timerDuration,
+        revealed: true,
+      });
+    } else {
+      // Online: submit random choice (opponent is waiting, can't leave them stuck)
       handleChoose(['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)] as RPSChoice);
     }
-  }, [isExpired, revealPhase, myChoice, handleChoose]);
+  }, [isExpired, revealPhase, myChoice, handleChoose, isBotMatch, sounds, botScores, timerDuration]);
 
   // Reset state when round changes (online matches)
   useEffect(() => {
