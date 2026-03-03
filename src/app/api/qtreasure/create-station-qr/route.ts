@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       ownerId,
       collaborators: [],
       title,
+      parentCodeShortId,
       media: [],
       widgets: {
         qrSign: {

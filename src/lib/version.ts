@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.1';
+export const APP_VERSION = '1.13.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.1',
+    version: '1.13.2',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: סריקת QR תחנה ב-Q.Treasure מפנה למשחק (redirect בצד שרת)',
+        'שיפור: קודי QR של תחנות לא מופיעים יותר בדשבורד',
+      ],
+      en: [
+        'Fix: Station QR scan in Q.Treasure redirects to game (server-side redirect)',
+        'Improvement: Station QR codes no longer appear in dashboard',
+      ],
+    },
+  },
+  {
+    version: '1.13.1',
+    date: '2026-03-03',
     highlights: {
       he: [
         'תיקון: סריקת QR תחנה ב-Q.Treasure הייתה תקועה על "טוען תוכן" - עכשיו מפנה למשחק',

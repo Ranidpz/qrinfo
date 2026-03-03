@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { getQRCodeByShortId } from '@/lib/db';
-import { resolveStationShortId } from '@/lib/qtreasure';
+import { getAdminDb } from '@/lib/firebase-admin';
 import ViewerClient from './ViewerClient';
 
 // Force dynamic to prevent caching - always fetch fresh data
@@ -16,9 +16,55 @@ interface ViewerPageProps {
   }>;
 }
 
+// Server-side station resolver using Admin SDK
+async function resolveStationServer(stationShortId: string): Promise<string | null> {
+  try {
+    const db = getAdminDb();
+
+    // Fast path: check if this code has parentCodeShortId stored directly
+    const codesSnapshot = await db.collection('codes')
+      .where('shortId', '==', stationShortId).limit(1).get();
+
+    if (!codesSnapshot.empty) {
+      const codeData = codesSnapshot.docs[0].data();
+      if (codeData.parentCodeShortId) {
+        return codeData.parentCodeShortId;
+      }
+    }
+
+    // Fallback: scan all codes for Q.Treasure config with this station
+    // (for legacy station codes created before parentCodeShortId was stored)
+    const allCodesSnapshot = await db.collection('codes').get();
+    for (const codeDoc of allCodesSnapshot.docs) {
+      const data = codeDoc.data();
+      const qtreasureMedia = data.media?.find(
+        (m: { type: string }) => m.type === 'qtreasure'
+      );
+      if (!qtreasureMedia?.qtreasureConfig) continue;
+
+      const station = qtreasureMedia.qtreasureConfig.stations?.find(
+        (s: { isActive: boolean; stationShortId: string }) =>
+          s.isActive && s.stationShortId === stationShortId
+      );
+      if (station) {
+        return data.shortId;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[resolveStationServer] Error:', error);
+    return null;
+  }
+}
+
 export default async function ViewerPage({ params, searchParams }: ViewerPageProps) {
   const { shortId } = await params;
   const { station: stationParam, token: tokenParam } = await searchParams;
+
+  // Resolve station redirects OUTSIDE try-catch
+  // (Next.js redirect() throws a special error that must not be caught)
+  let redirectTarget: string | null = null;
 
   try {
     const code = await getQRCodeByShortId(shortId);
@@ -26,69 +72,69 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     // Debug logging
     console.log('[ViewerPage] Code loaded:', code?.title, 'folderId:', code?.folderId);
 
-    // If code not found, check if this is a station shortId
+    // If code not found or inactive, check if this is a station shortId
     if (!code || !code.isActive) {
-      // Try to resolve as station shortId
-      const stationInfo = await resolveStationShortId(shortId);
-
-      if (stationInfo.found && stationInfo.mainCodeShortId) {
-        // Redirect to main game with station parameter
-        redirect(`/v/${stationInfo.mainCodeShortId}?station=${shortId}`);
+      redirectTarget = await resolveStationServer(shortId);
+      if (!redirectTarget) {
+        notFound();
       }
-
-      // Not a station either - 404
-      notFound();
     }
 
     // If code exists but has empty media, it might be a station QR code
-    if (code.media.length === 0) {
-      const stationInfo = await resolveStationShortId(shortId);
-      if (stationInfo.found && stationInfo.mainCodeShortId) {
-        redirect(`/v/${stationInfo.mainCodeShortId}?station=${shortId}`);
-      }
+    if (!redirectTarget && code && code.media.length === 0) {
+      redirectTarget = await resolveStationServer(shortId);
     }
 
-    // Filter media by schedule
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    if (!redirectTarget && code) {
+      // Filter media by schedule
+      const now = new Date();
+      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-    const activeMedia = code.media.filter((m) => {
-      if (!m.schedule?.enabled) return true;
+      const activeMedia = code.media.filter((m) => {
+        if (!m.schedule?.enabled) return true;
 
-      const { startDate, endDate, startTime, endTime } = m.schedule;
+        const { startDate, endDate, startTime, endTime } = m.schedule;
 
-      // Check date range
-      if (startDate && now < startDate) return false;
-      if (endDate && now > endDate) return false;
+        // Check date range
+        if (startDate && now < startDate) return false;
+        if (endDate && now > endDate) return false;
 
-      // Check time range
-      if (startTime && currentTime < startTime) return false;
-      if (endTime && currentTime > endTime) return false;
+        // Check time range
+        if (startTime && currentTime < startTime) return false;
+        if (endTime && currentTime > endTime) return false;
 
-      return true;
-    });
+        return true;
+      });
 
-    // Sort by order
-    activeMedia.sort((a, b) => a.order - b.order);
+      // Sort by order
+      activeMedia.sort((a, b) => a.order - b.order);
 
-    return (
-      <ViewerClient
-        media={activeMedia}
-        widgets={code.widgets}
-        title={code.title}
-        codeId={code.id}
-        shortId={code.shortId}
-        ownerId={code.ownerId}
-        folderId={code.folderId}
-        landingPageConfig={code.landingPageConfig}
-        scannedStationShortId={stationParam}
-        qtagToken={tokenParam}
-      />
-    );
+      return (
+        <ViewerClient
+          media={activeMedia}
+          widgets={code.widgets}
+          title={code.title}
+          codeId={code.id}
+          shortId={code.shortId}
+          ownerId={code.ownerId}
+          folderId={code.folderId}
+          landingPageConfig={code.landingPageConfig}
+          scannedStationShortId={stationParam}
+          qtagToken={tokenParam}
+        />
+      );
+    }
   } catch (error) {
     console.error('Error loading QR code:', error);
     notFound();
   }
+
+  // Redirect OUTSIDE try-catch (redirect() throws a special Next.js error)
+  if (redirectTarget) {
+    redirect(`/v/${redirectTarget}?station=${shortId}`);
+  }
+
+  notFound();
 }
 
 function getDescriptionByMediaType(mediaType: string): string {

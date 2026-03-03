@@ -317,6 +317,10 @@ export async function getUserQRCodes(userId: string): Promise<QRCode[]> {
     seenIds.add(docSnap.id);
 
     const data = docSnap.data();
+
+    // Skip station QR codes (they belong inside Q.Treasure, not in dashboard)
+    if (data.parentCodeShortId) return;
+
     codes.push({
       id: docSnap.id,
       shortId: data.shortId,
@@ -359,34 +363,40 @@ export async function getAllQRCodes(): Promise<QRCode[]> {
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      shortId: data.shortId,
-      ownerId: data.ownerId,
-      collaborators: data.collaborators || [],
-      title: data.title,
-      media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
-        ...m,
-        id: m.id || `media_${Date.now()}_${index}`,
-        createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
-        pendingReplacement: m.pendingReplacement ? {
-          ...(m.pendingReplacement as object),
-          scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
-          uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
-        } : undefined,
-      })),
-      widgets: data.widgets || {},
-      views: data.views || 0,
-      isActive: data.isActive ?? true,
-      isGlobal: data.isGlobal ?? false,
-      folderId: data.folderId || undefined,
-      landingPageConfig: data.landingPageConfig,
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
-    };
-  });
+  return snapshot.docs
+    .filter((docSnap) => {
+      // Skip station QR codes (they belong inside Q.Treasure, not in dashboard)
+      const data = docSnap.data();
+      return !data.parentCodeShortId;
+    })
+    .map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        shortId: data.shortId,
+        ownerId: data.ownerId,
+        collaborators: data.collaborators || [],
+        title: data.title,
+        media: (data.media || []).map((m: Record<string, unknown>, index: number) => ({
+          ...m,
+          id: m.id || `media_${Date.now()}_${index}`,
+          createdAt: (m.createdAt as Timestamp)?.toDate() || new Date(),
+          pendingReplacement: m.pendingReplacement ? {
+            ...(m.pendingReplacement as object),
+            scheduledAt: ((m.pendingReplacement as Record<string, unknown>).scheduledAt as Timestamp)?.toDate() || new Date(),
+            uploadedAt: ((m.pendingReplacement as Record<string, unknown>).uploadedAt as Timestamp)?.toDate() || new Date(),
+          } : undefined,
+        })),
+        widgets: data.widgets || {},
+        views: data.views || 0,
+        isActive: data.isActive ?? true,
+        isGlobal: data.isGlobal ?? false,
+        folderId: data.folderId || undefined,
+        landingPageConfig: data.landingPageConfig,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      };
+    });
 }
 
 // Helper to remove undefined values from an object
@@ -448,6 +458,7 @@ export async function updateQRCode(
       if (m.qtreasureConfig) (mediaItem as Record<string, unknown>).qtreasureConfig = m.qtreasureConfig;
       if (m.qchallengeConfig) (mediaItem as Record<string, unknown>).qchallengeConfig = m.qchallengeConfig;
       if (m.qtagConfig) (mediaItem as Record<string, unknown>).qtagConfig = m.qtagConfig;
+      if (m.qgamesConfig) (mediaItem as Record<string, unknown>).qgamesConfig = m.qgamesConfig;
       if (m.pdfSettings) (mediaItem as Record<string, unknown>).pdfSettings = m.pdfSettings;
       return mediaItem;
     });
