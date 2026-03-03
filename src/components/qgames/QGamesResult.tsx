@@ -18,6 +18,11 @@ interface QGamesResultProps {
   onViewLeaderboard: () => void;
   isRTL: boolean;
   t: (key: string) => string;
+  // 3-player game support
+  is3Player?: boolean;
+  thirdPlayerNickname?: string;
+  thirdPlayerAvatar?: string;
+  thirdPlayerScore?: number;
 }
 
 export default function QGamesResult({
@@ -35,6 +40,10 @@ export default function QGamesResult({
   onViewLeaderboard,
   isRTL,
   t,
+  is3Player,
+  thirdPlayerNickname,
+  thirdPlayerAvatar,
+  thirdPlayerScore,
 }: QGamesResultProps) {
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -89,7 +98,10 @@ export default function QGamesResult({
       <h1 className={`text-3xl font-black mb-2 animate-in fade-in duration-500 ${
         isWinner ? 'text-emerald-400' : isDraw ? 'text-yellow-400' : 'text-white/70'
       }`}>
-        {isWinner ? t('youWon') : isDraw ? t('draw') : t('youLost')}
+        {is3Player
+          ? (isWinner ? t('youSurvivedMatch') : t('youWereEliminated'))
+          : (isWinner ? t('youWon') : isDraw ? t('draw') : t('youLost'))
+        }
       </h1>
 
       {/* Score */}
@@ -113,6 +125,20 @@ export default function QGamesResult({
           <p className="text-white text-xs truncate max-w-[80px]">{oppNickname}</p>
           <p className={`text-2xl font-black ${!isWinner && !isDraw ? 'text-red-400' : 'text-white'}`}>{oppScore}</p>
         </div>
+        {is3Player && thirdPlayerAvatar && (
+          <>
+            <span className="text-white/20 text-xl font-bold">:</span>
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl mx-auto mb-1 overflow-hidden">
+                {thirdPlayerAvatar.startsWith('http') ? (
+                  <img src={thirdPlayerAvatar} alt="" className="w-full h-full object-cover" />
+                ) : thirdPlayerAvatar}
+              </div>
+              <p className="text-white text-xs truncate max-w-[80px]">{thirdPlayerNickname}</p>
+              <p className="text-2xl font-black text-white">{thirdPlayerScore}</p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Action Buttons */}

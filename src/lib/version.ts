@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.11';
+export const APP_VERSION = '1.13.12';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.11',
+    version: '1.13.12',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: משחק "משלוש יוצא אחד" (Odd One Out) - 3 שחקנים, כף או אגרוף!',
+        'חדש: שינוי אווטר בזמן המתנה לתור - לחצו על האימוג׳י לשנות או לצלם סלפי',
+        'שיפור: תמיכה במשחקי 3 שחקנים במערכת ההתאמה, מסך VS ותוצאות',
+      ],
+      en: [
+        'New: Odd One Out game - 3 players, palm or fist!',
+        'New: Change avatar while waiting in queue - tap emoji to change or take a selfie',
+        'Improvement: 3-player support in matchmaking, VS screen, and results',
+      ],
+    },
+  },
+  {
+    version: '1.13.11',
+    date: '2026-03-03',
     highlights: {
       he: [
         'תיקון: משחק מולטיפלייר RPS נתקע כשהניקוד הגיע ל-3 - סיום משחק לא זוהה בצד הלקוח',

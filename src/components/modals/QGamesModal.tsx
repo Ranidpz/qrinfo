@@ -94,10 +94,20 @@ export default function QGamesModal({
               {isRTL ? 'משחקים זמינים' : 'Available Games'}
             </label>
             <div className="space-y-2">
-              {(['rps', 'tictactoe', 'memory'] as QGameType[]).map((gameType) => {
+              {(['rps', 'oddoneout', 'tictactoe', 'memory'] as QGameType[]).map((gameType) => {
                 const meta = GAME_META[gameType];
                 const isEnabled = config.enabledGames.includes(gameType);
-                const isAvailable = gameType === 'rps'; // Only RPS for now
+                const isAvailable = gameType === 'rps' || gameType === 'oddoneout';
+
+                const nameMap: Record<string, { he: string; en: string }> = {
+                  rps: { he: 'אבן נייר ומספריים', en: 'Rock Paper Scissors' },
+                  oddoneout: { he: 'משלוש יוצא אחד', en: 'Odd One Out' },
+                  tictactoe: { he: 'איקס מיקס דריקס', en: 'Tic-Tac-Toe' },
+                  memory: { he: 'זיכרון', en: 'Memory Match' },
+                };
+                const descMap: Record<string, { he: string; en: string }> = {
+                  oddoneout: { he: '3 שחקנים · כף או אגרוף', en: '3 players · Palm or Fist' },
+                };
 
                 return (
                   <button
@@ -115,11 +125,11 @@ export default function QGamesModal({
                     <span className="text-2xl">{meta.emoji}</span>
                     <div className="flex-1">
                       <p className="font-medium text-text-primary text-sm">
-                        {isRTL
-                          ? (gameType === 'rps' ? 'אבן נייר ומספריים' : gameType === 'tictactoe' ? 'איקס מיקס דריקס' : 'זיכרון')
-                          : (gameType === 'rps' ? 'Rock Paper Scissors' : gameType === 'tictactoe' ? 'Tic-Tac-Toe' : 'Memory Match')
-                        }
+                        {nameMap[gameType]?.[isRTL ? 'he' : 'en'] || gameType}
                       </p>
+                      {descMap[gameType] && isAvailable && (
+                        <p className="text-xs text-text-secondary">{descMap[gameType][isRTL ? 'he' : 'en']}</p>
+                      )}
                       {!isAvailable && (
                         <p className="text-xs text-text-secondary">{isRTL ? 'בקרוב' : 'Coming soon'}</p>
                       )}
@@ -171,6 +181,45 @@ export default function QGamesModal({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-text-secondary">{isRTL ? 'טיימר סיבובים הבאים' : 'Subsequent timer'}</span>
                   <span className="text-sm text-text-primary font-mono">{config.rpsSubsequentTimer}s</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* OOO Settings */}
+          {config.enabledGames.includes('oddoneout') && (
+            <div>
+              <label className="text-sm font-medium text-text-primary mb-2 block">
+                {isRTL ? 'הגדרות משלוש יוצא אחד' : 'Odd One Out Settings'}
+              </label>
+              <div className="bg-bg-secondary rounded-xl p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">{isRTL ? 'סטרייקים להפסד' : 'Strikes to lose'}</span>
+                  <div className="flex items-center gap-2">
+                    {[3, 5].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setConfig(prev => ({ ...prev, oooMaxStrikes: n }))}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                          config.oooMaxStrikes === n
+                            ? 'bg-accent text-white'
+                            : 'bg-bg-primary text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">{isRTL ? 'טיימר סיבוב ראשון' : 'First round timer'}</span>
+                  <span className="text-sm text-text-primary font-mono">{config.oooFirstRoundTimer}s</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-text-secondary">{isRTL ? 'טיימר סיבובים הבאים' : 'Subsequent timer'}</span>
+                  <span className="text-sm text-text-primary font-mono">{config.oooSubsequentTimer}s</span>
                 </div>
               </div>
             </div>

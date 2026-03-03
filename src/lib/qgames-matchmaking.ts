@@ -15,6 +15,7 @@ import {
   QGamesAvatarType,
   QGameType,
   RTDBMatch,
+  is3PlayerGame,
 } from '@/types/qgames';
 import {
   leaveQueue,
@@ -58,6 +59,52 @@ function buildMatch(
     finishedAt: null,
     lastUpdated: Date.now(),
   };
+}
+
+/**
+ * Build an RTDBMatch object from three queue entries (3-player games)
+ */
+function buildMatch3(
+  matchId: string,
+  gameType: QGameType,
+  player1: QGamesQueueEntry,
+  player2: QGamesQueueEntry,
+  player3: { id: string; nickname: string; avatarType: QGamesAvatarType; avatarValue: string }
+): RTDBMatch {
+  return {
+    id: matchId,
+    gameType,
+    player1Id: player1.id,
+    player1Nickname: player1.nickname,
+    player1AvatarType: player1.avatarType,
+    player1AvatarValue: player1.avatarValue,
+    player2Id: player2.id,
+    player2Nickname: player2.nickname,
+    player2AvatarType: player2.avatarType,
+    player2AvatarValue: player2.avatarValue,
+    player3Id: player3.id,
+    player3Nickname: player3.nickname,
+    player3AvatarType: player3.avatarType,
+    player3AvatarValue: player3.avatarValue,
+    status: 'countdown',
+    startedAt: Date.now(),
+    finishedAt: null,
+    lastUpdated: Date.now(),
+  };
+}
+
+/**
+ * Find 2 opponents for 3-player games
+ */
+function findOpponents3(
+  entries: [string, QGamesQueueEntry][],
+  visitorId: string,
+  gameType: QGameType
+): QGamesQueueEntry[] {
+  return entries
+    .filter(([, e]) => e.gameType === gameType && e.status === 'waiting' && e.id !== visitorId)
+    .slice(0, 2)
+    .map(([, e]) => e);
 }
 
 /**
@@ -107,33 +154,58 @@ export async function findOrWaitForOpponent(
   const queueRef = ref(realtimeDb, QGAMES_PATHS.queue(codeId));
   let matchedId: string | null = null;
   let opponentData: QGamesQueueEntry | null = null;
+  let opponentData2: QGamesQueueEntry | null = null; // For 3-player games
+
+  const needs3Players = is3PlayerGame(gameType);
 
   const result = await runTransaction(queueRef, (currentQueue: Record<string, QGamesQueueEntry> | null) => {
     // Reset per retry (transaction callback may be called multiple times)
     matchedId = null;
     opponentData = null;
+    opponentData2 = null;
 
     if (!currentQueue) currentQueue = {};
 
-    // Find a waiting opponent
     const entries = Object.entries(currentQueue) as [string, QGamesQueueEntry][];
-    const opponent = findOpponent(entries, visitorId, gameType, preferredOpponentId);
 
-    if (opponent) {
-      // Match found — mark both as matched atomically
-      matchedId = generateMatchId();
-      opponentData = { ...opponent };
-      currentQueue[opponent.id] = { ...opponent, status: 'matched', matchId: matchedId };
-      currentQueue[visitorId] = {
-        id: visitorId, nickname, avatarType, avatarValue, gameType,
-        joinedAt: Date.now(), status: 'matched', matchId: matchedId,
-      };
+    if (needs3Players) {
+      // 3-player matching: need 2 opponents
+      const opponents = findOpponents3(entries, visitorId, gameType);
+      if (opponents.length >= 2) {
+        matchedId = generateMatchId();
+        opponentData = { ...opponents[0] };
+        opponentData2 = { ...opponents[1] };
+        currentQueue[opponents[0].id] = { ...opponents[0], status: 'matched', matchId: matchedId };
+        currentQueue[opponents[1].id] = { ...opponents[1], status: 'matched', matchId: matchedId };
+        currentQueue[visitorId] = {
+          id: visitorId, nickname, avatarType, avatarValue, gameType,
+          joinedAt: Date.now(), status: 'matched', matchId: matchedId,
+        };
+      } else {
+        // Not enough opponents — add self as waiting
+        currentQueue[visitorId] = {
+          id: visitorId, nickname, avatarType, avatarValue, gameType,
+          joinedAt: Date.now(), status: 'waiting', matchId: null,
+        };
+      }
     } else {
-      // No opponent — add self as waiting
-      currentQueue[visitorId] = {
-        id: visitorId, nickname, avatarType, avatarValue, gameType,
-        joinedAt: Date.now(), status: 'waiting', matchId: null,
-      };
+      // 2-player matching (existing logic)
+      const opponent = findOpponent(entries, visitorId, gameType, preferredOpponentId);
+
+      if (opponent) {
+        matchedId = generateMatchId();
+        opponentData = { ...opponent };
+        currentQueue[opponent.id] = { ...opponent, status: 'matched', matchId: matchedId };
+        currentQueue[visitorId] = {
+          id: visitorId, nickname, avatarType, avatarValue, gameType,
+          joinedAt: Date.now(), status: 'matched', matchId: matchedId,
+        };
+      } else {
+        currentQueue[visitorId] = {
+          id: visitorId, nickname, avatarType, avatarValue, gameType,
+          joinedAt: Date.now(), status: 'waiting', matchId: null,
+        };
+      }
     }
 
     return currentQueue;
@@ -144,9 +216,17 @@ export async function findOrWaitForOpponent(
   onDisconnect(entryRef).remove();
 
   if (result.committed && matchedId && opponentData) {
-    // Create match object + update stats (after transaction succeeds)
-    const match = buildMatch(matchedId, gameType, opponentData, { id: visitorId, nickname, avatarType, avatarValue });
-    await createMatch(codeId, match);
+    if (needs3Players && opponentData2) {
+      // Create 3-player match
+      const match = buildMatch3(matchedId, gameType, opponentData, opponentData2,
+        { id: visitorId, nickname, avatarType, avatarValue });
+      await createMatch(codeId, match);
+    } else {
+      // Create 2-player match
+      const match = buildMatch(matchedId, gameType, opponentData,
+        { id: visitorId, nickname, avatarType, avatarValue });
+      await createMatch(codeId, match);
+    }
     await incrementMatchesInProgress(codeId);
     return { type: 'matched', matchId: matchedId };
   }
@@ -173,10 +253,14 @@ export async function tryMatchFromQueue(
   const queueRef = ref(realtimeDb, QGAMES_PATHS.queue(codeId));
   let matchedId: string | null = null;
   let opponentData: QGamesQueueEntry | null = null;
+  let opponentData2: QGamesQueueEntry | null = null;
+
+  const needs3Players = is3PlayerGame(gameType);
 
   const result = await runTransaction(queueRef, (currentQueue: Record<string, QGamesQueueEntry> | null) => {
     matchedId = null;
     opponentData = null;
+    opponentData2 = null;
     if (!currentQueue) return currentQueue;
 
     // Only proceed if we are still in "waiting" state
@@ -184,21 +268,40 @@ export async function tryMatchFromQueue(
     if (!myEntry || myEntry.status !== 'waiting') return;
 
     const entries = Object.entries(currentQueue) as [string, QGamesQueueEntry][];
-    const opponent = findOpponent(entries, visitorId, gameType, preferredOpponentId);
 
-    if (!opponent) return; // Abort — no opponent available
+    if (needs3Players) {
+      const opponents = findOpponents3(entries, visitorId, gameType);
+      if (opponents.length < 2) return; // Not enough opponents
 
-    matchedId = generateMatchId();
-    opponentData = { ...opponent };
-    currentQueue[visitorId] = { ...myEntry, status: 'matched', matchId: matchedId };
-    currentQueue[opponent.id] = { ...opponent, status: 'matched', matchId: matchedId };
+      matchedId = generateMatchId();
+      opponentData = { ...opponents[0] };
+      opponentData2 = { ...opponents[1] };
+      currentQueue[visitorId] = { ...myEntry, status: 'matched', matchId: matchedId };
+      currentQueue[opponents[0].id] = { ...opponents[0], status: 'matched', matchId: matchedId };
+      currentQueue[opponents[1].id] = { ...opponents[1], status: 'matched', matchId: matchedId };
+    } else {
+      const opponent = findOpponent(entries, visitorId, gameType, preferredOpponentId);
+      if (!opponent) return;
+
+      matchedId = generateMatchId();
+      opponentData = { ...opponent };
+      currentQueue[visitorId] = { ...myEntry, status: 'matched', matchId: matchedId };
+      currentQueue[opponent.id] = { ...opponent, status: 'matched', matchId: matchedId };
+    }
 
     return currentQueue;
   });
 
   if (result.committed && matchedId && opponentData) {
-    const match = buildMatch(matchedId, gameType, opponentData, { id: visitorId, nickname, avatarType, avatarValue });
-    await createMatch(codeId, match);
+    if (needs3Players && opponentData2) {
+      const match = buildMatch3(matchedId, gameType, opponentData, opponentData2,
+        { id: visitorId, nickname, avatarType, avatarValue });
+      await createMatch(codeId, match);
+    } else {
+      const match = buildMatch(matchedId, gameType, opponentData,
+        { id: visitorId, nickname, avatarType, avatarValue });
+      await createMatch(codeId, match);
+    }
     await incrementMatchesInProgress(codeId);
     return { type: 'matched', matchId: matchedId };
   }

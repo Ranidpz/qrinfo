@@ -48,9 +48,12 @@ export default function QGamesMatchHistory({
       <p className="text-white/30 text-xs uppercase tracking-wider mb-2">{t('recentMatches')}</p>
       <div className="space-y-1">
         {matches.map((match) => {
-          const isMyMatch = match.player1Id === currentPlayerId || match.player2Id === currentPlayerId;
-          const iWon = match.winnerId === currentPlayerId;
-          const isDraw = match.winnerId === null;
+          const isMyMatch = match.player1Id === currentPlayerId || match.player2Id === currentPlayerId || match.player3Id === currentPlayerId;
+          const is3Player = !!match.player3Id;
+          const iWon = is3Player
+            ? (match.winnerIds?.includes(currentPlayerId || '') ?? false)
+            : match.winnerId === currentPlayerId;
+          const isDraw = is3Player ? false : match.winnerId === null;
           const meta = GAME_META[match.gameType];
           const timeAgo = getTimeAgo(match.finishedAt || match.startedAt, isRTL);
 
@@ -65,10 +68,21 @@ export default function QGamesMatchHistory({
             >
               <span className="text-sm">{meta?.emoji || '🎮'}</span>
               <span className="text-white/60 truncate max-w-[70px]">{match.player1Nickname}</span>
-              <span className="text-white/20 font-mono tabular-nums">
-                {match.player1Score}-{match.player2Score}
-              </span>
-              <span className="text-white/60 truncate max-w-[70px]">{match.player2Nickname}</span>
+              {is3Player ? (
+                <>
+                  <span className="text-white/20 text-[10px]">vs</span>
+                  <span className="text-white/60 truncate max-w-[55px]">{match.player2Nickname}</span>
+                  <span className="text-white/20 text-[10px]">vs</span>
+                  <span className="text-white/60 truncate max-w-[55px]">{match.player3Nickname}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-white/20 font-mono tabular-nums">
+                    {match.player1Score}-{match.player2Score}
+                  </span>
+                  <span className="text-white/60 truncate max-w-[70px]">{match.player2Nickname}</span>
+                </>
+              )}
               <span className="text-white/20 text-[10px] ms-auto">{timeAgo}</span>
             </div>
           );

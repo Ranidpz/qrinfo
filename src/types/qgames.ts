@@ -1,4 +1,4 @@
-// ============ Q.GAMES - 1v1 Mini Games Platform ============
+// ============ Q.GAMES - Mini Games Platform ============
 // Real-time casual games where venue visitors play against each other
 
 // =============================================================
@@ -6,7 +6,7 @@
 // =============================================================
 
 /** Available mini-game types */
-export type QGameType = 'rps' | 'tictactoe' | 'memory';
+export type QGameType = 'rps' | 'tictactoe' | 'memory' | 'oddoneout';
 
 /** Game lifecycle phases (admin-controlled) */
 export type QGamesPhase = 'active' | 'paused' | 'finished';
@@ -25,6 +25,12 @@ export type RPSChoice = 'rock' | 'paper' | 'scissors';
 
 /** RPS round result */
 export type RPSRoundResult = 'player1' | 'player2' | 'draw';
+
+/** Odd One Out choice (משלוש יוצא אחד) */
+export type OOOChoice = 'palm' | 'fist';
+
+/** OOO round result - who is the odd one out */
+export type OOORoundResult = 'player1' | 'player2' | 'player3' | 'draw';
 
 /** Tic-Tac-Toe cell value */
 export type TTTCell = 'X' | 'O' | null;
@@ -88,6 +94,30 @@ export function isTTTDraw(board: (TTTCell)[]): boolean {
 }
 
 // =============================================================
+// OOO Game Logic (משלוש יוצא אחד - Odd One Out)
+// =============================================================
+
+/** OOO outcome: returns who is the odd one out, or 'draw' if all same */
+export function resolveOOO(p1: OOOChoice, p2: OOOChoice, p3: OOOChoice): OOORoundResult {
+  if (p1 === p2 && p2 === p3) return 'draw';
+  if (p1 !== p2 && p1 !== p3) return 'player1';
+  if (p2 !== p1 && p2 !== p3) return 'player2';
+  return 'player3';
+}
+
+/** OOO emoji mapping */
+export const OOO_EMOJI: Record<OOOChoice, string> = {
+  palm: '🖐️',
+  fist: '✊',
+};
+
+/** OOO choice label keys (for i18n) */
+export const OOO_LABEL_KEY: Record<OOOChoice, string> = {
+  palm: 'palm',
+  fist: 'fist',
+};
+
+// =============================================================
 // Player Profile
 // Firestore: codes/{codeId}/qgames_players/{visitorId}
 // =============================================================
@@ -112,6 +142,8 @@ export interface QGamesPlayer {
   tictactoeWins: number;
   memoryPlayed: number;
   memoryWins: number;
+  oddoneoutPlayed: number;
+  oddoneoutWins: number;
 
   registeredAt: number;
   lastPlayedAt: number;
@@ -136,9 +168,18 @@ export interface QGamesMatch {
   player2AvatarType: QGamesAvatarType;
   player2AvatarValue: string;
 
+  // Optional player3 for 3-player games (OOO)
+  player3Id?: string;
+  player3Nickname?: string;
+  player3AvatarType?: QGamesAvatarType;
+  player3AvatarValue?: string;
+
   player1Score: number;
   player2Score: number;
-  winnerId: string | null;        // null = draw
+  player3Score?: number;
+  winnerId: string | null;        // null = draw (for 2-player games)
+  winnerIds?: string[];            // OOO: the 2 surviving players
+  loserId?: string | null;         // OOO: the eliminated player
 
   status: MatchStatus;
   startedAt: number;
@@ -176,6 +217,12 @@ export interface RTDBMatch {
   player2Nickname: string;
   player2AvatarType: QGamesAvatarType;
   player2AvatarValue: string;
+
+  // Optional player3 for 3-player games (OOO)
+  player3Id?: string;
+  player3Nickname?: string;
+  player3AvatarType?: QGamesAvatarType;
+  player3AvatarValue?: string;
 
   status: MatchStatus;
   startedAt: number;
@@ -222,6 +269,27 @@ export interface RTDBMemoryState {
   player1Pairs: number;
   player2Pairs: number;
   totalPairs: number;
+}
+
+/** OOO round state in RTDB */
+export interface RTDBOOORound {
+  player1Choice: OOOChoice | null;
+  player2Choice: OOOChoice | null;
+  player3Choice: OOOChoice | null;
+  loser: OOORoundResult | null;   // who is the odd one out
+  timerStartedAt: number;
+  timerDuration: number;          // seconds
+  revealed: boolean;
+}
+
+/** OOO match state in RTDB */
+export interface RTDBOOOState {
+  currentRound: number;
+  player1Strikes: number;
+  player2Strikes: number;
+  player3Strikes: number;
+  maxStrikes: number;             // first to N strikes loses
+  rounds: Record<string, RTDBOOORound>;
 }
 
 // =============================================================
@@ -279,6 +347,11 @@ export interface QGamesConfig {
   rpsFirstRoundTimer: number;     // Seconds (default: 5)
   rpsSubsequentTimer: number;     // Seconds (default: 3)
 
+  // OOO settings (Odd One Out)
+  oooMaxStrikes: number;          // First to N strikes loses (default: 3)
+  oooFirstRoundTimer: number;     // Seconds (default: 5)
+  oooSubsequentTimer: number;     // Seconds (default: 3)
+
   // Branding
   branding: QGamesBranding;
 
@@ -303,6 +376,11 @@ export interface QGamesConfig {
 
   createdAt?: number;
   lastResetAt?: number;
+}
+
+/** Check if a game type requires 3 players */
+export function is3PlayerGame(gameType: QGameType): boolean {
+  return gameType === 'oddoneout';
 }
 
 // =============================================================
@@ -337,6 +415,10 @@ export const DEFAULT_QGAMES_CONFIG: QGamesConfig = {
   rpsFirstTo: 3,
   rpsFirstRoundTimer: 5,
   rpsSubsequentTimer: 3,
+
+  oooMaxStrikes: 3,
+  oooFirstRoundTimer: 5,
+  oooSubsequentTimer: 3,
 
   branding: { ...DEFAULT_QGAMES_BRANDING },
 
@@ -379,6 +461,11 @@ export const GAME_META: Record<QGameType, {
     labelKey: 'memory',
     descriptionKey: 'memoryDescription',
   },
+  oddoneout: {
+    emoji: '🖐️',
+    labelKey: 'oddoneout',
+    descriptionKey: 'oddoneoutDescription',
+  },
 };
 
 // =============================================================
@@ -395,6 +482,8 @@ export const QGAMES_PATHS = {
   rpsRound: (codeId: string, matchId: string, round: number) => `qgames/${codeId}/matches/${matchId}/rps/rounds/${round}`,
   tttState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/ttt`,
   memoryState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/memory`,
+  oooState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/ooo`,
+  oooRound: (codeId: string, matchId: string, round: number) => `qgames/${codeId}/matches/${matchId}/ooo/rounds/${round}`,
   leaderboard: (codeId: string) => `qgames/${codeId}/leaderboard`,
   leaderboardEntry: (codeId: string, visitorId: string) => `qgames/${codeId}/leaderboard/${visitorId}`,
 };

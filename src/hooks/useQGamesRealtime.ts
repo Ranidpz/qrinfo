@@ -11,6 +11,7 @@ import {
   RTDBMatch,
   RTDBRPSState,
   RTDBTTTState,
+  RTDBOOOState,
 } from '@/types/qgames';
 import {
   subscribeToQGamesStats,
@@ -20,6 +21,7 @@ import {
   subscribeToMatch,
   subscribeToRPSState,
   subscribeToTTTState,
+  subscribeToOOOState,
 } from '@/lib/qgames-realtime';
 
 // ============ STATS HOOK ============
@@ -234,6 +236,39 @@ export function useTTTState(
 
     setLoading(true);
     const unsubscribe = subscribeToTTTState(codeId, matchId, (data) => {
+      setState(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [codeId, matchId]);
+
+  return { state, loading };
+}
+
+// ============ OOO STATE HOOK ============
+
+interface UseOOOStateResult {
+  state: RTDBOOOState | null;
+  loading: boolean;
+}
+
+export function useOOOState(
+  codeId: string | null,
+  matchId: string | null
+): UseOOOStateResult {
+  const [state, setState] = useState<RTDBOOOState | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!codeId || !matchId) {
+      setState(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeToOOOState(codeId, matchId, (data) => {
       setState(data);
       setLoading(false);
     });

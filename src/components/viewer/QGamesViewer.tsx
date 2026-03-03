@@ -8,14 +8,17 @@ import {
   GAME_META,
   DEFAULT_QGAMES_CONFIG,
   DEFAULT_QGAMES_EMOJI_PALETTE,
+  is3PlayerGame,
 } from '@/types/qgames';
 import { getOrCreateVisitorId } from '@/lib/xp';
 import { findOrWaitForOpponent, tryMatchFromQueue, cancelMatchmaking } from '@/lib/qgames-matchmaking';
 import {
   initQGamesSession,
   initRPSState,
+  initOOOState,
   updateMatchStatus,
   subscribeToQueue,
+  updateQueueEntryAvatar,
 } from '@/lib/qgames-realtime';
 import {
   useQGamesQueueEntry,
@@ -28,6 +31,7 @@ import QGamesSelector from '@/components/qgames/QGamesSelector';
 import QGamesQueue from '@/components/qgames/QGamesQueue';
 import QGamesVSScreen from '@/components/qgames/QGamesVSScreen';
 import RPSGame from '@/components/qgames/RPSGame';
+import OddOneOutGame from '@/components/qgames/OddOneOutGame';
 import QGamesResult from '@/components/qgames/QGamesResult';
 import QGamesLeaderboard from '@/components/qgames/QGamesLeaderboard';
 import QGamesMatchHistory from '@/components/qgames/QGamesMatchHistory';
@@ -52,6 +56,7 @@ const translations: Record<string, Record<string, string>> = {
     viewLeaderboard: 'טבלת מובילים',
     searchingForOpponent: 'מחפשים לכם יריבים',
     noOpponentYet: 'אין יריב כרגע?',
+    dontWantToWait: 'לא רוצים לחכות?',
     inviteViaWhatsApp: 'שלחו הזמנה בוואטסאפ',
     round: 'סיבוב',
     firstTo: 'עד ',
@@ -80,6 +85,22 @@ const translations: Record<string, Record<string, string>> = {
     challengeMessage: 'אתגר אותך למשחק! בוא נראה מי טוב יותר 🎮',
     challenge: 'אתגר',
     playNow: 'שחקו עכשיו!',
+    // OOO translations
+    oddoneout: 'משלוש יוצא אחד',
+    oddoneoutDescription: 'כף או אגרוף? מי שונה - נפסל!',
+    palm: 'כף',
+    fist: 'אגרוף',
+    searchingForOpponents: 'מחפשים לכם יריבים',
+    strike: 'סטרייק',
+    strikes: 'סטרייקים',
+    youGotStrike: 'קיבלת סטרייק!',
+    youSurvived: 'שרדת!',
+    allSame: 'כולם אותו דבר!',
+    eliminated: 'הודח!',
+    youSurvivedMatch: 'שרדת! 🎉',
+    youWereEliminated: 'הודחת',
+    waitingForPlayers: 'מחכה לשחקנים...',
+    oddOneOut: 'היוצא מן הכלל',
   },
   en: {
     joinToPlay: 'Join the game!',
@@ -99,6 +120,7 @@ const translations: Record<string, Record<string, string>> = {
     viewLeaderboard: 'Leaderboard',
     searchingForOpponent: 'Looking for opponent',
     noOpponentYet: 'No opponent yet?',
+    dontWantToWait: "Don't want to wait?",
     inviteViaWhatsApp: 'Invite via WhatsApp',
     round: 'Round',
     firstTo: 'First to ',
@@ -127,6 +149,22 @@ const translations: Record<string, Record<string, string>> = {
     challengeMessage: 'I challenge you to a game! Let\'s see who\'s better 🎮',
     challenge: 'Challenge',
     playNow: 'Play Now!',
+    // OOO translations
+    oddoneout: 'Odd One Out',
+    oddoneoutDescription: 'Palm or fist? The odd one gets a strike!',
+    palm: 'Palm',
+    fist: 'Fist',
+    searchingForOpponents: 'Looking for opponents',
+    strike: 'Strike',
+    strikes: 'Strikes',
+    youGotStrike: 'You got a strike!',
+    youSurvived: 'You survived!',
+    allSame: 'All the same!',
+    eliminated: 'Eliminated!',
+    youSurvivedMatch: 'You Survived! 🎉',
+    youWereEliminated: 'Eliminated',
+    waitingForPlayers: 'Waiting for players...',
+    oddOneOut: 'Odd One Out',
   },
 };
 
@@ -182,6 +220,9 @@ export default function QGamesViewer({
     player2Id: string;
     player2Nickname: string;
     player2AvatarValue: string;
+    player3Id?: string;
+    player3Nickname?: string;
+    player3AvatarValue?: string;
   } | null>(null);
 
   // Result state
@@ -192,6 +233,11 @@ export default function QGamesViewer({
     oppScore: number;
     oppNickname: string;
     oppAvatar: string;
+    // 3-player (OOO) result data
+    is3Player?: boolean;
+    thirdPlayerNickname?: string;
+    thirdPlayerAvatar?: string;
+    thirdPlayerScore?: number;
   } | null>(null);
 
   // Visitor ID (state instead of ref so React Compiler allows render-time access)
@@ -342,6 +388,27 @@ export default function QGamesViewer({
     setPhase('selector');
   }, [codeId, visitorId]);
 
+  const handleAvatarChange = useCallback(async (avatarType: 'emoji' | 'selfie', avatarValue: string) => {
+    // Update local state
+    setPlayer(prev => prev ? { ...prev, avatarType, avatarValue } : prev);
+    // Update RTDB queue entry
+    if (visitorId) {
+      await updateQueueEntryAvatar(codeId, visitorId, avatarType, avatarValue);
+    }
+    // Update Firestore player profile
+    fetch('/api/qgames/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeId,
+        playerId: visitorId,
+        nickname: player?.nickname,
+        avatarType,
+        avatarValue,
+      }),
+    }).catch(console.error);
+  }, [codeId, visitorId, player?.nickname]);
+
   const handlePlayBot = useCallback(async () => {
     if (!player) return;
 
@@ -351,18 +418,24 @@ export default function QGamesViewer({
     }
 
     setIsBotMatch(true);
+    const is3P = selectedGame ? is3PlayerGame(selectedGame) : false;
     const fakeBotMatch = {
       id: `bot-${Date.now()}`,
       player1Id: visitorId,
       player1Nickname: player.nickname,
       player1AvatarValue: player.avatarValue,
-      player2Id: 'bot',
-      player2Nickname: isRTL ? 'בוט' : 'Bot',
+      player2Id: 'bot-1',
+      player2Nickname: isRTL ? 'בוט 1' : 'Bot 1',
       player2AvatarValue: '🤖',
+      ...(is3P ? {
+        player3Id: 'bot-2',
+        player3Nickname: isRTL ? 'בוט 2' : 'Bot 2',
+        player3AvatarValue: '🦾',
+      } : {}),
     };
     setBotMatchData(fakeBotMatch);
     setPhase('vs');
-  }, [player, visitorId, codeId, isRTL]);
+  }, [player, visitorId, codeId, isRTL, selectedGame]);
 
   const handleVSCountdownComplete = useCallback(async () => {
     if (isBotMatch) {
@@ -381,6 +454,12 @@ export default function QGamesViewer({
       const isPlayer1 = match?.player1Id === visitorId;
       if (isPlayer1) {
         await initRPSState(codeId, matchId, config.rpsFirstTo, config.rpsFirstRoundTimer);
+      }
+    } else if (selectedGame === 'oddoneout') {
+      // Only player1 initializes OOO state
+      const isPlayer1 = match?.player1Id === visitorId;
+      if (isPlayer1) {
+        await initOOOState(codeId, matchId, config.oooMaxStrikes, config.oooFirstRoundTimer);
       }
     }
 
@@ -406,6 +485,76 @@ export default function QGamesViewer({
 
     // Persist match to Firestore (skip for bot matches)
     if (!isBotMatch) {
+      fetch('/api/qgames/finish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId,
+          matchId,
+          playerId: visitorId,
+        }),
+      }).catch(console.error);
+    }
+
+    setPhase('result');
+  }, [match, player, codeId, matchId, isBotMatch, botMatchData, visitorId]);
+
+  // 3-player match end (OOO) — loserId is the eliminated player, winnerIds are survivors
+  const handleOOOMatchEnd = useCallback((loserId: string, p1Strikes: number, p2Strikes: number, p3Strikes: number) => {
+    const activeMatch = isBotMatch ? botMatchData : match;
+    if (!activeMatch || !player) return;
+
+    const myId = visitorId;
+    const iWon = loserId !== myId;
+
+    // Determine my player number and order scores
+    const isP1 = activeMatch.player1Id === myId;
+    const isP2 = activeMatch.player2Id === myId;
+
+    let myScore: number, oppScore: number, thirdScore: number;
+    let oppNickname: string, oppAvatar: string, thirdNickname: string, thirdAvatar: string;
+
+    if (isP1) {
+      myScore = p1Strikes;
+      oppScore = p2Strikes;
+      thirdScore = p3Strikes;
+      oppNickname = activeMatch.player2Nickname;
+      oppAvatar = activeMatch.player2AvatarValue;
+      thirdNickname = activeMatch.player3Nickname || '';
+      thirdAvatar = activeMatch.player3AvatarValue || '';
+    } else if (isP2) {
+      myScore = p2Strikes;
+      oppScore = p1Strikes;
+      thirdScore = p3Strikes;
+      oppNickname = activeMatch.player1Nickname;
+      oppAvatar = activeMatch.player1AvatarValue;
+      thirdNickname = activeMatch.player3Nickname || '';
+      thirdAvatar = activeMatch.player3AvatarValue || '';
+    } else {
+      myScore = p3Strikes;
+      oppScore = p1Strikes;
+      thirdScore = p2Strikes;
+      oppNickname = activeMatch.player1Nickname;
+      oppAvatar = activeMatch.player1AvatarValue;
+      thirdNickname = activeMatch.player2Nickname;
+      thirdAvatar = activeMatch.player2AvatarValue;
+    }
+
+    setResultData({
+      isWinner: iWon,
+      isDraw: false,
+      myScore,
+      oppScore,
+      oppNickname,
+      oppAvatar,
+      is3Player: true,
+      thirdPlayerNickname: thirdNickname,
+      thirdPlayerAvatar: thirdAvatar,
+      thirdPlayerScore: thirdScore,
+    });
+
+    // Persist match to Firestore (skip for bot matches)
+    if (!isBotMatch && matchId) {
       fetch('/api/qgames/finish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -482,6 +631,12 @@ export default function QGamesViewer({
           onPlayBot={handlePlayBot}
           isRTL={isRTL}
           t={t}
+          is3Player={is3PlayerGame(selectedGame)}
+          emojiPalette={config.emojiPalette}
+          allowSelfie={config.allowSelfie}
+          ownerId={ownerId}
+          codeId={codeId}
+          onAvatarChange={handleAvatarChange}
         />
       )}
 
@@ -494,6 +649,8 @@ export default function QGamesViewer({
             player1Avatar={vsMatch.player1AvatarValue}
             player2Nickname={vsMatch.player2Nickname}
             player2Avatar={vsMatch.player2AvatarValue}
+            player3Nickname={vsMatch.player3Nickname}
+            player3Avatar={vsMatch.player3AvatarValue}
             gameEmoji={GAME_META[selectedGame || 'rps']?.emoji || '✊'}
             onCountdownComplete={handleVSCountdownComplete}
             isRTL={isRTL}
@@ -527,6 +684,36 @@ export default function QGamesViewer({
         );
       })()}
 
+      {phase === 'playing' && (match || botMatchData) && selectedGame === 'oddoneout' && (() => {
+        const gameMatch = isBotMatch ? botMatchData : match;
+        if (!gameMatch) return null;
+        const playerNumber: 1 | 2 | 3 =
+          gameMatch.player1Id === visitorId ? 1 :
+          gameMatch.player2Id === visitorId ? 2 : 3;
+        return (
+          <OddOneOutGame
+            codeId={codeId}
+            matchId={gameMatch.id}
+            playerId={visitorId || ''}
+            playerNumber={playerNumber}
+            player1Nickname={gameMatch.player1Nickname}
+            player1Avatar={gameMatch.player1AvatarValue}
+            player2Nickname={gameMatch.player2Nickname}
+            player2Avatar={gameMatch.player2AvatarValue}
+            player3Nickname={gameMatch.player3Nickname || ''}
+            player3Avatar={gameMatch.player3AvatarValue || ''}
+            maxStrikes={config.oooMaxStrikes}
+            firstRoundTimer={config.oooFirstRoundTimer}
+            subsequentTimer={config.oooSubsequentTimer}
+            enableSound={config.enableSound}
+            onMatchEnd={handleOOOMatchEnd}
+            isRTL={isRTL}
+            t={t}
+            isBotMatch={isBotMatch}
+          />
+        );
+      })()}
+
       {phase === 'result' && resultData && player && (
         <QGamesResult
           isWinner={resultData.isWinner}
@@ -543,6 +730,10 @@ export default function QGamesViewer({
           onViewLeaderboard={() => setPhase('leaderboard')}
           isRTL={isRTL}
           t={t}
+          is3Player={resultData.is3Player}
+          thirdPlayerNickname={resultData.thirdPlayerNickname}
+          thirdPlayerAvatar={resultData.thirdPlayerAvatar}
+          thirdPlayerScore={resultData.thirdPlayerScore}
         />
       )}
 

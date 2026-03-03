@@ -25,6 +25,8 @@ import {
   RTDBRPSState,
   RTDBRPSRound,
   RTDBTTTState,
+  RTDBOOOState,
+  RTDBOOORound,
   MatchStatus,
 } from '@/types/qgames';
 
@@ -146,6 +148,17 @@ export async function joinQueue(
 
   // Auto-remove from queue if browser disconnects
   onDisconnect(entryRef).remove();
+}
+
+/** Update avatar on queue entry (while waiting) */
+export async function updateQueueEntryAvatar(
+  codeId: string,
+  visitorId: string,
+  avatarType: 'emoji' | 'selfie',
+  avatarValue: string
+): Promise<void> {
+  const entryRef = ref(realtimeDb, QGAMES_PATHS.queueEntry(codeId, visitorId));
+  await update(entryRef, { avatarType, avatarValue });
 }
 
 /** Leave the matchmaking queue */
@@ -331,6 +344,70 @@ export async function updateTTTState(
   await update(tttRef, updates);
 }
 
+// ============ OOO MATCH STATE (Odd One Out) ============
+
+/** Initialize OOO game state */
+export async function initOOOState(
+  codeId: string,
+  matchId: string,
+  maxStrikes: number,
+  firstRoundTimer: number
+): Promise<void> {
+  const oooRef = ref(realtimeDb, QGAMES_PATHS.oooState(codeId, matchId));
+  const now = Date.now();
+  await set(oooRef, {
+    currentRound: 0,
+    player1Strikes: 0,
+    player2Strikes: 0,
+    player3Strikes: 0,
+    maxStrikes,
+    rounds: {
+      '0': {
+        player1Choice: null,
+        player2Choice: null,
+        player3Choice: null,
+        loser: null,
+        timerStartedAt: now,
+        timerDuration: firstRoundTimer,
+        revealed: false,
+      } satisfies RTDBOOORound,
+    },
+  } satisfies RTDBOOOState);
+}
+
+/** Get OOO state */
+export async function getOOOState(
+  codeId: string,
+  matchId: string
+): Promise<RTDBOOOState | null> {
+  const oooRef = ref(realtimeDb, QGAMES_PATHS.oooState(codeId, matchId));
+  const snapshot = await get(oooRef);
+  return snapshot.exists() ? (snapshot.val() as RTDBOOOState) : null;
+}
+
+/** Start a new OOO round */
+export async function startNewOOORound(
+  codeId: string,
+  matchId: string,
+  roundNum: number,
+  timerDuration: number
+): Promise<void> {
+  const roundRef = ref(realtimeDb, QGAMES_PATHS.oooRound(codeId, matchId, roundNum));
+  await set(roundRef, {
+    player1Choice: null,
+    player2Choice: null,
+    player3Choice: null,
+    loser: null,
+    timerStartedAt: Date.now(),
+    timerDuration,
+    revealed: false,
+  } satisfies RTDBOOORound);
+
+  // Update current round counter
+  const oooRef = ref(realtimeDb, QGAMES_PATHS.oooState(codeId, matchId));
+  await update(oooRef, { currentRound: roundNum });
+}
+
 // ============ LEADERBOARD ============
 
 /** Update a single leaderboard entry */
@@ -458,6 +535,20 @@ export function subscribeToTTTState(
   };
   onValue(tttRef, callback);
   return () => off(tttRef, 'value', callback);
+}
+
+/** Subscribe to OOO state */
+export function subscribeToOOOState(
+  codeId: string,
+  matchId: string,
+  onUpdate: (state: RTDBOOOState | null) => void
+): () => void {
+  const oooRef = ref(realtimeDb, QGAMES_PATHS.oooState(codeId, matchId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists() ? (snapshot.val() as RTDBOOOState) : null);
+  };
+  onValue(oooRef, callback);
+  return () => off(oooRef, 'value', callback);
 }
 
 /** Subscribe to leaderboard */

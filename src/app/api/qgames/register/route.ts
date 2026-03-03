@@ -96,6 +96,8 @@ export async function POST(request: Request) {
       tictactoeWins: 0,
       memoryPlayed: 0,
       memoryWins: 0,
+      oddoneoutPlayed: 0,
+      oddoneoutWins: 0,
       registeredAt: Date.now(),
       lastPlayedAt: Date.now(),
     };
