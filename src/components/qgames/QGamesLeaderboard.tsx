@@ -1,12 +1,14 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Share2 } from 'lucide-react';
 import { QGamesLeaderboardEntry } from '@/types/qgames';
 
 interface QGamesLeaderboardProps {
   entries: QGamesLeaderboardEntry[];
   currentPlayerId?: string;
   onBack?: () => void;
+  onChallenge?: () => void;
+  shortId?: string;
   isRTL: boolean;
   t: (key: string) => string;
   compact?: boolean;
@@ -16,12 +18,38 @@ export default function QGamesLeaderboard({
   entries,
   currentPlayerId,
   onBack,
+  onChallenge,
+  shortId,
   isRTL,
   t,
   compact = false,
 }: QGamesLeaderboardProps) {
   const topEntries = compact ? entries.slice(0, 10) : entries;
   const rankMedals = ['🥇', '🥈', '🥉'];
+
+  const gameUrl = shortId ? `https://qr.playzones.app/v/${shortId}` : '';
+
+  const handleShareWhatsApp = () => {
+    if (!gameUrl) return;
+    const top3 = topEntries.slice(0, 3).map((e, i) =>
+      `${rankMedals[i]} ${e.nickname} - ${e.score} ${t('pts')}`
+    ).join('\n');
+
+    const text = isRTL
+      ? `🏆 ${t('leaderboard')}\n\n${top3}\n\n${t('joinAndPlay')}\n${gameUrl}`
+      : `🏆 ${t('leaderboard')}\n\n${top3}\n\n${t('joinAndPlay')}\n${gameUrl}`;
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleChallengePlayer = (nickname: string) => {
+    if (!gameUrl) return;
+    const text = isRTL
+      ? `${t('challengeMessage').replace('{name}', nickname)}\n${gameUrl}`
+      : `${t('challengeMessage').replace('{name}', nickname)}\n${gameUrl}`;
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className={compact ? '' : 'min-h-screen flex flex-col p-4'}>
@@ -37,6 +65,15 @@ export default function QGamesLeaderboard({
             </button>
           )}
           <h2 className="text-white font-bold text-xl flex-1">🏆 {t('leaderboard')}</h2>
+          {shortId && (
+            <button
+              onClick={handleShareWhatsApp}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-sm font-medium hover:bg-emerald-500/25 transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+              {t('share')}
+            </button>
+          )}
         </div>
       )}
 
@@ -88,17 +125,39 @@ export default function QGamesLeaderboard({
                 </p>
               </div>
 
-              {/* Score */}
-              <div className="text-end shrink-0">
-                <p className={`font-bold tabular-nums ${isMe ? 'text-emerald-400' : 'text-white'}`}>
-                  {entry.score}
-                </p>
-                <p className="text-white/20 text-[10px]">{t('pts')}</p>
+              {/* Score + Challenge */}
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="text-end">
+                  <p className={`font-bold tabular-nums ${isMe ? 'text-emerald-400' : 'text-white'}`}>
+                    {entry.score}
+                  </p>
+                  <p className="text-white/20 text-[10px]">{t('pts')}</p>
+                </div>
+                {!isMe && !compact && shortId && (
+                  <button
+                    onClick={() => handleChallengePlayer(entry.nickname)}
+                    className="text-[10px] px-2 py-1 rounded-md bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60 transition-colors"
+                    title={t('challenge')}
+                  >
+                    ⚔️
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Play / Challenge CTA at bottom */}
+      {!compact && shortId && onChallenge && (
+        <button
+          onClick={onChallenge}
+          className="mt-6 w-full py-3 rounded-xl font-bold text-lg text-white active:scale-95 transition-all"
+          style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+        >
+          🎮 {t('playNow')}
+        </button>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.6';
+export const APP_VERSION = '1.13.7';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.6',
+    version: '1.13.7',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: שיתוף טבלת מובילים בוואטסאפ + אתגור שחקנים',
+        'חדש: כפתור טבלת מובילים במסך בחירת משחק',
+        'תיקון: היסטוריית סיבובים מציגה רק סיבובים שנגמרו (לא ריקים מראש)',
+      ],
+      en: [
+        'New: WhatsApp share leaderboard + challenge players',
+        'New: Leaderboard button on game selector screen',
+        'Fix: Round history shows only completed rounds (no empty placeholders)',
+      ],
+    },
+  },
+  {
+    version: '1.13.6',
+    date: '2026-03-03',
     highlights: {
       he: [
         'תיקון: אווטר סלפי מוצג כתמונה בכל מסכי Q.Games (לא כ-URL)',

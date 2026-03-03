@@ -74,6 +74,11 @@ const translations: Record<string, Record<string, string>> = {
     recentMatches: 'משחקים אחרונים',
     takeSelfie: 'צלם סלפי',
     or: 'או',
+    share: 'שתף',
+    joinAndPlay: 'הצטרפו למשחק!',
+    challengeMessage: 'אתגר אותך למשחק! בוא נראה מי טוב יותר 🎮',
+    challenge: 'אתגר',
+    playNow: 'שחקו עכשיו!',
   },
   en: {
     joinToPlay: 'Join the game!',
@@ -115,6 +120,11 @@ const translations: Record<string, Record<string, string>> = {
     recentMatches: 'Recent Matches',
     takeSelfie: 'Take Selfie',
     or: 'or',
+    share: 'Share',
+    joinAndPlay: 'Join and play!',
+    challengeMessage: 'I challenge you to a game! Let\'s see who\'s better 🎮',
+    challenge: 'Challenge',
+    playNow: 'Play Now!',
   },
 };
 
@@ -452,6 +462,7 @@ export default function QGamesViewer({
           playerNickname={player.nickname}
           playerAvatar={player.avatarValue}
           onSelectGame={handleSelectGame}
+          onViewLeaderboard={() => setPhase('leaderboard')}
           isRTL={isRTL}
           t={t}
         />
@@ -539,6 +550,8 @@ export default function QGamesViewer({
             entries={leaderboardEntries}
             currentPlayerId={visitorId || undefined}
             onBack={() => setPhase(resultData ? 'result' : 'selector')}
+            onChallenge={() => setPhase('selector')}
+            shortId={shortId}
             isRTL={isRTL}
             t={t}
           />

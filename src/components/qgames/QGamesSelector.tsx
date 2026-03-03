@@ -7,6 +7,7 @@ interface QGamesSelectorProps {
   playerNickname: string;
   playerAvatar: string;
   onSelectGame: (gameType: QGameType) => void;
+  onViewLeaderboard: () => void;
   isRTL: boolean;
   t: (key: string) => string;
 }
@@ -16,6 +17,7 @@ export default function QGamesSelector({
   playerNickname,
   playerAvatar,
   onSelectGame,
+  onViewLeaderboard,
   isRTL,
   t,
 }: QGamesSelectorProps) {
@@ -66,7 +68,7 @@ export default function QGamesSelector({
 
       {/* Leaderboard link at bottom */}
       <button
-        onClick={() => {/* TODO: show leaderboard */}}
+        onClick={onViewLeaderboard}
         className="mt-8 text-white/30 text-sm hover:text-white/50 transition-colors"
       >
         🏆 {t('viewLeaderboard')}

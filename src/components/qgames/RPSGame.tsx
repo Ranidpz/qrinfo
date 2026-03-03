@@ -299,8 +299,6 @@ export default function RPSGame({
   const iWonRound = roundData?.winner === (isPlayer1 ? 'player1' : 'player2');
   const iLostRound = roundData?.winner === (isPlayer1 ? 'player2' : 'player1');
 
-  const maxRounds = firstTo * 2 - 1;
-
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header: Score Display */}
@@ -412,27 +410,25 @@ export default function RPSGame({
         )}
       </div>
 
-      {/* Round History Strip - avatars on sides */}
-      <div className="px-3 py-1.5">
-        <div className="flex items-center gap-1.5">
-          {/* Opponent avatar */}
-          <div className="flex flex-col items-center gap-[3px] shrink-0">
-            <AvatarCircle avatar={oppAvatar} size="sm" className="ring-1 ring-red-400/30" />
-            <div className="h-0.5" />
-            <AvatarCircle avatar={myAvatar} size="sm" className="ring-1 ring-emerald-400/30" />
-          </div>
-          {/* Rounds grid */}
-          <div className="flex items-center gap-1 flex-1 justify-center overflow-hidden">
-            {Array.from({ length: maxRounds }).map((_, i) => {
-              const entry = roundHistory[i];
-
-              if (entry) {
+      {/* Round History Strip - only completed rounds */}
+      {roundHistory.length > 0 && (
+        <div className="px-3 py-1.5">
+          <div className="flex items-center gap-1.5">
+            {/* Avatars on left side */}
+            <div className="flex flex-col items-center gap-[3px] shrink-0">
+              <AvatarCircle avatar={oppAvatar} size="sm" className="ring-1 ring-red-400/30" />
+              <div className="h-0.5" />
+              <AvatarCircle avatar={myAvatar} size="sm" className="ring-1 ring-emerald-400/30" />
+            </div>
+            {/* Completed rounds only - scrolls to show latest */}
+            <div className="flex items-center gap-1 flex-1 overflow-x-auto justify-end" style={{ scrollbarWidth: 'none' }}>
+              {roundHistory.map((entry, i) => {
                 const isWin = entry.winner === 'me';
                 const isLoss = entry.winner === 'opp';
                 return (
                   <div
                     key={i}
-                    className="flex flex-col items-center gap-[3px] animate-in fade-in zoom-in-95 duration-300"
+                    className="flex flex-col items-center gap-[3px] animate-in fade-in zoom-in-95 duration-300 shrink-0"
                   >
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all ${
@@ -457,24 +453,11 @@ export default function RPSGame({
                     </div>
                   </div>
                 );
-              }
-
-              // Future round - empty placeholder
-              return (
-                <div key={i} className="flex flex-col items-center gap-[3px]">
-                  <div className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                  </div>
-                  <div className="w-5 h-0.5 rounded-full bg-white/[0.06]" />
-                  <div className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                  </div>
-                </div>
-              );
-            })}
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Choice Buttons - always at bottom */}
       <div className="px-4 pb-6 pt-2">
