@@ -40,6 +40,14 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
       notFound();
     }
 
+    // If code exists but has empty media, it might be a station QR code
+    if (code.media.length === 0) {
+      const stationInfo = await resolveStationShortId(shortId);
+      if (stationInfo.found && stationInfo.mainCodeShortId) {
+        redirect(`/v/${stationInfo.mainCodeShortId}?station=${shortId}`);
+      }
+    }
+
     // Filter media by schedule
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;

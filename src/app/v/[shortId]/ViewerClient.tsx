@@ -1182,6 +1182,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   useEffect(() => {
     if (media.length === 0) {
       setLoading(false);
+      setShowContent(true);
       return;
     }
 
