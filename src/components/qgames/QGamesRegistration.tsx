@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { User, Camera, X, Check, RotateCcw, Loader2 } from 'lucide-react';
 import { QGamesConfig, DEFAULT_QGAMES_EMOJI_PALETTE } from '@/types/qgames';
 import { compressImage } from '@/lib/imageCompression';
