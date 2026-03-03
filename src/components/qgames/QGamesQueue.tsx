@@ -81,8 +81,10 @@ export default function QGamesQueue({
         <div className="absolute inset-0 w-24 h-24 rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '2s' }} />
         <div className="absolute inset-0 w-24 h-24 rounded-full border-2 border-emerald-400/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
 
-        <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center text-5xl relative z-10 ring-2 ring-emerald-400/30">
-          {playerAvatar}
+        <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center text-5xl relative z-10 ring-2 ring-emerald-400/30 overflow-hidden">
+          {playerAvatar.startsWith('http') ? (
+            <img src={playerAvatar} alt="" className="w-full h-full object-cover" />
+          ) : playerAvatar}
         </div>
       </div>
 

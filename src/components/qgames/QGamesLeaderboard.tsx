@@ -69,10 +69,12 @@ export default function QGamesLeaderboard({
               </div>
 
               {/* Avatar */}
-              <div className={`w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-lg shrink-0 ${
+              <div className={`w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-lg shrink-0 overflow-hidden ${
                 isMe ? 'ring-1 ring-emerald-400/30' : ''
               }`}>
-                {entry.avatarValue}
+                {entry.avatarValue.startsWith('http') ? (
+                  <img src={entry.avatarValue} alt="" className="w-full h-full object-cover" />
+                ) : entry.avatarValue}
               </div>
 
               {/* Name + Stats */}

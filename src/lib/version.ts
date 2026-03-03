@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.5';
+export const APP_VERSION = '1.13.6';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.5',
+    version: '1.13.6',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: אווטר סלפי מוצג כתמונה בכל מסכי Q.Games (לא כ-URL)',
+        'תיקון: שגיאת "Already submitted choice" ב-RPS - מניעת שליחה כפולה',
+      ],
+      en: [
+        'Fix: Selfie avatar rendered as image in all Q.Games screens (not as URL)',
+        'Fix: "Already submitted choice" RPS error - prevent double submission race',
+      ],
+    },
+  },
+  {
+    version: '1.13.5',
+    date: '2026-03-03',
     highlights: {
       he: [
         'חדש: היסטוריית סיבובים ב-Q.Games - רואים מה כל שחקן בחר בכל סיבוב',
