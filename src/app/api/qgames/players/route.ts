@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { removeFromLeaderboard, recalculateLeaderboardRanks } from '@/lib/qgames-realtime';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest | Request) {
   try {
     const { searchParams } = new URL(request.url);
     const codeId = searchParams.get('codeId');
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const auth = await requireCodeOwner(request, codeId);
+    const auth = await requireCodeOwner(request as NextRequest, codeId);
     if (isAuthError(auth)) return auth.response;
 
     const adminDb = getAdminDb();
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest | Request) {
   try {
     const { searchParams } = new URL(request.url);
     const codeId = searchParams.get('codeId');
@@ -49,7 +49,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const auth = await requireCodeOwner(request, codeId);
+    const auth = await requireCodeOwner(request as NextRequest, codeId);
     if (isAuthError(auth)) return auth.response;
 
     const adminDb = getAdminDb();
