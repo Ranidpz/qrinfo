@@ -246,9 +246,11 @@ export default function RPSGame({
   useEffect(() => {
     if (!isExpired || revealPhase !== 'choosing' || myChoice || choiceSubmittedRef.current) return;
 
-    choiceSubmittedRef.current = true;
+    // Don't auto-submit during the gap between rounds (old round data still showing revealed)
+    if (!isBotMatch && roundData?.revealed) return;
 
     if (isBotMatch) {
+      choiceSubmittedRef.current = true;
       // Forfeit: bot auto-wins this round with buzzer
       sounds.playLoseRound();
       const forfeitChoice: RPSChoice = 'rock';
@@ -266,7 +268,7 @@ export default function RPSGame({
         revealed: true,
       });
     } else {
-      // Online: submit random choice (opponent is waiting, can't leave them stuck)
+      // Online: submit random choice (handleChoose will set choiceSubmittedRef)
       handleChoose(['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)] as RPSChoice);
     }
   }, [isExpired, revealPhase, myChoice, handleChoose, isBotMatch, sounds, botScores, timerDuration]);

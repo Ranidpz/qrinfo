@@ -149,11 +149,10 @@ async function handleRPSMove(
     if (finalRound.winner === 'player1') p1Score++;
     else if (finalRound.winner === 'player2') p2Score++;
 
-    // Update scores on RPS state
+    // Update scores on RPS state (don't write currentRound — client's startNewRPSRound handles it)
     await rtdb.ref(QGAMES_PATHS.rpsState(codeId, matchId)).update({
       player1Score: p1Score,
       player2Score: p2Score,
-      currentRound,
     });
 
     // Check if match is over
