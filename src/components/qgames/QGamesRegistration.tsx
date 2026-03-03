@@ -51,15 +51,19 @@ export default function QGamesRegistration({
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setShowCamera(true);
+      setShowCamera(true); // Render video element first, then connect in useEffect
     } catch {
       alert(isRTL ? 'לא ניתן לגשת למצלמה' : 'Cannot access camera');
     }
   }, [isRTL]);
+
+  // Connect stream to video element after it renders
+  useEffect(() => {
+    if (showCamera && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [showCamera]);
 
   // Stop camera
   const stopCamera = useCallback(() => {
