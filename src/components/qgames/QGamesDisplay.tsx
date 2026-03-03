@@ -81,10 +81,12 @@ export default function QGamesDisplay({
                 </div>
 
                 {/* Avatar */}
-                <div className={`w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl ${
+                <div className={`w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl overflow-hidden ${
                   entry.rank <= 3 ? 'ring-2 ring-white/20' : ''
                 }`}>
-                  {entry.avatarValue}
+                  {entry.avatarValue.startsWith('http') ? (
+                    <img src={entry.avatarValue} alt="" className="w-full h-full object-cover" />
+                  ) : entry.avatarValue}
                 </div>
 
                 {/* Name */}

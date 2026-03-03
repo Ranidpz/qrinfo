@@ -58,8 +58,10 @@ export default function QGamesVSScreen({
       <div className="relative z-10 flex flex-col items-center gap-6 w-full max-w-sm">
         {/* Player 1 */}
         <div className="flex items-center gap-4 w-full animate-in slide-in-from-left duration-500">
-          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl ring-2 ring-blue-400/40 shadow-lg shadow-blue-500/20">
-            {player1Avatar}
+          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl ring-2 ring-blue-400/40 shadow-lg shadow-blue-500/20 overflow-hidden">
+            {player1Avatar.startsWith('http') ? (
+              <img src={player1Avatar} alt="" className="w-full h-full object-cover" />
+            ) : player1Avatar}
           </div>
           <div className="flex-1">
             <p className="text-white font-bold text-lg truncate">{player1Nickname}</p>
@@ -83,8 +85,10 @@ export default function QGamesVSScreen({
           <div className="flex-1 text-end">
             <p className="text-white font-bold text-lg truncate">{player2Nickname}</p>
           </div>
-          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl ring-2 ring-red-400/40 shadow-lg shadow-red-500/20">
-            {player2Avatar}
+          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl ring-2 ring-red-400/40 shadow-lg shadow-red-500/20 overflow-hidden">
+            {player2Avatar.startsWith('http') ? (
+              <img src={player2Avatar} alt="" className="w-full h-full object-cover" />
+            ) : player2Avatar}
           </div>
         </div>
 

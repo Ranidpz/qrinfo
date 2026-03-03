@@ -60,6 +60,7 @@ export default function RPSGame({
   }>>([]);
   const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const matchEndedRef = useRef(false);
+  const choiceSubmittedRef = useRef(false);
 
   // Bot state (local game loop)
   const [botRound, setBotRound] = useState(0);
@@ -169,24 +170,9 @@ export default function RPSGame({
     };
   }, [roundData?.revealed]);
 
-  // Handle timer expiry (auto-lose if didn't choose)
-  useEffect(() => {
-    if (isExpired && revealPhase === 'choosing' && !myChoice) {
-      // Timer expired without choosing - submit random choice
-      handleChoose(['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)] as RPSChoice);
-    }
-  }, [isExpired]);
-
-  // Reset state when round changes
-  useEffect(() => {
-    if (rpsState && !roundData?.revealed) {
-      setMyChoice(null);
-      setRevealPhase('choosing');
-    }
-  }, [currentRound]);
-
   const handleChoose = useCallback(async (choice: RPSChoice) => {
-    if (myChoice || isSubmitting || revealPhase !== 'choosing') return;
+    if (choiceSubmittedRef.current || myChoice || isSubmitting || revealPhase !== 'choosing') return;
+    choiceSubmittedRef.current = true;
 
     setMyChoice(choice);
     setRevealPhase('waiting');
@@ -241,6 +227,23 @@ export default function RPSGame({
       setIsSubmitting(false);
     }
   }, [myChoice, isSubmitting, revealPhase, codeId, matchId, playerId, sounds, isBotMatch, botScores, timerDuration]);
+
+  // Handle timer expiry (auto-lose if didn't choose)
+  useEffect(() => {
+    if (isExpired && revealPhase === 'choosing' && !myChoice && !choiceSubmittedRef.current) {
+      // Timer expired without choosing - submit random choice
+      handleChoose(['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)] as RPSChoice);
+    }
+  }, [isExpired, revealPhase, myChoice, handleChoose]);
+
+  // Reset state when round changes
+  useEffect(() => {
+    if (rpsState && !roundData?.revealed) {
+      choiceSubmittedRef.current = false;
+      setMyChoice(null);
+      setRevealPhase('choosing');
+    }
+  }, [currentRound]);
 
   // Get opponent info based on player position
   const myNickname = isPlayer1 ? player1Nickname : player2Nickname;

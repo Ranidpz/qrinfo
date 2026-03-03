@@ -95,16 +95,20 @@ export default function QGamesResult({
       {/* Score */}
       <div className="flex items-center gap-4 mb-8 animate-in fade-in-50 duration-500" style={{ animationDelay: '200ms' }}>
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl mx-auto mb-1">
-            {myAvatar}
+          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl mx-auto mb-1 overflow-hidden">
+            {myAvatar.startsWith('http') ? (
+              <img src={myAvatar} alt="" className="w-full h-full object-cover" />
+            ) : myAvatar}
           </div>
           <p className="text-white text-xs truncate max-w-[80px]">{myNickname}</p>
           <p className={`text-2xl font-black ${isWinner ? 'text-emerald-400' : 'text-white'}`}>{myScore}</p>
         </div>
         <span className="text-white/20 text-xl font-bold">:</span>
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl mx-auto mb-1">
-            {oppAvatar}
+          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl mx-auto mb-1 overflow-hidden">
+            {oppAvatar.startsWith('http') ? (
+              <img src={oppAvatar} alt="" className="w-full h-full object-cover" />
+            ) : oppAvatar}
           </div>
           <p className="text-white text-xs truncate max-w-[80px]">{oppNickname}</p>
           <p className={`text-2xl font-black ${!isWinner && !isDraw ? 'text-red-400' : 'text-white'}`}>{oppScore}</p>
