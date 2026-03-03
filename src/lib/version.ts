@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.9';
+export const APP_VERSION = '1.13.10';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.9',
+    version: '1.13.10',
     date: '2026-03-03',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון קריטי: טיימר שפג תוקפו במולטיפלייר RPS לא שלח בחירה אוטומטית - המשחק נתקע',
+        'תיקון: מניעת שליחת בחירה כפולה בין סיבובים',
+        'תיקון: מניעת race condition בעדכון מספר סיבוב בשרת',
+      ],
+      en: [
+        'Critical fix: Timer expiry in multiplayer RPS did not auto-submit - game got stuck',
+        'Fix: Prevent false auto-submit during round transitions',
+        'Fix: Prevent race condition in server round counter update',
+      ],
+    },
+  },
+  {
+    version: '1.13.9',
+    date: '2026-03-03',
     highlights: {
       he: [
         'שיפור: טקסטים בריבים (צלמו סלפי, מחפשים לכם יריבים, שחקו עם בוט, עד 3 נקודות)',
