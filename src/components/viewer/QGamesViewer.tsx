@@ -22,7 +22,9 @@ import {
   updateQueueEntryAvatar,
   updateQueueEntryNickname,
   getRPSState,
+  getOOOState,
   markQueueEntryBotMatch,
+  leaveQueue,
 } from '@/lib/qgames-realtime';
 import {
   useQGamesQueueEntry,
@@ -30,6 +32,7 @@ import {
   useQGamesLeaderboard,
   useMatchPresence,
   useQueueWatcher,
+  useViewerPresence,
 } from '@/hooks/useQGamesRealtime';
 
 import QGamesRegistration from '@/components/qgames/QGamesRegistration';
@@ -75,11 +78,12 @@ const translations: Record<string, Record<string, string>> = {
     waitingForOpponent: 'מחכה לחבר...',
     youWonRound: 'ניצחת!',
     youLostRound: 'הפסדת',
-    didntAnswer: 'לא עניתם!',
+    didntAnswer: 'לא ענה!',
+    roundVoid: 'סיבוב פסול!',
     draw: 'תיקו!',
     youWon: 'ניצחת! 🎉',
     youLost: 'הפסדת',
-    playAgain: 'שחק שוב',
+    playAgain: 'שחקו שוב',
     backToGames: 'חזרה למשחקים',
     leaderboard: 'טבלת מובילים',
     noPlayersYet: 'עדיין אין שחקנים',
@@ -113,7 +117,7 @@ const translations: Record<string, Record<string, string>> = {
     waiting1More: 'מחכים לעוד חבר אחד...',
     waiting2More: 'מחכים לעוד 2 חברים...',
     playersReady: 'מוכנים',
-    opponentDisconnected: 'החבר התנתק',
+    opponentDisconnected: 'החבר/ה התנתקו מהמשחק',
     youWinByForfeit: 'ניצחת בהפסד טכני!',
     wantsToPlay: 'רוצה לשחק!',
     playRealOpponent: 'שחקו עכשיו!',
@@ -130,6 +134,10 @@ const translations: Record<string, Record<string, string>> = {
     playerStats: 'סטטיסטיקות',
     score: 'ניקוד',
     close: 'סגור',
+    allGames: 'הכל',
+    byScore: 'ניקוד',
+    byWinRate: 'ניצחונות',
+    minGames: 'מינימום 3 משחקים',
   },
   en: {
     joinToPlay: 'Join the game!',
@@ -163,6 +171,7 @@ const translations: Record<string, Record<string, string>> = {
     youWonRound: 'You won!',
     youLostRound: 'You lost',
     didntAnswer: "Didn't answer!",
+    roundVoid: 'Round void!',
     draw: 'Draw!',
     youWon: 'You Won! 🎉',
     youLost: 'You Lost',
@@ -200,7 +209,7 @@ const translations: Record<string, Record<string, string>> = {
     waiting1More: 'Waiting for 1 more friend...',
     waiting2More: 'Waiting for 2 more friends...',
     playersReady: 'ready',
-    opponentDisconnected: 'Friend disconnected',
+    opponentDisconnected: 'Your friend left the game',
     youWinByForfeit: 'You win by forfeit!',
     wantsToPlay: 'wants to play!',
     playRealOpponent: 'Play now!',
@@ -217,6 +226,10 @@ const translations: Record<string, Record<string, string>> = {
     playerStats: 'Player Stats',
     score: 'Score',
     close: 'Close',
+    allGames: 'All',
+    byScore: 'Score',
+    byWinRate: 'Win Rate',
+    minGames: 'Min 3 games',
   },
 };
 
@@ -324,6 +337,12 @@ export default function QGamesViewer({
   const { match } = useQGamesMatch(codeId, matchId);
   const { entries: leaderboardEntries } = useQGamesLeaderboard(codeId);
 
+  // Refs for disconnect forfeit handler (avoids stale closures & prevents timeout reset)
+  const matchRef = useRef(match);
+  matchRef.current = match;
+  const playerRef = useRef(player);
+  playerRef.current = player;
+
   // Compute opponent IDs for presence tracking
   const opponentIds = useMemo(() => {
     const activeMatch = isBotMatch ? null : match;
@@ -335,13 +354,16 @@ export default function QGamesViewer({
     return ids;
   }, [match, visitorId, isBotMatch]);
 
+  // Viewer presence + live stats (active across all phases)
+  const { viewerCount, activeMatches, matchesPerGame } = useViewerPresence(codeId, visitorId);
+
   // Track opponent presence during match
   const { opponentDisconnected } = useMatchPresence(
     codeId,
     matchId,
     visitorId,
     opponentIds,
-    phase === 'playing' && !isBotMatch
+    (phase === 'playing' || phase === 'result') && !isBotMatch
   );
 
   // Watch queue for real opponents during bot match
@@ -471,9 +493,10 @@ export default function QGamesViewer({
     setDisconnectStartTime(Date.now());
 
     // 5-second grace period before declaring forfeit
+    // Uses refs for match/player to avoid resetting timeout on RTDB updates
     const timeout = setTimeout(async () => {
-      const activeMatch = match;
-      if (!activeMatch || !player) return;
+      const activeMatch = matchRef.current;
+      if (!activeMatch || !playerRef.current) return;
 
       // Mark match as abandoned
       if (matchId) {
@@ -481,27 +504,60 @@ export default function QGamesViewer({
       }
 
       const isP1 = activeMatch.player1Id === visitorId;
+      const isP2 = activeMatch.player2Id === visitorId;
 
       // Read actual scores from RTDB
       let myScore = 0;
       let oppScore = 0;
+
       if (matchId && selectedGame === 'rps') {
         const rpsState = await getRPSState(codeId, matchId);
         if (rpsState) {
           myScore = isP1 ? rpsState.player1Score : rpsState.player2Score;
           oppScore = isP1 ? rpsState.player2Score : rpsState.player1Score;
         }
+      } else if (matchId && selectedGame === 'oddoneout') {
+        const oooState = await getOOOState(codeId, matchId);
+        if (oooState) {
+          // In OOO, lower strikes = better. Surviving player wins by forfeit.
+          myScore = isP1 ? oooState.player1Strikes : isP2 ? oooState.player2Strikes : oooState.player3Strikes;
+          // Pick the highest opponent strike count to show
+          const oppStrikes = isP1
+            ? Math.max(oooState.player2Strikes, oooState.player3Strikes)
+            : isP2
+              ? Math.max(oooState.player1Strikes, oooState.player3Strikes)
+              : Math.max(oooState.player1Strikes, oooState.player2Strikes);
+          oppScore = oppStrikes;
+        }
       }
 
-      const isDraw = myScore === oppScore;
-      setResultData({
-        isWinner: !isDraw,
-        isDraw,
-        myScore,
-        oppScore,
-        oppNickname: isP1 ? activeMatch.player2Nickname : activeMatch.player1Nickname,
-        oppAvatar: isP1 ? activeMatch.player2AvatarValue : activeMatch.player1AvatarValue,
-      });
+      if (selectedGame === 'oddoneout') {
+        // For OOO, the disconnected player(s) lose — surviving player wins
+        const oppNickname = isP1 ? activeMatch.player2Nickname : activeMatch.player1Nickname;
+        const oppAvatar = isP1 ? activeMatch.player2AvatarValue : activeMatch.player1AvatarValue;
+        setResultData({
+          isWinner: true,
+          isDraw: false,
+          myScore,
+          oppScore,
+          oppNickname,
+          oppAvatar,
+          is3Player: true,
+          thirdPlayerNickname: isP1 ? activeMatch.player3Nickname : isP2 ? activeMatch.player3Nickname : activeMatch.player2Nickname,
+          thirdPlayerAvatar: isP1 ? activeMatch.player3AvatarValue : isP2 ? activeMatch.player3AvatarValue : activeMatch.player2AvatarValue,
+          thirdPlayerScore: 0,
+        });
+      } else {
+        const isDraw = myScore === oppScore;
+        setResultData({
+          isWinner: !isDraw,
+          isDraw,
+          myScore,
+          oppScore,
+          oppNickname: isP1 ? activeMatch.player2Nickname : activeMatch.player1Nickname,
+          oppAvatar: isP1 ? activeMatch.player2AvatarValue : activeMatch.player1AvatarValue,
+        });
+      }
 
       // Persist forfeit
       if (matchId) {
@@ -519,7 +575,9 @@ export default function QGamesViewer({
       clearTimeout(timeout);
       setDisconnectStartTime(null);
     };
-  }, [opponentDisconnected, phase, isBotMatch, match, player, codeId, matchId, visitorId, selectedGame]);
+    // match & player accessed via refs — not in deps to avoid resetting the timeout
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opponentDisconnected, phase, isBotMatch, codeId, matchId, visitorId, selectedGame]);
 
   // ============ Handlers ============
 
@@ -553,22 +611,27 @@ export default function QGamesViewer({
 
     setSelectedGame(gameType);
     setPhase('queue');
+    matchingRef.current = true; // Prevent "re-add" effect from double-matching
 
-    const result = await findOrWaitForOpponent(
-      codeId,
-      visitorId,
-      player.nickname,
-      player.avatarType,
-      player.avatarValue,
-      gameType,
-      inviteFrom || undefined
-    );
+    try {
+      const result = await findOrWaitForOpponent(
+        codeId,
+        visitorId,
+        player.nickname,
+        player.avatarType,
+        player.avatarValue,
+        gameType,
+        inviteFrom || undefined
+      );
 
-    if (result.type === 'matched' && result.matchId) {
-      setMatchId(result.matchId);
-      setPhase('vs');
+      if (result.type === 'matched' && result.matchId) {
+        setMatchId(result.matchId);
+        setPhase('vs');
+      }
+      // If 'waiting', the queue watcher will handle matching when opponent appears
+    } finally {
+      matchingRef.current = false;
     }
-    // If 'waiting', the queue watcher will handle matching when opponent appears
   }, [codeId, player, visitorId, inviteFrom]);
 
   const handleCancelQueue = useCallback(async () => {
@@ -669,7 +732,10 @@ export default function QGamesViewer({
 
     if (!matchId || !selectedGame) return;
 
-    // Start the game
+    // Start the game — remove from queue first so no one else can match us
+    if (visitorId) {
+      leaveQueue(codeId, visitorId).catch(() => {});
+    }
     await updateMatchStatus(codeId, matchId, 'playing');
 
     if (selectedGame === 'rps') {
@@ -706,17 +772,15 @@ export default function QGamesViewer({
       oppAvatar: isP1 ? activeMatch.player2AvatarValue : activeMatch.player1AvatarValue,
     });
 
-    // Persist match to Firestore (skip for bot matches)
-    if (!isBotMatch) {
-      fetch('/api/qgames/finish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codeId,
-          matchId,
-          playerId: visitorId,
-        }),
-      }).catch(console.error);
+    // Mark match as finished in RTDB, then persist to Firestore
+    if (!isBotMatch && matchId) {
+      updateMatchStatus(codeId, matchId, 'finished', { finishedAt: Date.now() })
+        .then(() => fetch('/api/qgames/finish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codeId, matchId, playerId: visitorId }),
+        }))
+        .catch(console.error);
     }
 
     setPhase('result');
@@ -776,17 +840,15 @@ export default function QGamesViewer({
       thirdPlayerScore: thirdScore,
     });
 
-    // Persist match to Firestore (skip for bot matches)
+    // Mark match as finished in RTDB, then persist to Firestore
     if (!isBotMatch && matchId) {
-      fetch('/api/qgames/finish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codeId,
-          matchId,
-          playerId: visitorId,
-        }),
-      }).catch(console.error);
+      updateMatchStatus(codeId, matchId, 'finished', { finishedAt: Date.now() })
+        .then(() => fetch('/api/qgames/finish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codeId, matchId, playerId: visitorId }),
+        }))
+        .catch(console.error);
     }
 
     setPhase('result');
@@ -883,6 +945,8 @@ export default function QGamesViewer({
           }}
           isRTL={isRTL}
           t={t}
+          viewerCount={viewerCount}
+          matchesPerGame={matchesPerGame}
         />
       )}
 
@@ -907,6 +971,8 @@ export default function QGamesViewer({
           codeId={codeId}
           onAvatarChange={handleAvatarChange}
           onNameChange={handleNameChange}
+          viewerCount={viewerCount}
+          activeMatches={activeMatches}
         />
       )}
 
@@ -968,6 +1034,9 @@ export default function QGamesViewer({
             matchId={gameMatch.id}
             playerId={visitorId || ''}
             playerNumber={playerNumber}
+            player1Id={gameMatch.player1Id}
+            player2Id={gameMatch.player2Id}
+            player3Id={gameMatch.player3Id || ''}
             player1Nickname={gameMatch.player1Nickname}
             player1Avatar={gameMatch.player1AvatarValue}
             player2Nickname={gameMatch.player2Nickname}
@@ -1017,8 +1086,8 @@ export default function QGamesViewer({
             entries={leaderboardEntries}
             currentPlayerId={visitorId || undefined}
             onBack={() => setPhase(resultData ? 'result' : 'selector')}
-            onChallenge={() => setPhase('selector')}
             shortId={shortId}
+            enabledGames={config.enabledGames}
             isRTL={isRTL}
             t={t}
           />

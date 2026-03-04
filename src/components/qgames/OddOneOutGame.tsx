@@ -10,6 +10,9 @@ interface OddOneOutGameProps {
   matchId: string;
   playerId: string;
   playerNumber: 1 | 2 | 3;
+  player1Id: string;
+  player2Id: string;
+  player3Id: string;
   player1Nickname: string;
   player1Avatar: string;
   player2Nickname: string;
@@ -62,7 +65,7 @@ function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string;
   return (
     <div className={`${sizeClasses[size]} rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0 ${className}`}>
       {avatar.startsWith('http') ? (
-        <img src={avatar} alt="" className="w-full h-full object-cover" />
+        <img src={avatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       ) : avatar}
     </div>
   );
@@ -70,14 +73,14 @@ function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string;
 
 function StrikeIndicator({ strikes, maxStrikes }: { strikes: number; maxStrikes: number }) {
   return (
-    <div className="flex gap-0.5">
+    <div className="flex gap-0.5 items-center">
       {Array.from({ length: maxStrikes }).map((_, i) => (
-        <div
+        <span
           key={i}
-          className={`w-2 h-2 rounded-full transition-all duration-300 ${
-            i < strikes ? 'bg-red-500 shadow-sm shadow-red-500/50' : 'bg-white/15'
+          className={`text-xs font-black transition-all duration-300 ${
+            i < strikes ? 'text-red-500 drop-shadow-[0_0_3px_rgba(239,68,68,0.5)]' : 'text-white/15'
           }`}
-        />
+        >✗</span>
       ))}
     </div>
   );
@@ -88,6 +91,9 @@ export default function OddOneOutGame({
   matchId,
   playerId,
   playerNumber,
+  player1Id,
+  player2Id,
+  player3Id,
   player1Nickname,
   player1Avatar,
   player2Nickname,
@@ -106,6 +112,9 @@ export default function OddOneOutGame({
   disconnectStartTime,
 }: OddOneOutGameProps) {
   const { state: oooState } = useOOOState(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
+  // Ref to avoid stale closure in reveal timeout — strikes are updated AFTER revealed:true
+  const oooStateRef = useRef(oooState);
+  oooStateRef.current = oooState;
   const sounds = useQGamesSounds(enableSound);
 
   const [myChoice, setMyChoice] = useState<OOOChoice | null>(null);
@@ -113,11 +122,19 @@ export default function OddOneOutGame({
   const [revealPhase, setRevealPhase] = useState<'choosing' | 'waiting' | 'revealing' | 'scored'>('choosing');
   const [displayStrikes, setDisplayStrikes] = useState({ p1: 0, p2: 0, p3: 0 });
 
+  // Track if current round was a timeout (player didn't answer)
+  const [timedOut, setTimedOut] = useState(false);
+  const timedOutRef = useRef(false);
+
   const [roundHistory, setRoundHistory] = useState<Array<{
     p1Choice: OOOChoice;
     p2Choice: OOOChoice;
     p3Choice: OOOChoice;
     loser: 'player1' | 'player2' | 'player3' | 'draw';
+    myTimedOut?: boolean;
+    p1TimedOut?: boolean;
+    p2TimedOut?: boolean;
+    p3TimedOut?: boolean;
   }>>([]);
 
   const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -158,9 +175,12 @@ export default function OddOneOutGame({
     sounds.playReveal();
 
     revealTimeoutRef.current = setTimeout(() => {
-      const p1s = isBotMatch ? botStrikes.p1 : (oooState?.player1Strikes ?? 0);
-      const p2s = isBotMatch ? botStrikes.p2 : (oooState?.player2Strikes ?? 0);
-      const p3s = isBotMatch ? botStrikes.p3 : (oooState?.player3Strikes ?? 0);
+      // Read latest strikes from ref (not stale closure) — RTDB updates strikes
+      // in a separate write after setting revealed:true, so oooState in the closure is stale
+      const latestState = oooStateRef.current;
+      const p1s = isBotMatch ? botStrikes.p1 : (latestState?.player1Strikes ?? 0);
+      const p2s = isBotMatch ? botStrikes.p2 : (latestState?.player2Strikes ?? 0);
+      const p3s = isBotMatch ? botStrikes.p3 : (latestState?.player3Strikes ?? 0);
       setDisplayStrikes({ p1: p1s, p2: p2s, p3: p3s });
 
       setRoundHistory(prev => [...prev, {
@@ -168,6 +188,10 @@ export default function OddOneOutGame({
         p2Choice: roundData.player2Choice!,
         p3Choice: roundData.player3Choice!,
         loser: roundData.loser as 'player1' | 'player2' | 'player3' | 'draw',
+        myTimedOut: timedOutRef.current,
+        p1TimedOut: !!roundData.player1TimedOut,
+        p2TimedOut: !!roundData.player2TimedOut,
+        p3TimedOut: !!roundData.player3TimedOut,
       }]);
 
       if (roundData.loser !== 'draw') {
@@ -185,10 +209,8 @@ export default function OddOneOutGame({
       if (p1s >= maxStrikes || p2s >= maxStrikes || p3s >= maxStrikes) {
         if (!matchEndedRef.current) {
           matchEndedRef.current = true;
-          const loserId = p1s >= maxStrikes ? 'p1'
-            : p2s >= maxStrikes ? 'p2' : 'p3';
-          const loserPlayerId = loserId === 'p1' ? (isBotMatch ? playerId : oooState?.player1Strikes !== undefined ? matchPlayerIds.p1 : playerId)
-            : loserId === 'p2' ? matchPlayerIds.p2 : matchPlayerIds.p3;
+          const loserPlayerId = p1s >= maxStrikes ? matchPlayerIds.p1
+            : p2s >= maxStrikes ? matchPlayerIds.p2 : matchPlayerIds.p3;
           setTimeout(() => onMatchEnd(loserPlayerId, p1s, p2s, p3s), 1500);
         }
         return;
@@ -207,6 +229,8 @@ export default function OddOneOutGame({
         choiceSubmittedRef.current = false;
         setMyChoice(null);
         setRevealPhase('choosing');
+        setTimedOut(false);
+        timedOutRef.current = false;
       }, 500);
     }, 2000);
 
@@ -217,21 +241,9 @@ export default function OddOneOutGame({
 
   // Player ID mapping for match end
   const matchPlayerIds = {
-    p1: isBotMatch ? playerId : 'player1',
-    p2: isBotMatch ? 'bot-1' : 'player2',
-    p3: isBotMatch ? 'bot-2' : 'player3',
-  };
-
-  // Use actual match player IDs from props context
-  // In online mode, QGamesViewer passes the actual player IDs
-  // We reconstruct them from the playerNumber mapping
-  const getMatchPlayerId = (pNum: 1 | 2 | 3) => {
-    if (isBotMatch) {
-      return pNum === 1 ? playerId : pNum === 2 ? 'bot-1' : 'bot-2';
-    }
-    // For online, we don't have direct access to other player IDs here
-    // The parent (QGamesViewer) will map playerNumber back to real IDs
-    return `player${pNum}`;
+    p1: isBotMatch ? playerId : player1Id,
+    p2: isBotMatch ? 'bot-1' : player2Id,
+    p3: isBotMatch ? 'bot-2' : player3Id,
   };
 
   const handleChoose = useCallback(async (choice: OOOChoice) => {
@@ -288,9 +300,19 @@ export default function OddOneOutGame({
       const data = await response.json();
       if (!data.success) {
         console.error('Move failed:', data.error);
+        // If match is already finished, don't reset — match-end will be triggered by RTDB
+        if (data.error === 'Match is not in playing state') return;
+        // Reset UI so player can retry
+        choiceSubmittedRef.current = false;
+        setMyChoice(null);
+        setRevealPhase('choosing');
       }
     } catch (error) {
       console.error('Move error:', error);
+      // Reset UI so player can retry
+      choiceSubmittedRef.current = false;
+      setMyChoice(null);
+      setRevealPhase('choosing');
     } finally {
       setIsSubmitting(false);
     }
@@ -300,36 +322,69 @@ export default function OddOneOutGame({
   useEffect(() => {
     if (!isExpired || revealPhase !== 'choosing' || myChoice || choiceSubmittedRef.current) return;
 
+    // Don't auto-submit during the gap between rounds (old round data still showing revealed)
+    if (!isBotMatch && roundData?.revealed) return;
+
+    // Defensive: verify actual time has elapsed (prevents stale isExpired from previous round)
+    const timerStart = isBotMatch ? botTimerStartRef.current : roundData?.timerStartedAt;
+    if (timerStart) {
+      const actualElapsed = (Date.now() - timerStart) / 1000;
+      if (actualElapsed < timerDuration - 0.5) return;
+    }
+
     choiceSubmittedRef.current = true;
+
+    // Mark as timed out
+    setTimedOut(true);
+    timedOutRef.current = true;
 
     if (isBotMatch) {
       sounds.playLoseRound();
+      // Forfeit: player gets the strike (they're always player1 in bot match)
       const botChoices: OOOChoice[] = ['palm', 'fist'];
       const myForced = botChoices[Math.floor(Math.random() * 2)];
-      const bot1Choice = botChoices[Math.floor(Math.random() * 2)];
-      const bot2Choice = botChoices[Math.floor(Math.random() * 2)];
-      const result = resolveOOO(myForced, bot1Choice, bot2Choice);
+      // Bots pick the SAME as each other so player is the odd one out
+      const botChoice = botChoices[Math.floor(Math.random() * 2)];
+      const otherBotChoice = botChoice; // Same → player is odd one out
 
       const newStrikes = { ...botStrikes };
-      if (result === 'player1') newStrikes.p1 += 1;
-      else if (result === 'player2') newStrikes.p2 += 1;
-      else if (result === 'player3') newStrikes.p3 += 1;
+      newStrikes.p1 += 1; // Player always gets the strike on timeout
 
       setBotStrikes(newStrikes);
       setBotRoundData({
         player1Choice: myForced,
-        player2Choice: bot1Choice,
-        player3Choice: bot2Choice,
-        loser: result,
+        player2Choice: botChoice,
+        player3Choice: otherBotChoice,
+        loser: 'player1',
         timerStartedAt: botTimerStartRef.current,
         timerDuration,
         revealed: true,
+        player1TimedOut: true,
       });
     } else {
+      // Submit directly — cannot use handleChoose() because choiceSubmittedRef is already set
       const randomChoice: OOOChoice = Math.random() < 0.5 ? 'palm' : 'fist';
-      handleChoose(randomChoice);
+      setMyChoice(randomChoice);
+      setRevealPhase('waiting');
+
+      fetch('/api/qgames/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId, matchId, playerId,
+          gameType: 'oddoneout',
+          move: { choice: randomChoice, timedOut: true },
+        }),
+      }).catch(err => {
+        console.error('Timer expiry move error:', err);
+        choiceSubmittedRef.current = false;
+        setMyChoice(null);
+        setRevealPhase('choosing');
+        setTimedOut(false);
+        timedOutRef.current = false;
+      });
     }
-  }, [isExpired, revealPhase, myChoice, handleChoose, isBotMatch, sounds, botStrikes, timerDuration]);
+  }, [isExpired, revealPhase, myChoice, isBotMatch, sounds, botStrikes, timerDuration, roundData?.revealed, roundData?.timerStartedAt, codeId, matchId, playerId]);
 
   // Reset state when round changes (online matches)
   useEffect(() => {
@@ -361,6 +416,19 @@ export default function OddOneOutGame({
   const myRevealedChoice = getChoice(playerNumber);
   const isLoserRound = roundData?.loser === `player${playerNumber}`;
   const isDraw = roundData?.loser === 'draw';
+
+  // Detect timeouts per player from RTDB (online) or bot state
+  const getPlayerTimedOut = (pNum: number) => {
+    if (!roundData?.revealed) return false;
+    if (pNum === 1) return !!roundData.player1TimedOut;
+    if (pNum === 2) return !!roundData.player2TimedOut;
+    return !!roundData.player3TimedOut;
+  };
+  // Count how many timed out this round (for "round void" display)
+  const timeoutCount = roundData?.revealed
+    ? [!!roundData.player1TimedOut, !!roundData.player2TimedOut, !!roundData.player3TimedOut].filter(Boolean).length
+    : 0;
+  const isRoundVoid = timeoutCount >= 2;
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden relative" dir={isRTL ? 'rtl' : 'ltr'}>
@@ -398,7 +466,7 @@ export default function OddOneOutGame({
       {/* Round info */}
       <div className="text-center pb-1">
         <p className="text-white/30 text-[10px] uppercase tracking-widest">{t('round')} {currentRound + 1}</p>
-        <p className="text-white/40 text-[10px]">{maxStrikes} {t('strikes')} = {t('eliminated')}</p>
+        <p className="text-white/40 text-[10px]">{maxStrikes} ✗ = {t('eliminated')}</p>
       </div>
 
       {/* Timer bar */}
@@ -425,15 +493,17 @@ export default function OddOneOutGame({
               {otherPlayers.map((p) => {
                 const choice = getChoice(p.num);
                 const isOddOne = roundData.loser === `player${p.num}`;
+                const pTimedOut = getPlayerTimedOut(p.num);
                 return (
                   <div key={p.num} className={`text-center transition-all duration-500 ${isOddOne ? 'scale-110' : ''}`}>
                     <div className={`text-5xl mb-1 animate-in zoom-in duration-300 ${
                       isOddOne ? 'ring-4 ring-red-500/40 rounded-2xl p-2 bg-red-500/10' : ''
                     }`}>
-                      {choice ? OOO_EMOJI[choice] : '❓'}
+                      {pTimedOut ? '❌' : (choice ? OOO_EMOJI[choice] : '❓')}
                     </div>
                     <p className={`text-xs ${isOddOne ? 'text-red-400 font-bold' : 'text-white/50'}`}>{p.nickname}</p>
-                    {isOddOne && <p className="text-red-400 text-[10px] font-bold mt-0.5">{t('oddOneOut')}</p>}
+                    {pTimedOut && <p className="text-red-400 text-[10px] font-bold mt-0.5">{t('didntAnswer')}</p>}
+                    {isOddOne && !pTimedOut && <p className="text-red-400 text-[10px] font-bold mt-0.5">{t('oddOneOut')}</p>}
                   </div>
                 );
               })}
@@ -441,19 +511,29 @@ export default function OddOneOutGame({
 
             {/* Result text */}
             <div className="text-center my-1">
-              {isLoserRound && (
+              {isRoundVoid && (
+                <p className="text-yellow-400 font-bold text-xl animate-in zoom-in duration-300">
+                  {t('roundVoid')}
+                </p>
+              )}
+              {!isRoundVoid && isLoserRound && timedOut && (
+                <p className="text-red-400 font-bold text-xl animate-in zoom-in duration-300">
+                  {t('didntAnswer')}
+                </p>
+              )}
+              {!isRoundVoid && isLoserRound && !timedOut && (
                 <p className="text-red-400 font-bold text-xl animate-in zoom-in duration-300">
                   {t('youGotStrike')} ✗
                 </p>
               )}
-              {!isLoserRound && !isDraw && (
+              {!isRoundVoid && !isLoserRound && !isDraw && (
                 <p className="text-emerald-400 font-black text-xl animate-in zoom-in duration-300">
                   {t('youSurvived')} ✓
                 </p>
               )}
-              {isDraw && (
+              {!isRoundVoid && isDraw && (
                 <p className="text-yellow-400 font-bold text-xl animate-in zoom-in duration-300">
-                  {t('allSame')} =
+                  {t('allSame')}
                 </p>
               )}
             </div>
@@ -463,10 +543,11 @@ export default function OddOneOutGame({
               <div className={`text-5xl mb-1 animate-in zoom-in duration-300 ${
                 isLoserRound ? 'ring-4 ring-red-500/40 rounded-2xl p-2 bg-red-500/10' : ''
               }`}>
-                {myRevealedChoice ? OOO_EMOJI[myRevealedChoice] : '❓'}
+                {timedOut ? '❌' : (myRevealedChoice ? OOO_EMOJI[myRevealedChoice] : '❓')}
               </div>
               <p className={`text-xs ${isLoserRound ? 'text-red-400 font-bold' : 'text-white/50'}`}>{t('you')}</p>
-              {isLoserRound && <p className="text-red-400 text-[10px] font-bold mt-0.5">{t('oddOneOut')}</p>}
+              {timedOut && <p className="text-red-400 text-[10px] font-bold mt-0.5">{t('didntAnswer')}</p>}
+              {isLoserRound && !timedOut && <p className="text-red-400 text-[10px] font-bold mt-0.5">{t('oddOneOut')}</p>}
             </div>
           </div>
         ) : revealPhase === 'waiting' && myChoice ? (
@@ -512,25 +593,24 @@ export default function OddOneOutGame({
                     {otherPlayers.map((p) => {
                       const c = p.num === 1 ? entry.p1Choice : p.num === 2 ? entry.p2Choice : entry.p3Choice;
                       const isOdd = entry.loser === `player${p.num}`;
+                      const pTO = p.num === 1 ? entry.p1TimedOut : p.num === 2 ? entry.p2TimedOut : entry.p3TimedOut;
                       return (
                         <div key={p.num} className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
                           isOdd ? 'bg-red-500/15 ring-1 ring-red-400/40' : 'bg-white/5'
                         }`}>
-                          {OOO_EMOJI[c]}
+                          {pTO ? '❌' : OOO_EMOJI[c]}
                         </div>
                       );
                     })}
-                    <div className={`w-4 h-0.5 rounded-full ${
-                      entry.loser === 'draw' ? 'bg-yellow-400/60'
-                        : iAmLoser ? 'bg-red-400 shadow-sm shadow-red-400/50'
-                        : 'bg-emerald-400 shadow-sm shadow-emerald-400/50'
-                    }`} />
+                    <div className="flex items-center justify-center h-3">
+                      <span className="text-[9px] text-white/30 font-medium leading-none">{i + 1}</span>
+                    </div>
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
                       iAmLoser ? 'bg-red-500/15 ring-1 ring-red-400/40'
                         : entry.loser !== 'draw' ? 'bg-emerald-500/15 ring-1 ring-emerald-400/40'
                         : 'bg-white/5'
                     }`}>
-                      {OOO_EMOJI[myC]}
+                      {entry.myTimedOut ? '❌' : OOO_EMOJI[myC]}
                     </div>
                   </div>
                 );

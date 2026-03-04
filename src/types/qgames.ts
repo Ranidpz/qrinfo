@@ -250,6 +250,7 @@ export interface RTDBRPSState {
   player2Score: number;
   firstTo: number;
   rounds: Record<string, RTDBRPSRound>;
+  consecutiveMutualTimeouts?: number;
 }
 
 /** TTT match state in RTDB */
@@ -283,6 +284,9 @@ export interface RTDBOOORound {
   timerStartedAt: number;
   timerDuration: number;          // seconds
   revealed: boolean;
+  player1TimedOut?: boolean;
+  player2TimedOut?: boolean;
+  player3TimedOut?: boolean;
 }
 
 /** OOO match state in RTDB */
@@ -310,6 +314,12 @@ export interface QGamesLeaderboardEntry {
   gamesPlayed: number;
   rank: number;
   lastPlayedAt: number;
+
+  // Per-game stats (for filtering / per-game leaderboard)
+  rpsPlayed?: number;
+  rpsWins?: number;
+  oddoneoutPlayed?: number;
+  oddoneoutWins?: number;
 }
 
 // =============================================================
@@ -492,4 +502,6 @@ export const QGAMES_PATHS = {
   playerPresence: (codeId: string, matchId: string, playerId: string) => `qgames/${codeId}/matches/${matchId}/presence/${playerId}`,
   leaderboard: (codeId: string) => `qgames/${codeId}/leaderboard`,
   leaderboardEntry: (codeId: string, visitorId: string) => `qgames/${codeId}/leaderboard/${visitorId}`,
+  viewers: (codeId: string) => `qgames/${codeId}/viewers`,
+  viewer: (codeId: string, visitorId: string) => `qgames/${codeId}/viewers/${visitorId}`,
 };

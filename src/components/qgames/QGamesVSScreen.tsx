@@ -29,7 +29,7 @@ function PlayerCard({ nickname, avatar, ringColor, glowColor, animateFrom, delay
         <div className={`absolute inset-[-4px] rounded-full ${glowColor} blur-md animate-pulse`} />
         <div className={`relative w-24 h-24 rounded-full bg-white/10 flex items-center justify-center text-5xl ring-3 ${ringColor} overflow-hidden`}>
           {avatar.startsWith('http') ? (
-            <img src={avatar} alt="" className="w-full h-full object-cover" />
+            <img src={avatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           ) : avatar}
         </div>
       </div>

@@ -413,7 +413,7 @@ export async function startNewOOORound(
     revealed: false,
   } satisfies RTDBOOORound);
 
-  // Update current round counter
+  // Update current round counter (must be separate from round data write)
   const oooRef = ref(realtimeDb, QGAMES_PATHS.oooState(codeId, matchId));
   await update(oooRef, { currentRound: roundNum });
 }
@@ -487,6 +487,38 @@ export async function cleanupStaleQueue(
 export async function cleanupMatch(codeId: string, matchId: string): Promise<void> {
   const matchRef = ref(realtimeDb, QGAMES_PATHS.match(codeId, matchId));
   await remove(matchRef);
+}
+
+/** Clean up stale matches: status='playing' but no presence nodes and older than maxAge */
+export async function cleanupStaleMatches(
+  codeId: string,
+  maxAgeMs: number = 300000 // 5 minutes
+): Promise<number> {
+  const matchesRef = ref(realtimeDb, QGAMES_PATHS.matches(codeId));
+  const snapshot = await get(matchesRef);
+  if (!snapshot.exists()) return 0;
+
+  let cleaned = 0;
+  const now = Date.now();
+  const promises: Promise<void>[] = [];
+
+  snapshot.forEach((child) => {
+    const match = child.val();
+    const presenceCount = match?.presence ? Object.keys(match.presence).length : 0;
+    const age = now - (match?.lastUpdated || match?.createdAt || 0);
+    // Remove stale matches:
+    // 1. No connected players and old enough
+    // 2. Finished matches old enough (presence may linger if onDisconnect didn't fire)
+    const isStale = (presenceCount === 0 && age > maxAgeMs) ||
+                    (match?.status === 'finished' && age > maxAgeMs);
+    if (isStale) {
+      promises.push(remove(ref(realtimeDb, QGAMES_PATHS.match(codeId, child.key!))));
+      cleaned++;
+    }
+  });
+
+  await Promise.all(promises);
+  return cleaned;
 }
 
 // ============ SUBSCRIPTIONS ============
@@ -667,4 +699,66 @@ export function subscribeToMatchPresence(
   };
   onValue(presenceRef, callback);
   return () => off(presenceRef, 'value', callback);
+}
+
+// ============ VIEWER PRESENCE (accurate connected count) ============
+
+/**
+ * Register viewer presence. Auto-removed on disconnect via onDisconnect().
+ * Returns cleanup function.
+ */
+export async function setupViewerPresence(
+  codeId: string,
+  visitorId: string
+): Promise<() => void> {
+  const viewerRef = ref(realtimeDb, QGAMES_PATHS.viewer(codeId, visitorId));
+  await set(viewerRef, { joinedAt: Date.now() });
+  const disconnectRef = onDisconnect(viewerRef);
+  disconnectRef.remove();
+
+  return () => {
+    disconnectRef.cancel();
+    remove(viewerRef);
+  };
+}
+
+/** Subscribe to viewer count (number of connected viewers) */
+export function subscribeToViewerCount(
+  codeId: string,
+  onUpdate: (count: number) => void
+): () => void {
+  const viewersRef = ref(realtimeDb, QGAMES_PATHS.viewers(codeId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists() ? snapshot.size : 0);
+  };
+  onValue(viewersRef, callback);
+  return () => off(viewersRef, 'value', callback);
+}
+
+/** Subscribe to active player stats (per game type + total).
+ *  Counts connected **players** (not matches) using presence nodes.
+ *  Presence nodes auto-clean via onDisconnect, so stale matches won't inflate counts. */
+export function subscribeToActiveMatchStats(
+  codeId: string,
+  onUpdate: (stats: { total: number; perGame: Record<string, number> }) => void
+): () => void {
+  const matchesRef = ref(realtimeDb, QGAMES_PATHS.matches(codeId));
+  const callback = (snapshot: DataSnapshot) => {
+    if (!snapshot.exists()) { onUpdate({ total: 0, perGame: {} }); return; }
+    let total = 0;
+    const perGame: Record<string, number> = {};
+    snapshot.forEach((child) => {
+      const match = child.val();
+      const presenceCount = match?.presence ? Object.keys(match.presence).length : 0;
+      if (presenceCount >= 1) {
+        // Count players, not matches (e.g. 1 match with 2 players = 2)
+        total += presenceCount;
+        const gt = match.gameType as string;
+        if (gt) perGame[gt] = (perGame[gt] || 0) + presenceCount;
+      }
+    });
+    onUpdate({ total, perGame });
+  };
+  onValue(matchesRef, callback);
+  return () => off(matchesRef, 'value', callback);
 }

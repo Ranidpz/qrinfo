@@ -60,7 +60,7 @@ function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string;
   return (
     <div className={`${sizeClasses[size]} rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0 ${className}`}>
       {avatar.startsWith('http') ? (
-        <img src={avatar} alt="" className="w-full h-full object-cover" />
+        <img src={avatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       ) : avatar}
     </div>
   );
@@ -111,6 +111,7 @@ export default function RPSGame({
   const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const matchEndedRef = useRef(false);
   const choiceSubmittedRef = useRef(false);
+  const mutualTimeoutCountRef = useRef(0);
 
   // Ref to always read latest rpsState in timeouts (avoids stale closure)
   const rpsStateRef = useRef(rpsState);
@@ -173,6 +174,13 @@ export default function RPSGame({
         oppTimedOut: oppDidTimeout,
       }]);
 
+      // Track consecutive mutual timeouts
+      if (timedOutRef.current && oppDidTimeout) {
+        mutualTimeoutCountRef.current += 1;
+      } else {
+        mutualTimeoutCountRef.current = 0;
+      }
+
       // Score animation
       if (roundData.winner === 'player1') {
         setScoreAnimation({ player: 'p1', show: true });
@@ -193,7 +201,7 @@ export default function RPSGame({
         setScoreAnimation(prev => ({ ...prev, show: false }));
       }, 1000);
 
-      // Check if match is over
+      // Check if match is over by score
       const p1Score = p1s;
       const p2Score = p2s;
       if (p1Score >= firstTo || p2Score >= firstTo) {
@@ -203,6 +211,20 @@ export default function RPSGame({
             ? (isPlayer1 ? playerId : 'opponent')
             : (isPlayer1 ? 'opponent' : playerId);
           // Delay to show final score
+          setTimeout(() => onMatchEnd(winnerId, p1Score, p2Score), 1500);
+        }
+        return;
+      }
+
+      // Check if match should end due to 3 consecutive mutual timeouts
+      if (mutualTimeoutCountRef.current >= 3) {
+        if (!matchEndedRef.current) {
+          matchEndedRef.current = true;
+          const winnerId = p1Score > p2Score
+            ? (isPlayer1 ? playerId : 'opponent')
+            : p2Score > p1Score
+              ? (isPlayer1 ? 'opponent' : playerId)
+              : null; // true draw
           setTimeout(() => onMatchEnd(winnerId, p1Score, p2Score), 1500);
         }
         return;
@@ -280,9 +302,13 @@ export default function RPSGame({
         }),
       });
 
-      const data = await response.json();
-      if (!data.success) {
-        console.error('Move failed:', data.error);
+      if (!response.ok) {
+        console.error('Move HTTP error:', response.status);
+      } else {
+        const data = await response.json();
+        if (!data.success) {
+          console.error('Move failed:', data.error);
+        }
       }
     } catch (error) {
       console.error('Move error:', error);
@@ -461,7 +487,7 @@ export default function RPSGame({
               )}
               {!iWonRound && !iLostRound && roundData?.winner === 'draw' && !timedOut && (
                 <p className="text-yellow-400 font-bold text-xl animate-in zoom-in duration-300">
-                  {t('draw')} =
+                  {t('draw')}
                 </p>
               )}
             </div>
@@ -523,13 +549,9 @@ export default function RPSGame({
                     >
                       {entry.oppTimedOut ? '❌' : RPS_EMOJI[entry.oppChoice]}
                     </div>
-                    <div
-                      className={`w-5 h-0.5 rounded-full ${
-                        isWin ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' :
-                        isLoss ? 'bg-red-400 shadow-sm shadow-red-400/50' :
-                        'bg-yellow-400/60'
-                      }`}
-                    />
+                    <div className="flex items-center justify-center h-3">
+                      <span className="text-[9px] text-white/30 font-medium leading-none">{i + 1}</span>
+                    </div>
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all ${
                         isWin ? 'bg-emerald-500/15 ring-1 ring-emerald-400/40' : 'bg-white/5'

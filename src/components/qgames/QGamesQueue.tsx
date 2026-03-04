@@ -5,8 +5,34 @@ import { Share2, ArrowLeft, Camera, X, Check, RotateCcw, Loader2, Pencil, ZoomIn
 import { compressImage } from '@/lib/imageCompression';
 import RPSAnimatedEmoji from './RPSAnimatedEmoji';
 import { subscribeToQueue } from '@/lib/qgames-realtime';
-
 import type { QGameType, QGamesQueueEntry } from '@/types/qgames';
+
+function AnimatedNumber({ value }: { value: number }) {
+  const [display, setDisplay] = useState(0);
+  const prevRef = useRef(0);
+
+  useEffect(() => {
+    const from = prevRef.current;
+    const to = value;
+    if (from === to) return;
+
+    const duration = 400;
+    const start = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(from + (to - from) * eased));
+      if (progress < 1) requestAnimationFrame(animate);
+      else prevRef.current = to;
+    };
+    requestAnimationFrame(animate);
+  }, [value]);
+
+  return <span>{display}</span>;
+}
 
 interface QGamesQueueProps {
   gameType?: QGameType;
@@ -29,6 +55,8 @@ interface QGamesQueueProps {
   codeId?: string;
   onAvatarChange?: (avatarType: 'emoji' | 'selfie', avatarValue: string) => void;
   onNameChange?: (name: string) => void;
+  viewerCount?: number;
+  activeMatches?: number;
 }
 
 export default function QGamesQueue({
@@ -51,6 +79,8 @@ export default function QGamesQueue({
   codeId,
   onAvatarChange,
   onNameChange,
+  viewerCount = 0,
+  activeMatches = 0,
 }: QGamesQueueProps) {
   const [dots, setDots] = useState('');
   const [elapsed, setElapsed] = useState(0);
@@ -462,9 +492,31 @@ export default function QGamesQueue({
       )}
 
       {/* Searching text */}
-      <p className="text-white/50 text-sm mb-4">
+      <p className="text-white/50 text-sm mb-3">
         {is3Player ? t('searchingForOpponents') : t('searchingForOpponent')}{dots}
       </p>
+
+      {/* Live player stats */}
+      {!showCamera && !showPicker && (
+        <div className="flex items-center gap-4 mb-3 animate-in fade-in duration-500">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${viewerCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`} />
+            <span className={`font-bold text-sm tabular-nums ${viewerCount > 0 ? 'text-emerald-400' : 'text-white/30'}`}>
+              <AnimatedNumber value={viewerCount} />
+            </span>
+            <span className="text-white/40 text-xs">{isRTL ? 'מחוברים' : 'online'}</span>
+          </div>
+          {activeMatches > 0 && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-amber-400 font-bold text-sm tabular-nums">
+                <AnimatedNumber value={activeMatches} />
+              </span>
+              <span className="text-white/40 text-xs">{isRTL ? 'במשחק' : 'playing'}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 3-player waiting status */}
       {is3Player && !showCamera && !showPicker && (

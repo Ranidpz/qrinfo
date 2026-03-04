@@ -109,7 +109,7 @@ export default function QGamesResult({
         <div className="text-center">
           <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl mx-auto mb-1 overflow-hidden">
             {myAvatar.startsWith('http') ? (
-              <img src={myAvatar} alt="" className="w-full h-full object-cover" />
+              <img src={myAvatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             ) : myAvatar}
           </div>
           <p className="text-white text-xs truncate max-w-[80px]">{myNickname}</p>
@@ -119,7 +119,7 @@ export default function QGamesResult({
         <div className="text-center">
           <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl mx-auto mb-1 overflow-hidden">
             {oppAvatar.startsWith('http') ? (
-              <img src={oppAvatar} alt="" className="w-full h-full object-cover" />
+              <img src={oppAvatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
             ) : oppAvatar}
           </div>
           <p className="text-white text-xs truncate max-w-[80px]">{oppNickname}</p>
@@ -131,7 +131,7 @@ export default function QGamesResult({
             <div className="text-center">
               <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl mx-auto mb-1 overflow-hidden">
                 {thirdPlayerAvatar.startsWith('http') ? (
-                  <img src={thirdPlayerAvatar} alt="" className="w-full h-full object-cover" />
+                  <img src={thirdPlayerAvatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : thirdPlayerAvatar}
               </div>
               <p className="text-white text-xs truncate max-w-[80px]">{thirdPlayerNickname}</p>

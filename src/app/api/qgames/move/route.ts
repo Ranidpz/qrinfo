@@ -175,13 +175,19 @@ async function handleRPSMove(
     if (finalRound.winner === 'player1') p1Score++;
     else if (finalRound.winner === 'player2') p2Score++;
 
-    // Update scores on RPS state (don't write currentRound — client's startNewRPSRound handles it)
+    // Track consecutive mutual timeouts (both players didn't answer)
+    const bothTimedOut = !!finalRound.player1TimedOut && !!finalRound.player2TimedOut;
+    const prevConsecutive = rpsState.consecutiveMutualTimeouts || 0;
+    const newConsecutive = bothTimedOut ? prevConsecutive + 1 : 0;
+
+    // Update scores + timeout counter on RPS state
     await rtdb.ref(QGAMES_PATHS.rpsState(codeId, matchId)).update({
       player1Score: p1Score,
       player2Score: p2Score,
+      consecutiveMutualTimeouts: newConsecutive,
     });
 
-    // Check if match is over
+    // Check if match is over by score
     const firstTo = rpsState.firstTo;
     if (p1Score >= firstTo || p2Score >= firstTo) {
       const winnerId = p1Score >= firstTo ? match.player1Id : match.player2Id;
@@ -192,6 +198,41 @@ async function handleRPSMove(
       });
 
       // Decrement matches in progress
+      const statsRef = rtdb.ref(QGAMES_PATHS.stats(codeId));
+      await statsRef.transaction((current: Record<string, number> | null) => {
+        if (!current) return current;
+        return {
+          ...current,
+          matchesInProgress: Math.max(0, (current.matchesInProgress || 0) - 1),
+          lastUpdated: Date.now(),
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        revealed: true,
+        roundWinner: finalRound.winner,
+        player1Choice: finalRound.player1Choice,
+        player2Choice: finalRound.player2Choice,
+        player1Score: p1Score,
+        player2Score: p2Score,
+        matchOver: true,
+        matchWinnerId: winnerId,
+      });
+    }
+
+    // Check if match should end due to 3 consecutive mutual timeouts
+    if (newConsecutive >= 3) {
+      const winnerId = p1Score > p2Score ? match.player1Id
+        : p2Score > p1Score ? match.player2Id
+        : null; // true draw
+
+      await rtdb.ref(QGAMES_PATHS.match(codeId, matchId)).update({
+        status: 'finished',
+        lastUpdated: Date.now(),
+        finishedAt: Date.now(),
+      });
+
       const statsRef = rtdb.ref(QGAMES_PATHS.stats(codeId));
       await statsRef.transaction((current: Record<string, number> | null) => {
         if (!current) return current;
@@ -242,10 +283,10 @@ async function handleOOOMove(
   isPlayer1: boolean,
   isPlayer2: boolean,
   isPlayer3: boolean,
-  move: { choice: OOOChoice },
+  move: { choice: OOOChoice; timedOut?: boolean },
   match: { player1Id: string; player2Id: string; player3Id?: string }
 ) {
-  const { choice } = move;
+  const { choice, timedOut } = move;
 
   if (!VALID_OOO_CHOICES.includes(choice)) {
     return NextResponse.json(
@@ -278,18 +319,39 @@ async function handleOOOMove(
     if (isPlayer2 && current.player2Choice) return;
     if (isPlayer3 && current.player3Choice) return;
 
-    // Write choice
-    if (isPlayer1) current.player1Choice = choice;
-    else if (isPlayer2) current.player2Choice = choice;
-    else current.player3Choice = choice;
+    // Write choice and timeout flag
+    if (isPlayer1) {
+      current.player1Choice = choice;
+      if (timedOut) current.player1TimedOut = true;
+    } else if (isPlayer2) {
+      current.player2Choice = choice;
+      if (timedOut) current.player2TimedOut = true;
+    } else {
+      current.player3Choice = choice;
+      if (timedOut) current.player3TimedOut = true;
+    }
 
     // Check if all 3 have submitted
     if (current.player1Choice && current.player2Choice && current.player3Choice) {
-      current.loser = resolveOOO(
-        current.player1Choice,
-        current.player2Choice,
-        current.player3Choice
-      );
+      const p1TimedOut = !!current.player1TimedOut;
+      const p2TimedOut = !!current.player2TimedOut;
+      const p3TimedOut = !!current.player3TimedOut;
+      const timeoutCount = [p1TimedOut, p2TimedOut, p3TimedOut].filter(Boolean).length;
+
+      if (timeoutCount >= 2) {
+        // 2+ timed out → draw (round void, no strikes)
+        current.loser = 'draw';
+      } else if (timeoutCount === 1) {
+        // Exactly 1 timed out → that player gets the strike
+        current.loser = p1TimedOut ? 'player1' : p2TimedOut ? 'player2' : 'player3';
+      } else {
+        // Normal OOO resolution
+        current.loser = resolveOOO(
+          current.player1Choice,
+          current.player2Choice,
+          current.player3Choice
+        );
+      }
       current.revealed = true;
     }
 

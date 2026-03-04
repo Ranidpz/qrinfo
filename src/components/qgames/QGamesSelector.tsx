@@ -13,6 +13,8 @@ interface QGamesSelectorProps {
   onEditProfile?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
+  viewerCount?: number;
+  matchesPerGame?: Record<string, number>;
 }
 
 export default function QGamesSelector({
@@ -24,6 +26,8 @@ export default function QGamesSelector({
   onEditProfile,
   isRTL,
   t,
+  viewerCount = 0,
+  matchesPerGame = {},
 }: QGamesSelectorProps) {
   const enabledGames = config.enabledGames || ['rps'];
 
@@ -68,6 +72,15 @@ export default function QGamesSelector({
         <p className="text-white/40 text-sm font-medium">
           {t('selectorTagline')}
         </p>
+
+        {/* Live connected count */}
+        <div className="flex items-center gap-1.5 mt-3 animate-in fade-in duration-500" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
+          <div className={`w-2 h-2 rounded-full ${viewerCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`} />
+          <span className={`text-xs font-medium tabular-nums ${viewerCount > 0 ? 'text-emerald-400/70' : 'text-white/25'}`}>
+            {viewerCount}
+          </span>
+          <span className="text-white/30 text-xs">{isRTL ? 'מחוברים' : 'online'}</span>
+        </div>
       </div>
 
       {/* ── Game cards ── */}
@@ -75,6 +88,7 @@ export default function QGamesSelector({
         {enabledGames.map((gameType, index) => {
           const meta = GAME_META[gameType];
           if (!meta) return null;
+          const activeNow = matchesPerGame[gameType] || 0;
 
           return (
             <button
@@ -92,6 +106,13 @@ export default function QGamesSelector({
               <div className="text-start flex-1 min-w-0">
                 <h3 className="text-white font-bold text-base">{t(meta.labelKey)}</h3>
                 <p className="text-white/35 text-sm mt-0.5 truncate">{t(meta.descriptionKey)}</p>
+                {/* Live activity badge — always visible */}
+                <div className="flex items-center gap-1 mt-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${activeNow > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-white/15'}`} />
+                  <span className={`text-xs font-medium ${activeNow > 0 ? 'text-emerald-400/80' : 'text-white/25'}`}>
+                    {activeNow} {isRTL ? 'משחקים עכשיו' : 'playing now'}
+                  </span>
+                </div>
               </div>
 
               {/* Chevron */}

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, Share2, X } from 'lucide-react';
-import { QGamesLeaderboardEntry } from '@/types/qgames';
+import { QGamesLeaderboardEntry, QGameType } from '@/types/qgames';
 
 /** Animate a number from 0 to target over duration ms */
 function useCountUp(target: number, duration = 800, active = true) {
@@ -14,7 +14,6 @@ function useCountUp(target: number, duration = 800, active = true) {
     const start = performance.now();
     const animate = (now: number) => {
       const progress = Math.min((now - start) / duration, 1);
-      // easeOutExpo for a punchy gaming feel
       const eased = 1 - Math.pow(1 - progress, 3);
       setValue(Math.round(eased * target));
       if (progress < 1) rafRef.current = requestAnimationFrame(animate);
@@ -26,30 +25,110 @@ function useCountUp(target: number, duration = 800, active = true) {
   return value;
 }
 
+type GameFilter = 'all' | 'rps' | 'oddoneout';
+type SortMode = 'score' | 'winrate';
+
+const MIN_GAMES_FOR_WINRATE = 3;
+
 interface QGamesLeaderboardProps {
   entries: QGamesLeaderboardEntry[];
   currentPlayerId?: string;
   onBack?: () => void;
-  onChallenge?: () => void;
   shortId?: string;
+  enabledGames?: QGameType[];
   isRTL: boolean;
   t: (key: string) => string;
   compact?: boolean;
+}
+
+/** Get per-game stats for an entry */
+function getGameStats(entry: QGamesLeaderboardEntry, filter: GameFilter) {
+  if (filter === 'rps') {
+    const played = entry.rpsPlayed ?? 0;
+    const wins = entry.rpsWins ?? 0;
+    // OOO has no draws, so: rpsScore = totalScore - oddoneoutWins * 3
+    const oooScore = (entry.oddoneoutWins ?? 0) * 3;
+    const score = Math.max(0, entry.score - oooScore);
+    return { played, wins, score };
+  }
+  if (filter === 'oddoneout') {
+    const played = entry.oddoneoutPlayed ?? 0;
+    const wins = entry.oddoneoutWins ?? 0;
+    return { played, wins, score: wins * 3 };
+  }
+  return { played: entry.gamesPlayed, wins: entry.wins, score: entry.score };
 }
 
 export default function QGamesLeaderboard({
   entries,
   currentPlayerId,
   onBack,
-  onChallenge,
   shortId,
+  enabledGames,
   isRTL,
   t,
   compact = false,
 }: QGamesLeaderboardProps) {
-  const topEntries = compact ? entries.slice(0, 10) : entries;
   const rankMedals = ['🥇', '🥈', '🥉'];
   const [selectedPlayer, setSelectedPlayer] = useState<QGamesLeaderboardEntry | null>(null);
+  const [gameFilter, setGameFilter] = useState<GameFilter>('all');
+  const [sortMode, setSortMode] = useState<SortMode>('score');
+
+  // Available game tabs based on enabled games
+  const gameTabs = useMemo(() => {
+    const tabs: { key: GameFilter; label: string }[] = [
+      { key: 'all', label: t('allGames') },
+    ];
+    if (!enabledGames || enabledGames.includes('rps')) {
+      tabs.push({ key: 'rps', label: t('rps') });
+    }
+    if (!enabledGames || enabledGames.includes('oddoneout')) {
+      tabs.push({ key: 'oddoneout', label: t('oddoneout') });
+    }
+    return tabs;
+  }, [enabledGames, t]);
+
+
+  // Filter + sort entries
+  const sortedEntries = useMemo(() => {
+    let filtered = entries;
+
+    // Filter by game: only show players who played that game
+    if (gameFilter !== 'all') {
+      filtered = entries.filter(e => {
+        const stats = getGameStats(e, gameFilter);
+        return stats.played > 0;
+      });
+    }
+
+    // Sort
+    const sorted = [...filtered].sort((a, b) => {
+      const aStats = getGameStats(a, gameFilter);
+      const bStats = getGameStats(b, gameFilter);
+
+      if (sortMode === 'winrate') {
+        const aHasMin = aStats.played >= MIN_GAMES_FOR_WINRATE;
+        const bHasMin = bStats.played >= MIN_GAMES_FOR_WINRATE;
+        // Players with min games come first
+        if (aHasMin !== bHasMin) return aHasMin ? -1 : 1;
+        const aRate = aStats.played > 0 ? aStats.wins / aStats.played : 0;
+        const bRate = bStats.played > 0 ? bStats.wins / bStats.played : 0;
+        if (bRate !== aRate) return bRate - aRate;
+        // Tiebreak: more games played is better when same rate
+        return bStats.played - aStats.played;
+      }
+
+      // Sort by score (default — only for 'all' tab)
+      if (bStats.score !== aStats.score) return bStats.score - aStats.score;
+      if (bStats.wins !== aStats.wins) return bStats.wins - aStats.wins;
+      return aStats.played - bStats.played; // Less games = better
+    });
+
+    // Cap at 50 entries
+    return sorted.slice(0, 50);
+  }, [entries, gameFilter, sortMode]);
+
+  const topEntries = compact ? sortedEntries.slice(0, 10) : sortedEntries; // sortedEntries already capped at 50
 
   const gameUrl = shortId ? `https://qr.playzones.app/v/${shortId}` : '';
 
@@ -59,27 +138,16 @@ export default function QGamesLeaderboard({
       `${rankMedals[i]} ${e.nickname} - ${e.score} ${t('pts')}`
     ).join('\n');
 
-    const text = isRTL
-      ? `🏆 ${t('leaderboard')}\n\n${top3}\n\n${t('joinAndPlay')}\n${gameUrl}`
-      : `🏆 ${t('leaderboard')}\n\n${top3}\n\n${t('joinAndPlay')}\n${gameUrl}`;
-
+    const text = `🏆 ${t('leaderboard')}\n\n${top3}\n\n${t('joinAndPlay')}\n${gameUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
-  const handleChallengePlayer = (nickname: string) => {
-    if (!gameUrl) return;
-    const text = isRTL
-      ? `${t('challengeMessage').replace('{name}', nickname)}\n${gameUrl}`
-      : `${t('challengeMessage').replace('{name}', nickname)}\n${gameUrl}`;
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-  };
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className={compact ? '' : 'min-h-screen flex flex-col p-4'}>
       {/* Header */}
       {!compact && (
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           {onBack && (
             <button
               onClick={onBack}
@@ -101,15 +169,64 @@ export default function QGamesLeaderboard({
         </div>
       )}
 
+      {/* Game Filter Tabs */}
+      {!compact && gameTabs.length > 1 && (
+        <div className="flex gap-1.5 mb-3">
+          {gameTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setGameFilter(tab.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                gameFilter === tab.key
+                  ? 'bg-white/10 text-white ring-1 ring-white/20'
+                  : 'bg-white/[0.03] text-white/40 hover:bg-white/[0.06]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Sort Toggle */}
+      {!compact && (
+        <div className="flex gap-1 mb-3">
+          <button
+            onClick={() => setSortMode('score')}
+            className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
+              sortMode === 'score'
+                ? 'bg-emerald-500/15 text-emerald-400'
+                : 'text-white/30 hover:text-white/50'
+            }`}
+          >
+            {t('byScore')}
+          </button>
+          <button
+            onClick={() => setSortMode('winrate')}
+            className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
+              sortMode === 'winrate'
+                ? 'bg-emerald-500/15 text-emerald-400'
+                : 'text-white/30 hover:text-white/50'
+            }`}
+          >
+            % {t('byWinRate')}
+          </button>
+        </div>
+      )}
+
       {/* Leaderboard List */}
       <div className="space-y-1.5">
         {topEntries.length === 0 && (
           <p className="text-white/30 text-sm text-center py-8">{t('noPlayersYet')}</p>
         )}
 
-        {topEntries.map((entry) => {
+        {topEntries.map((entry, idx) => {
           const isMe = entry.id === currentPlayerId;
-          const medal = entry.rank <= 3 ? rankMedals[entry.rank - 1] : null;
+          const rank = idx + 1;
+          const medal = rank <= 3 ? rankMedals[rank - 1] : null;
+          const stats = getGameStats(entry, gameFilter);
+          const winRate = stats.played > 0 ? Math.round((stats.wins / stats.played) * 100) : 0;
+          const belowMinGames = sortMode === 'winrate' && stats.played < MIN_GAMES_FOR_WINRATE;
 
           return (
             <div
@@ -118,15 +235,17 @@ export default function QGamesLeaderboard({
               className={`flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors cursor-pointer ${
                 isMe
                   ? 'bg-emerald-500/10 ring-1 ring-emerald-400/30'
-                  : 'bg-white/[0.02] hover:bg-white/[0.04]'
+                  : belowMinGames
+                    ? 'bg-white/[0.01] opacity-50'
+                    : 'bg-white/[0.02] hover:bg-white/[0.04]'
               }`}
             >
               {/* Rank */}
               <div className="w-8 text-center shrink-0">
-                {medal ? (
+                {medal && !belowMinGames ? (
                   <span className="text-lg">{medal}</span>
                 ) : (
-                  <span className="text-white/30 text-sm font-medium">{entry.rank}</span>
+                  <span className="text-white/30 text-sm font-medium">{rank}</span>
                 )}
               </div>
 
@@ -135,7 +254,12 @@ export default function QGamesLeaderboard({
                 isMe ? 'ring-1 ring-emerald-400/30' : ''
               }`}>
                 {entry.avatarValue.startsWith('http') ? (
-                  <img src={entry.avatarValue} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={entry.avatarValue}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
                 ) : entry.avatarValue}
               </div>
 
@@ -146,42 +270,40 @@ export default function QGamesLeaderboard({
                   {isMe && <span className="text-emerald-400/60 text-xs ml-1">({t('you')})</span>}
                 </p>
                 <p className="text-white/30 text-[10px]">
-                  {entry.gamesPlayed} {t('games')} · {entry.wins}{t('winsShort')} / {entry.losses}{t('lossesShort')} / {entry.draws}{t('drawsShort')}
+                  {stats.played} {t('games')} · {stats.wins}{t('winsShort')} · {winRate}%
                 </p>
               </div>
 
-              {/* Score + Challenge */}
+              {/* Score or Win Rate */}
               <div className="flex items-center gap-2 shrink-0">
                 <div className="text-end">
-                  <p className={`font-bold tabular-nums ${isMe ? 'text-emerald-400' : 'text-white'}`}>
-                    {entry.score}
-                  </p>
-                  <p className="text-white/20 text-[10px]">{t('pts')}</p>
+                  {sortMode === 'winrate' ? (
+                    <>
+                      <p className={`font-bold tabular-nums ${isMe ? 'text-emerald-400' : 'text-white'}`}>
+                        {winRate}%
+                      </p>
+                      <p className="text-white/20 text-[10px]">{stats.wins}/{stats.played}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className={`font-bold tabular-nums ${isMe ? 'text-emerald-400' : 'text-white'}`}>
+                        {stats.score}
+                      </p>
+                      <p className="text-white/20 text-[10px]">{t('pts')}</p>
+                    </>
+                  )}
                 </div>
-                {!isMe && !compact && shortId && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleChallengePlayer(entry.nickname); }}
-                    className="text-[10px] px-2 py-1 rounded-md bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60 transition-colors"
-                    title={t('challenge')}
-                  >
-                    ⚔️
-                  </button>
-                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Play / Challenge CTA at bottom */}
-      {!compact && shortId && onChallenge && (
-        <button
-          onClick={onChallenge}
-          className="mt-6 w-full py-3 rounded-xl font-bold text-lg text-white active:scale-95 transition-all"
-          style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
-        >
-          🎮 {t('playNow')}
-        </button>
+      {/* Min games notice */}
+      {sortMode === 'winrate' && topEntries.some(e => getGameStats(e, gameFilter).played < MIN_GAMES_FOR_WINRATE) && (
+        <p className="text-white/20 text-[10px] text-center mt-2">
+          {t('minGames')}
+        </p>
       )}
 
       {/* Player Stats Modal */}
@@ -192,9 +314,7 @@ export default function QGamesLeaderboard({
           isRTL={isRTL}
           t={t}
           isCurrentPlayer={selectedPlayer.id === currentPlayerId}
-          hasShortId={!!shortId}
           onClose={() => setSelectedPlayer(null)}
-          onChallenge={() => { handleChallengePlayer(selectedPlayer.nickname); setSelectedPlayer(null); }}
         />
       )}
     </div>
@@ -227,20 +347,51 @@ function AnimatedStat({ value, suffix, label, color, delay, bg }: {
   );
 }
 
+/** Per-game stat row in modal */
+function GameStatRow({ label, played, wins, delay, t }: {
+  label: string; played: number; wins: number; delay: number; t: (key: string) => string;
+}) {
+  const [visible, setVisible] = useState(false);
+  const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(true), delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+
+  if (played === 0) return null;
+
+  return (
+    <div className={`px-3 py-2.5 bg-white/[0.03] rounded-lg transition-all duration-400 ${
+      visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+    }`}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-white/70 text-xs font-medium">{label}</span>
+        <span className="text-emerald-400 text-xs font-bold tabular-nums">{winRate}%</span>
+      </div>
+      <div className="flex items-center gap-3 text-white/40 text-[10px]">
+        <span>{played} {t('games')}</span>
+        <span>{wins} {t('winsLabel')}</span>
+        <span>{played - wins} {t('lossesLabel')}</span>
+      </div>
+    </div>
+  );
+}
+
 /** Player stats modal with count-up animations */
-function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, hasShortId, onClose, onChallenge }: {
+function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClose }: {
   player: QGamesLeaderboardEntry;
   rankMedals: string[];
   isRTL: boolean;
   t: (key: string) => string;
   isCurrentPlayer: boolean;
-  hasShortId: boolean;
   onClose: () => void;
-  onChallenge: () => void;
 }) {
   const winRate = player.gamesPlayed > 0
     ? Math.round((player.wins / player.gamesPlayed) * 100)
     : 0;
+
+  const hasPerGameStats = (player.rpsPlayed ?? 0) > 0 || (player.oddoneoutPlayed ?? 0) > 0;
 
   return (
     <div
@@ -264,7 +415,12 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, hasSh
         <div className="flex flex-col items-center mb-5">
           <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl overflow-hidden mb-2">
             {player.avatarValue.startsWith('http') ? (
-              <img src={player.avatarValue} alt="" className="w-full h-full object-cover" />
+              <img
+                src={player.avatarValue}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
             ) : player.avatarValue}
           </div>
           <h3 className="text-white font-bold text-lg">{player.nickname}</h3>
@@ -284,21 +440,16 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, hasSh
           <AnimatedStat value={winRate} suffix="%" label={t('winRate')} color="text-white" bg="bg-white/5" delay={80} />
           <AnimatedStat value={player.wins} label={t('winsLabel')} color="text-emerald-400" bg="bg-emerald-500/10" delay={160} />
           <AnimatedStat value={player.losses} label={t('lossesLabel')} color="text-red-400" bg="bg-red-500/10" delay={240} />
-          <div className="col-span-2">
-            <AnimatedStat value={player.draws} label={t('drawsLabel')} color="text-yellow-400" bg="bg-yellow-500/10" delay={320} />
-          </div>
         </div>
 
-        {/* Challenge button */}
-        {!isCurrentPlayer && hasShortId && (
-          <button
-            onClick={onChallenge}
-            className="mt-4 w-full py-2.5 rounded-xl font-bold text-white text-sm active:scale-95 transition-all"
-            style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
-          >
-            ⚔️ {t('challenge')}
-          </button>
+        {/* Per-game breakdown */}
+        {hasPerGameStats && (
+          <div className="mt-3 space-y-1.5">
+            <GameStatRow label={t('rps')} played={player.rpsPlayed ?? 0} wins={player.rpsWins ?? 0} delay={320} t={t} />
+            <GameStatRow label={t('oddoneout')} played={player.oddoneoutPlayed ?? 0} wins={player.oddoneoutWins ?? 0} delay={400} t={t} />
+          </div>
         )}
+
       </div>
     </div>
   );

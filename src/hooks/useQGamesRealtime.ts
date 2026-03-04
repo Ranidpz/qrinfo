@@ -26,6 +26,10 @@ import {
   subscribeToOOOState,
   setupMatchPresence,
   subscribeToMatchPresence,
+  setupViewerPresence,
+  subscribeToViewerCount,
+  subscribeToActiveMatchStats,
+  cleanupStaleMatches,
 } from '@/lib/qgames-realtime';
 
 // ============ STATS HOOK ============
@@ -414,6 +418,61 @@ export function useMatchPresence(
   }, [codeId, matchId, playerId, isActive, opponentIdsKey]);
 
   return { opponentDisconnected };
+}
+
+// ============ VIEWER PRESENCE HOOK ============
+
+/**
+ * Registers viewer presence (auto-removed on disconnect) and
+ * subscribes to live viewer count + active match count.
+ */
+export function useViewerPresence(
+  codeId: string | null,
+  visitorId: string | null
+): { viewerCount: number; activeMatches: number; matchesPerGame: Record<string, number> } {
+  const [viewerCount, setViewerCount] = useState(0);
+  const [activeMatches, setActiveMatches] = useState(0);
+  const [matchesPerGame, setMatchesPerGame] = useState<Record<string, number>>({});
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (!codeId || !visitorId) return;
+
+    let mounted = true;
+
+    // Register own presence
+    setupViewerPresence(codeId, visitorId).then(cleanup => {
+      if (mounted) cleanupRef.current = cleanup;
+      // Don't call cleanup() when stale — the new effect already owns the same RTDB path.
+      // Calling cleanup() here would remove data the second effect just wrote (StrictMode race).
+    });
+
+    // Clean up stale matches on mount (fire-and-forget is OK here — runs client-side)
+    cleanupStaleMatches(codeId).catch(() => {});
+
+    // Subscribe to counts
+    const unsubViewers = subscribeToViewerCount(codeId, (count) => {
+      if (mounted) setViewerCount(count);
+    });
+    const unsubMatches = subscribeToActiveMatchStats(codeId, (stats) => {
+      if (mounted) {
+        setActiveMatches(stats.total);
+        setMatchesPerGame(stats.perGame);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsubViewers();
+      unsubMatches();
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
+  }, [codeId, visitorId]);
+
+  return { viewerCount, activeMatches, matchesPerGame };
 }
 
 // ============ COUNTDOWN TIMER HOOK ============

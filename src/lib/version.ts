@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.19';
+export const APP_VERSION = '1.13.20';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,29 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.19',
+    version: '1.13.20',
     date: '2026-03-04',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: משחק "משלוש יוצא אחד" — 3 שחקנים, כף או אגרוף, מי שונה מקבל ✗',
+        'חדש: טבלת מובילים לפי משחק (הכל / אבן נייר / משלוש יוצא אחד) + מיון לפי ניקוד או אחוז ניצחונות',
+        'שיפור: סימוני ✗ ברורים במשחק משלוש יוצא אחד (במקום נקודות קטנות)',
+        'שיפור: טיפול בזמן קצוב במשחק משלוש יוצא אחד',
+        'תיקון: תמונות אווטאר עם fallback כשהתמונה לא נטענת',
+      ],
+      en: [
+        'New: "Odd One Out" game — 3 players, palm or fist, odd one gets ✗',
+        'New: Per-game leaderboard filtering (All / RPS / OOO) + sort by score or win rate',
+        'Improvement: Clear ✗ strike indicators in Odd One Out (instead of tiny dots)',
+        'Improvement: Timeout handling for Odd One Out game',
+        'Fix: Avatar image fallback when image fails to load',
+      ],
+    },
+  },
+  {
+    version: '1.13.19',
+    date: '2026-03-04',
     highlights: {
       he: [
         'שיפור: ❌ ו"לא עניתם" כשנגמר הזמן במשחק RPS (במקום אימוג׳י אקראי)',

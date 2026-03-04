@@ -283,6 +283,11 @@ async function updatePlayerLeaderboard(
     gamesPlayed: player.totalGamesPlayed,
     rank: 0, // Will be set by recalculateLeaderboardRanks
     lastPlayedAt: player.lastPlayedAt,
+    // Per-game stats for leaderboard filtering
+    rpsPlayed: player.rpsPlayed || 0,
+    rpsWins: player.rpsWins || 0,
+    oddoneoutPlayed: player.oddoneoutPlayed || 0,
+    oddoneoutWins: player.oddoneoutWins || 0,
   };
 
   await updateLeaderboardEntry(codeId, entry);
