@@ -293,16 +293,31 @@ export default function QGamesRegistration({
                   {emoji}
                 </button>
               ))}
-              {/* Selfie button inline */}
-              {config.allowSelfie && (
-                <button
-                  onClick={startCamera}
-                  className="w-11 h-11 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 transition-all shrink-0 flex items-center justify-center"
-                >
-                  <Camera className="w-5 h-5 text-emerald-400" />
-                </button>
-              )}
             </div>
+
+            {/* Selfie button — separate & prominent */}
+            {config.allowSelfie && (
+              <button
+                onClick={startCamera}
+                className={`w-full flex items-center justify-center gap-2 mt-3 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 border ${
+                  avatarMode === 'selfie' && selfieUrl
+                    ? 'bg-emerald-500/10 border-emerald-400/30'
+                    : 'bg-white/5 border-white/10 hover:bg-white/10'
+                }`}
+              >
+                {avatarMode === 'selfie' && selfieUrl ? (
+                  <>
+                    <img src={selfieUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
+                    <span className="text-emerald-400">{isRTL ? 'צלמו שוב' : 'Retake selfie'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-4 h-4 text-emerald-400" />
+                    <span className="text-white/70">{isRTL ? 'או צלמו סלפי' : 'or take a selfie'}</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </>
       )}

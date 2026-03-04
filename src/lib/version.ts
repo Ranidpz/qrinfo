@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.13';
+export const APP_VERSION = '1.13.14';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.13',
+    version: '1.13.14',
     date: '2026-03-04',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: כפתור סלפי בולט במסך הרשמה (לא מוסתר בגלילה)',
+        'שיפור: כפתורי בוט והזמנת חברים מוצגים מיד במסך ההמתנה',
+        'שיפור: שפה ידידותית - "חברים" במקום "יריבים" בכל המשחקים',
+      ],
+      en: [
+        'Improvement: Prominent selfie button on registration (not hidden in scroll)',
+        'Improvement: Bot + invite buttons shown immediately in queue',
+        'Improvement: Friendly language - "friends" instead of "opponents" across games',
+      ],
+    },
+  },
+  {
+    version: '1.13.13',
+    date: '2026-03-04',
     highlights: {
       he: [
         'חדש: זיהוי ניתוק יריב - ניצחון טכני אוטומטי אם השחקן השני עזב',
