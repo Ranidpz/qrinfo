@@ -2,6 +2,7 @@
 
 import { Pencil, Trophy } from 'lucide-react';
 import { QGameType, GAME_META, QGamesConfig } from '@/types/qgames';
+import RPSAnimatedEmoji from './RPSAnimatedEmoji';
 
 interface QGamesSelectorProps {
   config: QGamesConfig;
@@ -84,7 +85,7 @@ export default function QGamesSelector({
             >
               {/* Game emoji */}
               <div className="w-14 h-14 rounded-2xl bg-white/[0.06] flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform duration-200">
-                {meta.emoji}
+                {gameType === 'rps' ? <RPSAnimatedEmoji /> : meta.emoji}
               </div>
 
               {/* Text */}

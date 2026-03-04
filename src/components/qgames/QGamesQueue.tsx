@@ -3,8 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Share2, ArrowLeft, Camera, X, Check, RotateCcw, Loader2, Pencil, ZoomIn, ZoomOut } from 'lucide-react';
 import { compressImage } from '@/lib/imageCompression';
+import RPSAnimatedEmoji from './RPSAnimatedEmoji';
+
+import type { QGameType } from '@/types/qgames';
 
 interface QGamesQueueProps {
+  gameType?: QGameType;
   gameEmoji: string;
   gameName: string;
   playerAvatar: string;
@@ -27,6 +31,7 @@ interface QGamesQueueProps {
 }
 
 export default function QGamesQueue({
+  gameType,
   gameEmoji,
   gameName,
   playerAvatar,
@@ -444,7 +449,9 @@ export default function QGamesQueue({
 
       {/* Game info */}
       {!showCamera && (
-        <h2 className="text-white font-bold text-lg mb-0.5">{gameEmoji} {gameName}</h2>
+        <h2 className="text-white font-bold text-lg mb-0.5">
+          {gameType === 'rps' ? <RPSAnimatedEmoji /> : gameEmoji} {gameName}
+        </h2>
       )}
 
       {/* Searching text */}

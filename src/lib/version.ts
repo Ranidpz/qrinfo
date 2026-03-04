@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.17';
+export const APP_VERSION = '1.13.18';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,21 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.17',
+    version: '1.13.18',
     date: '2026-03-04',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: אנימציית אמוג׳י אבן-נייר-מספריים בבחירת משחק ובמסך ההמתנה',
+      ],
+      en: [
+        'New: Animated rock-paper-scissors emoji cycling in game selector and queue screen',
+      ],
+    },
+  },
+  {
+    version: '1.13.17',
+    date: '2026-03-04',
     highlights: {
       he: [
         'שיפור: מסך בחירת משחק מעוצב מחדש - פרופיל ממורכז, אנימציות כניסה',

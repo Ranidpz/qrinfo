@@ -803,6 +803,7 @@ export default function QGamesViewer({
 
       {phase === 'queue' && selectedGame && (
         <QGamesQueue
+          gameType={selectedGame}
           gameEmoji={GAME_META[selectedGame]?.emoji || '🎮'}
           gameName={t(GAME_META[selectedGame]?.labelKey || selectedGame)}
           playerAvatar={player?.avatarValue || '😎'}
