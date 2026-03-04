@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.15';
+export const APP_VERSION = '1.13.16';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.15',
+    version: '1.13.16',
     date: '2026-03-04',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: מודאל סטטיסטיקות שחקן בטבלת מובילים - לחצו על שחקן לפרטים',
+        'שיפור: תוויות בעברית בטבלת מובילים (משחקים, נצ/הפ/תיקו)',
+        'שיפור: עריכת שם בזמן המתנה לתור',
+        'תיקון: מסך תיקו כשיריב מתנתק עם ניקוד שווה',
+      ],
+      en: [
+        'New: Player stats modal in leaderboard - tap a player for details',
+        'Improvement: Localized stats labels in leaderboard (games, W/L/D)',
+        'Improvement: Edit name while waiting in queue',
+        'Fix: Draw screen when opponent disconnects with equal scores',
+      ],
+    },
+  },
+  {
+    version: '1.13.15',
+    date: '2026-03-04',
     highlights: {
       he: [
         'חדש: זום בסלפי - צביטה או סליידר להגדלת התמונה במצלמה',

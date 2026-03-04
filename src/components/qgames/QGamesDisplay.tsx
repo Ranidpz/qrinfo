@@ -99,7 +99,7 @@ export default function QGamesDisplay({
                     {entry.nickname}
                   </p>
                   <p className="text-white/30 text-sm">
-                    {entry.wins}W / {entry.losses}L / {entry.draws}D
+                    {entry.gamesPlayed} משחקים · {entry.wins}נ / {entry.losses}ה / {entry.draws}ת
                   </p>
                 </div>
 

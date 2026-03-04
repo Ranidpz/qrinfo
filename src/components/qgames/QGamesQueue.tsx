@@ -8,6 +8,7 @@ interface QGamesQueueProps {
   gameEmoji: string;
   gameName: string;
   playerAvatar: string;
+  playerName: string;
   shortId: string;
   inviterVisitorId?: string;
   enableWhatsApp: boolean;
@@ -22,12 +23,14 @@ interface QGamesQueueProps {
   ownerId?: string;
   codeId?: string;
   onAvatarChange?: (avatarType: 'emoji' | 'selfie', avatarValue: string) => void;
+  onNameChange?: (name: string) => void;
 }
 
 export default function QGamesQueue({
   gameEmoji,
   gameName,
   playerAvatar,
+  playerName,
   shortId,
   inviterVisitorId,
   enableWhatsApp,
@@ -41,10 +44,16 @@ export default function QGamesQueue({
   ownerId,
   codeId,
   onAvatarChange,
+  onNameChange,
 }: QGamesQueueProps) {
   const [dots, setDots] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [showPicker, setShowPicker] = useState(false);
+
+  // Name editing state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(playerName);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Selfie state
   const [showCamera, setShowCamera] = useState(false);
@@ -210,6 +219,26 @@ export default function QGamesQueue({
     setShowPicker(false);
   };
 
+  // Name editing
+  const startEditingName = () => {
+    setEditedName(playerName);
+    setIsEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  };
+
+  const confirmNameEdit = () => {
+    const trimmed = editedName.trim();
+    if (trimmed.length >= 2 && trimmed !== playerName) {
+      onNameChange?.(trimmed);
+    }
+    setIsEditingName(false);
+  };
+
+  const cancelNameEdit = () => {
+    setEditedName(playerName);
+    setIsEditingName(false);
+  };
+
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center p-6"
@@ -248,6 +277,38 @@ export default function QGamesQueue({
           </div>
         )}
       </div>
+
+      {/* Editable name */}
+      {onNameChange && !showCamera && (
+        <div className="mb-4 mt-1">
+          {isEditingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmNameEdit();
+                  if (e.key === 'Escape') cancelNameEdit();
+                }}
+                onBlur={confirmNameEdit}
+                maxLength={20}
+                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-center text-sm font-medium outline-none focus:border-emerald-400/60 focus:ring-1 focus:ring-emerald-400/30 w-40"
+                dir="auto"
+              />
+            </div>
+          ) : (
+            <button
+              onClick={startEditingName}
+              className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors group"
+            >
+              <span className="text-sm font-medium">{playerName}</span>
+              <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-400" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Camera View — circular WYSIWYG */}
       {showCamera && (

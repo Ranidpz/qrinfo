@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowLeft, Share2 } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Share2, X } from 'lucide-react';
 import { QGamesLeaderboardEntry } from '@/types/qgames';
 
 interface QGamesLeaderboardProps {
@@ -26,6 +27,7 @@ export default function QGamesLeaderboard({
 }: QGamesLeaderboardProps) {
   const topEntries = compact ? entries.slice(0, 10) : entries;
   const rankMedals = ['🥇', '🥈', '🥉'];
+  const [selectedPlayer, setSelectedPlayer] = useState<QGamesLeaderboardEntry | null>(null);
 
   const gameUrl = shortId ? `https://qr.playzones.app/v/${shortId}` : '';
 
@@ -90,7 +92,8 @@ export default function QGamesLeaderboard({
           return (
             <div
               key={entry.id}
-              className={`flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors ${
+              onClick={() => setSelectedPlayer(entry)}
+              className={`flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors cursor-pointer ${
                 isMe
                   ? 'bg-emerald-500/10 ring-1 ring-emerald-400/30'
                   : 'bg-white/[0.02] hover:bg-white/[0.04]'
@@ -121,7 +124,7 @@ export default function QGamesLeaderboard({
                   {isMe && <span className="text-emerald-400/60 text-xs ml-1">({t('you')})</span>}
                 </p>
                 <p className="text-white/30 text-[10px]">
-                  {entry.wins}W / {entry.losses}L / {entry.draws}D
+                  {entry.gamesPlayed} {t('games')} · {entry.wins}{t('winsShort')} / {entry.losses}{t('lossesShort')} / {entry.draws}{t('drawsShort')}
                 </p>
               </div>
 
@@ -135,7 +138,7 @@ export default function QGamesLeaderboard({
                 </div>
                 {!isMe && !compact && shortId && (
                   <button
-                    onClick={() => handleChallengePlayer(entry.nickname)}
+                    onClick={(e) => { e.stopPropagation(); handleChallengePlayer(entry.nickname); }}
                     className="text-[10px] px-2 py-1 rounded-md bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60 transition-colors"
                     title={t('challenge')}
                   >
@@ -157,6 +160,85 @@ export default function QGamesLeaderboard({
         >
           🎮 {t('playNow')}
         </button>
+      )}
+
+      {/* Player Stats Modal */}
+      {selectedPlayer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedPlayer(null)}
+        >
+          <div
+            className="bg-[#1a1a2e] rounded-2xl w-full max-w-xs p-5 relative animate-in zoom-in-95 duration-200"
+            dir={isRTL ? 'rtl' : 'ltr'}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setSelectedPlayer(null)}
+              className="absolute top-3 end-3 text-white/30 hover:text-white/60 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Player header */}
+            <div className="flex flex-col items-center mb-5">
+              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl overflow-hidden mb-2">
+                {selectedPlayer.avatarValue.startsWith('http') ? (
+                  <img src={selectedPlayer.avatarValue} alt="" className="w-full h-full object-cover" />
+                ) : selectedPlayer.avatarValue}
+              </div>
+              <h3 className="text-white font-bold text-lg">{selectedPlayer.nickname}</h3>
+              <div className="flex items-center gap-2 mt-1">
+                {selectedPlayer.rank <= 3 ? (
+                  <span className="text-lg">{rankMedals[selectedPlayer.rank - 1]}</span>
+                ) : (
+                  <span className="text-white/40 text-sm">#{selectedPlayer.rank}</span>
+                )}
+                <span className="text-emerald-400 font-bold">{selectedPlayer.score} {t('pts')}</span>
+              </div>
+            </div>
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-white/5 rounded-xl p-3 text-center">
+                <p className="text-white font-bold text-xl tabular-nums">{selectedPlayer.gamesPlayed}</p>
+                <p className="text-white/40 text-xs mt-0.5">{t('gamesPlayedLabel')}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-3 text-center">
+                <p className="text-white font-bold text-xl tabular-nums">
+                  {selectedPlayer.gamesPlayed > 0
+                    ? Math.round((selectedPlayer.wins / selectedPlayer.gamesPlayed) * 100)
+                    : 0}%
+                </p>
+                <p className="text-white/40 text-xs mt-0.5">{t('winRate')}</p>
+              </div>
+              <div className="bg-emerald-500/10 rounded-xl p-3 text-center">
+                <p className="text-emerald-400 font-bold text-xl tabular-nums">{selectedPlayer.wins}</p>
+                <p className="text-emerald-400/50 text-xs mt-0.5">{t('winsLabel')}</p>
+              </div>
+              <div className="bg-red-500/10 rounded-xl p-3 text-center">
+                <p className="text-red-400 font-bold text-xl tabular-nums">{selectedPlayer.losses}</p>
+                <p className="text-red-400/50 text-xs mt-0.5">{t('lossesLabel')}</p>
+              </div>
+              <div className="bg-yellow-500/10 rounded-xl p-3 text-center col-span-2">
+                <p className="text-yellow-400 font-bold text-xl tabular-nums">{selectedPlayer.draws}</p>
+                <p className="text-yellow-400/50 text-xs mt-0.5">{t('drawsLabel')}</p>
+              </div>
+            </div>
+
+            {/* Challenge button */}
+            {selectedPlayer.id !== currentPlayerId && shortId && (
+              <button
+                onClick={() => { handleChallengePlayer(selectedPlayer.nickname); setSelectedPlayer(null); }}
+                className="mt-4 w-full py-2.5 rounded-xl font-bold text-white text-sm active:scale-95 transition-all"
+                style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+              >
+                ⚔️ {t('challenge')}
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -161,6 +161,16 @@ export async function updateQueueEntryAvatar(
   await update(entryRef, { avatarType, avatarValue });
 }
 
+/** Update nickname on queue entry (while waiting) */
+export async function updateQueueEntryNickname(
+  codeId: string,
+  visitorId: string,
+  nickname: string
+): Promise<void> {
+  const entryRef = ref(realtimeDb, QGAMES_PATHS.queueEntry(codeId, visitorId));
+  await update(entryRef, { nickname });
+}
+
 /** Leave the matchmaking queue */
 export async function leaveQueue(codeId: string, visitorId: string): Promise<void> {
   const entryRef = ref(realtimeDb, QGAMES_PATHS.queueEntry(codeId, visitorId));

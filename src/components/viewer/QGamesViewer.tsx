@@ -20,6 +20,8 @@ import {
   updateMatchStatus,
   subscribeToQueue,
   updateQueueEntryAvatar,
+  updateQueueEntryNickname,
+  getRPSState,
 } from '@/lib/qgames-realtime';
 import {
   useQGamesQueueEntry,
@@ -105,6 +107,18 @@ const translations: Record<string, Record<string, string>> = {
     oddOneOut: 'היוצא מן הכלל',
     opponentDisconnected: 'החבר התנתק',
     youWinByForfeit: 'ניצחת בהפסד טכני!',
+    games: 'משחקים',
+    winsShort: 'נ',
+    lossesShort: 'ה',
+    drawsShort: 'ת',
+    winsLabel: 'ניצחונות',
+    lossesLabel: 'הפסדים',
+    drawsLabel: 'תיקו',
+    gamesPlayedLabel: 'משחקים שבוצעו',
+    winRate: 'אחוז ניצחון',
+    playerStats: 'סטטיסטיקות',
+    score: 'ניקוד',
+    close: 'סגור',
   },
   en: {
     joinToPlay: 'Join the game!',
@@ -171,6 +185,18 @@ const translations: Record<string, Record<string, string>> = {
     oddOneOut: 'Odd One Out',
     opponentDisconnected: 'Friend disconnected',
     youWinByForfeit: 'You win by forfeit!',
+    games: 'games',
+    winsShort: 'W',
+    lossesShort: 'L',
+    drawsShort: 'D',
+    winsLabel: 'Wins',
+    lossesLabel: 'Losses',
+    drawsLabel: 'Draws',
+    gamesPlayedLabel: 'Games Played',
+    winRate: 'Win Rate',
+    playerStats: 'Player Stats',
+    score: 'Score',
+    close: 'Close',
   },
 };
 
@@ -400,7 +426,7 @@ export default function QGamesViewer({
     if (!opponentDisconnected || phase !== 'playing' || isBotMatch) return;
 
     // 5-second grace period before declaring forfeit
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
       const activeMatch = match;
       if (!activeMatch || !player) return;
 
@@ -410,11 +436,24 @@ export default function QGamesViewer({
       }
 
       const isP1 = activeMatch.player1Id === visitorId;
+
+      // Read actual scores from RTDB
+      let myScore = 0;
+      let oppScore = 0;
+      if (matchId && selectedGame === 'rps') {
+        const rpsState = await getRPSState(codeId, matchId);
+        if (rpsState) {
+          myScore = isP1 ? rpsState.player1Score : rpsState.player2Score;
+          oppScore = isP1 ? rpsState.player2Score : rpsState.player1Score;
+        }
+      }
+
+      const isDraw = myScore === oppScore;
       setResultData({
-        isWinner: true,
-        isDraw: false,
-        myScore: 0,
-        oppScore: 0,
+        isWinner: !isDraw,
+        isDraw,
+        myScore,
+        oppScore,
         oppNickname: isP1 ? activeMatch.player2Nickname : activeMatch.player1Nickname,
         oppAvatar: isP1 ? activeMatch.player2AvatarValue : activeMatch.player1AvatarValue,
       });
@@ -432,7 +471,7 @@ export default function QGamesViewer({
     }, 5000);
 
     return () => clearTimeout(timeout);
-  }, [opponentDisconnected, phase, isBotMatch, match, player, codeId, matchId, visitorId]);
+  }, [opponentDisconnected, phase, isBotMatch, match, player, codeId, matchId, visitorId, selectedGame]);
 
   // ============ Handlers ============
 
@@ -517,6 +556,32 @@ export default function QGamesViewer({
       }),
     }).catch(console.error);
   }, [codeId, visitorId, player?.nickname]);
+
+  const handleNameChange = useCallback(async (nickname: string) => {
+    // Update local state + cache
+    setPlayer(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, nickname };
+      savePlayerSession(codeId, updated);
+      return updated;
+    });
+    // Update RTDB queue entry
+    if (visitorId) {
+      await updateQueueEntryNickname(codeId, visitorId, nickname);
+    }
+    // Update Firestore player profile
+    fetch('/api/qgames/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeId,
+        playerId: visitorId,
+        nickname,
+        avatarType: player?.avatarType,
+        avatarValue: player?.avatarValue,
+      }),
+    }).catch(console.error);
+  }, [codeId, visitorId, player?.avatarType, player?.avatarValue]);
 
   const handlePlayBot = useCallback(async () => {
     if (!player) return;
@@ -739,6 +804,7 @@ export default function QGamesViewer({
           gameEmoji={GAME_META[selectedGame]?.emoji || '🎮'}
           gameName={t(GAME_META[selectedGame]?.labelKey || selectedGame)}
           playerAvatar={player?.avatarValue || '😎'}
+          playerName={player?.nickname || ''}
           shortId={shortId}
           inviterVisitorId={visitorId}
           enableWhatsApp={config.enableWhatsAppInvite}
@@ -752,6 +818,7 @@ export default function QGamesViewer({
           ownerId={ownerId}
           codeId={codeId}
           onAvatarChange={handleAvatarChange}
+          onNameChange={handleNameChange}
         />
       )}
 
