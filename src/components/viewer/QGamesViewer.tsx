@@ -22,12 +22,14 @@ import {
   updateQueueEntryAvatar,
   updateQueueEntryNickname,
   getRPSState,
+  markQueueEntryBotMatch,
 } from '@/lib/qgames-realtime';
 import {
   useQGamesQueueEntry,
   useQGamesMatch,
   useQGamesLeaderboard,
   useMatchPresence,
+  useQueueWatcher,
 } from '@/hooks/useQGamesRealtime';
 
 import QGamesRegistration from '@/components/qgames/QGamesRegistration';
@@ -73,6 +75,7 @@ const translations: Record<string, Record<string, string>> = {
     waitingForOpponent: 'מחכה לחבר...',
     youWonRound: 'ניצחת!',
     youLostRound: 'הפסדת',
+    didntAnswer: 'לא עניתם!',
     draw: 'תיקו!',
     youWon: 'ניצחת! 🎉',
     youLost: 'הפסדת',
@@ -106,8 +109,15 @@ const translations: Record<string, Record<string, string>> = {
     youWereEliminated: 'הודחת',
     waitingForPlayers: 'מחכה לשחקנים...',
     oddOneOut: 'היוצא מן הכלל',
+    gameFor3Players: 'המשחק הזה ל-3 חברים',
+    waiting1More: 'מחכים לעוד חבר אחד...',
+    waiting2More: 'מחכים לעוד 2 חברים...',
+    playersReady: 'מוכנים',
     opponentDisconnected: 'החבר התנתק',
     youWinByForfeit: 'ניצחת בהפסד טכני!',
+    wantsToPlay: 'רוצה לשחק!',
+    playRealOpponent: 'שחקו עכשיו!',
+    later: 'אח"כ',
     games: 'משחקים',
     winsShort: 'נ',
     lossesShort: 'ה',
@@ -152,6 +162,7 @@ const translations: Record<string, Record<string, string>> = {
     waitingForOpponent: 'Waiting for friend...',
     youWonRound: 'You won!',
     youLostRound: 'You lost',
+    didntAnswer: "Didn't answer!",
     draw: 'Draw!',
     youWon: 'You Won! 🎉',
     youLost: 'You Lost',
@@ -185,8 +196,15 @@ const translations: Record<string, Record<string, string>> = {
     youWereEliminated: 'Eliminated',
     waitingForPlayers: 'Waiting for players...',
     oddOneOut: 'Odd One Out',
+    gameFor3Players: 'This game needs 3 players',
+    waiting1More: 'Waiting for 1 more friend...',
+    waiting2More: 'Waiting for 2 more friends...',
+    playersReady: 'ready',
     opponentDisconnected: 'Friend disconnected',
     youWinByForfeit: 'You win by forfeit!',
+    wantsToPlay: 'wants to play!',
+    playRealOpponent: 'Play now!',
+    later: 'Later',
     games: 'games',
     winsShort: 'W',
     lossesShort: 'L',
@@ -250,6 +268,7 @@ export default function QGamesViewer({
   const [selectedGame, setSelectedGame] = useState<QGameType | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [isBotMatch, setIsBotMatch] = useState(false);
+  const [opponentNotificationDismissed, setOpponentNotificationDismissed] = useState(false);
 
   // Bot match fake data
   const [botMatchData, setBotMatchData] = useState<{
@@ -291,6 +310,9 @@ export default function QGamesViewer({
     return null;
   });
 
+  // Track when disconnect countdown started (for visual countdown bar)
+  const [disconnectStartTime, setDisconnectStartTime] = useState<number | null>(null);
+
   // Guard against concurrent match attempts
   const matchingRef = useRef(false);
 
@@ -321,6 +343,21 @@ export default function QGamesViewer({
     opponentIds,
     phase === 'playing' && !isBotMatch
   );
+
+  // Watch queue for real opponents during bot match
+  const { waitingOpponents } = useQueueWatcher(
+    codeId,
+    visitorId,
+    selectedGame,
+    isBotMatch && (phase === 'vs' || phase === 'playing')
+  );
+
+  const showOpponentNotification = isBotMatch
+    && !opponentNotificationDismissed
+    && (phase === 'playing' || phase === 'vs')
+    && (selectedGame && is3PlayerGame(selectedGame)
+      ? waitingOpponents.length >= 2
+      : waitingOpponents.length >= 1);
 
   // Initialize RTDB session on mount
   useEffect(() => {
@@ -425,7 +462,13 @@ export default function QGamesViewer({
 
   // Handle opponent disconnect during match
   useEffect(() => {
-    if (!opponentDisconnected || phase !== 'playing' || isBotMatch) return;
+    if (!opponentDisconnected || phase !== 'playing' || isBotMatch) {
+      setDisconnectStartTime(null);
+      return;
+    }
+
+    // Record when countdown started (for visual countdown bar in game components)
+    setDisconnectStartTime(Date.now());
 
     // 5-second grace period before declaring forfeit
     const timeout = setTimeout(async () => {
@@ -472,7 +515,10 @@ export default function QGamesViewer({
       setPhase('result');
     }, 5000);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      setDisconnectStartTime(null);
+    };
   }, [opponentDisconnected, phase, isBotMatch, match, player, codeId, matchId, visitorId, selectedGame]);
 
   // ============ Handlers ============
@@ -588,12 +634,13 @@ export default function QGamesViewer({
   const handlePlayBot = useCallback(async () => {
     if (!player) return;
 
-    // Cancel any active matchmaking
+    // Stay in queue but invisible to matchmaking (ghost entry)
     if (visitorId) {
-      await cancelMatchmaking(codeId, visitorId);
+      await markQueueEntryBotMatch(codeId, visitorId, true);
     }
 
     setIsBotMatch(true);
+    setOpponentNotificationDismissed(false);
     const is3P = selectedGame ? is3PlayerGame(selectedGame) : false;
     const fakeBotMatch = {
       id: `bot-${Date.now()}`,
@@ -745,7 +792,11 @@ export default function QGamesViewer({
     setPhase('result');
   }, [match, player, codeId, matchId, isBotMatch, botMatchData, visitorId]);
 
-  const handlePlayAgain = useCallback(() => {
+  const handlePlayAgain = useCallback(async () => {
+    // Clean up ghost queue entry from bot match
+    if (visitorId) {
+      await cancelMatchmaking(codeId, visitorId);
+    }
     setMatchId(null);
     setResultData(null);
     setIsBotMatch(false);
@@ -755,15 +806,49 @@ export default function QGamesViewer({
     } else {
       setPhase('selector');
     }
-  }, [selectedGame, handleSelectGame]);
+  }, [selectedGame, handleSelectGame, codeId, visitorId]);
 
-  const handleBackToSelector = useCallback(() => {
+  const handleBackToSelector = useCallback(async () => {
+    // Clean up ghost queue entry from bot match
+    if (visitorId) {
+      await cancelMatchmaking(codeId, visitorId);
+    }
     setMatchId(null);
     setResultData(null);
     setSelectedGame(null);
     setIsBotMatch(false);
     setBotMatchData(null);
     setPhase('selector');
+  }, [codeId, visitorId]);
+
+  // Accept real opponent during bot match
+  const handleAcceptRealMatch = useCallback(async () => {
+    if (!player || !visitorId || !selectedGame) return;
+
+    // Stop bot match
+    setIsBotMatch(false);
+    setBotMatchData(null);
+
+    // Clear inBotMatch flag so matchmaking can find us
+    await markQueueEntryBotMatch(codeId, visitorId, false);
+
+    // Try to match with waiting opponent
+    const result = await tryMatchFromQueue(
+      codeId, visitorId, player.nickname, player.avatarType,
+      player.avatarValue, selectedGame, inviteFrom || undefined
+    );
+
+    if (result.type === 'matched' && result.matchId) {
+      setMatchId(result.matchId);
+      setPhase('vs');
+    } else {
+      // Opponent may have left — go back to queue
+      setPhase('queue');
+    }
+  }, [codeId, visitorId, player, selectedGame, inviteFrom]);
+
+  const handleDismissOpponentNotification = useCallback(() => {
+    setOpponentNotificationDismissed(true);
   }, []);
 
   // ============ Render ============
@@ -866,6 +951,7 @@ export default function QGamesViewer({
             t={t}
             isBotMatch={isBotMatch}
             opponentDisconnected={opponentDisconnected}
+            disconnectStartTime={disconnectStartTime}
           />
         );
       })()}
@@ -897,6 +983,7 @@ export default function QGamesViewer({
             t={t}
             isBotMatch={isBotMatch}
             opponentDisconnected={opponentDisconnected}
+            disconnectStartTime={disconnectStartTime}
           />
         );
       })()}
@@ -943,6 +1030,63 @@ export default function QGamesViewer({
           />
         </>
       )}
+
+      {/* Real opponent notification during bot match */}
+      {showOpponentNotification && (() => {
+        const opp = waitingOpponents[0];
+        if (!opp) return null;
+        return (
+          <div className="fixed inset-x-0 bottom-0 z-50 p-4 animate-in slide-in-from-bottom duration-300" dir={isRTL ? 'rtl' : 'ltr'}>
+            <div
+              className="max-w-sm mx-auto rounded-2xl p-4 border shadow-2xl"
+              style={{
+                background: 'rgba(10, 15, 26, 0.95)',
+                borderColor: 'rgba(16, 185, 129, 0.3)',
+                boxShadow: '0 0 40px rgba(16, 185, 129, 0.2)',
+              }}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl ring-2 ring-emerald-400/40 overflow-hidden shrink-0">
+                  {opp.avatarValue.startsWith('http') ? (
+                    <img src={opp.avatarValue} alt="" className="w-full h-full object-cover" />
+                  ) : opp.avatarValue}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-bold text-sm truncate">{opp.nickname}</p>
+                  <p className="text-emerald-400 text-xs">{t('wantsToPlay')}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAcceptRealMatch}
+                  className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95 text-white"
+                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                >
+                  {t('playRealOpponent')}
+                </button>
+                <button
+                  onClick={handleDismissOpponentNotification}
+                  className="px-4 py-2.5 rounded-xl text-white/40 text-sm transition-all active:scale-95 bg-white/5"
+                >
+                  {t('later')}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Powered by The Q */}
+      <div className="fixed bottom-2 inset-x-0 flex justify-center pointer-events-none z-10">
+        <a
+          href="https://qr.playzones.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white/20 text-[10px] hover:text-white/40 transition-colors pointer-events-auto"
+        >
+          Powered by The Q
+        </a>
+      </div>
     </div>
   );
 }

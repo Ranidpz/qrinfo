@@ -199,6 +199,7 @@ export interface QGamesQueueEntry {
   joinedAt: number;
   status: QueueStatus;
   matchId: string | null;
+  inBotMatch?: boolean;           // true = player is in bot match, invisible to matchmaking
 }
 
 // =============================================================
@@ -238,6 +239,8 @@ export interface RTDBRPSRound {
   timerStartedAt: number;
   timerDuration: number;          // seconds
   revealed: boolean;
+  player1TimedOut?: boolean;
+  player2TimedOut?: boolean;
 }
 
 /** RPS match state in RTDB */

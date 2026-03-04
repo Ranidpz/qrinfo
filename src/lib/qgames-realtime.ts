@@ -611,6 +611,16 @@ export function subscribeToQueue(
   return () => off(queueRef, 'value', callback);
 }
 
+/** Mark a queue entry as in/out of bot match (invisible to matchmaking while true) */
+export async function markQueueEntryBotMatch(
+  codeId: string,
+  visitorId: string,
+  inBotMatch: boolean
+): Promise<void> {
+  const entryRef = ref(realtimeDb, QGAMES_PATHS.queueEntry(codeId, visitorId));
+  await update(entryRef, { inBotMatch });
+}
+
 // ============ MATCH PRESENCE ============
 
 /**

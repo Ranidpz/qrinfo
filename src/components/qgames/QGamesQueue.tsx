@@ -4,8 +4,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Share2, ArrowLeft, Camera, X, Check, RotateCcw, Loader2, Pencil, ZoomIn, ZoomOut } from 'lucide-react';
 import { compressImage } from '@/lib/imageCompression';
 import RPSAnimatedEmoji from './RPSAnimatedEmoji';
+import { subscribeToQueue } from '@/lib/qgames-realtime';
 
-import type { QGameType } from '@/types/qgames';
+import type { QGameType, QGamesQueueEntry } from '@/types/qgames';
 
 interface QGamesQueueProps {
   gameType?: QGameType;
@@ -56,9 +57,8 @@ export default function QGamesQueue({
   const [showPicker, setShowPicker] = useState(false);
 
   // Name editing state
-  const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(playerName);
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { setEditedName(playerName); }, [playerName]);
 
   // Selfie state
   const [showCamera, setShowCamera] = useState(false);
@@ -72,6 +72,28 @@ export default function QGamesQueue({
   const [zoom, setZoom] = useState(1);
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef(1);
+
+  // Track other waiting players for 3-player games
+  const [waitingPeers, setWaitingPeers] = useState<QGamesQueueEntry[]>([]);
+
+  useEffect(() => {
+    if (!is3Player || !codeId || !gameType) return;
+
+    const unsubscribe = subscribeToQueue(codeId, (entries) => {
+      const peers = entries.filter(
+        e => e.gameType === gameType
+          && e.status === 'waiting'
+          && e.id !== inviterVisitorId
+          && !e.inBotMatch
+      );
+      setWaitingPeers(peers);
+    });
+
+    return () => unsubscribe();
+  }, [is3Player, codeId, gameType, inviterVisitorId]);
+
+  const totalNeeded = 3;
+  const readyCount = 1 + waitingPeers.length; // me + peers
 
   // Animate dots
   useEffect(() => {
@@ -224,25 +246,6 @@ export default function QGamesQueue({
     setShowPicker(false);
   };
 
-  // Name editing
-  const startEditingName = () => {
-    setEditedName(playerName);
-    setIsEditingName(true);
-    setTimeout(() => nameInputRef.current?.focus(), 50);
-  };
-
-  const confirmNameEdit = () => {
-    const trimmed = editedName.trim();
-    if (trimmed.length >= 2 && trimmed !== playerName) {
-      onNameChange?.(trimmed);
-    }
-    setIsEditingName(false);
-  };
-
-  const cancelNameEdit = () => {
-    setEditedName(playerName);
-    setIsEditingName(false);
-  };
 
   return (
     <div
@@ -283,35 +286,10 @@ export default function QGamesQueue({
         )}
       </div>
 
-      {/* Editable name */}
-      {onNameChange && !showCamera && (
+      {/* Player name (non-editable outside picker) */}
+      {!showCamera && !showPicker && (
         <div className="mb-4 mt-1">
-          {isEditingName ? (
-            <div className="flex items-center gap-2">
-              <input
-                ref={nameInputRef}
-                type="text"
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') confirmNameEdit();
-                  if (e.key === 'Escape') cancelNameEdit();
-                }}
-                onBlur={confirmNameEdit}
-                maxLength={20}
-                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-center text-sm font-medium outline-none focus:border-emerald-400/60 focus:ring-1 focus:ring-emerald-400/30 w-40"
-                dir="auto"
-              />
-            </div>
-          ) : (
-            <button
-              onClick={startEditingName}
-              className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors group"
-            >
-              <span className="text-sm font-medium">{playerName}</span>
-              <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-emerald-400" />
-            </button>
-          )}
+          <span className="text-sm font-medium text-white/70">{playerName}</span>
         </div>
       )}
 
@@ -410,6 +388,20 @@ export default function QGamesQueue({
       {showPicker && !showCamera && emojiPalette && (
         <div className="w-full max-w-xs mb-6 animate-in fade-in zoom-in-95 duration-200">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            {/* Editable nickname inside picker */}
+            {onNameChange && (
+              <div className="mb-3 flex justify-center">
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  maxLength={20}
+                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-center text-sm font-medium outline-none focus:border-emerald-400/60 focus:ring-1 focus:ring-emerald-400/30 w-40"
+                  dir="auto"
+                />
+              </div>
+            )}
+
             <div className="flex flex-wrap justify-center gap-2 mb-3">
               {emojiPalette.slice(0, 12).map((emoji) => (
                 <button
@@ -443,6 +435,21 @@ export default function QGamesQueue({
                 </button>
               </>
             )}
+
+            {/* Save & Close button */}
+            <button
+              onClick={() => {
+                const trimmed = editedName.trim();
+                if (trimmed.length >= 2 && trimmed !== playerName) {
+                  onNameChange?.(trimmed);
+                }
+                setShowPicker(false);
+              }}
+              className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium transition-all active:scale-95 bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 text-sm"
+            >
+              <Check className="w-4 h-4" />
+              {isRTL ? 'שמור וסגור' : 'Save & Close'}
+            </button>
           </div>
         </div>
       )}
@@ -458,6 +465,66 @@ export default function QGamesQueue({
       <p className="text-white/50 text-sm mb-4">
         {is3Player ? t('searchingForOpponents') : t('searchingForOpponent')}{dots}
       </p>
+
+      {/* 3-player waiting status */}
+      {is3Player && !showCamera && !showPicker && (
+        <div className="w-full max-w-xs mb-4 animate-in fade-in duration-300">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            {/* Player count indicator */}
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <span className="text-emerald-400 font-bold text-lg">{readyCount}</span>
+              <span className="text-white/30 text-lg">/</span>
+              <span className="text-white/40 font-bold text-lg">{totalNeeded}</span>
+              <span className="text-white/40 text-sm ms-1">{t('playersReady')}</span>
+            </div>
+
+            {/* Player avatars row */}
+            <div className="flex items-center justify-center gap-3">
+              {/* Me (always slot 1) */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl ring-2 ring-emerald-400/40 overflow-hidden">
+                  {playerAvatar.startsWith('http') ? (
+                    <img src={playerAvatar} alt="" className="w-full h-full object-cover" />
+                  ) : playerAvatar}
+                </div>
+                <span className="text-emerald-400 text-[10px] font-medium">{t('you')}</span>
+              </div>
+
+              {/* Waiting peers */}
+              {waitingPeers.slice(0, 2).map((peer) => (
+                <div key={peer.id} className="flex flex-col items-center gap-1 animate-in zoom-in duration-300">
+                  <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl ring-2 ring-blue-400/40 overflow-hidden">
+                    {peer.avatarValue.startsWith('http') ? (
+                      <img src={peer.avatarValue} alt="" className="w-full h-full object-cover" />
+                    ) : peer.avatarValue}
+                  </div>
+                  <span className="text-white/50 text-[10px] truncate max-w-[60px]">{peer.nickname}</span>
+                </div>
+              ))}
+
+              {/* Empty slots */}
+              {Array.from({ length: Math.max(0, totalNeeded - readyCount) }).map((_, i) => (
+                <div key={`empty-${i}`} className="flex flex-col items-center gap-1">
+                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/15 flex items-center justify-center">
+                    <span className="text-white/20 text-lg">?</span>
+                  </div>
+                  <span className="text-white/20 text-[10px]">&nbsp;</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Status message */}
+            <p className="text-center text-white/40 text-xs mt-3">
+              {readyCount >= totalNeeded
+                ? (isRTL ? 'מתחילים!' : 'Starting!')
+                : totalNeeded - readyCount === 1
+                  ? t('waiting1More')
+                  : t('waiting2More')
+              }
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Timer */}
       <div className="text-white/20 text-xs mb-4 tabular-nums">

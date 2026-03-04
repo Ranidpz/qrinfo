@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.18';
+export const APP_VERSION = '1.13.19';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.18',
+    version: '1.13.19',
     date: '2026-03-04',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: ❌ ו"לא עניתם" כשנגמר הזמן במשחק RPS (במקום אימוג׳י אקראי)',
+        'תיקון: שחקן שענה מקבל נקודה כשהיריב לא ענה בזמן (לא תיקו)',
+        'חדש: תמונת OG דינמית למשחקי Q.Games',
+      ],
+      en: [
+        'Improvement: ❌ and "Didn\'t answer" when timer expires in RPS (instead of random emoji)',
+        'Fix: Player who answered gets the point when opponent times out (not a draw)',
+        'New: Dynamic OG image for Q.Games',
+      ],
+    },
+  },
+  {
+    version: '1.13.18',
+    date: '2026-03-04',
     highlights: {
       he: [
         'חדש: אנימציית אמוג׳י אבן-נייר-מספריים בבחירת משחק ובמסך ההמתנה',

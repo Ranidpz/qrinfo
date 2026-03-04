@@ -102,7 +102,7 @@ function findOpponents3(
   gameType: QGameType
 ): QGamesQueueEntry[] {
   return entries
-    .filter(([, e]) => e.gameType === gameType && e.status === 'waiting' && e.id !== visitorId)
+    .filter(([, e]) => e.gameType === gameType && e.status === 'waiting' && e.id !== visitorId && !e.inBotMatch)
     .slice(0, 2)
     .map(([, e]) => e);
 }
@@ -119,14 +119,14 @@ function findOpponent(
   // Prefer specific opponent (WhatsApp invite)
   if (preferredOpponentId) {
     const preferred = entries.find(
-      ([, e]) => e.id === preferredOpponentId && e.gameType === gameType && e.status === 'waiting'
+      ([, e]) => e.id === preferredOpponentId && e.gameType === gameType && e.status === 'waiting' && !e.inBotMatch
     );
     if (preferred) return preferred[1];
   }
 
-  // Fallback: any waiting opponent
+  // Fallback: any waiting opponent (skip players in bot matches)
   const any = entries.find(
-    ([, e]) => e.gameType === gameType && e.status === 'waiting' && e.id !== visitorId
+    ([, e]) => e.gameType === gameType && e.status === 'waiting' && e.id !== visitorId && !e.inBotMatch
   );
   return any ? any[1] : null;
 }
@@ -263,9 +263,9 @@ export async function tryMatchFromQueue(
     opponentData2 = null;
     if (!currentQueue) return currentQueue;
 
-    // Only proceed if we are still in "waiting" state
+    // Only proceed if we are still in "waiting" state (and not in bot match)
     const myEntry = currentQueue[visitorId];
-    if (!myEntry || myEntry.status !== 'waiting') return;
+    if (!myEntry || myEntry.status !== 'waiting' || myEntry.inBotMatch) return;
 
     const entries = Object.entries(currentQueue) as [string, QGamesQueueEntry][];
 

@@ -23,6 +23,36 @@ interface RPSGameProps {
   t: (key: string) => string;
   isBotMatch?: boolean;
   opponentDisconnected?: boolean;
+  disconnectStartTime?: number | null;
+}
+
+function DisconnectCountdownBanner({ startTime, duration, label }: { startTime: number; duration: number; label: string }) {
+  const [progress, setProgress] = useState(1);
+
+  useEffect(() => {
+    const tick = () => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const remaining = Math.max(0, duration - elapsed);
+      setProgress(remaining / duration);
+    };
+    tick();
+    const interval = setInterval(tick, 50);
+    return () => clearInterval(interval);
+  }, [startTime, duration]);
+
+  return (
+    <div className="absolute inset-x-0 top-0 z-50 animate-in slide-in-from-top duration-300">
+      <div className="bg-red-500/90 text-white text-center py-2 text-sm font-medium">
+        {label}
+      </div>
+      <div className="h-1.5 bg-red-900/50">
+        <div
+          className="h-full bg-red-300"
+          style={{ width: `${progress * 100}%`, transition: 'none' }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string; size?: 'sm' | 'md' | 'lg'; className?: string }) {
@@ -54,6 +84,7 @@ export default function RPSGame({
   t,
   isBotMatch,
   opponentDisconnected,
+  disconnectStartTime,
 }: RPSGameProps) {
   const { state: rpsState } = useRPSState(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
   const sounds = useQGamesSounds(enableSound);
@@ -65,11 +96,17 @@ export default function RPSGame({
   const [scoreAnimation, setScoreAnimation] = useState<{ player: 'p1' | 'p2'; show: boolean }>({ player: 'p1', show: false });
   const [displayScores, setDisplayScores] = useState({ p1: 0, p2: 0 });
 
+  // Track if current round was a timeout (player didn't answer)
+  const [timedOut, setTimedOut] = useState(false);
+  const timedOutRef = useRef(false);
+
   // Round history for visual log
   const [roundHistory, setRoundHistory] = useState<Array<{
     myChoice: RPSChoice;
     oppChoice: RPSChoice;
     winner: 'me' | 'opp' | 'draw';
+    timedOut?: boolean;
+    oppTimedOut?: boolean;
   }>>([]);
   const revealTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const matchEndedRef = useRef(false);
@@ -125,12 +162,15 @@ export default function RPSGame({
       // Add to round history
       const myC = isPlayer1 ? roundData.player1Choice! : roundData.player2Choice!;
       const oppC = isPlayer1 ? roundData.player2Choice! : roundData.player1Choice!;
+      const oppDidTimeout = isPlayer1 ? !!roundData.player2TimedOut : !!roundData.player1TimedOut;
       setRoundHistory(prev => [...prev, {
         myChoice: myC,
         oppChoice: oppC,
         winner: roundData.winner === (isPlayer1 ? 'player1' : 'player2') ? 'me'
           : roundData.winner === (isPlayer1 ? 'player2' : 'player1') ? 'opp'
           : 'draw',
+        timedOut: timedOutRef.current,
+        oppTimedOut: oppDidTimeout,
       }]);
 
       // Score animation
@@ -183,6 +223,8 @@ export default function RPSGame({
         setMyChoice(null);
         setRevealPhase('choosing');
         setLastRoundWinner(null);
+        setTimedOut(false);
+        timedOutRef.current = false;
       }, 500);
     }, 2000);
 
@@ -191,14 +233,14 @@ export default function RPSGame({
     };
   }, [roundData?.revealed]);
 
-  const handleChoose = useCallback(async (choice: RPSChoice) => {
+  const handleChoose = useCallback(async (choice: RPSChoice, isTimeout = false) => {
     if (choiceSubmittedRef.current || myChoice || isSubmitting || revealPhase !== 'choosing') return;
     choiceSubmittedRef.current = true;
 
     setMyChoice(choice);
     setRevealPhase('waiting');
     setIsSubmitting(true);
-    sounds.playSelect();
+    if (!isTimeout) sounds.playSelect();
 
     if (isBotMatch) {
       // Bot mode: generate random choice after a short delay
@@ -234,7 +276,7 @@ export default function RPSGame({
           matchId,
           playerId,
           gameType: 'rps',
-          move: { choice },
+          move: { choice, ...(isTimeout && { timedOut: true }) },
         }),
       });
 
@@ -256,6 +298,17 @@ export default function RPSGame({
     // Don't auto-submit during the gap between rounds (old round data still showing revealed)
     if (!isBotMatch && roundData?.revealed) return;
 
+    // Defensive: verify actual time has elapsed (prevents stale isExpired from previous round)
+    const timerStart = isBotMatch ? botTimerStartRef.current : roundData?.timerStartedAt;
+    if (timerStart) {
+      const actualElapsed = (Date.now() - timerStart) / 1000;
+      if (actualElapsed < timerDuration - 0.5) return;
+    }
+
+    // Mark as timed out
+    setTimedOut(true);
+    timedOutRef.current = true;
+
     if (isBotMatch) {
       choiceSubmittedRef.current = true;
       // Forfeit: bot auto-wins this round with buzzer
@@ -275,8 +328,8 @@ export default function RPSGame({
         revealed: true,
       });
     } else {
-      // Online: submit random choice (handleChoose will set choiceSubmittedRef)
-      handleChoose(['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)] as RPSChoice);
+      // Online: submit random choice with timeout flag (opponent auto-wins)
+      handleChoose(['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)] as RPSChoice, true);
     }
   }, [isExpired, revealPhase, myChoice, handleChoose, isBotMatch, sounds, botScores, timerDuration]);
 
@@ -307,14 +360,20 @@ export default function RPSGame({
 
   const iWonRound = roundData?.winner === (isPlayer1 ? 'player1' : 'player2');
   const iLostRound = roundData?.winner === (isPlayer1 ? 'player2' : 'player1');
+  // Detect opponent timeout from RTDB (online matches)
+  const oppTimedOut = roundData?.revealed
+    ? (isPlayer1 ? !!roundData.player2TimedOut : !!roundData.player1TimedOut)
+    : false;
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden relative" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Disconnect banner */}
-      {opponentDisconnected && (
-        <div className="absolute inset-x-0 top-0 z-50 bg-red-500/90 text-white text-center py-2 text-sm font-medium animate-in slide-in-from-top duration-300">
-          {t('opponentDisconnected')}
-        </div>
+      {/* Disconnect countdown banner */}
+      {opponentDisconnected && disconnectStartTime && (
+        <DisconnectCountdownBanner
+          startTime={disconnectStartTime}
+          duration={5}
+          label={t('opponentDisconnected')}
+        />
       )}
 
       {/* Header: Score Display */}
@@ -373,7 +432,7 @@ export default function RPSGame({
             {/* Opponent's choice */}
             <div className={`text-center transition-all duration-500 ${iLostRound ? 'scale-110' : iWonRound ? 'opacity-60 scale-90' : ''}`}>
               <div className="text-6xl mb-1 animate-in zoom-in duration-300">
-                {RPS_EMOJI[oppRevealedChoice]}
+                {oppTimedOut ? '❌' : RPS_EMOJI[oppRevealedChoice]}
               </div>
               <p className="text-white/50 text-xs">{oppNickname}</p>
             </div>
@@ -385,12 +444,22 @@ export default function RPSGame({
                   {t('youWonRound')} ✓
                 </p>
               )}
-              {iLostRound && (
+              {iLostRound && timedOut && (
+                <p className="text-red-400 font-bold text-xl animate-in zoom-in duration-300">
+                  {t('didntAnswer')}
+                </p>
+              )}
+              {iLostRound && !timedOut && (
                 <p className="text-red-400 font-bold text-xl animate-in zoom-in duration-300">
                   {t('youLostRound')}
                 </p>
               )}
-              {!iWonRound && !iLostRound && roundData?.winner === 'draw' && (
+              {!iWonRound && !iLostRound && roundData?.winner === 'draw' && timedOut && (
+                <p className="text-yellow-400 font-bold text-xl animate-in zoom-in duration-300">
+                  {t('didntAnswer')}
+                </p>
+              )}
+              {!iWonRound && !iLostRound && roundData?.winner === 'draw' && !timedOut && (
                 <p className="text-yellow-400 font-bold text-xl animate-in zoom-in duration-300">
                   {t('draw')} =
                 </p>
@@ -400,7 +469,7 @@ export default function RPSGame({
             {/* My choice */}
             <div className={`text-center transition-all duration-500 ${iWonRound ? 'scale-110' : iLostRound ? 'opacity-60 scale-90' : ''}`}>
               <div className="text-6xl mb-1 animate-in zoom-in duration-300" style={{ animationDelay: '100ms' }}>
-                {RPS_EMOJI[myRevealedChoice]}
+                {timedOut ? '❌' : RPS_EMOJI[myRevealedChoice]}
               </div>
               <p className="text-white/50 text-xs">{myNickname}</p>
             </div>
@@ -452,7 +521,7 @@ export default function RPSGame({
                         isLoss ? 'bg-red-500/15 ring-1 ring-red-400/40' : 'bg-white/5'
                       }`}
                     >
-                      {RPS_EMOJI[entry.oppChoice]}
+                      {entry.oppTimedOut ? '❌' : RPS_EMOJI[entry.oppChoice]}
                     </div>
                     <div
                       className={`w-5 h-0.5 rounded-full ${
@@ -466,7 +535,7 @@ export default function RPSGame({
                         isWin ? 'bg-emerald-500/15 ring-1 ring-emerald-400/40' : 'bg-white/5'
                       }`}
                     >
-                      {RPS_EMOJI[entry.myChoice]}
+                      {entry.timedOut ? '❌' : RPS_EMOJI[entry.myChoice]}
                     </div>
                   </div>
                 );

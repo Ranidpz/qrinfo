@@ -25,6 +25,36 @@ interface OddOneOutGameProps {
   t: (key: string) => string;
   isBotMatch?: boolean;
   opponentDisconnected?: boolean;
+  disconnectStartTime?: number | null;
+}
+
+function DisconnectCountdownBanner({ startTime, duration, label }: { startTime: number; duration: number; label: string }) {
+  const [progress, setProgress] = useState(1);
+
+  useEffect(() => {
+    const tick = () => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const remaining = Math.max(0, duration - elapsed);
+      setProgress(remaining / duration);
+    };
+    tick();
+    const interval = setInterval(tick, 50);
+    return () => clearInterval(interval);
+  }, [startTime, duration]);
+
+  return (
+    <div className="absolute inset-x-0 top-0 z-50 animate-in slide-in-from-top duration-300">
+      <div className="bg-red-500/90 text-white text-center py-2 text-sm font-medium">
+        {label}
+      </div>
+      <div className="h-1.5 bg-red-900/50">
+        <div
+          className="h-full bg-red-300"
+          style={{ width: `${progress * 100}%`, transition: 'none' }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string; size?: 'sm' | 'md'; className?: string }) {
@@ -73,6 +103,7 @@ export default function OddOneOutGame({
   t,
   isBotMatch,
   opponentDisconnected,
+  disconnectStartTime,
 }: OddOneOutGameProps) {
   const { state: oooState } = useOOOState(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
   const sounds = useQGamesSounds(enableSound);
@@ -333,11 +364,13 @@ export default function OddOneOutGame({
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden relative" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Disconnect banner */}
-      {opponentDisconnected && (
-        <div className="absolute inset-x-0 top-0 z-50 bg-red-500/90 text-white text-center py-2 text-sm font-medium animate-in slide-in-from-top duration-300">
-          {t('opponentDisconnected')}
-        </div>
+      {/* Disconnect countdown banner */}
+      {opponentDisconnected && disconnectStartTime && (
+        <DisconnectCountdownBanner
+          startTime={disconnectStartTime}
+          duration={5}
+          label={t('opponentDisconnected')}
+        />
       )}
 
       {/* Header: 3-player strikes display */}

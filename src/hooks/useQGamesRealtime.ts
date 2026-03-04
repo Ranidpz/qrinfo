@@ -8,6 +8,8 @@ import {
   QGamesStats,
   QGamesLeaderboardEntry,
   QGamesQueueEntry,
+  QGameType,
+  QGamesAvatarType,
   RTDBMatch,
   RTDBRPSState,
   RTDBTTTState,
@@ -147,6 +149,55 @@ export function useQGamesQueue(codeId: string | null): UseQGamesQueueAllResult {
   }, [codeId]);
 
   return { entries, loading };
+}
+
+// ============ QUEUE WATCHER (for bot match opponent detection) ============
+
+interface WaitingOpponentInfo {
+  id: string;
+  nickname: string;
+  avatarType: QGamesAvatarType;
+  avatarValue: string;
+}
+
+/**
+ * Watches the queue for real opponents while player is in a bot match.
+ * Only active when `isActive` is true. Filters for opponents matching the
+ * specified gameType who are `waiting` and NOT `inBotMatch`.
+ */
+export function useQueueWatcher(
+  codeId: string | null,
+  visitorId: string | null,
+  gameType: QGameType | null,
+  isActive: boolean
+): { waitingOpponents: WaitingOpponentInfo[] } {
+  const [waitingOpponents, setWaitingOpponents] = useState<WaitingOpponentInfo[]>([]);
+
+  useEffect(() => {
+    if (!codeId || !visitorId || !gameType || !isActive) {
+      setWaitingOpponents([]);
+      return;
+    }
+
+    const unsubscribe = subscribeToQueue(codeId, (entries) => {
+      const opponents = entries.filter(
+        e => e.gameType === gameType
+          && e.status === 'waiting'
+          && e.id !== visitorId
+          && !e.inBotMatch
+      );
+      setWaitingOpponents(opponents.map(o => ({
+        id: o.id,
+        nickname: o.nickname,
+        avatarType: o.avatarType,
+        avatarValue: o.avatarValue,
+      })));
+    });
+
+    return () => unsubscribe();
+  }, [codeId, visitorId, gameType, isActive]);
+
+  return { waitingOpponents };
 }
 
 // ============ MATCH HOOK ============
@@ -300,12 +351,17 @@ export function useMatchPresence(
 ): UseMatchPresenceResult {
   const [opponentDisconnected, setOpponentDisconnected] = useState(false);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   // Stable ref for opponentIds to avoid re-running effect on array reference changes
   const opponentIdsKey = opponentIds.join(',');
 
   useEffect(() => {
     if (!codeId || !matchId || !playerId || !isActive || opponentIds.length === 0) {
       setOpponentDisconnected(false);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
       return;
     }
 
@@ -324,7 +380,21 @@ export function useMatchPresence(
 
       const anyMissing = opponentIds.some(oppId => !presence[oppId]);
       if (anyMissing) {
-        setOpponentDisconnected(true);
+        // Debounce: wait 2s of continuous absence before declaring disconnect
+        // This handles the race condition where opponent's presence isn't set up yet
+        if (!debounceTimerRef.current) {
+          debounceTimerRef.current = setTimeout(() => {
+            if (mounted) setOpponentDisconnected(true);
+            debounceTimerRef.current = null;
+          }, 2000);
+        }
+      } else {
+        // Opponent is present — cancel pending debounce and reset
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = null;
+        }
+        setOpponentDisconnected(false);
       }
     });
 
@@ -334,6 +404,10 @@ export function useMatchPresence(
       if (cleanupRef.current) {
         cleanupRef.current();
         cleanupRef.current = null;
+      }
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

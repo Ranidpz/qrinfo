@@ -13,6 +13,7 @@ interface ViewerPageProps {
   searchParams: Promise<{
     station?: string;
     token?: string;
+    invite?: string;
   }>;
 }
 
@@ -148,12 +149,14 @@ function getDescriptionByMediaType(mediaType: string): string {
     wordcloud: 'השתתפו בסקר בענן ☁️',
     weeklycal: 'צפו בלוח האירועים 📅',
     qtag: 'הזמנה לאירוע 🎉',
+    minigames: 'מוזמנים לשחק! 🎮',
   };
   return descriptions[mediaType] || 'תוכן QR דינמי';
 }
 
-export async function generateMetadata({ params }: ViewerPageProps) {
+export async function generateMetadata({ params, searchParams }: ViewerPageProps) {
   const { shortId } = await params;
+  const { invite } = await searchParams;
 
   try {
     const code = await getQRCodeByShortId(shortId);
@@ -181,6 +184,33 @@ export async function generateMetadata({ params }: ViewerPageProps) {
         params.set('logo', branding.logoUrl);
       }
       ogImage = `${baseUrl}/api/og/qtag?${params.toString()}`;
+    } else if (primaryMediaType === 'minigames' && invite) {
+      // Q.Games invite: show inviter's selfie in OG image
+      try {
+        const adminDb = getAdminDb();
+        const playerDoc = await adminDb
+          .collection('codes').doc(code.id)
+          .collection('qgames_players').doc(invite)
+          .get();
+
+        if (playerDoc.exists) {
+          const playerData = playerDoc.data();
+          if (playerData?.avatarType === 'selfie' && playerData?.avatarValue) {
+            const ogParams = new URLSearchParams();
+            ogParams.set('selfie', playerData.avatarValue);
+            if (playerData.nickname) {
+              ogParams.set('name', playerData.nickname);
+            }
+            ogImage = `${baseUrl}/api/og/qgames?${ogParams.toString()}`;
+          } else {
+            ogImage = `${baseUrl}/api/og`;
+          }
+        } else {
+          ogImage = `${baseUrl}/api/og`;
+        }
+      } catch {
+        ogImage = `${baseUrl}/api/og`;
+      }
     } else {
       ogImage = `${baseUrl}/api/og`;
     }

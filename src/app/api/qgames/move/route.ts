@@ -85,10 +85,10 @@ async function handleRPSMove(
   matchId: string,
   playerId: string,
   isPlayer1: boolean,
-  move: { choice: RPSChoice },
+  move: { choice: RPSChoice; timedOut?: boolean },
   match: { player1Id: string; player2Id: string }
 ) {
-  const { choice } = move;
+  const { choice, timedOut } = move;
 
   if (!VALID_RPS_CHOICES.includes(choice)) {
     return NextResponse.json(
@@ -124,17 +124,33 @@ async function handleRPSMove(
     if (isPlayer1 && current.player1Choice) return; // Abort
     if (!isPlayer1 && current.player2Choice) return; // Abort
 
-    // Write this player's choice
+    // Write this player's choice and timeout flag
     if (isPlayer1) {
       current.player1Choice = choice;
+      if (timedOut) current.player1TimedOut = true;
     } else {
       current.player2Choice = choice;
+      if (timedOut) current.player2TimedOut = true;
     }
 
     // Check if both have submitted
     if (current.player1Choice && current.player2Choice) {
-      // Resolve the round atomically
-      current.winner = resolveRPS(current.player1Choice, current.player2Choice);
+      const p1TimedOut = !!current.player1TimedOut;
+      const p2TimedOut = !!current.player2TimedOut;
+
+      if (p1TimedOut && p2TimedOut) {
+        // Both timed out → draw (no points)
+        current.winner = 'draw';
+      } else if (p1TimedOut) {
+        // Player1 timed out → player2 wins
+        current.winner = 'player2';
+      } else if (p2TimedOut) {
+        // Player2 timed out → player1 wins
+        current.winner = 'player1';
+      } else {
+        // Normal RPS resolution
+        current.winner = resolveRPS(current.player1Choice, current.player2Choice);
+      }
       current.revealed = true;
     }
 

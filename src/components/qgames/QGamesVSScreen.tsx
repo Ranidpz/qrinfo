@@ -14,31 +14,28 @@ interface QGamesVSScreenProps {
   isRTL: boolean;
 }
 
-function PlayerRow({ nickname, avatar, ringColor, shadowColor, animateFrom, delay }: {
-  nickname: string; avatar: string; ringColor: string; shadowColor: string;
+function PlayerCard({ nickname, avatar, ringColor, glowColor, animateFrom, delay }: {
+  nickname: string; avatar: string; ringColor: string; glowColor: string;
   animateFrom: 'left' | 'right'; delay?: string;
 }) {
   const isLeft = animateFrom === 'left';
   return (
     <div
-      className={`flex items-center gap-4 w-full animate-in ${isLeft ? 'slide-in-from-left' : 'slide-in-from-right'} duration-500`}
+      className={`flex ${isLeft ? 'flex-row' : 'flex-row-reverse'} items-center gap-4 animate-in ${isLeft ? 'slide-in-from-left-12' : 'slide-in-from-right-12'} duration-700 ease-out`}
       style={delay ? { animationDelay: delay } : undefined}
     >
-      {!isLeft && (
-        <div className="flex-1 text-end">
-          <p className="text-white font-bold text-lg truncate">{nickname}</p>
+      <div className="relative">
+        {/* Glow ring behind avatar */}
+        <div className={`absolute inset-[-4px] rounded-full ${glowColor} blur-md animate-pulse`} />
+        <div className={`relative w-24 h-24 rounded-full bg-white/10 flex items-center justify-center text-5xl ring-3 ${ringColor} overflow-hidden`}>
+          {avatar.startsWith('http') ? (
+            <img src={avatar} alt="" className="w-full h-full object-cover" />
+          ) : avatar}
         </div>
-      )}
-      <div className={`w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl ring-2 ${ringColor} shadow-lg ${shadowColor} overflow-hidden`}>
-        {avatar.startsWith('http') ? (
-          <img src={avatar} alt="" className="w-full h-full object-cover" />
-        ) : avatar}
       </div>
-      {isLeft && (
-        <div className="flex-1">
-          <p className="text-white font-bold text-lg truncate">{nickname}</p>
-        </div>
-      )}
+      <div className={isLeft ? 'text-start' : 'text-end'}>
+        <p className="text-white font-black text-xl tracking-wide truncate max-w-[160px]">{nickname}</p>
+      </div>
     </div>
   );
 }
@@ -50,7 +47,6 @@ export default function QGamesVSScreen({
   player2Avatar,
   player3Nickname,
   player3Avatar,
-  gameEmoji,
   onCountdownComplete,
 }: QGamesVSScreenProps) {
   const [countdown, setCountdown] = useState(3);
@@ -83,47 +79,47 @@ export default function QGamesVSScreen({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-transparent to-emerald-900/20" />
+      {/* Radial background glow */}
+      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/30 via-transparent to-emerald-900/30" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-purple-500/10 rounded-full blur-[80px]" />
 
-      <div className="relative z-10 flex flex-col items-center gap-5 w-full max-w-sm">
+      <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-sm">
         {/* Player 1 */}
-        <PlayerRow
+        <PlayerCard
           nickname={player1Nickname}
           avatar={player1Avatar}
-          ringColor="ring-blue-400/40"
-          shadowColor="shadow-blue-500/20"
+          ringColor="ring-blue-400/50"
+          glowColor="bg-blue-500/30"
           animateFrom="left"
         />
 
         {/* VS */}
-        <div className={`transition-all duration-500 ${showVS ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
-          <div className="relative">
-            <span className="text-5xl font-black text-white/90" style={{ textShadow: '0 0 30px rgba(139, 92, 246, 0.5)' }}>
-              VS
-            </span>
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-3xl">
-              {gameEmoji}
-            </div>
-          </div>
+        <div className={`transition-all duration-700 ease-out ${showVS ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
+          <span
+            className="text-6xl font-black tracking-tighter bg-gradient-to-b from-white via-white/90 to-white/60 bg-clip-text text-transparent"
+            style={{ textShadow: '0 0 40px rgba(139, 92, 246, 0.6), 0 0 80px rgba(139, 92, 246, 0.3)' }}
+          >
+            VS
+          </span>
         </div>
 
         {/* Player 2 */}
-        <PlayerRow
+        <PlayerCard
           nickname={player2Nickname}
           avatar={player2Avatar}
-          ringColor="ring-red-400/40"
-          shadowColor="shadow-red-500/20"
+          ringColor="ring-red-400/50"
+          glowColor="bg-red-500/30"
           animateFrom="right"
           delay="200ms"
         />
 
         {/* Player 3 (for 3-player games) */}
         {is3Player && player3Avatar && (
-          <PlayerRow
-            nickname={player3Nickname}
+          <PlayerCard
+            nickname={player3Nickname!}
             avatar={player3Avatar}
-            ringColor="ring-amber-400/40"
-            shadowColor="shadow-amber-500/20"
+            ringColor="ring-amber-400/50"
+            glowColor="bg-amber-500/30"
             animateFrom="left"
             delay="400ms"
           />
@@ -131,11 +127,11 @@ export default function QGamesVSScreen({
 
         {/* Countdown */}
         {countdown > 0 && (
-          <div className="mt-6">
+          <div className="mt-4">
             <div
               key={countdown}
-              className="text-7xl font-black text-white animate-in zoom-in duration-300"
-              style={{ textShadow: '0 0 40px rgba(16, 185, 129, 0.6)' }}
+              className="text-8xl font-black text-white animate-in zoom-in duration-300"
+              style={{ textShadow: '0 0 50px rgba(16, 185, 129, 0.7), 0 0 100px rgba(16, 185, 129, 0.3)' }}
             >
               {countdown}
             </div>
@@ -143,8 +139,11 @@ export default function QGamesVSScreen({
         )}
 
         {countdown === 0 && (
-          <div className="mt-6 animate-in zoom-in duration-200">
-            <span className="text-3xl font-black text-emerald-400" style={{ textShadow: '0 0 30px rgba(16, 185, 129, 0.6)' }}>
+          <div className="mt-4 animate-in zoom-in duration-200">
+            <span
+              className="text-4xl font-black text-emerald-400"
+              style={{ textShadow: '0 0 40px rgba(16, 185, 129, 0.7), 0 0 80px rgba(16, 185, 129, 0.3)' }}
+            >
               GO!
             </span>
           </div>
