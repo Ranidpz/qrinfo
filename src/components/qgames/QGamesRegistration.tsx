@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { User, Camera, X, Check, RotateCcw, Loader2 } from 'lucide-react';
+import { User, Camera, X, Check, RotateCcw, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import { QGamesConfig, DEFAULT_QGAMES_EMOJI_PALETTE } from '@/types/qgames';
 import { compressImage } from '@/lib/imageCompression';
 
@@ -12,6 +12,10 @@ interface QGamesRegistrationProps {
   codeId: string;
   isRTL: boolean;
   t: (key: string) => string;
+  // Pre-fill when editing existing profile
+  initialNickname?: string;
+  initialAvatarType?: 'emoji' | 'selfie';
+  initialAvatarValue?: string;
 }
 
 export default function QGamesRegistration({
@@ -21,27 +25,40 @@ export default function QGamesRegistration({
   codeId,
   isRTL,
   t,
+  initialNickname,
+  initialAvatarType,
+  initialAvatarValue,
 }: QGamesRegistrationProps) {
-  const [nickname, setNickname] = useState('');
-  const [selectedEmoji, setSelectedEmoji] = useState(
-    config.emojiPalette?.[0] || DEFAULT_QGAMES_EMOJI_PALETTE[0]
-  );
+  const emojiPalette = config.emojiPalette?.length
+    ? config.emojiPalette
+    : DEFAULT_QGAMES_EMOJI_PALETTE;
+
+  const [nickname, setNickname] = useState(initialNickname || '');
+  const [selectedEmoji, setSelectedEmoji] = useState(() => {
+    // If editing and had an emoji, use it
+    if (initialAvatarType === 'emoji' && initialAvatarValue) return initialAvatarValue;
+    // Random emoji for new players
+    return emojiPalette[Math.floor(Math.random() * emojiPalette.length)];
+  });
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Selfie state
-  const [avatarMode, setAvatarMode] = useState<'emoji' | 'selfie'>('emoji');
+  const [avatarMode, setAvatarMode] = useState<'emoji' | 'selfie'>(initialAvatarType || 'emoji');
   const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+  const [selfieUrl, setSelfieUrl] = useState<string | null>(
+    initialAvatarType === 'selfie' && initialAvatarValue ? initialAvatarValue : null
+  );
   const [isUploading, setIsUploading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const emojiPalette = config.emojiPalette?.length
-    ? config.emojiPalette
-    : DEFAULT_QGAMES_EMOJI_PALETTE;
+  // Zoom state
+  const [zoom, setZoom] = useState(1);
+  const pinchStartDist = useRef<number | null>(null);
+  const pinchStartZoom = useRef(1);
 
   // Start camera
   const startCamera = useCallback(async () => {
@@ -51,7 +68,8 @@ export default function QGamesRegistration({
         audio: false,
       });
       streamRef.current = stream;
-      setShowCamera(true); // Render video element first, then connect in useEffect
+      setZoom(1);
+      setShowCamera(true);
     } catch {
       alert(isRTL ? 'לא ניתן לגשת למצלמה' : 'Cannot access camera');
     }
@@ -65,6 +83,31 @@ export default function QGamesRegistration({
     }
   }, [showCamera]);
 
+  // Pinch-to-zoom handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDist.current = Math.hypot(dx, dy);
+      pinchStartZoom.current = zoom;
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDist.current !== null) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist / pinchStartDist.current;
+      setZoom(Math.min(3, Math.max(1, pinchStartZoom.current * scale)));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchStartDist.current = null;
+  }, []);
+
   // Stop camera
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -73,9 +116,10 @@ export default function QGamesRegistration({
     }
     setShowCamera(false);
     setCapturedImage(null);
+    setZoom(1);
   }, []);
 
-  // Capture photo
+  // Capture photo — respects zoom level
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
 
@@ -84,18 +128,19 @@ export default function QGamesRegistration({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Square crop from center
-    const size = Math.min(video.videoWidth, video.videoHeight);
-    const x = (video.videoWidth - size) / 2;
-    const y = (video.videoHeight - size) / 2;
+    // Crop a smaller region when zoomed (center crop)
+    const fullSize = Math.min(video.videoWidth, video.videoHeight);
+    const cropSize = fullSize / zoom;
+    const x = (video.videoWidth - cropSize) / 2;
+    const y = (video.videoHeight - cropSize) / 2;
 
     canvas.width = 200;
     canvas.height = 200;
-    ctx.drawImage(video, x, y, size, size, 0, 0, 200, 200);
+    ctx.drawImage(video, x, y, cropSize, cropSize, 0, 0, 200, 200);
 
     const imageData = canvas.toDataURL('image/webp', 0.8);
     setCapturedImage(imageData);
-  }, []);
+  }, [zoom]);
 
   // Confirm selfie - compress + upload to Vercel Blob
   const confirmSelfie = useCallback(async () => {
@@ -183,11 +228,16 @@ export default function QGamesRegistration({
         <p className="text-white/50 text-sm">{t('joinToPlay')}</p>
       </div>
 
-      {/* Camera View */}
+      {/* Camera View — circular WYSIWYG */}
       {showCamera ? (
-        <div className="w-full max-w-xs mb-6">
-          {/* Video / Preview */}
-          <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4 bg-black/50 border-2 border-emerald-400/20">
+        <div className="w-full max-w-xs mb-6 flex flex-col items-center">
+          {/* Circular viewfinder */}
+          <div
+            className="relative w-52 h-52 rounded-full overflow-hidden mb-4 bg-black/50 ring-2 ring-emerald-400/30"
+            onTouchStart={!capturedImage ? handleTouchStart : undefined}
+            onTouchMove={!capturedImage ? handleTouchMove : undefined}
+            onTouchEnd={!capturedImage ? handleTouchEnd : undefined}
+          >
             {capturedImage ? (
               <img
                 src={capturedImage}
@@ -201,17 +251,27 @@ export default function QGamesRegistration({
                 playsInline
                 muted
                 className="w-full h-full object-cover"
-                style={{ transform: 'scaleX(-1)' }}
+                style={{ transform: `scaleX(-1) scale(${zoom})` }}
               />
             )}
-
-            {/* Face guide */}
-            {!capturedImage && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full border-2 border-dashed border-emerald-400/40" />
-              </div>
-            )}
           </div>
+
+          {/* Zoom slider — only when live camera */}
+          {!capturedImage && (
+            <div className="flex items-center gap-3 mb-4 w-48">
+              <ZoomOut className="w-4 h-4 text-white/40 shrink-0" />
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="0.1"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="flex-1 h-1 accent-emerald-400 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:appearance-none"
+              />
+              <ZoomIn className="w-4 h-4 text-white/40 shrink-0" />
+            </div>
+          )}
 
           {/* Camera controls */}
           <div className="flex justify-center gap-4">
@@ -245,17 +305,17 @@ export default function QGamesRegistration({
             ) : (
               <>
                 <button
+                  onClick={stopCamera}
+                  className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-95 bg-white/10"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                <button
                   onClick={capturePhoto}
                   className="w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-95"
                   style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 0 30px rgba(16,185,129,0.4)' }}
                 >
                   <div className="w-12 h-12 rounded-full border-4 border-white" />
-                </button>
-                <button
-                  onClick={stopCamera}
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-95 bg-white/10"
-                >
-                  <X className="w-6 h-6" />
                 </button>
               </>
             )}

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.14';
+export const APP_VERSION = '1.13.15';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.14',
+    version: '1.13.15',
     date: '2026-03-04',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: זום בסלפי - צביטה או סליידר להגדלת התמונה במצלמה',
+        'שיפור: עריכת פרופיל ממלאת שם ואווטר קיימים',
+        'שיפור: אימוג׳י התחלתי אקראי + פלטת אימוג׳ים מעודכנת',
+      ],
+      en: [
+        'New: Selfie zoom - pinch or slider to zoom in camera',
+        'Improvement: Edit profile pre-fills existing name and avatar',
+        'Improvement: Random starting emoji + updated emoji palette',
+      ],
+    },
+  },
+  {
+    version: '1.13.14',
+    date: '2026-03-04',
     highlights: {
       he: [
         'שיפור: כפתור סלפי בולט במסך הרשמה (לא מוסתר בגלילה)',

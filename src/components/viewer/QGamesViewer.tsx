@@ -713,6 +713,9 @@ export default function QGamesViewer({
           codeId={codeId}
           isRTL={isRTL}
           t={t}
+          initialNickname={player?.nickname}
+          initialAvatarType={player?.avatarType}
+          initialAvatarValue={player?.avatarValue}
         />
       )}
 
@@ -724,8 +727,6 @@ export default function QGamesViewer({
           onSelectGame={handleSelectGame}
           onViewLeaderboard={() => setPhase('leaderboard')}
           onEditProfile={() => {
-            clearPlayerSession(codeId);
-            setPlayer(null);
             setPhase('registration');
           }}
           isRTL={isRTL}

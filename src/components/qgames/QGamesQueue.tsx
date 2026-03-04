@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Share2, ArrowLeft, Camera, X, Check, RotateCcw, Loader2, Pencil } from 'lucide-react';
+import { Share2, ArrowLeft, Camera, X, Check, RotateCcw, Loader2, Pencil, ZoomIn, ZoomOut } from 'lucide-react';
 import { compressImage } from '@/lib/imageCompression';
 
 interface QGamesQueueProps {
@@ -54,6 +54,11 @@ export default function QGamesQueue({
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Zoom state
+  const [zoom, setZoom] = useState(1);
+  const pinchStartDist = useRef<number | null>(null);
+  const pinchStartZoom = useRef(1);
+
   // Animate dots
   useEffect(() => {
     const interval = setInterval(() => {
@@ -99,6 +104,7 @@ export default function QGamesQueue({
         audio: false,
       });
       streamRef.current = stream;
+      setZoom(1);
       setShowCamera(true);
     } catch {
       alert(isRTL ? 'לא ניתן לגשת למצלמה' : 'Cannot access camera');
@@ -112,6 +118,31 @@ export default function QGamesQueue({
     }
   }, [showCamera]);
 
+  // Pinch-to-zoom handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDist.current = Math.hypot(dx, dy);
+      pinchStartZoom.current = zoom;
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDist.current !== null) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist / pinchStartDist.current;
+      setZoom(Math.min(3, Math.max(1, pinchStartZoom.current * scale)));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchStartDist.current = null;
+  }, []);
+
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -119,6 +150,7 @@ export default function QGamesQueue({
     }
     setShowCamera(false);
     setCapturedImage(null);
+    setZoom(1);
   }, []);
 
   const capturePhoto = useCallback(() => {
@@ -128,14 +160,15 @@ export default function QGamesQueue({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const size = Math.min(video.videoWidth, video.videoHeight);
-    const x = (video.videoWidth - size) / 2;
-    const y = (video.videoHeight - size) / 2;
+    const fullSize = Math.min(video.videoWidth, video.videoHeight);
+    const cropSize = fullSize / zoom;
+    const x = (video.videoWidth - cropSize) / 2;
+    const y = (video.videoHeight - cropSize) / 2;
     canvas.width = 200;
     canvas.height = 200;
-    ctx.drawImage(video, x, y, size, size, 0, 0, 200, 200);
+    ctx.drawImage(video, x, y, cropSize, cropSize, 0, 0, 200, 200);
     setCapturedImage(canvas.toDataURL('image/webp', 0.8));
-  }, []);
+  }, [zoom]);
 
   const confirmSelfie = useCallback(async () => {
     if (!capturedImage || !ownerId || !codeId) return;
@@ -208,7 +241,7 @@ export default function QGamesQueue({
           ) : playerAvatar}
         </button>
 
-        {/* Edit hint — outside overflow-hidden so it doesn't get clipped */}
+        {/* Edit hint */}
         {onAvatarChange && (
           <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg z-20 pointer-events-none">
             <Pencil className="w-3.5 h-3.5 text-white" />
@@ -216,10 +249,16 @@ export default function QGamesQueue({
         )}
       </div>
 
-      {/* Camera View (selfie) */}
+      {/* Camera View — circular WYSIWYG */}
       {showCamera && (
-        <div className="w-full max-w-xs mb-6 animate-in fade-in zoom-in-95 duration-200">
-          <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-4 bg-black/50 border-2 border-emerald-400/20">
+        <div className="w-full max-w-xs mb-6 animate-in fade-in zoom-in-95 duration-200 flex flex-col items-center">
+          {/* Circular viewfinder */}
+          <div
+            className="relative w-52 h-52 rounded-full overflow-hidden mb-4 bg-black/50 ring-2 ring-emerald-400/30"
+            onTouchStart={!capturedImage ? handleTouchStart : undefined}
+            onTouchMove={!capturedImage ? handleTouchMove : undefined}
+            onTouchEnd={!capturedImage ? handleTouchEnd : undefined}
+          >
             {capturedImage ? (
               <img src={capturedImage} alt="Selfie preview" className="w-full h-full object-cover" />
             ) : (
@@ -229,15 +268,28 @@ export default function QGamesQueue({
                 playsInline
                 muted
                 className="w-full h-full object-cover"
-                style={{ transform: 'scaleX(-1)' }}
+                style={{ transform: `scaleX(-1) scale(${zoom})` }}
               />
             )}
-            {!capturedImage && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full border-2 border-dashed border-emerald-400/40" />
-              </div>
-            )}
           </div>
+
+          {/* Zoom slider — only when live camera */}
+          {!capturedImage && (
+            <div className="flex items-center gap-3 mb-4 w-48">
+              <ZoomOut className="w-4 h-4 text-white/40 shrink-0" />
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="0.1"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="flex-1 h-1 accent-emerald-400 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:appearance-none"
+              />
+              <ZoomIn className="w-4 h-4 text-white/40 shrink-0" />
+            </div>
+          )}
+
           <div className="flex justify-center gap-4">
             {capturedImage ? (
               <>
@@ -269,17 +321,17 @@ export default function QGamesQueue({
             ) : (
               <>
                 <button
+                  onClick={stopCamera}
+                  className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-95 bg-white/10"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                <button
                   onClick={capturePhoto}
                   className="w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-95"
                   style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 0 30px rgba(16,185,129,0.4)' }}
                 >
                   <div className="w-12 h-12 rounded-full border-4 border-white" />
-                </button>
-                <button
-                  onClick={stopCamera}
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-95 bg-white/10"
-                >
-                  <X className="w-6 h-6" />
                 </button>
               </>
             )}
