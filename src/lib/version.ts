@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.16';
+export const APP_VERSION = '1.13.17';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.16',
+    version: '1.13.17',
     date: '2026-03-04',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: מסך בחירת משחק מעוצב מחדש - פרופיל ממורכז, אנימציות כניסה',
+        'שיפור: אנימציות count-up במודאל סטטיסטיקות שחקן',
+        'חדש: טאגליין "בוחרים משחק ומאתגרים את החברים"',
+      ],
+      en: [
+        'Improvement: Redesigned game selector - centered profile, entrance animations',
+        'Improvement: Count-up animations in player stats modal',
+        'New: "Pick a game and challenge your friends" tagline',
+      ],
+    },
+  },
+  {
+    version: '1.13.16',
+    date: '2026-03-04',
     highlights: {
       he: [
         'חדש: מודאל סטטיסטיקות שחקן בטבלת מובילים - לחצו על שחקן לפרטים',
