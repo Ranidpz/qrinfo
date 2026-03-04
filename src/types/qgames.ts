@@ -484,6 +484,8 @@ export const QGAMES_PATHS = {
   memoryState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/memory`,
   oooState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/ooo`,
   oooRound: (codeId: string, matchId: string, round: number) => `qgames/${codeId}/matches/${matchId}/ooo/rounds/${round}`,
+  presence: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/presence`,
+  playerPresence: (codeId: string, matchId: string, playerId: string) => `qgames/${codeId}/matches/${matchId}/presence/${playerId}`,
   leaderboard: (codeId: string) => `qgames/${codeId}/leaderboard`,
   leaderboardEntry: (codeId: string, visitorId: string) => `qgames/${codeId}/leaderboard/${visitorId}`,
 };

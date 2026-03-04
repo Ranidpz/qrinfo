@@ -24,6 +24,7 @@ interface OddOneOutGameProps {
   isRTL: boolean;
   t: (key: string) => string;
   isBotMatch?: boolean;
+  opponentDisconnected?: boolean;
 }
 
 function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string; size?: 'sm' | 'md'; className?: string }) {
@@ -71,6 +72,7 @@ export default function OddOneOutGame({
   isRTL,
   t,
   isBotMatch,
+  opponentDisconnected,
 }: OddOneOutGameProps) {
   const { state: oooState } = useOOOState(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
   const sounds = useQGamesSounds(enableSound);
@@ -330,7 +332,14 @@ export default function OddOneOutGame({
   const isDraw = roundData?.loser === 'draw';
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="h-[100dvh] flex flex-col overflow-hidden relative" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Disconnect banner */}
+      {opponentDisconnected && (
+        <div className="absolute inset-x-0 top-0 z-50 bg-red-500/90 text-white text-center py-2 text-sm font-medium animate-in slide-in-from-top duration-300">
+          {t('opponentDisconnected')}
+        </div>
+      )}
+
       {/* Header: 3-player strikes display */}
       <div className="flex items-center justify-between px-3 pt-3 pb-1.5 gap-1">
         {players.map((p) => {

@@ -1,5 +1,6 @@
 'use client';
 
+import { Pencil } from 'lucide-react';
 import { QGameType, GAME_META, QGamesConfig } from '@/types/qgames';
 
 interface QGamesSelectorProps {
@@ -8,6 +9,7 @@ interface QGamesSelectorProps {
   playerAvatar: string;
   onSelectGame: (gameType: QGameType) => void;
   onViewLeaderboard: () => void;
+  onEditProfile?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
 }
@@ -18,6 +20,7 @@ export default function QGamesSelector({
   playerAvatar,
   onSelectGame,
   onViewLeaderboard,
+  onEditProfile,
   isRTL,
   t,
 }: QGamesSelectorProps) {
@@ -35,10 +38,18 @@ export default function QGamesSelector({
             <img src={playerAvatar} alt="" className="w-full h-full object-cover" />
           ) : playerAvatar}
         </div>
-        <div>
+        <div className="flex-1">
           <p className="text-white font-semibold">{playerNickname}</p>
           <p className="text-white/40 text-xs">{t('selectGame')}</p>
         </div>
+        {onEditProfile && (
+          <button
+            onClick={onEditProfile}
+            className="p-2 text-white/30 hover:text-white/60 transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Game Cards */}

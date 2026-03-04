@@ -192,28 +192,28 @@ export default function QGamesQueue({
       </button>
 
       {/* Searching animation */}
-      <div className="relative mb-8">
+      <div className="relative mb-4">
         {/* Pulsing rings */}
-        <div className="absolute inset-0 w-32 h-32 rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '2s' }} />
-        <div className="absolute inset-0 w-32 h-32 rounded-full border-2 border-emerald-400/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
+        <div className="absolute inset-0 w-28 h-28 rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '2s' }} />
+        <div className="absolute inset-0 w-28 h-28 rounded-full border-2 border-emerald-400/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
 
         {/* Tappable avatar */}
         <button
           onClick={() => onAvatarChange && setShowPicker(prev => !prev)}
-          className="w-32 h-32 rounded-full bg-white/10 flex items-center justify-center text-6xl relative z-10 ring-2 ring-emerald-400/30 overflow-hidden transition-transform active:scale-95"
+          className="w-28 h-28 rounded-full bg-white/10 flex items-center justify-center text-5xl relative z-10 ring-2 ring-emerald-400/30 overflow-hidden transition-transform active:scale-95"
           disabled={!onAvatarChange}
         >
           {playerAvatar.startsWith('http') ? (
             <img src={playerAvatar} alt="" className="w-full h-full object-cover" />
           ) : playerAvatar}
-
-          {/* Edit hint */}
-          {onAvatarChange && (
-            <div className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg z-20">
-              <Pencil className="w-3.5 h-3.5 text-white" />
-            </div>
-          )}
         </button>
+
+        {/* Edit hint — outside overflow-hidden so it doesn't get clipped */}
+        {onAvatarChange && (
+          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg z-20 pointer-events-none">
+            <Pencil className="w-3.5 h-3.5 text-white" />
+          </div>
+        )}
       </div>
 
       {/* Camera View (selfie) */}
@@ -331,19 +331,16 @@ export default function QGamesQueue({
 
       {/* Game info */}
       {!showCamera && (
-        <>
-          <div className="text-4xl mb-2">{gameEmoji}</div>
-          <h2 className="text-white font-bold text-xl mb-1">{gameName}</h2>
-        </>
+        <h2 className="text-white font-bold text-lg mb-0.5">{gameEmoji} {gameName}</h2>
       )}
 
       {/* Searching text */}
-      <p className="text-white/50 text-sm mb-8">
+      <p className="text-white/50 text-sm mb-4">
         {is3Player ? t('searchingForOpponents') : t('searchingForOpponent')}{dots}
       </p>
 
       {/* Timer */}
-      <div className="text-white/20 text-xs mb-6 tabular-nums">
+      <div className="text-white/20 text-xs mb-4 tabular-nums">
         {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
       </div>
 

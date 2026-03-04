@@ -22,6 +22,8 @@ import {
   subscribeToRPSState,
   subscribeToTTTState,
   subscribeToOOOState,
+  setupMatchPresence,
+  subscribeToMatchPresence,
 } from '@/lib/qgames-realtime';
 
 // ============ STATS HOOK ============
@@ -277,6 +279,67 @@ export function useOOOState(
   }, [codeId, matchId]);
 
   return { state, loading };
+}
+
+// ============ MATCH PRESENCE HOOK ============
+
+interface UseMatchPresenceResult {
+  opponentDisconnected: boolean;
+}
+
+/**
+ * Tracks opponent presence during a match.
+ * Sets up own presence heartbeat and monitors opponents.
+ */
+export function useMatchPresence(
+  codeId: string | null,
+  matchId: string | null,
+  playerId: string | null,
+  opponentIds: string[],
+  isActive: boolean
+): UseMatchPresenceResult {
+  const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  // Stable ref for opponentIds to avoid re-running effect on array reference changes
+  const opponentIdsKey = opponentIds.join(',');
+
+  useEffect(() => {
+    if (!codeId || !matchId || !playerId || !isActive || opponentIds.length === 0) {
+      setOpponentDisconnected(false);
+      return;
+    }
+
+    let mounted = true;
+
+    // Set up own presence
+    setupMatchPresence(codeId, matchId, playerId).then(cleanup => {
+      if (mounted) cleanupRef.current = cleanup;
+      else cleanup();
+    });
+
+    // Subscribe to presence changes
+    const unsubPresence = subscribeToMatchPresence(codeId, matchId, (presence) => {
+      if (!mounted) return;
+      if (!presence) return; // No presence data yet
+
+      const anyMissing = opponentIds.some(oppId => !presence[oppId]);
+      if (anyMissing) {
+        setOpponentDisconnected(true);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsubPresence();
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeId, matchId, playerId, isActive, opponentIdsKey]);
+
+  return { opponentDisconnected };
 }
 
 // ============ COUNTDOWN TIMER HOOK ============

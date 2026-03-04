@@ -600,3 +600,51 @@ export function subscribeToQueue(
   onValue(queueRef, callback);
   return () => off(queueRef, 'value', callback);
 }
+
+// ============ MATCH PRESENCE ============
+
+/**
+ * Set up match presence for a player.
+ * Writes a heartbeat and registers onDisconnect to remove it.
+ * Returns a cleanup function.
+ */
+export async function setupMatchPresence(
+  codeId: string,
+  matchId: string,
+  playerId: string
+): Promise<() => void> {
+  const presenceRef = ref(realtimeDb, QGAMES_PATHS.playerPresence(codeId, matchId, playerId));
+
+  await set(presenceRef, { lastSeen: Date.now(), connected: true });
+  const disconnectRef = onDisconnect(presenceRef);
+  disconnectRef.remove();
+
+  // Heartbeat every 5 seconds
+  const heartbeatInterval = setInterval(async () => {
+    try {
+      await update(presenceRef, { lastSeen: Date.now() });
+    } catch {
+      // Connection lost — onDisconnect handles cleanup
+    }
+  }, 5000);
+
+  return () => {
+    clearInterval(heartbeatInterval);
+    disconnectRef.cancel();
+    remove(presenceRef);
+  };
+}
+
+/** Subscribe to match presence (all players) */
+export function subscribeToMatchPresence(
+  codeId: string,
+  matchId: string,
+  onUpdate: (presence: Record<string, { lastSeen: number; connected: boolean }> | null) => void
+): () => void {
+  const presenceRef = ref(realtimeDb, QGAMES_PATHS.presence(codeId, matchId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists() ? snapshot.val() : null);
+  };
+  onValue(presenceRef, callback);
+  return () => off(presenceRef, 'value', callback);
+}

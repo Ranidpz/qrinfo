@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.12';
+export const APP_VERSION = '1.13.13';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.13.13',
+    date: '2026-03-04',
+    isNew: true,
+    highlights: {
+      he: [
+        'חדש: זיהוי ניתוק יריב - ניצחון טכני אוטומטי אם השחקן השני עזב',
+        'חדש: שמירת סשן - רענון דף לא מאפס את השחקן (שם + אווטר נשמרים)',
+        'חדש: כפתור עריכת פרופיל במסך בחירת משחק',
+        'שיפור: מסך הרשמה ומסך המתנה קומפקטיים יותר למובייל',
+      ],
+      en: [
+        'New: Opponent disconnect detection - auto forfeit win if opponent leaves',
+        'New: Session persistence - page refresh keeps player profile (name + avatar)',
+        'New: Edit profile button on game selector screen',
+        'Improvement: Compact registration and queue screens for mobile',
+      ],
+    },
+  },
+  {
     version: '1.13.12',
     date: '2026-03-03',
-    isNew: true,
     highlights: {
       he: [
         'חדש: משחק "משלוש יוצא אחד" (Odd One Out) - 3 שחקנים, כף או אגרוף!',

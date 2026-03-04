@@ -178,9 +178,8 @@ export default function QGamesRegistration({
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* Title */}
-      <div className="text-center mb-8">
-        <div className="text-5xl mb-3">🎮</div>
-        <h1 className="text-2xl font-bold text-white mb-1">Q.Games</h1>
+      <div className="text-center mb-4">
+        <h1 className="text-2xl font-bold text-white mb-0.5">🎮 Q.Games</h1>
         <p className="text-white/50 text-sm">{t('joinToPlay')}</p>
       </div>
 
@@ -266,17 +265,26 @@ export default function QGamesRegistration({
         </div>
       ) : (
         <>
-          {/* Avatar Selection */}
-          <div className="w-full max-w-sm mb-4">
-            <p className="text-white/60 text-xs text-center mb-3 uppercase tracking-wider">
+          {/* Selected Avatar Preview */}
+          <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-4xl mb-3 ring-2 ring-white/10 overflow-hidden mx-auto">
+            {avatarMode === 'selfie' && selfieUrl ? (
+              <img src={selfieUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              selectedEmoji
+            )}
+          </div>
+
+          {/* Avatar Selection — horizontal scroll */}
+          <div className="w-full max-w-sm mb-3">
+            <p className="text-white/60 text-xs text-center mb-2 uppercase tracking-wider">
               {t('chooseAvatar')}
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide">
               {emojiPalette.slice(0, 12).map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => handleSelectEmoji(emoji)}
-                  className={`w-12 h-12 text-2xl rounded-xl transition-all duration-200 ${
+                  className={`w-11 h-11 text-xl rounded-xl transition-all duration-200 shrink-0 ${
                     avatarMode === 'emoji' && selectedEmoji === emoji
                       ? 'bg-white/20 scale-110 ring-2 ring-emerald-400/60 shadow-lg shadow-emerald-500/20'
                       : 'bg-white/5 hover:bg-white/10 active:scale-95'
@@ -285,45 +293,24 @@ export default function QGamesRegistration({
                   {emoji}
                 </button>
               ))}
+              {/* Selfie button inline */}
+              {config.allowSelfie && (
+                <button
+                  onClick={startCamera}
+                  className="w-11 h-11 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 transition-all shrink-0 flex items-center justify-center"
+                >
+                  <Camera className="w-5 h-5 text-emerald-400" />
+                </button>
+              )}
             </div>
           </div>
-
-          {/* Selfie button */}
-          {config.allowSelfie && (
-            <>
-              <div className="flex items-center gap-4 w-full max-w-sm mb-3">
-                <div className="flex-1 h-px bg-white/10" />
-                <span className="text-white/30 text-xs">{t('or')}</span>
-                <div className="flex-1 h-px bg-white/10" />
-              </div>
-
-              <button
-                onClick={startCamera}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white/70 text-sm font-medium transition-all active:scale-95 mb-4 bg-white/5 border border-white/10 hover:bg-white/10"
-              >
-                <Camera className="w-4 h-4 text-emerald-400" />
-                <span>{t('takeSelfie')}</span>
-              </button>
-            </>
-          )}
         </>
-      )}
-
-      {/* Selected Avatar Preview */}
-      {!showCamera && (
-        <div className="w-28 h-28 rounded-full bg-white/10 flex items-center justify-center text-5xl mb-4 ring-2 ring-white/10 overflow-hidden">
-          {avatarMode === 'selfie' && selfieUrl ? (
-            <img src={selfieUrl} alt="" className="w-full h-full object-cover" />
-          ) : (
-            selectedEmoji
-          )}
-        </div>
       )}
 
       {/* Nickname Input */}
       {!showCamera && (
         <>
-          <div className="w-full max-w-sm mb-4">
+          <div className="w-full max-w-sm mb-3">
             <div className="relative">
               <User className="absolute top-1/2 -translate-y-1/2 text-white/30 w-4 h-4" style={{ [isRTL ? 'right' : 'left']: 12 }} />
               <input
@@ -342,14 +329,14 @@ export default function QGamesRegistration({
 
           {/* Error */}
           {error && (
-            <p className="text-red-400 text-sm mb-3 text-center">{error}</p>
+            <p className="text-red-400 text-sm mb-2 text-center">{error}</p>
           )}
 
           {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={isRegistering || nickname.trim().length < 2}
-            className="w-full max-w-sm py-3.5 rounded-xl font-bold text-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full max-w-sm py-3 rounded-xl font-bold text-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               background: 'linear-gradient(135deg, #10b981, #059669)',
               color: 'white',

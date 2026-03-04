@@ -22,6 +22,7 @@ interface RPSGameProps {
   isRTL: boolean;
   t: (key: string) => string;
   isBotMatch?: boolean;
+  opponentDisconnected?: boolean;
 }
 
 function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string; size?: 'sm' | 'md' | 'lg'; className?: string }) {
@@ -52,6 +53,7 @@ export default function RPSGame({
   isRTL,
   t,
   isBotMatch,
+  opponentDisconnected,
 }: RPSGameProps) {
   const { state: rpsState } = useRPSState(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
   const sounds = useQGamesSounds(enableSound);
@@ -307,7 +309,14 @@ export default function RPSGame({
   const iLostRound = roundData?.winner === (isPlayer1 ? 'player2' : 'player1');
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="h-[100dvh] flex flex-col overflow-hidden relative" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Disconnect banner */}
+      {opponentDisconnected && (
+        <div className="absolute inset-x-0 top-0 z-50 bg-red-500/90 text-white text-center py-2 text-sm font-medium animate-in slide-in-from-top duration-300">
+          {t('opponentDisconnected')}
+        </div>
+      )}
+
       {/* Header: Score Display */}
       <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
         {/* My side */}

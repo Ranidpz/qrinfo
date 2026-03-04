@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   QGamesConfig,
   QGamesPlayer,
@@ -11,6 +11,7 @@ import {
   is3PlayerGame,
 } from '@/types/qgames';
 import { getOrCreateVisitorId } from '@/lib/xp';
+import { savePlayerSession, loadPlayerSession, clearPlayerSession } from '@/lib/qgames-session';
 import { findOrWaitForOpponent, tryMatchFromQueue, cancelMatchmaking } from '@/lib/qgames-matchmaking';
 import {
   initQGamesSession,
@@ -24,6 +25,7 @@ import {
   useQGamesQueueEntry,
   useQGamesMatch,
   useQGamesLeaderboard,
+  useMatchPresence,
 } from '@/hooks/useQGamesRealtime';
 
 import QGamesRegistration from '@/components/qgames/QGamesRegistration';
@@ -101,6 +103,8 @@ const translations: Record<string, Record<string, string>> = {
     youWereEliminated: 'הודחת',
     waitingForPlayers: 'מחכה לשחקנים...',
     oddOneOut: 'היוצא מן הכלל',
+    opponentDisconnected: 'היריב התנתק',
+    youWinByForfeit: 'ניצחת בהפסד טכני!',
   },
   en: {
     joinToPlay: 'Join the game!',
@@ -165,6 +169,8 @@ const translations: Record<string, Record<string, string>> = {
     youWereEliminated: 'Eliminated',
     waitingForPlayers: 'Waiting for players...',
     oddOneOut: 'Odd One Out',
+    opponentDisconnected: 'Opponent disconnected',
+    youWinByForfeit: 'You win by forfeit!',
   },
 };
 
@@ -204,9 +210,15 @@ export default function QGamesViewer({
   const isRTL = lang === 'he';
   const t = (key: string) => translations[lang]?.[key] || translations.en[key] || key;
 
-  // Phase state machine
-  const [phase, setPhase] = useState<ViewPhase>('registration');
-  const [player, setPlayer] = useState<QGamesPlayer | null>(null);
+  // Phase state machine — restore from localStorage if returning player
+  const [player, setPlayer] = useState<QGamesPlayer | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return loadPlayerSession(codeId);
+  });
+  const [phase, setPhase] = useState<ViewPhase>(() => {
+    if (typeof window === 'undefined') return 'registration';
+    return loadPlayerSession(codeId) ? 'selector' : 'registration';
+  });
   const [selectedGame, setSelectedGame] = useState<QGameType | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [isBotMatch, setIsBotMatch] = useState(false);
@@ -262,9 +274,61 @@ export default function QGamesViewer({
   const { match } = useQGamesMatch(codeId, matchId);
   const { entries: leaderboardEntries } = useQGamesLeaderboard(codeId);
 
+  // Compute opponent IDs for presence tracking
+  const opponentIds = useMemo(() => {
+    const activeMatch = isBotMatch ? null : match;
+    if (!activeMatch || !visitorId) return [];
+    const ids: string[] = [];
+    if (activeMatch.player1Id !== visitorId) ids.push(activeMatch.player1Id);
+    if (activeMatch.player2Id !== visitorId) ids.push(activeMatch.player2Id);
+    if (activeMatch.player3Id && activeMatch.player3Id !== visitorId) ids.push(activeMatch.player3Id);
+    return ids;
+  }, [match, visitorId, isBotMatch]);
+
+  // Track opponent presence during match
+  const { opponentDisconnected } = useMatchPresence(
+    codeId,
+    matchId,
+    visitorId,
+    opponentIds,
+    phase === 'playing' && !isBotMatch
+  );
+
   // Initialize RTDB session on mount
   useEffect(() => {
     initQGamesSession(codeId);
+  }, [codeId]);
+
+  // Background validate cached player session
+  useEffect(() => {
+    if (!player || phase !== 'selector') return;
+    const cached = loadPlayerSession(codeId);
+    if (!cached) return; // Fresh registration, no need to validate
+
+    fetch('/api/qgames/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeId,
+        playerId: visitorId,
+        nickname: player.nickname,
+        avatarType: player.avatarType,
+        avatarValue: player.avatarValue,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) {
+          clearPlayerSession(codeId);
+          setPlayer(null);
+          setPhase('registration');
+        } else {
+          setPlayer(data.player);
+          savePlayerSession(codeId, data.player);
+        }
+      })
+      .catch(() => {}); // Network error — keep using cache
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeId]);
 
   // Watch queue entry for match found
@@ -331,6 +395,45 @@ export default function QGamesViewer({
     reJoin();
   }, [queueEntry, phase, codeId, visitorId, selectedGame, player, inviteFrom]);
 
+  // Handle opponent disconnect during match
+  useEffect(() => {
+    if (!opponentDisconnected || phase !== 'playing' || isBotMatch) return;
+
+    // 5-second grace period before declaring forfeit
+    const timeout = setTimeout(() => {
+      const activeMatch = match;
+      if (!activeMatch || !player) return;
+
+      // Mark match as abandoned
+      if (matchId) {
+        updateMatchStatus(codeId, matchId, 'abandoned');
+      }
+
+      const isP1 = activeMatch.player1Id === visitorId;
+      setResultData({
+        isWinner: true,
+        isDraw: false,
+        myScore: 0,
+        oppScore: 0,
+        oppNickname: isP1 ? activeMatch.player2Nickname : activeMatch.player1Nickname,
+        oppAvatar: isP1 ? activeMatch.player2AvatarValue : activeMatch.player1AvatarValue,
+      });
+
+      // Persist forfeit
+      if (matchId) {
+        fetch('/api/qgames/forfeit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codeId, matchId, playerId: visitorId }),
+        }).catch(console.error);
+      }
+
+      setPhase('result');
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [opponentDisconnected, phase, isBotMatch, match, player, codeId, matchId, visitorId]);
+
   // ============ Handlers ============
 
   const handleRegister = useCallback(async (
@@ -354,6 +457,7 @@ export default function QGamesViewer({
     if (!data.success) throw new Error(data.error);
 
     setPlayer(data.player);
+    savePlayerSession(codeId, data.player);
     setPhase('selector');
   }, [codeId, visitorId]);
 
@@ -389,8 +493,13 @@ export default function QGamesViewer({
   }, [codeId, visitorId]);
 
   const handleAvatarChange = useCallback(async (avatarType: 'emoji' | 'selfie', avatarValue: string) => {
-    // Update local state
-    setPlayer(prev => prev ? { ...prev, avatarType, avatarValue } : prev);
+    // Update local state + cache
+    setPlayer(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, avatarType, avatarValue };
+      savePlayerSession(codeId, updated);
+      return updated;
+    });
     // Update RTDB queue entry
     if (visitorId) {
       await updateQueueEntryAvatar(codeId, visitorId, avatarType, avatarValue);
@@ -614,6 +723,11 @@ export default function QGamesViewer({
           playerAvatar={player.avatarValue}
           onSelectGame={handleSelectGame}
           onViewLeaderboard={() => setPhase('leaderboard')}
+          onEditProfile={() => {
+            clearPlayerSession(codeId);
+            setPlayer(null);
+            setPhase('registration');
+          }}
           isRTL={isRTL}
           t={t}
         />
@@ -680,6 +794,7 @@ export default function QGamesViewer({
             isRTL={isRTL}
             t={t}
             isBotMatch={isBotMatch}
+            opponentDisconnected={opponentDisconnected}
           />
         );
       })()}
@@ -710,6 +825,7 @@ export default function QGamesViewer({
             isRTL={isRTL}
             t={t}
             isBotMatch={isBotMatch}
+            opponentDisconnected={opponentDisconnected}
           />
         );
       })()}
