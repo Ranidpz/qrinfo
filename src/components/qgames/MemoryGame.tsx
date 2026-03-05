@@ -10,7 +10,9 @@ import {
   QGamesConfig,
   MEMORY_EMOJI_POOL,
   QGamesAvatarType,
+  DEFAULT_CHAT_PHRASES,
 } from '@/types/qgames';
+import LobbyChat from './LobbyChat';
 import { useQGamesTheme } from '@/components/qgames/QGamesThemeContext';
 import MemoryAnimatedEmoji from './MemoryAnimatedEmoji';
 import {
@@ -706,6 +708,22 @@ export default function MemoryGame({
             </div>
           )}
         </div>
+      )}
+
+      {/* Lobby Chat */}
+      {localPhase === 'lobby' && config.chatEnabled !== false && (
+        <LobbyChat
+          codeId={codeId}
+          visitorId={visitorId}
+          playerNickname={playerNickname}
+          playerAvatarType={playerAvatarType}
+          playerAvatarValue={playerAvatarValue}
+          phrases={config.chatPhrases?.length ? config.chatPhrases : DEFAULT_CHAT_PHRASES}
+          connectedPlayers={Object.entries(players)
+            .filter(([pid]) => pid !== visitorId)
+            .map(([pid, p]) => ({ id: pid, nickname: p.nickname, avatarType: p.avatarType, avatarValue: p.avatarValue }))}
+          isRTL={isRTL}
+        />
       )}
 
       {/* ── COUNTDOWN 3-2-1 ── */}
