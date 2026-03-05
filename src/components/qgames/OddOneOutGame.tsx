@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { OOOChoice, OOO_EMOJI, RTDBOOORound, resolveOOO } from '@/types/qgames';
 import { useOOOState, useCountdown, useQGamesSounds } from '@/hooks/useQGamesRealtime';
 import { startNewOOORound } from '@/lib/qgames-realtime';
+import { useQGamesTheme } from './QGamesThemeContext';
 
 interface OddOneOutGameProps {
   codeId: string;
@@ -27,6 +28,7 @@ interface OddOneOutGameProps {
   isRTL: boolean;
   t: (key: string) => string;
   isBotMatch?: boolean;
+  botPlayerId?: string; // hybrid mode: real RTDB match with 1 bot player (this client submits bot moves)
   opponentDisconnected?: boolean;
   disconnectStartTime?: number | null;
 }
@@ -60,10 +62,10 @@ function DisconnectCountdownBanner({ startTime, duration, label }: { startTime: 
   );
 }
 
-function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string; size?: 'sm' | 'md'; className?: string }) {
+function AvatarCircle({ avatar, size = 'md', className = '', style }: { avatar: string; size?: 'sm' | 'md'; className?: string; style?: React.CSSProperties }) {
   const sizeClasses = { sm: 'w-6 h-6 text-sm', md: 'w-10 h-10 text-xl' };
   return (
-    <div className={`${sizeClasses[size]} rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0 ${className}`}>
+    <div className={`${sizeClasses[size]} rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0 ${className}`} style={style}>
       {avatar.startsWith('http') ? (
         <img src={avatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       ) : avatar}
@@ -108,9 +110,11 @@ export default function OddOneOutGame({
   isRTL,
   t,
   isBotMatch,
+  botPlayerId,
   opponentDisconnected,
   disconnectStartTime,
 }: OddOneOutGameProps) {
+  const theme = useQGamesTheme();
   const { state: oooState } = useOOOState(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
   // Ref to avoid stale closure in reveal timeout — strikes are updated AFTER revealed:true
   const oooStateRef = useRef(oooState);
@@ -153,6 +157,41 @@ export default function OddOneOutGame({
       setBotRoundData(null);
     }
   }, [isBotMatch, botRound]);
+
+  // Hybrid bot: submit bot moves via API when this client is responsible
+  const botSubmittedRoundRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!botPlayerId || isBotMatch) return; // Only for hybrid mode (not full bot match)
+    const round = oooState?.currentRound;
+    if (round == null) return;
+    const roundInfo = oooState?.rounds?.[String(round)] as RTDBOOORound | undefined;
+    if (!roundInfo || roundInfo.revealed) return; // Round already resolved
+    if (botSubmittedRoundRef.current >= round) return; // Already submitted for this round
+
+    // Submit bot move after random delay (0.8–2s)
+    const delay = 800 + Math.random() * 1200;
+    const timer = setTimeout(() => {
+      if (botSubmittedRoundRef.current >= round) return; // Double-check
+      botSubmittedRoundRef.current = round;
+
+      const choices: OOOChoice[] = ['palm', 'fist'];
+      const botChoice = choices[Math.floor(Math.random() * 2)];
+
+      fetch('/api/qgames/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeId,
+          matchId,
+          playerId: botPlayerId,
+          gameType: 'oddoneout',
+          move: { choice: botChoice },
+        }),
+      }).catch(err => console.error('Bot move failed:', err));
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [botPlayerId, isBotMatch, codeId, matchId, oooState?.currentRound, oooState?.rounds]);
 
   const currentRound = isBotMatch ? botRound : (oooState?.currentRound ?? 0);
   const roundData = isBotMatch ? botRoundData : (oooState?.rounds?.[String(currentRound)] as RTDBOOORound | undefined);
@@ -383,8 +422,23 @@ export default function OddOneOutGame({
         setTimedOut(false);
         timedOutRef.current = false;
       });
+
+      // Hybrid bot: ensure bot move is submitted if not yet
+      if (botPlayerId && botSubmittedRoundRef.current < currentRound) {
+        botSubmittedRoundRef.current = currentRound;
+        const botChoice: OOOChoice = Math.random() < 0.5 ? 'palm' : 'fist';
+        fetch('/api/qgames/move', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            codeId, matchId, playerId: botPlayerId,
+            gameType: 'oddoneout',
+            move: { choice: botChoice },
+          }),
+        }).catch(err => console.error('Bot timeout move failed:', err));
+      }
     }
-  }, [isExpired, revealPhase, myChoice, isBotMatch, sounds, botStrikes, timerDuration, roundData?.revealed, roundData?.timerStartedAt, codeId, matchId, playerId]);
+  }, [isExpired, revealPhase, myChoice, isBotMatch, sounds, botStrikes, timerDuration, roundData?.revealed, roundData?.timerStartedAt, codeId, matchId, playerId, botPlayerId, currentRound]);
 
   // Reset state when round changes (online matches)
   useEffect(() => {
@@ -450,7 +504,8 @@ export default function OddOneOutGame({
               <AvatarCircle
                 avatar={p.avatar}
                 size="md"
-                className={`ring-2 ${isMe ? 'ring-blue-400/40' : 'ring-white/10'}`}
+                className="ring-2"
+                style={{ '--tw-ring-color': isMe ? `${theme.primaryColor}66` : 'rgba(255,255,255,0.1)' } as React.CSSProperties}
               />
               <div className="min-w-0">
                 <p className="text-white text-[10px] font-medium truncate max-w-[60px]">
@@ -476,7 +531,7 @@ export default function OddOneOutGame({
             className="h-full rounded-full transition-all duration-100"
             style={{
               width: `${progress * 100}%`,
-              background: progress > 0.3 ? '#10b981' : progress > 0.1 ? '#f59e0b' : '#ef4444',
+              background: progress > 0.3 ? theme.accentColor : progress > 0.1 ? '#f59e0b' : '#ef4444',
             }}
           />
         </div>
@@ -527,7 +582,7 @@ export default function OddOneOutGame({
                 </p>
               )}
               {!isRoundVoid && !isLoserRound && !isDraw && (
-                <p className="text-emerald-400 font-black text-xl animate-in zoom-in duration-300">
+                <p className="font-black text-xl animate-in zoom-in duration-300" style={{ color: theme.accentColor }}>
                   {t('youSurvived')} ✓
                 </p>
               )}
@@ -581,7 +636,7 @@ export default function OddOneOutGame({
                 <AvatarCircle key={p.num} avatar={p.avatar} size="sm" className="ring-1 ring-white/10" />
               ))}
               <div className="h-px" />
-              <AvatarCircle avatar={players[myIdx].avatar} size="sm" className="ring-1 ring-emerald-400/30" />
+              <AvatarCircle avatar={players[myIdx].avatar} size="sm" className="ring-1" style={{ '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties} />
             </div>
             {/* Rounds */}
             <div className="flex items-center gap-1 flex-1 overflow-x-auto justify-end" style={{ scrollbarWidth: 'none' }}>
@@ -605,11 +660,17 @@ export default function OddOneOutGame({
                     <div className="flex items-center justify-center h-3">
                       <span className="text-[9px] text-white/30 font-medium leading-none">{i + 1}</span>
                     </div>
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
-                      iAmLoser ? 'bg-red-500/15 ring-1 ring-red-400/40'
-                        : entry.loser !== 'draw' ? 'bg-emerald-500/15 ring-1 ring-emerald-400/40'
-                        : 'bg-white/5'
-                    }`}>
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
+                        iAmLoser ? 'bg-red-500/15 ring-1 ring-red-400/40'
+                          : entry.loser !== 'draw' ? 'ring-1'
+                          : 'bg-white/5'
+                      }`}
+                      style={!iAmLoser && entry.loser !== 'draw' ? {
+                        backgroundColor: `${theme.accentColor}26`,
+                        '--tw-ring-color': `${theme.accentColor}66`,
+                      } as React.CSSProperties : undefined}
+                    >
                       {entry.myTimedOut ? '❌' : OOO_EMOJI[myC]}
                     </div>
                   </div>
@@ -634,11 +695,16 @@ export default function OddOneOutGame({
                 disabled={isDisabled}
                 className={`relative w-[7rem] h-[7rem] rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-200 ${
                   isSelected
-                    ? 'bg-emerald-500/20 ring-2 ring-emerald-400 scale-105 shadow-lg shadow-emerald-500/20'
+                    ? 'ring-2 scale-105 shadow-lg'
                     : isDisabled
                       ? 'bg-white/5 opacity-40'
                       : 'bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95'
                 }`}
+                style={isSelected ? {
+                  backgroundColor: `${theme.accentColor}33`,
+                  '--tw-ring-color': theme.accentColor,
+                  boxShadow: `0 10px 15px -3px ${theme.accentColor}33`,
+                } as React.CSSProperties : undefined}
               >
                 <span className="text-5xl">{OOO_EMOJI[choice]}</span>
                 <span className="text-white/40 text-xs uppercase tracking-wider">{t(choice)}</span>

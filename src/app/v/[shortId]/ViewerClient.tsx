@@ -19,6 +19,7 @@ import QChallengeViewer from '@/components/viewer/QChallengeViewer';
 import QTagViewer from '@/components/viewer/QTagViewer';
 import QGamesViewer from '@/components/viewer/QGamesViewer';
 import QGamesDisplay from '@/components/qgames/QGamesDisplay';
+import QGamesDisplayWidescreen from '@/components/qgames/QGamesDisplayWidescreen';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
 import LandingPageViewer from '@/components/viewer/LandingPageViewer';
 import { shouldShowLandingPage } from '@/lib/landingPage';
@@ -1061,6 +1062,12 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
     }
     return false;
   });
+  const [isWideDisplay, setIsWideDisplay] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('display') === 'wide';
+    }
+    return false;
+  });
 
   // Loading states - must be declared before useEffect that uses them
   const [loading, setLoading] = useState(true);
@@ -1595,7 +1602,9 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
             qrTokenFromUrl={qtagToken}
           />
         ) : isMinigames && currentMedia.qgamesConfig ? (
-          isDisplayMode ? (
+          isWideDisplay ? (
+            <QGamesDisplayWidescreen codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} />
+          ) : isDisplayMode ? (
             <QGamesDisplay codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} />
           ) : (
             <QGamesViewer codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} shortId={shortId} ownerId={ownerId} />

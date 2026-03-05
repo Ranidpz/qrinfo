@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { QGamesConfig, DEFAULT_QGAMES_CONFIG } from '@/types/qgames';
+import { QGamesConfig, DEFAULT_QGAMES_CONFIG, resolveTheme } from '@/types/qgames';
 import { useQGamesLeaderboard, useQGamesStats } from '@/hooks/useQGamesRealtime';
 
 interface QGamesDisplayProps {
@@ -16,34 +16,29 @@ export default function QGamesDisplay({
   initialConfig,
 }: QGamesDisplayProps) {
   const config = { ...DEFAULT_QGAMES_CONFIG, ...initialConfig };
+  const theme = resolveTheme(config.branding);
   const { entries } = useQGamesLeaderboard(codeId);
   const { stats } = useQGamesStats(codeId);
-
-  const bgColor = config.branding.backgroundColor || '#0a0f1a';
-  const accentColor = config.branding.accentColor || '#10b981';
   const rankMedals = ['🥇', '🥈', '🥉'];
 
   return (
     <div
       className="min-h-screen flex flex-col p-8"
-      style={{ backgroundColor: bgColor }}
+      style={{ backgroundColor: theme.backgroundColor }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-black text-white flex items-center gap-3">
-            🎮 Q.Games
+          <h1 className="text-4xl font-black flex items-center gap-3" style={{ color: theme.textColor }}>
+            🎮 {config.branding.title || 'Q.Games'}
           </h1>
-          {config.branding.title && (
-            <p className="text-white/40 text-lg mt-1">{config.branding.title}</p>
-          )}
         </div>
 
         {/* Live stats */}
         {stats && (
           <div className="flex gap-6">
             <StatBox label="Players" value={stats.totalPlayers} />
-            <StatBox label="Online" value={stats.playersOnline} color={accentColor} />
+            <StatBox label="Online" value={stats.playersOnline} color={theme.accentColor} />
             <StatBox label="Matches" value={stats.totalMatches} />
             <StatBox label="Live" value={stats.matchesInProgress} color="#f59e0b" />
           </div>

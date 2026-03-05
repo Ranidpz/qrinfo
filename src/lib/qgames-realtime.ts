@@ -27,7 +27,11 @@ import {
   RTDBTTTState,
   RTDBOOOState,
   RTDBOOORound,
+  RTDBMemoryState,
+  RTDBMemoryPlayer,
+  MemoryPhase,
   MatchStatus,
+  QGamesAvatarType,
 } from '@/types/qgames';
 
 // ============ SESSION / STATS ============
@@ -320,17 +324,28 @@ export async function initTTTState(
   codeId: string,
   matchId: string,
   xPlayerId: string,
-  oPlayerId: string
+  oPlayerId: string,
+  firstTo: number,
+  turnTimer: number
 ): Promise<void> {
   const tttRef = ref(realtimeDb, QGAMES_PATHS.tttState(codeId, matchId));
+  const now = Date.now();
   await set(tttRef, {
-    board: '_________', // 9 empty cells
+    board: '_________',
     currentTurn: xPlayerId,
     xPlayerId,
     oPlayerId,
     winner: null,
     isDraw: false,
     moveCount: 0,
+    currentRound: 0,
+    player1Score: 0,
+    player2Score: 0,
+    firstTo,
+    timerStartedAt: now,
+    timerDuration: turnTimer,
+    winLine: null,
+    roundFinished: false,
   } satisfies RTDBTTTState);
 }
 
@@ -342,6 +357,42 @@ export async function getTTTState(
   const tttRef = ref(realtimeDb, QGAMES_PATHS.tttState(codeId, matchId));
   const snapshot = await get(tttRef);
   return snapshot.exists() ? (snapshot.val() as RTDBTTTState) : null;
+}
+
+/** Start a new TTT round (reset board, alternate X/O) */
+export async function startNewTTTRound(
+  codeId: string,
+  matchId: string,
+  roundNum: number,
+  player1Id: string,
+  player2Id: string,
+  player1Score: number,
+  player2Score: number,
+  turnTimer: number,
+  firstTo: number
+): Promise<void> {
+  const tttRef = ref(realtimeDb, QGAMES_PATHS.tttState(codeId, matchId));
+  const now = Date.now();
+  // Alternate who plays X each round
+  const xPlayer = roundNum % 2 === 0 ? player1Id : player2Id;
+  const oPlayer = roundNum % 2 === 0 ? player2Id : player1Id;
+  await set(tttRef, {
+    board: '_________',
+    currentTurn: xPlayer,
+    xPlayerId: xPlayer,
+    oPlayerId: oPlayer,
+    winner: null,
+    isDraw: false,
+    moveCount: 0,
+    currentRound: roundNum,
+    player1Score,
+    player2Score,
+    firstTo,
+    timerStartedAt: now,
+    timerDuration: turnTimer,
+    winLine: null,
+    roundFinished: false,
+  } satisfies RTDBTTTState);
 }
 
 /** Update TTT state */
@@ -733,6 +784,252 @@ export function subscribeToViewerCount(
   };
   onValue(viewersRef, callback);
   return () => off(viewersRef, 'value', callback);
+}
+
+// ============ MEMORY ROOMS ============
+
+/** Create a new memory room (host creates lobby) */
+export async function createMemoryRoom(
+  codeId: string,
+  roomId: string,
+  hostId: string,
+  hostNickname: string,
+  hostAvatarType: QGamesAvatarType,
+  hostAvatarValue: string,
+  maxStrikes: number,
+  memorizeDuration: number,
+  recallDuration: number
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+  const now = Date.now();
+  const state: RTDBMemoryState = {
+    hostId,
+    status: 'lobby',
+    maxStrikes,
+    maxPlayers: 6,
+    createdAt: now,
+    currentRound: -1,
+    difficulty: 3,
+    targetEmojis: [],
+    options: [],
+    phase: 'countdown',
+    phaseStartedAt: now,
+    countdownDuration: 3000,
+    memorizeDuration: memorizeDuration * 1000,
+    recallDuration: recallDuration * 1000,
+    players: {
+      [hostId]: {
+        nickname: hostNickname,
+        avatarType: hostAvatarType,
+        avatarValue: hostAvatarValue,
+        score: 0,
+        strikes: 0,
+        eliminated: false,
+        joinedAt: now,
+        roundResult: null,
+      },
+    },
+  };
+  await set(roomRef, state);
+
+  // Auto-cleanup room on host disconnect (only during lobby)
+  const hostPlayerRef = ref(realtimeDb, QGAMES_PATHS.memoryRoomPlayer(codeId, roomId, hostId));
+  onDisconnect(hostPlayerRef).remove();
+}
+
+/** Join an existing memory room */
+export async function joinMemoryRoom(
+  codeId: string,
+  roomId: string,
+  playerId: string,
+  nickname: string,
+  avatarType: QGamesAvatarType,
+  avatarValue: string
+): Promise<boolean> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+
+  let success = false;
+  await runTransaction(roomRef, (current: RTDBMemoryState | null) => {
+    if (!current) return current;
+    if (current.status !== 'lobby') return; // Can't join active game
+    const playerCount = current.players ? Object.keys(current.players).length : 0;
+    if (playerCount >= current.maxPlayers) return; // Room full
+    if (current.players?.[playerId]) return; // Already in room
+
+    current.players = current.players || {};
+    current.players[playerId] = {
+      nickname,
+      avatarType,
+      avatarValue,
+      score: 0,
+      strikes: 0,
+      eliminated: false,
+      joinedAt: Date.now(),
+      roundResult: null,
+    };
+    success = true;
+    return current;
+  });
+
+  if (success) {
+    // Auto-remove from room on disconnect
+    const playerRef = ref(realtimeDb, QGAMES_PATHS.memoryRoomPlayer(codeId, roomId, playerId));
+    onDisconnect(playerRef).remove();
+  }
+
+  return success;
+}
+
+/** Leave a memory room */
+export async function leaveMemoryRoom(
+  codeId: string,
+  roomId: string,
+  playerId: string
+): Promise<void> {
+  const playerRef = ref(realtimeDb, QGAMES_PATHS.memoryRoomPlayer(codeId, roomId, playerId));
+  await remove(playerRef);
+}
+
+/** Find an active memory room lobby to join */
+export async function findActiveMemoryRoom(codeId: string): Promise<string | null> {
+  const roomsRef = ref(realtimeDb, QGAMES_PATHS.memoryRooms(codeId));
+  const snapshot = await get(roomsRef);
+  if (!snapshot.exists()) return null;
+
+  const rooms = snapshot.val() as Record<string, RTDBMemoryState>;
+  for (const [roomId, room] of Object.entries(rooms)) {
+    if (room.status === 'lobby') {
+      const playerCount = room.players ? Object.keys(room.players).length : 0;
+      if (playerCount < room.maxPlayers) {
+        return roomId;
+      }
+    }
+  }
+  return null;
+}
+
+/** Host starts a new memory round — writes round data to RTDB */
+export async function startMemoryRound(
+  codeId: string,
+  roomId: string,
+  round: number,
+  difficulty: number,
+  targetEmojis: string[],
+  options: string[]
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+  await update(roomRef, {
+    currentRound: round,
+    difficulty,
+    targetEmojis,
+    options,
+    phase: 'countdown',
+    phaseStartedAt: Date.now(),
+    status: 'playing',
+  });
+
+  // Clear all players' roundResult for new round
+  const playersRef = ref(realtimeDb, QGAMES_PATHS.memoryRoomPlayers(codeId, roomId));
+  const snapshot = await get(playersRef);
+  if (snapshot.exists()) {
+    const updates: Record<string, null> = {};
+    Object.keys(snapshot.val()).forEach(pid => {
+      updates[`${pid}/roundResult`] = null;
+    });
+    await update(playersRef, updates);
+  }
+}
+
+/** Advance memory game phase (host calls this after timer-based transitions) */
+export async function setMemoryPhase(
+  codeId: string,
+  roomId: string,
+  phase: MemoryPhase
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+  await update(roomRef, { phase, phaseStartedAt: Date.now() });
+}
+
+/** Player submits their round result */
+export async function submitMemoryRoundResult(
+  codeId: string,
+  roomId: string,
+  playerId: string,
+  result: { selections: string[]; correctCount: number; failed: boolean }
+): Promise<void> {
+  const playerRef = ref(realtimeDb, QGAMES_PATHS.memoryRoomPlayer(codeId, roomId, playerId));
+  await update(playerRef, {
+    roundResult: { ...result, submittedAt: Date.now() },
+  });
+}
+
+/** Update memory player score/strikes (called after round results) */
+export async function updateMemoryPlayerStats(
+  codeId: string,
+  roomId: string,
+  playerId: string,
+  score: number,
+  strikes: number,
+  eliminated: boolean
+): Promise<void> {
+  const playerRef = ref(realtimeDb, QGAMES_PATHS.memoryRoomPlayer(codeId, roomId, playerId));
+  await update(playerRef, { score, strikes, eliminated });
+}
+
+/** Mark memory room as finished */
+export async function finishMemoryRoom(
+  codeId: string,
+  roomId: string
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+  await update(roomRef, { status: 'finished', phase: 'results', phaseStartedAt: Date.now() });
+}
+
+/** Get memory room state (one-time read) */
+export async function getMemoryRoom(
+  codeId: string,
+  roomId: string
+): Promise<RTDBMemoryState | null> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+  const snapshot = await get(roomRef);
+  return snapshot.exists() ? (snapshot.val() as RTDBMemoryState) : null;
+}
+
+/** Subscribe to memory room state */
+export function subscribeToMemoryRoom(
+  codeId: string,
+  roomId: string,
+  onUpdate: (state: RTDBMemoryState | null) => void
+): () => void {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists() ? (snapshot.val() as RTDBMemoryState) : null);
+  };
+  onValue(roomRef, callback);
+  return () => off(roomRef, 'value', callback);
+}
+
+/** Subscribe to memory room players (for lobby and game) */
+export function subscribeToMemoryPlayers(
+  codeId: string,
+  roomId: string,
+  onUpdate: (players: Record<string, RTDBMemoryPlayer>) => void
+): () => void {
+  const playersRef = ref(realtimeDb, QGAMES_PATHS.memoryRoomPlayers(codeId, roomId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists() ? (snapshot.val() as Record<string, RTDBMemoryPlayer>) : {});
+  };
+  onValue(playersRef, callback);
+  return () => off(playersRef, 'value', callback);
+}
+
+/** Delete a memory room */
+export async function deleteMemoryRoom(
+  codeId: string,
+  roomId: string
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+  await remove(roomRef);
 }
 
 /** Subscribe to active player stats (per game type + total).

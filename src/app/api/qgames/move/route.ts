@@ -8,8 +8,12 @@ import {
   resolveOOO,
   RTDBOOORound,
   RTDBOOOState,
+  RTDBTTTState,
   RTDBMatch,
   QGAMES_PATHS,
+  checkTTTWinner,
+  getWinLine,
+  parseTTTBoard,
 } from '@/types/qgames';
 import { getAdminRtdb } from '@/lib/firebase-admin';
 
@@ -64,6 +68,10 @@ export async function POST(request: Request) {
 
     if (gameType === 'oddoneout') {
       return handleOOOMove(rtdb, codeId, matchId, playerId, isPlayer1, isPlayer2, isPlayer3, move, match);
+    }
+
+    if (gameType === 'tictactoe') {
+      return handleTTTMove(rtdb, codeId, matchId, playerId, isPlayer1, move, match);
     }
 
     return NextResponse.json(
@@ -444,4 +452,119 @@ async function handleOOOMove(
     success: true,
     waiting: true,
   });
+}
+
+async function handleTTTMove(
+  rtdb: ReturnType<typeof getAdminRtdb>,
+  codeId: string,
+  matchId: string,
+  playerId: string,
+  isPlayer1: boolean,
+  move: { cellIndex: number; timedOut?: boolean },
+  match: { player1Id: string; player2Id: string }
+) {
+  const { cellIndex, timedOut } = move;
+
+  // Get current TTT state
+  const tttPath = QGAMES_PATHS.tttState(codeId, matchId);
+  const tttRef = rtdb.ref(tttPath);
+
+  const txResult = await tttRef.transaction((current: RTDBTTTState | null) => {
+    if (!current) return current;
+    if (current.roundFinished) return; // Round already over
+
+    // Handle timeout: current player forfeits round
+    if (timedOut) {
+      if (current.currentTurn !== playerId) return; // Not your turn to timeout
+      const opponentIsP1 = !isPlayer1;
+      current.winner = opponentIsP1 ? match.player1Id : match.player2Id;
+      current.roundFinished = true;
+      if (opponentIsP1) current.player1Score += 1;
+      else current.player2Score += 1;
+      return current;
+    }
+
+    // Validate cell index
+    if (typeof cellIndex !== 'number' || cellIndex < 0 || cellIndex > 8) return;
+
+    // Validate turn
+    if (current.currentTurn !== playerId) return; // Not your turn
+
+    // Parse board and validate cell is empty
+    const board = current.board.split('');
+    if (board[cellIndex] !== '_') return; // Cell taken
+
+    // Place the marker
+    const marker = current.xPlayerId === playerId ? 'X' : 'O';
+    board[cellIndex] = marker;
+    current.board = board.join('');
+    current.moveCount += 1;
+
+    // Check for winner
+    const boardCells = parseTTTBoard(current.board);
+    const winnerMarker = checkTTTWinner(boardCells);
+    const winLine = getWinLine(boardCells);
+
+    if (winnerMarker) {
+      // Round winner
+      current.winner = playerId;
+      current.winLine = winLine;
+      current.roundFinished = true;
+      if (isPlayer1) current.player1Score += 1;
+      else current.player2Score += 1;
+    } else if (current.moveCount >= 9) {
+      // Draw - board full, no winner
+      current.isDraw = true;
+      current.roundFinished = true;
+      // No score change on draw rounds
+    } else {
+      // Switch turn
+      current.currentTurn = playerId === match.player1Id
+        ? match.player2Id : match.player1Id;
+      current.timerStartedAt = Date.now();
+    }
+
+    return current;
+  });
+
+  if (!txResult.committed) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid move or not your turn' },
+      { status: 400 }
+    );
+  }
+
+  const finalState = txResult.snapshot.val() as RTDBTTTState;
+
+  // If round ended, check if match is over
+  if (finalState.roundFinished && finalState.winner) {
+    const firstTo = finalState.firstTo;
+    if (finalState.player1Score >= firstTo || finalState.player2Score >= firstTo) {
+      // Match finished
+      await rtdb.ref(QGAMES_PATHS.match(codeId, matchId)).update({
+        status: 'finished',
+        lastUpdated: Date.now(),
+        finishedAt: Date.now(),
+      });
+
+      // Decrement matches in progress
+      const statsRef = rtdb.ref(QGAMES_PATHS.stats(codeId));
+      await statsRef.transaction((current: Record<string, number> | null) => {
+        if (!current) return current;
+        return {
+          ...current,
+          matchesInProgress: Math.max(0, (current.matchesInProgress || 0) - 1),
+          lastUpdated: Date.now(),
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        matchOver: true,
+        matchWinnerId: finalState.player1Score >= firstTo ? match.player1Id : match.player2Id,
+      });
+    }
+  }
+
+  return NextResponse.json({ success: true });
 }

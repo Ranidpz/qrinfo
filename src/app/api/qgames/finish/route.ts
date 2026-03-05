@@ -6,21 +6,29 @@ import {
   QGamesLeaderboardEntry,
   MATCH_POINTS,
   QGameType,
+  QGamesAvatarType,
 } from '@/types/qgames';
 import {
   getMatch,
   getRPSState,
   getOOOState,
+  getTTTState,
   updateLeaderboardEntry,
   recalculateLeaderboardRanks,
   cleanupMatch,
   leaveQueue,
+  deleteMemoryRoom,
 } from '@/lib/qgames-realtime';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { codeId, matchId, playerId } = body;
+    const { codeId, matchId, playerId, gameType, memoryRoomId, memoryResults } = body;
+
+    // Memory games use roomId instead of matchId
+    if (gameType === 'memory') {
+      return handleMemoryFinish(codeId, playerId, memoryRoomId, memoryResults);
+    }
 
     if (!codeId || !matchId || !playerId) {
       return NextResponse.json(
@@ -82,6 +90,14 @@ export async function POST(request: Request) {
       if (rpsState) {
         p1Score = rpsState.player1Score;
         p2Score = rpsState.player2Score;
+        if (p1Score > p2Score) winnerId = match.player1Id;
+        else if (p2Score > p1Score) winnerId = match.player2Id;
+      }
+    } else if (match.gameType === 'tictactoe') {
+      const tttState = await getTTTState(codeId, matchId);
+      if (tttState) {
+        p1Score = tttState.player1Score;
+        p2Score = tttState.player2Score;
         if (p1Score > p2Score) winnerId = match.player1Id;
         else if (p2Score > p1Score) winnerId = match.player2Id;
       }
@@ -182,6 +198,124 @@ export async function POST(request: Request) {
   }
 }
 
+// ─── Memory Game Finish ─────────────────────────────────────
+interface MemoryPlayerResult {
+  id: string;
+  nickname: string;
+  avatarType: QGamesAvatarType;
+  avatarValue: string;
+  score: number;
+  strikes: number;
+  eliminated: boolean;
+}
+
+async function handleMemoryFinish(
+  codeId: string,
+  playerId: string,
+  roomId: string,
+  playerResults: MemoryPlayerResult[]
+) {
+  if (!codeId || !playerId || !roomId || !playerResults?.length) {
+    return NextResponse.json(
+      { success: false, error: 'Missing required fields for memory game' },
+      { status: 400 }
+    );
+  }
+
+  const adminDb = getAdminDb();
+
+  // Use roomId as the match doc ID
+  const matchDocRef = adminDb
+    .collection('codes').doc(codeId)
+    .collection('qgames_matches').doc(roomId);
+  const existingMatch = await matchDocRef.get();
+
+  if (existingMatch.exists) {
+    return NextResponse.json({ success: true, alreadyPersisted: true });
+  }
+
+  // Sort by score descending to find winner
+  const sorted = [...playerResults].sort((a, b) => b.score - a.score);
+  const winnerId = sorted[0].score > 0 ? sorted[0].id : null;
+
+  // Build match record — use first 2 players as player1/player2 for compatibility
+  const p1 = sorted[0];
+  const p2 = sorted[1] || sorted[0]; // fallback if somehow only 1 player
+
+  const matchRecord: QGamesMatch = {
+    id: roomId,
+    codeId,
+    gameType: 'memory',
+    player1Id: p1.id,
+    player1Nickname: p1.nickname,
+    player1AvatarType: p1.avatarType,
+    player1AvatarValue: p1.avatarValue,
+    player2Id: p2.id,
+    player2Nickname: p2.nickname,
+    player2AvatarType: p2.avatarType,
+    player2AvatarValue: p2.avatarValue,
+    player1Score: p1.score,
+    player2Score: p2.score,
+    winnerId,
+    memoryResults: playerResults.map(p => ({
+      id: p.id,
+      nickname: p.nickname,
+      avatarType: p.avatarType,
+      avatarValue: p.avatarValue,
+      score: p.score,
+      strikes: p.strikes,
+      eliminated: p.eliminated,
+    })),
+    status: 'finished',
+    startedAt: Date.now(),
+    finishedAt: Date.now(),
+    durationMs: 0,
+  };
+
+  await matchDocRef.set(matchRecord);
+
+  // Update stats for all players
+  for (const p of playerResults) {
+    const isWinner = p.id === winnerId;
+    await updatePlayerStatsMemory(adminDb, codeId, p.id, isWinner);
+    await updatePlayerLeaderboard(adminDb, codeId, p.id);
+  }
+  await recalculateLeaderboardRanks(codeId);
+
+  // Clean up memory room from RTDB
+  await deleteMemoryRoom(codeId, roomId);
+
+  return NextResponse.json({ success: true, match: matchRecord });
+}
+
+async function updatePlayerStatsMemory(
+  adminDb: FirebaseFirestore.Firestore,
+  codeId: string,
+  playerId: string,
+  isWinner: boolean
+) {
+  const playerRef = adminDb
+    .collection('codes').doc(codeId)
+    .collection('qgames_players').doc(playerId);
+
+  const playerDoc = await playerRef.get();
+  if (!playerDoc.exists) return;
+
+  const player = playerDoc.data() as QGamesPlayer;
+
+  const updates: Partial<QGamesPlayer> = {
+    totalGamesPlayed: player.totalGamesPlayed + 1,
+    totalWins: player.totalWins + (isWinner ? 1 : 0),
+    totalLosses: player.totalLosses + (isWinner ? 0 : 1),
+    score: player.score + (isWinner ? MATCH_POINTS.WIN : MATCH_POINTS.LOSS),
+    lastPlayedAt: Date.now(),
+    memoryPlayed: (player.memoryPlayed || 0) + 1,
+    memoryWins: (player.memoryWins || 0) + (isWinner ? 1 : 0),
+  };
+
+  await playerRef.update(updates);
+}
+
 async function updatePlayerStats(
   adminDb: FirebaseFirestore.Firestore,
   codeId: string,
@@ -205,7 +339,7 @@ async function updatePlayerStats(
     totalWins: player.totalWins + (isWinner ? 1 : 0),
     totalLosses: player.totalLosses + (!isWinner && !isDraw ? 1 : 0),
     totalDraws: player.totalDraws + (isDraw ? 1 : 0),
-    score: player.score + (isWinner ? MATCH_POINTS.WIN : isDraw ? MATCH_POINTS.DRAW : MATCH_POINTS.LOSS),
+    score: player.score + (isWinner ? MATCH_POINTS.WIN : isDraw ? (gameType === 'tictactoe' ? MATCH_POINTS.WIN : MATCH_POINTS.DRAW) : MATCH_POINTS.LOSS),
     lastPlayedAt: Date.now(),
   };
 
@@ -288,6 +422,10 @@ async function updatePlayerLeaderboard(
     rpsWins: player.rpsWins || 0,
     oddoneoutPlayed: player.oddoneoutPlayed || 0,
     oddoneoutWins: player.oddoneoutWins || 0,
+    tictactoePlayed: player.tictactoePlayed || 0,
+    tictactoeWins: player.tictactoeWins || 0,
+    memoryPlayed: player.memoryPlayed || 0,
+    memoryWins: player.memoryWins || 0,
   };
 
   await updateLeaderboardEntry(codeId, entry);

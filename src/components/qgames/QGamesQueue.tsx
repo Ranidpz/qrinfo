@@ -5,6 +5,7 @@ import { Share2, ArrowLeft, Camera, X, Check, RotateCcw, Loader2, Pencil, ZoomIn
 import { compressImage } from '@/lib/imageCompression';
 import RPSAnimatedEmoji from './RPSAnimatedEmoji';
 import { subscribeToQueue } from '@/lib/qgames-realtime';
+import { useQGamesTheme } from './QGamesThemeContext';
 import type { QGameType, QGamesQueueEntry } from '@/types/qgames';
 
 function AnimatedNumber({ value }: { value: number }) {
@@ -82,6 +83,7 @@ export default function QGamesQueue({
   viewerCount = 0,
   activeMatches = 0,
 }: QGamesQueueProps) {
+  const theme = useQGamesTheme();
   const [dots, setDots] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const [showPicker, setShowPicker] = useState(false);
@@ -294,13 +296,14 @@ export default function QGamesQueue({
       {/* Searching animation */}
       <div className="relative mb-4">
         {/* Pulsing rings */}
-        <div className="absolute inset-0 w-28 h-28 rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '2s' }} />
-        <div className="absolute inset-0 w-28 h-28 rounded-full border-2 border-emerald-400/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
+        <div className="absolute inset-0 w-28 h-28 rounded-full border-2 animate-ping" style={{ animationDuration: '2s', borderColor: `${theme.accentColor}33` }} />
+        <div className="absolute inset-0 w-28 h-28 rounded-full border-2 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s', borderColor: `${theme.accentColor}1a` }} />
 
         {/* Tappable avatar */}
         <button
           onClick={() => onAvatarChange && setShowPicker(prev => !prev)}
-          className="w-28 h-28 rounded-full bg-white/10 flex items-center justify-center text-5xl relative z-10 ring-2 ring-emerald-400/30 overflow-hidden transition-transform active:scale-95"
+          className="w-28 h-28 rounded-full bg-white/10 flex items-center justify-center text-5xl relative z-10 ring-2 overflow-hidden transition-transform active:scale-95"
+          style={{ '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties}
           disabled={!onAvatarChange}
         >
           {playerAvatar.startsWith('http') ? (
@@ -310,7 +313,7 @@ export default function QGamesQueue({
 
         {/* Edit hint */}
         {onAvatarChange && (
-          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg z-20 pointer-events-none">
+          <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center shadow-lg z-20 pointer-events-none" style={{ backgroundColor: theme.accentColor }}>
             <Pencil className="w-3.5 h-3.5 text-white" />
           </div>
         )}
@@ -328,7 +331,8 @@ export default function QGamesQueue({
         <div className="w-full max-w-xs mb-6 animate-in fade-in zoom-in-95 duration-200 flex flex-col items-center">
           {/* Circular viewfinder */}
           <div
-            className="relative w-52 h-52 rounded-full overflow-hidden mb-4 bg-black/50 ring-2 ring-emerald-400/30"
+            className="relative w-52 h-52 rounded-full overflow-hidden mb-4 bg-black/50 ring-2"
+            style={{ '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties}
             onTouchStart={!capturedImage ? handleTouchStart : undefined}
             onTouchMove={!capturedImage ? handleTouchMove : undefined}
             onTouchEnd={!capturedImage ? handleTouchEnd : undefined}
@@ -358,7 +362,8 @@ export default function QGamesQueue({
                 step="0.1"
                 value={zoom}
                 onChange={(e) => setZoom(parseFloat(e.target.value))}
-                className="flex-1 h-1 accent-emerald-400 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:appearance-none"
+                className="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none"
+                style={{ accentColor: theme.accentColor }}
               />
               <ZoomIn className="w-4 h-4 text-white/40 shrink-0" />
             </div>
@@ -377,7 +382,7 @@ export default function QGamesQueue({
                   onClick={confirmSelfie}
                   disabled={isUploading}
                   className="w-14 h-14 rounded-full flex items-center justify-center text-black transition-all active:scale-95 disabled:opacity-50"
-                  style={{ background: '#10b981', boxShadow: '0 0 20px rgba(16,185,129,0.4)' }}
+                  style={{ background: theme.accentColor, boxShadow: `0 0 20px ${theme.accentColor}66` }}
                 >
                   {isUploading ? (
                     <Loader2 className="w-6 h-6 animate-spin text-white" />
@@ -403,7 +408,7 @@ export default function QGamesQueue({
                 <button
                   onClick={capturePhoto}
                   className="w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-95"
-                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 0 30px rgba(16,185,129,0.4)' }}
+                  style={{ background: `linear-gradient(135deg, ${theme.accentColor}, ${theme.accentColor}cc)`, boxShadow: `0 0 30px ${theme.accentColor}66` }}
                 >
                   <div className="w-12 h-12 rounded-full border-4 border-white" />
                 </button>
@@ -426,7 +431,10 @@ export default function QGamesQueue({
                   value={editedName}
                   onChange={(e) => setEditedName(e.target.value)}
                   maxLength={20}
-                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-center text-sm font-medium outline-none focus:border-emerald-400/60 focus:ring-1 focus:ring-emerald-400/30 w-40"
+                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-center text-sm font-medium outline-none w-40"
+                  style={{ '--focus-color': theme.accentColor } as React.CSSProperties}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = `${theme.accentColor}99`; e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.accentColor}4d`; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.boxShadow = 'none'; }}
                   dir="auto"
                 />
               </div>
@@ -439,9 +447,10 @@ export default function QGamesQueue({
                   onClick={() => handleEmojiSelect(emoji)}
                   className={`w-12 h-12 text-2xl rounded-xl transition-all duration-200 ${
                     !playerAvatar.startsWith('http') && playerAvatar === emoji
-                      ? 'bg-white/20 scale-110 ring-2 ring-emerald-400/60'
+                      ? 'bg-white/20 scale-110 ring-2'
                       : 'bg-white/5 hover:bg-white/10 active:scale-95'
                   }`}
+                  style={!playerAvatar.startsWith('http') && playerAvatar === emoji ? { '--tw-ring-color': `${theme.accentColor}99` } as React.CSSProperties : undefined}
                 >
                   {emoji}
                 </button>
@@ -460,7 +469,7 @@ export default function QGamesQueue({
                   onClick={startCamera}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white/70 text-sm font-medium transition-all active:scale-95 bg-white/5 border border-white/10 hover:bg-white/10"
                 >
-                  <Camera className="w-4 h-4 text-emerald-400" />
+                  <Camera className="w-4 h-4" style={{ color: theme.accentColor }} />
                   <span>{t('takeSelfie')}</span>
                 </button>
               </>
@@ -475,7 +484,8 @@ export default function QGamesQueue({
                 }
                 setShowPicker(false);
               }}
-              className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium transition-all active:scale-95 bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 text-sm"
+              className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium transition-all active:scale-95 text-sm"
+              style={{ backgroundColor: `${theme.accentColor}33`, borderColor: `${theme.accentColor}4d`, border: `1px solid ${theme.accentColor}4d`, color: theme.accentColor }}
             >
               <Check className="w-4 h-4" />
               {isRTL ? 'שמור וסגור' : 'Save & Close'}
@@ -500,8 +510,8 @@ export default function QGamesQueue({
       {!showCamera && !showPicker && (
         <div className="flex items-center gap-4 mb-3 animate-in fade-in duration-500">
           <div className="flex items-center gap-1.5">
-            <div className={`w-2 h-2 rounded-full ${viewerCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`} />
-            <span className={`font-bold text-sm tabular-nums ${viewerCount > 0 ? 'text-emerald-400' : 'text-white/30'}`}>
+            <div className={`w-2 h-2 rounded-full ${viewerCount > 0 ? 'animate-pulse' : 'bg-white/20'}`} style={viewerCount > 0 ? { backgroundColor: theme.accentColor } : undefined} />
+            <span className="font-bold text-sm tabular-nums" style={{ color: viewerCount > 0 ? theme.accentColor : 'rgba(255,255,255,0.3)' }}>
               <AnimatedNumber value={viewerCount} />
             </span>
             <span className="text-white/40 text-xs">{isRTL ? 'מחוברים' : 'online'}</span>
@@ -524,7 +534,7 @@ export default function QGamesQueue({
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
             {/* Player count indicator */}
             <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="text-emerald-400 font-bold text-lg">{readyCount}</span>
+              <span className="font-bold text-lg" style={{ color: theme.accentColor }}>{readyCount}</span>
               <span className="text-white/30 text-lg">/</span>
               <span className="text-white/40 font-bold text-lg">{totalNeeded}</span>
               <span className="text-white/40 text-sm ms-1">{t('playersReady')}</span>
@@ -534,12 +544,12 @@ export default function QGamesQueue({
             <div className="flex items-center justify-center gap-3">
               {/* Me (always slot 1) */}
               <div className="flex flex-col items-center gap-1">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl ring-2 ring-emerald-400/40 overflow-hidden">
+                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl ring-2 overflow-hidden" style={{ '--tw-ring-color': `${theme.accentColor}66` } as React.CSSProperties}>
                   {playerAvatar.startsWith('http') ? (
                     <img src={playerAvatar} alt="" className="w-full h-full object-cover" />
                   ) : playerAvatar}
                 </div>
-                <span className="text-emerald-400 text-[10px] font-medium">{t('you')}</span>
+                <span className="text-[10px] font-medium" style={{ color: theme.accentColor }}>{t('you')}</span>
               </div>
 
               {/* Waiting peers */}

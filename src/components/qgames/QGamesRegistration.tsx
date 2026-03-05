@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { User, Camera, X, Check, RotateCcw, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import { QGamesConfig, DEFAULT_QGAMES_EMOJI_PALETTE } from '@/types/qgames';
+import { useQGamesTheme } from './QGamesThemeContext';
 import { compressImage } from '@/lib/imageCompression';
 
 interface QGamesRegistrationProps {
@@ -12,7 +13,6 @@ interface QGamesRegistrationProps {
   codeId: string;
   isRTL: boolean;
   t: (key: string) => string;
-  // Pre-fill when editing existing profile
   initialNickname?: string;
   initialAvatarType?: 'emoji' | 'selfie';
   initialAvatarValue?: string;
@@ -29,21 +29,21 @@ export default function QGamesRegistration({
   initialAvatarType,
   initialAvatarValue,
 }: QGamesRegistrationProps) {
+  const theme = useQGamesTheme();
   const emojiPalette = config.emojiPalette?.length
     ? config.emojiPalette
     : DEFAULT_QGAMES_EMOJI_PALETTE;
 
+  const gameName = config.branding.title || 'Q.Games';
+
   const [nickname, setNickname] = useState(initialNickname || '');
   const [selectedEmoji, setSelectedEmoji] = useState(() => {
-    // If editing and had an emoji, use it
     if (initialAvatarType === 'emoji' && initialAvatarValue) return initialAvatarValue;
-    // Random emoji for new players
     return emojiPalette[Math.floor(Math.random() * emojiPalette.length)];
   });
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Selfie state
   const [avatarMode, setAvatarMode] = useState<'emoji' | 'selfie'>(initialAvatarType || 'emoji');
   const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -55,12 +55,10 @@ export default function QGamesRegistration({
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Zoom state
   const [zoom, setZoom] = useState(1);
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef(1);
 
-  // Start camera
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -75,7 +73,6 @@ export default function QGamesRegistration({
     }
   }, [isRTL]);
 
-  // Connect stream to video element after it renders
   useEffect(() => {
     if (showCamera && streamRef.current && videoRef.current) {
       videoRef.current.srcObject = streamRef.current;
@@ -83,7 +80,6 @@ export default function QGamesRegistration({
     }
   }, [showCamera]);
 
-  // Pinch-to-zoom handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -108,7 +104,6 @@ export default function QGamesRegistration({
     pinchStartDist.current = null;
   }, []);
 
-  // Stop camera
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -119,16 +114,13 @@ export default function QGamesRegistration({
     setZoom(1);
   }, []);
 
-  // Capture photo — respects zoom level
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
-
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Crop a smaller region when zoomed (center crop)
     const fullSize = Math.min(video.videoWidth, video.videoHeight);
     const cropSize = fullSize / zoom;
     const x = (video.videoWidth - cropSize) / 2;
@@ -137,30 +129,18 @@ export default function QGamesRegistration({
     canvas.width = 200;
     canvas.height = 200;
     ctx.drawImage(video, x, y, cropSize, cropSize, 0, 0, 200, 200);
-
-    const imageData = canvas.toDataURL('image/webp', 0.8);
-    setCapturedImage(imageData);
+    setCapturedImage(canvas.toDataURL('image/webp', 0.8));
   }, [zoom]);
 
-  // Confirm selfie - compress + upload to Vercel Blob
   const confirmSelfie = useCallback(async () => {
     if (!capturedImage) return;
-
     setIsUploading(true);
     try {
-      // Convert data URL to blob for compression
       const response = await fetch(capturedImage);
       const blob = await response.blob();
       const file = new File([blob], 'selfie.webp', { type: 'image/webp' });
+      const compressed = await compressImage(file, { maxSizeKB: 50, maxWidth: 200, maxHeight: 200 });
 
-      // Compress to 50KB max
-      const compressed = await compressImage(file, {
-        maxSizeKB: 50,
-        maxWidth: 200,
-        maxHeight: 200,
-      });
-
-      // Upload to Vercel Blob
       const formData = new FormData();
       formData.append('file', new File([compressed.blob], 'selfie.webp', { type: compressed.blob.type }));
       formData.append('userId', ownerId);
@@ -168,15 +148,9 @@ export default function QGamesRegistration({
       formData.append('folder', 'avatars');
       formData.append('convertToWebp', 'true');
 
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
       const uploadData = await uploadRes.json();
-      if (!uploadRes.ok || !uploadData.url) {
-        throw new Error(uploadData.error || 'Upload failed');
-      }
+      if (!uploadRes.ok || !uploadData.url) throw new Error(uploadData.error || 'Upload failed');
 
       setSelfieUrl(uploadData.url);
       setAvatarMode('selfie');
@@ -191,14 +165,9 @@ export default function QGamesRegistration({
 
   const handleSubmit = async () => {
     const trimmed = nickname.trim();
-    if (trimmed.length < 2) {
-      setError(t('nicknameMinLength'));
-      return;
-    }
-
+    if (trimmed.length < 2) { setError(t('nicknameMinLength')); return; }
     setIsRegistering(true);
     setError(null);
-
     try {
       if (avatarMode === 'selfie' && selfieUrl) {
         await onRegister(trimmed, 'selfie', selfieUrl);
@@ -218,162 +187,111 @@ export default function QGamesRegistration({
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center p-6"
-      dir={isRTL ? 'rtl' : 'ltr'}
-    >
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Title */}
       <div className="text-center mb-4">
-        <h1 className="text-2xl font-bold text-white mb-0.5">🎮 Q.Games</h1>
-        <p className="text-white/50 text-sm">{t('joinToPlay')}</p>
+        <h1 className="text-2xl font-bold mb-0.5" style={{ color: theme.textColor }}>🎮 {gameName}</h1>
+        <p className="text-sm" style={{ color: theme.textSecondary }}>{t('joinToPlay')}</p>
       </div>
 
-      {/* Camera View — circular WYSIWYG */}
+      {/* Camera View */}
       {showCamera ? (
         <div className="w-full max-w-xs mb-6 flex flex-col items-center">
-          {/* Circular viewfinder */}
           <div
-            className="relative w-52 h-52 rounded-full overflow-hidden mb-4 bg-black/50 ring-2 ring-emerald-400/30"
+            className="relative w-52 h-52 rounded-full overflow-hidden mb-4"
+            style={{ backgroundColor: theme.surfaceColor, boxShadow: `0 0 0 2px ${theme.accentColor}4d` }}
             onTouchStart={!capturedImage ? handleTouchStart : undefined}
             onTouchMove={!capturedImage ? handleTouchMove : undefined}
             onTouchEnd={!capturedImage ? handleTouchEnd : undefined}
           >
             {capturedImage ? (
-              <img
-                src={capturedImage}
-                alt="Selfie preview"
-                className="w-full h-full object-cover"
-              />
+              <img src={capturedImage} alt="Selfie preview" className="w-full h-full object-cover" />
             ) : (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-                style={{ transform: `scaleX(-1) scale(${zoom})` }}
-              />
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: `scaleX(-1) scale(${zoom})` }} />
             )}
           </div>
 
-          {/* Zoom slider — only when live camera */}
           {!capturedImage && (
             <div className="flex items-center gap-3 mb-4 w-48">
-              <ZoomOut className="w-4 h-4 text-white/40 shrink-0" />
-              <input
-                type="range"
-                min="1"
-                max="3"
-                step="0.1"
-                value={zoom}
-                onChange={(e) => setZoom(parseFloat(e.target.value))}
-                className="flex-1 h-1 accent-emerald-400 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:appearance-none"
+              <ZoomOut className="w-4 h-4 shrink-0" style={{ color: theme.textSecondary }} />
+              <input type="range" min="1" max="3" step="0.1" value={zoom} onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="flex-1 h-1 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none"
+                style={{ background: theme.surfaceHover, accentColor: theme.accentColor }}
               />
-              <ZoomIn className="w-4 h-4 text-white/40 shrink-0" />
+              <ZoomIn className="w-4 h-4 shrink-0" style={{ color: theme.textSecondary }} />
             </div>
           )}
 
-          {/* Camera controls */}
           <div className="flex justify-center gap-4">
             {capturedImage ? (
               <>
-                <button
-                  onClick={() => setCapturedImage(null)}
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-95 bg-white/10"
-                >
+                <button onClick={() => setCapturedImage(null)} className="w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-95" style={{ backgroundColor: theme.surfaceColor, color: theme.textColor }}>
                   <RotateCcw className="w-6 h-6" />
                 </button>
-                <button
-                  onClick={confirmSelfie}
-                  disabled={isUploading}
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-black transition-all active:scale-95 disabled:opacity-50"
-                  style={{ background: '#10b981', boxShadow: '0 0 20px rgba(16,185,129,0.4)' }}
-                >
-                  {isUploading ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-white" />
-                  ) : (
-                    <Check className="w-7 h-7" />
-                  )}
+                <button onClick={confirmSelfie} disabled={isUploading} className="w-14 h-14 rounded-full flex items-center justify-center text-black transition-all active:scale-95 disabled:opacity-50" style={{ background: theme.accentColor, boxShadow: `0 0 20px ${theme.accentColor}66` }}>
+                  {isUploading ? <Loader2 className="w-6 h-6 animate-spin text-white" /> : <Check className="w-7 h-7" />}
                 </button>
-                <button
-                  onClick={stopCamera}
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-95 bg-white/10"
-                >
+                <button onClick={stopCamera} className="w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-95" style={{ backgroundColor: theme.surfaceColor, color: theme.textColor }}>
                   <X className="w-6 h-6" />
                 </button>
               </>
             ) : (
               <>
-                <button
-                  onClick={stopCamera}
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-white transition-all active:scale-95 bg-white/10"
-                >
+                <button onClick={stopCamera} className="w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-95" style={{ backgroundColor: theme.surfaceColor, color: theme.textColor }}>
                   <X className="w-6 h-6" />
                 </button>
-                <button
-                  onClick={capturePhoto}
-                  className="w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-95"
-                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 0 30px rgba(16,185,129,0.4)' }}
-                >
+                <button onClick={capturePhoto} className="w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-95" style={{ background: `linear-gradient(135deg, ${theme.accentColor}, ${theme.accentColor}cc)`, boxShadow: `0 0 30px ${theme.accentColor}66` }}>
                   <div className="w-12 h-12 rounded-full border-4 border-white" />
                 </button>
               </>
             )}
           </div>
-
           <canvas ref={canvasRef} className="hidden" />
         </div>
       ) : (
         <>
           {/* Selected Avatar Preview */}
-          <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center text-4xl mb-3 ring-2 ring-white/10 overflow-hidden mx-auto">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-3 overflow-hidden mx-auto" style={{ backgroundColor: theme.surfaceColor, boxShadow: `0 0 0 2px ${theme.borderColor}` }}>
             {avatarMode === 'selfie' && selfieUrl ? (
               <img src={selfieUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              selectedEmoji
-            )}
+            ) : selectedEmoji}
           </div>
 
-          {/* Avatar Selection — horizontal scroll */}
+          {/* Avatar Selection */}
           <div className="w-full max-w-sm mb-3">
-            <p className="text-white/60 text-xs text-center mb-2 uppercase tracking-wider">
-              {t('chooseAvatar')}
-            </p>
+            <p className="text-xs text-center mb-2 uppercase tracking-wider" style={{ color: theme.textSecondary }}>{t('chooseAvatar')}</p>
             <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide">
               {emojiPalette.slice(0, 12).map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => handleSelectEmoji(emoji)}
-                  className={`w-11 h-11 text-xl rounded-xl transition-all duration-200 shrink-0 ${
-                    avatarMode === 'emoji' && selectedEmoji === emoji
-                      ? 'bg-white/20 scale-110 ring-2 ring-emerald-400/60 shadow-lg shadow-emerald-500/20'
-                      : 'bg-white/5 hover:bg-white/10 active:scale-95'
-                  }`}
+                <button key={emoji} onClick={() => handleSelectEmoji(emoji)}
+                  className="w-11 h-11 text-xl rounded-xl transition-all duration-200 shrink-0"
+                  style={{
+                    backgroundColor: avatarMode === 'emoji' && selectedEmoji === emoji ? theme.surfaceHover : theme.surfaceColor,
+                    boxShadow: avatarMode === 'emoji' && selectedEmoji === emoji ? `0 0 0 2px ${theme.accentColor}99, 0 4px 12px ${theme.accentColor}33` : 'none',
+                    transform: avatarMode === 'emoji' && selectedEmoji === emoji ? 'scale(1.1)' : 'scale(1)',
+                  }}
                 >
                   {emoji}
                 </button>
               ))}
             </div>
 
-            {/* Selfie button — separate & prominent */}
             {config.allowSelfie && (
-              <button
-                onClick={startCamera}
-                className={`w-full flex items-center justify-center gap-2 mt-3 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95 border ${
-                  avatarMode === 'selfie' && selfieUrl
-                    ? 'bg-emerald-500/10 border-emerald-400/30'
-                    : 'bg-white/5 border-white/10 hover:bg-white/10'
-                }`}
+              <button onClick={startCamera}
+                className="w-full flex items-center justify-center gap-2 mt-3 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-95"
+                style={{
+                  backgroundColor: avatarMode === 'selfie' && selfieUrl ? `${theme.accentColor}1a` : theme.surfaceColor,
+                  border: `1px solid ${avatarMode === 'selfie' && selfieUrl ? `${theme.accentColor}4d` : theme.borderColor}`,
+                }}
               >
                 {avatarMode === 'selfie' && selfieUrl ? (
                   <>
                     <img src={selfieUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
-                    <span className="text-emerald-400">{isRTL ? 'צלמו שוב' : 'Retake selfie'}</span>
+                    <span style={{ color: theme.accentColor }}>{isRTL ? 'צלמו שוב' : 'Retake selfie'}</span>
                   </>
                 ) : (
                   <>
-                    <Camera className="w-4 h-4 text-emerald-400" />
-                    <span className="text-white/70">{isRTL ? 'או צלמו סלפי' : 'or take a selfie'}</span>
+                    <Camera className="w-4 h-4" style={{ color: theme.accentColor }} />
+                    <span style={{ color: theme.textSecondary }}>{isRTL ? 'או צלמו סלפי' : 'or take a selfie'}</span>
                   </>
                 )}
               </button>
@@ -387,44 +305,30 @@ export default function QGamesRegistration({
         <>
           <div className="w-full max-w-sm mb-3">
             <div className="relative">
-              <User className="absolute top-1/2 -translate-y-1/2 text-white/30 w-4 h-4" style={{ [isRTL ? 'right' : 'left']: 12 }} />
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+              <User className="absolute top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: theme.textSecondary, [isRTL ? 'right' : 'left']: 12 }} />
+              <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !isRegistering && handleSubmit()}
-                placeholder={t('enterNickname')}
-                maxLength={20}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 text-white placeholder-white/30 text-center focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-transparent transition-all"
-                style={{ paddingLeft: 40, paddingRight: 40 }}
-                dir="auto"
+                placeholder={t('enterNickname')} maxLength={20} dir="auto"
+                className="w-full rounded-xl py-3 text-center focus:outline-none transition-all"
+                style={{ backgroundColor: theme.surfaceColor, border: `1px solid ${theme.borderColor}`, color: theme.textColor, paddingLeft: 40, paddingRight: 40 }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = `${theme.accentColor}80`; e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.accentColor}33`; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = theme.borderColor; e.currentTarget.style.boxShadow = 'none'; }}
               />
             </div>
           </div>
 
-          {/* Error */}
-          {error && (
-            <p className="text-red-400 text-sm mb-2 text-center">{error}</p>
-          )}
+          {error && <p className="text-red-400 text-sm mb-2 text-center">{error}</p>}
 
-          {/* Submit */}
-          <button
-            onClick={handleSubmit}
-            disabled={isRegistering || nickname.trim().length < 2}
-            className="w-full max-w-sm py-3 rounded-xl font-bold text-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              color: 'white',
-            }}
+          <button onClick={handleSubmit} disabled={isRegistering || nickname.trim().length < 2}
+            className="w-full max-w-sm py-3 rounded-xl font-bold text-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed text-white"
+            style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
           >
             {isRegistering ? (
               <span className="inline-flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 {t('registering')}
               </span>
-            ) : (
-              t('letsPlay')
-            )}
+            ) : t('letsPlay')}
           </button>
         </>
       )}

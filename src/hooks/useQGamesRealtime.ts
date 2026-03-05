@@ -3,7 +3,7 @@
  * Provides subscriptions for match state, queue, leaderboard, stats
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   QGamesStats,
   QGamesLeaderboardEntry,
@@ -14,6 +14,8 @@ import {
   RTDBRPSState,
   RTDBTTTState,
   RTDBOOOState,
+  RTDBMemoryState,
+  RTDBMemoryPlayer,
 } from '@/types/qgames';
 import {
   subscribeToQGamesStats,
@@ -24,6 +26,8 @@ import {
   subscribeToRPSState,
   subscribeToTTTState,
   subscribeToOOOState,
+  subscribeToMemoryRoom,
+  subscribeToMemoryPlayers,
   setupMatchPresence,
   subscribeToMatchPresence,
   setupViewerPresence,
@@ -162,6 +166,7 @@ interface WaitingOpponentInfo {
   nickname: string;
   avatarType: QGamesAvatarType;
   avatarValue: string;
+  isInvitedByMe: boolean;
 }
 
 /**
@@ -190,12 +195,16 @@ export function useQueueWatcher(
           && e.id !== visitorId
           && !e.inBotMatch
       );
-      setWaitingOpponents(opponents.map(o => ({
+      const mapped = opponents.map(o => ({
         id: o.id,
         nickname: o.nickname,
         avatarType: o.avatarType,
         avatarValue: o.avatarValue,
-      })));
+        isInvitedByMe: o.preferredOpponentId === visitorId,
+      }));
+      // Sort invited players first (they have priority)
+      mapped.sort((a, b) => (a.isInvitedByMe === b.isInvitedByMe ? 0 : a.isInvitedByMe ? -1 : 1));
+      setWaitingOpponents(mapped);
     });
 
     return () => unsubscribe();
@@ -475,6 +484,72 @@ export function useViewerPresence(
   return { viewerCount, activeMatches, matchesPerGame };
 }
 
+// ============ MEMORY ROOM HOOK ============
+
+interface UseMemoryRoomResult {
+  room: RTDBMemoryState | null;
+  loading: boolean;
+}
+
+export function useMemoryRoom(
+  codeId: string | null,
+  roomId: string | null
+): UseMemoryRoomResult {
+  const [room, setRoom] = useState<RTDBMemoryState | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!codeId || !roomId) {
+      setRoom(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeToMemoryRoom(codeId, roomId, (data) => {
+      setRoom(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [codeId, roomId]);
+
+  return { room, loading };
+}
+
+// ============ MEMORY PLAYERS HOOK ============
+
+interface UseMemoryPlayersResult {
+  players: Record<string, RTDBMemoryPlayer>;
+  loading: boolean;
+}
+
+export function useMemoryPlayers(
+  codeId: string | null,
+  roomId: string | null
+): UseMemoryPlayersResult {
+  const [players, setPlayers] = useState<Record<string, RTDBMemoryPlayer>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!codeId || !roomId) {
+      setPlayers({});
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeToMemoryPlayers(codeId, roomId, (data) => {
+      setPlayers(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [codeId, roomId]);
+
+  return { players, loading };
+}
+
 // ============ COUNTDOWN TIMER HOOK ============
 
 interface UseCountdownResult {
@@ -597,5 +672,5 @@ export function useQGamesSounds(enabled: boolean): UseQGamesSoundsResult {
   const playCountdown = useCallback(() => playTone(440, 0.1, 'square', 0.15), [playTone]);
   const playReveal = useCallback(() => playTone(880, 0.2, 'sine', 0.25), [playTone]);
 
-  return { playSelect, playWinRound, playLoseRound, playWinMatch, playLoseMatch, playCountdown, playReveal };
+  return useMemo(() => ({ playSelect, playWinRound, playLoseRound, playWinMatch, playLoseMatch, playCountdown, playReveal }), [playSelect, playWinRound, playLoseRound, playWinMatch, playLoseMatch, playCountdown, playReveal]);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQGamesTheme } from './QGamesThemeContext';
 
 interface QGamesVSScreenProps {
   player1Nickname: string;
@@ -49,6 +50,7 @@ export default function QGamesVSScreen({
   player3Avatar,
   onCountdownComplete,
 }: QGamesVSScreenProps) {
+  const theme = useQGamesTheme();
   const [countdown, setCountdown] = useState(3);
   const [showVS, setShowVS] = useState(false);
   const is3Player = !!player3Nickname;
@@ -80,8 +82,8 @@ export default function QGamesVSScreen({
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Radial background glow */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/30 via-transparent to-emerald-900/30" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-purple-500/10 rounded-full blur-[80px]" />
+      <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${theme.primaryColor}4d, transparent, ${theme.accentColor}4d)` }} />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full blur-[80px]" style={{ backgroundColor: `${theme.primaryColor}1a` }} />
 
       <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-sm">
         {/* Player 1 */}
@@ -97,7 +99,7 @@ export default function QGamesVSScreen({
         <div className={`transition-all duration-700 ease-out ${showVS ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
           <span
             className="text-6xl font-black tracking-tighter bg-gradient-to-b from-white via-white/90 to-white/60 bg-clip-text text-transparent"
-            style={{ textShadow: '0 0 40px rgba(139, 92, 246, 0.6), 0 0 80px rgba(139, 92, 246, 0.3)' }}
+            style={{ textShadow: `0 0 40px ${theme.primaryColor}99, 0 0 80px ${theme.primaryColor}4d` }}
           >
             VS
           </span>
@@ -131,7 +133,7 @@ export default function QGamesVSScreen({
             <div
               key={countdown}
               className="text-8xl font-black text-white animate-in zoom-in duration-300"
-              style={{ textShadow: '0 0 50px rgba(16, 185, 129, 0.7), 0 0 100px rgba(16, 185, 129, 0.3)' }}
+              style={{ textShadow: `0 0 50px ${theme.accentColor}b3, 0 0 100px ${theme.accentColor}4d` }}
             >
               {countdown}
             </div>
@@ -141,8 +143,8 @@ export default function QGamesVSScreen({
         {countdown === 0 && (
           <div className="mt-4 animate-in zoom-in duration-200">
             <span
-              className="text-4xl font-black text-emerald-400"
-              style={{ textShadow: '0 0 40px rgba(16, 185, 129, 0.7), 0 0 80px rgba(16, 185, 129, 0.3)' }}
+              className="text-4xl font-black"
+              style={{ color: theme.accentColor, textShadow: `0 0 40px ${theme.accentColor}b3, 0 0 80px ${theme.accentColor}4d` }}
             >
               GO!
             </span>

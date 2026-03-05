@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.20';
+export const APP_VERSION = '1.13.21';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,37 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.13.21',
+    date: '2026-03-05',
+    isNew: true,
+    highlights: {
+      he: [
+        'חדש: משחק איקס עיגול (Tic Tac Toe) — 2 שחקנים',
+        'חדש: משחק זיכרון (Memory) — 2-6 שחקנים',
+        'חדש: מערכת נושאים (Themes) עם צבעים מותאמים אישית',
+        'חדש: תצוגת מסך רחב (Widescreen) לתצוגה על מסכים גדולים',
+        'חדש: תצוגת תצוגה מקדימה לטלפון בממשק הניהול',
+        'שיפור: אנימציות אימוג׳י ייחודיות לכל משחק בבחירת משחק',
+        'שיפור: תגית מספר שחקנים לכל משחק (2/3/2-6 שחקנים)',
+        'שיפור: טבלת מובילים עם סינון לפי כל סוגי המשחקים + ניקוד לפי משחק',
+        'שיפור: ממשק ניהול Q.Games מחודש עם תצוגה מקדימה',
+      ],
+      en: [
+        'New: Tic Tac Toe game — 2 players',
+        'New: Memory game — 2-6 players',
+        'New: Theme system with custom branding colors',
+        'New: Widescreen display mode for large screens',
+        'New: Phone preview in Q.Games admin modal',
+        'Improvement: Unique animated emojis per game in selector',
+        'Improvement: Player count badge per game (2/3/2-6 players)',
+        'Improvement: Leaderboard filtering for all game types + per-game scoring',
+        'Improvement: Redesigned Q.Games admin modal with live preview',
+      ],
+    },
+  },
+  {
     version: '1.13.20',
     date: '2026-03-04',
-    isNew: true,
     highlights: {
       he: [
         'חדש: משחק "משלוש יוצא אחד" — 3 שחקנים, כף או אגרוף, מי שונה מקבל ✗',

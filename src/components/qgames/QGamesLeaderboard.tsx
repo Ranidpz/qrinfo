@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, Share2, X } from 'lucide-react';
 import { QGamesLeaderboardEntry, QGameType } from '@/types/qgames';
+import { useQGamesTheme } from './QGamesThemeContext';
 
 /** Animate a number from 0 to target over duration ms */
 function useCountUp(target: number, duration = 800, active = true) {
@@ -25,7 +26,7 @@ function useCountUp(target: number, duration = 800, active = true) {
   return value;
 }
 
-type GameFilter = 'all' | 'rps' | 'oddoneout';
+type GameFilter = 'all' | 'rps' | 'oddoneout' | 'tictactoe' | 'memory';
 type SortMode = 'score' | 'winrate';
 
 const MIN_GAMES_FOR_WINRATE = 3;
@@ -46,14 +47,29 @@ function getGameStats(entry: QGamesLeaderboardEntry, filter: GameFilter) {
   if (filter === 'rps') {
     const played = entry.rpsPlayed ?? 0;
     const wins = entry.rpsWins ?? 0;
-    // OOO has no draws, so: rpsScore = totalScore - oddoneoutWins * 3
+    // Subtract other games' approximate scores (wins*3) from total
     const oooScore = (entry.oddoneoutWins ?? 0) * 3;
-    const score = Math.max(0, entry.score - oooScore);
+    const tttScore = (entry.tictactoeWins ?? 0) * 3;
+    const score = Math.max(0, entry.score - oooScore - tttScore);
     return { played, wins, score };
   }
   if (filter === 'oddoneout') {
     const played = entry.oddoneoutPlayed ?? 0;
     const wins = entry.oddoneoutWins ?? 0;
+    return { played, wins, score: wins * 3 };
+  }
+  if (filter === 'tictactoe') {
+    const played = entry.tictactoePlayed ?? 0;
+    const wins = entry.tictactoeWins ?? 0;
+    // Subtract other games' approximate scores from total
+    const oooScore = (entry.oddoneoutWins ?? 0) * 3;
+    const rpsScore = (entry.rpsWins ?? 0) * 3;
+    const score = Math.max(0, entry.score - oooScore - rpsScore);
+    return { played, wins, score };
+  }
+  if (filter === 'memory') {
+    const played = entry.memoryPlayed ?? 0;
+    const wins = entry.memoryWins ?? 0;
     return { played, wins, score: wins * 3 };
   }
   return { played: entry.gamesPlayed, wins: entry.wins, score: entry.score };
@@ -69,6 +85,7 @@ export default function QGamesLeaderboard({
   t,
   compact = false,
 }: QGamesLeaderboardProps) {
+  const theme = useQGamesTheme();
   const rankMedals = ['🥇', '🥈', '🥉'];
   const [selectedPlayer, setSelectedPlayer] = useState<QGamesLeaderboardEntry | null>(null);
   const [gameFilter, setGameFilter] = useState<GameFilter>('all');
@@ -84,6 +101,12 @@ export default function QGamesLeaderboard({
     }
     if (!enabledGames || enabledGames.includes('oddoneout')) {
       tabs.push({ key: 'oddoneout', label: t('oddoneout') });
+    }
+    if (!enabledGames || enabledGames.includes('tictactoe')) {
+      tabs.push({ key: 'tictactoe', label: t('tictactoe') });
+    }
+    if (!enabledGames || enabledGames.includes('memory')) {
+      tabs.push({ key: 'memory', label: t('memory') });
     }
     return tabs;
   }, [enabledGames, t]);
@@ -156,11 +179,12 @@ export default function QGamesLeaderboard({
               <ArrowLeft className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
             </button>
           )}
-          <h2 className="text-white font-bold text-xl flex-1">🏆 {t('leaderboard')}</h2>
+          <h2 className="font-bold text-xl flex-1" style={{ color: theme.textColor }}>🏆 {t('leaderboard')}</h2>
           {shortId && (
             <button
               onClick={handleShareWhatsApp}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-sm font-medium hover:bg-emerald-500/25 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              style={{ backgroundColor: `${theme.accentColor}26`, color: theme.accentColor }}
             >
               <Share2 className="w-4 h-4" />
               {t('share')}
@@ -193,21 +217,19 @@ export default function QGamesLeaderboard({
         <div className="flex gap-1 mb-3">
           <button
             onClick={() => setSortMode('score')}
-            className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-              sortMode === 'score'
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'text-white/30 hover:text-white/50'
-            }`}
+            className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all"
+            style={sortMode === 'score'
+              ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor }
+              : { color: 'rgba(255,255,255,0.3)' }}
           >
             {t('byScore')}
           </button>
           <button
             onClick={() => setSortMode('winrate')}
-            className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-              sortMode === 'winrate'
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'text-white/30 hover:text-white/50'
-            }`}
+            className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all"
+            style={sortMode === 'winrate'
+              ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor }
+              : { color: 'rgba(255,255,255,0.3)' }}
           >
             % {t('byWinRate')}
           </button>
@@ -234,11 +256,15 @@ export default function QGamesLeaderboard({
               onClick={() => setSelectedPlayer(entry)}
               className={`flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors cursor-pointer ${
                 isMe
-                  ? 'bg-emerald-500/10 ring-1 ring-emerald-400/30'
+                  ? 'ring-1'
                   : belowMinGames
                     ? 'bg-white/[0.01] opacity-50'
                     : 'bg-white/[0.02] hover:bg-white/[0.04]'
               }`}
+              style={isMe ? {
+                backgroundColor: `${theme.accentColor}1a`,
+                '--tw-ring-color': `${theme.accentColor}4d`,
+              } as React.CSSProperties : undefined}
             >
               {/* Rank */}
               <div className="w-8 text-center shrink-0">
@@ -250,9 +276,10 @@ export default function QGamesLeaderboard({
               </div>
 
               {/* Avatar */}
-              <div className={`w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-lg shrink-0 overflow-hidden ${
-                isMe ? 'ring-1 ring-emerald-400/30' : ''
-              }`}>
+              <div
+                className={`w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-lg shrink-0 overflow-hidden ${isMe ? 'ring-1' : ''}`}
+                style={isMe ? { '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties : undefined}
+              >
                 {entry.avatarValue.startsWith('http') ? (
                   <img
                     src={entry.avatarValue}
@@ -265,9 +292,9 @@ export default function QGamesLeaderboard({
 
               {/* Name + Stats */}
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${isMe ? 'text-emerald-400' : 'text-white'}`}>
+                <p className="text-sm font-medium truncate" style={{ color: isMe ? theme.accentColor : 'white' }}>
                   {entry.nickname}
-                  {isMe && <span className="text-emerald-400/60 text-xs ml-1">({t('you')})</span>}
+                  {isMe && <span className="text-xs ml-1" style={{ color: `${theme.accentColor}99` }}>({t('you')})</span>}
                 </p>
                 <p className="text-white/30 text-[10px]">
                   {stats.played} {t('games')} · {stats.wins}{t('winsShort')} · {winRate}%
@@ -279,14 +306,14 @@ export default function QGamesLeaderboard({
                 <div className="text-end">
                   {sortMode === 'winrate' ? (
                     <>
-                      <p className={`font-bold tabular-nums ${isMe ? 'text-emerald-400' : 'text-white'}`}>
+                      <p className="font-bold tabular-nums" style={{ color: isMe ? theme.accentColor : 'white' }}>
                         {winRate}%
                       </p>
                       <p className="text-white/20 text-[10px]">{stats.wins}/{stats.played}</p>
                     </>
                   ) : (
                     <>
-                      <p className={`font-bold tabular-nums ${isMe ? 'text-emerald-400' : 'text-white'}`}>
+                      <p className="font-bold tabular-nums" style={{ color: isMe ? theme.accentColor : 'white' }}>
                         {stats.score}
                       </p>
                       <p className="text-white/20 text-[10px]">{t('pts')}</p>
@@ -367,7 +394,7 @@ function GameStatRow({ label, played, wins, delay, t }: {
     }`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-white/70 text-xs font-medium">{label}</span>
-        <span className="text-emerald-400 text-xs font-bold tabular-nums">{winRate}%</span>
+        <span className="text-xs font-bold tabular-nums" style={{ color: '#10b981' }}>{winRate}%</span>
       </div>
       <div className="flex items-center gap-3 text-white/40 text-[10px]">
         <span>{played} {t('games')}</span>
@@ -391,7 +418,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
     ? Math.round((player.wins / player.gamesPlayed) * 100)
     : 0;
 
-  const hasPerGameStats = (player.rpsPlayed ?? 0) > 0 || (player.oddoneoutPlayed ?? 0) > 0;
+  const hasPerGameStats = (player.rpsPlayed ?? 0) > 0 || (player.oddoneoutPlayed ?? 0) > 0 || (player.tictactoePlayed ?? 0) > 0 || (player.memoryPlayed ?? 0) > 0;
 
   return (
     <div
@@ -430,7 +457,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
             ) : (
               <span className="text-white/40 text-sm">#{player.rank}</span>
             )}
-            <span className="text-emerald-400 font-bold">{player.score} {t('pts')}</span>
+            <span className="font-bold" style={{ color: '#10b981' }}>{player.score} {t('pts')}</span>
           </div>
         </div>
 
@@ -438,7 +465,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
         <div className="grid grid-cols-2 gap-2.5">
           <AnimatedStat value={player.gamesPlayed} label={t('gamesPlayedLabel')} color="text-white" bg="bg-white/5" delay={0} />
           <AnimatedStat value={winRate} suffix="%" label={t('winRate')} color="text-white" bg="bg-white/5" delay={80} />
-          <AnimatedStat value={player.wins} label={t('winsLabel')} color="text-emerald-400" bg="bg-emerald-500/10" delay={160} />
+          <AnimatedStat value={player.wins} label={t('winsLabel')} color="text-green-400" bg="bg-green-500/10" delay={160} />
           <AnimatedStat value={player.losses} label={t('lossesLabel')} color="text-red-400" bg="bg-red-500/10" delay={240} />
         </div>
 
@@ -447,6 +474,8 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
           <div className="mt-3 space-y-1.5">
             <GameStatRow label={t('rps')} played={player.rpsPlayed ?? 0} wins={player.rpsWins ?? 0} delay={320} t={t} />
             <GameStatRow label={t('oddoneout')} played={player.oddoneoutPlayed ?? 0} wins={player.oddoneoutWins ?? 0} delay={400} t={t} />
+            <GameStatRow label={t('tictactoe')} played={player.tictactoePlayed ?? 0} wins={player.tictactoeWins ?? 0} delay={480} t={t} />
+            <GameStatRow label={t('memory')} played={player.memoryPlayed ?? 0} wins={player.memoryWins ?? 0} delay={560} t={t} />
           </div>
         )}
 

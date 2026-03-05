@@ -127,6 +127,12 @@ export async function POST(request: Request) {
         gamesPlayed: updatedWinner.totalGamesPlayed,
         rank: 0,
         lastPlayedAt: updatedWinner.lastPlayedAt,
+        rpsPlayed: updatedWinner.rpsPlayed || 0,
+        rpsWins: updatedWinner.rpsWins || 0,
+        oddoneoutPlayed: updatedWinner.oddoneoutPlayed || 0,
+        oddoneoutWins: updatedWinner.oddoneoutWins || 0,
+        tictactoePlayed: updatedWinner.tictactoePlayed || 0,
+        tictactoeWins: updatedWinner.tictactoeWins || 0,
       };
       await updateLeaderboardEntry(codeId, entry);
       await recalculateLeaderboardRanks(codeId);

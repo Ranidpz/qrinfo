@@ -93,6 +93,22 @@ export function isTTTDraw(board: (TTTCell)[]): boolean {
   return board.every(cell => cell !== null) && checkTTTWinner(board) === null;
 }
 
+/** Get the winning line indices, or null */
+export function getWinLine(board: (TTTCell)[]): number[] | null {
+  for (const line of TTT_WIN_LINES) {
+    const [a, b, c] = line;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return [a, b, c];
+    }
+  }
+  return null;
+}
+
+/** Parse board string to TTTCell array */
+export function parseTTTBoard(board: string): (TTTCell)[] {
+  return board.split('').map(c => c === '_' ? null : c as TTTCell);
+}
+
 // =============================================================
 // OOO Game Logic (משלוש יוצא אחד - Odd One Out)
 // =============================================================
@@ -181,6 +197,17 @@ export interface QGamesMatch {
   winnerIds?: string[];            // OOO: the 2 surviving players
   loserId?: string | null;         // OOO: the eliminated player
 
+  // Memory game: all player results (2-6 players)
+  memoryResults?: {
+    id: string;
+    nickname: string;
+    avatarType: QGamesAvatarType;
+    avatarValue: string;
+    score: number;
+    strikes: number;
+    eliminated: boolean;
+  }[];
+
   status: MatchStatus;
   startedAt: number;
   finishedAt?: number;
@@ -200,6 +227,7 @@ export interface QGamesQueueEntry {
   status: QueueStatus;
   matchId: string | null;
   inBotMatch?: boolean;           // true = player is in bot match, invisible to matchmaking
+  preferredOpponentId?: string;   // who invited this player (from ?invite= URL param)
 }
 
 // =============================================================
@@ -259,20 +287,68 @@ export interface RTDBTTTState {
   currentTurn: string;            // player1Id or player2Id
   xPlayerId: string;
   oPlayerId: string;
-  winner: string | null;          // playerId or null
+  winner: string | null;          // round winner playerId or null
   isDraw: boolean;
   moveCount: number;
+  // Multi-round match fields
+  currentRound: number;
+  player1Score: number;
+  player2Score: number;
+  firstTo: number;                // first to N round wins
+  timerStartedAt: number;         // when current turn timer started
+  timerDuration: number;          // seconds per turn
+  winLine: number[] | null;       // winning line indices [0,1,2] or null
+  roundFinished: boolean;         // true when round has a winner or draw
 }
 
-/** Memory match state (Phase 2) */
+// =============================================================
+// Memory Game (זיכרון) - Emoji sequence memory challenge
+// =============================================================
+
+/** Memory room status */
+export type MemoryRoomStatus = 'lobby' | 'playing' | 'finished';
+
+/** Memory game phase (within a round) */
+export type MemoryPhase = 'countdown' | 'memorize' | 'recall' | 'results';
+
+/** Memory player in RTDB */
+export interface RTDBMemoryPlayer {
+  nickname: string;
+  avatarType: QGamesAvatarType;
+  avatarValue: string;
+  score: number;
+  strikes: number;
+  eliminated: boolean;
+  joinedAt: number;
+  roundResult: {
+    selections: string[];
+    correctCount: number;
+    failed: boolean;
+    submittedAt: number;
+  } | null;
+}
+
+/** Memory room state in RTDB */
 export interface RTDBMemoryState {
-  cards: string[];                // Shuffled card values (face-down)
-  revealed: number[];             // Currently flipped card indices
-  matched: number[];              // Matched card indices
-  currentTurn: string;            // playerId
-  player1Pairs: number;
-  player2Pairs: number;
-  totalPairs: number;
+  hostId: string;
+  status: MemoryRoomStatus;
+  maxStrikes: number;
+  maxPlayers: number;
+  createdAt: number;
+
+  // Current round data (set by host each round)
+  currentRound: number;
+  difficulty: number;               // emojis to remember (3, 4, 5)
+  targetEmojis: string[];           // ordered sequence to remember
+  options: string[];                // 9 shuffled emoji options
+  phase: MemoryPhase;
+  phaseStartedAt: number;           // timestamp for timer sync
+  countdownDuration: number;        // ms (default 3000)
+  memorizeDuration: number;         // ms (default 3000)
+  recallDuration: number;           // ms (default 10000)
+
+  // Players (dynamic, keyed by visitorId)
+  players: Record<string, RTDBMemoryPlayer>;
 }
 
 /** OOO round state in RTDB */
@@ -320,6 +396,10 @@ export interface QGamesLeaderboardEntry {
   rpsWins?: number;
   oddoneoutPlayed?: number;
   oddoneoutWins?: number;
+  tictactoePlayed?: number;
+  tictactoeWins?: number;
+  memoryPlayed?: number;
+  memoryWins?: number;
 }
 
 // =============================================================
@@ -334,9 +414,108 @@ export interface QGamesStats {
 }
 
 // =============================================================
+// Themes
+// =============================================================
+
+/** Predefined theme identifiers */
+export type QGamesThemeId = 'dark-gaming' | 'light-clean' | 'kids-colorful' | 'corporate';
+
+/** Full theme color palette */
+export interface QGamesTheme {
+  id: QGamesThemeId;
+  nameHe: string;
+  nameEn: string;
+  emoji: string;
+  backgroundColor: string;
+  primaryColor: string;
+  accentColor: string;
+  textColor: string;
+  textSecondary: string;
+  surfaceColor: string;
+  surfaceHover: string;
+  borderColor: string;
+  gradientFrom: string;
+  gradientTo: string;
+}
+
+export const QGAMES_THEMES: Record<QGamesThemeId, QGamesTheme> = {
+  'dark-gaming': {
+    id: 'dark-gaming',
+    nameHe: 'גיימינג',
+    nameEn: 'Dark Gaming',
+    emoji: '🎮',
+    backgroundColor: '#0a0f1a',
+    primaryColor: '#8b5cf6',
+    accentColor: '#10b981',
+    textColor: '#ffffff',
+    textSecondary: 'rgba(255,255,255,0.4)',
+    surfaceColor: 'rgba(255,255,255,0.04)',
+    surfaceHover: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    gradientFrom: '#8b5cf6',
+    gradientTo: '#6d28d9',
+  },
+  'light-clean': {
+    id: 'light-clean',
+    nameHe: 'בהיר ונקי',
+    nameEn: 'Light & Clean',
+    emoji: '✨',
+    backgroundColor: '#f8fafc',
+    primaryColor: '#6366f1',
+    accentColor: '#0ea5e9',
+    textColor: '#1e293b',
+    textSecondary: '#64748b',
+    surfaceColor: '#ffffff',
+    surfaceHover: '#f1f5f9',
+    borderColor: '#e2e8f0',
+    gradientFrom: '#6366f1',
+    gradientTo: '#4f46e5',
+  },
+  'kids-colorful': {
+    id: 'kids-colorful',
+    nameHe: 'מסיבה צבעונית',
+    nameEn: 'Kids Party',
+    emoji: '🎉',
+    backgroundColor: '#1a0a2e',
+    primaryColor: '#f59e0b',
+    accentColor: '#ec4899',
+    textColor: '#ffffff',
+    textSecondary: 'rgba(255,255,255,0.5)',
+    surfaceColor: 'rgba(255,255,255,0.06)',
+    surfaceHover: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    gradientFrom: '#f59e0b',
+    gradientTo: '#d97706',
+  },
+  'corporate': {
+    id: 'corporate',
+    nameHe: 'אירוע חברה',
+    nameEn: 'Corporate',
+    emoji: '💼',
+    backgroundColor: '#111827',
+    primaryColor: '#3b82f6',
+    accentColor: '#14b8a6',
+    textColor: '#f9fafb',
+    textSecondary: '#9ca3af',
+    surfaceColor: 'rgba(255,255,255,0.05)',
+    surfaceHover: 'rgba(255,255,255,0.10)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    gradientFrom: '#3b82f6',
+    gradientTo: '#2563eb',
+  },
+};
+
+/** Resolve full theme from branding config */
+export function resolveTheme(branding: QGamesBranding): QGamesTheme {
+  const themeId = branding.theme || 'dark-gaming';
+  return QGAMES_THEMES[themeId] || QGAMES_THEMES['dark-gaming'];
+}
+
+// =============================================================
 // Branding
 // =============================================================
 export interface QGamesBranding {
+  theme?: QGamesThemeId;
   title?: string;
   titleEn?: string;
   description?: string;
@@ -364,6 +543,15 @@ export interface QGamesConfig {
   oooMaxStrikes: number;          // First to N strikes loses (default: 3)
   oooFirstRoundTimer: number;     // Seconds (default: 5)
   oooSubsequentTimer: number;     // Seconds (default: 3)
+
+  // TTT settings (Tic-Tac-Toe)
+  tttFirstTo: number;             // First to N round wins (default: 3)
+  tttTurnTimer: number;           // Seconds per turn (default: 10)
+
+  // Memory settings
+  memoryMaxStrikes: number;       // Strikes before elimination (default: 3)
+  memoryRecallTimer: number;      // Seconds for recall phase (default: 10)
+  memoryMemorizeTimer: number;    // Seconds to show emojis (default: 3)
 
   // Branding
   branding: QGamesBranding;
@@ -396,6 +584,11 @@ export function is3PlayerGame(gameType: QGameType): boolean {
   return gameType === 'oddoneout';
 }
 
+/** Check if a game type uses lobby-based matchmaking (2-6 players) */
+export function isLobbyGame(gameType: QGameType): boolean {
+  return gameType === 'memory';
+}
+
 // =============================================================
 // Scoring Constants
 // =============================================================
@@ -417,6 +610,7 @@ export const DEFAULT_QGAMES_EMOJI_PALETTE = [
 ];
 
 export const DEFAULT_QGAMES_BRANDING: QGamesBranding = {
+  theme: 'dark-gaming',
   backgroundColor: '#0a0f1a',
   primaryColor: '#8b5cf6',
   accentColor: '#10b981',
@@ -433,6 +627,13 @@ export const DEFAULT_QGAMES_CONFIG: QGamesConfig = {
   oooMaxStrikes: 3,
   oooFirstRoundTimer: 5,
   oooSubsequentTimer: 3,
+
+  tttFirstTo: 3,
+  tttTurnTimer: 10,
+
+  memoryMaxStrikes: 3,
+  memoryRecallTimer: 10,
+  memoryMemorizeTimer: 3,
 
   branding: { ...DEFAULT_QGAMES_BRANDING },
 
@@ -483,6 +684,18 @@ export const GAME_META: Record<QGameType, {
 };
 
 // =============================================================
+// Memory Emoji Pool
+// =============================================================
+export const MEMORY_EMOJI_POOL = [
+  '🍎', '🍊', '🍋', '🍇', '🍉', '🍓', '🫐', '🍑', '🥝', '🍌',
+  '🌸', '🌻', '🌺', '🌷', '🌹', '🌵', '🍀', '🌿', '🌙', '⭐',
+  '🐶', '🐱', '🐰', '🦊', '🐼', '🐸', '🦁', '🐯', '🐵', '🦋',
+  '🚗', '✈️', '🚀', '⛵', '🚲', '🏠', '⛰️', '🌊', '🔥', '❄️',
+  '⚽', '🏀', '🎾', '🎯', '🎸', '🎨', '📚', '💡', '🔔', '💎',
+  '🎂', '🍕', '🍦', '🧁', '🍩', '☕', '🎁', '🎈', '🎭', '🏆',
+];
+
+// =============================================================
 // RTDB Path Helpers
 // =============================================================
 export const QGAMES_PATHS = {
@@ -496,6 +709,10 @@ export const QGAMES_PATHS = {
   rpsRound: (codeId: string, matchId: string, round: number) => `qgames/${codeId}/matches/${matchId}/rps/rounds/${round}`,
   tttState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/ttt`,
   memoryState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/memory`,
+  memoryRooms: (codeId: string) => `qgames/${codeId}/memoryRooms`,
+  memoryRoom: (codeId: string, roomId: string) => `qgames/${codeId}/memoryRooms/${roomId}`,
+  memoryRoomPlayers: (codeId: string, roomId: string) => `qgames/${codeId}/memoryRooms/${roomId}/players`,
+  memoryRoomPlayer: (codeId: string, roomId: string, playerId: string) => `qgames/${codeId}/memoryRooms/${roomId}/players/${playerId}`,
   oooState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/ooo`,
   oooRound: (codeId: string, matchId: string, round: number) => `qgames/${codeId}/matches/${matchId}/ooo/rounds/${round}`,
   presence: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/presence`,

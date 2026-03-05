@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { RPSChoice, RPS_EMOJI, RTDBRPSRound, resolveRPS } from '@/types/qgames';
 import { useRPSState, useCountdown, useQGamesSounds } from '@/hooks/useQGamesRealtime';
 import { startNewRPSRound } from '@/lib/qgames-realtime';
+import { useQGamesTheme } from './QGamesThemeContext';
 
 interface RPSGameProps {
   codeId: string;
@@ -55,10 +56,10 @@ function DisconnectCountdownBanner({ startTime, duration, label }: { startTime: 
   );
 }
 
-function AvatarCircle({ avatar, size = 'md', className = '' }: { avatar: string; size?: 'sm' | 'md' | 'lg'; className?: string }) {
+function AvatarCircle({ avatar, size = 'md', className = '', style }: { avatar: string; size?: 'sm' | 'md' | 'lg'; className?: string; style?: React.CSSProperties }) {
   const sizeClasses = { sm: 'w-6 h-6 text-sm', md: 'w-12 h-12 text-2xl', lg: 'w-14 h-14 text-3xl' };
   return (
-    <div className={`${sizeClasses[size]} rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0 ${className}`}>
+    <div className={`${sizeClasses[size]} rounded-full bg-white/10 flex items-center justify-center overflow-hidden shrink-0 ${className}`} style={style}>
       {avatar.startsWith('http') ? (
         <img src={avatar} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       ) : avatar}
@@ -86,6 +87,7 @@ export default function RPSGame({
   opponentDisconnected,
   disconnectStartTime,
 }: RPSGameProps) {
+  const theme = useQGamesTheme();
   const { state: rpsState } = useRPSState(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
   const sounds = useQGamesSounds(enableSound);
 
@@ -406,14 +408,14 @@ export default function RPSGame({
       <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
         {/* My side */}
         <div className="flex items-center gap-2 relative">
-          <AvatarCircle avatar={myAvatar} size="md" className="ring-2 ring-blue-400/30" />
+          <AvatarCircle avatar={myAvatar} size="md" className="ring-2" style={{ '--tw-ring-color': `${theme.primaryColor}4d` } as React.CSSProperties} />
           <div>
             <p className="text-white text-xs font-medium truncate max-w-[80px]">{myNickname}</p>
             <p className="text-2xl font-black text-white tabular-nums">{myScore}</p>
           </div>
           {/* Score pop */}
           {scoreAnimation.show && scoreAnimation.player === (isPlayer1 ? 'p1' : 'p2') && (
-            <span className="absolute -top-2 right-0 text-emerald-400 font-black text-lg animate-bounce">+1</span>
+            <span className="absolute -top-2 right-0 font-black text-lg animate-bounce" style={{ color: theme.accentColor }}>+1</span>
           )}
         </div>
 
@@ -429,9 +431,9 @@ export default function RPSGame({
             <p className="text-white text-xs font-medium truncate max-w-[80px] text-end">{oppNickname}</p>
             <p className="text-2xl font-black text-white tabular-nums text-end">{oppScore}</p>
           </div>
-          <AvatarCircle avatar={oppAvatar} size="md" className="ring-2 ring-red-400/30" />
+          <AvatarCircle avatar={oppAvatar} size="md" className="ring-2" style={{ '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties} />
           {scoreAnimation.show && scoreAnimation.player === (isPlayer1 ? 'p2' : 'p1') && (
-            <span className="absolute -top-2 left-0 text-emerald-400 font-black text-lg animate-bounce">+1</span>
+            <span className="absolute -top-2 left-0 font-black text-lg animate-bounce" style={{ color: theme.accentColor }}>+1</span>
           )}
         </div>
       </div>
@@ -443,7 +445,7 @@ export default function RPSGame({
             className="h-full rounded-full transition-all duration-100"
             style={{
               width: `${progress * 100}%`,
-              background: progress > 0.3 ? '#10b981' : progress > 0.1 ? '#f59e0b' : '#ef4444',
+              background: progress > 0.3 ? theme.accentColor : progress > 0.1 ? '#f59e0b' : '#ef4444',
             }}
           />
         </div>
@@ -466,7 +468,7 @@ export default function RPSGame({
             {/* Result text */}
             <div className="text-center">
               {iWonRound && (
-                <p className="text-emerald-400 font-black text-xl animate-in zoom-in duration-300">
+                <p className="font-black text-xl animate-in zoom-in duration-300" style={{ color: theme.accentColor }}>
                   {t('youWonRound')} ✓
                 </p>
               )}
@@ -527,9 +529,9 @@ export default function RPSGame({
           <div className="flex items-center gap-1.5">
             {/* Avatars on left side */}
             <div className="flex flex-col items-center gap-[3px] shrink-0">
-              <AvatarCircle avatar={oppAvatar} size="sm" className="ring-1 ring-red-400/30" />
+              <AvatarCircle avatar={oppAvatar} size="sm" className="ring-1" style={{ '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties} />
               <div className="h-0.5" />
-              <AvatarCircle avatar={myAvatar} size="sm" className="ring-1 ring-emerald-400/30" />
+              <AvatarCircle avatar={myAvatar} size="sm" className="ring-1" style={{ '--tw-ring-color': `${theme.primaryColor}4d` } as React.CSSProperties} />
             </div>
             {/* Completed rounds only - scrolls to show latest */}
             <div className="flex items-center gap-1 flex-1 overflow-x-auto justify-end" style={{ scrollbarWidth: 'none' }}>
@@ -554,8 +556,12 @@ export default function RPSGame({
                     </div>
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all ${
-                        isWin ? 'bg-emerald-500/15 ring-1 ring-emerald-400/40' : 'bg-white/5'
+                        isWin ? 'ring-1' : 'bg-white/5'
                       }`}
+                      style={isWin ? {
+                        backgroundColor: `${theme.accentColor}26`,
+                        '--tw-ring-color': `${theme.accentColor}66`,
+                      } as React.CSSProperties : undefined}
                     >
                       {entry.timedOut ? '❌' : RPS_EMOJI[entry.myChoice]}
                     </div>
@@ -581,11 +587,16 @@ export default function RPSGame({
                 disabled={isDisabled}
                 className={`relative w-[5.5rem] h-[5.5rem] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
                   isSelected
-                    ? 'bg-emerald-500/20 ring-2 ring-emerald-400 scale-105 shadow-lg shadow-emerald-500/20'
+                    ? 'ring-2 scale-105 shadow-lg'
                     : isDisabled
                       ? 'bg-white/5 opacity-40'
                       : 'bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95'
                 }`}
+                style={isSelected ? {
+                  backgroundColor: `${theme.accentColor}33`,
+                  '--tw-ring-color': theme.accentColor,
+                  boxShadow: `0 10px 15px -3px ${theme.accentColor}33`,
+                } as React.CSSProperties : undefined}
               >
                 <span className="text-4xl">{RPS_EMOJI[choice]}</span>
                 <span className="text-white/40 text-[10px] uppercase tracking-wider">{t(choice)}</span>

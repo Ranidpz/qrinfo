@@ -186,6 +186,7 @@ export async function findOrWaitForOpponent(
         currentQueue[visitorId] = {
           id: visitorId, nickname, avatarType, avatarValue, gameType,
           joinedAt: Date.now(), status: 'waiting', matchId: null,
+          ...(preferredOpponentId ? { preferredOpponentId } : {}),
         };
       }
     } else {
@@ -204,6 +205,7 @@ export async function findOrWaitForOpponent(
         currentQueue[visitorId] = {
           id: visitorId, nickname, avatarType, avatarValue, gameType,
           joinedAt: Date.now(), status: 'waiting', matchId: null,
+          ...(preferredOpponentId ? { preferredOpponentId } : {}),
         };
       }
     }
@@ -317,4 +319,81 @@ export async function cancelMatchmaking(
   visitorId: string
 ): Promise<void> {
   await leaveQueue(codeId, visitorId);
+}
+
+/**
+ * Match with a waiting peer and add a bot as the 3rd player.
+ * Used when a player clicks "Play vs Bot" in a 3-player game
+ * and there's already another real player waiting.
+ *
+ * Creates: player1=peer, player2=bot, player3=caller
+ */
+export async function matchWithPeerAndBot(
+  codeId: string,
+  visitorId: string,
+  nickname: string,
+  avatarType: QGamesAvatarType,
+  avatarValue: string,
+  gameType: QGameType,
+  botData: { id: string; nickname: string; avatarType: QGamesAvatarType; avatarValue: string }
+): Promise<MatchmakingResult> {
+  const queueRef = ref(realtimeDb, QGAMES_PATHS.queue(codeId));
+  let matchedId: string | null = null;
+  let peerData: QGamesQueueEntry | null = null;
+
+  const result = await runTransaction(queueRef, (currentQueue: Record<string, QGamesQueueEntry> | null) => {
+    matchedId = null;
+    peerData = null;
+    if (!currentQueue) return currentQueue;
+
+    // Check caller is still waiting and not already matched
+    const myEntry = currentQueue[visitorId];
+    if (myEntry && myEntry.status !== 'waiting') return; // Already matched
+
+    const entries = Object.entries(currentQueue) as [string, QGamesQueueEntry][];
+    const peers = entries.filter(
+      ([, e]) => e.gameType === gameType && e.status === 'waiting' && e.id !== visitorId && !e.inBotMatch
+    );
+
+    if (peers.length === 0) return; // No peer, abort
+
+    const peer = peers[0][1];
+    matchedId = generateMatchId();
+    peerData = { ...peer };
+
+    // Mark both real players as matched
+    currentQueue[peer.id] = { ...peer, status: 'matched', matchId: matchedId };
+    if (myEntry) {
+      currentQueue[visitorId] = { ...myEntry, status: 'matched', matchId: matchedId };
+    } else {
+      currentQueue[visitorId] = {
+        id: visitorId, nickname, avatarType, avatarValue, gameType,
+        joinedAt: Date.now(), status: 'matched', matchId: matchedId,
+      };
+    }
+
+    return currentQueue;
+  });
+
+  if (result.committed && matchedId && peerData) {
+    // Build match: peer=P1, bot=P2, caller=P3
+    const botEntry: QGamesQueueEntry = {
+      id: botData.id,
+      nickname: botData.nickname,
+      avatarType: botData.avatarType,
+      avatarValue: botData.avatarValue,
+      gameType,
+      joinedAt: Date.now(),
+      status: 'matched',
+      matchId: matchedId,
+    };
+
+    const match = buildMatch3(matchedId, gameType, peerData, botEntry,
+      { id: visitorId, nickname, avatarType, avatarValue });
+    await createMatch(codeId, match);
+    await incrementMatchesInProgress(codeId);
+    return { type: 'matched', matchId: matchedId };
+  }
+
+  return { type: 'waiting' };
 }

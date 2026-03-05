@@ -9,20 +9,25 @@ import {
   DEFAULT_QGAMES_CONFIG,
   DEFAULT_QGAMES_EMOJI_PALETTE,
   is3PlayerGame,
+  isLobbyGame,
+  resolveTheme,
 } from '@/types/qgames';
+import { QGamesThemeProvider } from '@/components/qgames/QGamesThemeContext';
 import { getOrCreateVisitorId } from '@/lib/xp';
 import { savePlayerSession, loadPlayerSession, clearPlayerSession } from '@/lib/qgames-session';
-import { findOrWaitForOpponent, tryMatchFromQueue, cancelMatchmaking } from '@/lib/qgames-matchmaking';
+import { findOrWaitForOpponent, tryMatchFromQueue, cancelMatchmaking, matchWithPeerAndBot } from '@/lib/qgames-matchmaking';
 import {
   initQGamesSession,
   initRPSState,
   initOOOState,
+  initTTTState,
   updateMatchStatus,
   subscribeToQueue,
   updateQueueEntryAvatar,
   updateQueueEntryNickname,
   getRPSState,
   getOOOState,
+  getTTTState,
   markQueueEntryBotMatch,
   leaveQueue,
 } from '@/lib/qgames-realtime';
@@ -41,6 +46,9 @@ import QGamesQueue from '@/components/qgames/QGamesQueue';
 import QGamesVSScreen from '@/components/qgames/QGamesVSScreen';
 import RPSGame from '@/components/qgames/RPSGame';
 import OddOneOutGame from '@/components/qgames/OddOneOutGame';
+import TicTacToeGame from '@/components/qgames/TicTacToeGame';
+import MemoryGame from '@/components/qgames/MemoryGame';
+import type { MemoryGameResult } from '@/components/qgames/MemoryGame';
 import QGamesResult from '@/components/qgames/QGamesResult';
 import QGamesLeaderboard from '@/components/qgames/QGamesLeaderboard';
 import QGamesMatchHistory from '@/components/qgames/QGamesMatchHistory';
@@ -59,10 +67,13 @@ const translations: Record<string, Record<string, string>> = {
     selectorTagline: 'בוחרים משחק ומאתגרים את החברים 🔥',
     rps: 'אבן נייר ומספריים',
     rpsDescription: 'מי ינצח? הראשון ל-3!',
-    tictactoe: 'איקס מיקס דריקס',
-    tictactoeDescription: '3 ברצף מנצחים!',
+    tictactoe: 'איקס עיגול',
+    tictactoeDescription: '3 משחקים בלוח איקס עיגול של פעם',
+    yourTurn: 'התור שלך!',
+    opponentTurn: 'התור של היריב...',
+    roundDraw: 'תיקו בסיבוב!',
     memory: 'זיכרון',
-    memoryDescription: 'מצאו את הזוגות!',
+    memoryDescription: 'זכרו את הסדר!',
     viewLeaderboard: 'טבלת מובילים',
     searchingForOpponent: 'מחפשים לכם חברים לשחק',
     noOpponentYet: 'אין יריב כרגע?',
@@ -98,7 +109,7 @@ const translations: Record<string, Record<string, string>> = {
     challenge: 'אתגר',
     playNow: 'שחקו עכשיו!',
     // OOO translations
-    oddoneout: 'משלוש יוצא אחד',
+    oddoneout: 'משלוש יוצא א....חד!',
     oddoneoutDescription: 'כף או אגרוף? מי שונה - נפסל!',
     palm: 'כף',
     fist: 'אגרוף',
@@ -120,8 +131,10 @@ const translations: Record<string, Record<string, string>> = {
     opponentDisconnected: 'החבר/ה התנתקו מהמשחק',
     youWinByForfeit: 'ניצחת בהפסד טכני!',
     wantsToPlay: 'רוצה לשחק!',
+    joinedToPlay: 'נכנס/ה לשחק אתכם!',
     playRealOpponent: 'שחקו עכשיו!',
     later: 'אח"כ',
+    newPlayerWaiting: 'שחקן חדש מחכה',
     games: 'משחקים',
     winsShort: 'נ',
     lossesShort: 'ה',
@@ -153,8 +166,11 @@ const translations: Record<string, Record<string, string>> = {
     rpsDescription: 'Who will win? First to 3!',
     tictactoe: 'Tic-Tac-Toe',
     tictactoeDescription: '3 in a row wins!',
+    yourTurn: 'Your turn!',
+    opponentTurn: "Opponent's turn...",
+    roundDraw: 'Round draw!',
     memory: 'Memory Match',
-    memoryDescription: 'Find the matching pairs!',
+    memoryDescription: 'Remember the sequence!',
     viewLeaderboard: 'Leaderboard',
     searchingForOpponent: 'Looking for friends to play',
     noOpponentYet: 'No opponent yet?',
@@ -212,8 +228,10 @@ const translations: Record<string, Record<string, string>> = {
     opponentDisconnected: 'Your friend left the game',
     youWinByForfeit: 'You win by forfeit!',
     wantsToPlay: 'wants to play!',
+    joinedToPlay: 'joined to play!',
     playRealOpponent: 'Play now!',
     later: 'Later',
+    newPlayerWaiting: 'New player waiting',
     games: 'games',
     winsShort: 'W',
     lossesShort: 'L',
@@ -281,7 +299,9 @@ export default function QGamesViewer({
   const [selectedGame, setSelectedGame] = useState<QGameType | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [isBotMatch, setIsBotMatch] = useState(false);
+  const [botPlayerId, setBotPlayerId] = useState<string | null>(null); // hybrid: real RTDB match with 1 bot player
   const [opponentNotificationDismissed, setOpponentNotificationDismissed] = useState(false);
+  const [uninvitedPillExpanded, setUninvitedPillExpanded] = useState(false);
 
   // Bot match fake data
   const [botMatchData, setBotMatchData] = useState<{
@@ -344,6 +364,8 @@ export default function QGamesViewer({
   playerRef.current = player;
 
   // Compute opponent IDs for presence tracking
+  // Filter out bot player IDs — bots don't set up RTDB presence,
+  // so including them would falsely trigger opponentDisconnected
   const opponentIds = useMemo(() => {
     const activeMatch = isBotMatch ? null : match;
     if (!activeMatch || !visitorId) return [];
@@ -351,7 +373,7 @@ export default function QGamesViewer({
     if (activeMatch.player1Id !== visitorId) ids.push(activeMatch.player1Id);
     if (activeMatch.player2Id !== visitorId) ids.push(activeMatch.player2Id);
     if (activeMatch.player3Id && activeMatch.player3Id !== visitorId) ids.push(activeMatch.player3Id);
-    return ids;
+    return ids.filter(id => !id.startsWith('bot-'));
   }, [match, visitorId, isBotMatch]);
 
   // Viewer presence + live stats (active across all phases)
@@ -374,12 +396,20 @@ export default function QGamesViewer({
     isBotMatch && (phase === 'vs' || phase === 'playing')
   );
 
-  const showOpponentNotification = isBotMatch
-    && !opponentNotificationDismissed
+  const hasEnoughOpponents = isBotMatch
     && (phase === 'playing' || phase === 'vs')
     && (selectedGame && is3PlayerGame(selectedGame)
       ? waitingOpponents.length >= 2
       : waitingOpponents.length >= 1);
+
+  // First opponent is always the highest priority (invited sorted first)
+  const topOpponent = hasEnoughOpponents ? waitingOpponents[0] : null;
+  const isInvitedOpponent = topOpponent?.isInvitedByMe ?? false;
+
+  // Invited: prominent notification (unless dismissed)
+  const showInvitedNotification = hasEnoughOpponents && isInvitedOpponent && !opponentNotificationDismissed;
+  // Uninvited: subtle pill (unless dismissed)
+  const showUninvitedPill = hasEnoughOpponents && !isInvitedOpponent && !opponentNotificationDismissed;
 
   // Initialize RTDB session on mount
   useEffect(() => {
@@ -529,6 +559,12 @@ export default function QGamesViewer({
               : Math.max(oooState.player1Strikes, oooState.player2Strikes);
           oppScore = oppStrikes;
         }
+      } else if (matchId && selectedGame === 'tictactoe') {
+        const tttState = await getTTTState(codeId, matchId);
+        if (tttState) {
+          myScore = isP1 ? tttState.player1Score : tttState.player2Score;
+          oppScore = isP1 ? tttState.player2Score : tttState.player1Score;
+        }
       }
 
       if (selectedGame === 'oddoneout') {
@@ -610,6 +646,13 @@ export default function QGamesViewer({
     if (!player || !visitorId) return;
 
     setSelectedGame(gameType);
+
+    // Lobby-based games (memory) skip queue/VS — go straight to playing
+    if (isLobbyGame(gameType)) {
+      setPhase('playing');
+      return;
+    }
+
     setPhase('queue');
     matchingRef.current = true; // Prevent "re-add" effect from double-matching
 
@@ -697,14 +740,39 @@ export default function QGamesViewer({
   const handlePlayBot = useCallback(async () => {
     if (!player) return;
 
-    // Stay in queue but invisible to matchmaking (ghost entry)
+    const is3P = selectedGame ? is3PlayerGame(selectedGame) : false;
+
+    // For 3-player games: try to match with a waiting peer + 1 bot first
+    if (is3P && selectedGame) {
+      const botData = {
+        id: 'bot-1',
+        nickname: isRTL ? 'בוט' : 'Bot',
+        avatarType: 'emoji' as const,
+        avatarValue: '🤖',
+      };
+      const result = await matchWithPeerAndBot(
+        codeId, visitorId, player.nickname,
+        player.avatarType, player.avatarValue,
+        selectedGame, botData
+      );
+      if (result.type === 'matched' && result.matchId) {
+        // Real RTDB match: peer=P1, bot=P2, me=P3
+        setMatchId(result.matchId);
+        setBotPlayerId('bot-1');
+        setPhase('vs');
+        return;
+      }
+      // No peer found — fall through to full bot match (2 bots)
+    }
+
+    // Full bot match (no real opponents): stay in queue but invisible
     if (visitorId) {
       await markQueueEntryBotMatch(codeId, visitorId, true);
     }
 
     setIsBotMatch(true);
     setOpponentNotificationDismissed(false);
-    const is3P = selectedGame ? is3PlayerGame(selectedGame) : false;
+    setUninvitedPillExpanded(false);
     const fakeBotMatch = {
       id: `bot-${Date.now()}`,
       player1Id: visitorId,
@@ -749,6 +817,12 @@ export default function QGamesViewer({
       const isPlayer1 = match?.player1Id === visitorId;
       if (isPlayer1) {
         await initOOOState(codeId, matchId, config.oooMaxStrikes, config.oooFirstRoundTimer);
+      }
+    } else if (selectedGame === 'tictactoe') {
+      // Only player1 initializes TTT state — P1 starts as X
+      const isPlayer1 = match?.player1Id === visitorId;
+      if (isPlayer1 && match) {
+        await initTTTState(codeId, matchId, match.player1Id, match.player2Id, config.tttFirstTo, config.tttTurnTimer);
       }
     }
 
@@ -854,6 +928,39 @@ export default function QGamesViewer({
     setPhase('result');
   }, [match, player, codeId, matchId, isBotMatch, botMatchData, visitorId]);
 
+  // Memory game end callback — persists results to Firestore
+  const handleMemoryMatchEnd = useCallback((results: MemoryGameResult) => {
+    if (!player) return;
+
+    const myResult = results.players.find(p => p.id === visitorId);
+    const isWinner = results.winnerId === visitorId;
+    const oppResult = results.players.find(p => p.id !== visitorId) || results.players[0];
+
+    setResultData({
+      isWinner,
+      isDraw: false,
+      myScore: myResult?.score || 0,
+      oppScore: oppResult?.score || 0,
+      oppNickname: oppResult?.nickname || '',
+      oppAvatar: oppResult?.avatarValue || '',
+    });
+
+    // Persist to Firestore
+    fetch('/api/qgames/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeId,
+        playerId: visitorId,
+        gameType: 'memory',
+        memoryRoomId: results.roomId,
+        memoryResults: results.players,
+      }),
+    }).catch(console.error);
+
+    setPhase('result');
+  }, [player, codeId, visitorId]);
+
   const handlePlayAgain = useCallback(async () => {
     // Clean up ghost queue entry from bot match
     if (visitorId) {
@@ -862,6 +969,7 @@ export default function QGamesViewer({
     setMatchId(null);
     setResultData(null);
     setIsBotMatch(false);
+    setBotPlayerId(null);
     setBotMatchData(null);
     if (selectedGame) {
       handleSelectGame(selectedGame);
@@ -879,25 +987,27 @@ export default function QGamesViewer({
     setResultData(null);
     setSelectedGame(null);
     setIsBotMatch(false);
+    setBotPlayerId(null);
     setBotMatchData(null);
     setPhase('selector');
   }, [codeId, visitorId]);
 
   // Accept real opponent during bot match
-  const handleAcceptRealMatch = useCallback(async () => {
+  const handleAcceptRealMatch = useCallback(async (targetOpponentId?: string) => {
     if (!player || !visitorId || !selectedGame) return;
 
     // Stop bot match
     setIsBotMatch(false);
+    setBotPlayerId(null);
     setBotMatchData(null);
 
     // Clear inBotMatch flag so matchmaking can find us
     await markQueueEntryBotMatch(codeId, visitorId, false);
 
-    // Try to match with waiting opponent
+    // Try to match with waiting opponent (prefer the specific target, then inviter, then anyone)
     const result = await tryMatchFromQueue(
       codeId, visitorId, player.nickname, player.avatarType,
-      player.avatarValue, selectedGame, inviteFrom || undefined
+      player.avatarValue, selectedGame, targetOpponentId || inviteFrom || undefined
     );
 
     if (result.type === 'matched' && result.matchId) {
@@ -915,10 +1025,11 @@ export default function QGamesViewer({
 
   // ============ Render ============
 
-  const bgColor = config.branding.backgroundColor || '#0a0f1a';
+  const theme = resolveTheme(config.branding);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
+    <QGamesThemeProvider value={theme}>
+    <div className="min-h-screen" style={{ backgroundColor: theme.backgroundColor }}>
       {phase === 'registration' && (
         <QGamesRegistration
           config={config}
@@ -1051,11 +1162,59 @@ export default function QGamesViewer({
             isRTL={isRTL}
             t={t}
             isBotMatch={isBotMatch}
+            botPlayerId={botPlayerId || undefined}
             opponentDisconnected={opponentDisconnected}
             disconnectStartTime={disconnectStartTime}
           />
         );
       })()}
+
+      {phase === 'playing' && (match || botMatchData) && selectedGame === 'tictactoe' && (() => {
+        const gameMatch = isBotMatch ? botMatchData : match;
+        if (!gameMatch) return null;
+        const isP1 = gameMatch.player1Id === visitorId;
+        return (
+          <TicTacToeGame
+            codeId={codeId}
+            matchId={gameMatch.id}
+            playerId={visitorId || ''}
+            isPlayer1={isP1}
+            player1Id={gameMatch.player1Id}
+            player2Id={gameMatch.player2Id}
+            player1Nickname={gameMatch.player1Nickname}
+            player1Avatar={gameMatch.player1AvatarValue}
+            player2Nickname={gameMatch.player2Nickname}
+            player2Avatar={gameMatch.player2AvatarValue}
+            firstTo={config.tttFirstTo}
+            turnTimer={config.tttTurnTimer}
+            enableSound={config.enableSound}
+            onMatchEnd={handleMatchEnd}
+            isRTL={isRTL}
+            t={t}
+            isBotMatch={isBotMatch}
+            opponentDisconnected={opponentDisconnected}
+            disconnectStartTime={disconnectStartTime}
+          />
+        );
+      })()}
+
+      {phase === 'playing' && selectedGame === 'memory' && player && (
+        <MemoryGame
+          codeId={codeId}
+          visitorId={visitorId}
+          playerNickname={player.nickname}
+          playerAvatarType={player.avatarType}
+          playerAvatarValue={player.avatarValue}
+          config={config}
+          onMatchEnd={handleMemoryMatchEnd}
+          onBack={handleBackToSelector}
+          isRTL={isRTL}
+          t={t}
+          shortId={shortId}
+          enableWhatsApp={config.enableWhatsAppInvite}
+          inviterVisitorId={inviteFrom || undefined}
+        />
+      )}
 
       {phase === 'result' && resultData && player && (
         <QGamesResult
@@ -1100,50 +1259,107 @@ export default function QGamesViewer({
         </>
       )}
 
-      {/* Real opponent notification during bot match */}
-      {showOpponentNotification && (() => {
-        const opp = waitingOpponents[0];
-        if (!opp) return null;
-        return (
-          <div className="fixed inset-x-0 bottom-0 z-50 p-4 animate-in slide-in-from-bottom duration-300" dir={isRTL ? 'rtl' : 'ltr'}>
-            <div
-              className="max-w-sm mx-auto rounded-2xl p-4 border shadow-2xl"
+      {/* Invited player notification — prominent, from top */}
+      {showInvitedNotification && topOpponent && (
+        <div className="fixed inset-x-0 top-0 z-50 p-4 pt-[env(safe-area-inset-top,16px)] animate-in slide-in-from-top duration-300" dir={isRTL ? 'rtl' : 'ltr'}>
+          <div
+            className="max-w-sm mx-auto rounded-2xl p-4 border shadow-2xl"
+            style={{
+              background: 'rgba(10, 15, 26, 0.95)',
+              borderColor: 'rgba(16, 185, 129, 0.4)',
+              boxShadow: '0 0 50px rgba(16, 185, 129, 0.3)',
+            }}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-3xl ring-2 ring-emerald-400 overflow-hidden shrink-0">
+                {topOpponent.avatarValue.startsWith('http') ? (
+                  <img src={topOpponent.avatarValue} alt="" className="w-full h-full object-cover" />
+                ) : topOpponent.avatarValue}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-bold text-base truncate">{topOpponent.nickname}</p>
+                <p className="text-emerald-400 text-sm">{t('joinedToPlay')}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleAcceptRealMatch(topOpponent.id)}
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 text-white"
+                style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+              >
+                {t('playRealOpponent')}
+              </button>
+              <button
+                onClick={handleDismissOpponentNotification}
+                className="px-4 py-3 rounded-xl text-white/40 text-sm transition-all active:scale-95 bg-white/5"
+              >
+                {t('later')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Uninvited player notification — subtle pill at top, expandable */}
+      {showUninvitedPill && topOpponent && (
+        <div className="fixed inset-x-0 top-0 z-40 p-2 pt-[env(safe-area-inset-top,8px)] animate-in slide-in-from-top duration-300" dir={isRTL ? 'rtl' : 'ltr'}>
+          {!uninvitedPillExpanded ? (
+            // Compact pill — tap to expand
+            <button
+              onClick={() => setUninvitedPillExpanded(true)}
+              className="mx-auto flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all active:scale-95"
               style={{
-                background: 'rgba(10, 15, 26, 0.95)',
-                borderColor: 'rgba(16, 185, 129, 0.3)',
-                boxShadow: '0 0 40px rgba(16, 185, 129, 0.2)',
+                background: 'rgba(10, 15, 26, 0.85)',
+                borderColor: 'rgba(255, 255, 255, 0.15)',
               }}
             >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-2xl ring-2 ring-emerald-400/40 overflow-hidden shrink-0">
-                  {opp.avatarValue.startsWith('http') ? (
-                    <img src={opp.avatarValue} alt="" className="w-full h-full object-cover" />
-                  ) : opp.avatarValue}
+              <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-sm overflow-hidden shrink-0">
+                {topOpponent.avatarValue.startsWith('http') ? (
+                  <img src={topOpponent.avatarValue} alt="" className="w-full h-full object-cover" />
+                ) : topOpponent.avatarValue}
+              </div>
+              <span className="text-white/70 text-xs font-medium truncate max-w-[140px]">{topOpponent.nickname}</span>
+              <span className="text-emerald-400/70 text-xs">{t('wantsToPlay')}</span>
+            </button>
+          ) : (
+            // Expanded — full accept/dismiss UI
+            <div
+              className="max-w-sm mx-auto rounded-2xl p-3 border shadow-xl animate-in fade-in duration-200"
+              style={{
+                background: 'rgba(10, 15, 26, 0.95)',
+                borderColor: 'rgba(255, 255, 255, 0.15)',
+              }}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-xl ring-1 ring-white/20 overflow-hidden shrink-0">
+                  {topOpponent.avatarValue.startsWith('http') ? (
+                    <img src={topOpponent.avatarValue} alt="" className="w-full h-full object-cover" />
+                  ) : topOpponent.avatarValue}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-bold text-sm truncate">{opp.nickname}</p>
-                  <p className="text-emerald-400 text-xs">{t('wantsToPlay')}</p>
+                  <p className="text-white font-semibold text-sm truncate">{topOpponent.nickname}</p>
+                  <p className="text-white/50 text-xs">{t('newPlayerWaiting')}</p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={handleAcceptRealMatch}
-                  className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95 text-white"
+                  onClick={() => { setUninvitedPillExpanded(false); handleAcceptRealMatch(topOpponent.id); }}
+                  className="flex-1 py-2 rounded-xl font-semibold text-xs transition-all active:scale-95 text-white"
                   style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
                 >
                   {t('playRealOpponent')}
                 </button>
                 <button
-                  onClick={handleDismissOpponentNotification}
-                  className="px-4 py-2.5 rounded-xl text-white/40 text-sm transition-all active:scale-95 bg-white/5"
+                  onClick={() => { setUninvitedPillExpanded(false); handleDismissOpponentNotification(); }}
+                  className="px-3 py-2 rounded-xl text-white/40 text-xs transition-all active:scale-95 bg-white/5"
                 >
                   {t('later')}
                 </button>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          )}
+        </div>
+      )}
 
       {/* Powered by The Q */}
       <div className="fixed bottom-2 inset-x-0 flex justify-center pointer-events-none z-10">
@@ -1157,5 +1373,6 @@ export default function QGamesViewer({
         </a>
       </div>
     </div>
+    </QGamesThemeProvider>
   );
 }
