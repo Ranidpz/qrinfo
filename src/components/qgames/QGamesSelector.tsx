@@ -1,7 +1,7 @@
 'use client';
 
 import { Pencil, Trophy } from 'lucide-react';
-import { QGameType, GAME_META, QGamesConfig, LiveMatchInfo } from '@/types/qgames';
+import { QGameType, GAME_META, QGamesConfig, LiveMatchInfo, GAME_DISPLAY_ORDER } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import RPSAnimatedEmoji from './RPSAnimatedEmoji';
 import OOOAnimatedEmoji from './OOOAnimatedEmoji';
@@ -38,18 +38,31 @@ export default function QGamesSelector({
   liveMatches = [],
 }: QGamesSelectorProps) {
   const theme = useQGamesTheme();
-  const enabledGames = config.enabledGames || ['rps'];
+  const enabledSet = new Set(config.enabledGames || ['rps']);
+  const enabledGames = GAME_DISPLAY_ORDER.filter(g => enabledSet.has(g));
   const gameName = config.branding.title || 'Q.Games';
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center px-6 pb-8"
+      className="min-h-screen flex flex-col items-center px-6 pb-20"
       dir={isRTL ? 'rtl' : 'ltr'}
       style={{ fontFamily: 'var(--font-assistant), sans-serif' }}
     >
+      {/* Event Logo */}
+      {config.branding.eventLogo && (
+        <div className="w-full flex justify-center pt-8">
+          <img
+            src={config.branding.eventLogo}
+            alt=""
+            className="object-contain drop-shadow-lg"
+            style={{ maxHeight: `${60 * (config.branding.logoScale ?? 1)}px`, maxWidth: '50%' }}
+          />
+        </div>
+      )}
+
       {/* ── Profile hero ── */}
       <div
-        className="flex flex-col items-center pt-14 pb-6 w-full animate-in fade-in slide-in-from-bottom-4 duration-500"
+        className={`flex flex-col items-center ${config.branding.eventLogo ? 'pt-4' : 'pt-14'} pb-6 w-full animate-in fade-in slide-in-from-bottom-4 duration-500`}
       >
         {/* Avatar with glow */}
         <button

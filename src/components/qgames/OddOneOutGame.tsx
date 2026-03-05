@@ -502,7 +502,7 @@ export default function OddOneOutGame({
       )}
 
       {/* Header: 3-player strikes display */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-1.5 gap-1">
+      <div className="flex items-center justify-between px-3 pt-14 pb-1.5 gap-1">
         {players.map((p) => {
           const isMe = p.num === playerNumber;
           return (

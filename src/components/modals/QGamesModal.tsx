@@ -2,23 +2,26 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { X, Gamepad2, Loader2, RotateCcw, ExternalLink, Monitor, Eye, Settings, Copy, Check, AlertTriangle } from 'lucide-react';
+import { X, Gamepad2, Loader2, RotateCcw, ExternalLink, Monitor, Eye, Settings, Copy, Check, AlertTriangle, Plus, Trash2, MessageCircle, RotateCw, Upload, ImageIcon, ChevronDown, Clock } from 'lucide-react';
 import {
   QGamesConfig,
   QGameType,
   QGamesThemeId,
   DEFAULT_QGAMES_CONFIG,
   DEFAULT_QGAMES_BRANDING,
+  DEFAULT_CHAT_PHRASES,
   GAME_META,
   QGAMES_THEMES,
   resolveTheme,
+  QGamesChatPhrase,
+  QGamesScheduleSlot,
 } from '@/types/qgames';
 import QGamesPreviewPhone from '@/components/qgames/QGamesPreviewPhone';
 
 interface QGamesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (config: QGamesConfig) => Promise<void>;
+  onSave: (config: QGamesConfig, logoFile?: File, backgroundFile?: File) => Promise<void>;
   loading?: boolean;
   initialConfig?: QGamesConfig;
   codeId?: string;
@@ -48,6 +51,17 @@ export default function QGamesModal({
   const [mobileTab, setMobileTab] = useState<'settings' | 'preview'>('settings');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [expandedGame, setExpandedGame] = useState<QGameType | null>(null);
+
+  // Logo upload
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(initialConfig?.branding?.eventLogo || null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Background image upload
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
+  const [backgroundPreview, setBackgroundPreview] = useState<string | null>(initialConfig?.branding?.backgroundImage || null);
+  const bgInputRef = useRef<HTMLInputElement>(null);
 
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
@@ -56,6 +70,11 @@ export default function QGamesModal({
       setMobileTab('settings');
       setShowResetConfirm(false);
       setResetting(false);
+      setExpandedGame(null);
+      setLogoFile(null);
+      setLogoPreview(initialConfig?.branding?.eventLogo || null);
+      setBackgroundFile(null);
+      setBackgroundPreview(initialConfig?.branding?.backgroundImage || null);
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialConfig]);
@@ -87,11 +106,19 @@ export default function QGamesModal({
   };
 
   const handleSave = async () => {
-    await onSave(config);
+    await onSave(config, logoFile || undefined, backgroundFile || undefined);
   };
 
   const currentThemeId = config.branding.theme || 'dark-gaming';
   const resolvedTheme = resolveTheme(config.branding);
+  const isCustomColors = (() => {
+    const base = QGAMES_THEMES[currentThemeId];
+    return (
+      config.branding.backgroundColor !== base.backgroundColor ||
+      config.branding.primaryColor !== base.primaryColor ||
+      config.branding.accentColor !== base.accentColor
+    );
+  })();
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -190,9 +217,163 @@ export default function QGamesModal({
                   );
                 })}
               </div>
+
+              {/* Custom Color Pickers */}
+              <div className="flex items-center gap-3 mt-3">
+                <ColorSwatch label={isRTL ? 'רקע' : 'Bg'} value={config.branding.backgroundColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundColor: c } }))} />
+                <ColorSwatch label={isRTL ? 'ראשי' : 'Primary'} value={config.branding.primaryColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, primaryColor: c } }))} />
+                <ColorSwatch label={isRTL ? 'משני' : 'Accent'} value={config.branding.accentColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, accentColor: c } }))} />
+                {isCustomColors && (
+                  <button
+                    onClick={() => selectTheme(currentThemeId)}
+                    className="text-[10px] text-text-secondary hover:text-accent transition-colors"
+                  >
+                    {isRTL ? 'איפוס' : 'Reset'}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Games Selection */}
+            {/* Event Logo */}
+            <div>
+              <label className="text-sm font-medium text-text-primary mb-2 block">
+                {isRTL ? 'לוגו אירוע' : 'Event Logo'}
+              </label>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-16 h-16 rounded-xl border-2 border-dashed border-border overflow-hidden cursor-pointer hover:border-accent/50 transition-all flex items-center justify-center shrink-0"
+                  onClick={() => logoInputRef.current?.click()}
+                  style={!logoPreview ? { background: 'repeating-conic-gradient(var(--bg-secondary) 0% 25%, transparent 0% 50%) 50% / 12px 12px' } : undefined}
+                >
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="" className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <Upload className="w-5 h-5 text-text-secondary" />
+                  )}
+                </div>
+                {logoPreview && (
+                  <div className="flex-1 space-y-1">
+                    <label className="text-[10px] text-text-secondary">
+                      {isRTL ? 'גודל' : 'Scale'} {(config.branding.logoScale || 1).toFixed(1)}x
+                    </label>
+                    <input
+                      type="range" min={0.3} max={4} step={0.1}
+                      value={config.branding.logoScale || 1}
+                      onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, logoScale: Number(e.target.value) } }))}
+                      className="w-full" dir="ltr"
+                      style={{ accentColor: resolvedTheme.accentColor }}
+                    />
+                  </div>
+                )}
+                {logoPreview && (
+                  <button
+                    onClick={() => {
+                      setLogoFile(null);
+                      setLogoPreview(null);
+                      setConfig(prev => ({ ...prev, branding: { ...prev.branding, eventLogo: undefined, eventLogoName: undefined, eventLogoSize: undefined, logoScale: undefined } }));
+                    }}
+                    className="p-1.5 text-text-secondary hover:text-red-400 transition-colors shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/svg+xml,image/webp,image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f && f.type.startsWith('image/')) {
+                    setLogoFile(f);
+                    const r = new FileReader();
+                    r.onload = () => setLogoPreview(r.result as string);
+                    r.readAsDataURL(f);
+                  }
+                  e.target.value = '';
+                }}
+              />
+            </div>
+
+            {/* Background Image */}
+            <div>
+              <label className="text-sm font-medium text-text-primary mb-2 block">
+                {isRTL ? 'תמונת רקע' : 'Background Image'}
+              </label>
+              <div
+                className="w-full h-24 rounded-xl border-2 border-dashed border-border overflow-hidden cursor-pointer hover:border-accent/50 transition-all relative"
+                onClick={() => bgInputRef.current?.click()}
+              >
+                {backgroundPreview ? (
+                  <>
+                    <img src={backgroundPreview} alt="" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0" style={{ backgroundColor: `rgba(0, 0, 0, ${(config.branding.imageOverlayOpacity ?? 40) / 100})` }} />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                      <Upload className="w-5 h-5 text-white" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-text-secondary">
+                    <ImageIcon className="w-6 h-6 mb-1" />
+                    <span className="text-xs">{isRTL ? 'לחצו להעלאת תמונה' : 'Click to upload image'}</span>
+                  </div>
+                )}
+              </div>
+              <input
+                ref={bgInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f && f.type.startsWith('image/')) {
+                    setBackgroundFile(f);
+                    const r = new FileReader();
+                    r.onload = () => setBackgroundPreview(r.result as string);
+                    r.readAsDataURL(f);
+                  }
+                  e.target.value = '';
+                }}
+              />
+              {backgroundPreview && (
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-text-secondary w-14 shrink-0">{isRTL ? 'כהות' : 'Dim'} {config.branding.imageOverlayOpacity ?? 40}%</span>
+                    <input
+                      type="range" min={0} max={80}
+                      value={config.branding.imageOverlayOpacity ?? 40}
+                      onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, imageOverlayOpacity: Number(e.target.value) } }))}
+                      className="flex-1" dir="ltr"
+                      style={{ accentColor: resolvedTheme.accentColor }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-text-secondary w-14 shrink-0">{isRTL ? 'טשטוש' : 'Blur'} {config.branding.backgroundBlur ?? 0}px</span>
+                    <input
+                      type="range" min={0} max={20}
+                      value={config.branding.backgroundBlur ?? 0}
+                      onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundBlur: Number(e.target.value) } }))}
+                      className="flex-1" dir="ltr"
+                      style={{ accentColor: resolvedTheme.accentColor }}
+                    />
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBackgroundFile(null);
+                      setBackgroundPreview(null);
+                      setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundImage: undefined, backgroundImageName: undefined, backgroundImageSize: undefined, imageOverlayOpacity: undefined, backgroundBlur: undefined } }));
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    {isRTL ? 'הסר תמונה' : 'Remove image'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Games Selection — inline collapsible settings */}
             <div>
               <label className="text-sm font-medium text-text-primary mb-2 block">
                 {isRTL ? 'משחקים זמינים' : 'Available Games'}
@@ -201,7 +382,7 @@ export default function QGamesModal({
                 {(['rps', 'oddoneout', 'tictactoe', 'memory'] as QGameType[]).map((gameType) => {
                   const meta = GAME_META[gameType];
                   const isEnabled = config.enabledGames.includes(gameType);
-                  const isAvailable = gameType === 'rps' || gameType === 'oddoneout' || gameType === 'tictactoe' || gameType === 'memory';
+                  const isExpanded = expandedGame === gameType && isEnabled;
 
                   const nameMap: Record<string, { he: string; en: string }> = {
                     rps: { he: 'אבן נייר ומספריים', en: 'Rock Paper Scissors' },
@@ -216,235 +397,114 @@ export default function QGamesModal({
                   };
 
                   return (
-                    <button
+                    <div
                       key={gameType}
-                      onClick={() => isAvailable && toggleGame(gameType)}
-                      disabled={!isAvailable}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-start ${
+                      className={`rounded-xl border transition-all overflow-hidden ${
                         isEnabled
                           ? 'bg-accent/10 border-accent/30'
-                          : isAvailable
-                            ? 'bg-bg-secondary border-border hover:border-accent/20'
-                            : 'bg-bg-secondary/50 border-border opacity-50 cursor-not-allowed'
+                          : 'bg-bg-secondary border-border'
                       }`}
                     >
-                      <span className="text-2xl">{meta.emoji}</span>
-                      <div className="flex-1">
-                        <p className="font-medium text-text-primary text-sm">
-                          {nameMap[gameType]?.[isRTL ? 'he' : 'en'] || gameType}
-                        </p>
-                        {descMap[gameType] && isAvailable && (
-                          <p className="text-xs text-text-secondary">{descMap[gameType][isRTL ? 'he' : 'en']}</p>
-                        )}
-                        {!isAvailable && (
-                          <p className="text-xs text-text-secondary">{isRTL ? 'בקרוב' : 'Coming soon'}</p>
-                        )}
-                      </div>
-                      {isAvailable && (
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          isEnabled ? 'bg-accent border-accent' : 'border-border'
-                        }`}>
+                      {/* Game header row */}
+                      <div className="flex items-center gap-3 p-3">
+                        {/* Toggle circle */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleGame(gameType); }}
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                            isEnabled ? 'bg-accent border-accent' : 'border-border hover:border-accent/40'
+                          }`}
+                        >
                           {isEnabled && <span className="text-white text-xs">✓</span>}
+                        </button>
+
+                        {/* Clickable area for expand/collapse */}
+                        <button
+                          className="flex-1 flex items-center gap-3 text-start"
+                          onClick={() => {
+                            if (!isEnabled) {
+                              toggleGame(gameType);
+                              setExpandedGame(gameType);
+                            } else {
+                              setExpandedGame(isExpanded ? null : gameType);
+                            }
+                          }}
+                        >
+                          <span className="text-2xl">{meta.emoji}</span>
+                          <div className="flex-1">
+                            <p className="font-medium text-text-primary text-sm">
+                              {nameMap[gameType]?.[isRTL ? 'he' : 'en'] || gameType}
+                            </p>
+                            {descMap[gameType] && (
+                              <p className="text-xs text-text-secondary">{descMap[gameType][isRTL ? 'he' : 'en']}</p>
+                            )}
+                          </div>
+                          {isEnabled && (
+                            <ChevronDown className={`w-4 h-4 text-text-secondary transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Inline settings (expanded) */}
+                      {isExpanded && (
+                        <div className="px-3 pb-3 pt-0">
+                          <div className="bg-bg-secondary/60 rounded-lg p-3 space-y-3">
+                            {gameType === 'rps' && (
+                              <>
+                                <SettingRow label={isRTL ? 'ראשון ל-' : 'First to'}>
+                                  <SettingButtons values={[3, 5]} current={config.rpsFirstTo} onChange={(n) => setConfig(prev => ({ ...prev, rpsFirstTo: n }))} />
+                                </SettingRow>
+                                <SettingRow label={isRTL ? 'טיימר סיבוב ראשון' : 'First round timer'}>
+                                  <span className="text-sm text-text-primary font-mono">{config.rpsFirstRoundTimer}s</span>
+                                </SettingRow>
+                                <SettingRow label={isRTL ? 'טיימר סיבובים הבאים' : 'Subsequent timer'}>
+                                  <span className="text-sm text-text-primary font-mono">{config.rpsSubsequentTimer}s</span>
+                                </SettingRow>
+                              </>
+                            )}
+                            {gameType === 'oddoneout' && (
+                              <>
+                                <SettingRow label={isRTL ? 'סטרייקים להפסד' : 'Strikes to lose'}>
+                                  <SettingButtons values={[3, 5]} current={config.oooMaxStrikes} onChange={(n) => setConfig(prev => ({ ...prev, oooMaxStrikes: n }))} />
+                                </SettingRow>
+                                <SettingRow label={isRTL ? 'טיימר סיבוב ראשון' : 'First round timer'}>
+                                  <span className="text-sm text-text-primary font-mono">{config.oooFirstRoundTimer}s</span>
+                                </SettingRow>
+                                <SettingRow label={isRTL ? 'טיימר סיבובים הבאים' : 'Subsequent timer'}>
+                                  <span className="text-sm text-text-primary font-mono">{config.oooSubsequentTimer}s</span>
+                                </SettingRow>
+                              </>
+                            )}
+                            {gameType === 'tictactoe' && (
+                              <>
+                                <SettingRow label={isRTL ? 'ראשון ל-' : 'First to'}>
+                                  <SettingButtons values={[3, 5]} current={config.tttFirstTo} onChange={(n) => setConfig(prev => ({ ...prev, tttFirstTo: n }))} />
+                                </SettingRow>
+                                <SettingRow label={isRTL ? 'טיימר לתור' : 'Turn timer'}>
+                                  <SettingButtons values={[10, 15, 20]} current={config.tttTurnTimer} onChange={(n) => setConfig(prev => ({ ...prev, tttTurnTimer: n }))} suffix="s" />
+                                </SettingRow>
+                              </>
+                            )}
+                            {gameType === 'memory' && (
+                              <>
+                                <SettingRow label={isRTL ? 'טיימר לזכירה' : 'Memorize timer'}>
+                                  <SettingButtons values={[3, 5]} current={config.memoryMemorizeTimer} onChange={(n) => setConfig(prev => ({ ...prev, memoryMemorizeTimer: n }))} suffix="s" />
+                                </SettingRow>
+                                <SettingRow label={isRTL ? 'טיימר לבחירה' : 'Recall timer'}>
+                                  <SettingButtons values={[10, 15]} current={config.memoryRecallTimer} onChange={(n) => setConfig(prev => ({ ...prev, memoryRecallTimer: n }))} suffix="s" />
+                                </SettingRow>
+                                <SettingRow label={isRTL ? 'פסילות להדחה' : 'Strikes to eliminate'}>
+                                  <SettingButtons values={[3, 5]} current={config.memoryMaxStrikes} onChange={(n) => setConfig(prev => ({ ...prev, memoryMaxStrikes: n }))} />
+                                </SettingRow>
+                              </>
+                            )}
+                          </div>
                         </div>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
             </div>
-
-            {/* RPS Settings */}
-            {config.enabledGames.includes('rps') && (
-              <div>
-                <label className="text-sm font-medium text-text-primary mb-2 block">
-                  {isRTL ? 'הגדרות אבן נייר ומספריים' : 'Rock Paper Scissors Settings'}
-                </label>
-                <div className="bg-bg-secondary rounded-xl p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'ראשון ל-' : 'First to'}</span>
-                    <div className="flex items-center gap-2">
-                      {[3, 5].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setConfig(prev => ({ ...prev, rpsFirstTo: n }))}
-                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                            config.rpsFirstTo === n
-                              ? 'bg-accent text-white'
-                              : 'bg-bg-primary text-text-secondary hover:text-text-primary'
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'טיימר סיבוב ראשון' : 'First round timer'}</span>
-                    <span className="text-sm text-text-primary font-mono">{config.rpsFirstRoundTimer}s</span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'טיימר סיבובים הבאים' : 'Subsequent timer'}</span>
-                    <span className="text-sm text-text-primary font-mono">{config.rpsSubsequentTimer}s</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* OOO Settings */}
-            {config.enabledGames.includes('oddoneout') && (
-              <div>
-                <label className="text-sm font-medium text-text-primary mb-2 block">
-                  {isRTL ? 'הגדרות משלוש יוצא אחד' : 'Odd One Out Settings'}
-                </label>
-                <div className="bg-bg-secondary rounded-xl p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'סטרייקים להפסד' : 'Strikes to lose'}</span>
-                    <div className="flex items-center gap-2">
-                      {[3, 5].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setConfig(prev => ({ ...prev, oooMaxStrikes: n }))}
-                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                            config.oooMaxStrikes === n
-                              ? 'bg-accent text-white'
-                              : 'bg-bg-primary text-text-secondary hover:text-text-primary'
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'טיימר סיבוב ראשון' : 'First round timer'}</span>
-                    <span className="text-sm text-text-primary font-mono">{config.oooFirstRoundTimer}s</span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'טיימר סיבובים הבאים' : 'Subsequent timer'}</span>
-                    <span className="text-sm text-text-primary font-mono">{config.oooSubsequentTimer}s</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TTT Settings */}
-            {config.enabledGames.includes('tictactoe') && (
-              <div>
-                <label className="text-sm font-medium text-text-primary mb-2 block">
-                  {isRTL ? 'הגדרות איקס עיגול' : 'Tic-Tac-Toe Settings'}
-                </label>
-                <div className="bg-bg-secondary rounded-xl p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'ראשון ל-' : 'First to'}</span>
-                    <div className="flex items-center gap-2">
-                      {[3, 5].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setConfig(prev => ({ ...prev, tttFirstTo: n }))}
-                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                            config.tttFirstTo === n
-                              ? 'bg-accent text-white'
-                              : 'bg-bg-primary text-text-secondary hover:text-text-primary'
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'טיימר לתור' : 'Turn timer'}</span>
-                    <div className="flex items-center gap-2">
-                      {[10, 15, 20].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setConfig(prev => ({ ...prev, tttTurnTimer: n }))}
-                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                            config.tttTurnTimer === n
-                              ? 'bg-accent text-white'
-                              : 'bg-bg-primary text-text-secondary hover:text-text-primary'
-                          }`}
-                        >
-                          {n}s
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Memory Settings */}
-            {config.enabledGames.includes('memory') && (
-              <div>
-                <label className="text-sm font-medium text-text-primary mb-2 block">
-                  {isRTL ? 'הגדרות זיכרון' : 'Memory Settings'}
-                </label>
-                <div className="bg-bg-secondary rounded-xl p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'טיימר לזכירה' : 'Memorize timer'}</span>
-                    <div className="flex items-center gap-2">
-                      {[3, 5].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setConfig(prev => ({ ...prev, memoryMemorizeTimer: n }))}
-                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                            config.memoryMemorizeTimer === n
-                              ? 'bg-accent text-white'
-                              : 'bg-bg-primary text-text-secondary hover:text-text-primary'
-                          }`}
-                        >
-                          {n}s
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'טיימר לבחירה' : 'Recall timer'}</span>
-                    <div className="flex items-center gap-2">
-                      {[10, 15].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setConfig(prev => ({ ...prev, memoryRecallTimer: n }))}
-                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                            config.memoryRecallTimer === n
-                              ? 'bg-accent text-white'
-                              : 'bg-bg-primary text-text-secondary hover:text-text-primary'
-                          }`}
-                        >
-                          {n}s
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-text-secondary">{isRTL ? 'פסילות להדחה' : 'Strikes to eliminate'}</span>
-                    <div className="flex items-center gap-2">
-                      {[3, 5].map(n => (
-                        <button
-                          key={n}
-                          onClick={() => setConfig(prev => ({ ...prev, memoryMaxStrikes: n }))}
-                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                            config.memoryMaxStrikes === n
-                              ? 'bg-accent text-white'
-                              : 'bg-bg-primary text-text-secondary hover:text-text-primary'
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Language */}
             <div>
@@ -490,6 +550,66 @@ export default function QGamesModal({
                 onChange={(v) => setConfig(prev => ({ ...prev, enableWhatsAppInvite: v }))}
               />
             </div>
+
+            {/* ── Chat Bubbles ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <MessageCircle className="w-4 h-4 text-accent" />
+                <span className="text-sm font-semibold text-text-primary">
+                  {isRTL ? 'בועות צ\'אט' : 'Chat Bubbles'}
+                </span>
+              </div>
+              <ToggleRow
+                label={isRTL ? 'צ\'אט בלובי' : 'Lobby Chat'}
+                checked={config.chatEnabled ?? true}
+                onChange={(v) => setConfig(prev => ({ ...prev, chatEnabled: v }))}
+              />
+              {(config.chatEnabled ?? true) && (
+                <ChatPhrasesEditor
+                  phrases={config.chatPhrases ?? DEFAULT_CHAT_PHRASES}
+                  isRTL={isRTL}
+                  onChange={(phrases) => setConfig(prev => ({ ...prev, chatPhrases: phrases }))}
+                  onReset={() => setConfig(prev => ({ ...prev, chatPhrases: [...DEFAULT_CHAT_PHRASES] }))}
+                />
+              )}
+            </div>
+
+            {/* ── Auto-Reset Schedule (edit mode only) ── */}
+            {isEditing && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="w-4 h-4 text-accent" />
+                  <span className="text-sm font-semibold text-text-primary">
+                    {isRTL ? 'איפוס אוטומטי' : 'Auto-Reset Schedule'}
+                  </span>
+                </div>
+                <ToggleRow
+                  label={isRTL ? 'איפוס מתוזמן' : 'Scheduled Reset'}
+                  checked={config.autoReset?.enabled ?? false}
+                  onChange={(v) => setConfig(prev => ({
+                    ...prev,
+                    autoReset: { enabled: v, slots: prev.autoReset?.slots ?? [] },
+                  }))}
+                />
+                {config.autoReset?.enabled && (
+                  <AutoResetSlotEditor
+                    slots={config.autoReset.slots}
+                    isRTL={isRTL}
+                    onChange={(slots) => setConfig(prev => ({
+                      ...prev,
+                      autoReset: { ...prev.autoReset!, enabled: true, slots },
+                    }))}
+                  />
+                )}
+                {config.autoReset?.enabled && (
+                  <p className="text-[11px] text-text-tertiary">
+                    {isRTL
+                      ? 'כל השחקנים והתוצאות יימחקו אוטומטית בזמנים שנבחרו'
+                      : 'All players and results will be automatically deleted at the selected times'}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Play / Preview link (edit mode only) */}
             {isEditing && shortId && (
@@ -685,6 +805,97 @@ function LinkCopyRow({ shortId, isRTL }: { shortId: string; isRTL: boolean }) {
   );
 }
 
+const DAY_LABELS_HE = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const DAY_LABELS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function AutoResetSlotEditor({
+  slots,
+  isRTL,
+  onChange,
+}: {
+  slots: QGamesScheduleSlot[];
+  isRTL: boolean;
+  onChange: (slots: QGamesScheduleSlot[]) => void;
+}) {
+  const dayLabels = isRTL ? DAY_LABELS_HE : DAY_LABELS_EN;
+
+  const addSlot = () => {
+    if (slots.length >= 7) return;
+    onChange([...slots, { dayOfWeek: -1, hour: 0, minute: 0 }]);
+  };
+
+  const removeSlot = (index: number) => {
+    onChange(slots.filter((_, i) => i !== index));
+  };
+
+  const updateSlot = (index: number, updates: Partial<QGamesScheduleSlot>) => {
+    onChange(slots.map((s, i) => i === index ? { ...s, ...updates } : s));
+  };
+
+  return (
+    <div className="space-y-2">
+      {slots.map((slot, index) => (
+        <div key={index} className="flex items-center gap-2 bg-bg-secondary rounded-lg p-2">
+          {/* Day picker */}
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              <button
+                onClick={() => updateSlot(index, { dayOfWeek: -1 })}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  slot.dayOfWeek === -1
+                    ? 'bg-accent text-white'
+                    : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {isRTL ? 'יומי' : 'Daily'}
+              </button>
+              {dayLabels.map((label, day) => (
+                <button
+                  key={day}
+                  onClick={() => updateSlot(index, { dayOfWeek: day })}
+                  className={`w-7 h-6 rounded text-[11px] font-medium transition-colors ${
+                    slot.dayOfWeek === day
+                      ? 'bg-accent text-white'
+                      : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* Time picker */}
+            <input
+              type="time"
+              value={`${String(slot.hour).padStart(2, '0')}:${String(slot.minute).padStart(2, '0')}`}
+              onChange={(e) => {
+                const [h, m] = e.target.value.split(':').map(Number);
+                updateSlot(index, { hour: h, minute: m });
+              }}
+              className="w-full bg-bg-tertiary text-text-primary text-sm rounded-lg px-2 py-1 border border-border focus:outline-none focus:border-accent"
+            />
+          </div>
+          {/* Delete button */}
+          <button
+            onClick={() => removeSlot(index)}
+            className="p-1.5 rounded-lg text-text-tertiary hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+      {slots.length < 7 && (
+        <button
+          onClick={addSlot}
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-accent bg-accent/10 hover:bg-accent/20 transition-colors border border-dashed border-accent/30"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {isRTL ? 'הוסף שעה' : 'Add time slot'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ToggleRow({
   label,
   checked,
@@ -710,6 +921,265 @@ function ToggleRow({
           }`}
         />
       </button>
+    </div>
+  );
+}
+
+// ── Chat Phrases Editor ──
+
+function ChatPhrasesEditor({
+  phrases,
+  isRTL,
+  onChange,
+  onReset,
+}: {
+  phrases: QGamesChatPhrase[];
+  isRTL: boolean;
+  onChange: (phrases: QGamesChatPhrase[]) => void;
+  onReset: () => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editEmoji, setEditEmoji] = useState('');
+  const [addMode, setAddMode] = useState(false);
+  const [addText, setAddText] = useState('');
+  const [addEmoji, setAddEmoji] = useState('');
+  const [addType, setAddType] = useState<'text' | 'emoji'>('text');
+
+  const textPhrases = phrases.filter(p => p.type === 'text');
+  const emojiPhrases = phrases.filter(p => p.type === 'emoji');
+
+  const handleDelete = (id: string) => {
+    onChange(phrases.filter(p => p.id !== id));
+  };
+
+  const handleSaveEdit = (id: string) => {
+    onChange(phrases.map(p =>
+      p.id === id ? (() => { const updated = { ...p, text: editText.trim() }; if (editEmoji) { updated.emoji = editEmoji; } else { delete updated.emoji; } return updated; })() : p
+    ));
+    setEditingId(null);
+  };
+
+  const handleAdd = () => {
+    if (addType === 'emoji' && !addText.trim()) return;
+    if (addType === 'text' && !addText.trim()) return;
+    if (phrases.length >= 40) return;
+
+    const newPhrase: QGamesChatPhrase = {
+      id: `custom_${Date.now()}`,
+      text: addText.trim(),
+      type: addType,
+    };
+    if (addType === 'text' && addEmoji) newPhrase.emoji = addEmoji;
+    onChange([...phrases, newPhrase]);
+    setAddText('');
+    setAddEmoji('');
+    setAddMode(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Text phrases list */}
+      <div>
+        <span className="text-xs text-text-secondary mb-1.5 block">
+          {isRTL ? `בועות טקסט (${textPhrases.length})` : `Text bubbles (${textPhrases.length})`}
+        </span>
+        <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto">
+          {textPhrases.map((phrase) => (
+            <div key={phrase.id} className="group relative">
+              {editingId === phrase.id ? (
+                <div className="flex items-center gap-1 bg-bg-secondary rounded-full px-2 py-1">
+                  <input
+                    value={editEmoji}
+                    onChange={(e) => setEditEmoji(e.target.value)}
+                    className="w-8 text-center bg-transparent text-sm outline-none"
+                    placeholder="😀"
+                    maxLength={2}
+                  />
+                  <input
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="w-24 bg-transparent text-sm text-text-primary outline-none"
+                    dir={isRTL ? 'rtl' : 'ltr'}
+                    maxLength={30}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveEdit(phrase.id);
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                  />
+                  <button
+                    onClick={() => handleSaveEdit(phrase.id)}
+                    className="text-accent text-xs font-medium"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditingId(phrase.id);
+                    setEditText(phrase.text);
+                    setEditEmoji(phrase.emoji || '');
+                  }}
+                  className="px-2.5 py-1 rounded-full text-xs bg-bg-secondary text-text-primary hover:bg-bg-tertiary transition-colors"
+                >
+                  {phrase.emoji && <span className="me-0.5">{phrase.emoji}</span>}
+                  {phrase.text}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(phrase.id); }}
+                    className="ms-1 opacity-0 group-hover:opacity-100 text-red-400 transition-opacity"
+                  >
+                    <Trash2 className="w-3 h-3 inline" />
+                  </button>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Emoji reactions list */}
+      <div>
+        <span className="text-xs text-text-secondary mb-1.5 block">
+          {isRTL ? `אימוג\'י מהירים (${emojiPhrases.length})` : `Quick emojis (${emojiPhrases.length})`}
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {emojiPhrases.map((phrase) => (
+            <div key={phrase.id} className="group relative">
+              <span className="text-lg cursor-default">{phrase.text}</span>
+              <button
+                onClick={() => handleDelete(phrase.id)}
+                className="absolute -top-1 -end-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              >
+                <X className="w-2 h-2" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Add phrase */}
+      {addMode ? (
+        <div className="flex flex-col gap-2 p-2.5 rounded-xl bg-bg-secondary">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setAddType('text')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${addType === 'text' ? 'bg-accent text-white' : 'bg-bg-tertiary text-text-secondary'}`}
+            >
+              {isRTL ? 'טקסט' : 'Text'}
+            </button>
+            <button
+              onClick={() => setAddType('emoji')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${addType === 'emoji' ? 'bg-accent text-white' : 'bg-bg-tertiary text-text-secondary'}`}
+            >
+              {isRTL ? 'אימוג\'י' : 'Emoji'}
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            {addType === 'text' && (
+              <input
+                value={addEmoji}
+                onChange={(e) => setAddEmoji(e.target.value)}
+                className="w-10 text-center bg-bg-tertiary rounded-lg py-1.5 text-sm outline-none"
+                placeholder="😀"
+                maxLength={2}
+              />
+            )}
+            <input
+              value={addText}
+              onChange={(e) => setAddText(e.target.value)}
+              className="flex-1 bg-bg-tertiary rounded-lg px-3 py-1.5 text-sm text-text-primary outline-none"
+              dir={isRTL ? 'rtl' : 'ltr'}
+              placeholder={addType === 'emoji' ? '😎' : (isRTL ? 'טקסט הבועה...' : 'Bubble text...')}
+              maxLength={addType === 'emoji' ? 2 : 30}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+              autoFocus
+            />
+            <button
+              onClick={handleAdd}
+              disabled={!addText.trim()}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent text-white disabled:opacity-40"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={() => { setAddMode(false); setAddText(''); setAddEmoji(''); }}
+            className="text-xs text-text-secondary hover:text-text-primary"
+          >
+            {isRTL ? 'ביטול' : 'Cancel'}
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          {phrases.length < 40 && (
+            <button
+              onClick={() => setAddMode(true)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-accent bg-accent/10 hover:bg-accent/20 transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              {isRTL ? 'הוסיפו בועה' : 'Add bubble'}
+            </button>
+          )}
+          <button
+            onClick={onReset}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:text-text-primary bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+          >
+            <RotateCw className="w-3 h-3" />
+            {isRTL ? 'ברירת מחדל' : 'Reset defaults'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Color Swatch with native picker ──
+
+function ColorSwatch({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <button
+        onClick={() => ref.current?.click()}
+        className="w-8 h-8 rounded-full border-2 border-border/50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
+        style={{ backgroundColor: value }}
+      >
+        <input ref={ref} type="color" value={value} onChange={(e) => onChange(e.target.value)} className="sr-only" />
+      </button>
+      <span className="text-[9px] text-text-secondary">{label}</span>
+    </div>
+  );
+}
+
+// ── Game Settings helpers ──
+
+function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-text-secondary">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function SettingButtons({ values, current, onChange, suffix }: { values: number[]; current: number; onChange: (n: number) => void; suffix?: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      {values.map(n => (
+        <button
+          key={n}
+          onClick={() => onChange(n)}
+          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+            current === n
+              ? 'bg-accent text-white'
+              : 'bg-bg-primary text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          {n}{suffix || ''}
+        </button>
+      ))}
     </div>
   );
 }

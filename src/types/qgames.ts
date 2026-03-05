@@ -521,10 +521,28 @@ export const QGAMES_THEMES: Record<QGamesThemeId, QGamesTheme> = {
   },
 };
 
-/** Resolve full theme from branding config */
+/** Resolve full theme from branding config, merging custom color overrides */
 export function resolveTheme(branding: QGamesBranding): QGamesTheme {
   const themeId = branding.theme || 'dark-gaming';
-  return QGAMES_THEMES[themeId] || QGAMES_THEMES['dark-gaming'];
+  const base = QGAMES_THEMES[themeId] || QGAMES_THEMES['dark-gaming'];
+
+  // Check if user customized any of the 3 editable colors
+  const customBg = branding.backgroundColor && branding.backgroundColor !== base.backgroundColor;
+  const customPrimary = branding.primaryColor && branding.primaryColor !== base.primaryColor;
+  const customAccent = branding.accentColor && branding.accentColor !== base.accentColor;
+
+  if (!customBg && !customPrimary && !customAccent) return base;
+
+  return {
+    ...base,
+    ...(customBg && { backgroundColor: branding.backgroundColor }),
+    ...(customPrimary && {
+      primaryColor: branding.primaryColor,
+      gradientFrom: branding.primaryColor,
+      gradientTo: branding.primaryColor,
+    }),
+    ...(customAccent && { accentColor: branding.accentColor }),
+  };
 }
 
 // =============================================================
@@ -539,8 +557,17 @@ export interface QGamesBranding {
   backgroundColor: string;
   primaryColor: string;
   accentColor: string;
+  // Logo
   eventLogo?: string;
+  eventLogoName?: string;
+  eventLogoSize?: number;
+  logoScale?: number; // 0.3-4.0, default 1
+  // Background image
   backgroundImage?: string;
+  backgroundImageName?: string;
+  backgroundImageSize?: number;
+  imageOverlayOpacity?: number; // 0-80, default 40
+  backgroundBlur?: number; // 0-20, default 0
 }
 
 // =============================================================
@@ -588,11 +615,36 @@ export interface QGamesConfig {
   // WhatsApp invite
   enableWhatsAppInvite: boolean;
 
+  // Chat
+  chatEnabled: boolean;
+  chatPhrases: QGamesChatPhrase[];
+  chatBubbleColor?: string;           // Default bubble color (hex)
+
   // Stats (denormalized from RTDB)
   stats: QGamesStats;
 
+  // Auto-reset schedule
+  autoReset?: QGamesAutoReset;
+
   createdAt?: number;
   lastResetAt?: number;
+}
+
+// =============================================================
+// Auto-Reset Schedule
+// =============================================================
+
+/** A single auto-reset time slot */
+export interface QGamesScheduleSlot {
+  dayOfWeek: number;  // 0=Sun..6=Sat, -1=daily
+  hour: number;       // 0-23 (Israel time)
+  minute: number;     // 0-59
+}
+
+/** Auto-reset schedule configuration */
+export interface QGamesAutoReset {
+  enabled: boolean;
+  slots: QGamesScheduleSlot[];
 }
 
 /** Check if a game type requires 3 players */
@@ -613,6 +665,72 @@ export const MATCH_POINTS = {
   DRAW: 1,
   LOSS: 0,
 } as const;
+
+// =============================================================
+// Lobby Chat
+// =============================================================
+
+/** Chat phrase type */
+export type ChatPhraseType = 'text' | 'emoji';
+
+/** Admin-configurable chat phrase (bubble) */
+export interface QGamesChatPhrase {
+  id: string;
+  text: string;           // Hebrew text or emoji-only
+  textEn?: string;        // English text (optional)
+  emoji?: string;         // Emoji prefix for text phrases
+  color?: string;         // Custom bubble color (hex), overrides default
+  type: ChatPhraseType;   // 'text' = text bubble, 'emoji' = large emoji reaction
+}
+
+/** Default chat phrases - positive, fun, gender-neutral plural */
+export const DEFAULT_CHAT_PHRASES: QGamesChatPhrase[] = [
+  // Game invites
+  { id: 'inv1', text: 'בואו לאיקס עיגול!', emoji: '⭕', type: 'text' },
+  { id: 'inv2', text: 'מי בא לאבן נייר ומספריים?', emoji: '✊', type: 'text' },
+  { id: 'inv3', text: 'מי מצטרפים?', emoji: '🎮', type: 'text' },
+  { id: 'inv4', text: 'בואו לזיכרון!', emoji: '🧠', type: 'text' },
+  // Hype
+  { id: 'hyp1', text: 'יאללה!', emoji: '🔥', type: 'text' },
+  { id: 'hyp2', text: 'מדהימים!', emoji: '🤩', type: 'text' },
+  { id: 'hyp3', text: 'פגז!', emoji: '💥', type: 'text' },
+  { id: 'hyp4', text: 'אלופים!', emoji: '🏆', type: 'text' },
+  { id: 'hyp5', text: 'שיחקתם אותה!', emoji: '🎯', type: 'text' },
+  // Positive reactions
+  { id: 'pos1', text: 'יפה!', emoji: '👏', type: 'text' },
+  { id: 'pos2', text: 'מצויינים!', emoji: '⭐', type: 'text' },
+  { id: 'pos3', text: 'וואו!', emoji: '😮', type: 'text' },
+  { id: 'pos4', text: 'GG', emoji: '🤝', type: 'text' },
+  // Trendy / slang
+  { id: 'trn1', text: 'נו באמת', emoji: '😏', type: 'text' },
+  { id: 'trn2', text: 'שווה!', emoji: '🙌', type: 'text' },
+  { id: 'trn3', text: 'סבבה', emoji: '👌', type: 'text' },
+  { id: 'trn4', text: 'לגמרי!', emoji: '💯', type: 'text' },
+  // Fun & competition
+  { id: 'fun1', text: 'מי מעזים?', emoji: '💪', type: 'text' },
+  { id: 'fun2', text: 'בהצלחה לכולם!', emoji: '🍀', type: 'text' },
+  { id: 'fun3', text: 'בטוח!', emoji: '👍', type: 'text' },
+  { id: 'fun4', text: 'אנחנו הכי טובים!', emoji: '😎', type: 'text' },
+  // Game reactions
+  { id: 'gam1', text: 'אוף', emoji: '😩', type: 'text' },
+  { id: 'gam2', text: 'באו שוב!', emoji: '🔄', type: 'text' },
+  { id: 'gam3', text: 'עוד סיבוב!', emoji: '🎲', type: 'text' },
+  { id: 'gam4', text: 'קרוב!', emoji: '😬', type: 'text' },
+  // Inspiration
+  { id: 'ins1', text: 'אפשר הכל!', emoji: '✨', type: 'text' },
+  { id: 'ins2', text: 'לא עוצרים!', emoji: '🚀', type: 'text' },
+  // Emoji-only reactions
+  { id: 'emo1', text: '❤️', type: 'emoji' },
+  { id: 'emo2', text: '👍', type: 'emoji' },
+  { id: 'emo3', text: '🔥', type: 'emoji' },
+  { id: 'emo4', text: '🚀', type: 'emoji' },
+  { id: 'emo5', text: '💯', type: 'emoji' },
+  { id: 'emo6', text: '😂', type: 'emoji' },
+  { id: 'emo7', text: '🎉', type: 'emoji' },
+  { id: 'emo8', text: '💪', type: 'emoji' },
+  { id: 'emo9', text: '👏', type: 'emoji' },
+  { id: 'emo10', text: '😍', type: 'emoji' },
+];
 
 // =============================================================
 // Defaults
@@ -660,6 +778,9 @@ export const DEFAULT_QGAMES_CONFIG: QGamesConfig = {
   showLeaderboard: true,
   enableWhatsAppInvite: true,
 
+  chatEnabled: true,
+  chatPhrases: [...DEFAULT_CHAT_PHRASES],
+
   stats: {
     totalPlayers: 0,
     playersOnline: 0,
@@ -699,6 +820,9 @@ export const GAME_META: Record<QGameType, {
   },
 };
 
+/** Fixed display order for game selector (canonical order) */
+export const GAME_DISPLAY_ORDER: QGameType[] = ['rps', 'oddoneout', 'tictactoe', 'memory'];
+
 // =============================================================
 // Memory Emoji Pool
 // =============================================================
@@ -710,6 +834,33 @@ export const MEMORY_EMOJI_POOL = [
   '⚽', '🏀', '🎾', '🎯', '🎸', '🎨', '📚', '💡', '🔔', '💎',
   '🎂', '🍕', '🍦', '🧁', '🍩', '☕', '🎁', '🎈', '🎭', '🏆',
 ];
+
+// =============================================================
+// Chat Messages & Bans (RTDB)
+// =============================================================
+
+/** Chat message stored in RTDB */
+export interface QGamesChatMessage {
+  id: string;                        // RTDB push key
+  senderId: string;                  // visitorId
+  senderNickname: string;
+  senderAvatarType: QGamesAvatarType;
+  senderAvatarValue: string;
+  phraseId: string;                  // references QGamesChatPhrase.id
+  text: string;                      // denormalized phrase text
+  emoji?: string;                    // denormalized emoji
+  color?: string;                    // bubble color
+  phraseType: ChatPhraseType;        // 'text' or 'emoji'
+  mentionId?: string;                // tagged player visitorId
+  mentionNickname?: string;          // tagged player name
+  sentAt: number;                    // timestamp
+}
+
+/** Chat ban entry in RTDB */
+export interface QGamesChatBan {
+  visitorId: string;
+  bannedAt: number;
+}
 
 // =============================================================
 // RTDB Path Helpers
@@ -737,4 +888,8 @@ export const QGAMES_PATHS = {
   leaderboardEntry: (codeId: string, visitorId: string) => `qgames/${codeId}/leaderboard/${visitorId}`,
   viewers: (codeId: string) => `qgames/${codeId}/viewers`,
   viewer: (codeId: string, visitorId: string) => `qgames/${codeId}/viewers/${visitorId}`,
+  chat: (codeId: string) => `qgames/${codeId}/chat`,
+  chatMessage: (codeId: string, messageId: string) => `qgames/${codeId}/chat/${messageId}`,
+  chatBans: (codeId: string) => `qgames/${codeId}/chatBans`,
+  chatBan: (codeId: string, visitorId: string) => `qgames/${codeId}/chatBans/${visitorId}`,
 };

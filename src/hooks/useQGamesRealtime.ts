@@ -17,6 +17,7 @@ import {
   RTDBMemoryState,
   RTDBMemoryPlayer,
   LiveMatchInfo,
+  QGamesChatMessage,
 } from '@/types/qgames';
 import {
   subscribeToQGamesStats,
@@ -35,6 +36,9 @@ import {
   subscribeToViewerCount,
   subscribeToActiveMatchStats,
   cleanupStaleMatches,
+  subscribeToChatMessages,
+  subscribeToChatBan,
+  cleanupOldChatMessages,
 } from '@/lib/qgames-realtime';
 
 // ============ STATS HOOK ============
@@ -691,4 +695,160 @@ export function useQGamesSounds(enabled: boolean): UseQGamesSoundsResult {
   const playReveal = useCallback(() => playTone(880, 0.2, 'sine', 0.25), [playTone]);
 
   return useMemo(() => ({ playSelect, playWinRound, playLoseRound, playWinMatch, playLoseMatch, playCountdown, playReveal }), [playSelect, playWinRound, playLoseRound, playWinMatch, playLoseMatch, playCountdown, playReveal]);
+}
+
+// ============ LOBBY CHAT HOOKS ============
+
+/** Subscribe to lobby chat messages (last 50, filtered by max age) */
+export function useLobbyChatMessages(
+  codeId: string | null,
+  maxAgeMs: number = 300000 // 5 min display TTL
+): { messages: QGamesChatMessage[]; loading: boolean } {
+  const [messages, setMessages] = useState<QGamesChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!codeId) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    // Clean up old messages on mount (fire-and-forget)
+    cleanupOldChatMessages(codeId).catch(() => {});
+
+    const unsubscribe = subscribeToChatMessages(codeId, (allMessages) => {
+      const now = Date.now();
+      const filtered = allMessages.filter(m => now - m.sentAt < maxAgeMs);
+      setMessages(filtered);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [codeId, maxAgeMs]);
+
+  return { messages, loading };
+}
+
+/** Chat moderation: rate limiting, spam strikes, ban check */
+export function useChatModeration(
+  codeId: string | null,
+  visitorId: string | null
+): {
+  canSend: boolean;
+  isBanned: boolean;
+  violations: number;
+  cooldownSeconds: number;
+  warningMessage: string | null;
+  dismissWarning: () => void;
+  checkCanSend: () => boolean;
+  recordSend: () => void;
+} {
+  const [isBanned, setIsBanned] = useState(false);
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
+  const violationsRef = useRef(0);
+  const [violations, setViolations] = useState(0);
+  const sendTimestamps = useRef<number[]>([]);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Subscribe to ban status
+  useEffect(() => {
+    if (!codeId || !visitorId) return;
+    const unsubscribe = subscribeToChatBan(codeId, visitorId, (banned) => {
+      setIsBanned(banned);
+    });
+    return () => unsubscribe();
+  }, [codeId, visitorId]);
+
+  // Cooldown countdown
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) {
+      setCooldownSeconds(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      setCooldownSeconds(remaining);
+    };
+    tick();
+    const interval = setInterval(tick, 500);
+    return () => clearInterval(interval);
+  }, [cooldownUntil]);
+
+  const dismissWarning = useCallback(() => {
+    setWarningMessage(null);
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
+    }
+  }, []);
+
+  const showWarning = useCallback((msg: string) => {
+    setWarningMessage(msg);
+    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+    warningTimerRef.current = setTimeout(() => {
+      setWarningMessage(null);
+      warningTimerRef.current = null;
+    }, 3000);
+  }, []);
+
+  const checkCanSend = useCallback((): boolean => {
+    if (isBanned) return false;
+    if (cooldownUntil > Date.now()) return false;
+
+    const now = Date.now();
+    const recent = sendTimestamps.current.filter(t => now - t < 10000);
+
+    if (recent.length >= 3) {
+      // Rate limited — apply cooldown
+      const cooldownMs = 5000;
+      setCooldownUntil(now + cooldownMs);
+
+      violationsRef.current += 1;
+      setViolations(violationsRef.current);
+
+      if (violationsRef.current >= 3) {
+        showWarning('נחסמתם מהצ\'אט 🚫');
+        return false; // Will be banned by recordSend
+      } else if (violationsRef.current === 2) {
+        showWarning('אזהרה אחרונה — עוד אחת ותיחסמו מהצ\'אט ⚠️');
+      } else {
+        showWarning('רגע, נשמו! 😅');
+      }
+      return false;
+    }
+
+    return true;
+  }, [isBanned, cooldownUntil, showWarning]);
+
+  const recordSend = useCallback(() => {
+    sendTimestamps.current.push(Date.now());
+    // Keep only last 10 seconds
+    const now = Date.now();
+    sendTimestamps.current = sendTimestamps.current.filter(t => now - t < 10000);
+
+    // Check if should ban after recording
+    if (violationsRef.current >= 3 && codeId && visitorId) {
+      import('@/lib/qgames-realtime').then(({ banFromChat }) => {
+        banFromChat(codeId, visitorId);
+      });
+    }
+  }, [codeId, visitorId]);
+
+  const canSend = !isBanned && cooldownUntil <= Date.now();
+
+  return {
+    canSend,
+    isBanned,
+    violations,
+    cooldownSeconds,
+    warningMessage,
+    dismissWarning,
+    checkCanSend,
+    recordSend,
+  };
 }

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.23';
+export const APP_VERSION = '1.13.24';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,35 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.23',
+    version: '1.13.24',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: צ\'אט לובי בזמן אמת — שחקנים בוחרים מבועות מוכנות (ידידותי לילדים, בלי טקסט חופשי)',
+        'חדש: אימוג\'י מהירים (❤️🔥🚀💯) + תיוג שחקנים מחוברים בצ\'אט',
+        'חדש: הגנת אנטי-ספאם — אזהרות וחסימה אחרי 3 הפרות',
+        'חדש: הגדרות בועות צ\'אט למנהל — הוספה, עריכה, מחיקה ואיפוס',
+        'חדש: איפוס אוטומטי מתוזמן — הגדרת שעות איפוס שבועיות (cron)',
+        'שיפור: טבלת מובילים עם עיצוב חדש, אנימציות כניסה, סינון לפי משחק',
+        'שיפור: אנימציית bounce-in לבועות צ\'אט',
+        'תיקון: כיווניות RTL בצ\'אט — הודעות שלי מימין, אחרים משמאל',
+      ],
+      en: [
+        'New: Real-time lobby chat — players pick from predefined bubbles (kid-friendly, no free text)',
+        'New: Quick emoji reactions (❤️🔥🚀💯) + mention connected players in chat',
+        'New: Anti-spam protection — warnings and ban after 3 violations',
+        'New: Admin chat bubble settings — add, edit, delete, and reset phrases',
+        'New: Scheduled auto-reset — set weekly reset times (cron job)',
+        'Improvement: Redesigned leaderboard with animations, game filtering',
+        'Improvement: Staggered bounce-in animation for chat bubbles',
+        'Fix: RTL chat direction — own messages on right, others on left',
+      ],
+    },
+  },
+  {
+    version: '1.13.23',
+    date: '2026-03-05',
     highlights: {
       he: [
         'תיקון: משחק זיכרון עובד - שלב הניחוש מוצג כראוי עם ריבועים ריקים למעלה',

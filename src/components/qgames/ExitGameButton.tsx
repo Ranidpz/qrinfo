@@ -19,15 +19,15 @@ export default function ExitGameButton({ onConfirm, isRTL, t }: ExitGameButtonPr
       {/* Small exit icon — top corner, opposite side from game UI */}
       <button
         onClick={() => setShowConfirm(true)}
-        className="absolute top-2 z-30 p-2 rounded-full transition-colors"
+        className="absolute top-3 z-40 p-2.5 rounded-full transition-colors"
         style={{
-          [isRTL ? 'left' : 'left']: 8,
+          [isRTL ? 'right' : 'left']: 12,
           backgroundColor: `${theme.surfaceColor}cc`,
           color: theme.textSecondary,
         }}
         aria-label={t('exitGame')}
       >
-        <LogOut className="w-4 h-4" />
+        <LogOut className="w-5 h-5" />
       </button>
 
       {/* Confirmation overlay */}

@@ -28,20 +28,51 @@ export default function QGamesPreviewPhone({ config, isRTL }: QGamesPreviewPhone
 
   return (
     <div
-      className="w-[240px] h-[480px] rounded-[2rem] border-2 overflow-hidden shadow-2xl flex flex-col"
+      className="w-[240px] h-[480px] rounded-[2rem] border-2 overflow-hidden shadow-2xl flex flex-col relative"
       style={{
         borderColor: theme.borderColor,
         backgroundColor: theme.backgroundColor,
       }}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
+      {/* Background image layer */}
+      {config.branding.backgroundImage && (
+        <>
+          <div
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: `url(${config.branding.backgroundImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              ...(config.branding.backgroundBlur ? { filter: `blur(${config.branding.backgroundBlur * 0.5}px)` } : {}),
+            }}
+          />
+          <div
+            className="absolute inset-0 z-0"
+            style={{ backgroundColor: `rgba(0, 0, 0, ${(config.branding.imageOverlayOpacity ?? 40) / 100})` }}
+          />
+        </>
+      )}
+
       {/* Phone notch */}
-      <div className="flex justify-center pt-2 pb-1">
+      <div className="relative z-10 flex justify-center pt-2 pb-1">
         <div className="w-16 h-1 rounded-full" style={{ backgroundColor: theme.borderColor }} />
       </div>
 
       {/* Content area */}
-      <div className="flex-1 px-3 pb-3 overflow-hidden flex flex-col items-center">
+      <div className="relative z-10 flex-1 px-3 pb-3 overflow-hidden flex flex-col items-center">
+        {/* Event Logo */}
+        {config.branding.eventLogo && (
+          <div className="flex justify-center pt-1 pb-1">
+            <img
+              src={config.branding.eventLogo}
+              alt=""
+              className="object-contain"
+              style={{ maxHeight: `${24 * (config.branding.logoScale ?? 1)}px`, maxWidth: '60%' }}
+            />
+          </div>
+        )}
+
         {/* ── Profile hero (matches real selector) ── */}
         <div className="flex flex-col items-center pt-3 pb-2 w-full">
           {/* Avatar with glow */}

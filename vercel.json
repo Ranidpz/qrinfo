@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/qgames-reset",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

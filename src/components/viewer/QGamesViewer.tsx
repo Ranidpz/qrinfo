@@ -8,6 +8,7 @@ import {
   GAME_META,
   DEFAULT_QGAMES_CONFIG,
   DEFAULT_QGAMES_EMOJI_PALETTE,
+  DEFAULT_CHAT_PHRASES,
   is3PlayerGame,
   isLobbyGame,
   resolveTheme,
@@ -38,6 +39,7 @@ import {
   useMatchPresence,
   useQueueWatcher,
   useViewerPresence,
+  useQGamesQueue,
 } from '@/hooks/useQGamesRealtime';
 
 import QGamesRegistration from '@/components/qgames/QGamesRegistration';
@@ -52,6 +54,7 @@ import type { MemoryGameResult } from '@/components/qgames/MemoryGame';
 import QGamesResult from '@/components/qgames/QGamesResult';
 import QGamesLeaderboard from '@/components/qgames/QGamesLeaderboard';
 import QGamesMatchHistory from '@/components/qgames/QGamesMatchHistory';
+import LobbyChat from '@/components/qgames/LobbyChat';
 
 // ============ Translations ============
 const translations: Record<string, Record<string, string>> = {
@@ -148,6 +151,8 @@ const translations: Record<string, Record<string, string>> = {
     score: 'ניקוד',
     close: 'סגור',
     allGames: 'הכל',
+    filterByGame: 'סינון לפי משחק',
+    sortBy: 'מיון לפי',
     byScore: 'ניקוד',
     byWinRate: 'ניצחונות',
     minGames: 'מינימום 3 משחקים',
@@ -257,6 +262,8 @@ const translations: Record<string, Record<string, string>> = {
     score: 'Score',
     close: 'Close',
     allGames: 'All',
+    filterByGame: 'Filter by game',
+    sortBy: 'Sort by',
     byScore: 'Score',
     byWinRate: 'Win Rate',
     minGames: 'Min 3 games',
@@ -402,6 +409,17 @@ export default function QGamesViewer({
 
   // Viewer presence + live stats (active across all phases)
   const { viewerCount, activeMatches, matchesPerGame, queuePerGame, liveMatches } = useViewerPresence(codeId, visitorId);
+
+  // Queue entries for chat mention picker (connected players with nicknames)
+  const { entries: allQueueEntries } = useQGamesQueue(
+    (phase === 'selector' || phase === 'queue') && config.chatEnabled !== false ? codeId : null
+  );
+  const chatConnectedPlayers = useMemo(() =>
+    allQueueEntries
+      .filter(e => e.id !== visitorId)
+      .map(e => ({ id: e.id, nickname: e.nickname, avatarType: e.avatarType, avatarValue: e.avatarValue })),
+    [allQueueEntries, visitorId]
+  );
 
   // Track opponent presence during match
   const { opponentDisconnected } = useMatchPresence(
@@ -1078,7 +1096,30 @@ export default function QGamesViewer({
 
   return (
     <QGamesThemeProvider value={theme}>
-    <div className="min-h-screen" style={{ backgroundColor: theme.backgroundColor }}>
+    <div className="min-h-screen relative" style={{ backgroundColor: theme.backgroundColor }}>
+      {/* Background image + overlay + blur */}
+      {config.branding.backgroundImage && (
+        <>
+          <div
+            className="fixed inset-0 z-0"
+            style={{
+              backgroundImage: `url(${config.branding.backgroundImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              ...(config.branding.backgroundBlur ? {
+                filter: `blur(${config.branding.backgroundBlur}px)`,
+                margin: `-${config.branding.backgroundBlur}px`,
+                padding: `${config.branding.backgroundBlur}px`,
+              } : {}),
+            }}
+          />
+          <div
+            className="fixed inset-0 z-0"
+            style={{ backgroundColor: `rgba(0, 0, 0, ${(config.branding.imageOverlayOpacity ?? 40) / 100})` }}
+          />
+        </>
+      )}
+      <div className="relative z-10">
       {phase === 'registration' && (
         <QGamesRegistration
           config={config}
@@ -1135,6 +1176,20 @@ export default function QGamesViewer({
           onNameChange={handleNameChange}
           viewerCount={viewerCount}
           activeMatches={activeMatches}
+        />
+      )}
+
+      {/* Lobby Chat (visible in selector + queue) */}
+      {(phase === 'selector' || phase === 'queue') && player && config.chatEnabled !== false && (
+        <LobbyChat
+          codeId={codeId}
+          visitorId={visitorId}
+          playerNickname={player.nickname}
+          playerAvatarType={player.avatarType}
+          playerAvatarValue={player.avatarValue}
+          phrases={config.chatPhrases?.length ? config.chatPhrases : DEFAULT_CHAT_PHRASES}
+          connectedPlayers={chatConnectedPlayers}
+          isRTL={isRTL}
         />
       )}
 
@@ -1428,6 +1483,7 @@ export default function QGamesViewer({
           Powered by The Q
         </a>
       </div>
+    </div>
     </div>
     </QGamesThemeProvider>
   );

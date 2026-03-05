@@ -2443,12 +2443,83 @@ export default function CodeEditPage({ params }: PageProps) {
   };
 
   // Handler for adding/editing Q.Games
-  const handleSaveQGames = async (config: QGamesConfig) => {
+  const handleSaveQGames = async (config: QGamesConfig, logoFile?: File, backgroundFile?: File) => {
     if (!code || !user) return;
 
     setAddingQGames(true);
     try {
-      const qgamesConfig = { ...config };
+      const finalConfig = { ...config, branding: { ...config.branding } };
+      let totalImageSize = 0;
+
+      // Get existing branding for old image cleanup
+      const existingMedia = editingQGamesId ? code.media.find(m => m.id === editingQGamesId) : null;
+      const oldLogo = existingMedia?.qgamesConfig?.branding?.eventLogo;
+      const oldBg = existingMedia?.qgamesConfig?.branding?.backgroundImage;
+
+      // Upload logo (PNG, preserve alpha for transparency)
+      if (logoFile) {
+        const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
+        const fileToUpload = createCompressedFile(compressed, logoFile.name);
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        formData.append('userId', user.id);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          finalConfig.branding.eventLogo = data.url;
+          finalConfig.branding.eventLogoName = logoFile.name;
+          finalConfig.branding.eventLogoSize = data.size;
+          totalImageSize += data.size;
+          // Delete old logo
+          if (oldLogo && oldLogo.includes('blob.vercel-storage.com')) {
+            fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldLogo }) }).catch(() => {});
+          }
+        }
+      }
+
+      // Upload background image (WebP, compressed)
+      if (backgroundFile) {
+        let fileToUpload: File = backgroundFile;
+        if (backgroundFile.size > 3 * 1024 * 1024) {
+          try {
+            const compressed = await compressImage(backgroundFile, { maxSizeKB: 2048, maxWidth: 2000, maxHeight: 2000 });
+            fileToUpload = createCompressedFile(compressed, backgroundFile.name);
+          } catch { /* use original */ }
+        }
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        formData.append('userId', user.id);
+        formData.append('convertToWebp', 'true');
+        formData.append('maxWidth', '1000');
+        formData.append('quality', '70');
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          finalConfig.branding.backgroundImage = data.url;
+          finalConfig.branding.backgroundImageName = backgroundFile.name;
+          finalConfig.branding.backgroundImageSize = data.size;
+          totalImageSize += data.size;
+          // Delete old background
+          if (oldBg && oldBg.includes('blob.vercel-storage.com')) {
+            fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldBg }) }).catch(() => {});
+          }
+        }
+      }
+
+      // Handle removal: logo removed in modal (was set, now undefined, no new file)
+      if (!finalConfig.branding.eventLogo && oldLogo && !logoFile) {
+        if (oldLogo.includes('blob.vercel-storage.com')) {
+          fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldLogo }) }).catch(() => {});
+        }
+      }
+      if (!finalConfig.branding.backgroundImage && oldBg && !backgroundFile) {
+        if (oldBg.includes('blob.vercel-storage.com')) {
+          fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldBg }) }).catch(() => {});
+        }
+      }
+
+      // Strip undefined values — Firestore rejects them
+      const qgamesConfig = JSON.parse(JSON.stringify(finalConfig));
       let updatedMedia: MediaItem[];
 
       if (editingQGamesId) {
@@ -2476,6 +2547,21 @@ export default function CodeEditPage({ params }: PageProps) {
 
       await updateQRCode(code.id, { media: updatedMedia });
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
+
+      // Sync auto-reset schedule
+      try {
+        await fetchWithAuth('/api/qgames/schedule', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codeId: code.id, autoReset: qgamesConfig.autoReset }),
+        });
+      } catch (err) {
+        console.error('Failed to sync auto-reset schedule:', err);
+      }
+
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+      }
     } catch (error) {
       console.error('Error saving Q.Games:', error);
       alert(tErrors('createCodeError'));

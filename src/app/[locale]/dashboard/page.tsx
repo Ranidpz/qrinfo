@@ -1014,12 +1014,57 @@ export default function DashboardPage() {
     }
   };
 
-  const handleQGamesCreate = async (config: QGamesConfig) => {
+  const handleQGamesCreate = async (config: QGamesConfig, logoFile?: File, backgroundFile?: File) => {
     if (!user) return;
 
     setAddingQGames(true);
 
     try {
+      const finalConfig = { ...config, branding: { ...config.branding } };
+      let totalImageSize = 0;
+
+      // Upload logo (PNG, preserve alpha for transparency)
+      if (logoFile) {
+        const compressed = await compressImage(logoFile, { maxSizeKB: 1024, maxWidth: 800, maxHeight: 800, preserveAlpha: true });
+        const fileToUpload = createCompressedFile(compressed, logoFile.name);
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        formData.append('userId', user.id);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          finalConfig.branding.eventLogo = data.url;
+          finalConfig.branding.eventLogoName = logoFile.name;
+          finalConfig.branding.eventLogoSize = data.size;
+          totalImageSize += data.size;
+        }
+      }
+
+      // Upload background image (WebP, compressed)
+      if (backgroundFile) {
+        let fileToUpload: File = backgroundFile;
+        if (backgroundFile.size > 3 * 1024 * 1024) {
+          try {
+            const compressed = await compressImage(backgroundFile, { maxSizeKB: 2048, maxWidth: 2000, maxHeight: 2000 });
+            fileToUpload = createCompressedFile(compressed, backgroundFile.name);
+          } catch { /* use original */ }
+        }
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        formData.append('userId', user.id);
+        formData.append('convertToWebp', 'true');
+        formData.append('maxWidth', '1000');
+        formData.append('quality', '70');
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          finalConfig.branding.backgroundImage = data.url;
+          finalConfig.branding.backgroundImageName = backgroundFile.name;
+          finalConfig.branding.backgroundImageSize = data.size;
+          totalImageSize += data.size;
+        }
+      }
+
       const newCode = await createQRCode(user.id, 'Q.Games', [
         {
           url: '',
@@ -1028,9 +1073,13 @@ export default function DashboardPage() {
           order: 0,
           uploadedBy: user.id,
           title: 'Q.Games',
-          qgamesConfig: config,
+          qgamesConfig: JSON.parse(JSON.stringify(finalConfig)),
         },
       ], currentFolderId);
+
+      if (totalImageSize > 0) {
+        await updateUserStorage(user.id, totalImageSize);
+      }
 
       setCodes((prev) => [newCode, ...prev]);
       setQgamesModalOpen(false);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, ChevronDown, Share2, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Share2, X, SlidersHorizontal } from 'lucide-react';
 import { QGamesLeaderboardEntry, QGamesMatch, QGameType, GAME_META } from '@/types/qgames';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
@@ -50,7 +50,6 @@ function getGameStats(entry: QGamesLeaderboardEntry, filter: GameFilter) {
   if (filter === 'rps') {
     const played = entry.rpsPlayed ?? 0;
     const wins = entry.rpsWins ?? 0;
-    // Subtract other games' approximate scores (wins*3) from total
     const oooScore = (entry.oddoneoutWins ?? 0) * 3;
     const tttScore = (entry.tictactoeWins ?? 0) * 3;
     const score = Math.max(0, entry.score - oooScore - tttScore);
@@ -64,7 +63,6 @@ function getGameStats(entry: QGamesLeaderboardEntry, filter: GameFilter) {
   if (filter === 'tictactoe') {
     const played = entry.tictactoePlayed ?? 0;
     const wins = entry.tictactoeWins ?? 0;
-    // Subtract other games' approximate scores from total
     const oooScore = (entry.oddoneoutWins ?? 0) * 3;
     const rpsScore = (entry.rpsWins ?? 0) * 3;
     const score = Math.max(0, entry.score - oooScore - rpsScore);
@@ -90,37 +88,42 @@ export default function QGamesLeaderboard({
   codeId,
 }: QGamesLeaderboardProps) {
   const theme = useQGamesTheme();
-  const rankMedals = ['🥇', '🥈', '🥉'];
+  const rankMedals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
   const [selectedPlayer, setSelectedPlayer] = useState<QGamesLeaderboardEntry | null>(null);
   const [gameFilter, setGameFilter] = useState<GameFilter>('all');
   const [sortMode, setSortMode] = useState<SortMode>('score');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // Available game tabs based on enabled games
   const gameTabs = useMemo(() => {
-    const tabs: { key: GameFilter; label: string }[] = [
-      { key: 'all', label: t('allGames') },
+    const tabs: { key: GameFilter; label: string; emoji: string }[] = [
+      { key: 'all', label: t('allGames'), emoji: '' },
     ];
     if (!enabledGames || enabledGames.includes('rps')) {
-      tabs.push({ key: 'rps', label: t('rps') });
+      tabs.push({ key: 'rps', label: t('rps'), emoji: GAME_META.rps.emoji });
     }
     if (!enabledGames || enabledGames.includes('oddoneout')) {
-      tabs.push({ key: 'oddoneout', label: t('oddoneout') });
+      tabs.push({ key: 'oddoneout', label: t('oddoneout'), emoji: GAME_META.oddoneout.emoji });
     }
     if (!enabledGames || enabledGames.includes('tictactoe')) {
-      tabs.push({ key: 'tictactoe', label: t('tictactoe') });
+      tabs.push({ key: 'tictactoe', label: t('tictactoe'), emoji: GAME_META.tictactoe.emoji });
     }
     if (!enabledGames || enabledGames.includes('memory')) {
-      tabs.push({ key: 'memory', label: t('memory') });
+      tabs.push({ key: 'memory', label: t('memory'), emoji: GAME_META.memory.emoji });
     }
     return tabs;
   }, [enabledGames, t]);
-
 
   // Filter + sort entries
   const sortedEntries = useMemo(() => {
     let filtered = entries;
 
-    // Filter by game: only show players who played that game
     if (gameFilter !== 'all') {
       filtered = entries.filter(e => {
         const stats = getGameStats(e, gameFilter);
@@ -128,7 +131,6 @@ export default function QGamesLeaderboard({
       });
     }
 
-    // Sort
     const sorted = [...filtered].sort((a, b) => {
       const aStats = getGameStats(a, gameFilter);
       const bStats = getGameStats(b, gameFilter);
@@ -136,26 +138,22 @@ export default function QGamesLeaderboard({
       if (sortMode === 'winrate') {
         const aHasMin = aStats.played >= MIN_GAMES_FOR_WINRATE;
         const bHasMin = bStats.played >= MIN_GAMES_FOR_WINRATE;
-        // Players with min games come first
         if (aHasMin !== bHasMin) return aHasMin ? -1 : 1;
         const aRate = aStats.played > 0 ? aStats.wins / aStats.played : 0;
         const bRate = bStats.played > 0 ? bStats.wins / bStats.played : 0;
         if (bRate !== aRate) return bRate - aRate;
-        // Tiebreak: more games played is better when same rate
         return bStats.played - aStats.played;
       }
 
-      // Sort by score (default — only for 'all' tab)
       if (bStats.score !== aStats.score) return bStats.score - aStats.score;
       if (bStats.wins !== aStats.wins) return bStats.wins - aStats.wins;
-      return aStats.played - bStats.played; // Less games = better
+      return aStats.played - bStats.played;
     });
 
-    // Cap at 50 entries
     return sorted.slice(0, 50);
   }, [entries, gameFilter, sortMode]);
 
-  const topEntries = compact ? sortedEntries.slice(0, 10) : sortedEntries; // sortedEntries already capped at 50
+  const topEntries = compact ? sortedEntries.slice(0, 10) : sortedEntries;
 
   const gameUrl = shortId ? `https://qr.playzones.app/v/${shortId}` : '';
 
@@ -165,16 +163,35 @@ export default function QGamesLeaderboard({
       `${rankMedals[i]} ${e.nickname} - ${e.score} ${t('pts')}`
     ).join('\n');
 
-    const text = `🏆 ${t('leaderboard')}\n\n${top3}\n\n${t('joinAndPlay')}\n${gameUrl}`;
+    const text = `\u{1F3C6} ${t('leaderboard')}\n\n${top3}\n\n${t('joinAndPlay')}\n${gameUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  // Active filter label for the button
+  const activeFilterLabel = gameTabs.find(tab => tab.key === gameFilter)?.label || t('allGames');
+  const hasActiveFilter = gameFilter !== 'all' || sortMode !== 'score';
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className={compact ? '' : 'min-h-screen flex flex-col p-4'}>
+      {/* Custom keyframes */}
+      <style>{`
+        @keyframes leaderboardRowIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes filterPanelIn {
+          from { opacity: 0; max-height: 0; transform: translateY(-4px); }
+          to { opacity: 1; max-height: 200px; transform: translateY(0); }
+        }
+        @keyframes filterPanelOut {
+          from { opacity: 1; max-height: 200px; }
+          to { opacity: 0; max-height: 0; }
+        }
+      `}</style>
+
       {/* Header */}
       {!compact && (
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-3">
           {onBack && (
             <button
               onClick={onBack}
@@ -183,65 +200,103 @@ export default function QGamesLeaderboard({
               <ArrowLeft className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
             </button>
           )}
-          <h2 className="font-bold text-xl flex-1" style={{ color: theme.textColor }}>🏆 {t('leaderboard')}</h2>
-          {shortId && (
-            <button
-              onClick={handleShareWhatsApp}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-              style={{ backgroundColor: `${theme.accentColor}26`, color: theme.accentColor }}
-            >
-              <Share2 className="w-4 h-4" />
-              {t('share')}
-            </button>
-          )}
+          <h2 className="font-bold text-lg flex-1" style={{ color: theme.textColor }}>
+            {t('leaderboard')}
+          </h2>
+
+          <div className="flex items-center gap-2">
+            {/* Filter toggle button */}
+            {gameTabs.length > 1 && (
+              <button
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: hasActiveFilter ? `${theme.accentColor}20` : 'rgba(255,255,255,0.05)',
+                  color: hasActiveFilter ? theme.accentColor : 'rgba(255,255,255,0.5)',
+                }}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                {gameFilter !== 'all' && <span className="truncate max-w-[80px]">{activeFilterLabel}</span>}
+                <ChevronDown className={`w-3 h-3 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+
+            {/* Share button */}
+            {shortId && (
+              <button
+                onClick={handleShareWhatsApp}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{ backgroundColor: `${theme.accentColor}20`, color: theme.accentColor }}
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                {t('share')}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Game Filter Tabs */}
-      {!compact && gameTabs.length > 1 && (
-        <div className="flex gap-1.5 mb-3">
-          {gameTabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setGameFilter(tab.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                gameFilter === tab.key
-                  ? 'bg-white/10 text-white ring-1 ring-white/20'
-                  : 'bg-white/[0.03] text-white/40 hover:bg-white/[0.06]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Collapsible Filter Panel */}
+      {!compact && filtersOpen && (
+        <div
+          className="mb-3 rounded-xl overflow-hidden"
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            animation: 'filterPanelIn 0.25s ease-out forwards',
+          }}
+        >
+          <div className="p-3 space-y-2.5">
+            {/* Game filter chips */}
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-white/25 mb-1.5">{t('filterByGame')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {gameTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setGameFilter(tab.key)}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={gameFilter === tab.key
+                      ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
+                      : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
+                  >
+                    {tab.emoji && <span className="me-1">{tab.emoji}</span>}
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      {/* Sort Toggle */}
-      {!compact && (
-        <div className="flex gap-1 mb-3">
-          <button
-            onClick={() => setSortMode('score')}
-            className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all"
-            style={sortMode === 'score'
-              ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor }
-              : { color: 'rgba(255,255,255,0.3)' }}
-          >
-            {t('byScore')}
-          </button>
-          <button
-            onClick={() => setSortMode('winrate')}
-            className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all"
-            style={sortMode === 'winrate'
-              ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor }
-              : { color: 'rgba(255,255,255,0.3)' }}
-          >
-            % {t('byWinRate')}
-          </button>
+            {/* Sort toggle */}
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-white/25 mb-1.5">{t('sortBy')}</p>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setSortMode('score')}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={sortMode === 'score'
+                    ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
+                    : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
+                >
+                  {t('byScore')}
+                </button>
+                <button
+                  onClick={() => setSortMode('winrate')}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={sortMode === 'winrate'
+                    ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
+                    : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
+                >
+                  % {t('byWinRate')}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Leaderboard List */}
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {topEntries.length === 0 && (
           <p className="text-white/30 text-sm text-center py-8">{t('noPlayersYet')}</p>
         )}
@@ -253,36 +308,44 @@ export default function QGamesLeaderboard({
           const stats = getGameStats(entry, gameFilter);
           const winRate = stats.played > 0 ? Math.round((stats.wins / stats.played) * 100) : 0;
           const belowMinGames = sortMode === 'winrate' && stats.played < MIN_GAMES_FOR_WINRATE;
+          const isCompact = rank > 5 && !isMe;
 
           return (
             <div
               key={entry.id}
               onClick={() => setSelectedPlayer(entry)}
-              className={`flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors cursor-pointer ${
+              className={`flex items-center gap-2.5 rounded-xl transition-colors cursor-pointer active:scale-[0.98] ${
                 isMe
                   ? 'ring-1'
                   : belowMinGames
-                    ? 'bg-white/[0.01] opacity-50'
-                    : 'bg-white/[0.02] hover:bg-white/[0.04]'
+                    ? 'opacity-50'
+                    : ''
               }`}
-              style={isMe ? {
-                backgroundColor: `${theme.accentColor}1a`,
-                '--tw-ring-color': `${theme.accentColor}4d`,
-              } as React.CSSProperties : undefined}
+              style={{
+                padding: isCompact ? '6px 10px' : '8px 12px',
+                backgroundColor: isMe ? `${theme.accentColor}1a` : rank <= 3 ? 'rgba(255,255,255,0.03)' : 'transparent',
+                ...(isMe ? { '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties : {}),
+                animation: mounted ? `leaderboardRowIn 0.4s ease-out ${idx * 30}ms backwards` : 'none',
+              }}
             >
               {/* Rank */}
-              <div className="w-8 text-center shrink-0">
+              <div className="w-7 text-center shrink-0">
                 {medal && !belowMinGames ? (
-                  <span className="text-lg">{medal}</span>
+                  <span className={isCompact ? 'text-base' : 'text-lg'}>{medal}</span>
                 ) : (
-                  <span className="text-white/30 text-sm font-medium">{rank}</span>
+                  <span className="text-white/30 text-xs font-medium tabular-nums">{rank}</span>
                 )}
               </div>
 
               {/* Avatar */}
               <div
-                className={`w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-lg shrink-0 overflow-hidden ${isMe ? 'ring-1' : ''}`}
-                style={isMe ? { '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties : undefined}
+                className={`rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden ${isMe ? 'ring-1' : ''}`}
+                style={{
+                  width: isCompact ? 28 : 34,
+                  height: isCompact ? 28 : 34,
+                  fontSize: isCompact ? '0.85rem' : '1.05rem',
+                  ...(isMe ? { '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties : {}),
+                }}
               >
                 {entry.avatarValue.startsWith('http') ? (
                   <img
@@ -296,34 +359,43 @@ export default function QGamesLeaderboard({
 
               {/* Name + Stats */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: isMe ? theme.accentColor : 'white' }}>
+                <p className="font-semibold truncate" style={{
+                  color: isMe ? theme.accentColor : 'white',
+                  fontSize: isCompact ? '0.8rem' : '0.875rem',
+                }}>
                   {entry.nickname}
-                  {isMe && <span className="text-xs ml-1" style={{ color: `${theme.accentColor}99` }}>({t('you')})</span>}
+                  {isMe && <span className="text-xs ms-1" style={{ color: `${theme.accentColor}99` }}>({t('you')})</span>}
                 </p>
-                <p className="text-white/30 text-[10px]">
-                  {stats.played} {t('games')} · {stats.wins}{t('winsShort')} · {winRate}%
-                </p>
+                {!isCompact && (
+                  <p className="text-white/30 text-[10px]">
+                    {stats.played} {t('games')} · {stats.wins}{t('winsShort')} · {winRate}%
+                  </p>
+                )}
               </div>
 
               {/* Score or Win Rate */}
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="text-end">
-                  {sortMode === 'winrate' ? (
-                    <>
-                      <p className="font-bold tabular-nums" style={{ color: isMe ? theme.accentColor : 'white' }}>
-                        {winRate}%
-                      </p>
-                      <p className="text-white/20 text-[10px]">{stats.wins}/{stats.played}</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-bold tabular-nums" style={{ color: isMe ? theme.accentColor : 'white' }}>
-                        {stats.score}
-                      </p>
-                      <p className="text-white/20 text-[10px]">{t('pts')}</p>
-                    </>
-                  )}
-                </div>
+              <div className="text-end shrink-0">
+                {sortMode === 'winrate' ? (
+                  <>
+                    <p className="font-bold tabular-nums" style={{
+                      color: isMe ? theme.accentColor : 'white',
+                      fontSize: isCompact ? '0.85rem' : '1rem',
+                    }}>
+                      {winRate}%
+                    </p>
+                    {!isCompact && <p className="text-white/20 text-[10px]">{stats.wins}/{stats.played}</p>}
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold tabular-nums" style={{
+                      color: isMe ? theme.accentColor : rank === 1 ? '#facc15' : 'white',
+                      fontSize: isCompact ? '0.85rem' : rank <= 3 ? '1.15rem' : '1rem',
+                    }}>
+                      {stats.score}
+                    </p>
+                    {!isCompact && <p className="text-white/20 text-[10px]">{t('pts')}</p>}
+                  </>
+                )}
               </div>
             </div>
           );
@@ -394,10 +466,10 @@ function GameStatRow({ label, played, wins, delay, t }: {
   if (played === 0) return null;
 
   return (
-    <div className={`px-3 py-2.5 bg-white/[0.03] rounded-lg transition-all duration-400 ${
+    <div className={`px-3 py-2 bg-white/[0.03] rounded-lg transition-all duration-400 ${
       visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
     }`}>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-0.5">
         <span className="text-white/70 text-xs font-medium">{label}</span>
         <span className="text-xs font-bold tabular-nums" style={{ color: '#10b981' }}>{winRate}%</span>
       </div>
@@ -444,7 +516,6 @@ function PlayerMatchHistory({ playerId, codeId, isRTL, t }: {
         const q = query(matchesRef, orderBy('finishedAt', 'desc'), limit(30));
         const snapshot = await getDocs(q);
         const allMatches = snapshot.docs.map(doc => doc.data() as QGamesMatch);
-        // Filter for matches involving this player
         const playerMatches = allMatches.filter(m =>
           m.player1Id === playerId || m.player2Id === playerId || m.player3Id === playerId ||
           m.memoryResults?.some(r => r.id === playerId)
@@ -464,15 +535,14 @@ function PlayerMatchHistory({ playerId, codeId, isRTL, t }: {
   const displayMatches = expanded ? matches : matches.slice(0, 3);
 
   return (
-    <div className="mt-3">
-      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-2">{t('recentMatchesPlayer')}</p>
+    <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-1.5">{t('recentMatchesPlayer')}</p>
       <div className="space-y-1">
         {displayMatches.map((match, idx) => {
           const is3Player = !!match.player3Id;
           const isMemory = match.gameType === 'memory' && match.memoryResults;
           const meta = GAME_META[match.gameType];
 
-          // Determine result for this player
           let result: 'win' | 'loss' | 'draw';
           if (is3Player) {
             result = match.winnerIds?.includes(playerId) ? 'win' : 'loss';
@@ -484,7 +554,6 @@ function PlayerMatchHistory({ playerId, codeId, isRTL, t }: {
             result = match.winnerId === playerId ? 'win' : match.winnerId === null ? 'draw' : 'loss';
           }
 
-          // Get opponent(s) info
           const opponents: { nickname: string; avatarValue: string }[] = [];
           if (isMemory) {
             match.memoryResults!
@@ -496,7 +565,6 @@ function PlayerMatchHistory({ playerId, codeId, isRTL, t }: {
             if (match.player3Id && match.player3Id !== playerId) opponents.push({ nickname: match.player3Nickname!, avatarValue: match.player3AvatarValue! });
           }
 
-          // Score display
           let scoreText = '';
           if (isMemory) {
             const playerResult = match.memoryResults!.find(r => r.id === playerId);
@@ -515,21 +583,14 @@ function PlayerMatchHistory({ playerId, codeId, isRTL, t }: {
           return (
             <div
               key={match.id}
-              className={`flex items-center gap-2 py-2 px-2.5 rounded-lg ${resultColor} transition-all duration-300`}
-              style={{
-                opacity: 1,
-                animationDelay: `${idx * 60}ms`,
-              }}
+              className={`flex items-center gap-2 py-1.5 px-2 rounded-lg ${resultColor}`}
             >
-              {/* Game type emoji */}
-              <span className="text-sm shrink-0">{meta?.emoji || '🎮'}</span>
-
-              {/* Opponent avatars */}
+              <span className="text-sm shrink-0">{meta?.emoji || ''}</span>
               <div className="flex -space-x-1.5 shrink-0">
                 {opponents.slice(0, 3).map((opp, i) => (
                   <div
                     key={i}
-                    className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs overflow-hidden ring-1 ring-[#1a1a2e]"
+                    className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] overflow-hidden ring-1 ring-[#1a1a2e]"
                   >
                     {opp.avatarValue.startsWith('http') ? (
                       <img src={opp.avatarValue} alt="" className="w-full h-full object-cover" />
@@ -537,32 +598,23 @@ function PlayerMatchHistory({ playerId, codeId, isRTL, t }: {
                   </div>
                 ))}
               </div>
-
-              {/* Opponent name */}
-              <span className="text-white/60 text-[11px] truncate min-w-0 flex-1">
+              <span className="text-white/60 text-[10px] truncate min-w-0 flex-1">
                 {opponents.length === 1
                   ? opponents[0].nickname
                   : opponents.slice(0, 2).map(o => o.nickname).join(', ')}
               </span>
-
-              {/* Score */}
-              <span className="text-white/40 text-[10px] font-mono tabular-nums shrink-0">{scoreText}</span>
-
-              {/* Result badge */}
-              <span className={`${resultTextColor} text-[10px] font-bold shrink-0`}>{resultLabel}</span>
-
-              {/* Time */}
+              <span className="text-white/40 text-[9px] font-mono tabular-nums shrink-0">{scoreText}</span>
+              <span className={`${resultTextColor} text-[9px] font-bold shrink-0`}>{resultLabel}</span>
               <span className="text-white/20 text-[9px] shrink-0">{timeAgo}</span>
             </div>
           );
         })}
       </div>
 
-      {/* Show all / show less toggle */}
       {matches.length > 3 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center justify-center gap-1 w-full mt-1.5 py-1.5 text-white/30 hover:text-white/50 text-[10px] transition-colors"
+          className="flex items-center justify-center gap-1 w-full mt-1 py-1 text-white/30 hover:text-white/50 text-[10px] transition-colors"
         >
           {expanded ? t('showLess') : `${t('showAll')} (${matches.length})`}
           <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
@@ -590,14 +642,20 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-[#1a1a2e] rounded-2xl w-full max-w-xs p-5 relative animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-y-auto"
+        className="bg-[#1a1a2e] rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xs p-5 pb-8 sm:pb-5 relative animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 max-h-[85vh] overflow-y-auto"
         dir={isRTL ? 'rtl' : 'ltr'}
         onClick={(e) => e.stopPropagation()}
+        style={{ scrollbarWidth: 'none' }}
       >
+        {/* Drag handle (mobile) */}
+        <div className="sm:hidden flex justify-center mb-3">
+          <div className="w-10 h-1 rounded-full bg-white/15" />
+        </div>
+
         {/* Close button */}
         <button
           onClick={onClose}
@@ -607,8 +665,8 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
         </button>
 
         {/* Player header */}
-        <div className="flex flex-col items-center mb-5">
-          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-3xl overflow-hidden mb-2">
+        <div className="flex flex-col items-center mb-4">
+          <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-2xl overflow-hidden mb-2">
             {player.avatarValue.startsWith('http') ? (
               <img
                 src={player.avatarValue}
@@ -618,19 +676,19 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
               />
             ) : player.avatarValue}
           </div>
-          <h3 className="text-white font-bold text-lg">{player.nickname}</h3>
-          <div className="flex items-center gap-2 mt-1">
+          <h3 className="text-white font-bold text-base">{player.nickname}</h3>
+          <div className="flex items-center gap-2 mt-0.5">
             {player.rank <= 3 ? (
-              <span className="text-lg">{rankMedals[player.rank - 1]}</span>
+              <span className="text-base">{rankMedals[player.rank - 1]}</span>
             ) : (
-              <span className="text-white/40 text-sm">#{player.rank}</span>
+              <span className="text-white/40 text-xs">#{player.rank}</span>
             )}
-            <span className="font-bold" style={{ color: '#10b981' }}>{player.score} {t('pts')}</span>
+            <span className="font-bold text-sm" style={{ color: '#10b981' }}>{player.score} {t('pts')}</span>
           </div>
         </div>
 
         {/* Animated stats grid */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2">
           <AnimatedStat value={player.gamesPlayed} label={t('gamesPlayedLabel')} color="text-white" bg="bg-white/5" delay={0} />
           <AnimatedStat value={winRate} suffix="%" label={t('winRate')} color="text-white" bg="bg-white/5" delay={80} />
           <AnimatedStat value={player.wins} label={t('winsLabel')} color="text-green-400" bg="bg-green-500/10" delay={160} />
@@ -639,7 +697,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
 
         {/* Per-game breakdown */}
         {hasPerGameStats && (
-          <div className="mt-3 space-y-1.5">
+          <div className="mt-2.5 space-y-1">
             <GameStatRow label={t('rps')} played={player.rpsPlayed ?? 0} wins={player.rpsWins ?? 0} delay={320} t={t} />
             <GameStatRow label={t('oddoneout')} played={player.oddoneoutPlayed ?? 0} wins={player.oddoneoutWins ?? 0} delay={400} t={t} />
             <GameStatRow label={t('tictactoe')} played={player.tictactoePlayed ?? 0} wins={player.tictactoeWins ?? 0} delay={480} t={t} />
@@ -651,7 +709,6 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
         {codeId && (
           <PlayerMatchHistory playerId={player.id} codeId={codeId} isRTL={isRTL} t={t} />
         )}
-
       </div>
     </div>
   );

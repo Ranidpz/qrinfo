@@ -281,7 +281,7 @@ export default function QGamesQueue({
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-6"
+      className="min-h-screen flex flex-col items-center justify-center p-6 pb-20"
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* Back button */}

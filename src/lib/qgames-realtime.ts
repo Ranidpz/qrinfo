@@ -9,11 +9,15 @@ import {
   set,
   update,
   get,
+  push,
   onValue,
   off,
   remove,
   runTransaction,
   onDisconnect,
+  query,
+  orderByChild,
+  limitToLast,
   DataSnapshot,
 } from 'firebase/database';
 import {
@@ -33,6 +37,7 @@ import {
   MatchStatus,
   QGamesAvatarType,
   LiveMatchInfo,
+  QGamesChatMessage,
 } from '@/types/qgames';
 
 // ============ SESSION / STATS ============
@@ -1031,6 +1036,93 @@ export async function deleteMemoryRoom(
 ): Promise<void> {
   const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
   await remove(roomRef);
+}
+
+// ============ LOBBY CHAT ============
+
+/** Send a chat message. Returns the RTDB push key. */
+export async function sendChatMessage(
+  codeId: string,
+  message: Omit<QGamesChatMessage, 'id'>
+): Promise<string> {
+  const chatRef = ref(realtimeDb, QGAMES_PATHS.chat(codeId));
+  const newRef = push(chatRef);
+  // Strip undefined values — Firebase RTDB rejects them
+  const fullMessage: Record<string, unknown> = { id: newRef.key! };
+  for (const [k, v] of Object.entries(message)) {
+    if (v !== undefined) fullMessage[k] = v;
+  }
+  await set(newRef, fullMessage);
+  return newRef.key!;
+}
+
+/** Subscribe to chat messages (last 50, ordered by sentAt) */
+export function subscribeToChatMessages(
+  codeId: string,
+  onUpdate: (messages: QGamesChatMessage[]) => void
+): () => void {
+  const chatQuery = query(
+    ref(realtimeDb, QGAMES_PATHS.chat(codeId)),
+    orderByChild('sentAt'),
+    limitToLast(50)
+  );
+  const callback = (snapshot: DataSnapshot) => {
+    if (!snapshot.exists()) {
+      onUpdate([]);
+      return;
+    }
+    const messages: QGamesChatMessage[] = [];
+    snapshot.forEach((child) => {
+      messages.push(child.val() as QGamesChatMessage);
+    });
+    // Already ordered by sentAt due to query
+    onUpdate(messages);
+  };
+  onValue(chatQuery, callback);
+  return () => off(chatQuery, 'value', callback);
+}
+
+/** Subscribe to chat ban status for a player */
+export function subscribeToChatBan(
+  codeId: string,
+  visitorId: string,
+  onUpdate: (banned: boolean) => void
+): () => void {
+  const banRef = ref(realtimeDb, QGAMES_PATHS.chatBan(codeId, visitorId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists());
+  };
+  onValue(banRef, callback);
+  return () => off(banRef, 'value', callback);
+}
+
+/** Ban a player from chat */
+export async function banFromChat(
+  codeId: string,
+  visitorId: string
+): Promise<void> {
+  const banRef = ref(realtimeDb, QGAMES_PATHS.chatBan(codeId, visitorId));
+  await set(banRef, { visitorId, bannedAt: Date.now() });
+}
+
+/** Clean up old chat messages (older than maxAgeMs) */
+export async function cleanupOldChatMessages(
+  codeId: string,
+  maxAgeMs: number = 600000 // 10 minutes
+): Promise<void> {
+  const chatRef = ref(realtimeDb, QGAMES_PATHS.chat(codeId));
+  const snapshot = await get(chatRef);
+  if (!snapshot.exists()) return;
+
+  const now = Date.now();
+  const promises: Promise<void>[] = [];
+  snapshot.forEach((child) => {
+    const msg = child.val() as QGamesChatMessage;
+    if (now - msg.sentAt > maxAgeMs) {
+      promises.push(remove(ref(realtimeDb, QGAMES_PATHS.chatMessage(codeId, child.key!))));
+    }
+  });
+  await Promise.all(promises);
 }
 
 /** Subscribe to active player stats (per game type + total) + live match details.

@@ -411,7 +411,7 @@ export default function RPSGame({
       )}
 
       {/* Header: Score Display */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
+      <div className="flex items-center justify-between px-4 pt-14 pb-1.5">
         {/* My side */}
         <div className="flex items-center gap-2 relative">
           <AvatarCircle avatar={myAvatar} size="md" className="ring-2" style={{ '--tw-ring-color': `${theme.primaryColor}4d` } as React.CSSProperties} />

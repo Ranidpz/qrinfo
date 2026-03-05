@@ -188,9 +188,18 @@ export default function QGamesRegistration({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Event Logo */}
+      {config.branding.eventLogo && (
+        <img
+          src={config.branding.eventLogo}
+          alt=""
+          className="object-contain drop-shadow-lg mb-2"
+          style={{ maxHeight: `${80 * (config.branding.logoScale ?? 1)}px`, maxWidth: '70%' }}
+        />
+      )}
       {/* Title */}
       <div className="text-center mb-4">
-        <h1 className="text-2xl font-bold mb-0.5" style={{ color: theme.textColor }}>🎮 {gameName}</h1>
+        <h1 className="text-2xl font-bold mb-0.5" style={{ color: theme.textColor }}>{!config.branding.eventLogo && '🎮 '}{gameName}</h1>
         <p className="text-sm" style={{ color: theme.textSecondary }}>{t('joinToPlay')}</p>
       </div>
 
