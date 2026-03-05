@@ -376,6 +376,7 @@ export default function QGamesViewer({
 
   // Track when disconnect countdown started (for visual countdown bar)
   const [disconnectStartTime, setDisconnectStartTime] = useState<number | null>(null);
+  const [showExitToQ, setShowExitToQ] = useState(false);
 
   // Guard against concurrent match attempts
   const matchingRef = useRef(false);
@@ -1179,8 +1180,8 @@ export default function QGamesViewer({
         />
       )}
 
-      {/* Lobby Chat (visible in selector + queue) */}
-      {(phase === 'selector' || phase === 'queue') && player && config.chatEnabled !== false && (
+      {/* Lobby Chat (visible in selector, queue, and result) */}
+      {(phase === 'selector' || phase === 'queue' || phase === 'result') && player && config.chatEnabled !== false && (
         <LobbyChat
           codeId={codeId}
           visitorId={visitorId}
@@ -1474,15 +1475,64 @@ export default function QGamesViewer({
 
       {/* Powered by The Q */}
       <div className="fixed bottom-2 inset-x-0 flex justify-center pointer-events-none z-10">
-        <a
-          href="https://qr.playzones.app"
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          onClick={() => setShowExitToQ(true)}
           className="text-white/20 text-[10px] hover:text-white/40 transition-colors pointer-events-auto"
         >
           Powered by The Q
-        </a>
+        </button>
       </div>
+
+      {/* Exit to Q Platform Confirmation Dialog */}
+      {showExitToQ && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowExitToQ(false)}
+          />
+          <div
+            className="relative w-full max-w-sm p-6 rounded-2xl shadow-xl backdrop-blur-md"
+            style={{ backgroundColor: 'rgba(26, 26, 46, 0.95)', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden bg-gradient-to-br from-purple-500 to-blue-500">
+                <img
+                  src="/theQ.png"
+                  alt="Q"
+                  className="w-10 h-10 object-contain"
+                />
+              </div>
+              <h3 className="text-lg font-bold mb-2 text-white">
+                {isRTL ? 'יציאה לפלטפורמת The Q' : 'Leaving to The Q Platform'}
+              </h3>
+              <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                {isRTL
+                  ? 'אתם עומדים לעזוב את המשחק לטאב חדש עם פלטפורמת The Q. אתם בטוחים?'
+                  : "You're about to leave the game for a new tab with The Q platform. Are you sure?"}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowExitToQ(false)}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff' }}
+                >
+                  {isRTL ? 'לא, להישאר' : 'No, Stay'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExitToQ(false);
+                    window.open('https://qr.playzones.app', '_blank');
+                  }}
+                  className="flex-1 py-3 rounded-xl font-medium transition-colors text-white"
+                  style={{ background: 'linear-gradient(135deg, #8B5CF6, #6366F1)' }}
+                >
+                  {isRTL ? 'כן, לצאת' : 'Yes, Leave'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </div>
     </QGamesThemeProvider>

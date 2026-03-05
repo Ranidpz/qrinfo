@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.24';
+export const APP_VERSION = '1.13.25';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,29 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.24',
+    version: '1.13.25',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: תמונות סלפי מוצגות בסיום משחק הזיכרון (במקום אימוג׳י גנרי)',
+        'שיפור: הנפשת bounce-in מדורגת בתוצאות סוף המשחק (שחקן אחר שחקן)',
+        'שיפור: אימוג׳ים רספונסיביים בשלב 5+ (מתאימים למסך קטן)',
+        'שיפור: 9 אימוג׳ים של הבחירה נכנסים בהנפשת bounce-in מהירה',
+        'חדש: אישור יציאה בלחיצה על "Powered by The Q" (לא מעביר ישר)',
+      ],
+      en: [
+        'Improvement: Selfie photos shown in Memory game over (instead of generic emoji)',
+        'Improvement: Staggered bounce-in animation for game over rankings (one by one)',
+        'Improvement: Responsive emojis at difficulty 5+ (fit small screens)',
+        'Improvement: 9 option emojis bounce in one by one in recall phase',
+        'New: Confirmation dialog on "Powered by The Q" link (no direct redirect)',
+      ],
+    },
+  },
+  {
+    version: '1.13.24',
+    date: '2026-03-05',
     highlights: {
       he: [
         'חדש: צ\'אט לובי בזמן אמת — שחקנים בוחרים מבועות מוכנות (ידידותי לילדים, בלי טקסט חופשי)',

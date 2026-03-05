@@ -719,6 +719,7 @@ export const DEFAULT_CHAT_PHRASES: QGamesChatPhrase[] = [
   // Inspiration
   { id: 'ins1', text: 'אפשר הכל!', emoji: '✨', type: 'text' },
   { id: 'ins2', text: 'לא עוצרים!', emoji: '🚀', type: 'text' },
+  { id: 'fun1', text: 'נא נה בננה', emoji: '🍌', type: 'text' },
   // Emoji-only reactions
   { id: 'emo1', text: '❤️', type: 'emoji' },
   { id: 'emo2', text: '👍', type: 'emoji' },

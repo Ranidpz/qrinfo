@@ -748,11 +748,13 @@ export default function MemoryGame({
           </p>
 
           {/* Target emojis displayed */}
-          <div className="flex gap-4 items-center justify-center">
+          <div className={`flex items-center justify-center ${(room.targetEmojis || []).length > 4 ? 'gap-2' : 'gap-4'}`}>
             {(room.targetEmojis || []).map((emoji, i) => (
               <div
                 key={i}
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl animate-in zoom-in-50 duration-300"
+                className={`rounded-2xl flex items-center justify-center animate-in zoom-in-50 duration-300 ${
+                  (room.targetEmojis || []).length > 4 ? 'w-14 h-14 text-3xl' : 'w-16 h-16 text-4xl'
+                }`}
                 style={{
                   animationDelay: `${i * 150}ms`,
                   animationFillMode: 'backwards',
@@ -800,7 +802,7 @@ export default function MemoryGame({
           </p>
 
           {/* Target squares (same style as memorize phase — empty slots to fill) */}
-          <div className="flex gap-4 items-center justify-center mb-6">
+          <div className={`flex items-center justify-center mb-6 ${room.difficulty > 4 ? 'gap-2' : 'gap-4'}`}>
             {Array.from({ length: room.difficulty }).map((_, i) => {
               const emoji = selections[i];
               const isCorrect = emoji && room.targetEmojis[i] === emoji;
@@ -809,9 +811,9 @@ export default function MemoryGame({
               return (
                 <div
                   key={i}
-                  className={`w-16 h-16 rounded-2xl flex items-center justify-center text-4xl transition-all ${
-                    emoji ? 'animate-in zoom-in-50 duration-200' : ''
-                  }`}
+                  className={`rounded-2xl flex items-center justify-center transition-all ${
+                    room.difficulty > 4 ? 'w-14 h-14 text-3xl' : 'w-16 h-16 text-4xl'
+                  } ${emoji ? 'animate-in zoom-in-50 duration-200' : ''}`}
                   style={{
                     backgroundColor: isWrong
                       ? 'rgba(239,68,68,0.15)'
@@ -849,12 +851,14 @@ export default function MemoryGame({
                   key={i}
                   onClick={() => handleSelectEmoji(emoji)}
                   disabled={disabled}
-                  className={`aspect-square rounded-2xl text-3xl flex items-center justify-center transition-all active:scale-90 ${
+                  className={`aspect-square rounded-2xl text-3xl flex items-center justify-center transition-all active:scale-90 animate-in zoom-in-50 duration-200 ${
                     isSelected ? 'opacity-25 scale-90' : disabled ? 'opacity-50' : 'hover:scale-105'
                   }`}
                   style={{
                     backgroundColor: isSelected ? theme.borderColor : theme.surfaceColor,
                     border: `2px solid ${theme.borderColor}`,
+                    animationDelay: `${i * 50}ms`,
+                    animationFillMode: 'backwards',
                   }}
                 >
                   {emoji}
@@ -878,7 +882,11 @@ export default function MemoryGame({
                     color: hasSubmitted ? theme.accentColor : theme.textSecondary,
                   }}
                 >
-                  <span>{p.avatarType === 'emoji' ? p.avatarValue : '📸'}</span>
+                  {p.avatarType === 'selfie' && p.avatarValue?.startsWith('http') ? (
+                    <img src={p.avatarValue} alt="" className="w-4 h-4 rounded-full object-cover" />
+                  ) : (
+                    <span>{p.avatarValue || '🎮'}</span>
+                  )}
                   <span>{p.nickname}</span>
                   {hasSubmitted && <span>✓</span>}
                 </div>
@@ -927,7 +935,11 @@ export default function MemoryGame({
                       }`,
                     }}
                   >
-                    <span className="text-2xl">{p.avatarType === 'emoji' ? p.avatarValue : '📸'}</span>
+                    {p.avatarType === 'selfie' && p.avatarValue?.startsWith('http') ? (
+                      <img src={p.avatarValue} alt="" className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">{p.avatarValue || '🎮'}</span>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm truncate" style={{ color: theme.textColor }}>
@@ -964,8 +976,23 @@ export default function MemoryGame({
       {/* ── GAME OVER ── */}
       {localPhase === 'gameOver' && (
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-          <div className="text-6xl mb-4">🏆</div>
-          <h2 className="text-2xl font-bold mb-2" style={{ color: theme.textColor }}>
+          <div
+            className="text-6xl mb-4"
+            style={{
+              animation: 'bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+              opacity: 0,
+            }}
+          >
+            🏆
+          </div>
+          <h2
+            className="text-2xl font-bold mb-2"
+            style={{
+              color: theme.textColor,
+              animation: 'slideUp 0.5s ease-out 0.2s forwards',
+              opacity: 0,
+            }}
+          >
             {isRTL ? 'המשחק נגמר!' : 'Game Over!'}
           </h2>
 
@@ -986,12 +1013,19 @@ export default function MemoryGame({
                   style={{
                     backgroundColor: idx === 0 ? `${theme.primaryColor}15` : theme.surfaceColor,
                     border: `1px solid ${idx === 0 ? `${theme.primaryColor}40` : theme.borderColor}`,
+                    animation: `slideUpBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.4 + idx * 0.15}s forwards`,
+                    opacity: 0,
+                    transform: 'translateY(30px)',
                   }}
                 >
                   <span className="text-lg font-bold w-8 text-center" style={{ color: idx === 0 ? theme.primaryColor : theme.textSecondary }}>
                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                   </span>
-                  <span className="text-2xl">{p.avatarType === 'emoji' ? p.avatarValue : '📸'}</span>
+                  {p.avatarType === 'selfie' && p.avatarValue?.startsWith('http') ? (
+                    <img src={p.avatarValue} alt="" className="w-10 h-10 rounded-full object-cover" style={{ border: `2px solid ${idx === 0 ? theme.primaryColor : theme.borderColor}` }} />
+                  ) : (
+                    <span className="text-2xl">{p.avatarValue || '🎮'}</span>
+                  )}
                   <div className="flex-1">
                     <p className="font-medium text-sm" style={{ color: theme.textColor }}>
                       {p.nickname}
@@ -1009,10 +1043,31 @@ export default function MemoryGame({
           <button
             onClick={handleGameOver}
             className="w-full max-w-sm py-4 rounded-2xl font-bold text-lg text-white transition-all active:scale-[0.97]"
-            style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+            style={{
+              background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})`,
+              animation: `slideUp 0.4s ease-out ${0.4 + Object.keys(players).length * 0.15 + 0.2}s forwards`,
+              opacity: 0,
+            }}
           >
             {isRTL ? 'חזרה למשחקים' : 'Back to Games'}
           </button>
+
+          <style>{`
+            @keyframes bounceIn {
+              0% { opacity: 0; transform: scale(0.3); }
+              50% { transform: scale(1.1); }
+              100% { opacity: 1; transform: scale(1); }
+            }
+            @keyframes slideUp {
+              from { opacity: 0; transform: translateY(20px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes slideUpBounce {
+              0% { opacity: 0; transform: translateY(30px) scale(0.95); }
+              60% { transform: translateY(-5px) scale(1.02); }
+              100% { opacity: 1; transform: translateY(0) scale(1); }
+            }
+          `}</style>
         </div>
       )}
     </div>
