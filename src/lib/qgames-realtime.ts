@@ -32,6 +32,7 @@ import {
   MemoryPhase,
   MatchStatus,
   QGamesAvatarType,
+  LiveMatchInfo,
 } from '@/types/qgames';
 
 // ============ SESSION / STATS ============
@@ -1032,18 +1033,19 @@ export async function deleteMemoryRoom(
   await remove(roomRef);
 }
 
-/** Subscribe to active player stats (per game type + total).
+/** Subscribe to active player stats (per game type + total) + live match details.
  *  Counts connected **players** (not matches) using presence nodes.
  *  Presence nodes auto-clean via onDisconnect, so stale matches won't inflate counts. */
 export function subscribeToActiveMatchStats(
   codeId: string,
-  onUpdate: (stats: { total: number; perGame: Record<string, number> }) => void
+  onUpdate: (stats: { total: number; perGame: Record<string, number>; liveMatches: LiveMatchInfo[] }) => void
 ): () => void {
   const matchesRef = ref(realtimeDb, QGAMES_PATHS.matches(codeId));
   const callback = (snapshot: DataSnapshot) => {
-    if (!snapshot.exists()) { onUpdate({ total: 0, perGame: {} }); return; }
+    if (!snapshot.exists()) { onUpdate({ total: 0, perGame: {}, liveMatches: [] }); return; }
     let total = 0;
     const perGame: Record<string, number> = {};
+    const liveMatches: LiveMatchInfo[] = [];
     snapshot.forEach((child) => {
       const match = child.val();
       const presenceCount = match?.presence ? Object.keys(match.presence).length : 0;
@@ -1052,9 +1054,28 @@ export function subscribeToActiveMatchStats(
         total += presenceCount;
         const gt = match.gameType as string;
         if (gt) perGame[gt] = (perGame[gt] || 0) + presenceCount;
+
+        // Collect live match details for active matches
+        if (match.status === 'playing' || match.status === 'countdown') {
+          liveMatches.push({
+            matchId: match.id || child.key!,
+            gameType: match.gameType,
+            player1Nickname: match.player1Nickname || '?',
+            player1AvatarType: match.player1AvatarType || 'emoji',
+            player1AvatarValue: match.player1AvatarValue || '🎮',
+            player2Nickname: match.player2Nickname || '?',
+            player2AvatarType: match.player2AvatarType || 'emoji',
+            player2AvatarValue: match.player2AvatarValue || '🎮',
+            player3Nickname: match.player3Nickname,
+            player3AvatarType: match.player3AvatarType,
+            player3AvatarValue: match.player3AvatarValue,
+            startedAt: match.startedAt || 0,
+          });
+        }
       }
     });
-    onUpdate({ total, perGame });
+    liveMatches.sort((a, b) => b.startedAt - a.startedAt);
+    onUpdate({ total, perGame, liveMatches });
   };
   onValue(matchesRef, callback);
   return () => off(matchesRef, 'value', callback);

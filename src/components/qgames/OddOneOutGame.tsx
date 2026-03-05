@@ -5,6 +5,7 @@ import { OOOChoice, OOO_EMOJI, RTDBOOORound, resolveOOO } from '@/types/qgames';
 import { useOOOState, useCountdown, useQGamesSounds } from '@/hooks/useQGamesRealtime';
 import { startNewOOORound } from '@/lib/qgames-realtime';
 import { useQGamesTheme } from './QGamesThemeContext';
+import ExitGameButton from './ExitGameButton';
 
 interface OddOneOutGameProps {
   codeId: string;
@@ -25,6 +26,7 @@ interface OddOneOutGameProps {
   subsequentTimer: number;
   enableSound: boolean;
   onMatchEnd: (loserId: string, p1Strikes: number, p2Strikes: number, p3Strikes: number) => void;
+  onForfeit?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
   isBotMatch?: boolean;
@@ -107,6 +109,7 @@ export default function OddOneOutGame({
   subsequentTimer,
   enableSound,
   onMatchEnd,
+  onForfeit,
   isRTL,
   t,
   isBotMatch,
@@ -486,6 +489,9 @@ export default function OddOneOutGame({
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden relative" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Exit button */}
+      {onForfeit && <ExitGameButton onConfirm={onForfeit} isRTL={isRTL} t={t} />}
+
       {/* Disconnect countdown banner */}
       {opponentDisconnected && disconnectStartTime && (
         <DisconnectCountdownBanner

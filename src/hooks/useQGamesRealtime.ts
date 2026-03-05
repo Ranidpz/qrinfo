@@ -16,6 +16,7 @@ import {
   RTDBOOOState,
   RTDBMemoryState,
   RTDBMemoryPlayer,
+  LiveMatchInfo,
 } from '@/types/qgames';
 import {
   subscribeToQGamesStats,
@@ -433,15 +434,18 @@ export function useMatchPresence(
 
 /**
  * Registers viewer presence (auto-removed on disconnect) and
- * subscribes to live viewer count + active match count.
+ * subscribes to live viewer count, active match count, queue-per-game counts,
+ * and live match details for selector display.
  */
 export function useViewerPresence(
   codeId: string | null,
   visitorId: string | null
-): { viewerCount: number; activeMatches: number; matchesPerGame: Record<string, number> } {
+): { viewerCount: number; activeMatches: number; matchesPerGame: Record<string, number>; queuePerGame: Record<string, number>; liveMatches: LiveMatchInfo[] } {
   const [viewerCount, setViewerCount] = useState(0);
   const [activeMatches, setActiveMatches] = useState(0);
   const [matchesPerGame, setMatchesPerGame] = useState<Record<string, number>>({});
+  const [queuePerGame, setQueuePerGame] = useState<Record<string, number>>({});
+  const [liveMatches, setLiveMatches] = useState<LiveMatchInfo[]>([]);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -467,13 +471,27 @@ export function useViewerPresence(
       if (mounted) {
         setActiveMatches(stats.total);
         setMatchesPerGame(stats.perGame);
+        setLiveMatches(stats.liveMatches);
       }
+    });
+
+    // Subscribe to queue for per-game waiting counts
+    const unsubQueue = subscribeToQueue(codeId, (entries) => {
+      if (!mounted) return;
+      const perGame: Record<string, number> = {};
+      for (const entry of entries) {
+        if (entry.status === 'waiting' && !entry.inBotMatch) {
+          perGame[entry.gameType] = (perGame[entry.gameType] || 0) + 1;
+        }
+      }
+      setQueuePerGame(perGame);
     });
 
     return () => {
       mounted = false;
       unsubViewers();
       unsubMatches();
+      unsubQueue();
       if (cleanupRef.current) {
         cleanupRef.current();
         cleanupRef.current = null;
@@ -481,7 +499,7 @@ export function useViewerPresence(
     };
   }, [codeId, visitorId]);
 
-  return { viewerCount, activeMatches, matchesPerGame };
+  return { viewerCount, activeMatches, matchesPerGame, queuePerGame, liveMatches };
 }
 
 // ============ MEMORY ROOM HOOK ============

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ArrowLeft, Share2, X } from 'lucide-react';
-import { QGamesLeaderboardEntry, QGameType } from '@/types/qgames';
+import { ArrowLeft, ChevronDown, Share2, X } from 'lucide-react';
+import { QGamesLeaderboardEntry, QGamesMatch, QGameType, GAME_META } from '@/types/qgames';
+import { db } from '@/lib/firebase';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useQGamesTheme } from './QGamesThemeContext';
 
 /** Animate a number from 0 to target over duration ms */
@@ -40,6 +42,7 @@ interface QGamesLeaderboardProps {
   isRTL: boolean;
   t: (key: string) => string;
   compact?: boolean;
+  codeId?: string;
 }
 
 /** Get per-game stats for an entry */
@@ -84,6 +87,7 @@ export default function QGamesLeaderboard({
   isRTL,
   t,
   compact = false,
+  codeId,
 }: QGamesLeaderboardProps) {
   const theme = useQGamesTheme();
   const rankMedals = ['🥇', '🥈', '🥉'];
@@ -342,6 +346,7 @@ export default function QGamesLeaderboard({
           t={t}
           isCurrentPlayer={selectedPlayer.id === currentPlayerId}
           onClose={() => setSelectedPlayer(null)}
+          codeId={codeId}
         />
       )}
     </div>
@@ -405,14 +410,177 @@ function GameStatRow({ label, played, wins, delay, t }: {
   );
 }
 
+/** Time ago helper */
+function getTimeAgo(timestamp: number, isRTL: boolean): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return isRTL ? 'עכשיו' : 'now';
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    return isRTL ? `${m} דק׳` : `${m}m`;
+  }
+  if (seconds < 86400) {
+    const h = Math.floor(seconds / 3600);
+    return isRTL ? `${h} שע׳` : `${h}h`;
+  }
+  const d = Math.floor(seconds / 86400);
+  return isRTL ? `${d} ימים` : `${d}d`;
+}
+
+/** Recent matches for a specific player */
+function PlayerMatchHistory({ playerId, codeId, isRTL, t }: {
+  playerId: string;
+  codeId: string;
+  isRTL: boolean;
+  t: (key: string) => string;
+}) {
+  const [matches, setMatches] = useState<QGamesMatch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    async function fetchMatches() {
+      try {
+        const matchesRef = collection(db, 'codes', codeId, 'qgames_matches');
+        const q = query(matchesRef, orderBy('finishedAt', 'desc'), limit(30));
+        const snapshot = await getDocs(q);
+        const allMatches = snapshot.docs.map(doc => doc.data() as QGamesMatch);
+        // Filter for matches involving this player
+        const playerMatches = allMatches.filter(m =>
+          m.player1Id === playerId || m.player2Id === playerId || m.player3Id === playerId ||
+          m.memoryResults?.some(r => r.id === playerId)
+        );
+        setMatches(playerMatches);
+      } catch (error) {
+        console.error('Error fetching player matches:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchMatches();
+  }, [codeId, playerId]);
+
+  if (loading || matches.length === 0) return null;
+
+  const displayMatches = expanded ? matches : matches.slice(0, 3);
+
+  return (
+    <div className="mt-3">
+      <p className="text-white/30 text-[10px] uppercase tracking-wider mb-2">{t('recentMatchesPlayer')}</p>
+      <div className="space-y-1">
+        {displayMatches.map((match, idx) => {
+          const is3Player = !!match.player3Id;
+          const isMemory = match.gameType === 'memory' && match.memoryResults;
+          const meta = GAME_META[match.gameType];
+
+          // Determine result for this player
+          let result: 'win' | 'loss' | 'draw';
+          if (is3Player) {
+            result = match.winnerIds?.includes(playerId) ? 'win' : 'loss';
+          } else if (isMemory) {
+            const playerResult = match.memoryResults!.find(r => r.id === playerId);
+            const maxScore = Math.max(...match.memoryResults!.map(r => r.score));
+            result = playerResult?.score === maxScore ? 'win' : 'loss';
+          } else {
+            result = match.winnerId === playerId ? 'win' : match.winnerId === null ? 'draw' : 'loss';
+          }
+
+          // Get opponent(s) info
+          const opponents: { nickname: string; avatarValue: string }[] = [];
+          if (isMemory) {
+            match.memoryResults!
+              .filter(r => r.id !== playerId)
+              .forEach(r => opponents.push({ nickname: r.nickname, avatarValue: r.avatarValue }));
+          } else {
+            if (match.player1Id !== playerId) opponents.push({ nickname: match.player1Nickname, avatarValue: match.player1AvatarValue });
+            if (match.player2Id !== playerId) opponents.push({ nickname: match.player2Nickname, avatarValue: match.player2AvatarValue });
+            if (match.player3Id && match.player3Id !== playerId) opponents.push({ nickname: match.player3Nickname!, avatarValue: match.player3AvatarValue! });
+          }
+
+          // Score display
+          let scoreText = '';
+          if (isMemory) {
+            const playerResult = match.memoryResults!.find(r => r.id === playerId);
+            scoreText = `${playerResult?.score ?? 0}`;
+          } else if (match.player1Id === playerId) {
+            scoreText = `${match.player1Score}-${match.player2Score}`;
+          } else {
+            scoreText = `${match.player2Score}-${match.player1Score}`;
+          }
+
+          const resultColor = result === 'win' ? 'bg-emerald-500/10' : result === 'loss' ? 'bg-red-500/10' : 'bg-yellow-500/10';
+          const resultTextColor = result === 'win' ? 'text-emerald-400' : result === 'loss' ? 'text-red-400' : 'text-yellow-400';
+          const resultLabel = result === 'win' ? t('won') : result === 'loss' ? t('lost') : t('drew');
+          const timeAgo = getTimeAgo(match.finishedAt || match.startedAt, isRTL);
+
+          return (
+            <div
+              key={match.id}
+              className={`flex items-center gap-2 py-2 px-2.5 rounded-lg ${resultColor} transition-all duration-300`}
+              style={{
+                opacity: 1,
+                animationDelay: `${idx * 60}ms`,
+              }}
+            >
+              {/* Game type emoji */}
+              <span className="text-sm shrink-0">{meta?.emoji || '🎮'}</span>
+
+              {/* Opponent avatars */}
+              <div className="flex -space-x-1.5 shrink-0">
+                {opponents.slice(0, 3).map((opp, i) => (
+                  <div
+                    key={i}
+                    className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs overflow-hidden ring-1 ring-[#1a1a2e]"
+                  >
+                    {opp.avatarValue.startsWith('http') ? (
+                      <img src={opp.avatarValue} alt="" className="w-full h-full object-cover" />
+                    ) : opp.avatarValue}
+                  </div>
+                ))}
+              </div>
+
+              {/* Opponent name */}
+              <span className="text-white/60 text-[11px] truncate min-w-0 flex-1">
+                {opponents.length === 1
+                  ? opponents[0].nickname
+                  : opponents.slice(0, 2).map(o => o.nickname).join(', ')}
+              </span>
+
+              {/* Score */}
+              <span className="text-white/40 text-[10px] font-mono tabular-nums shrink-0">{scoreText}</span>
+
+              {/* Result badge */}
+              <span className={`${resultTextColor} text-[10px] font-bold shrink-0`}>{resultLabel}</span>
+
+              {/* Time */}
+              <span className="text-white/20 text-[9px] shrink-0">{timeAgo}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Show all / show less toggle */}
+      {matches.length > 3 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center justify-center gap-1 w-full mt-1.5 py-1.5 text-white/30 hover:text-white/50 text-[10px] transition-colors"
+        >
+          {expanded ? t('showLess') : `${t('showAll')} (${matches.length})`}
+          <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Player stats modal with count-up animations */
-function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClose }: {
+function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClose, codeId }: {
   player: QGamesLeaderboardEntry;
   rankMedals: string[];
   isRTL: boolean;
   t: (key: string) => string;
   isCurrentPlayer: boolean;
   onClose: () => void;
+  codeId?: string;
 }) {
   const winRate = player.gamesPlayed > 0
     ? Math.round((player.wins / player.gamesPlayed) * 100)
@@ -426,7 +594,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
       onClick={onClose}
     >
       <div
-        className="bg-[#1a1a2e] rounded-2xl w-full max-w-xs p-5 relative animate-in zoom-in-95 duration-200"
+        className="bg-[#1a1a2e] rounded-2xl w-full max-w-xs p-5 relative animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-y-auto"
         dir={isRTL ? 'rtl' : 'ltr'}
         onClick={(e) => e.stopPropagation()}
       >
@@ -477,6 +645,11 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
             <GameStatRow label={t('tictactoe')} played={player.tictactoePlayed ?? 0} wins={player.tictactoeWins ?? 0} delay={480} t={t} />
             <GameStatRow label={t('memory')} played={player.memoryPlayed ?? 0} wins={player.memoryWins ?? 0} delay={560} t={t} />
           </div>
+        )}
+
+        {/* Recent matches */}
+        {codeId && (
+          <PlayerMatchHistory playerId={player.id} codeId={codeId} isRTL={isRTL} t={t} />
         )}
 
       </div>

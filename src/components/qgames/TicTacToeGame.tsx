@@ -9,6 +9,8 @@ import {
 } from '@/types/qgames';
 import { useTTTState, useCountdown, useQGamesSounds } from '@/hooks/useQGamesRealtime';
 import { startNewTTTRound } from '@/lib/qgames-realtime';
+import { useQGamesTheme } from './QGamesThemeContext';
+import ExitGameButton from './ExitGameButton';
 
 interface TicTacToeGameProps {
   codeId: string;
@@ -25,6 +27,7 @@ interface TicTacToeGameProps {
   turnTimer: number;
   enableSound: boolean;
   onMatchEnd: (winnerId: string | null, p1Score: number, p2Score: number) => void;
+  onForfeit?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
   isBotMatch?: boolean;
@@ -87,6 +90,7 @@ export default function TicTacToeGame({
   turnTimer,
   enableSound,
   onMatchEnd,
+  onForfeit,
   isRTL,
   t,
   isBotMatch,
@@ -400,6 +404,9 @@ export default function TicTacToeGame({
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden relative" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Exit button */}
+      {onForfeit && <ExitGameButton onConfirm={onForfeit} isRTL={isRTL} t={t} />}
+
       {/* Disconnect countdown banner */}
       {opponentDisconnected && disconnectStartTime && (
         <DisconnectCountdownBanner

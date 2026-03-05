@@ -259,6 +259,22 @@ export interface RTDBMatch {
   lastUpdated: number;
 }
 
+/** Lightweight match info for live matches display on selector */
+export interface LiveMatchInfo {
+  matchId: string;
+  gameType: QGameType;
+  player1Nickname: string;
+  player1AvatarType: QGamesAvatarType;
+  player1AvatarValue: string;
+  player2Nickname: string;
+  player2AvatarType: QGamesAvatarType;
+  player2AvatarValue: string;
+  player3Nickname?: string;
+  player3AvatarType?: QGamesAvatarType;
+  player3AvatarValue?: string;
+  startedAt: number;
+}
+
 /** RPS round state in RTDB */
 export interface RTDBRPSRound {
   player1Choice: RPSChoice | null;

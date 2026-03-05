@@ -151,6 +151,18 @@ const translations: Record<string, Record<string, string>> = {
     byScore: 'ניקוד',
     byWinRate: 'ניצחונות',
     minGames: 'מינימום 3 משחקים',
+    waitingInQueue: 'מחכים',
+    playingNow: 'משחקים עכשיו',
+    recentMatchesPlayer: 'משחקים אחרונים',
+    showAll: 'הצג הכל',
+    showLess: 'הצג פחות',
+    won: 'ניצחון',
+    lost: 'הפסד',
+    drew: 'תיקו',
+    exitGame: 'יציאה',
+    exitGameTitle: 'לצאת מהמשחק?',
+    exitGameMessage: 'אם תצאו עכשיו, זה ייחשב כהפסד',
+    stayInGame: 'להישאר',
   },
   en: {
     joinToPlay: 'Join the game!',
@@ -248,6 +260,18 @@ const translations: Record<string, Record<string, string>> = {
     byScore: 'Score',
     byWinRate: 'Win Rate',
     minGames: 'Min 3 games',
+    waitingInQueue: 'waiting',
+    playingNow: 'Playing Now',
+    recentMatchesPlayer: 'Recent Matches',
+    showAll: 'Show All',
+    showLess: 'Show Less',
+    won: 'Win',
+    lost: 'Loss',
+    drew: 'Draw',
+    exitGame: 'Exit',
+    exitGameTitle: 'Leave the game?',
+    exitGameMessage: 'If you leave now, it will count as a loss',
+    stayInGame: 'Stay',
   },
 };
 
@@ -377,7 +401,7 @@ export default function QGamesViewer({
   }, [match, visitorId, isBotMatch]);
 
   // Viewer presence + live stats (active across all phases)
-  const { viewerCount, activeMatches, matchesPerGame } = useViewerPresence(codeId, visitorId);
+  const { viewerCount, activeMatches, matchesPerGame, queuePerGame, liveMatches } = useViewerPresence(codeId, visitorId);
 
   // Track opponent presence during match
   const { opponentDisconnected } = useMatchPresence(
@@ -992,6 +1016,31 @@ export default function QGamesViewer({
     setPhase('selector');
   }, [codeId, visitorId]);
 
+  // Player voluntarily exits a game mid-match
+  const handleForfeit = useCallback(async () => {
+    const activeMatchId = matchRef.current?.id;
+    if (activeMatchId && visitorId && !isBotMatch) {
+      try {
+        await updateMatchStatus(codeId, activeMatchId, 'abandoned');
+        await fetch('/api/qgames/forfeit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codeId, matchId: activeMatchId, playerId: visitorId }),
+        });
+      } catch (err) {
+        console.error('Forfeit error:', err);
+      }
+    }
+    // Navigate back
+    setMatchId(null);
+    setResultData(null);
+    setSelectedGame(null);
+    setIsBotMatch(false);
+    setBotPlayerId(null);
+    setBotMatchData(null);
+    setPhase('selector');
+  }, [codeId, visitorId, isBotMatch]);
+
   // Accept real opponent during bot match
   const handleAcceptRealMatch = useCallback(async (targetOpponentId?: string) => {
     if (!player || !visitorId || !selectedGame) return;
@@ -1058,6 +1107,8 @@ export default function QGamesViewer({
           t={t}
           viewerCount={viewerCount}
           matchesPerGame={matchesPerGame}
+          queuePerGame={queuePerGame}
+          liveMatches={liveMatches}
         />
       )}
 
@@ -1124,6 +1175,7 @@ export default function QGamesViewer({
             subsequentTimer={config.rpsSubsequentTimer}
             enableSound={config.enableSound}
             onMatchEnd={handleMatchEnd}
+            onForfeit={handleForfeit}
             isRTL={isRTL}
             t={t}
             isBotMatch={isBotMatch}
@@ -1159,6 +1211,7 @@ export default function QGamesViewer({
             subsequentTimer={config.oooSubsequentTimer}
             enableSound={config.enableSound}
             onMatchEnd={handleOOOMatchEnd}
+            onForfeit={handleForfeit}
             isRTL={isRTL}
             t={t}
             isBotMatch={isBotMatch}
@@ -1189,6 +1242,7 @@ export default function QGamesViewer({
             turnTimer={config.tttTurnTimer}
             enableSound={config.enableSound}
             onMatchEnd={handleMatchEnd}
+            onForfeit={handleForfeit}
             isRTL={isRTL}
             t={t}
             isBotMatch={isBotMatch}
@@ -1208,6 +1262,7 @@ export default function QGamesViewer({
           config={config}
           onMatchEnd={handleMemoryMatchEnd}
           onBack={handleBackToSelector}
+          onForfeit={handleForfeit}
           isRTL={isRTL}
           t={t}
           shortId={shortId}
@@ -1249,6 +1304,7 @@ export default function QGamesViewer({
             enabledGames={config.enabledGames}
             isRTL={isRTL}
             t={t}
+            codeId={codeId}
           />
           <QGamesMatchHistory
             codeId={codeId}

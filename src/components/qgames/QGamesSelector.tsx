@@ -1,7 +1,7 @@
 'use client';
 
 import { Pencil, Trophy } from 'lucide-react';
-import { QGameType, GAME_META, QGamesConfig } from '@/types/qgames';
+import { QGameType, GAME_META, QGamesConfig, LiveMatchInfo } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import RPSAnimatedEmoji from './RPSAnimatedEmoji';
 import OOOAnimatedEmoji from './OOOAnimatedEmoji';
@@ -19,6 +19,8 @@ interface QGamesSelectorProps {
   t: (key: string) => string;
   viewerCount?: number;
   matchesPerGame?: Record<string, number>;
+  queuePerGame?: Record<string, number>;
+  liveMatches?: LiveMatchInfo[];
 }
 
 export default function QGamesSelector({
@@ -32,6 +34,8 @@ export default function QGamesSelector({
   t,
   viewerCount = 0,
   matchesPerGame = {},
+  queuePerGame = {},
+  liveMatches = [],
 }: QGamesSelectorProps) {
   const theme = useQGamesTheme();
   const enabledGames = config.enabledGames || ['rps'];
@@ -109,7 +113,9 @@ export default function QGamesSelector({
         {enabledGames.map((gameType, index) => {
           const meta = GAME_META[gameType];
           if (!meta) return null;
-          const activeNow = matchesPerGame[gameType] || 0;
+          const waitingNow = queuePerGame[gameType] || 0;
+          const playingNow = matchesPerGame[gameType] || 0;
+          const hasActivity = waitingNow > 0 || playingNow > 0;
 
           return (
             <button
@@ -120,7 +126,8 @@ export default function QGamesSelector({
                 animationDelay: `${(index + 1) * 80}ms`,
                 animationFillMode: 'backwards',
                 backgroundColor: theme.surfaceColor,
-                border: `1px solid ${theme.borderColor}`,
+                border: `1px solid ${waitingNow > 0 ? `${theme.accentColor}60` : theme.borderColor}`,
+                boxShadow: waitingNow > 0 ? `0 0 16px ${theme.accentColor}25` : 'none',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = theme.surfaceHover;
@@ -128,7 +135,7 @@ export default function QGamesSelector({
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = theme.surfaceColor;
-                e.currentTarget.style.borderColor = theme.borderColor;
+                e.currentTarget.style.borderColor = waitingNow > 0 ? `${theme.accentColor}60` : theme.borderColor;
               }}
             >
               {/* Game emoji */}
@@ -151,26 +158,126 @@ export default function QGamesSelector({
                     {gameType === 'memory' ? (isRTL ? '2-6 שחקנים' : '2-6 players') : gameType === 'oddoneout' ? (isRTL ? '3 שחקנים' : '3 players') : (isRTL ? '2 שחקנים' : '2 players')}
                   </span>
                 </div>
-                {/* Live activity badge */}
-                <div className="flex items-center gap-1 mt-1.5">
-                  <div
-                    className={`w-1.5 h-1.5 rounded-full ${activeNow > 0 ? 'animate-pulse' : ''}`}
-                    style={{ backgroundColor: activeNow > 0 ? theme.accentColor : theme.borderColor }}
-                  />
-                  <span className="text-xs font-medium" style={{ color: activeNow > 0 ? `${theme.accentColor}cc` : theme.textSecondary }}>
-                    {activeNow} {isRTL ? 'מחוברים' : 'online'}
-                  </span>
+                {/* Live activity badges */}
+                <div className="flex items-center gap-3 mt-1.5">
+                  {/* Waiting in queue */}
+                  <div className="flex items-center gap-1">
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full ${waitingNow > 0 ? 'animate-pulse' : ''}`}
+                      style={{ backgroundColor: waitingNow > 0 ? theme.accentColor : theme.borderColor }}
+                    />
+                    <span className="text-xs font-medium" style={{ color: waitingNow > 0 ? `${theme.accentColor}cc` : theme.textSecondary }}>
+                      {waitingNow} {t('waitingInQueue')}
+                    </span>
+                  </div>
+                  {/* Currently playing */}
+                  {playingNow > 0 && (
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: theme.primaryColor }}
+                      />
+                      <span className="text-xs font-medium" style={{ color: `${theme.primaryColor}cc` }}>
+                        {playingNow} {isRTL ? 'במשחק' : 'playing'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Chevron */}
-              <div className="text-lg shrink-0 transition-colors ltr:group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-transform" style={{ color: theme.borderColor }}>
+              <div className="text-lg shrink-0 transition-colors ltr:group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-transform" style={{ color: hasActivity ? theme.accentColor : theme.borderColor }}>
                 {isRTL ? '‹' : '›'}
               </div>
             </button>
           );
         })}
       </div>
+
+      {/* ── Live Matches Marquee ── */}
+      {liveMatches.length > 0 && (
+        <div
+          className="w-full max-w-sm mt-6 animate-in fade-in duration-500"
+          style={{ animationDelay: `${(enabledGames.length + 1) * 80}ms`, animationFillMode: 'backwards' }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: theme.accentColor }} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: theme.textSecondary }}>
+              {t('playingNow')}
+            </span>
+          </div>
+
+          {/* Marquee ticker */}
+          <div className="overflow-hidden rounded-xl py-2 px-1" style={{ backgroundColor: theme.surfaceColor, border: `1px solid ${theme.borderColor}` }}>
+            <div
+              className="flex items-center gap-5 whitespace-nowrap"
+              style={{
+                animation: `marquee-scroll ${Math.max(8, liveMatches.length * 5)}s linear infinite`,
+              }}
+            >
+              {/* Duplicate items for seamless loop */}
+              {[...liveMatches.slice(0, 10), ...liveMatches.slice(0, 10)].map((match, i) => {
+                const meta = GAME_META[match.gameType];
+                return (
+                  <div key={`${match.matchId}-${i}`} className="flex items-center gap-1.5 shrink-0">
+                    {/* Game emoji */}
+                    <span className="text-sm">{meta?.emoji || '🎮'}</span>
+
+                    {/* Player 1 avatar */}
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-base overflow-hidden shrink-0"
+                      style={{ backgroundColor: theme.surfaceHover, boxShadow: `0 0 0 2px ${theme.primaryColor}40` }}
+                    >
+                      {match.player1AvatarValue.startsWith('http') ? (
+                        <img src={match.player1AvatarValue} alt="" className="w-full h-full object-cover" />
+                      ) : match.player1AvatarValue}
+                    </div>
+
+                    {/* VS */}
+                    <span className="text-[9px] font-black" style={{ color: theme.primaryColor }}>VS</span>
+
+                    {/* Player 2 avatar */}
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-base overflow-hidden shrink-0"
+                      style={{ backgroundColor: theme.surfaceHover, boxShadow: `0 0 0 2px ${theme.primaryColor}40` }}
+                    >
+                      {match.player2AvatarValue.startsWith('http') ? (
+                        <img src={match.player2AvatarValue} alt="" className="w-full h-full object-cover" />
+                      ) : match.player2AvatarValue}
+                    </div>
+
+                    {/* Player 3 (OOO) */}
+                    {match.player3AvatarValue && (
+                      <>
+                        <span className="text-[9px] font-black" style={{ color: theme.primaryColor }}>VS</span>
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-base overflow-hidden shrink-0"
+                          style={{ backgroundColor: theme.surfaceHover, boxShadow: `0 0 0 2px ${theme.primaryColor}40` }}
+                        >
+                          {match.player3AvatarValue.startsWith('http') ? (
+                            <img src={match.player3AvatarValue} alt="" className="w-full h-full object-cover" />
+                          ) : match.player3AvatarValue}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Separator dot */}
+                    <div className="w-1 h-1 rounded-full mx-1" style={{ backgroundColor: theme.borderColor }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Marquee keyframes */}
+          <style>{`
+            @keyframes marquee-scroll {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* ── Leaderboard ── */}
       <button

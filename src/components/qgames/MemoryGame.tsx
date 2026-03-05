@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ArrowLeft, Share2 } from 'lucide-react';
+import ExitGameButton from './ExitGameButton';
 import {
   RTDBMemoryState,
   RTDBMemoryPlayer,
@@ -37,6 +38,7 @@ interface MemoryGameProps {
   config: QGamesConfig;
   onMatchEnd: (results: MemoryGameResult) => void;
   onBack: () => void;
+  onForfeit?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
   shortId?: string;
@@ -100,6 +102,7 @@ export default function MemoryGame({
   config,
   onMatchEnd,
   onBack,
+  onForfeit,
   isRTL,
   t,
   shortId,
@@ -118,9 +121,12 @@ export default function MemoryGame({
   const [countdownNum, setCountdownNum] = useState(3);
   const [showingResults, setShowingResults] = useState(false);
   const [isBotMatch, setIsBotMatch] = useState(false);
+  const [scorePopup, setScorePopup] = useState<{ points: number; key: number } | null>(null);
   const joinedRef = useRef(false);
   const phaseAdvancedRef = useRef(false);
   const botSubmittedRoundRef = useRef(-1);
+  const applyingResultsRef = useRef(false);
+  const advancingRef = useRef(false);
 
   // Subscribe to room and players
   const { room } = useMemoryRoom(codeId, roomId);
@@ -207,6 +213,8 @@ export default function MemoryGame({
       setRoundFailed(false);
       setRoundSubmitted(false);
       phaseAdvancedRef.current = false;
+      applyingResultsRef.current = false;
+      advancingRef.current = false;
     } else if (room.phase === 'memorize') {
       setLocalPhase('memorize');
     } else if (room.phase === 'recall') {
@@ -278,29 +286,19 @@ export default function MemoryGame({
   }, [players, localPhase, isHost]);
 
   // ============ Results → Next Round or Game Over (host) ============
-
-  useEffect(() => {
-    if (!showingResults || !isHost || !roomId) return;
-
-    const timer = setTimeout(() => {
-      setShowingResults(false);
-      advanceOrEnd();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showingResults, isHost, roomId]);
+  // (effect is below advanceOrEnd definition to avoid ref-before-define)
 
   // ============ Handlers ============
 
   const handleStartGame = useCallback(async () => {
-    if (!isHost || !roomId || playerCount < 2) return;
+    if (!roomId || playerCount < 2) return;
+    setIsHost(true); // Whoever starts becomes the host (manages phase transitions)
 
     const round = 0;
     const difficulty = getDifficulty(round);
     const { targets, options } = generateRound(difficulty);
     await startMemoryRound(codeId, roomId, round, difficulty, targets, options);
-  }, [isHost, roomId, codeId, playerCount]);
+  }, [roomId, codeId, playerCount]);
 
   const handlePlayBot = useCallback(async () => {
     if (!roomId) return;
@@ -312,6 +310,7 @@ export default function MemoryGame({
     );
 
     setIsBotMatch(true);
+    setIsHost(true); // Bot starter manages phase transitions
 
     // Start game immediately
     const round = 0;
@@ -410,9 +409,12 @@ export default function MemoryGame({
 
   const applyRoundResults = useCallback(async () => {
     if (!roomId || !room) return;
+    if (applyingResultsRef.current) return; // Prevent double call from RTDB race
+    applyingResultsRef.current = true;
 
     // Update each active player's score and strikes
     const updates: Promise<void>[] = [];
+    let myRoundPoints = 0;
     for (const [pid, p] of Object.entries(players)) {
       if (p.eliminated) continue;
 
@@ -431,6 +433,8 @@ export default function MemoryGame({
         else if (ratio < 0.75) roundPoints += 1;
       }
 
+      if (pid === visitorId) myRoundPoints = roundPoints;
+
       const newScore = p.score + roundPoints;
       const newStrikes = p.strikes + (result.failed ? 1 : 0);
       const newEliminated = newStrikes >= room.maxStrikes;
@@ -441,12 +445,19 @@ export default function MemoryGame({
     }
     await Promise.all(updates);
 
+    // Show score popup for local player
+    if (myRoundPoints > 0) {
+      setScorePopup({ points: myRoundPoints, key: Date.now() });
+    }
+
     // Show results phase
     await setMemoryPhase(codeId, roomId, 'results');
-  }, [roomId, room, players, codeId]);
+  }, [roomId, room, players, codeId, visitorId]);
 
   const advanceOrEnd = useCallback(async () => {
     if (!roomId || !room) return;
+    if (advancingRef.current) return; // Prevent double call
+    advancingRef.current = true;
 
     // Re-read players to get updated elimination status
     const stillAlive = Object.entries(players).filter(([, p]) => !p.eliminated);
@@ -463,6 +474,22 @@ export default function MemoryGame({
     const { targets, options } = generateRound(difficulty);
     await startMemoryRound(codeId, roomId, nextRound, difficulty, targets, options);
   }, [roomId, room, players, codeId]);
+
+  // Results → Next Round or Game Over (host) — placed after advanceOrEnd definition
+  const advanceOrEndRef = useRef(advanceOrEnd);
+  advanceOrEndRef.current = advanceOrEnd;
+
+  useEffect(() => {
+    if (!showingResults || !isHost || !roomId) return;
+
+    const timer = setTimeout(() => {
+      setShowingResults(false);
+      setScorePopup(null);
+      advanceOrEndRef.current();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [showingResults, isHost, roomId]);
 
   const handleWhatsAppInvite = useCallback(() => {
     if (!shortId) return;
@@ -532,7 +559,12 @@ export default function MemoryGame({
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: theme.backgroundColor, direction: isRTL ? 'rtl' : 'ltr' }}>
+    <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: theme.backgroundColor, direction: isRTL ? 'rtl' : 'ltr' }}>
+      {/* Exit button during active gameplay */}
+      {onForfeit && localPhase !== 'lobby' && localPhase !== 'gameOver' && (
+        <ExitGameButton onConfirm={onForfeit} isRTL={isRTL} t={t} />
+      )}
+
       {/* ── LOBBY ── */}
       {localPhase === 'lobby' && (
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative">
@@ -625,16 +657,14 @@ export default function MemoryGame({
               <p className="text-center text-xs mt-3" style={{ color: theme.textSecondary }}>
                 {playerCount < 2
                   ? (isRTL ? 'ממתינים לעוד שחקנים...' : 'Waiting for more players...')
-                  : !isHost
-                    ? (isRTL ? 'ממתינים למארח להתחיל...' : 'Waiting for host to start...')
-                    : (isRTL ? 'מוכנים להתחיל!' : 'Ready to start!')
+                  : (isRTL ? 'מוכנים להתחיל!' : 'Ready to start!')
                 }
               </p>
             </div>
           </div>
 
-          {/* Start button (host with 2+ players) */}
-          {isHost && playerCount >= 2 && (
+          {/* Start button (any player with 2+ players) */}
+          {playerCount >= 2 && (
             <button
               onClick={handleStartGame}
               className="w-full max-w-sm py-4 rounded-2xl font-bold text-lg text-white transition-all active:scale-[0.97] mb-3"
@@ -645,7 +675,7 @@ export default function MemoryGame({
           )}
 
           {/* Bot + WhatsApp options */}
-          {isHost && (
+          {playerCount < 2 && (
             <div className="w-full max-w-sm">
               <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: `${theme.surfaceColor}80`, border: `1px solid ${theme.borderColor}` }}>
                 <p className="text-sm mb-3" style={{ color: theme.textSecondary }}>
@@ -860,7 +890,18 @@ export default function MemoryGame({
 
       {/* ── ROUND RESULTS ── */}
       {localPhase === 'results' && room.status !== 'finished' && (
-        <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 relative">
+          {/* Score popup animation */}
+          {scorePopup && (
+            <div
+              key={scorePopup.key}
+              className="absolute top-8 animate-in zoom-in-50 duration-500"
+              style={{ color: theme.accentColor }}
+            >
+              <span className="text-4xl font-black animate-bounce">+{scorePopup.points}</span>
+            </div>
+          )}
+
           <h3 className="text-xl font-bold mb-1" style={{ color: theme.textColor }}>
             {isRTL ? `תוצאות סיבוב ${(room.currentRound || 0) + 1}` : `Round ${(room.currentRound || 0) + 1} Results`}
           </h3>

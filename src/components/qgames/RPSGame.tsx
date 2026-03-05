@@ -5,6 +5,7 @@ import { RPSChoice, RPS_EMOJI, RTDBRPSRound, resolveRPS } from '@/types/qgames';
 import { useRPSState, useCountdown, useQGamesSounds } from '@/hooks/useQGamesRealtime';
 import { startNewRPSRound } from '@/lib/qgames-realtime';
 import { useQGamesTheme } from './QGamesThemeContext';
+import ExitGameButton from './ExitGameButton';
 
 interface RPSGameProps {
   codeId: string;
@@ -20,6 +21,7 @@ interface RPSGameProps {
   subsequentTimer: number;
   enableSound: boolean;
   onMatchEnd: (winnerId: string | null, p1Score: number, p2Score: number) => void;
+  onForfeit?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
   isBotMatch?: boolean;
@@ -81,6 +83,7 @@ export default function RPSGame({
   subsequentTimer,
   enableSound,
   onMatchEnd,
+  onForfeit,
   isRTL,
   t,
   isBotMatch,
@@ -395,6 +398,9 @@ export default function RPSGame({
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden relative" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Exit button */}
+      {onForfeit && <ExitGameButton onConfirm={onForfeit} isRTL={isRTL} t={t} />}
+
       {/* Disconnect countdown banner */}
       {opponentDisconnected && disconnectStartTime && (
         <DisconnectCountdownBanner

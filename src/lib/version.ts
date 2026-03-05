@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.22';
+export const APP_VERSION = '1.13.23';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,35 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.22',
+    version: '1.13.23',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: משחק זיכרון עובד - שלב הניחוש מוצג כראוי עם ריבועים ריקים למעלה',
+        'תיקון: ספירה לאחור בזיכרון לא נתקעת על 3 (useMemo על sounds)',
+        'תיקון: ניקוד מתעדכן בזמן אמת + בונוס מהירות (+1-3) לסיבוב מושלם',
+        'תיקון: מניעת ספירת ניקוד כפולה ומשחק שנגמר מוקדם (race condition)',
+        'חדש: כפתור התחילו נגיש לכל שחקן (לא רק ליוצר החדר)',
+        'חדש: אנימציית +N ירוקה כשמקבלים נקודות',
+        'חדש: כפתור יציאה מהמשחק (ExitGameButton) בכל המשחקים',
+        'שיפור: טבלת מובילים עם סינון לפי זיכרון ואיקס עיגול',
+      ],
+      en: [
+        'Fix: Memory game works - recall phase shows empty squares on top, options below',
+        'Fix: Memory countdown no longer stuck at 3 (useMemo on sounds)',
+        'Fix: Score updates in real-time + speed bonus (+1-3) for perfect rounds',
+        'Fix: Prevent double scoring and premature game end (race condition guards)',
+        'New: Start button visible to all players (not just room creator)',
+        'New: Green +N score popup animation on round results',
+        'New: Exit game button (ExitGameButton) in all games',
+        'Improvement: Leaderboard filtering for Memory and Tic Tac Toe',
+      ],
+    },
+  },
+  {
+    version: '1.13.22',
+    date: '2026-03-05',
     highlights: {
       he: [
         'שיפור: טאגליין חדש בדשבורד - חוויות אינטראקטיביות בקודי QR',
