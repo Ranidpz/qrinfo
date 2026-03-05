@@ -14,6 +14,7 @@ import {
   RTDBRPSState,
   RTDBTTTState,
   RTDBOOOState,
+  RTDBC4State,
   RTDBMemoryState,
   RTDBMemoryPlayer,
   LiveMatchInfo,
@@ -27,6 +28,7 @@ import {
   subscribeToMatch,
   subscribeToRPSState,
   subscribeToTTTState,
+  subscribeToC4State,
   subscribeToOOOState,
   subscribeToMemoryRoom,
   subscribeToMemoryPlayers,
@@ -307,6 +309,39 @@ export function useTTTState(
 
     setLoading(true);
     const unsubscribe = subscribeToTTTState(codeId, matchId, (data) => {
+      setState(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [codeId, matchId]);
+
+  return { state, loading };
+}
+
+// ============ C4 STATE HOOK ============
+
+interface UseC4StateResult {
+  state: RTDBC4State | null;
+  loading: boolean;
+}
+
+export function useC4State(
+  codeId: string | null,
+  matchId: string | null
+): UseC4StateResult {
+  const [state, setState] = useState<RTDBC4State | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!codeId || !matchId) {
+      setState(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeToC4State(codeId, matchId, (data) => {
       setState(data);
       setLoading(false);
     });

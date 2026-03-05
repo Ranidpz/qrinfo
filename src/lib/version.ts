@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.25';
+export const APP_VERSION = '1.13.26';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,33 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.25',
+    version: '1.13.26',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'אבטחה: ולידציה על הודעות צ\'אט ב-RTDB (אורך מקסימלי, מבנה חובה)',
+        'אבטחה: נעילת כתיבה ל-qgames_players ב-Firestore (Admin SDK בלבד)',
+        'אבטחה: הגבלת קצב בקשות על register, finish, forfeit, move',
+        'אבטחה: ולידציה על chatBans ב-RTDB (מבנה + אורך)',
+        'שיפור: תמונות סלפי בסיום משחק זיכרון + אנימציות bounce-in',
+        'שיפור: אימוג\'ים רספונסיביים ברמת קושי 5+',
+        'חדש: אישור יציאה ב-"Powered by The Q"',
+      ],
+      en: [
+        'Security: RTDB chat message validation (max length, required structure)',
+        'Security: Locked Firestore qgames_players writes (Admin SDK only)',
+        'Security: Rate limiting on register, finish, forfeit, move endpoints',
+        'Security: RTDB chatBans validation (structure + length)',
+        'Improvement: Selfie photos in Memory game over + bounce-in animations',
+        'Improvement: Responsive emojis at difficulty 5+',
+        'New: Exit confirmation on "Powered by The Q" link',
+      ],
+    },
+  },
+  {
+    version: '1.13.25',
+    date: '2026-03-05',
     highlights: {
       he: [
         'שיפור: תמונות סלפי מוצגות בסיום משחק הזיכרון (במקום אימוג׳י גנרי)',

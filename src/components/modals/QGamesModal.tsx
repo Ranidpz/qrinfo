@@ -484,6 +484,16 @@ export default function QGamesModal({
                                 </SettingRow>
                               </>
                             )}
+                            {gameType === 'connect4' && (
+                              <>
+                                <SettingRow label={isRTL ? 'ראשון ל-' : 'First to'}>
+                                  <SettingButtons values={[3, 5]} current={config.c4FirstTo} onChange={(n) => setConfig(prev => ({ ...prev, c4FirstTo: n }))} />
+                                </SettingRow>
+                                <SettingRow label={isRTL ? 'טיימר לתור' : 'Turn timer'}>
+                                  <SettingButtons values={[10, 15, 20, 30]} current={config.c4TurnTimer} onChange={(n) => setConfig(prev => ({ ...prev, c4TurnTimer: n }))} suffix="s" />
+                                </SettingRow>
+                              </>
+                            )}
                             {gameType === 'memory' && (
                               <>
                                 <SettingRow label={isRTL ? 'טיימר לזכירה' : 'Memorize timer'}>

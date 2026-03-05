@@ -6,7 +6,7 @@
 // =============================================================
 
 /** Available mini-game types */
-export type QGameType = 'rps' | 'tictactoe' | 'memory' | 'oddoneout';
+export type QGameType = 'rps' | 'tictactoe' | 'memory' | 'oddoneout' | 'connect4';
 
 /** Game lifecycle phases (admin-controlled) */
 export type QGamesPhase = 'active' | 'paused' | 'finished';
@@ -37,6 +37,12 @@ export type TTTCell = 'X' | 'O' | null;
 
 /** Tic-Tac-Toe marker */
 export type TTTMarker = 'X' | 'O';
+
+/** Connect 4 cell value */
+export type C4Cell = 'R' | 'W' | null;
+
+/** Connect 4 marker (piece color) */
+export type C4Marker = 'R' | 'W';
 
 // =============================================================
 // RPS Game Logic
@@ -110,6 +116,101 @@ export function parseTTTBoard(board: string): (TTTCell)[] {
 }
 
 // =============================================================
+// Connect 4 Game Logic (ארבע בשורה - 4 in a Row)
+// =============================================================
+
+/** Board dimensions */
+export const C4_COLS = 7;
+export const C4_ROWS = 6;
+export const C4_CELLS = 42; // 7 * 6
+
+/** Generate all winning line indices for 7x6 board */
+function generateC4WinLines(): [number, number, number, number][] {
+  const lines: [number, number, number, number][] = [];
+
+  // Horizontal (24 lines: 6 rows * 4 positions)
+  for (let row = 0; row < C4_ROWS; row++) {
+    for (let col = 0; col <= C4_COLS - 4; col++) {
+      const base = row * C4_COLS + col;
+      lines.push([base, base + 1, base + 2, base + 3]);
+    }
+  }
+
+  // Vertical (21 lines: 7 cols * 3 positions)
+  for (let col = 0; col < C4_COLS; col++) {
+    for (let row = 0; row <= C4_ROWS - 4; row++) {
+      const base = row * C4_COLS + col;
+      lines.push([base, base + C4_COLS, base + 2 * C4_COLS, base + 3 * C4_COLS]);
+    }
+  }
+
+  // Diagonal down-right (12 lines)
+  for (let row = 0; row <= C4_ROWS - 4; row++) {
+    for (let col = 0; col <= C4_COLS - 4; col++) {
+      const base = row * C4_COLS + col;
+      lines.push([base, base + C4_COLS + 1, base + 2 * (C4_COLS + 1), base + 3 * (C4_COLS + 1)]);
+    }
+  }
+
+  // Diagonal down-left (12 lines)
+  for (let row = 0; row <= C4_ROWS - 4; row++) {
+    for (let col = 3; col < C4_COLS; col++) {
+      const base = row * C4_COLS + col;
+      lines.push([base, base + C4_COLS - 1, base + 2 * (C4_COLS - 1), base + 3 * (C4_COLS - 1)]);
+    }
+  }
+
+  return lines;
+}
+
+/** All winning line indices for 7x6 board (69 total) */
+export const C4_WIN_LINES: [number, number, number, number][] = generateC4WinLines();
+
+/** Parse board string to C4Cell array */
+export function parseC4Board(board: string): (C4Cell)[] {
+  return board.split('').map(c => c === '_' ? null : c as C4Cell);
+}
+
+/** Check if board has a winner. Returns marker or null. */
+export function checkC4Winner(board: (C4Cell)[]): C4Marker | null {
+  for (const [a, b, c, d] of C4_WIN_LINES) {
+    if (board[a] && board[a] === board[b] && board[a] === board[c] && board[a] === board[d]) {
+      return board[a] as C4Marker;
+    }
+  }
+  return null;
+}
+
+/** Check if board is full (draw) */
+export function isC4Draw(board: (C4Cell)[]): boolean {
+  return board.every(cell => cell !== null) && checkC4Winner(board) === null;
+}
+
+/** Get the winning line indices, or null */
+export function getC4WinLine(board: (C4Cell)[]): number[] | null {
+  for (const line of C4_WIN_LINES) {
+    const [a, b, c, d] = line;
+    if (board[a] && board[a] === board[b] && board[a] === board[c] && board[a] === board[d]) {
+      return [a, b, c, d];
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the lowest empty row in a column (gravity).
+ * Returns the row index (0=top, 5=bottom), or -1 if column is full.
+ */
+export function getC4DropRow(board: (C4Cell)[], col: number): number {
+  for (let row = C4_ROWS - 1; row >= 0; row--) {
+    if (board[row * C4_COLS + col] === null) {
+      return row;
+    }
+  }
+  return -1;
+}
+
+// =============================================================
 // OOO Game Logic (משלוש יוצא אחד - Odd One Out)
 // =============================================================
 
@@ -160,6 +261,8 @@ export interface QGamesPlayer {
   memoryWins: number;
   oddoneoutPlayed: number;
   oddoneoutWins: number;
+  connect4Played: number;
+  connect4Wins: number;
 
   registeredAt: number;
   lastPlayedAt: number;
@@ -317,6 +420,27 @@ export interface RTDBTTTState {
   roundFinished: boolean;         // true when round has a winner or draw
 }
 
+/** Connect 4 match state in RTDB */
+export interface RTDBC4State {
+  board: string;                  // 42-char: "R_W______..." (_ = empty, R = red, W = white)
+  currentTurn: string;            // player1Id or player2Id
+  redPlayerId: string;            // who plays RED
+  whitePlayerId: string;          // who plays WHITE
+  winner: string | null;          // round winner playerId or null
+  isDraw: boolean;
+  moveCount: number;
+  lastCol: number;                // last column played (-1 initially) for drop animation
+  // Multi-round match fields
+  currentRound: number;
+  player1Score: number;
+  player2Score: number;
+  firstTo: number;                // first to N round wins
+  timerStartedAt: number;         // when current turn timer started
+  timerDuration: number;          // seconds per turn
+  winLine: number[] | null;       // winning line indices [idx1,idx2,idx3,idx4] or null
+  roundFinished: boolean;         // true when round has a winner or draw
+}
+
 // =============================================================
 // Memory Game (זיכרון) - Emoji sequence memory challenge
 // =============================================================
@@ -416,6 +540,8 @@ export interface QGamesLeaderboardEntry {
   tictactoeWins?: number;
   memoryPlayed?: number;
   memoryWins?: number;
+  connect4Played?: number;
+  connect4Wins?: number;
 }
 
 // =============================================================
@@ -591,6 +717,10 @@ export interface QGamesConfig {
   tttFirstTo: number;             // First to N round wins (default: 3)
   tttTurnTimer: number;           // Seconds per turn (default: 10)
 
+  // Connect 4 settings (4 in a Row)
+  c4FirstTo: number;              // First to N round wins (default: 3)
+  c4TurnTimer: number;            // Seconds per turn (default: 15)
+
   // Memory settings
   memoryMaxStrikes: number;       // Strikes before elimination (default: 3)
   memoryRecallTimer: number;      // Seconds for recall phase (default: 10)
@@ -690,6 +820,7 @@ export const DEFAULT_CHAT_PHRASES: QGamesChatPhrase[] = [
   { id: 'inv2', text: 'מי בא לאבן נייר ומספריים?', emoji: '✊', type: 'text' },
   { id: 'inv3', text: 'מי מצטרפים?', emoji: '🎮', type: 'text' },
   { id: 'inv4', text: 'בואו לזיכרון!', emoji: '🧠', type: 'text' },
+  { id: 'inv5', text: 'בואו לארבע בשורה!', emoji: '🔴', type: 'text' },
   // Hype
   { id: 'hyp1', text: 'יאללה!', emoji: '🔥', type: 'text' },
   { id: 'hyp2', text: 'מדהימים!', emoji: '🤩', type: 'text' },
@@ -766,6 +897,9 @@ export const DEFAULT_QGAMES_CONFIG: QGamesConfig = {
   tttFirstTo: 3,
   tttTurnTimer: 10,
 
+  c4FirstTo: 3,
+  c4TurnTimer: 15,
+
   memoryMaxStrikes: 3,
   memoryRecallTimer: 10,
   memoryMemorizeTimer: 3,
@@ -819,10 +953,15 @@ export const GAME_META: Record<QGameType, {
     labelKey: 'oddoneout',
     descriptionKey: 'oddoneoutDescription',
   },
+  connect4: {
+    emoji: '🔴',
+    labelKey: 'connect4',
+    descriptionKey: 'connect4Description',
+  },
 };
 
 /** Fixed display order for game selector (canonical order) */
-export const GAME_DISPLAY_ORDER: QGameType[] = ['rps', 'oddoneout', 'tictactoe', 'memory'];
+export const GAME_DISPLAY_ORDER: QGameType[] = ['rps', 'oddoneout', 'tictactoe', 'connect4', 'memory'];
 
 // =============================================================
 // Memory Emoji Pool
@@ -876,6 +1015,7 @@ export const QGAMES_PATHS = {
   rpsState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/rps`,
   rpsRound: (codeId: string, matchId: string, round: number) => `qgames/${codeId}/matches/${matchId}/rps/rounds/${round}`,
   tttState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/ttt`,
+  c4State: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/c4`,
   memoryState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/memory`,
   memoryRooms: (codeId: string) => `qgames/${codeId}/memoryRooms`,
   memoryRoom: (codeId: string, roomId: string) => `qgames/${codeId}/memoryRooms/${roomId}`,

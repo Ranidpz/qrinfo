@@ -29,7 +29,15 @@
         ".read": true,
         ".write": true,
         "chat": {
-          ".indexOn": ["sentAt"]
+          ".indexOn": ["sentAt"],
+          "$messageId": {
+            ".validate": "newData.hasChildren(['senderId', 'senderNickname', 'text', 'sentAt', 'phraseType']) && newData.child('text').isString() && newData.child('text').val().length <= 200 && newData.child('senderNickname').isString() && newData.child('senderNickname').val().length <= 30 && newData.child('senderId').isString() && newData.child('sentAt').isNumber() && newData.child('phraseType').isString()"
+          }
+        },
+        "chatBans": {
+          "$visitorId": {
+            ".validate": "newData.hasChildren(['visitorId', 'bannedAt']) && newData.child('bannedAt').isNumber() && newData.child('visitorId').isString() && newData.child('visitorId').val().length <= 50"
+          }
         }
       }
     }

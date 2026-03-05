@@ -9,19 +9,37 @@ import {
   RTDBOOORound,
   RTDBOOOState,
   RTDBTTTState,
+  RTDBC4State,
   RTDBMatch,
   QGAMES_PATHS,
   checkTTTWinner,
   getWinLine,
   parseTTTBoard,
+  checkC4Winner,
+  getC4WinLine,
+  parseC4Board,
+  getC4DropRow,
+  C4_COLS,
+  C4_CELLS,
 } from '@/types/qgames';
 import { getAdminRtdb } from '@/lib/firebase-admin';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 const VALID_RPS_CHOICES: RPSChoice[] = ['rock', 'paper', 'scissors'];
 const VALID_OOO_CHOICES: OOOChoice[] = ['palm', 'fist'];
 
 export async function POST(request: Request) {
   try {
+    // Rate limit: 120 moves per minute per IP (fast-paced games)
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`qgames-move:${ip}`, { maxRequests: 120, windowMs: 60_000 });
+    if (!rl.success) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { codeId, matchId, playerId, gameType, move } = body;
 
@@ -72,6 +90,10 @@ export async function POST(request: Request) {
 
     if (gameType === 'tictactoe') {
       return handleTTTMove(rtdb, codeId, matchId, playerId, isPlayer1, move, match);
+    }
+
+    if (gameType === 'connect4') {
+      return handleC4Move(rtdb, codeId, matchId, playerId, isPlayer1, move, match);
     }
 
     return NextResponse.json(
@@ -535,6 +557,122 @@ async function handleTTTMove(
   }
 
   const finalState = txResult.snapshot.val() as RTDBTTTState;
+
+  // If round ended, check if match is over
+  if (finalState.roundFinished && finalState.winner) {
+    const firstTo = finalState.firstTo;
+    if (finalState.player1Score >= firstTo || finalState.player2Score >= firstTo) {
+      // Match finished
+      await rtdb.ref(QGAMES_PATHS.match(codeId, matchId)).update({
+        status: 'finished',
+        lastUpdated: Date.now(),
+        finishedAt: Date.now(),
+      });
+
+      // Decrement matches in progress
+      const statsRef = rtdb.ref(QGAMES_PATHS.stats(codeId));
+      await statsRef.transaction((current: Record<string, number> | null) => {
+        if (!current) return current;
+        return {
+          ...current,
+          matchesInProgress: Math.max(0, (current.matchesInProgress || 0) - 1),
+          lastUpdated: Date.now(),
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        matchOver: true,
+        matchWinnerId: finalState.player1Score >= firstTo ? match.player1Id : match.player2Id,
+      });
+    }
+  }
+
+  return NextResponse.json({ success: true });
+}
+
+async function handleC4Move(
+  rtdb: ReturnType<typeof getAdminRtdb>,
+  codeId: string,
+  matchId: string,
+  playerId: string,
+  isPlayer1: boolean,
+  move: { column: number; timedOut?: boolean },
+  match: { player1Id: string; player2Id: string }
+) {
+  const { column, timedOut } = move;
+
+  const c4Path = QGAMES_PATHS.c4State(codeId, matchId);
+  const c4Ref = rtdb.ref(c4Path);
+
+  const txResult = await c4Ref.transaction((current: RTDBC4State | null) => {
+    if (!current) return current;
+    if (current.roundFinished) return; // Round already over
+
+    // Handle timeout: current player forfeits round
+    if (timedOut) {
+      if (current.currentTurn !== playerId) return; // Not your turn to timeout
+      const opponentIsP1 = !isPlayer1;
+      current.winner = opponentIsP1 ? match.player1Id : match.player2Id;
+      current.roundFinished = true;
+      if (opponentIsP1) current.player1Score += 1;
+      else current.player2Score += 1;
+      return current;
+    }
+
+    // Validate column
+    if (typeof column !== 'number' || column < 0 || column >= C4_COLS) return;
+
+    // Validate turn
+    if (current.currentTurn !== playerId) return;
+
+    // Parse board and find drop row (gravity)
+    const board = parseC4Board(current.board);
+    const dropRow = getC4DropRow(board, column);
+    if (dropRow === -1) return; // Column full
+
+    // Place the piece
+    const cellIndex = dropRow * C4_COLS + column;
+    const marker = current.redPlayerId === playerId ? 'R' : 'W';
+    const boardChars = current.board.split('');
+    boardChars[cellIndex] = marker;
+    current.board = boardChars.join('');
+    current.moveCount += 1;
+    current.lastCol = column;
+
+    // Check for winner
+    const boardCells = parseC4Board(current.board);
+    const winnerMarker = checkC4Winner(boardCells);
+    const winLine = getC4WinLine(boardCells);
+
+    if (winnerMarker) {
+      current.winner = playerId;
+      current.winLine = winLine;
+      current.roundFinished = true;
+      if (isPlayer1) current.player1Score += 1;
+      else current.player2Score += 1;
+    } else if (current.moveCount >= C4_CELLS) {
+      // Draw - board full, no winner
+      current.isDraw = true;
+      current.roundFinished = true;
+    } else {
+      // Switch turn
+      current.currentTurn = playerId === match.player1Id
+        ? match.player2Id : match.player1Id;
+      current.timerStartedAt = Date.now();
+    }
+
+    return current;
+  });
+
+  if (!txResult.committed) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid move or not your turn' },
+      { status: 400 }
+    );
+  }
+
+  const finalState = txResult.snapshot.val() as RTDBC4State;
 
   // If round ended, check if match is over
   if (finalState.roundFinished && finalState.winner) {

@@ -22,6 +22,7 @@ import {
   initRPSState,
   initOOOState,
   initTTTState,
+  initC4State,
   updateMatchStatus,
   subscribeToQueue,
   updateQueueEntryAvatar,
@@ -29,6 +30,7 @@ import {
   getRPSState,
   getOOOState,
   getTTTState,
+  getC4State,
   markQueueEntryBotMatch,
   leaveQueue,
 } from '@/lib/qgames-realtime';
@@ -49,6 +51,7 @@ import QGamesVSScreen from '@/components/qgames/QGamesVSScreen';
 import RPSGame from '@/components/qgames/RPSGame';
 import OddOneOutGame from '@/components/qgames/OddOneOutGame';
 import TicTacToeGame from '@/components/qgames/TicTacToeGame';
+import Connect4Game from '@/components/qgames/Connect4Game';
 import MemoryGame from '@/components/qgames/MemoryGame';
 import type { MemoryGameResult } from '@/components/qgames/MemoryGame';
 import QGamesResult from '@/components/qgames/QGamesResult';
@@ -72,6 +75,8 @@ const translations: Record<string, Record<string, string>> = {
     rpsDescription: 'מי ינצח? הראשון ל-3!',
     tictactoe: 'איקס עיגול',
     tictactoeDescription: '3 משחקים בלוח איקס עיגול של פעם',
+    connect4: 'ארבע בשורה',
+    connect4Description: 'הורידו 4 ברצף - אדום או לבן!',
     yourTurn: 'התור שלך!',
     opponentTurn: 'התור של היריב...',
     roundDraw: 'תיקו בסיבוב!',
@@ -183,6 +188,8 @@ const translations: Record<string, Record<string, string>> = {
     rpsDescription: 'Who will win? First to 3!',
     tictactoe: 'Tic-Tac-Toe',
     tictactoeDescription: '3 in a row wins!',
+    connect4: 'Connect 4',
+    connect4Description: 'Drop 4 in a row to win!',
     yourTurn: 'Your turn!',
     opponentTurn: "Opponent's turn...",
     roundDraw: 'Round draw!',
@@ -608,6 +615,12 @@ export default function QGamesViewer({
           myScore = isP1 ? tttState.player1Score : tttState.player2Score;
           oppScore = isP1 ? tttState.player2Score : tttState.player1Score;
         }
+      } else if (matchId && selectedGame === 'connect4') {
+        const c4State = await getC4State(codeId, matchId);
+        if (c4State) {
+          myScore = isP1 ? c4State.player1Score : c4State.player2Score;
+          oppScore = isP1 ? c4State.player2Score : c4State.player1Score;
+        }
       }
 
       if (selectedGame === 'oddoneout') {
@@ -866,6 +879,12 @@ export default function QGamesViewer({
       const isPlayer1 = match?.player1Id === visitorId;
       if (isPlayer1 && match) {
         await initTTTState(codeId, matchId, match.player1Id, match.player2Id, config.tttFirstTo, config.tttTurnTimer);
+      }
+    } else if (selectedGame === 'connect4') {
+      // Only player1 initializes C4 state — P1 starts as RED
+      const isPlayer1 = match?.player1Id === visitorId;
+      if (isPlayer1 && match) {
+        await initC4State(codeId, matchId, match.player1Id, match.player2Id, config.c4FirstTo, config.c4TurnTimer);
       }
     }
 
@@ -1296,6 +1315,36 @@ export default function QGamesViewer({
             player2Avatar={gameMatch.player2AvatarValue}
             firstTo={config.tttFirstTo}
             turnTimer={config.tttTurnTimer}
+            enableSound={config.enableSound}
+            onMatchEnd={handleMatchEnd}
+            onForfeit={handleForfeit}
+            isRTL={isRTL}
+            t={t}
+            isBotMatch={isBotMatch}
+            opponentDisconnected={opponentDisconnected}
+            disconnectStartTime={disconnectStartTime}
+          />
+        );
+      })()}
+
+      {phase === 'playing' && (match || botMatchData) && selectedGame === 'connect4' && (() => {
+        const gameMatch = isBotMatch ? botMatchData : match;
+        if (!gameMatch) return null;
+        const isP1 = gameMatch.player1Id === visitorId;
+        return (
+          <Connect4Game
+            codeId={codeId}
+            matchId={gameMatch.id}
+            playerId={visitorId || ''}
+            isPlayer1={isP1}
+            player1Id={gameMatch.player1Id}
+            player2Id={gameMatch.player2Id}
+            player1Nickname={gameMatch.player1Nickname}
+            player1Avatar={gameMatch.player1AvatarValue}
+            player2Nickname={gameMatch.player2Nickname}
+            player2Avatar={gameMatch.player2AvatarValue}
+            firstTo={config.c4FirstTo}
+            turnTimer={config.c4TurnTimer}
             enableSound={config.enableSound}
             onMatchEnd={handleMatchEnd}
             onForfeit={handleForfeit}

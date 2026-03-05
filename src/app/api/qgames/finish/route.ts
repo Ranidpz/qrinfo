@@ -13,15 +13,27 @@ import {
   getRPSState,
   getOOOState,
   getTTTState,
+  getC4State,
   updateLeaderboardEntry,
   recalculateLeaderboardRanks,
   cleanupMatch,
   leaveQueue,
   deleteMemoryRoom,
 } from '@/lib/qgames-realtime';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
   try {
+    // Rate limit
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`qgames-finish:${ip}`, RATE_LIMITS.API);
+    if (!rl.success) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { codeId, matchId, playerId, gameType, memoryRoomId, memoryResults } = body;
 
@@ -98,6 +110,14 @@ export async function POST(request: Request) {
       if (tttState) {
         p1Score = tttState.player1Score;
         p2Score = tttState.player2Score;
+        if (p1Score > p2Score) winnerId = match.player1Id;
+        else if (p2Score > p1Score) winnerId = match.player2Id;
+      }
+    } else if (match.gameType === 'connect4') {
+      const c4State = await getC4State(codeId, matchId);
+      if (c4State) {
+        p1Score = c4State.player1Score;
+        p2Score = c4State.player2Score;
         if (p1Score > p2Score) winnerId = match.player1Id;
         else if (p2Score > p1Score) winnerId = match.player2Id;
       }
@@ -339,7 +359,7 @@ async function updatePlayerStats(
     totalWins: player.totalWins + (isWinner ? 1 : 0),
     totalLosses: player.totalLosses + (!isWinner && !isDraw ? 1 : 0),
     totalDraws: player.totalDraws + (isDraw ? 1 : 0),
-    score: player.score + (isWinner ? MATCH_POINTS.WIN : isDraw ? (gameType === 'tictactoe' ? MATCH_POINTS.WIN : MATCH_POINTS.DRAW) : MATCH_POINTS.LOSS),
+    score: player.score + (isWinner ? MATCH_POINTS.WIN : isDraw ? ((gameType === 'tictactoe' || gameType === 'connect4') ? MATCH_POINTS.WIN : MATCH_POINTS.DRAW) : MATCH_POINTS.LOSS),
     lastPlayedAt: Date.now(),
   };
 
@@ -426,6 +446,8 @@ async function updatePlayerLeaderboard(
     tictactoeWins: player.tictactoeWins || 0,
     memoryPlayed: player.memoryPlayed || 0,
     memoryWins: player.memoryWins || 0,
+    connect4Played: player.connect4Played || 0,
+    connect4Wins: player.connect4Wins || 0,
   };
 
   await updateLeaderboardEntry(codeId, entry);

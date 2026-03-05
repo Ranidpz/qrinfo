@@ -17,6 +17,7 @@ export default function QGamesPreviewPhone({ config, isRTL }: QGamesPreviewPhone
     oddoneout: { he: 'משלוש יוצא א....חד!', en: 'Odd One Out' },
     tictactoe: { he: 'איקס מיקס דריקס', en: 'Tic-Tac-Toe' },
     memory: { he: 'זיכרון', en: 'Memory Match' },
+    connect4: { he: 'ארבע בשורה', en: 'Connect 4' },
   };
 
   const descMap: Record<string, { he: string; en: string }> = {
@@ -24,6 +25,7 @@ export default function QGamesPreviewPhone({ config, isRTL }: QGamesPreviewPhone
     oddoneout: { he: '3 שחקנים', en: '3 players' },
     tictactoe: { he: '2 שחקנים', en: '2 players' },
     memory: { he: '2-6 שחקנים', en: '2-6 players' },
+    connect4: { he: '2 שחקנים', en: '2 players' },
   };
 
   return (

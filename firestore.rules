@@ -97,11 +97,10 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
-      // Q.Games Players subcollection
+      // Q.Games Players subcollection (all writes via Admin SDK / API routes)
       match /qgames_players/{playerId} {
         allow read: if true;
-        allow create: if true;
-        allow update: if true;
+        allow create, update: if false;
         allow delete: if request.auth != null && (
           get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
           isAdmin()

@@ -31,6 +31,7 @@ import {
   RTDBTTTState,
   RTDBOOOState,
   RTDBOOORound,
+  RTDBC4State,
   RTDBMemoryState,
   RTDBMemoryPlayer,
   MemoryPhase,
@@ -409,6 +410,100 @@ export async function updateTTTState(
 ): Promise<void> {
   const tttRef = ref(realtimeDb, QGAMES_PATHS.tttState(codeId, matchId));
   await update(tttRef, updates);
+}
+
+// ============ C4 MATCH STATE (Connect 4) ============
+
+/** Initialize Connect 4 game state */
+export async function initC4State(
+  codeId: string,
+  matchId: string,
+  redPlayerId: string,
+  whitePlayerId: string,
+  firstTo: number,
+  turnTimer: number
+): Promise<void> {
+  const c4Ref = ref(realtimeDb, QGAMES_PATHS.c4State(codeId, matchId));
+  const now = Date.now();
+  await set(c4Ref, {
+    board: '_'.repeat(42),
+    currentTurn: redPlayerId,
+    redPlayerId,
+    whitePlayerId,
+    winner: null,
+    isDraw: false,
+    moveCount: 0,
+    lastCol: -1,
+    currentRound: 0,
+    player1Score: 0,
+    player2Score: 0,
+    firstTo,
+    timerStartedAt: now,
+    timerDuration: turnTimer,
+    winLine: null,
+    roundFinished: false,
+  } satisfies RTDBC4State);
+}
+
+/** Get Connect 4 state (single read) */
+export async function getC4State(
+  codeId: string,
+  matchId: string
+): Promise<RTDBC4State | null> {
+  const c4Ref = ref(realtimeDb, QGAMES_PATHS.c4State(codeId, matchId));
+  const snapshot = await get(c4Ref);
+  return snapshot.exists() ? (snapshot.val() as RTDBC4State) : null;
+}
+
+/** Start a new Connect 4 round (reset board, alternate RED/WHITE) */
+export async function startNewC4Round(
+  codeId: string,
+  matchId: string,
+  roundNum: number,
+  player1Id: string,
+  player2Id: string,
+  player1Score: number,
+  player2Score: number,
+  turnTimer: number,
+  firstTo: number
+): Promise<void> {
+  const c4Ref = ref(realtimeDb, QGAMES_PATHS.c4State(codeId, matchId));
+  const now = Date.now();
+  // Alternate who plays RED each round
+  const redPlayer = roundNum % 2 === 0 ? player1Id : player2Id;
+  const whitePlayer = roundNum % 2 === 0 ? player2Id : player1Id;
+  await set(c4Ref, {
+    board: '_'.repeat(42),
+    currentTurn: redPlayer,
+    redPlayerId: redPlayer,
+    whitePlayerId: whitePlayer,
+    winner: null,
+    isDraw: false,
+    moveCount: 0,
+    lastCol: -1,
+    currentRound: roundNum,
+    player1Score,
+    player2Score,
+    firstTo,
+    timerStartedAt: now,
+    timerDuration: turnTimer,
+    winLine: null,
+    roundFinished: false,
+  } satisfies RTDBC4State);
+}
+
+/** Subscribe to Connect 4 state */
+export function subscribeToC4State(
+  codeId: string,
+  matchId: string,
+  onUpdate: (state: RTDBC4State | null) => void
+): () => void {
+  const c4Ref = ref(realtimeDb, QGAMES_PATHS.c4State(codeId, matchId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists() ? (snapshot.val() as RTDBC4State) : null);
+  };
+  onValue(c4Ref, callback);
+  return () => off(c4Ref, 'value', callback);
 }
 
 // ============ OOO MATCH STATE (Odd One Out) ============

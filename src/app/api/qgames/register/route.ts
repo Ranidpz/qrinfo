@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { QGamesPlayer } from '@/types/qgames';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
   try {
+    // Rate limit: 30 registrations per minute per IP
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`qgames-register:${ip}`, RATE_LIMITS.API);
+    if (!rl.success) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { codeId, playerId, nickname, avatarType, avatarValue } = body;
 
@@ -11,6 +22,20 @@ export async function POST(request: Request) {
     if (!codeId || !playerId || !nickname || !avatarType || !avatarValue) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Validate field types and lengths
+    if (typeof codeId !== 'string' || codeId.length > 50) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid codeId' },
+        { status: 400 }
+      );
+    }
+    if (typeof playerId !== 'string' || playerId.length > 50) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid playerId' },
         { status: 400 }
       );
     }
@@ -98,6 +123,8 @@ export async function POST(request: Request) {
       memoryWins: 0,
       oddoneoutPlayed: 0,
       oddoneoutWins: 0,
+      connect4Played: 0,
+      connect4Wins: 0,
       registeredAt: Date.now(),
       lastPlayedAt: Date.now(),
     };

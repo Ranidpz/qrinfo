@@ -7,6 +7,7 @@ import RPSAnimatedEmoji from './RPSAnimatedEmoji';
 import OOOAnimatedEmoji from './OOOAnimatedEmoji';
 import TTTAnimatedEmoji from './TTTAnimatedEmoji';
 import MemoryAnimatedEmoji from './MemoryAnimatedEmoji';
+import Connect4AnimatedEmoji from './Connect4AnimatedEmoji';
 
 interface QGamesSelectorProps {
   config: QGamesConfig;
@@ -156,7 +157,7 @@ export default function QGamesSelector({
                 className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform duration-200"
                 style={{ backgroundColor: theme.surfaceHover }}
               >
-                {gameType === 'rps' ? <RPSAnimatedEmoji /> : gameType === 'oddoneout' ? <OOOAnimatedEmoji /> : gameType === 'tictactoe' ? <TTTAnimatedEmoji /> : gameType === 'memory' ? <MemoryAnimatedEmoji /> : meta.emoji}
+                {gameType === 'rps' ? <RPSAnimatedEmoji /> : gameType === 'oddoneout' ? <OOOAnimatedEmoji /> : gameType === 'tictactoe' ? <TTTAnimatedEmoji /> : gameType === 'connect4' ? <Connect4AnimatedEmoji /> : gameType === 'memory' ? <MemoryAnimatedEmoji /> : meta.emoji}
               </div>
 
               {/* Text */}

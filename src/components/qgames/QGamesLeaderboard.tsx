@@ -28,7 +28,7 @@ function useCountUp(target: number, duration = 800, active = true) {
   return value;
 }
 
-type GameFilter = 'all' | 'rps' | 'oddoneout' | 'tictactoe' | 'memory';
+type GameFilter = 'all' | 'rps' | 'oddoneout' | 'tictactoe' | 'connect4' | 'memory';
 type SortMode = 'score' | 'winrate';
 
 const MIN_GAMES_FOR_WINRATE = 3;
@@ -67,6 +67,11 @@ function getGameStats(entry: QGamesLeaderboardEntry, filter: GameFilter) {
     const rpsScore = (entry.rpsWins ?? 0) * 3;
     const score = Math.max(0, entry.score - oooScore - rpsScore);
     return { played, wins, score };
+  }
+  if (filter === 'connect4') {
+    const played = entry.connect4Played ?? 0;
+    const wins = entry.connect4Wins ?? 0;
+    return { played, wins, score: wins * 3 };
   }
   if (filter === 'memory') {
     const played = entry.memoryPlayed ?? 0;
@@ -113,6 +118,9 @@ export default function QGamesLeaderboard({
     }
     if (!enabledGames || enabledGames.includes('tictactoe')) {
       tabs.push({ key: 'tictactoe', label: t('tictactoe'), emoji: GAME_META.tictactoe.emoji });
+    }
+    if (!enabledGames || enabledGames.includes('connect4')) {
+      tabs.push({ key: 'connect4', label: t('connect4'), emoji: GAME_META.connect4.emoji });
     }
     if (!enabledGames || enabledGames.includes('memory')) {
       tabs.push({ key: 'memory', label: t('memory'), emoji: GAME_META.memory.emoji });
@@ -638,7 +646,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
     ? Math.round((player.wins / player.gamesPlayed) * 100)
     : 0;
 
-  const hasPerGameStats = (player.rpsPlayed ?? 0) > 0 || (player.oddoneoutPlayed ?? 0) > 0 || (player.tictactoePlayed ?? 0) > 0 || (player.memoryPlayed ?? 0) > 0;
+  const hasPerGameStats = (player.rpsPlayed ?? 0) > 0 || (player.oddoneoutPlayed ?? 0) > 0 || (player.tictactoePlayed ?? 0) > 0 || (player.connect4Played ?? 0) > 0 || (player.memoryPlayed ?? 0) > 0;
 
   return (
     <div
@@ -701,7 +709,8 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
             <GameStatRow label={t('rps')} played={player.rpsPlayed ?? 0} wins={player.rpsWins ?? 0} delay={320} t={t} />
             <GameStatRow label={t('oddoneout')} played={player.oddoneoutPlayed ?? 0} wins={player.oddoneoutWins ?? 0} delay={400} t={t} />
             <GameStatRow label={t('tictactoe')} played={player.tictactoePlayed ?? 0} wins={player.tictactoeWins ?? 0} delay={480} t={t} />
-            <GameStatRow label={t('memory')} played={player.memoryPlayed ?? 0} wins={player.memoryWins ?? 0} delay={560} t={t} />
+            <GameStatRow label={t('connect4')} played={player.connect4Played ?? 0} wins={player.connect4Wins ?? 0} delay={560} t={t} />
+            <GameStatRow label={t('memory')} played={player.memoryPlayed ?? 0} wins={player.memoryWins ?? 0} delay={640} t={t} />
           </div>
         )}
 

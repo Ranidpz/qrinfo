@@ -14,9 +14,20 @@ import {
   recalculateLeaderboardRanks,
   leaveQueue,
 } from '@/lib/qgames-realtime';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
   try {
+    // Rate limit
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`qgames-forfeit:${ip}`, RATE_LIMITS.API);
+    if (!rl.success) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { codeId, matchId, playerId } = body;
 
@@ -133,6 +144,10 @@ export async function POST(request: Request) {
         oddoneoutWins: updatedWinner.oddoneoutWins || 0,
         tictactoePlayed: updatedWinner.tictactoePlayed || 0,
         tictactoeWins: updatedWinner.tictactoeWins || 0,
+        memoryPlayed: updatedWinner.memoryPlayed || 0,
+        memoryWins: updatedWinner.memoryWins || 0,
+        connect4Played: updatedWinner.connect4Played || 0,
+        connect4Wins: updatedWinner.connect4Wins || 0,
       };
       await updateLeaderboardEntry(codeId, entry);
       await recalculateLeaderboardRanks(codeId);
