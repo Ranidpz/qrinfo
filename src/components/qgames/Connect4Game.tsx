@@ -534,11 +534,10 @@ export default function Connect4Game({
 
       {/* Connect 4 Board */}
       <div className="flex-1 flex items-center justify-center px-4 min-h-0">
-        <div className="bg-blue-800/40 rounded-2xl p-2 border border-blue-600/20">
+        <div className="bg-blue-900/80 rounded-2xl p-2.5 border border-blue-500/30 w-full max-w-[320px] mx-auto shadow-lg shadow-blue-900/40">
           {/* Column click zones */}
-          <div className="grid grid-cols-7 gap-1" style={{ width: '100%', maxWidth: '320px' }}>
+          <div className="grid grid-cols-7 gap-1.5">
             {Array.from({ length: C4_CELLS }).map((_, i) => {
-              const row = Math.floor(i / C4_COLS);
               const col = i % C4_COLS;
               const cell = cells[i];
               const isWinCell = winLine?.includes(i);
@@ -573,13 +572,13 @@ export default function Connect4Game({
                     )}
                     {isEmpty && isGhost && (
                       <div className={`w-full h-full rounded-full ${
-                        myColor === 'R' ? 'bg-red-500/25' : 'bg-white/20'
+                        myColor === 'R' ? 'bg-red-500/30' : 'bg-white/25'
                       }`} />
                     )}
                     {isEmpty && !isGhost && (
                       <div className={`w-full h-full rounded-full ${
-                        canClickCol && hoveredCol === col ? 'bg-white/8' : 'bg-white/5'
-                      }`} />
+                        canClickCol && hoveredCol === col ? 'bg-blue-950/60' : 'bg-blue-950/50'
+                      } border border-blue-700/20`} />
                     )}
                   </div>
                 </button>
@@ -615,7 +614,7 @@ export default function Connect4Game({
       )}
 
       {/* Color indicator */}
-      <div className="text-center pb-4">
+      <div className="text-center pb-16">
         <p className="text-white/20 text-[10px]">
           {myColor === 'R' ? '🔴' : '⚪'} {myNickname} · {myColor === 'R' ? '⚪' : '🔴'} {oppNickname}
         </p>

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.28';
+export const APP_VERSION = '1.13.29';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.28',
+    version: '1.13.29',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: לוח ארבע בשורה - חורים נראים כמו לוח אמיתי',
+        'תיקון: תצוגה לא חופפת טקסט Powered by',
+      ],
+      en: [
+        'Fix: Connect 4 board - visible grid slots like a real board',
+        'Fix: Bottom content no longer overlaps Powered by text',
+      ],
+    },
+  },
+  {
+    version: '1.13.28',
+    date: '2026-03-05',
     highlights: {
       he: [
         'שיפור: עיצוב מודל אדמין - צבעים, לוגו ורקע בשורה אחת',
