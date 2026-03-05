@@ -93,6 +93,8 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Canvas `toBlob('image/webp', quality)` at quality < 1.0 destroys alpha. For transparent images, use PNG format. `compressImage({ preserveAlpha: true })` handles this.
 - `refreshUser()` creates a new user object reference → triggers `useEffect([user])` → resets page state. Don't call after modal saves.
 - Q.Vote tablet/kiosk mode: vote API MUST skip fingerprint dedup when `tabletMode.enabled` (same device = same fingerprint). Client `resetForNextVoter` MUST regenerate `visitorId` in localStorage (prevents vote doc ID collisions). ALL success paths in `submitVoteWithCredentials` MUST call `setSubmitting(false)` before starting the tablet countdown.
+- WhatsApp in-app browser (SFSafariViewController on iOS): has isolated localStorage — `visitorId` and player sessions are lost. Detect with `isInAppBrowser()` in `QGamesRegistration.tsx` and show "Open in browser" banner. iOS detection: `!('safari' in window)` on iOS UA.
+- Satori (next/og `ImageResponse`) does NOT support RTL Hebrew text — renders chars in reverse. Avoid Hebrew text in OG images; use logos instead.
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**

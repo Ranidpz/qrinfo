@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.29';
+export const APP_VERSION = '1.13.30';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.29',
+    version: '1.13.30',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: זיהוי דפדפן WhatsApp/אפליקציות - באנר פתיחה בדפדפן',
+        'שיפור: מסך הרשמה - ניצול מסך טוב יותר בסלולרי',
+      ],
+      en: [
+        'New: In-app browser detection - banner to open in Safari/Chrome',
+        'Improvement: Registration screen - better mobile layout',
+      ],
+    },
+  },
+  {
+    version: '1.13.29',
+    date: '2026-03-05',
     highlights: {
       he: [
         'תיקון: לוח ארבע בשורה - חורים נראים כמו לוח אמיתי',

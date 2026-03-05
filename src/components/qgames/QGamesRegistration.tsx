@@ -1,10 +1,41 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { User, Camera, X, Check, RotateCcw, Loader2, ZoomIn, ZoomOut } from 'lucide-react';
+import { User, Camera, X, Check, RotateCcw, Loader2, ZoomIn, ZoomOut, ExternalLink, Copy, CheckCheck } from 'lucide-react';
 import { QGamesConfig, DEFAULT_QGAMES_EMOJI_PALETTE } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import { compressImage } from '@/lib/imageCompression';
+
+/** Detect if running inside an in-app browser (WhatsApp, Facebook, Instagram, etc.) */
+function isInAppBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  // Facebook
+  if (/FBAN|FBAV/i.test(ua)) return true;
+  // Instagram
+  if (/Instagram/i.test(ua)) return true;
+  // WhatsApp (Android includes it in UA; iOS sometimes doesn't)
+  if (/WhatsApp/i.test(ua)) return true;
+  // Telegram
+  if (/TelegramBot|Telegram/i.test(ua)) return true;
+  // Line
+  if (/\bLine\//i.test(ua)) return true;
+  // Android WebView (generic)
+  if (/; wv\b/.test(ua)) return true;
+  // iOS: SFSafariViewController doesn't add identifiers to UA,
+  // but we can detect it by checking if window.safari is missing on iOS Safari
+  if (/iPhone|iPad|iPod/.test(ua) && /AppleWebKit/.test(ua)) {
+    // In regular Safari, window has a safari property
+    // In SFSafariViewController (WhatsApp, etc.), it's missing
+    if (typeof window !== 'undefined' && !('safari' in window)) {
+      // Additional check: not Chrome/Firefox/other known iOS browsers
+      if (!/CriOS|FxiOS|OPiOS|EdgiOS/.test(ua)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 interface QGamesRegistrationProps {
   config: QGamesConfig;
@@ -58,6 +89,15 @@ export default function QGamesRegistration({
   const [zoom, setZoom] = useState(1);
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef(1);
+
+  // In-app browser detection
+  const [inAppBrowser, setInAppBrowser] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  useEffect(() => {
+    setInAppBrowser(isInAppBrowser());
+  }, []);
 
   const startCamera = useCallback(async () => {
     try {
@@ -186,8 +226,72 @@ export default function QGamesRegistration({
     setAvatarMode('emoji');
   };
 
+  const handleCopyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const input = document.createElement('input');
+      input.value = window.location.href;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="min-h-[100dvh] flex flex-col items-center justify-start pt-8 pb-6 px-6" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* In-app browser banner */}
+      {inAppBrowser && !bannerDismissed && (
+        <div
+          className="w-full max-w-sm mb-4 p-4 rounded-2xl text-center"
+          style={{
+            backgroundColor: `${theme.accentColor}15`,
+            border: `1px solid ${theme.accentColor}33`,
+          }}
+        >
+          <ExternalLink className="w-6 h-6 mx-auto mb-2" style={{ color: theme.accentColor }} />
+          <p className="text-sm font-medium mb-1" style={{ color: theme.textColor }}>
+            {isRTL ? 'פתחו בדפדפן לחוויה מלאה' : 'Open in your browser for the best experience'}
+          </p>
+          <p className="text-xs mb-3" style={{ color: theme.textSecondary }}>
+            {isRTL
+              ? 'בדפדפן הפרופיל שלכם נשמר בין כניסות'
+              : 'Your profile will be saved between visits'}
+          </p>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={handleCopyLink}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
+              style={{
+                backgroundColor: theme.accentColor,
+                color: '#fff',
+              }}
+            >
+              {linkCopied ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {linkCopied
+                ? (isRTL ? 'הועתק!' : 'Copied!')
+                : (isRTL ? 'העתקת לינק' : 'Copy link')}
+            </button>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              className="px-4 py-2 rounded-xl text-sm transition-all active:scale-95"
+              style={{
+                backgroundColor: theme.surfaceColor,
+                color: theme.textSecondary,
+              }}
+            >
+              {isRTL ? 'המשיכו כאן' : 'Continue here'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Event Logo */}
       {config.branding.eventLogo && (
         <img
@@ -198,7 +302,7 @@ export default function QGamesRegistration({
         />
       )}
       {/* Title */}
-      <div className="text-center mb-4">
+      <div className="text-center mb-3">
         <h1 className="text-2xl font-bold mb-0.5" style={{ color: theme.textColor }}>{!config.branding.eventLogo && '🎮 '}{gameName}</h1>
         <p className="text-sm" style={{ color: theme.textSecondary }}>{t('joinToPlay')}</p>
       </div>
@@ -260,7 +364,7 @@ export default function QGamesRegistration({
       ) : (
         <>
           {/* Selected Avatar Preview */}
-          <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-3 overflow-hidden mx-auto" style={{ backgroundColor: theme.surfaceColor, boxShadow: `0 0 0 2px ${theme.borderColor}` }}>
+          <div className="w-18 h-18 rounded-full flex items-center justify-center text-3xl mb-2 overflow-hidden mx-auto" style={{ width: 72, height: 72, backgroundColor: theme.surfaceColor, boxShadow: `0 0 0 2px ${theme.borderColor}` }}>
             {avatarMode === 'selfie' && selfieUrl ? (
               <img src={selfieUrl} alt="" className="w-full h-full object-cover" />
             ) : selectedEmoji}
