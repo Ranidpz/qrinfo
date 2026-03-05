@@ -164,6 +164,18 @@ const categories: FAQCategory[] = [
     ],
   },
   {
+    id: 'qgames',
+    icon: Gamepad2,
+    color: 'text-violet-500',
+    bgColor: 'bg-violet-500/10',
+    questions: [
+      { questionKey: 'whatIsQgames', answerKey: 'whatIsQgamesAnswer' },
+      { questionKey: 'qgamesSetup', answerKey: 'qgamesSetupAnswer' },
+      { questionKey: 'qgamesLeaderboard', answerKey: 'qgamesLeaderboardAnswer' },
+      { questionKey: 'qgamesWidescreen', answerKey: 'qgamesWidescreenAnswer' },
+    ],
+  },
+  {
     id: 'customization',
     icon: Palette,
     color: 'text-pink-500',

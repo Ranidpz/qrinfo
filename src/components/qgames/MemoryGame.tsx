@@ -268,7 +268,7 @@ export default function MemoryGame({
     if (localPhase !== 'recall' || !isHost || !roomId || !room) return;
 
     const allActive = Object.entries(players).filter(([, p]) => !p.eliminated);
-    const allSubmitted = allActive.every(([, p]) => p.roundResult !== null);
+    const allSubmitted = allActive.every(([, p]) => p.roundResult != null);
 
     if (allSubmitted && allActive.length > 0) {
       // All active players submitted — show results
@@ -419,7 +419,19 @@ export default function MemoryGame({
       const result = p.roundResult;
       if (!result) continue;
 
-      const newScore = p.score + result.correctCount;
+      let roundPoints = result.correctCount;
+
+      // Time bonus for perfect rounds (no fail): 1-3 extra points based on speed
+      if (!result.failed && result.correctCount === room.difficulty && result.submittedAt) {
+        const timeTaken = (result.submittedAt - room.phaseStartedAt) / 1000;
+        const maxTime = room.recallDuration / 1000;
+        const ratio = timeTaken / maxTime;
+        if (ratio < 0.25) roundPoints += 3;
+        else if (ratio < 0.5) roundPoints += 2;
+        else if (ratio < 0.75) roundPoints += 1;
+      }
+
+      const newScore = p.score + roundPoints;
       const newStrikes = p.strikes + (result.failed ? 1 : 0);
       const newEliminated = newStrikes >= room.maxStrikes;
 
@@ -825,7 +837,7 @@ export default function MemoryGame({
           <div className="w-full max-w-sm mt-auto pt-4 flex flex-wrap gap-2 justify-center">
             {Object.entries(players).map(([pid, p]) => {
               if (p.eliminated) return null;
-              const hasSubmitted = p.roundResult !== null;
+              const hasSubmitted = p.roundResult != null;
               return (
                 <div
                   key={pid}
@@ -899,7 +911,7 @@ export default function MemoryGame({
                       </div>
                     </div>
                     <div className="text-lg">
-                      {result?.failed ? '❌' : '✅'}
+                      {!result ? '⏳' : result.failed ? '❌' : '✅'}
                     </div>
                   </div>
                 );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Link2, Calendar, BookOpen, Vote, Gamepad2, Camera, Mic2, Crosshair, Map } from 'lucide-react';
+import { Link2, Calendar, BookOpen, Vote, Gamepad2, Camera, Mic2, Crosshair, Map, Tag, Trophy } from 'lucide-react';
 
 export default function Features() {
   const t = useTranslations('marketing.features');
@@ -51,6 +51,21 @@ export default function Features() {
       icon: Map,
       key: 'qtreasure',
       gradient: 'from-amber-500 to-emerald-700',
+    },
+    {
+      icon: Tag,
+      key: 'qtag',
+      gradient: 'from-sky-500 to-blue-600',
+    },
+    {
+      icon: Gamepad2,
+      key: 'minigames',
+      gradient: 'from-violet-500 to-purple-600',
+    },
+    {
+      icon: Trophy,
+      key: 'qchallenge',
+      gradient: 'from-yellow-500 to-orange-500',
     },
   ];
 

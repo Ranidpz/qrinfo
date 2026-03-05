@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { X, Gamepad2, Loader2, RotateCcw, ExternalLink, Monitor, Eye, Settings, Copy, Check } from 'lucide-react';
+import { X, Gamepad2, Loader2, RotateCcw, ExternalLink, Monitor, Eye, Settings, Copy, Check, AlertTriangle } from 'lucide-react';
 import {
   QGamesConfig,
   QGameType,
@@ -23,7 +23,7 @@ interface QGamesModalProps {
   initialConfig?: QGamesConfig;
   codeId?: string;
   shortId?: string;
-  onReset?: () => void;
+  onReset?: () => Promise<void>;
 }
 
 export default function QGamesModal({
@@ -46,12 +46,16 @@ export default function QGamesModal({
     initialConfig || { ...DEFAULT_QGAMES_CONFIG, branding: { ...DEFAULT_QGAMES_BRANDING } }
   );
   const [mobileTab, setMobileTab] = useState<'settings' | 'preview'>('settings');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
       setConfig(initialConfig || { ...DEFAULT_QGAMES_CONFIG, branding: { ...DEFAULT_QGAMES_BRANDING } });
       setMobileTab('settings');
+      setShowResetConfirm(false);
+      setResetting(false);
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialConfig]);
@@ -512,14 +516,62 @@ export default function QGamesModal({
             )}
 
             {/* Reset (edit mode only) */}
-            {isEditing && onReset && (
+            {isEditing && onReset && !showResetConfirm && (
               <button
-                onClick={onReset}
+                onClick={() => setShowResetConfirm(true)}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
                 {isRTL ? 'אפס את כל הנתונים' : 'Reset All Data'}
               </button>
+            )}
+
+            {/* Reset confirmation */}
+            {isEditing && onReset && showResetConfirm && (
+              <div className="w-full rounded-xl border border-red-500/30 bg-red-500/5 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-red-400">
+                  <AlertTriangle className="w-5 h-5 shrink-0" />
+                  <p className="text-sm font-semibold">
+                    {isRTL ? 'האם אתה בטוח?' : 'Are you sure?'}
+                  </p>
+                </div>
+                <p className="text-xs text-text-secondary">
+                  {isRTL
+                    ? 'פעולה זו תמחק את כל השחקנים, התוצאות וההיסטוריה. לא ניתן לבטל פעולה זו.'
+                    : 'This will delete all players, results, and history. This action cannot be undone.'}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowResetConfirm(false)}
+                    disabled={resetting}
+                    className="flex-1 py-2 rounded-lg text-sm font-medium text-text-secondary bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+                  >
+                    {isRTL ? 'ביטול' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setResetting(true);
+                      try {
+                        await onReset();
+                        setShowResetConfirm(false);
+                      } finally {
+                        setResetting(false);
+                      }
+                    }}
+                    disabled={resetting}
+                    className="flex-1 py-2 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {resetting ? (
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        {isRTL ? 'מוחק...' : 'Deleting...'}
+                      </span>
+                    ) : (
+                      isRTL ? 'מחק הכל' : 'Delete All'
+                    )}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 

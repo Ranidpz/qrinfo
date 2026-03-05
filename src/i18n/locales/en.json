@@ -79,7 +79,8 @@
       "gamification": "Gamification",
       "sharing": "Sharing & Distribution",
       "tipsAndTricks": "Tips & Tricks",
-      "qtag": "Q.Tag - Event Registration"
+      "qtag": "Q.Tag - Event Registration",
+      "qgames": "Q.Games - Multiplayer Games"
     },
     "questions": {
       "createFirstCode": "How do I create my first QR code?",
@@ -253,7 +254,15 @@
       "qtagGuestManagement": "How do I manage the guest list?",
       "qtagGuestManagementAnswer": "On the Q.Tag management page click \"Guest Management\". You'll see all registered guests with real-time status (registered/arrived/cancelled). You can search, filter by status, undo check-in, delete guests, and export to Excel.",
       "qtagWhatsAppQR": "How do I send QR via WhatsApp?",
-      "qtagWhatsAppQRAnswer": "When a guest registers with phone verification, they automatically receive a QR link via WhatsApp. You can also resend from the guest management page - click \"Send QR via WhatsApp\" next to the guest's name."
+      "qtagWhatsAppQRAnswer": "When a guest registers with phone verification, they automatically receive a QR link via WhatsApp. You can also resend from the guest management page - click \"Send QR via WhatsApp\" next to the guest's name.",
+      "whatIsQgames": "What is Q.Games?",
+      "whatIsQgamesAnswer": "Q.Games is a real-time multiplayer game system. Players register with a name and selfie, then compete 1v1 in games like Rock-Paper-Scissors, Odd One Out, Tic-Tac-Toe and Memory. Includes a live leaderboard on the big screen and an option to play against a bot.",
+      "qgamesSetup": "How do I set up Q.Games?",
+      "qgamesSetupAnswer": "On the dashboard, click 'Mini Games' in the experience creation menu. Choose which games to enable, set up a theme with custom colors, and share the QR code. Players scan and start playing directly from their phone.",
+      "qgamesLeaderboard": "How does the leaderboard work?",
+      "qgamesLeaderboardAnswer": "The leaderboard updates in real-time showing top players. You can filter by game type and sort by score or win rate. Results are also displayed on the big screen for all participants to watch.",
+      "qgamesWidescreen": "What is Widescreen mode?",
+      "qgamesWidescreenAnswer": "Widescreen mode displays the games on a wide screen (TV or projector) at events. Players play from their phones while results appear in real-time on the big screen - perfect for team building, bars and events."
     }
   },
   "sidebar": {
@@ -273,8 +282,8 @@
   },
   "dashboard": {
     "title": "The Q - One Code. Endless Experiences",
-    "heroTagline": "Platform for creating interactive QR experiences",
-    "subtitle": "Digital catalogs, games, riddles, word clouds, XP scoring and prizes, interactive voting and more experiences updated regularly",
+    "heroTagline": "Platform for creating interactive experiences with QR codes",
+    "subtitle": "Voting, multiplayer games, event registration & fast check-in, treasure hunts, trivia, selfie walls, schedules, gamification with XP & prizes and more real-time experiences",
     "safeCode": "Safe code for printing, ad-free",
     "heroFeature1": "Create print-safe QR codes",
     "heroFeature2": "Update and schedule in real-time",
@@ -728,6 +737,7 @@
     "tooltipWordcloud": "Interactive word cloud for events",
     "tooltipSelfiebeam": "Shared selfie wall for events",
     "tooltipMinigames": "1v1 mini games: Rock Paper Scissors and more",
+    "tooltipOLeague": "Leagues & tournaments on oLeague",
     "weeklyCalDescription": "Create a weekly schedule with activities and events",
     "createWeeklyCal": "Create Q.Cal",
     "tooltipWeeklyCal": "Q.Cal - Weekly schedule for events and hotels",
@@ -1276,6 +1286,21 @@
         "title": "Q.Treasure",
         "description": "Sequential treasure hunt with stations, clues and video",
         "useCase": "Tours, birthdays, adventures"
+      },
+      "qtag": {
+        "title": "Q.Tag",
+        "description": "Digital registration, personal QR via WhatsApp and fast scanner check-in",
+        "useCase": "Events, conferences, venues"
+      },
+      "minigames": {
+        "title": "Q.Games",
+        "description": "1v1 multiplayer mini games with live leaderboard on the big screen",
+        "useCase": "Events, team building, bars & restaurants"
+      },
+      "qchallenge": {
+        "title": "Q.Challenge",
+        "description": "Trivia quiz game with questions, answers and real-time leaderboard",
+        "useCase": "Companies, team building, seminars"
       },
       "footerNote": "Our experiences are updated monthly. Have an idea we haven't built yet? Contact us for consultation or custom development."
     },

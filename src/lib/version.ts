@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.21';
+export const APP_VERSION = '1.13.22';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,31 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.21',
+    version: '1.13.22',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: טאגליין חדש בדשבורד - חוויות אינטראקטיביות בקודי QR',
+        'חדש: כפתור oLeague ביצירת חוויה - ליגות וטורנירים',
+        'חדש: Q.Tag, Q.Games, Q.Challenge בדף השיווקי (12 חוויות)',
+        'חדש: מדריך Q.Games למשתמש (4 שאלות ותשובות)',
+        'שיפור: SEO מעודכן עם כל החוויות החדשות',
+        'שיפור: כפתורי יצירה ממורכזים בשורה האחרונה',
+      ],
+      en: [
+        'Improvement: New dashboard tagline - interactive experiences with QR codes',
+        'New: oLeague button in experience creator - leagues & tournaments',
+        'New: Q.Tag, Q.Games, Q.Challenge on marketing page (12 experiences)',
+        'New: Q.Games user guide section (4 Q&As)',
+        'Improvement: Updated SEO with all new experiences',
+        'Improvement: Centered last row of creation buttons',
+      ],
+    },
+  },
+  {
+    version: '1.13.21',
+    date: '2026-03-05',
     highlights: {
       he: [
         'חדש: משחק איקס עיגול (Tic Tac Toe) — 2 שחקנים',

@@ -2488,17 +2488,13 @@ export default function CodeEditPage({ params }: PageProps) {
   const handleResetQGames = async () => {
     if (!code || !editingQGamesId) return;
 
-    try {
-      const response = await fetchWithAuth(`/api/qgames/reset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codeId: code.id }),
-      });
-      if (response.ok) {
-        alert(locale === 'he' ? 'המשחק אופס בהצלחה' : 'Game reset successfully');
-      }
-    } catch (error) {
-      console.error('Error resetting Q.Games:', error);
+    const response = await fetchWithAuth(`/api/qgames/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeId: code.id }),
+    });
+    if (!response.ok) {
+      throw new Error('Reset failed');
     }
   };
 

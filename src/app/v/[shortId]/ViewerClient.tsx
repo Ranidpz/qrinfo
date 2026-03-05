@@ -1603,7 +1603,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           />
         ) : isMinigames && currentMedia.qgamesConfig ? (
           isWideDisplay ? (
-            <QGamesDisplayWidescreen codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} />
+            <QGamesDisplayWidescreen codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} locale={locale} />
           ) : isDisplayMode ? (
             <QGamesDisplay codeId={codeId} mediaId={currentMedia.id} initialConfig={currentMedia.qgamesConfig} />
           ) : (

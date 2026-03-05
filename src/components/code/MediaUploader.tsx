@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -393,11 +393,40 @@ export default function MediaUploader({
     </div>
   );
 
+  // External link button (opens URL in new tab, no activeTab change)
+  const ExternalLinkButton = ({
+    href,
+    label,
+    icon: Icon,
+    tooltip,
+  }: {
+    href: string;
+    label: string;
+    icon: React.ElementType;
+    tooltip?: string;
+  }) => (
+    <div className="relative min-w-0">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={tooltip}
+        className={clsx(
+          'w-full h-full flex flex-col items-center justify-center gap-1 py-2.5 px-1 sm:px-2 rounded-lg text-xs font-medium transition-all border overflow-hidden',
+          'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50 hover:text-accent'
+        )}
+      >
+        <Icon className="w-4 h-4 shrink-0" />
+        <span className="w-full text-center line-clamp-2 leading-tight">{label}</span>
+      </a>
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      {/* Tab buttons - 6 columns grid on desktop, 3 on mobile */}
+      {/* Tab buttons - flexbox with centered incomplete rows */}
       {(onLinkAdd || onRiddleCreate || onWordCloudCreate) && (
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2 overflow-visible pt-3">
+        <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 overflow-visible pt-3 [&>div]:w-[calc(33.333%-0.375rem)] sm:[&>div]:w-[calc(16.666%-0.417rem)]">
           <TabButton tab="upload" label={tMedia('imageOrBooklet')} icon={Upload} tooltip={t('tooltipUpload')} />
           {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} tooltip={t('tooltipLink')} />}
           {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} tooltip={t('tooltipRiddle')} />}
@@ -411,6 +440,7 @@ export default function MediaUploader({
           {onQChallengeCreate && <TabButton tab="qchallenge" label="טריוויה" icon={Trophy} tooltip={t('tooltipQChallenge') || 'Trivia quiz game'} />}
           {onQTagCreate && <TabButton tab="qtag" label="Q.Tag" icon={Tag} tooltip={t('tooltipQTag') || 'Event registration & check-in'} />}
           <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} tooltip={t('tooltipMinigames')} />
+          <ExternalLinkButton href="https://oleague.playzones.app/landing" label="oLeague" icon={Medal} tooltip={t('tooltipOLeague')} />
         </div>
       )}
 

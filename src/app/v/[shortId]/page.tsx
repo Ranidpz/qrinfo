@@ -169,7 +169,11 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://qr.playzones.app';
     const primaryMediaType = code.media[0]?.type || 'default';
-    const description = getDescriptionByMediaType(primaryMediaType);
+    const qgamesBranding = primaryMediaType === 'minigames' ? code.media[0]?.qgamesConfig?.branding : undefined;
+    const qgamesTitle = qgamesBranding?.title;
+    const description = qgamesTitle
+      ? `מזמינים אתכם להשתתף ב${qgamesTitle} 🎮`
+      : getDescriptionByMediaType(primaryMediaType);
 
     // Build OG image URL: custom upload > dynamic Q.Tag branding > default
     let ogImage: string;
@@ -201,6 +205,9 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
             if (playerData.nickname) {
               ogParams.set('name', playerData.nickname);
             }
+            if (qgamesTitle) {
+              ogParams.set('game', qgamesTitle);
+            }
             ogImage = `${baseUrl}/api/og/qgames?${ogParams.toString()}`;
           } else {
             ogImage = `${baseUrl}/api/og`;
@@ -215,21 +222,23 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
       ogImage = `${baseUrl}/api/og`;
     }
 
+    const ogTitle = qgamesTitle || code.title;
+
     return {
-      title: `${code.title} - QR.info`,
+      title: `${ogTitle} - QR.info`,
       description,
       manifest: `/v/${shortId}/manifest.json`,
       appleWebApp: {
         capable: true,
         statusBarStyle: 'black-translucent',
-        title: code.title,
+        title: ogTitle,
       },
       icons: {
         icon: '/favicon.svg',
         apple: '/icons/apple-touch-icon.png',
       },
       openGraph: {
-        title: code.title,
+        title: ogTitle,
         description,
         type: 'website',
         url: `${baseUrl}/v/${shortId}`,

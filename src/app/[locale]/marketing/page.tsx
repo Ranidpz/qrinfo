@@ -13,11 +13,11 @@ import Footer from '@/components/marketing/Footer';
 
 export const metadata: Metadata = {
   title: 'The Q - One Code. Endless Experiences.',
-  description: 'צרו קודי QR דינמיים לחוויות דיגיטליות - לוחות שבועיים, הצבעות, גיימיפיקציה, קירות סלפי ועוד. עדכנו בזמן אמת בלי להדפיס מחדש.',
-  keywords: ['QR code', 'dynamic QR', 'voting system', 'event management', 'digital experiences', 'selfie wall', 'gamification'],
+  description: 'Create dynamic QR codes for interactive experiences - voting, multiplayer games, event registration & check-in, treasure hunts, trivia, selfie walls, schedules, gamification and more. Update in real-time without reprinting. | צרו קודי QR דינמיים לחוויות אינטראקטיביות - הצבעות, משחקי מולטיפלייר, רישום לאירועים, ציד אוצרות, טריוויה, קירות סלפי ועוד.',
+  keywords: ['QR code', 'dynamic QR', 'interactive QR', 'voting system', 'Q.Vote', 'event management', 'event registration', 'check-in', 'Q.Tag', 'digital experiences', 'selfie wall', 'gamification', 'Q.Games', 'multiplayer games', 'mini games', 'trivia', 'Q.Challenge', 'treasure hunt', 'Q.Hunt', 'Q.Treasure', 'Q.Stage', 'oLeague', 'tournament', 'weekly schedule', 'Q.Cal'],
   openGraph: {
     title: 'The Q - One Code. Endless Experiences.',
-    description: 'צרו קודי QR דינמיים לחוויות דיגיטליות',
+    description: 'Create dynamic QR codes for interactive digital experiences | צרו קודי QR דינמיים לחוויות אינטראקטיביות',
     type: 'website',
   },
 };
