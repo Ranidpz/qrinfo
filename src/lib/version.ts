@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.26';
+export const APP_VERSION = '1.13.27';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.26',
+    version: '1.13.27',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: ארבע בשורה (Connect 4) - משחק חמישי ב-Q.Games!',
+        'שיפור: פישוט תמונת OG למיני גיימס (לוגו אירוע)',
+      ],
+      en: [
+        'New: Connect 4 - 5th game in Q.Games!',
+        'Improvement: Simplified Q.Games OG image (event logo)',
+      ],
+    },
+  },
+  {
+    version: '1.13.26',
+    date: '2026-03-05',
     highlights: {
       he: [
         'אבטחה: ולידציה על הודעות צ\'אט ב-RTDB (אורך מקסימלי, מבנה חובה)',

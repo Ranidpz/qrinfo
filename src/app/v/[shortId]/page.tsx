@@ -156,7 +156,7 @@ function getDescriptionByMediaType(mediaType: string): string {
 
 export async function generateMetadata({ params, searchParams }: ViewerPageProps) {
   const { shortId } = await params;
-  const { invite } = await searchParams;
+  await searchParams;
 
   try {
     const code = await getQRCodeByShortId(shortId);
@@ -188,35 +188,15 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
         params.set('logo', branding.logoUrl);
       }
       ogImage = `${baseUrl}/api/og/qtag?${params.toString()}`;
-    } else if (primaryMediaType === 'minigames' && invite) {
-      // Q.Games invite: show inviter's selfie in OG image
-      try {
-        const adminDb = getAdminDb();
-        const playerDoc = await adminDb
-          .collection('codes').doc(code.id)
-          .collection('qgames_players').doc(invite)
-          .get();
-
-        if (playerDoc.exists) {
-          const playerData = playerDoc.data();
-          if (playerData?.avatarType === 'selfie' && playerData?.avatarValue) {
-            const ogParams = new URLSearchParams();
-            ogParams.set('selfie', playerData.avatarValue);
-            if (playerData.nickname) {
-              ogParams.set('name', playerData.nickname);
-            }
-            if (qgamesTitle) {
-              ogParams.set('game', qgamesTitle);
-            }
-            ogImage = `${baseUrl}/api/og/qgames?${ogParams.toString()}`;
-          } else {
-            ogImage = `${baseUrl}/api/og`;
-          }
-        } else {
-          ogImage = `${baseUrl}/api/og`;
-        }
-      } catch {
-        ogImage = `${baseUrl}/api/og`;
+    } else if (primaryMediaType === 'minigames') {
+      // Q.Games: show branding logo if available, otherwise default Q logo
+      const eventLogo = qgamesBranding?.eventLogo;
+      if (eventLogo) {
+        const ogParams = new URLSearchParams();
+        ogParams.set('logo', eventLogo);
+        ogImage = `${baseUrl}/api/og/qgames?${ogParams.toString()}`;
+      } else {
+        ogImage = `${baseUrl}/api/og/qgames`;
       }
     } else {
       ogImage = `${baseUrl}/api/og`;
