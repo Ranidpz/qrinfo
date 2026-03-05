@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.27';
+export const APP_VERSION = '1.13.28';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.27',
+    version: '1.13.28',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: עיצוב מודל אדמין - צבעים, לוגו ורקע בשורה אחת',
+        'חדש: גרירה וזריקה להעלאת לוגו ותמונת רקע',
+        'תיקון: ארבע בשורה מופיע ברשימת המשחקים במודל',
+      ],
+      en: [
+        'Improvement: Admin modal branding - colors, logo, background in one row',
+        'New: Drag & drop for logo and background image uploads',
+        'Fix: Connect 4 now appears in admin games list',
+      ],
+    },
+  },
+  {
+    version: '1.13.27',
+    date: '2026-03-05',
     highlights: {
       he: [
         'חדש: ארבע בשורה (Connect 4) - משחק חמישי ב-Q.Games!',

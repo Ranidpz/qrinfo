@@ -63,6 +63,29 @@ export default function QGamesModal({
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(initialConfig?.branding?.backgroundImage || null);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
+  // Drag & drop state
+  const [logoDragging, setLogoDragging] = useState(false);
+  const [bgDragging, setBgDragging] = useState(false);
+
+  const handleFileDrop = (e: React.DragEvent, type: 'logo' | 'bg') => {
+    e.preventDefault();
+    e.stopPropagation();
+    type === 'logo' ? setLogoDragging(false) : setBgDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (!f || !f.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (type === 'logo') {
+        setLogoFile(f);
+        setLogoPreview(reader.result as string);
+      } else {
+        setBackgroundFile(f);
+        setBackgroundPreview(reader.result as string);
+      }
+    };
+    reader.readAsDataURL(f);
+  };
+
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
@@ -75,6 +98,8 @@ export default function QGamesModal({
       setLogoPreview(initialConfig?.branding?.eventLogo || null);
       setBackgroundFile(null);
       setBackgroundPreview(initialConfig?.branding?.backgroundImage || null);
+      setLogoDragging(false);
+      setBgDragging(false);
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialConfig]);
@@ -218,159 +243,175 @@ export default function QGamesModal({
                 })}
               </div>
 
-              {/* Custom Color Pickers */}
-              <div className="flex items-center gap-3 mt-3">
-                <ColorSwatch label={isRTL ? 'רקע' : 'Bg'} value={config.branding.backgroundColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundColor: c } }))} />
-                <ColorSwatch label={isRTL ? 'ראשי' : 'Primary'} value={config.branding.primaryColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, primaryColor: c } }))} />
-                <ColorSwatch label={isRTL ? 'משני' : 'Accent'} value={config.branding.accentColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, accentColor: c } }))} />
-                {isCustomColors && (
-                  <button
-                    onClick={() => selectTheme(currentThemeId)}
-                    className="text-[10px] text-text-secondary hover:text-accent transition-colors"
-                  >
-                    {isRTL ? 'איפוס' : 'Reset'}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Event Logo */}
-            <div>
-              <label className="text-sm font-medium text-text-primary mb-2 block">
-                {isRTL ? 'לוגו אירוע' : 'Event Logo'}
-              </label>
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-16 h-16 rounded-xl border-2 border-dashed border-border overflow-hidden cursor-pointer hover:border-accent/50 transition-all flex items-center justify-center shrink-0"
-                  onClick={() => logoInputRef.current?.click()}
-                  style={!logoPreview ? { background: 'repeating-conic-gradient(var(--bg-secondary) 0% 25%, transparent 0% 50%) 50% / 12px 12px' } : undefined}
-                >
-                  {logoPreview ? (
-                    <img src={logoPreview} alt="" className="w-full h-full object-contain p-1" />
-                  ) : (
-                    <Upload className="w-5 h-5 text-text-secondary" />
+              {/* Colors + Logo + Background — single row */}
+              <div className="grid grid-cols-3 gap-3 mt-3">
+                {/* Column 1: Colors */}
+                <div>
+                  <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">{isRTL ? 'צבעים' : 'Colors'}</p>
+                  <div className="space-y-2">
+                    <ColorSwatch label={isRTL ? 'רקע' : 'Bg'} value={config.branding.backgroundColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundColor: c } }))} />
+                    <ColorSwatch label={isRTL ? 'ראשי' : 'Primary'} value={config.branding.primaryColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, primaryColor: c } }))} />
+                    <ColorSwatch label={isRTL ? 'משני' : 'Accent'} value={config.branding.accentColor} onChange={(c) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, accentColor: c } }))} />
+                  </div>
+                  {isCustomColors && (
+                    <button
+                      onClick={() => selectTheme(currentThemeId)}
+                      className="text-[10px] text-text-secondary hover:text-accent transition-colors mt-1.5"
+                    >
+                      {isRTL ? 'איפוס' : 'Reset'}
+                    </button>
                   )}
                 </div>
-                {logoPreview && (
-                  <div className="flex-1 space-y-1">
-                    <label className="text-[10px] text-text-secondary">
-                      {isRTL ? 'גודל' : 'Scale'} {(config.branding.logoScale || 1).toFixed(1)}x
-                    </label>
-                    <input
-                      type="range" min={0.3} max={4} step={0.1}
-                      value={config.branding.logoScale || 1}
-                      onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, logoScale: Number(e.target.value) } }))}
-                      className="w-full" dir="ltr"
-                      style={{ accentColor: resolvedTheme.accentColor }}
-                    />
-                  </div>
-                )}
-                {logoPreview && (
-                  <button
-                    onClick={() => {
-                      setLogoFile(null);
-                      setLogoPreview(null);
-                      setConfig(prev => ({ ...prev, branding: { ...prev.branding, eventLogo: undefined, eventLogoName: undefined, eventLogoSize: undefined, logoScale: undefined } }));
-                    }}
-                    className="p-1.5 text-text-secondary hover:text-red-400 transition-colors shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/png,image/svg+xml,image/webp,image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f && f.type.startsWith('image/')) {
-                    setLogoFile(f);
-                    const r = new FileReader();
-                    r.onload = () => setLogoPreview(r.result as string);
-                    r.readAsDataURL(f);
-                  }
-                  e.target.value = '';
-                }}
-              />
-            </div>
 
-            {/* Background Image */}
-            <div>
-              <label className="text-sm font-medium text-text-primary mb-2 block">
-                {isRTL ? 'תמונת רקע' : 'Background Image'}
-              </label>
-              <div
-                className="w-full h-24 rounded-xl border-2 border-dashed border-border overflow-hidden cursor-pointer hover:border-accent/50 transition-all relative"
-                onClick={() => bgInputRef.current?.click()}
-              >
-                {backgroundPreview ? (
-                  <>
-                    <img src={backgroundPreview} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0" style={{ backgroundColor: `rgba(0, 0, 0, ${(config.branding.imageOverlayOpacity ?? 40) / 100})` }} />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <Upload className="w-5 h-5 text-white" />
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-text-secondary">
-                    <ImageIcon className="w-6 h-6 mb-1" />
-                    <span className="text-xs">{isRTL ? 'לחצו להעלאת תמונה' : 'Click to upload image'}</span>
-                  </div>
-                )}
-              </div>
-              <input
-                ref={bgInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f && f.type.startsWith('image/')) {
-                    setBackgroundFile(f);
-                    const r = new FileReader();
-                    r.onload = () => setBackgroundPreview(r.result as string);
-                    r.readAsDataURL(f);
-                  }
-                  e.target.value = '';
-                }}
-              />
-              {backgroundPreview && (
-                <div className="mt-2 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-text-secondary w-14 shrink-0">{isRTL ? 'כהות' : 'Dim'} {config.branding.imageOverlayOpacity ?? 40}%</span>
-                    <input
-                      type="range" min={0} max={80}
-                      value={config.branding.imageOverlayOpacity ?? 40}
-                      onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, imageOverlayOpacity: Number(e.target.value) } }))}
-                      className="flex-1" dir="ltr"
-                      style={{ accentColor: resolvedTheme.accentColor }}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-text-secondary w-14 shrink-0">{isRTL ? 'טשטוש' : 'Blur'} {config.branding.backgroundBlur ?? 0}px</span>
-                    <input
-                      type="range" min={0} max={20}
-                      value={config.branding.backgroundBlur ?? 0}
-                      onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundBlur: Number(e.target.value) } }))}
-                      className="flex-1" dir="ltr"
-                      style={{ accentColor: resolvedTheme.accentColor }}
-                    />
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setBackgroundFile(null);
-                      setBackgroundPreview(null);
-                      setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundImage: undefined, backgroundImageName: undefined, backgroundImageSize: undefined, imageOverlayOpacity: undefined, backgroundBlur: undefined } }));
-                    }}
-                    className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                {/* Column 2: Event Logo */}
+                <div>
+                  <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">{isRTL ? 'לוגו' : 'Logo'}</p>
+                  <div
+                    className={`aspect-square rounded-xl border-2 border-dashed overflow-hidden cursor-pointer transition-all flex items-center justify-center relative ${
+                      logoDragging ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'
+                    }`}
+                    onClick={() => logoInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setLogoDragging(true); }}
+                    onDragEnter={(e) => { e.preventDefault(); setLogoDragging(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); setLogoDragging(false); }}
+                    onDrop={(e) => handleFileDrop(e, 'logo')}
+                    style={!logoPreview ? { background: 'repeating-conic-gradient(var(--bg-secondary) 0% 25%, transparent 0% 50%) 50% / 12px 12px' } : undefined}
                   >
-                    {isRTL ? 'הסר תמונה' : 'Remove image'}
-                  </button>
+                    {logoPreview ? (
+                      <>
+                        <img src={logoPreview} alt="" className="w-full h-full object-contain p-1.5" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLogoFile(null);
+                            setLogoPreview(null);
+                            setConfig(prev => ({ ...prev, branding: { ...prev.branding, eventLogo: undefined, eventLogoName: undefined, eventLogoSize: undefined, logoScale: undefined } }));
+                          }}
+                          className="absolute top-1 end-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white/70 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center text-text-secondary">
+                        <Upload className="w-5 h-5 mb-0.5" />
+                        <span className="text-[8px]">{isRTL ? 'גרירה/לחיצה' : 'Drop/Click'}</span>
+                      </div>
+                    )}
+                  </div>
+                  {logoPreview && (
+                    <div className="mt-1.5">
+                      <label className="text-[9px] text-text-secondary">
+                        {isRTL ? 'גודל' : 'Scale'} {(config.branding.logoScale || 1).toFixed(1)}x
+                      </label>
+                      <input
+                        type="range" min={0.3} max={4} step={0.1}
+                        value={config.branding.logoScale || 1}
+                        onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, logoScale: Number(e.target.value) } }))}
+                        className="w-full" dir="ltr"
+                        style={{ accentColor: resolvedTheme.accentColor }}
+                      />
+                    </div>
+                  )}
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/svg+xml,image/webp,image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f && f.type.startsWith('image/')) {
+                        setLogoFile(f);
+                        const r = new FileReader();
+                        r.onload = () => setLogoPreview(r.result as string);
+                        r.readAsDataURL(f);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
                 </div>
-              )}
+
+                {/* Column 3: Background */}
+                <div>
+                  <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">{isRTL ? 'רקע' : 'Background'}</p>
+                  <div
+                    className={`aspect-square rounded-xl border-2 border-dashed overflow-hidden cursor-pointer transition-all relative ${
+                      bgDragging ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'
+                    }`}
+                    onClick={() => bgInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setBgDragging(true); }}
+                    onDragEnter={(e) => { e.preventDefault(); setBgDragging(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); setBgDragging(false); }}
+                    onDrop={(e) => handleFileDrop(e, 'bg')}
+                  >
+                    {backgroundPreview ? (
+                      <>
+                        <img src={backgroundPreview} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0" style={{ backgroundColor: `rgba(0, 0, 0, ${(config.branding.imageOverlayOpacity ?? 40) / 100})` }} />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                          <Upload className="w-5 h-5 text-white" />
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBackgroundFile(null);
+                            setBackgroundPreview(null);
+                            setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundImage: undefined, backgroundImageName: undefined, backgroundImageSize: undefined, imageOverlayOpacity: undefined, backgroundBlur: undefined } }));
+                          }}
+                          className="absolute top-1 end-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white/70 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-text-secondary">
+                        <ImageIcon className="w-5 h-5 mb-0.5" />
+                        <span className="text-[8px]">{isRTL ? 'גרירה/לחיצה' : 'Drop/Click'}</span>
+                      </div>
+                    )}
+                  </div>
+                  {backgroundPreview && (
+                    <div className="mt-1.5 space-y-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-text-secondary shrink-0">{isRTL ? 'כהות' : 'Dim'}</span>
+                        <input
+                          type="range" min={0} max={80}
+                          value={config.branding.imageOverlayOpacity ?? 40}
+                          onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, imageOverlayOpacity: Number(e.target.value) } }))}
+                          className="flex-1" dir="ltr"
+                          style={{ accentColor: resolvedTheme.accentColor }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-text-secondary shrink-0">{isRTL ? 'טשטוש' : 'Blur'}</span>
+                        <input
+                          type="range" min={0} max={20}
+                          value={config.branding.backgroundBlur ?? 0}
+                          onChange={(e) => setConfig(prev => ({ ...prev, branding: { ...prev.branding, backgroundBlur: Number(e.target.value) } }))}
+                          className="flex-1" dir="ltr"
+                          style={{ accentColor: resolvedTheme.accentColor }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <input
+                    ref={bgInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f && f.type.startsWith('image/')) {
+                        setBackgroundFile(f);
+                        const r = new FileReader();
+                        r.onload = () => setBackgroundPreview(r.result as string);
+                        r.readAsDataURL(f);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Games Selection — inline collapsible settings */}
@@ -379,7 +420,7 @@ export default function QGamesModal({
                 {isRTL ? 'משחקים זמינים' : 'Available Games'}
               </label>
               <div className="space-y-2">
-                {(['rps', 'oddoneout', 'tictactoe', 'memory'] as QGameType[]).map((gameType) => {
+                {(['rps', 'oddoneout', 'tictactoe', 'connect4', 'memory'] as QGameType[]).map((gameType) => {
                   const meta = GAME_META[gameType];
                   const isEnabled = config.enabledGames.includes(gameType);
                   const isExpanded = expandedGame === gameType && isEnabled;
@@ -388,11 +429,13 @@ export default function QGamesModal({
                     rps: { he: 'אבן נייר ומספריים', en: 'Rock Paper Scissors' },
                     oddoneout: { he: 'משלוש יוצא א....חד!', en: 'Odd One Out' },
                     tictactoe: { he: 'איקס עיגול', en: 'Tic-Tac-Toe' },
+                    connect4: { he: 'ארבע בשורה', en: 'Connect 4' },
                     memory: { he: 'זיכרון', en: 'Memory Challenge' },
                   };
                   const descMap: Record<string, { he: string; en: string }> = {
                     oddoneout: { he: '3 שחקנים · כף או אגרוף', en: '3 players · Palm or Fist' },
                     tictactoe: { he: '2 שחקנים · 3 ברצף', en: '2 players · 3 in a row' },
+                    connect4: { he: '2 שחקנים · 4 ברצף', en: '2 players · 4 in a row' },
                     memory: { he: '2-6 שחקנים · זכרו את הסדר', en: '2-6 players · Remember the sequence' },
                   };
 
