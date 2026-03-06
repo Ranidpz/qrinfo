@@ -5,6 +5,7 @@ import { Pencil, Info, X, ExternalLink, Gift, Backpack } from 'lucide-react';
 import { QGameType, GAME_META, QGamesConfig, LiveMatchInfo, GAME_DISPLAY_ORDER } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import QGamesRankBadge from './QGamesRankBadge';
+import { getBorderStyle } from './QGamesAvatarBorder';
 import RPSAnimatedEmoji from './RPSAnimatedEmoji';
 import OOOAnimatedEmoji from './OOOAnimatedEmoji';
 import TTTAnimatedEmoji from './TTTAnimatedEmoji';
@@ -107,7 +108,7 @@ export default function QGamesSelector({
               <div className="absolute -inset-1 rounded-full blur-md transition-all duration-300" style={{ backgroundColor: `${theme.accentColor}25` }} />
               <div
                 className="relative w-16 h-16 rounded-full flex items-center justify-center text-3xl overflow-hidden transition-transform duration-200 group-active:scale-95"
-                style={{ backgroundColor: theme.surfaceColor, boxShadow: `0 0 0 2px ${theme.accentColor}66` }}
+                style={{ backgroundColor: theme.surfaceColor, ...(equippedBorder ? getBorderStyle(equippedBorder) : { boxShadow: `0 0 0 2px ${theme.accentColor}66` }) }}
               >
                 {playerAvatar.startsWith('http') ? (
                   <img src={playerAvatar} alt="" className="w-full h-full object-cover" />

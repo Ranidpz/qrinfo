@@ -1257,6 +1257,7 @@ export default function QGamesViewer({
           onOpenPack={() => setShowPackOpening(true)}
           onOpenInventory={() => setShowInventory(true)}
           playerInventoryCount={player?.inventory?.length || 0}
+          equippedBorder={player?.equippedBorder || null}
           locale={lang}
         />
       )}

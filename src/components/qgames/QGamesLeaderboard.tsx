@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, ChevronDown, Share2, X, SlidersHorizontal } from 'lucide-react';
 import { QGamesLeaderboardEntry, QGamesMatch, QGameType, GAME_META, getRankForScore } from '@/types/qgames';
+import { getBorderStyle } from './QGamesAvatarBorder';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useQGamesTheme } from './QGamesThemeContext';
@@ -347,12 +348,13 @@ export default function QGamesLeaderboard({
 
               {/* Avatar */}
               <div
-                className={`rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden ${isMe ? 'ring-1' : ''}`}
+                className={`rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden ${isMe && !entry.equippedBorder ? 'ring-1' : ''}`}
                 style={{
                   width: isCompact ? 28 : 34,
                   height: isCompact ? 28 : 34,
                   fontSize: isCompact ? '0.85rem' : '1.05rem',
-                  ...(isMe ? { '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties : {}),
+                  ...(entry.equippedBorder ? getBorderStyle(entry.equippedBorder) : {}),
+                  ...(isMe && !entry.equippedBorder ? { '--tw-ring-color': `${theme.accentColor}4d` } as React.CSSProperties : {}),
                 }}
               >
                 {entry.avatarValue.startsWith('http') ? (
@@ -677,7 +679,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
 
         {/* Player header */}
         <div className="flex flex-col items-center mb-4">
-          <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-2xl overflow-hidden mb-2">
+          <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-2xl overflow-hidden mb-2" style={player.equippedBorder ? getBorderStyle(player.equippedBorder) : {}}>
             {player.avatarValue.startsWith('http') ? (
               <img
                 src={player.avatarValue}
