@@ -226,13 +226,25 @@ export default function QGamesRegistration({
     setAvatarMode('emoji');
   };
 
+  const handleOpenInBrowser = useCallback(() => {
+    const url = window.location.href;
+    // Trick: target="_blank" in SFSafariViewController opens Safari,
+    // in Android Custom Tabs opens Chrome
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, []);
+
   const handleCopyLink = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     } catch {
-      // Fallback for older browsers
       const input = document.createElement('input');
       input.value = window.location.href;
       document.body.appendChild(input);
@@ -244,53 +256,84 @@ export default function QGamesRegistration({
     }
   }, []);
 
-  return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-start pt-8 pb-6 px-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* In-app browser banner */}
-      {inAppBrowser && !bannerDismissed && (
+  // Full-screen in-app browser gate
+  if (inAppBrowser && !bannerDismissed) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center p-8"
+        style={{ backgroundColor: theme.backgroundColor }}
+        dir={isRTL ? 'rtl' : 'ltr'}
+      >
+        {/* Event Logo */}
+        {config.branding.eventLogo && (
+          <img
+            src={config.branding.eventLogo}
+            alt=""
+            className="object-contain drop-shadow-lg mb-6"
+            style={{ maxHeight: `${80 * (config.branding.logoScale ?? 1)}px`, maxWidth: '60%' }}
+          />
+        )}
+
+        {/* Icon */}
         <div
-          className="w-full max-w-sm mb-4 p-4 rounded-2xl text-center"
+          className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
+          style={{ backgroundColor: `${theme.accentColor}20` }}
+        >
+          <ExternalLink className="w-10 h-10" style={{ color: theme.accentColor }} />
+        </div>
+
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-center mb-2" style={{ color: theme.textColor }}>
+          {isRTL ? 'פתחו בדפדפן כדי לשחק' : 'Open in browser to play'}
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-center mb-8 max-w-xs" style={{ color: theme.textSecondary }}>
+          {isRTL
+            ? 'כדי שהפרופיל שלכם יישמר ולא תצטרכו להירשם מחדש, פתחו את הלינק בדפדפן'
+            : 'Open this link in your browser so your profile is saved and you don\'t have to register again'}
+        </p>
+
+        {/* Open in browser button */}
+        <button
+          onClick={handleOpenInBrowser}
+          className="w-full max-w-xs flex items-center justify-center gap-2 py-4 rounded-2xl text-lg font-bold transition-all active:scale-95 text-white mb-3"
+          style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+        >
+          <ExternalLink className="w-5 h-5" />
+          {isRTL ? 'פתחו בדפדפן' : 'Open in browser'}
+        </button>
+
+        {/* Copy link fallback */}
+        <button
+          onClick={handleCopyLink}
+          className="w-full max-w-xs flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all active:scale-95 mb-8"
           style={{
-            backgroundColor: `${theme.accentColor}15`,
-            border: `1px solid ${theme.accentColor}33`,
+            backgroundColor: theme.surfaceColor,
+            border: `1px solid ${theme.borderColor}`,
+            color: theme.textColor,
           }}
         >
-          <ExternalLink className="w-6 h-6 mx-auto mb-2" style={{ color: theme.accentColor }} />
-          <p className="text-sm font-medium mb-1" style={{ color: theme.textColor }}>
-            {isRTL ? 'פתחו בדפדפן לחוויה מלאה' : 'Open in your browser for the best experience'}
-          </p>
-          <p className="text-xs mb-3" style={{ color: theme.textSecondary }}>
-            {isRTL
-              ? 'בדפדפן הפרופיל שלכם נשמר בין כניסות'
-              : 'Your profile will be saved between visits'}
-          </p>
-          <div className="flex gap-2 justify-center">
-            <button
-              onClick={handleCopyLink}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
-              style={{
-                backgroundColor: theme.accentColor,
-                color: '#fff',
-              }}
-            >
-              {linkCopied ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {linkCopied
-                ? (isRTL ? 'הועתק!' : 'Copied!')
-                : (isRTL ? 'העתקת לינק' : 'Copy link')}
-            </button>
-            <button
-              onClick={() => setBannerDismissed(true)}
-              className="px-4 py-2 rounded-xl text-sm transition-all active:scale-95"
-              style={{
-                backgroundColor: theme.surfaceColor,
-                color: theme.textSecondary,
-              }}
-            >
-              {isRTL ? 'המשיכו כאן' : 'Continue here'}
-            </button>
-          </div>
-        </div>
-      )}
+          {linkCopied ? <CheckCheck className="w-4 h-4" style={{ color: theme.accentColor }} /> : <Copy className="w-4 h-4" />}
+          {linkCopied
+            ? (isRTL ? 'הלינק הועתק! הדביקו בדפדפן' : 'Link copied! Paste in browser')
+            : (isRTL ? 'העתקת לינק' : 'Copy link')}
+        </button>
+
+        {/* Continue anyway - subtle */}
+        <button
+          onClick={() => setBannerDismissed(true)}
+          className="text-xs underline transition-opacity active:opacity-50"
+          style={{ color: theme.textSecondary }}
+        >
+          {isRTL ? 'המשיכו כאן בכל זאת' : 'Continue here anyway'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[100dvh] flex flex-col items-center justify-start pt-8 pb-6 px-6" dir={isRTL ? 'rtl' : 'ltr'}>
 
       {/* Event Logo */}
       {config.branding.eventLogo && (

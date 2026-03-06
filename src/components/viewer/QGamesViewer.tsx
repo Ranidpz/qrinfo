@@ -103,6 +103,7 @@ const translations: Record<string, Record<string, string>> = {
     youWon: 'ניצחת! 🎉',
     youLost: 'הפסדת',
     playAgain: 'שחקו שוב',
+    shareOnWhatsApp: 'שתפו בוואטסאפ',
     backToGames: 'חזרה למשחקים',
     leaderboard: 'טבלת מובילים',
     noPlayersYet: 'עדיין אין שחקנים',
@@ -216,6 +217,7 @@ const translations: Record<string, Record<string, string>> = {
     youWon: 'You Won! 🎉',
     youLost: 'You Lost',
     playAgain: 'Play Again',
+    shareOnWhatsApp: 'Share on WhatsApp',
     backToGames: 'Back to Games',
     leaderboard: 'Leaderboard',
     noPlayersYet: 'No players yet',
@@ -1387,11 +1389,15 @@ export default function QGamesViewer({
           oppNickname={resultData.oppNickname}
           oppAvatar={resultData.oppAvatar}
           gameName={t(GAME_META[selectedGame || 'rps']?.labelKey || 'rps')}
+          gameType={selectedGame || 'rps'}
           onPlayAgain={handlePlayAgain}
           onBackToSelector={handleBackToSelector}
           onViewLeaderboard={() => setPhase('leaderboard')}
           isRTL={isRTL}
           t={t}
+          shortId={shortId}
+          visitorId={visitorId || undefined}
+          enableWhatsApp={config.enableWhatsAppInvite}
           is3Player={resultData.is3Player}
           thirdPlayerNickname={resultData.thirdPlayerNickname}
           thirdPlayerAvatar={resultData.thirdPlayerAvatar}

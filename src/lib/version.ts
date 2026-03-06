@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.31';
+export const APP_VERSION = '1.13.32';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.13.32',
+    date: '2026-03-06',
+    isNew: true,
+    highlights: {
+      he: [
+        'חדש: שם המשחק עם אנימציה במסך תוצאות',
+        'חדש: כפתור שיתוף בוואטסאפ אחרי ניצחון/הפסד',
+        'שיפור: מסך in-app browser - מסך מלא עם כפתור פתיחה בדפדפן',
+        'שיפור: בורר משחקים - כותרת קבועה עם גלילה',
+      ],
+      en: [
+        'New: Game name with animation on result screen',
+        'New: WhatsApp share button after win/loss',
+        'Improvement: In-app browser - full screen gate with open in browser button',
+        'Improvement: Game selector - fixed header with scrollable games',
+      ],
+    },
+  },
+  {
     version: '1.13.31',
     date: '2026-03-05',
-    isNew: true,
     highlights: {
       he: [
         'שיפור: ארבע בשורה - סיבוב אחד עם ניקוד לפי זמן (מהר יותר = יותר נקודות)',

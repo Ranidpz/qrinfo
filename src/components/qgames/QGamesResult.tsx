@@ -1,8 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RotateCcw, Trophy, List } from 'lucide-react';
+import { RotateCcw, Trophy, List, Share2 } from 'lucide-react';
 import { useQGamesTheme } from './QGamesThemeContext';
+import { QGameType } from '@/types/qgames';
+import RPSAnimatedEmoji from './RPSAnimatedEmoji';
+import OOOAnimatedEmoji from './OOOAnimatedEmoji';
+import TTTAnimatedEmoji from './TTTAnimatedEmoji';
+import MemoryAnimatedEmoji from './MemoryAnimatedEmoji';
+import Connect4AnimatedEmoji from './Connect4AnimatedEmoji';
 
 interface QGamesResultProps {
   isWinner: boolean;
@@ -14,17 +20,30 @@ interface QGamesResultProps {
   oppNickname: string;
   oppAvatar: string;
   gameName: string;
+  gameType: QGameType;
   onPlayAgain: () => void;
   onBackToSelector: () => void;
   onViewLeaderboard: () => void;
   isRTL: boolean;
   t: (key: string) => string;
+  // WhatsApp share
+  shortId?: string;
+  visitorId?: string;
+  enableWhatsApp?: boolean;
   // 3-player game support
   is3Player?: boolean;
   thirdPlayerNickname?: string;
   thirdPlayerAvatar?: string;
   thirdPlayerScore?: number;
 }
+
+const ANIMATED_EMOJI: Record<QGameType, React.ComponentType<{ className?: string }>> = {
+  rps: RPSAnimatedEmoji,
+  oddoneout: OOOAnimatedEmoji,
+  tictactoe: TTTAnimatedEmoji,
+  connect4: Connect4AnimatedEmoji,
+  memory: MemoryAnimatedEmoji,
+};
 
 export default function QGamesResult({
   isWinner,
@@ -36,11 +55,15 @@ export default function QGamesResult({
   oppNickname,
   oppAvatar,
   gameName,
+  gameType,
   onPlayAgain,
   onBackToSelector,
   onViewLeaderboard,
   isRTL,
   t,
+  shortId,
+  visitorId,
+  enableWhatsApp,
   is3Player,
   thirdPlayerNickname,
   thirdPlayerAvatar,
@@ -55,6 +78,23 @@ export default function QGamesResult({
       setTimeout(() => setShowConfetti(false), 3000);
     }
   }, [isWinner]);
+
+  const AnimatedEmoji = ANIMATED_EMOJI[gameType];
+
+  const handleWhatsAppShare = () => {
+    if (!shortId) return;
+    const baseUrl = `https://qr.playzones.app/v/${shortId}`;
+    const shareUrl = visitorId ? `${baseUrl}?invite=${visitorId}` : baseUrl;
+    const resultEmoji = isWinner ? '🏆' : isDraw ? '🤝' : '🎮';
+    const actionWord = isRTL
+      ? (isWinner ? 'ניצחתי' : 'שיחקתי')
+      : (isWinner ? 'I won' : 'I played');
+    const preposition = isRTL ? 'ב' : ' at ';
+    const message = isRTL
+      ? `${resultEmoji} ${actionWord} ${preposition}${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 בואו לשחק נגדי!\n${shareUrl}`
+      : `${resultEmoji} ${actionWord}${preposition}${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 Come play against me!\n${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
   return (
     <div
@@ -84,6 +124,16 @@ export default function QGamesResult({
           `}</style>
         </div>
       )}
+
+      {/* Game Name Header with Animated Emoji */}
+      <div className="flex items-center gap-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-500">
+        <div className="text-2xl">
+          <AnimatedEmoji />
+        </div>
+        <h2 className="text-lg font-bold" style={{ color: theme.textSecondary }}>
+          {gameName}
+        </h2>
+      </div>
 
       {/* Result Icon */}
       <div className="mb-6 animate-in zoom-in duration-500">
@@ -153,6 +203,18 @@ export default function QGamesResult({
           <RotateCcw className="w-5 h-5" />
           {t('playAgain')}
         </button>
+
+        {/* WhatsApp Share */}
+        {enableWhatsApp && shortId && (
+          <button
+            onClick={handleWhatsAppShare}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all active:scale-95 text-white"
+            style={{ background: '#25D366' }}
+          >
+            <Share2 className="w-4 h-4" />
+            {t('shareOnWhatsApp')}
+          </button>
+        )}
 
         <button
           onClick={onViewLeaderboard}
