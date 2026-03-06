@@ -26,6 +26,7 @@ export interface FroggerLane {
   speed: number;          // pixels per second (at baseSpeed=1 viewport width)
   color: string;
   enemies: FroggerEnemyDef[];
+  cycleLength: number;    // in viewport widths (for wrapping)
 }
 
 export interface FroggerEnemyDef {
@@ -66,39 +67,48 @@ export const PLAYER_BASE_SIZE = 0.6;
 // =============================================================
 
 /**
- * Generate lane configurations from seed.
- * Each lane has a direction, speed, color, and set of enemies.
- * The pattern repeats every `cycleWidth` pixels so enemies loop endlessly.
+ * Generate lane configurations from seed with progressive difficulty.
+ * difficulty=0 is very easy (few slow enemies), increases each screen completed.
+ * The seed+difficulty combo keeps it deterministic across all clients.
  */
-export function generateLanes(seed: number, laneCount: number, baseSpeed: number): FroggerLane[] {
-  const rng = mulberry32(seed);
+export function generateLanes(seed: number, laneCount: number, baseSpeed: number, difficulty: number = 0): FroggerLane[] {
+  // Use seed + difficulty so each level has different but deterministic patterns
+  const rng = mulberry32(seed + difficulty * 7919);
   const lanes: FroggerLane[] = [];
+
+  // Progressive scaling (capped)
+  const d = Math.min(difficulty, 10);
+  // Speed: starts very slow, ramps up gradually
+  const speedMin = 0.12 + d * 0.04;           // 0.12 → 0.52
+  const speedMax = 0.25 + d * 0.05;           // 0.25 → 0.75
+  // Enemy count: starts 1-2, ramps to 3-5
+  const enemyMin = 1 + Math.floor(d * 0.2);   // 1 → 3
+  const enemyMax = 2 + Math.floor(d * 0.3);   // 2 → 5
+  // Enemy width: starts small, grows
+  const widthMin = 0.10 + d * 0.01;           // 0.10 → 0.20
+  const widthRange = 0.10 + d * 0.01;         // 0.10 → 0.20
+  // Cycle length: starts large (lots of gaps), shrinks
+  const cycleLength = Math.max(2.5, 4.0 - d * 0.15); // 4.0 → 2.5
 
   for (let i = 0; i < laneCount; i++) {
     const direction: 'left' | 'right' = rng() > 0.5 ? 'right' : 'left';
-    // Speed varies: 0.3x to 0.8x of baseSpeed, mapped to px/sec relative to viewport
-    const speedMultiplier = 0.3 + rng() * 0.5;
-    const speed = baseSpeed * speedMultiplier * 60; // px/sec at viewport=100% reference
+    const speedMultiplier = speedMin + rng() * (speedMax - speedMin);
+    const speed = baseSpeed * speedMultiplier * 60;
 
     const color = ENEMY_COLORS[i % ENEMY_COLORS.length];
 
-    // Generate enemies for this lane (2-4 enemies per cycle)
-    const enemyCount = 2 + Math.floor(rng() * 3);
+    const enemyCount = enemyMin + Math.floor(rng() * (enemyMax - enemyMin + 1));
     const enemies: FroggerEnemyDef[] = [];
 
-    // Total cycle length = ~3x viewport width (enemies spaced across it)
-    const cycleLength = 3.0; // in viewport widths
-
-    // Distribute enemies with minimum gap
     const segmentSize = cycleLength / enemyCount;
     for (let j = 0; j < enemyCount; j++) {
-      const widthFrac = 0.15 + rng() * 0.2; // 15%-35% of viewport
-      const jitter = rng() * segmentSize * 0.6; // randomize within segment
-      const offset = (j * segmentSize + jitter); // in viewport widths
+      const widthFrac = widthMin + rng() * widthRange;
+      const jitter = rng() * segmentSize * 0.5;
+      const offset = (j * segmentSize + jitter);
       enemies.push({ offset, widthFrac });
     }
 
-    lanes.push({ direction, speed, color, enemies });
+    lanes.push({ direction, speed, color, enemies, cycleLength });
   }
 
   return lanes;
@@ -141,8 +151,8 @@ export function getEnemyPositions(
     const pxPerSec = (lane.speed / 100) * viewportWidth;
     const totalTravel = elapsed * pxPerSec;
 
-    // Cycle length in px
-    const cyclePx = 3.0 * viewportWidth;
+    // Cycle length in px (from lane config)
+    const cyclePx = lane.cycleLength * viewportWidth;
 
     for (const enemy of lane.enemies) {
       const w = enemy.widthFrac * viewportWidth;

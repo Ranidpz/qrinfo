@@ -160,6 +160,8 @@ export default function FroggerGame({
   const [mySizeMultiplier, setMySizeMultiplier] = useState(1.0);
   const [eliminated, setEliminated] = useState(false);
   const [screenCompletePopup, setScreenCompletePopup] = useState(false);
+  const [difficulty, setDifficulty] = useState(0);
+  const gameSeedRef = useRef<number>(0);
 
   // Game engine state
   const [enemies, setEnemies] = useState<EnemyPosition[]>([]);
@@ -312,9 +314,10 @@ export default function FroggerGame({
       setLocalPhase('countdown');
       setCountdownNum(3);
       gameStartRef.current = room.startedAt;
+      gameSeedRef.current = room.gameSeed;
 
-      // Initialize lanes from seed
-      lanesRef.current = generateLanes(room.gameSeed, room.lanes, room.baseSpeed);
+      // Initialize lanes from seed at difficulty 0
+      lanesRef.current = generateLanes(room.gameSeed, room.lanes, room.baseSpeed, 0);
 
       // Update my column from room data
       const myData = room.players?.[visitorId];
@@ -391,23 +394,50 @@ export default function FroggerGame({
   }, [eliminated, roomId, codeId, visitorId, sounds]);
 
   // ============ Bot AI ============
+  const botEliminatedRef = useRef(false);
 
+  // Bot collision check (runs in game loop alongside player)
+  useEffect(() => {
+    if (localPhase !== 'playing' || !lanesRef.current || !gameStartRef.current || !roomId) return;
+    const botPlayer = players['bot_frogger'];
+    if (!botPlayer || botPlayer.eliminated || botEliminatedRef.current) return;
+
+    const checkBot = setInterval(() => {
+      const bp = players['bot_frogger'];
+      if (!bp || bp.eliminated || botEliminatedRef.current) return;
+      const elapsed = Date.now() - gameStartRef.current!;
+      const grid = gridRef.current;
+      const currentEnemies = getEnemyPositions(lanesRef.current!, elapsed, grid);
+      const botRect = getPlayerRect(bp.row, bp.column, bp.sizeMultiplier, grid, getTotalColumns());
+      if (checkPlayerEnemyCollision(botRect, currentEnemies)) {
+        botEliminatedRef.current = true;
+        eliminateFroggerPlayer(codeId, roomId, 'bot_frogger').catch(console.error);
+      }
+    }, 200); // Check 5x/sec for bot
+
+    return () => clearInterval(checkBot);
+  }, [localPhase, roomId, codeId, players]);
+
+  // Bot jump logic
   useEffect(() => {
     if (localPhase !== 'playing' || !roomId) return;
     const botPlayer = players['bot_frogger'];
-    if (!botPlayer || botPlayer.eliminated) return;
+    if (!botPlayer || botPlayer.eliminated || botEliminatedRef.current) return;
 
     const botInterval = setInterval(() => {
-      const botRow = botPlayer.row;
+      const bp = players['bot_frogger'];
+      if (!bp || bp.eliminated || botEliminatedRef.current) return;
+
+      const botRow = bp.row;
       const newRow = botRow + 1;
-      let botScore = botPlayer.score + 1;
-      let botScreens = botPlayer.screensCompleted;
-      let botSize = botPlayer.sizeMultiplier;
+      let botScore = bp.score + 1;
+      let botScreens = bp.screensCompleted;
+      let botSize = bp.sizeMultiplier;
       let resetRow = newRow;
 
       if (newRow >= SAFE_ROW_TOP) {
         botScreens += 1;
-        botSize += 0.2;
+        botSize = Math.round((botSize + 0.2) * 100) / 100;
         resetRow = 0;
         botScore += 10;
       }
@@ -418,7 +448,7 @@ export default function FroggerGame({
         screensCompleted: botScreens,
         sizeMultiplier: botSize,
       }).catch(console.error);
-    }, 800 + Math.random() * 1200);
+    }, 1200 + Math.random() * 1500); // Slower jumps (1.2-2.7s)
 
     return () => clearInterval(botInterval);
   }, [localPhase, roomId, codeId, players]);
@@ -494,6 +524,13 @@ export default function FroggerGame({
       newScore += 10;
       sounds.playWinRound();
 
+      // Increase difficulty and regenerate lanes
+      const newDifficulty = newScreens;
+      setDifficulty(newDifficulty);
+      if (room) {
+        lanesRef.current = generateLanes(gameSeedRef.current, room.lanes, room.baseSpeed, newDifficulty);
+      }
+
       // Show popup
       setScreenCompletePopup(true);
       setTimeout(() => setScreenCompletePopup(false), 1200);
@@ -515,7 +552,7 @@ export default function FroggerGame({
         sizeMultiplier: newSize,
       }).catch(console.error);
     }
-  }, [eliminated, localPhase, myRow, myScore, myScreens, mySizeMultiplier, roomId, codeId, visitorId, sounds]);
+  }, [eliminated, localPhase, myRow, myScore, myScreens, mySizeMultiplier, roomId, codeId, visitorId, sounds, room]);
 
   // ============ Render Helpers ============
 
