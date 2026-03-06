@@ -4,9 +4,12 @@ import {
   QGamesMatch,
   QGamesPlayer,
   QGamesLeaderboardEntry,
+  QGamesRewardsResult,
   MATCH_POINTS,
   QGameType,
   QGamesAvatarType,
+  getRankForScore,
+  DEFAULT_POINTS_PER_PACK,
 } from '@/types/qgames';
 import {
   getMatch,
@@ -77,6 +80,14 @@ export async function POST(request: Request) {
     }
 
     const adminDb = getAdminDb();
+
+    // Read config for rewards settings
+    const codeDoc = await adminDb.collection('codes').doc(codeId).get();
+    const codeData = codeDoc.data();
+    const gamesMedia = codeData?.media?.find(
+      (m: { type: string }) => m.type === 'minigames'
+    );
+    const pointsPerPack = gamesMedia?.qgamesConfig?.rewards?.pointsPerPack || DEFAULT_POINTS_PER_PACK;
 
     // Check if match already persisted
     const matchDocRef = adminDb
@@ -176,17 +187,18 @@ export async function POST(request: Request) {
 
     // Update players' stats in Firestore
     const gameTypeKey = match.gameType as QGameType;
+    const rewardsMap: Record<string, QGamesRewardsResult | null> = {};
 
     if (match.gameType === 'oddoneout' && winnerIds && loserId) {
       // OOO: 2 winners, 1 loser — pass outcome explicitly
       for (const pid of winnerIds) {
-        await updatePlayerStatsOOO(adminDb, codeId, pid, gameTypeKey, 'win');
+        rewardsMap[pid] = await updatePlayerStatsOOO(adminDb, codeId, pid, gameTypeKey, 'win', pointsPerPack);
       }
-      await updatePlayerStatsOOO(adminDb, codeId, loserId, gameTypeKey, 'loss');
+      rewardsMap[loserId] = await updatePlayerStatsOOO(adminDb, codeId, loserId, gameTypeKey, 'loss', pointsPerPack);
     } else {
       // 2-player games: use winnerId
-      await updatePlayerStats(adminDb, codeId, match.player1Id, gameTypeKey, winnerId);
-      await updatePlayerStats(adminDb, codeId, match.player2Id, gameTypeKey, winnerId);
+      rewardsMap[match.player1Id] = await updatePlayerStats(adminDb, codeId, match.player1Id, gameTypeKey, winnerId, pointsPerPack);
+      rewardsMap[match.player2Id] = await updatePlayerStats(adminDb, codeId, match.player2Id, gameTypeKey, winnerId, pointsPerPack);
     }
 
     // Update leaderboard in RTDB
@@ -208,6 +220,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       match: matchRecord,
+      rewards: rewardsMap[playerId] || null,
     });
   } catch (error) {
     console.error('Q.Games finish error:', error);
@@ -243,6 +256,14 @@ async function handleMemoryFinish(
   }
 
   const adminDb = getAdminDb();
+
+  // Read config for rewards settings
+  const codeDoc = await adminDb.collection('codes').doc(codeId).get();
+  const codeData = codeDoc.data();
+  const gamesMedia = codeData?.media?.find(
+    (m: { type: string }) => m.type === 'minigames'
+  );
+  const pointsPerPack = gamesMedia?.qgamesConfig?.rewards?.pointsPerPack || DEFAULT_POINTS_PER_PACK;
 
   // Use roomId as the match doc ID
   const matchDocRef = adminDb
@@ -295,9 +316,11 @@ async function handleMemoryFinish(
   await matchDocRef.set(matchRecord);
 
   // Update stats for all players
+  let callerRewards: QGamesRewardsResult | null = null;
   for (const p of playerResults) {
     const isWinner = p.id === winnerId;
-    await updatePlayerStatsMemory(adminDb, codeId, p.id, isWinner);
+    const rewards = await updatePlayerStatsMemory(adminDb, codeId, p.id, isWinner, pointsPerPack);
+    if (p.id === playerId) callerRewards = rewards;
     await updatePlayerLeaderboard(adminDb, codeId, p.id);
   }
   await recalculateLeaderboardRanks(codeId);
@@ -305,35 +328,68 @@ async function handleMemoryFinish(
   // Clean up memory room from RTDB
   await deleteMemoryRoom(codeId, roomId);
 
-  return NextResponse.json({ success: true, match: matchRecord });
+  return NextResponse.json({ success: true, match: matchRecord, rewards: callerRewards });
+}
+
+/** Calculate rank change and pack earnings for a player */
+function calculateRewards(
+  oldScore: number,
+  newScore: number,
+  pointsPerPack: number
+): QGamesRewardsResult {
+  const oldRank = getRankForScore(oldScore);
+  const newRank = getRankForScore(newScore);
+  const oldPacks = Math.floor(oldScore / pointsPerPack);
+  const newPacks = Math.floor(newScore / pointsPerPack);
+  return {
+    previousRankId: oldRank.id,
+    newRankId: newRank.id,
+    rankChanged: oldRank.id !== newRank.id,
+    packsEarned: newPacks - oldPacks,
+    unopenedPacks: 0, // Will be set from actual player data
+  };
 }
 
 async function updatePlayerStatsMemory(
   adminDb: FirebaseFirestore.Firestore,
   codeId: string,
   playerId: string,
-  isWinner: boolean
-) {
+  isWinner: boolean,
+  pointsPerPack: number
+): Promise<QGamesRewardsResult | null> {
   const playerRef = adminDb
     .collection('codes').doc(codeId)
     .collection('qgames_players').doc(playerId);
 
   const playerDoc = await playerRef.get();
-  if (!playerDoc.exists) return;
+  if (!playerDoc.exists) return null;
 
   const player = playerDoc.data() as QGamesPlayer;
+  const pointsEarned = isWinner ? MATCH_POINTS.WIN : MATCH_POINTS.LOSS;
+  const newScore = player.score + pointsEarned;
+
+  const rewards = calculateRewards(player.score, newScore, pointsPerPack);
+  const newUnopenedPacks = (player.unopenedPacks || 0) + rewards.packsEarned;
+  rewards.unopenedPacks = newUnopenedPacks;
 
   const updates: Partial<QGamesPlayer> = {
     totalGamesPlayed: player.totalGamesPlayed + 1,
     totalWins: player.totalWins + (isWinner ? 1 : 0),
     totalLosses: player.totalLosses + (isWinner ? 0 : 1),
-    score: player.score + (isWinner ? MATCH_POINTS.WIN : MATCH_POINTS.LOSS),
+    score: newScore,
     lastPlayedAt: Date.now(),
     memoryPlayed: (player.memoryPlayed || 0) + 1,
     memoryWins: (player.memoryWins || 0) + (isWinner ? 1 : 0),
+    rankId: rewards.newRankId,
   };
 
+  if (rewards.packsEarned > 0) {
+    updates.totalPacksEarned = (player.totalPacksEarned || 0) + rewards.packsEarned;
+    updates.unopenedPacks = newUnopenedPacks;
+  }
+
   await playerRef.update(updates);
+  return rewards;
 }
 
 async function updatePlayerStats(
@@ -341,27 +397,40 @@ async function updatePlayerStats(
   codeId: string,
   playerId: string,
   gameType: QGameType,
-  winnerId: string | null
-) {
+  winnerId: string | null,
+  pointsPerPack: number
+): Promise<QGamesRewardsResult | null> {
   const playerRef = adminDb
     .collection('codes').doc(codeId)
     .collection('qgames_players').doc(playerId);
 
   const playerDoc = await playerRef.get();
-  if (!playerDoc.exists) return;
+  if (!playerDoc.exists) return null;
 
   const player = playerDoc.data() as QGamesPlayer;
   const isWinner = winnerId === playerId;
   const isDraw = winnerId === null;
+  const pointsEarned = isWinner ? MATCH_POINTS.WIN : isDraw ? ((gameType === 'tictactoe' || gameType === 'connect4') ? MATCH_POINTS.WIN : MATCH_POINTS.DRAW) : MATCH_POINTS.LOSS;
+  const newScore = player.score + pointsEarned;
+
+  const rewards = calculateRewards(player.score, newScore, pointsPerPack);
+  const newUnopenedPacks = (player.unopenedPacks || 0) + rewards.packsEarned;
+  rewards.unopenedPacks = newUnopenedPacks;
 
   const updates: Partial<QGamesPlayer> = {
     totalGamesPlayed: player.totalGamesPlayed + 1,
     totalWins: player.totalWins + (isWinner ? 1 : 0),
     totalLosses: player.totalLosses + (!isWinner && !isDraw ? 1 : 0),
     totalDraws: player.totalDraws + (isDraw ? 1 : 0),
-    score: player.score + (isWinner ? MATCH_POINTS.WIN : isDraw ? ((gameType === 'tictactoe' || gameType === 'connect4') ? MATCH_POINTS.WIN : MATCH_POINTS.DRAW) : MATCH_POINTS.LOSS),
+    score: newScore,
     lastPlayedAt: Date.now(),
+    rankId: rewards.newRankId,
   };
+
+  if (rewards.packsEarned > 0) {
+    updates.totalPacksEarned = (player.totalPacksEarned || 0) + rewards.packsEarned;
+    updates.unopenedPacks = newUnopenedPacks;
+  }
 
   // Update per-game stats
   const playedKey = `${gameType}Played` as keyof QGamesPlayer;
@@ -372,6 +441,7 @@ async function updatePlayerStats(
   }
 
   await playerRef.update(updates);
+  return rewards;
 }
 
 /** Update stats for OOO game (explicit win/loss, no draw possible at match level) */
@@ -380,26 +450,39 @@ async function updatePlayerStatsOOO(
   codeId: string,
   playerId: string,
   gameType: QGameType,
-  outcome: 'win' | 'loss'
-) {
+  outcome: 'win' | 'loss',
+  pointsPerPack: number
+): Promise<QGamesRewardsResult | null> {
   const playerRef = adminDb
     .collection('codes').doc(codeId)
     .collection('qgames_players').doc(playerId);
 
   const playerDoc = await playerRef.get();
-  if (!playerDoc.exists) return;
+  if (!playerDoc.exists) return null;
 
   const player = playerDoc.data() as QGamesPlayer;
   const isWinner = outcome === 'win';
+  const pointsEarned = isWinner ? MATCH_POINTS.WIN : MATCH_POINTS.LOSS;
+  const newScore = player.score + pointsEarned;
+
+  const rewards = calculateRewards(player.score, newScore, pointsPerPack);
+  const newUnopenedPacks = (player.unopenedPacks || 0) + rewards.packsEarned;
+  rewards.unopenedPacks = newUnopenedPacks;
 
   const updates: Partial<QGamesPlayer> = {
     totalGamesPlayed: player.totalGamesPlayed + 1,
     totalWins: player.totalWins + (isWinner ? 1 : 0),
     totalLosses: player.totalLosses + (isWinner ? 0 : 1),
     totalDraws: player.totalDraws,
-    score: player.score + (isWinner ? MATCH_POINTS.WIN : MATCH_POINTS.LOSS),
+    score: newScore,
     lastPlayedAt: Date.now(),
+    rankId: rewards.newRankId,
   };
+
+  if (rewards.packsEarned > 0) {
+    updates.totalPacksEarned = (player.totalPacksEarned || 0) + rewards.packsEarned;
+    updates.unopenedPacks = newUnopenedPacks;
+  }
 
   const playedKey = `${gameType}Played` as keyof QGamesPlayer;
   const winsKey = `${gameType}Wins` as keyof QGamesPlayer;
@@ -409,6 +492,7 @@ async function updatePlayerStatsOOO(
   }
 
   await playerRef.update(updates);
+  return rewards;
 }
 
 async function updatePlayerLeaderboard(
@@ -448,6 +532,10 @@ async function updatePlayerLeaderboard(
     memoryWins: player.memoryWins || 0,
     connect4Played: player.connect4Played || 0,
     connect4Wins: player.connect4Wins || 0,
+    // Rank & equipped items
+    rankId: player.rankId || 'rookie',
+    equippedTitle: player.equippedTitle || null,
+    equippedBorder: player.equippedBorder || null,
   };
 
   await updateLeaderboardEntry(codeId, entry);

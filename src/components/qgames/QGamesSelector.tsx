@@ -1,8 +1,10 @@
 'use client';
 
-import { Pencil, Trophy } from 'lucide-react';
+import { useState } from 'react';
+import { Pencil, Info, X, ExternalLink, Gift } from 'lucide-react';
 import { QGameType, GAME_META, QGamesConfig, LiveMatchInfo, GAME_DISPLAY_ORDER } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
+import QGamesRankBadge from './QGamesRankBadge';
 import RPSAnimatedEmoji from './RPSAnimatedEmoji';
 import OOOAnimatedEmoji from './OOOAnimatedEmoji';
 import TTTAnimatedEmoji from './TTTAnimatedEmoji';
@@ -14,7 +16,6 @@ interface QGamesSelectorProps {
   playerNickname: string;
   playerAvatar: string;
   onSelectGame: (gameType: QGameType) => void;
-  onViewLeaderboard: () => void;
   onEditProfile?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
@@ -22,6 +23,11 @@ interface QGamesSelectorProps {
   matchesPerGame?: Record<string, number>;
   queuePerGame?: Record<string, number>;
   liveMatches?: LiveMatchInfo[];
+  // Rewards
+  playerScore?: number;
+  unopenedPacks?: number;
+  onOpenPack?: () => void;
+  locale?: 'he' | 'en';
 }
 
 export default function QGamesSelector({
@@ -29,7 +35,6 @@ export default function QGamesSelector({
   playerNickname,
   playerAvatar,
   onSelectGame,
-  onViewLeaderboard,
   onEditProfile,
   isRTL,
   t,
@@ -37,18 +42,38 @@ export default function QGamesSelector({
   matchesPerGame = {},
   queuePerGame = {},
   liveMatches = [],
+  playerScore = 0,
+  unopenedPacks = 0,
+  onOpenPack,
+  locale,
 }: QGamesSelectorProps) {
   const theme = useQGamesTheme();
+  const [showInfo, setShowInfo] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const enabledSet = new Set(config.enabledGames || ['rps']);
   const enabledGames = GAME_DISPLAY_ORDER.filter(g => enabledSet.has(g));
   const gameName = config.branding.title || 'Q.Games';
 
   return (
     <div
-      className="h-[100dvh] flex flex-col"
+      className="h-[100dvh] flex flex-col relative"
       dir={isRTL ? 'rtl' : 'ltr'}
       style={{ fontFamily: 'var(--font-assistant), sans-serif' }}
     >
+      {/* Info button - physical top-left corner */}
+      <button
+        onClick={() => setShowInfo(true)}
+        className="absolute top-3 z-10 p-2.5 rounded-full transition-colors active:scale-95"
+        style={{
+          left: 12,
+          backgroundColor: `${theme.surfaceColor}cc`,
+          color: theme.textSecondary,
+        }}
+        aria-label={t('infoTitle')}
+      >
+        <Info className="w-5 h-5" />
+      </button>
+
       {/* ── Fixed Profile Header ── */}
       <div className="shrink-0 flex flex-col items-center px-6" style={{ backgroundColor: theme.backgroundColor }}>
         {/* Event Logo */}
@@ -99,10 +124,31 @@ export default function QGamesSelector({
             {playerNickname}
           </h1>
 
-          {/* Tagline */}
-          <p className="text-sm font-medium" style={{ color: theme.textSecondary }}>
-            {t('selectorTagline')}
-          </p>
+          {/* Rank badge */}
+          <div className="mt-1 mb-1">
+            <QGamesRankBadge
+              score={playerScore}
+              size="sm"
+              isRTL={isRTL}
+              showProgress
+              locale={locale || (isRTL ? 'he' : 'en')}
+            />
+          </div>
+
+          {/* Pack notification */}
+          {unopenedPacks > 0 && onOpenPack && (
+            <button
+              onClick={onOpenPack}
+              className="mt-2 flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-white transition-all active:scale-95 animate-bounce"
+              style={{
+                background: `linear-gradient(135deg, ${theme.accentColor}, ${theme.primaryColor || '#8B5CF6'})`,
+                boxShadow: `0 4px 15px ${theme.accentColor}40`,
+              }}
+            >
+              <Gift className="w-4 h-4" />
+              {unopenedPacks} {t('packsAvailable')}
+            </button>
+          )}
 
           {/* Live connected count */}
           <div className="flex items-center gap-1.5 mt-3 animate-in fade-in duration-500" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
@@ -298,16 +344,125 @@ export default function QGamesSelector({
           </div>
         )}
 
-        {/* ── Leaderboard ── */}
-        <button
-          onClick={onViewLeaderboard}
-          className="mt-10 flex items-center gap-2 text-sm transition-colors duration-200 animate-in fade-in duration-700"
-          style={{ animationDelay: '400ms', animationFillMode: 'backwards', color: theme.textSecondary }}
-        >
-          <Trophy className="w-4 h-4" />
-          <span>{t('viewLeaderboard')}</span>
-        </button>
       </div>
+
+      {/* ── Info Modal ── */}
+      {showInfo && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => { setShowInfo(false); setShowLeaveConfirm(false); }}
+        >
+          <div
+            className="rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 pb-8 sm:pb-5 relative animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 max-h-[85vh] overflow-y-auto"
+            dir={isRTL ? 'rtl' : 'ltr'}
+            style={{
+              backgroundColor: theme.surfaceColor,
+              border: `1px solid ${theme.borderColor}`,
+              scrollbarWidth: 'none',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle (mobile) */}
+            <div className="sm:hidden flex justify-center mb-3">
+              <div className="w-10 h-1 rounded-full" style={{ backgroundColor: theme.borderColor }} />
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={() => { setShowInfo(false); setShowLeaveConfirm(false); }}
+              className="absolute top-3 end-3 p-1 transition-colors"
+              style={{ color: theme.textSecondary }}
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-4">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: `${theme.primaryColor}20` }}
+              >
+                <Info className="w-5 h-5" style={{ color: theme.primaryColor }} />
+              </div>
+              <h2 className="font-bold text-lg" style={{ color: theme.textColor }}>
+                {t('infoTitle')}
+              </h2>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-3">
+              <p className="text-sm leading-relaxed" style={{ color: theme.textColor }}>
+                {t('infoDesc1')}
+              </p>
+
+              <p className="text-sm leading-relaxed" style={{ color: theme.textSecondary }}>
+                {t('infoDesc2')}
+              </p>
+
+              <div
+                className="rounded-xl p-3"
+                style={{ backgroundColor: `${theme.accentColor}10`, border: `1px solid ${theme.accentColor}20` }}
+              >
+                <p className="text-sm leading-relaxed" style={{ color: theme.textColor }}>
+                  {t('infoDesc3')}
+                </p>
+              </div>
+
+              <p className="text-sm leading-relaxed" style={{ color: theme.textSecondary }}>
+                {t('infoDesc4')}
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="my-4" style={{ borderTop: `1px solid ${theme.borderColor}` }} />
+
+            {/* The Q link with leave confirmation */}
+            {!showLeaveConfirm ? (
+              <button
+                onClick={() => setShowLeaveConfirm(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.97]"
+                style={{
+                  backgroundColor: `${theme.primaryColor}15`,
+                  color: theme.primaryColor,
+                  border: `1px solid ${theme.primaryColor}30`,
+                }}
+              >
+                <ExternalLink className="w-4 h-4" />
+                {t('infoVisitTheQ')}
+                <span className="text-xs opacity-60">theq.app</span>
+              </button>
+            ) : (
+              <div className="text-center">
+                <p className="font-bold text-sm mb-1" style={{ color: theme.textColor }}>
+                  {t('infoLeaveTitle')}
+                </p>
+                <p className="text-xs mb-3" style={{ color: theme.textSecondary }}>
+                  {t('infoLeaveMessage')}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowLeaveConfirm(false)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                    style={{ backgroundColor: theme.surfaceHover, color: theme.textColor }}
+                  >
+                    {t('infoStay')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.open('https://theq.app', '_blank');
+                      setShowLeaveConfirm(false);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors text-white"
+                    style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+                  >
+                    {t('infoGo')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

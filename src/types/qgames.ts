@@ -266,6 +266,15 @@ export interface QGamesPlayer {
 
   registeredAt: number;
   lastPlayedAt: number;
+
+  // Rewards & Progression
+  rankId?: string;
+  totalPacksEarned?: number;
+  unopenedPacks?: number;
+  inventory?: QGamesInventoryItem[];
+  equippedTitle?: string | null;
+  equippedBorder?: string | null;
+  equippedCelebration?: string | null;
 }
 
 // =============================================================
@@ -542,6 +551,11 @@ export interface QGamesLeaderboardEntry {
   memoryWins?: number;
   connect4Played?: number;
   connect4Wins?: number;
+
+  // Rewards (display only)
+  rankId?: string;
+  equippedTitle?: string | null;
+  equippedBorder?: string | null;
 }
 
 // =============================================================
@@ -756,6 +770,9 @@ export interface QGamesConfig {
   // Auto-reset schedule
   autoReset?: QGamesAutoReset;
 
+  // Rewards & Packs
+  rewards?: QGamesRewardsConfig;
+
   createdAt?: number;
   lastResetAt?: number;
 }
@@ -795,6 +812,165 @@ export const MATCH_POINTS = {
   DRAW: 1,
   LOSS: 0,
 } as const;
+
+// =============================================================
+// Ranks & Rewards
+// =============================================================
+
+/** Default points needed to earn one pack */
+export const DEFAULT_POINTS_PER_PACK = 15;
+
+/** Player rank tier definition */
+export interface QGamesRankTier {
+  id: string;
+  nameEn: string;
+  nameHe: string;
+  icon: string;
+  minScore: number;
+  color: string;
+}
+
+/** All rank tiers, ordered from lowest to highest */
+export const RANK_TIERS: QGamesRankTier[] = [
+  { id: 'rookie',    nameEn: 'Rookie',     nameHe: 'טירון',    icon: '🌱', minScore: 0,   color: '#6B7280' },
+  { id: 'contender', nameEn: 'Contender',  nameHe: 'מתמודד',   icon: '⚔️', minScore: 15,  color: '#C0C0C0' },
+  { id: 'warrior',   nameEn: 'Warrior',    nameHe: 'לוחם',     icon: '🛡️', minScore: 45,  color: '#F59E0B' },
+  { id: 'champion',  nameEn: 'Champion',   nameHe: 'אלוף',     icon: '🏆', minScore: 100, color: '#3B82F6' },
+  { id: 'legend',    nameEn: 'Legend',      nameHe: 'אגדה',     icon: '💎', minScore: 200, color: '#8B5CF6' },
+  { id: 'mythic',    nameEn: 'Mythic',      nameHe: 'מיתוס',    icon: '👑', minScore: 400, color: '#F59E0B' },
+];
+
+/** Get the rank tier for a given score */
+export function getRankForScore(score: number): QGamesRankTier {
+  for (let i = RANK_TIERS.length - 1; i >= 0; i--) {
+    if (score >= RANK_TIERS[i].minScore) return RANK_TIERS[i];
+  }
+  return RANK_TIERS[0];
+}
+
+/** Get the next rank tier (or null if already max) */
+export function getNextRank(score: number): QGamesRankTier | null {
+  const current = getRankForScore(score);
+  const idx = RANK_TIERS.findIndex(t => t.id === current.id);
+  return idx < RANK_TIERS.length - 1 ? RANK_TIERS[idx + 1] : null;
+}
+
+/** Prize rarity levels */
+export type QGamesPrizeRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+/** Prize types */
+export type QGamesPrizeType = 'avatar_border' | 'title' | 'celebration';
+
+/** Static prize definition (cosmetic catalog) */
+export interface QGamesPrize {
+  id: string;
+  type: QGamesPrizeType;
+  rarity: QGamesPrizeRarity;
+  value: string;
+  nameEn: string;
+  nameHe: string;
+}
+
+/** Rarity drop rates (must sum to 100) */
+export const RARITY_DROP_RATES: Record<QGamesPrizeRarity, number> = {
+  common: 50,
+  rare: 30,
+  epic: 15,
+  legendary: 5,
+};
+
+/** Rarity display config */
+export const RARITY_CONFIG: Record<QGamesPrizeRarity, {
+  color: string;
+  nameEn: string;
+  nameHe: string;
+  emoji: string;
+}> = {
+  common:    { color: '#6B7280', nameEn: 'Common',    nameHe: 'רגיל',  emoji: '⚪' },
+  rare:      { color: '#3B82F6', nameEn: 'Rare',      nameHe: 'נדיר',  emoji: '🔵' },
+  epic:      { color: '#8B5CF6', nameEn: 'Epic',      nameHe: 'אפי',   emoji: '🟣' },
+  legendary: { color: '#F59E0B', nameEn: 'Legendary', nameHe: 'אגדי',  emoji: '🟡' },
+};
+
+/** Static cosmetic prize catalog */
+export const QGAMES_PRIZE_CATALOG: QGamesPrize[] = [
+  // === Common Borders ===
+  { id: 'border_white',  type: 'avatar_border', rarity: 'common', value: '#FFFFFF', nameEn: 'White Ring',   nameHe: 'טבעת לבנה' },
+  { id: 'border_green',  type: 'avatar_border', rarity: 'common', value: '#10B981', nameEn: 'Green Ring',   nameHe: 'טבעת ירוקה' },
+  { id: 'border_blue',   type: 'avatar_border', rarity: 'common', value: '#3B82F6', nameEn: 'Blue Ring',    nameHe: 'טבעת כחולה' },
+  // === Common Titles ===
+  { id: 'title_player',  type: 'title', rarity: 'common', value: 'player',  nameEn: 'Player',  nameHe: 'שחקן' },
+  { id: 'title_gamer',   type: 'title', rarity: 'common', value: 'gamer',   nameEn: 'Gamer',   nameHe: 'גיימר' },
+  // === Common Celebrations ===
+  { id: 'celeb_stars',   type: 'celebration', rarity: 'common', value: 'stars', nameEn: 'Stars Burst', nameHe: 'פיצוץ כוכבים' },
+  // === Rare Borders ===
+  { id: 'border_purple_gradient', type: 'avatar_border', rarity: 'rare', value: 'linear-gradient(135deg, #8B5CF6, #EC4899)', nameEn: 'Purple Gradient', nameHe: 'סגול גרדיאנט' },
+  { id: 'border_orange_gradient', type: 'avatar_border', rarity: 'rare', value: 'linear-gradient(135deg, #F59E0B, #EF4444)', nameEn: 'Orange Gradient', nameHe: 'כתום גרדיאנט' },
+  // === Rare Titles ===
+  { id: 'title_strategist', type: 'title', rarity: 'rare', value: 'strategist', nameEn: 'Strategist', nameHe: 'אסטרטג' },
+  { id: 'title_fighter',    type: 'title', rarity: 'rare', value: 'fighter',    nameEn: 'Fighter',    nameHe: 'לוחם' },
+  // === Rare Celebrations ===
+  { id: 'celeb_fireworks', type: 'celebration', rarity: 'rare', value: 'fireworks', nameEn: 'Fireworks', nameHe: 'זיקוקים' },
+  // === Epic Borders ===
+  { id: 'border_gold_pulse',    type: 'avatar_border', rarity: 'epic', value: 'gold_pulse',    nameEn: 'Gold Pulse',    nameHe: 'זהב פועם' },
+  { id: 'border_rainbow_shift', type: 'avatar_border', rarity: 'epic', value: 'rainbow_shift', nameEn: 'Rainbow Shift', nameHe: 'קשת מתחלפת' },
+  // === Epic Titles ===
+  { id: 'title_master',      type: 'title', rarity: 'epic', value: 'master',      nameEn: 'Master',      nameHe: 'מאסטר' },
+  { id: 'title_unstoppable', type: 'title', rarity: 'epic', value: 'unstoppable', nameEn: 'Unstoppable', nameHe: 'בלתי ניתן לעצירה' },
+  // === Epic Celebrations ===
+  { id: 'celeb_golden_confetti', type: 'celebration', rarity: 'epic', value: 'golden_confetti', nameEn: 'Golden Confetti', nameHe: 'קונפטי זהב' },
+  // === Legendary Borders ===
+  { id: 'border_prismatic', type: 'avatar_border', rarity: 'legendary', value: 'prismatic', nameEn: 'Prismatic Glow', nameHe: 'זוהר פריזמטי' },
+  // === Legendary Titles ===
+  { id: 'title_living_legend', type: 'title', rarity: 'legendary', value: 'living_legend', nameEn: 'Living Legend', nameHe: 'אגדה חיה' },
+  // === Legendary Celebrations ===
+  { id: 'celeb_epic_explosion', type: 'celebration', rarity: 'legendary', value: 'epic_explosion', nameEn: 'Epic Explosion', nameHe: 'פיצוץ אפי' },
+];
+
+/** Item in a player's inventory */
+export interface QGamesInventoryItem {
+  prizeId: string;
+  type: QGamesPrizeType;
+  rarity: QGamesPrizeRarity;
+  nameEn: string;
+  nameHe: string;
+  value: string;
+  earnedAt: number;
+  isCustomPrize?: boolean;
+}
+
+/** Admin-defined real prize (per event, limited stock) */
+export interface QGamesCustomPrize {
+  id: string;
+  name: string;
+  description?: string;
+  totalStock: number;
+  claimed: number;
+  dropChance: number;
+  image?: string;
+}
+
+/** Rewards configuration (part of QGamesConfig) */
+export interface QGamesRewardsConfig {
+  enablePacks: boolean;
+  pointsPerPack: number;
+  customPrizes: QGamesCustomPrize[];
+}
+
+export const DEFAULT_REWARDS_CONFIG: QGamesRewardsConfig = {
+  enablePacks: true,
+  pointsPerPack: DEFAULT_POINTS_PER_PACK,
+  customPrizes: [],
+};
+
+/** Rewards info returned by finish API */
+export interface QGamesRewardsResult {
+  previousRankId: string;
+  newRankId: string;
+  rankChanged: boolean;
+  packsEarned: number;
+  unopenedPacks: number;
+}
 
 // =============================================================
 // Lobby Chat

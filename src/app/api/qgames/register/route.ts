@@ -127,6 +127,14 @@ export async function POST(request: Request) {
       connect4Wins: 0,
       registeredAt: Date.now(),
       lastPlayedAt: Date.now(),
+      // Rewards & Progression
+      rankId: 'rookie',
+      totalPacksEarned: 0,
+      unopenedPacks: 0,
+      inventory: [],
+      equippedTitle: null,
+      equippedBorder: null,
+      equippedCelebration: null,
     };
 
     await playerRef.set(player);

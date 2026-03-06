@@ -58,6 +58,10 @@ import QGamesResult from '@/components/qgames/QGamesResult';
 import QGamesLeaderboard from '@/components/qgames/QGamesLeaderboard';
 import QGamesMatchHistory from '@/components/qgames/QGamesMatchHistory';
 import LobbyChat from '@/components/qgames/LobbyChat';
+import QGamesRankBadge from '@/components/qgames/QGamesRankBadge';
+import QGamesPackOpening from '@/components/qgames/QGamesPackOpening';
+import QGamesRankUpOverlay from '@/components/qgames/QGamesRankUpOverlay';
+import { QGamesRewardsResult, QGamesInventoryItem } from '@/types/qgames';
 
 // ============ Translations ============
 const translations: Record<string, Record<string, string>> = {
@@ -174,6 +178,20 @@ const translations: Record<string, Record<string, string>> = {
     exitGameTitle: 'לצאת מהמשחק?',
     exitGameMessage: 'אם תצאו עכשיו, זה ייחשב כהפסד',
     stayInGame: 'להישאר',
+    // Rewards
+    openPack: 'פתחו חבילה! 🎁',
+    packsAvailable: 'חבילות ממתינות',
+    // Info modal
+    infoTitle: 'מה זה Q.Games?',
+    infoDesc1: 'חבילות משחקים לאירועים ולמשחק עם חברים. בוחרים עם מי לשחק ומכירים אנשים חדשים.',
+    infoDesc2: 'מתאים לקבוצות חברים, לובי אירועים ואזורי המתנה.',
+    infoDesc3: 'שחקו, דרגו, צברו נקודות — פתחו חבילות משחקים חדשות וזכו בפרסים אמיתיים.',
+    infoDesc4: 'חלק מפלטפורמת The Q לחוויות QR. פרסים אמיתיים ולא רק קבוצות צבעוניות.',
+    infoVisitTheQ: 'בקרו ב-The Q',
+    infoLeaveTitle: 'לצאת מהמשחק?',
+    infoLeaveMessage: 'אתם עומדים לעבור לאתר חיצוני',
+    infoStay: 'להישאר',
+    infoGo: 'המשך',
   },
   en: {
     joinToPlay: 'Join the game!',
@@ -288,6 +306,20 @@ const translations: Record<string, Record<string, string>> = {
     exitGameTitle: 'Leave the game?',
     exitGameMessage: 'If you leave now, it will count as a loss',
     stayInGame: 'Stay',
+    // Rewards
+    openPack: 'Open Pack! 🎁',
+    packsAvailable: 'packs available',
+    // Info modal
+    infoTitle: 'What is Q.Games?',
+    infoDesc1: 'Game packs for events and playing with friends. Choose who to play with and meet new people.',
+    infoDesc2: 'Great for friend groups, event lobbies, and waiting areas.',
+    infoDesc3: 'Play, rank up, earn points — unlock new game packs and win real prizes.',
+    infoDesc4: 'Part of The Q platform for QR experiences. Real prizes, not just colorful teams.',
+    infoVisitTheQ: 'Visit The Q',
+    infoLeaveTitle: 'Leave the game?',
+    infoLeaveMessage: 'You\'re about to open an external site',
+    infoStay: 'Stay',
+    infoGo: 'Continue',
   },
 };
 
@@ -386,6 +418,11 @@ export default function QGamesViewer({
   // Track when disconnect countdown started (for visual countdown bar)
   const [disconnectStartTime, setDisconnectStartTime] = useState<number | null>(null);
   const [showExitToQ, setShowExitToQ] = useState(false);
+
+  // Rewards state
+  const [pendingRewards, setPendingRewards] = useState<QGamesRewardsResult | null>(null);
+  const [showRankUp, setShowRankUp] = useState(false);
+  const [showPackOpening, setShowPackOpening] = useState(false);
 
   // Guard against concurrent match attempts
   const matchingRef = useRef(false);
@@ -918,6 +955,13 @@ export default function QGamesViewer({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ codeId, matchId, playerId: visitorId }),
         }))
+        .then(res => res.json())
+        .then(data => {
+          if (data.rewards) {
+            setPendingRewards(data.rewards);
+            if (data.rewards.rankChanged) setShowRankUp(true);
+          }
+        })
         .catch(console.error);
     }
 
@@ -986,6 +1030,13 @@ export default function QGamesViewer({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ codeId, matchId, playerId: visitorId }),
         }))
+        .then(res => res.json())
+        .then(data => {
+          if (data.rewards) {
+            setPendingRewards(data.rewards);
+            if (data.rewards.rankChanged) setShowRankUp(true);
+          }
+        })
         .catch(console.error);
     }
 
@@ -1020,7 +1071,15 @@ export default function QGamesViewer({
         memoryRoomId: results.roomId,
         memoryResults: results.players,
       }),
-    }).catch(console.error);
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.rewards) {
+          setPendingRewards(data.rewards);
+          if (data.rewards.rankChanged) setShowRankUp(true);
+        }
+      })
+      .catch(console.error);
 
     setPhase('result');
   }, [player, codeId, visitorId]);
@@ -1162,7 +1221,6 @@ export default function QGamesViewer({
           playerNickname={player.nickname}
           playerAvatar={player.avatarValue}
           onSelectGame={handleSelectGame}
-          onViewLeaderboard={() => setPhase('leaderboard')}
           onEditProfile={() => {
             setPhase('registration');
           }}
@@ -1172,6 +1230,10 @@ export default function QGamesViewer({
           matchesPerGame={matchesPerGame}
           queuePerGame={queuePerGame}
           liveMatches={liveMatches}
+          playerScore={player?.score || 0}
+          unopenedPacks={player?.unopenedPacks || 0}
+          onOpenPack={() => setShowPackOpening(true)}
+          locale={lang}
         />
       )}
 
@@ -1212,6 +1274,7 @@ export default function QGamesViewer({
           phrases={config.chatPhrases?.length ? config.chatPhrases : DEFAULT_CHAT_PHRASES}
           connectedPlayers={chatConnectedPlayers}
           isRTL={isRTL}
+          onViewLeaderboard={() => setPhase('leaderboard')}
         />
       )}
 
@@ -1529,7 +1592,7 @@ export default function QGamesViewer({
       )}
 
       {/* Powered by The Q */}
-      <div className="fixed bottom-2 inset-x-0 flex justify-center pointer-events-none z-10">
+      <div className="fixed bottom-1 inset-x-0 flex justify-center pointer-events-none z-30">
         <button
           onClick={() => setShowExitToQ(true)}
           className="text-white/20 text-[10px] hover:text-white/40 transition-colors pointer-events-auto"
@@ -1589,6 +1652,39 @@ export default function QGamesViewer({
         </div>
       )}
     </div>
+
+      {/* Rank-up overlay */}
+      {showRankUp && pendingRewards && (
+        <QGamesRankUpOverlay
+          previousRankId={pendingRewards.previousRankId}
+          newRankId={pendingRewards.newRankId}
+          isRTL={isRTL}
+          locale={lang}
+          onComplete={() => setShowRankUp(false)}
+        />
+      )}
+
+      {/* Pack opening modal */}
+      {showPackOpening && player && (
+        <QGamesPackOpening
+          isOpen={showPackOpening}
+          onClose={() => setShowPackOpening(false)}
+          onPrizeReceived={(prize, remaining) => {
+            if (player) {
+              const updated = {
+                ...player,
+                inventory: [...(player.inventory || []), prize],
+                unopenedPacks: remaining,
+              };
+              setPlayer(updated);
+              savePlayerSession(codeId, updated);
+            }
+          }}
+          codeId={codeId}
+          playerId={visitorId}
+          locale={lang}
+        />
+      )}
     </div>
     </QGamesThemeProvider>
   );

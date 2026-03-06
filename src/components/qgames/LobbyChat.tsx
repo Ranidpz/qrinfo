@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, ChevronDown, X, AtSign } from 'lucide-react';
+import { MessageCircle, ChevronDown, X, AtSign, Trophy } from 'lucide-react';
 import { useQGamesTheme } from './QGamesThemeContext';
 import {
   QGamesChatPhrase,
@@ -28,6 +28,7 @@ interface LobbyChatProps {
   phrases: QGamesChatPhrase[];
   connectedPlayers: ConnectedPlayer[];
   isRTL: boolean;
+  onViewLeaderboard?: () => void;
 }
 
 export default function LobbyChat({
@@ -39,6 +40,7 @@ export default function LobbyChat({
   phrases,
   connectedPlayers,
   isRTL,
+  onViewLeaderboard,
 }: LobbyChatProps) {
   const theme = useQGamesTheme();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -131,38 +133,58 @@ export default function LobbyChat({
   // ── Collapsed bar ──
   if (!isExpanded) {
     return (
-      <button
-        onClick={() => setIsExpanded(true)}
-        className="fixed bottom-4 left-4 right-4 z-40 flex items-center gap-2 py-2.5 px-4 rounded-2xl transition-all duration-200 active:scale-[0.98]"
-        style={{
-          backgroundColor: theme.surfaceColor,
-          border: `1px solid ${theme.borderColor}`,
-          backdropFilter: 'blur(12px)',
-        }}
+      <div
+        className="fixed bottom-6 left-4 right-4 z-40 flex items-center gap-2"
         dir={isRTL ? 'rtl' : 'ltr'}
       >
-        <div className="relative">
-          <MessageCircle size={18} style={{ color: theme.accentColor }} />
-          {unreadCount > 0 && (
-            <span
-              className="absolute -top-1.5 -end-1.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse"
-              style={{ backgroundColor: theme.accentColor, color: theme.backgroundColor }}
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
-        </div>
-        <span
-          className="flex-1 text-start text-sm truncate"
-          style={{ color: lastMessage ? theme.textColor : theme.textSecondary }}
+        {/* Chat button */}
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="flex-1 flex items-center gap-2 py-2.5 px-4 rounded-2xl transition-all duration-200 active:scale-[0.98]"
+          style={{
+            backgroundColor: theme.surfaceColor,
+            border: `1px solid ${theme.borderColor}`,
+            backdropFilter: 'blur(12px)',
+          }}
         >
-          {lastMessage
-            ? `${lastMessage.senderNickname}: ${lastMessage.phraseType === 'emoji' ? lastMessage.text : (lastMessage.emoji ? `${lastMessage.emoji} ${lastMessage.text}` : lastMessage.text)}`
-            : (isRTL ? 'צ\'אט' : 'Chat')
-          }
-        </span>
-        <ChevronDown size={16} style={{ color: theme.textSecondary, transform: 'rotate(180deg)' }} />
-      </button>
+          <div className="relative">
+            <MessageCircle size={18} style={{ color: theme.accentColor }} />
+            {unreadCount > 0 && (
+              <span
+                className="absolute -top-1.5 -end-1.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse"
+                style={{ backgroundColor: theme.accentColor, color: theme.backgroundColor }}
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </div>
+          <span
+            className="flex-1 text-start text-sm truncate"
+            style={{ color: lastMessage ? theme.textColor : theme.textSecondary }}
+          >
+            {lastMessage
+              ? `${lastMessage.senderNickname}: ${lastMessage.phraseType === 'emoji' ? lastMessage.text : (lastMessage.emoji ? `${lastMessage.emoji} ${lastMessage.text}` : lastMessage.text)}`
+              : (isRTL ? 'צ\'אט' : 'Chat')
+            }
+          </span>
+          <ChevronDown size={16} style={{ color: theme.textSecondary, transform: 'rotate(180deg)' }} />
+        </button>
+
+        {/* Leaderboard button */}
+        {onViewLeaderboard && (
+          <button
+            onClick={onViewLeaderboard}
+            className="shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-[0.95]"
+            style={{
+              backgroundColor: theme.surfaceColor,
+              border: `1px solid ${theme.borderColor}`,
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            <Trophy size={18} style={{ color: theme.accentColor }} />
+          </button>
+        )}
+      </div>
     );
   }
 

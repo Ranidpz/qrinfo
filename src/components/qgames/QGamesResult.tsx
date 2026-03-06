@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RotateCcw, Trophy, List, Share2 } from 'lucide-react';
+import { RotateCcw, Trophy, Share2, ChevronRight, ChevronLeft, Gift } from 'lucide-react';
 import { useQGamesTheme } from './QGamesThemeContext';
 import { QGameType } from '@/types/qgames';
 import RPSAnimatedEmoji from './RPSAnimatedEmoji';
@@ -35,6 +35,9 @@ interface QGamesResultProps {
   thirdPlayerNickname?: string;
   thirdPlayerAvatar?: string;
   thirdPlayerScore?: number;
+  // Rewards
+  packsEarned?: number;
+  onOpenPack?: () => void;
 }
 
 const ANIMATED_EMOJI: Record<QGameType, React.ComponentType<{ className?: string }>> = {
@@ -68,6 +71,8 @@ export default function QGamesResult({
   thirdPlayerNickname,
   thirdPlayerAvatar,
   thirdPlayerScore,
+  packsEarned = 0,
+  onOpenPack,
 }: QGamesResultProps) {
   const theme = useQGamesTheme();
   const [showConfetti, setShowConfetti] = useState(false);
@@ -85,14 +90,17 @@ export default function QGamesResult({
     if (!shortId) return;
     const baseUrl = `https://qr.playzones.app/v/${shortId}`;
     const shareUrl = visitorId ? `${baseUrl}?invite=${visitorId}` : baseUrl;
-    const resultEmoji = isWinner ? '🏆' : isDraw ? '🤝' : '🎮';
-    const actionWord = isRTL
-      ? (isWinner ? 'ניצחתי' : 'שיחקתי')
-      : (isWinner ? 'I won' : 'I played');
-    const preposition = isRTL ? 'ב' : ' at ';
     const message = isRTL
-      ? `${resultEmoji} ${actionWord} ${preposition}${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 בואו לשחק נגדי!\n${shareUrl}`
-      : `${resultEmoji} ${actionWord}${preposition}${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 Come play against me!\n${shareUrl}`;
+      ? (isWinner
+        ? `🏆 ניצחתי את ${oppNickname} ב${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 בואו לשחק איתי!\n${shareUrl}`
+        : isDraw
+          ? `🤝 תיקו עם ${oppNickname} ב${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 בואו לשחק איתי!\n${shareUrl}`
+          : `😤 הפסדתי ל${oppNickname} ב${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 בואו לשחק איתי!\n${shareUrl}`)
+      : (isWinner
+        ? `🏆 I beat ${oppNickname} at ${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 Come play with me!\n${shareUrl}`
+        : isDraw
+          ? `🤝 Drew with ${oppNickname} at ${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 Come play with me!\n${shareUrl}`
+          : `😤 Lost to ${oppNickname} at ${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 Come play with me!\n${shareUrl}`);
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -101,6 +109,16 @@ export default function QGamesResult({
       className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
       dir={isRTL ? 'rtl' : 'ltr'}
     >
+      {/* Back button - top */}
+      <button
+        onClick={onBackToSelector}
+        className="absolute top-4 start-4 flex items-center gap-1 py-2 px-3 rounded-xl text-sm font-medium transition-all active:scale-95 z-10"
+        style={{ color: theme.textSecondary }}
+      >
+        {isRTL ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        {t('backToGames')}
+      </button>
+
       {/* Confetti particles for winner */}
       {showConfetti && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -204,6 +222,21 @@ export default function QGamesResult({
           {t('playAgain')}
         </button>
 
+        {/* Open Pack */}
+        {packsEarned > 0 && onOpenPack && (
+          <button
+            onClick={onOpenPack}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-lg transition-all active:scale-95 text-white animate-pulse"
+            style={{
+              background: 'linear-gradient(135deg, #F59E0B, #EF4444)',
+              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.4)',
+            }}
+          >
+            <Gift className="w-5 h-5" />
+            {t('openPack')}
+          </button>
+        )}
+
         {/* WhatsApp Share */}
         {enableWhatsApp && shortId && (
           <button
@@ -225,14 +258,6 @@ export default function QGamesResult({
           {t('viewLeaderboard')}
         </button>
 
-        <button
-          onClick={onBackToSelector}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all"
-          style={{ color: theme.textSecondary }}
-        >
-          <List className="w-4 h-4" />
-          {t('backToGames')}
-        </button>
       </div>
     </div>
   );
