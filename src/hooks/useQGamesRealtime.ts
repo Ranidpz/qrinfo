@@ -18,6 +18,8 @@ import {
   RTDBMemoryState,
   RTDBMemoryPlayer,
   LiveMatchInfo,
+  ViewerPresenceData,
+  OnlineViewerInfo,
   QGamesChatMessage,
 } from '@/types/qgames';
 import {
@@ -35,8 +37,10 @@ import {
   setupMatchPresence,
   subscribeToMatchPresence,
   setupViewerPresence,
+  updateViewerPresenceInfo,
   subscribeToViewerCount,
   subscribeToActiveMatchStats,
+  subscribeToRecentViewers,
   cleanupStaleMatches,
   subscribeToChatMessages,
   subscribeToChatBan,
@@ -478,7 +482,8 @@ export function useMatchPresence(
  */
 export function useViewerPresence(
   codeId: string | null,
-  visitorId: string | null
+  visitorId: string | null,
+  playerInfo?: { nickname: string; avatarType: QGamesAvatarType; avatarValue: string } | null
 ): { viewerCount: number; activeMatches: number; matchesPerGame: Record<string, number>; queuePerGame: Record<string, number>; liveMatches: LiveMatchInfo[] } {
   const [viewerCount, setViewerCount] = useState(0);
   const [activeMatches, setActiveMatches] = useState(0);
@@ -486,15 +491,27 @@ export function useViewerPresence(
   const [queuePerGame, setQueuePerGame] = useState<Record<string, number>>({});
   const [liveMatches, setLiveMatches] = useState<LiveMatchInfo[]>([]);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const presenceSetupRef = useRef(false);
 
+  // Use primitives for deps to avoid infinite loops with object reference
+  const pNickname = playerInfo?.nickname;
+  const pAvatarType = playerInfo?.avatarType;
+  const pAvatarValue = playerInfo?.avatarValue;
+
+  // Main effect: setup presence + subscriptions (only on codeId/visitorId change)
   useEffect(() => {
     if (!codeId || !visitorId) return;
 
     let mounted = true;
+    presenceSetupRef.current = false;
 
-    // Register own presence
-    setupViewerPresence(codeId, visitorId).then(cleanup => {
-      if (mounted) cleanupRef.current = cleanup;
+    // Register own presence with player info if available
+    const info = pNickname ? { nickname: pNickname, avatarType: pAvatarType!, avatarValue: pAvatarValue! } : undefined;
+    setupViewerPresence(codeId, visitorId, info).then(cleanup => {
+      if (mounted) {
+        cleanupRef.current = cleanup;
+        presenceSetupRef.current = true;
+      }
       // Don't call cleanup() when stale — the new effect already owns the same RTDB path.
       // Calling cleanup() here would remove data the second effect just wrote (StrictMode race).
     });
@@ -536,9 +553,79 @@ export function useViewerPresence(
         cleanupRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeId, visitorId]);
 
+  // Separate effect: update viewer info when player profile changes (without tearing down presence)
+  useEffect(() => {
+    if (!codeId || !visitorId || !pNickname || !presenceSetupRef.current) return;
+    updateViewerPresenceInfo(codeId, visitorId, {
+      nickname: pNickname,
+      avatarType: pAvatarType!,
+      avatarValue: pAvatarValue!,
+    }).catch(() => {});
+  }, [codeId, visitorId, pNickname, pAvatarType, pAvatarValue]);
+
   return { viewerCount, activeMatches, matchesPerGame, queuePerGame, liveMatches };
+}
+
+// ============ ONLINE VIEWERS HOOK (for modal) ============
+
+/**
+ * Subscribe to recent online viewers. Only active when enabled=true (modal open).
+ * Cross-references with liveMatches to show playing status.
+ */
+export function useOnlineViewers(
+  codeId: string | null,
+  enabled: boolean,
+  liveMatches: LiveMatchInfo[]
+): OnlineViewerInfo[] {
+  const [rawViewers, setRawViewers] = useState<Array<ViewerPresenceData & { visitorId: string }>>([]);
+
+  useEffect(() => {
+    if (!codeId || !enabled) {
+      setRawViewers([]);
+      return;
+    }
+    const unsub = subscribeToRecentViewers(codeId, setRawViewers);
+    return () => unsub();
+  }, [codeId, enabled]);
+
+  return useMemo(() => {
+    return rawViewers
+      .filter(v => v.nickname) // Skip anonymous/unregistered viewers
+      .map(v => {
+        // Find if this viewer is in any live match (by player ID)
+        const matchInfo = liveMatches.find(m =>
+          m.player1Id === v.visitorId ||
+          m.player2Id === v.visitorId ||
+          m.player3Id === v.visitorId
+        );
+
+        let playingVs: string | undefined;
+        if (matchInfo) {
+          if (matchInfo.player1Id === v.visitorId) {
+            playingVs = matchInfo.player2Nickname;
+          } else if (matchInfo.player2Id === v.visitorId) {
+            playingVs = matchInfo.player1Nickname;
+          } else {
+            // player3 — show both opponents
+            playingVs = `${matchInfo.player1Nickname} & ${matchInfo.player2Nickname}`;
+          }
+        }
+
+        return {
+          visitorId: v.visitorId,
+          nickname: v.nickname,
+          avatarType: v.avatarType,
+          avatarValue: v.avatarValue,
+          joinedAt: v.joinedAt,
+          status: matchInfo ? 'playing' as const : 'idle' as const,
+          playingGame: matchInfo?.gameType,
+          playingVs,
+        };
+      });
+  }, [rawViewers, liveMatches]);
 }
 
 // ============ MEMORY ROOM HOOK ============

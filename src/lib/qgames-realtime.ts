@@ -38,6 +38,7 @@ import {
   MatchStatus,
   QGamesAvatarType,
   LiveMatchInfo,
+  ViewerPresenceData,
   QGamesChatMessage,
 } from '@/types/qgames';
 
@@ -861,10 +862,17 @@ export function subscribeToMatchPresence(
  */
 export async function setupViewerPresence(
   codeId: string,
-  visitorId: string
+  visitorId: string,
+  playerInfo?: { nickname: string; avatarType: QGamesAvatarType; avatarValue: string }
 ): Promise<() => void> {
   const viewerRef = ref(realtimeDb, QGAMES_PATHS.viewer(codeId, visitorId));
-  await set(viewerRef, { joinedAt: Date.now() });
+  const data: ViewerPresenceData = {
+    joinedAt: Date.now(),
+    nickname: playerInfo?.nickname || '',
+    avatarType: playerInfo?.avatarType || 'emoji',
+    avatarValue: playerInfo?.avatarValue || '👤',
+  };
+  await set(viewerRef, data);
   const disconnectRef = onDisconnect(viewerRef);
   disconnectRef.remove();
 
@@ -872,6 +880,20 @@ export async function setupViewerPresence(
     disconnectRef.cancel();
     remove(viewerRef);
   };
+}
+
+/** Update viewer presence with player info (e.g., after registration or avatar change) */
+export async function updateViewerPresenceInfo(
+  codeId: string,
+  visitorId: string,
+  playerInfo: { nickname: string; avatarType: QGamesAvatarType; avatarValue: string }
+): Promise<void> {
+  const viewerRef = ref(realtimeDb, QGAMES_PATHS.viewer(codeId, visitorId));
+  await update(viewerRef, {
+    nickname: playerInfo.nickname,
+    avatarType: playerInfo.avatarType,
+    avatarValue: playerInfo.avatarValue,
+  });
 }
 
 /** Subscribe to viewer count (number of connected viewers) */
@@ -885,6 +907,34 @@ export function subscribeToViewerCount(
   };
   onValue(viewersRef, callback);
   return () => off(viewersRef, 'value', callback);
+}
+
+/** Subscribe to recent viewers (last 30, ordered by joinedAt) for the online modal */
+export function subscribeToRecentViewers(
+  codeId: string,
+  onUpdate: (viewers: Array<ViewerPresenceData & { visitorId: string }>) => void
+): () => void {
+  const viewersQuery = query(
+    ref(realtimeDb, QGAMES_PATHS.viewers(codeId)),
+    orderByChild('joinedAt'),
+    limitToLast(30)
+  );
+  const callback = (snapshot: DataSnapshot) => {
+    if (!snapshot.exists()) {
+      onUpdate([]);
+      return;
+    }
+    const viewers: Array<ViewerPresenceData & { visitorId: string }> = [];
+    snapshot.forEach((child) => {
+      const data = child.val() as ViewerPresenceData;
+      viewers.push({ ...data, visitorId: child.key! });
+    });
+    // Reverse so newest first
+    viewers.reverse();
+    onUpdate(viewers);
+  };
+  onValue(viewersQuery, callback);
+  return () => off(viewersQuery, 'value', callback);
 }
 
 // ============ MEMORY ROOMS ============
@@ -1247,12 +1297,15 @@ export function subscribeToActiveMatchStats(
           liveMatches.push({
             matchId: match.id || child.key!,
             gameType: match.gameType,
+            player1Id: match.player1Id || '',
             player1Nickname: match.player1Nickname || '?',
             player1AvatarType: match.player1AvatarType || 'emoji',
             player1AvatarValue: match.player1AvatarValue || '🎮',
+            player2Id: match.player2Id || '',
             player2Nickname: match.player2Nickname || '?',
             player2AvatarType: match.player2AvatarType || 'emoji',
             player2AvatarValue: match.player2AvatarValue || '🎮',
+            player3Id: match.player3Id,
             player3Nickname: match.player3Nickname,
             player3AvatarType: match.player3AvatarType,
             player3AvatarValue: match.player3AvatarValue,

@@ -41,6 +41,7 @@ import {
   useMatchPresence,
   useQueueWatcher,
   useViewerPresence,
+  useOnlineViewers,
   useQGamesQueue,
 } from '@/hooks/useQGamesRealtime';
 
@@ -62,6 +63,7 @@ import QGamesRankBadge from '@/components/qgames/QGamesRankBadge';
 import QGamesPackOpening from '@/components/qgames/QGamesPackOpening';
 import QGamesRankUpOverlay from '@/components/qgames/QGamesRankUpOverlay';
 import QGamesInventory from '@/components/qgames/QGamesInventory';
+import OnlinePlayersModal from '@/components/qgames/OnlinePlayersModal';
 import { QGamesRewardsResult, QGamesInventoryItem, QGamesPrizeType } from '@/types/qgames';
 
 // ============ Translations ============
@@ -459,7 +461,15 @@ export default function QGamesViewer({
   }, [match, visitorId, isBotMatch]);
 
   // Viewer presence + live stats (active across all phases)
-  const { viewerCount, activeMatches, matchesPerGame, queuePerGame, liveMatches } = useViewerPresence(codeId, visitorId);
+  const { viewerCount, activeMatches, matchesPerGame, queuePerGame, liveMatches } = useViewerPresence(
+    codeId,
+    visitorId,
+    player ? { nickname: player.nickname, avatarType: player.avatarType, avatarValue: player.avatarValue } : null
+  );
+
+  // Online players modal
+  const [showOnlinePlayers, setShowOnlinePlayers] = useState(false);
+  const onlineViewers = useOnlineViewers(codeId, showOnlinePlayers, liveMatches);
 
   // Queue entries for chat mention picker (connected players with nicknames)
   const { entries: allQueueEntries } = useQGamesQueue(
@@ -1300,7 +1310,18 @@ export default function QGamesViewer({
           connectedPlayers={chatConnectedPlayers}
           isRTL={isRTL}
           onViewLeaderboard={() => setPhase('leaderboard')}
+          onViewOnline={() => setShowOnlinePlayers(true)}
           viewerCount={viewerCount}
+        />
+      )}
+
+      {/* Online Players Modal */}
+      {showOnlinePlayers && (
+        <OnlinePlayersModal
+          viewers={onlineViewers}
+          viewerCount={viewerCount}
+          isRTL={isRTL}
+          onClose={() => setShowOnlinePlayers(false)}
         />
       )}
 

@@ -375,16 +375,39 @@ export interface RTDBMatch {
 export interface LiveMatchInfo {
   matchId: string;
   gameType: QGameType;
+  player1Id: string;
   player1Nickname: string;
   player1AvatarType: QGamesAvatarType;
   player1AvatarValue: string;
+  player2Id: string;
   player2Nickname: string;
   player2AvatarType: QGamesAvatarType;
   player2AvatarValue: string;
+  player3Id?: string;
   player3Nickname?: string;
   player3AvatarType?: QGamesAvatarType;
   player3AvatarValue?: string;
   startedAt: number;
+}
+
+/** Viewer presence data stored in RTDB */
+export interface ViewerPresenceData {
+  joinedAt: number;
+  nickname: string;
+  avatarType: QGamesAvatarType;
+  avatarValue: string;
+}
+
+/** Viewer info for the online players modal (enriched with status) */
+export interface OnlineViewerInfo {
+  visitorId: string;
+  nickname: string;
+  avatarType: QGamesAvatarType;
+  avatarValue: string;
+  joinedAt: number;
+  status: 'idle' | 'playing';
+  playingGame?: QGameType;
+  playingVs?: string;
 }
 
 /** RPS round state in RTDB */

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.37';
+export const APP_VERSION = '1.13.38';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.37',
+    version: '1.13.38',
     date: '2026-03-06',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: מודל שחקנים מחוברים — לחצו על מספר המחוברים לראות מי אונליין',
+        'שיפור: תמונת פרופיל ושם מוצגים בנוכחות אונליין',
+        'שיפור: סטטוס "משחק נגד..." לשחקנים במשחק פעיל',
+      ],
+      en: [
+        'New: Online players modal — tap viewer count to see who\'s online',
+        'Improvement: Profile photo and name shown in online presence',
+        'Improvement: "Playing vs..." status for players in active matches',
+      ],
+    },
+  },
+  {
+    version: '1.13.37',
+    date: '2026-03-06',
     highlights: {
       he: [
         'שיפור: אנימציית slide-in למודל מידע',

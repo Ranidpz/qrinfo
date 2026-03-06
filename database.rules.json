@@ -28,6 +28,9 @@
       "$codeId": {
         ".read": true,
         ".write": true,
+        "viewers": {
+          ".indexOn": ["joinedAt"]
+        },
         "chat": {
           ".indexOn": ["sentAt"],
           "$messageId": {

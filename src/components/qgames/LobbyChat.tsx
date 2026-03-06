@@ -29,6 +29,7 @@ interface LobbyChatProps {
   connectedPlayers: ConnectedPlayer[];
   isRTL: boolean;
   onViewLeaderboard?: () => void;
+  onViewOnline?: () => void;
   viewerCount?: number;
 }
 
@@ -42,6 +43,7 @@ export default function LobbyChat({
   connectedPlayers,
   isRTL,
   onViewLeaderboard,
+  onViewOnline,
   viewerCount = 0,
 }: LobbyChatProps) {
   const theme = useQGamesTheme();
@@ -174,8 +176,9 @@ export default function LobbyChat({
 
         {/* Online count */}
         {viewerCount > 0 && (
-          <div
-            className="shrink-0 flex items-center gap-1 px-2.5 h-11 rounded-2xl"
+          <button
+            onClick={onViewOnline}
+            className="shrink-0 flex items-center gap-1 px-2.5 h-11 rounded-2xl transition-all active:scale-[0.95]"
             style={{
               backgroundColor: theme.surfaceColor,
               border: `1px solid ${theme.borderColor}`,
@@ -184,7 +187,7 @@ export default function LobbyChat({
           >
             <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: theme.accentColor }} />
             <span className="text-xs font-medium tabular-nums" style={{ color: theme.textColor }}>{viewerCount}</span>
-          </div>
+          </button>
         )}
 
         {/* Leaderboard button */}
