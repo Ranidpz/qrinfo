@@ -73,25 +73,27 @@ export default function QGamesRankBadge({
 
       {/* Progress bar */}
       {showProgress && (
-        <div className="w-full max-w-[160px] flex flex-col gap-0.5">
+        <div className="w-full max-w-[180px] flex flex-col gap-0.5 mt-0.5">
           <div
-            className="h-1.5 rounded-full overflow-hidden"
+            className="h-2 rounded-full overflow-hidden"
             style={{ backgroundColor: `${theme.textColor}15` }}
           >
             <div
-              className="h-full rounded-full transition-all duration-1000 ease-out"
+              className="h-full rounded-full"
               style={{
                 width: `${Math.min(animatedProgress, 100)}%`,
                 backgroundColor: rank.color,
+                boxShadow: animatedProgress > 0 ? `0 0 6px ${rank.color}66` : 'none',
+                transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             />
           </div>
           <div className="flex items-center gap-1">
             {NextRankIcon && (
-              <NextRankIcon size={10} style={{ color: nextRank!.color, opacity: 0.7 }} />
+              <NextRankIcon size={11} style={{ color: nextRank!.color, opacity: 0.7 }} />
             )}
             <span
-              className="text-[10px]"
+              className="text-xs"
               style={{ color: theme.textSecondary }}
             >
               {isMaxRank

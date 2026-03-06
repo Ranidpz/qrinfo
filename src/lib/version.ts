@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.35';
+export const APP_VERSION = '1.13.36';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.35',
+    version: '1.13.36',
     date: '2026-03-06',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: מסך "התקינו כאפליקציה" לא קופץ יותר בדפדפן רגיל',
+        'שיפור: כפתור מידע עבר לצד השני של הפרופיל',
+        'שיפור: טקסט התקדמות דירוג גדול יותר + פס עבה עם אנימציה',
+        'שיפור: כותרת המשחק גדולה וברורה יותר',
+      ],
+      en: [
+        'Fix: "Install as App" screen no longer appears in regular browser',
+        'Improvement: Info button moved to opposite side of profile',
+        'Improvement: Rank progress text bigger + thicker bar with glow animation',
+        'Improvement: Game title larger and more visible',
+      ],
+    },
+  },
+  {
+    version: '1.13.35',
+    date: '2026-03-06',
     highlights: {
       he: [
         'חדש: כפתור התקנה כאפליקציה (PWA) במסך הרשמה',

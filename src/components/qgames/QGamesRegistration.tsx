@@ -6,7 +6,9 @@ import { QGamesConfig, DEFAULT_QGAMES_EMOJI_PALETTE } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import { compressImage } from '@/lib/imageCompression';
 
-/** Detect if running inside an in-app browser (WhatsApp, Facebook, Instagram, etc.) */
+/** Detect if running inside an in-app browser (WhatsApp, Facebook, Instagram, etc.)
+ *  Only detect via known UA strings — avoid fragile heuristics like window.safari check
+ *  which causes false positives in regular Safari. */
 function isInAppBrowser(): boolean {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
@@ -14,7 +16,7 @@ function isInAppBrowser(): boolean {
   if (/FBAN|FBAV/i.test(ua)) return true;
   // Instagram
   if (/Instagram/i.test(ua)) return true;
-  // WhatsApp (Android includes it in UA; iOS sometimes doesn't)
+  // WhatsApp
   if (/WhatsApp/i.test(ua)) return true;
   // Telegram
   if (/TelegramBot|Telegram/i.test(ua)) return true;
@@ -22,18 +24,6 @@ function isInAppBrowser(): boolean {
   if (/\bLine\//i.test(ua)) return true;
   // Android WebView (generic)
   if (/; wv\b/.test(ua)) return true;
-  // iOS: SFSafariViewController doesn't add identifiers to UA,
-  // but we can detect it by checking if window.safari is missing on iOS Safari
-  if (/iPhone|iPad|iPod/.test(ua) && /AppleWebKit/.test(ua)) {
-    // In regular Safari, window has a safari property
-    // In SFSafariViewController (WhatsApp, etc.), it's missing
-    if (typeof window !== 'undefined' && !('safari' in window)) {
-      // Additional check: not Chrome/Firefox/other known iOS browsers
-      if (!/CriOS|FxiOS|OPiOS|EdgiOS/.test(ua)) {
-        return true;
-      }
-    }
-  }
   return false;
 }
 

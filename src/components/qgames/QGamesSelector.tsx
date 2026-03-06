@@ -65,13 +65,17 @@ export default function QGamesSelector({
       dir={isRTL ? 'rtl' : 'ltr'}
       style={{ fontFamily: 'var(--font-assistant), sans-serif' }}
     >
-      {/* Bounce-in keyframes for game cards */}
+      {/* Keyframes */}
       <style>{`
         @keyframes game-card-bounce-in {
           0% { opacity: 0; transform: translateY(30px) scale(0.95); }
           50% { opacity: 1; transform: translateY(-4px) scale(1.01); }
           70% { transform: translateY(2px) scale(0.995); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes info-slide-up {
+          0% { opacity: 0; transform: translateY(100%); }
+          100% { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
@@ -93,18 +97,8 @@ export default function QGamesSelector({
         <div
           className={`${config.branding.eventLogo ? 'pt-2' : 'pt-4'} pb-3 w-full animate-in fade-in slide-in-from-top-4 duration-500`}
         >
-          {/* Main row: info button + avatar + name/rank + action buttons */}
+          {/* Main row: avatar + name/rank + info + action buttons */}
           <div className="flex items-center gap-2.5">
-            {/* Info button */}
-            <button
-              onClick={() => setShowInfo(true)}
-              className="shrink-0 p-2 rounded-full transition-colors active:scale-95"
-              style={{ color: theme.textSecondary }}
-              aria-label={t('infoTitle')}
-            >
-              <Info className="w-5 h-5" />
-            </button>
-
             {/* Avatar */}
             <button
               onClick={onEditProfile}
@@ -143,6 +137,16 @@ export default function QGamesSelector({
                 locale={locale || (isRTL ? 'he' : 'en')}
               />
             </div>
+
+            {/* Info button */}
+            <button
+              onClick={() => setShowInfo(true)}
+              className="shrink-0 p-2 rounded-full transition-colors active:scale-95"
+              style={{ color: theme.textSecondary }}
+              aria-label={t('infoTitle')}
+            >
+              <Info className="w-5 h-5" />
+            </button>
 
             {/* Action buttons */}
             <div className="shrink-0 flex items-center gap-1.5">
@@ -187,7 +191,7 @@ export default function QGamesSelector({
       <div className="flex-1 overflow-y-auto px-6 pb-20 flex flex-col items-center">
         {/* Game title */}
         {gameName !== 'Q.Games' && (
-          <p className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: theme.textSecondary }}>
+          <p className="text-sm font-bold tracking-wide mb-3" style={{ color: theme.textColor, opacity: 0.7 }}>
             {gameName}
           </p>
         )}
@@ -371,12 +375,13 @@ export default function QGamesSelector({
           onClick={() => { setShowInfo(false); setShowLeaveConfirm(false); }}
         >
           <div
-            className="rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 pb-8 sm:pb-5 relative animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 max-h-[85vh] overflow-y-auto"
+            className="rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 pb-8 sm:pb-5 relative max-h-[85vh] overflow-y-auto"
             dir={isRTL ? 'rtl' : 'ltr'}
             style={{
               backgroundColor: theme.surfaceColor,
               border: `1px solid ${theme.borderColor}`,
               scrollbarWidth: 'none',
+              animation: 'info-slide-up 0.3s ease-out',
             }}
             onClick={(e) => e.stopPropagation()}
           >
