@@ -768,7 +768,7 @@ export default function MemoryGame({
           </div>
 
           <p className="text-sm mb-4 font-medium" style={{ color: theme.textSecondary }}>
-            {isRTL ? 'זכרו את הסדר!' : 'Remember the order!'}
+            {isRTL ? 'זכרו את הסדר מימין לשמאל!' : 'Remember the order, right to left!'}
           </p>
 
           {/* Target emojis displayed */}
@@ -819,7 +819,7 @@ export default function MemoryGame({
                 ? (isRTL ? 'טעות! ❌' : 'Wrong! ❌')
                 : roundSubmitted
                   ? (isRTL ? 'מצוין! ✅' : 'Perfect! ✅')
-                  : (isRTL ? 'מה היה הסדר?' : 'What was the order?')}
+                  : (isRTL ? 'בחרו לפי הסדר מימין לשמאל' : 'Pick in order, right to left')}
           </p>
           <p className="text-xs mb-4 tabular-nums" style={{ color: recallTimer.timeLeft < 3 ? '#ef4444' : theme.textSecondary }}>
             {Math.ceil(recallTimer.timeLeft)}s
@@ -831,26 +831,29 @@ export default function MemoryGame({
               const emoji = selections[i];
               const isCorrect = emoji && room.targetEmojis[i] === emoji;
               const isWrong = emoji && room.targetEmojis[i] !== emoji;
+              const isNextSlot = !emoji && i === selections.length && !roundFailed && !roundSubmitted && !amEliminated;
 
               return (
                 <div
                   key={i}
                   className={`rounded-2xl flex items-center justify-center transition-all ${
                     room.difficulty > 4 ? 'w-14 h-14 text-3xl' : 'w-16 h-16 text-4xl'
-                  } ${emoji ? 'animate-in zoom-in-50 duration-200' : ''}`}
+                  } ${emoji ? 'animate-in zoom-in-50 duration-200' : ''} ${isNextSlot ? 'animate-pulse' : ''}`}
                   style={{
                     backgroundColor: isWrong
                       ? 'rgba(239,68,68,0.15)'
                       : isCorrect
                         ? `${theme.accentColor}15`
-                        : theme.surfaceColor,
+                        : isNextSlot
+                          ? 'rgba(16,185,129,0.12)'
+                          : theme.surfaceColor,
                     border: `2px solid ${
-                      isWrong ? '#ef4444' : isCorrect ? theme.accentColor : `${theme.primaryColor}40`
+                      isWrong ? '#ef4444' : isCorrect ? theme.accentColor : isNextSlot ? '#10b981' : `${theme.primaryColor}40`
                     }`,
                   }}
                 >
                   {emoji || (
-                    <span className="text-lg font-bold" style={{ color: `${theme.textSecondary}40` }}>{i + 1}</span>
+                    <span className="text-lg font-bold" style={{ color: isNextSlot ? '#10b981' : `${theme.textSecondary}40` }}>{i + 1}</span>
                   )}
                 </div>
               );
@@ -860,7 +863,7 @@ export default function MemoryGame({
           {/* Instruction */}
           {!roundFailed && !roundSubmitted && !amEliminated && (
             <p className="text-xs mb-3" style={{ color: theme.textSecondary }}>
-              {isRTL ? 'בחרו מלמטה בסדר הנכון:' : 'Pick from below in correct order:'}
+              {isRTL ? 'בחרו מלמטה מימין לשמאל:' : 'Pick from below, right to left:'}
             </p>
           )}
 

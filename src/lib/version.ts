@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.41';
+export const APP_VERSION = '1.13.42';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.41',
+    version: '1.13.42',
     date: '2026-03-06',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: משחק זיכרון — הוראות "מימין לשמאל" ברורות',
+        'שיפור: סימון ירוק על המשבצת הבאה למילוי',
+      ],
+      en: [
+        'Improvement: Memory game — clear "right to left" instructions',
+        'Improvement: Green highlight on the next slot to fill',
+      ],
+    },
+  },
+  {
+    version: '1.13.41',
+    date: '2026-03-06',
     highlights: {
       he: [
         'תיקון: פתיחת חבילה — שגיאה בפתיחת חבילה תוקנה',
