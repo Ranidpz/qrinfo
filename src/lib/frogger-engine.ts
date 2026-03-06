@@ -76,14 +76,14 @@ export function generateLanes(seed: number, laneCount: number, baseSpeed: number
 
   for (let i = 0; i < laneCount; i++) {
     const direction: 'left' | 'right' = rng() > 0.5 ? 'right' : 'left';
-    // Speed varies: 0.5x to 1.5x of baseSpeed, mapped to px/sec relative to viewport
-    const speedMultiplier = 0.5 + rng() * 1.0;
-    const speed = baseSpeed * speedMultiplier * 100; // px/sec at viewport=100% reference
+    // Speed varies: 0.3x to 0.8x of baseSpeed, mapped to px/sec relative to viewport
+    const speedMultiplier = 0.3 + rng() * 0.5;
+    const speed = baseSpeed * speedMultiplier * 60; // px/sec at viewport=100% reference
 
     const color = ENEMY_COLORS[i % ENEMY_COLORS.length];
 
-    // Generate enemies for this lane (3-6 enemies per cycle)
-    const enemyCount = 3 + Math.floor(rng() * 4);
+    // Generate enemies for this lane (2-4 enemies per cycle)
+    const enemyCount = 2 + Math.floor(rng() * 3);
     const enemies: FroggerEnemyDef[] = [];
 
     // Total cycle length = ~3x viewport width (enemies spaced across it)
