@@ -1530,13 +1530,14 @@ export default function QGamesViewer({
             isRTL={isRTL}
             t={t}
             codeId={codeId}
-          />
-          <QGamesMatchHistory
-            codeId={codeId}
-            currentPlayerId={visitorId || undefined}
-            isRTL={isRTL}
-            t={t}
-          />
+          >
+            <QGamesMatchHistory
+              codeId={codeId}
+              currentPlayerId={visitorId || undefined}
+              isRTL={isRTL}
+              t={t}
+            />
+          </QGamesLeaderboard>
           {player && config.chatEnabled !== false && (
             <LobbyChat
               codeId={codeId}

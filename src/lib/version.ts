@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.39';
+export const APP_VERSION = '1.13.40';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.39',
+    version: '1.13.40',
     date: '2026-03-06',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: כותרת לידרבורד נשארת קבועה למעלה בגלילה (באמת)',
+        'שיפור: היסטוריית משחקים נגללת יחד עם הלידרבורד',
+      ],
+      en: [
+        'Fix: Leaderboard header actually stays fixed on scroll',
+        'Improvement: Match history scrolls together with leaderboard',
+      ],
+    },
+  },
+  {
+    version: '1.13.39',
+    date: '2026-03-06',
     highlights: {
       he: [
         'חדש: טבעת התקדמות חבילה — רואים כמה נשאר עד לחבילה הבאה',

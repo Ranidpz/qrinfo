@@ -45,6 +45,7 @@ interface QGamesLeaderboardProps {
   t: (key: string) => string;
   compact?: boolean;
   codeId?: string;
+  children?: React.ReactNode;
 }
 
 /** Get per-game stats for an entry */
@@ -93,6 +94,7 @@ export default function QGamesLeaderboard({
   t,
   compact = false,
   codeId,
+  children,
 }: QGamesLeaderboardProps) {
   const theme = useQGamesTheme();
   const rankMedals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
@@ -182,7 +184,7 @@ export default function QGamesLeaderboard({
   const hasActiveFilter = gameFilter !== 'all' || sortMode !== 'score';
 
   return (
-    <div dir={isRTL ? 'rtl' : 'ltr'} className={compact ? '' : 'min-h-screen flex flex-col'}>
+    <div dir={isRTL ? 'rtl' : 'ltr'} className={compact ? '' : 'fixed inset-0 flex flex-col'} style={compact ? undefined : { backgroundColor: theme.backgroundColor }}>
       {/* Custom keyframes */}
       <style>{`
         @keyframes leaderboardRowIn {
@@ -199,9 +201,9 @@ export default function QGamesLeaderboard({
         }
       `}</style>
 
-      {/* Sticky Header + Filters */}
+      {/* Fixed Header + Filters */}
       {!compact && (
-        <div className="sticky top-0 z-10 px-4 pt-4 pb-1" style={{ backgroundColor: theme.backgroundColor }}>
+        <div className="shrink-0 px-4 pt-4 pb-1">
           <div className="flex items-center gap-3 mb-3">
             {onBack && (
               <button
@@ -307,8 +309,8 @@ export default function QGamesLeaderboard({
         </div>
       )}
 
-      {/* Leaderboard List */}
-      <div className={compact ? 'space-y-1' : 'space-y-1 px-4 pb-20 flex-1'}>
+      {/* Leaderboard List (scrollable) */}
+      <div className={compact ? 'space-y-1' : 'space-y-1 px-4 pb-24 flex-1 overflow-y-auto'} style={compact ? undefined : { scrollbarWidth: 'none' as const }}>
         {topEntries.length === 0 && (
           <p className="text-white/30 text-sm text-center py-8">{t('noPlayersYet')}</p>
         )}
@@ -416,14 +418,17 @@ export default function QGamesLeaderboard({
             </div>
           );
         })}
-      </div>
 
-      {/* Min games notice */}
-      {sortMode === 'winrate' && topEntries.some(e => getGameStats(e, gameFilter).played < MIN_GAMES_FOR_WINRATE) && (
-        <p className="text-white/20 text-[10px] text-center mt-2">
-          {t('minGames')}
-        </p>
-      )}
+        {/* Min games notice */}
+        {sortMode === 'winrate' && topEntries.some(e => getGameStats(e, gameFilter).played < MIN_GAMES_FOR_WINRATE) && (
+          <p className="text-white/20 text-[10px] text-center mt-2">
+            {t('minGames')}
+          </p>
+        )}
+
+        {/* Extra content (e.g. match history) rendered inside scrollable area */}
+        {children}
+      </div>
 
       {/* Player Stats Modal */}
       {selectedPlayer && (
