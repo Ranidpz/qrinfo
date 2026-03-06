@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { User, Camera, X, Check, RotateCcw, Loader2, ZoomIn, ZoomOut, ExternalLink, Copy, CheckCheck } from 'lucide-react';
+import { User, Camera, X, Check, RotateCcw, Loader2, ZoomIn, ZoomOut, ExternalLink, Copy, CheckCheck, Download, Share, MoreVertical } from 'lucide-react';
 import { QGamesConfig, DEFAULT_QGAMES_EMOJI_PALETTE } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import { compressImage } from '@/lib/imageCompression';
@@ -35,6 +35,24 @@ function isInAppBrowser(): boolean {
     }
   }
   return false;
+}
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as { MSStream?: unknown }).MSStream;
+}
+
+function isStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as { standalone?: boolean }).standalone === true
+  );
 }
 
 interface QGamesRegistrationProps {
@@ -95,8 +113,38 @@ export default function QGamesRegistration({
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // PWA install state
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isIOSDevice, setIsIOSDevice] = useState(false);
+  const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+  const [showAndroidInstructions, setShowAndroidInstructions] = useState(false);
+  const [isPWAInstalled, setIsPWAInstalled] = useState(false);
+
   useEffect(() => {
-    setInAppBrowser(isInAppBrowser());
+    const inApp = isInAppBrowser();
+    setInAppBrowser(inApp);
+    setIsPWAInstalled(isStandalone());
+    setIsIOSDevice(isIOS());
+
+    // Don't set up PWA listeners in in-app browser
+    if (inApp) return;
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    const handleAppInstalled = () => {
+      setIsPWAInstalled(true);
+      setDeferredPrompt(null);
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
   const startCamera = useCallback(async () => {
@@ -256,6 +304,23 @@ export default function QGamesRegistration({
     }
   }, []);
 
+  const handleInstall = useCallback(async () => {
+    if (isIOSDevice) {
+      setShowIOSInstructions(true);
+      return;
+    }
+    if (deferredPrompt) {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsPWAInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      setShowAndroidInstructions(true);
+    }
+  }, [deferredPrompt, isIOSDevice]);
+
   // Full-screen in-app browser gate
   if (inAppBrowser && !bannerDismissed) {
     return (
@@ -279,19 +344,19 @@ export default function QGamesRegistration({
           className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
           style={{ backgroundColor: `${theme.accentColor}20` }}
         >
-          <ExternalLink className="w-10 h-10" style={{ color: theme.accentColor }} />
+          <Download className="w-10 h-10" style={{ color: theme.accentColor }} />
         </div>
 
         {/* Title */}
         <h1 className="text-2xl font-bold text-center mb-2" style={{ color: theme.textColor }}>
-          {isRTL ? 'פתחו בדפדפן כדי לשחק' : 'Open in browser to play'}
+          {isRTL ? 'התקינו כאפליקציה' : 'Install as App'}
         </h1>
 
         {/* Subtitle */}
         <p className="text-center mb-8 max-w-xs" style={{ color: theme.textSecondary }}>
           {isRTL
-            ? 'כדי שהפרופיל שלכם יישמר ולא תצטרכו להירשם מחדש, פתחו את הלינק בדפדפן'
-            : 'Open this link in your browser so your profile is saved and you don\'t have to register again'}
+            ? 'פתחו בדפדפן → התקינו למסך הבית → הפרופיל שלכם יישמר לתמיד!'
+            : 'Open in browser → Install to home screen → Your profile is saved forever!'}
         </p>
 
         {/* Open in browser button */}
@@ -333,7 +398,7 @@ export default function QGamesRegistration({
   }
 
   return (
-    <div className="min-h-[100dvh] flex flex-col items-center justify-start pt-8 pb-6 px-6" dir={isRTL ? 'rtl' : 'ltr'}>
+    <><div className="min-h-[100dvh] flex flex-col items-center justify-start pt-8 pb-6 px-6" dir={isRTL ? 'rtl' : 'ltr'}>
 
       {/* Event Logo */}
       {config.branding.eventLogo && (
@@ -349,6 +414,36 @@ export default function QGamesRegistration({
         <h1 className="text-2xl font-bold mb-0.5" style={{ color: theme.textColor }}>{!config.branding.eventLogo && '🎮 '}{gameName}</h1>
         <p className="text-sm" style={{ color: theme.textSecondary }}>{t('joinToPlay')}</p>
       </div>
+
+      {/* PWA Install Card - show in regular browser when not installed */}
+      {!isPWAInstalled && !inAppBrowser && (
+        <div
+          className="w-full max-w-sm mb-3 p-3 rounded-2xl flex items-center gap-3"
+          style={{ backgroundColor: theme.surfaceColor, border: `1px solid ${theme.borderColor}` }}
+        >
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+          >
+            <Download className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium" style={{ color: theme.textColor }}>
+              {isRTL ? 'התקינו לגישה מהירה' : 'Install for quick access'}
+            </p>
+            <p className="text-xs" style={{ color: theme.textSecondary }}>
+              {isRTL ? 'הפרופיל שלכם יישמר' : 'Your profile will be saved'}
+            </p>
+          </div>
+          <button
+            onClick={handleInstall}
+            className="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium text-white transition-all active:scale-95"
+            style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+          >
+            {isRTL ? 'התקנה' : 'Install'}
+          </button>
+        </div>
+      )}
 
       {/* Camera View */}
       {showCamera ? (
@@ -489,5 +584,150 @@ export default function QGamesRegistration({
         </>
       )}
     </div>
+
+    {/* iOS Install Instructions Modal */}
+    {showIOSInstructions && (
+      <div className="fixed inset-0 z-[60] flex items-end justify-center">
+        <div className="absolute inset-0 bg-black/50" onClick={() => setShowIOSInstructions(false)} />
+        <div
+          className="relative rounded-t-3xl shadow-xl w-full max-h-[70vh] overflow-hidden"
+          style={{ backgroundColor: theme.surfaceColor }}
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          <div className="flex justify-center py-3">
+            <div className="w-12 h-1.5 rounded-full" style={{ backgroundColor: theme.borderColor }} />
+          </div>
+          <div className="px-6 pb-8">
+            <h2 className="text-xl font-bold text-center mb-6" style={{ color: theme.textColor }}>
+              {isRTL ? 'הוסיפו למסך הבית' : 'Add to Home Screen'}
+            </h2>
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${theme.accentColor}20` }}>
+                  <span className="font-bold" style={{ color: theme.accentColor }}>1</span>
+                </div>
+                <div>
+                  <p className="font-medium" style={{ color: theme.textColor }}>
+                    {isRTL ? 'לחצו על כפתור השיתוף' : 'Tap the Share button'}
+                  </p>
+                  <p className="text-sm" style={{ color: theme.textSecondary }}>
+                    {isRTL ? 'בתחתית המסך בספארי' : 'At the bottom of Safari'}
+                  </p>
+                  <div className="mt-2 inline-flex items-center justify-center w-10 h-10 rounded-lg" style={{ backgroundColor: `${theme.accentColor}15` }}>
+                    <Share className="w-5 h-5" style={{ color: theme.accentColor }} />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${theme.accentColor}20` }}>
+                  <span className="font-bold" style={{ color: theme.accentColor }}>2</span>
+                </div>
+                <div>
+                  <p className="font-medium" style={{ color: theme.textColor }}>
+                    {isRTL ? 'בחרו "הוסף למסך הבית"' : 'Select "Add to Home Screen"'}
+                  </p>
+                  <p className="text-sm" style={{ color: theme.textSecondary }}>
+                    {isRTL ? 'גללו למטה בתפריט' : 'Scroll down in the menu'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${theme.accentColor}20` }}>
+                  <span className="font-bold" style={{ color: theme.accentColor }}>3</span>
+                </div>
+                <div>
+                  <p className="font-medium" style={{ color: theme.textColor }}>
+                    {isRTL ? 'לחצו "הוסף"' : 'Tap "Add"'}
+                  </p>
+                  <p className="text-sm" style={{ color: theme.textSecondary }}>
+                    {isRTL ? 'בפינה העליונה של המסך' : 'In the top corner of the screen'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowIOSInstructions(false)}
+              className="w-full mt-6 py-3 rounded-xl font-bold text-white transition-all active:scale-95"
+              style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+            >
+              {isRTL ? 'הבנתי' : 'Got it'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Android Install Instructions Modal */}
+    {showAndroidInstructions && (
+      <div className="fixed inset-0 z-[60] flex items-end justify-center">
+        <div className="absolute inset-0 bg-black/50" onClick={() => setShowAndroidInstructions(false)} />
+        <div
+          className="relative rounded-t-3xl shadow-xl w-full max-h-[70vh] overflow-hidden"
+          style={{ backgroundColor: theme.surfaceColor }}
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          <div className="flex justify-center py-3">
+            <div className="w-12 h-1.5 rounded-full" style={{ backgroundColor: theme.borderColor }} />
+          </div>
+          <div className="px-6 pb-8">
+            <h2 className="text-xl font-bold text-center mb-6" style={{ color: theme.textColor }}>
+              {isRTL ? 'התקנת האפליקציה' : 'Install App'}
+            </h2>
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${theme.accentColor}20` }}>
+                  <span className="font-bold" style={{ color: theme.accentColor }}>1</span>
+                </div>
+                <div>
+                  <p className="font-medium" style={{ color: theme.textColor }}>
+                    {isRTL ? 'פתחו את תפריט הדפדפן' : 'Open browser menu'}
+                  </p>
+                  <p className="text-sm" style={{ color: theme.textSecondary }}>
+                    {isRTL ? 'לחצו על 3 הנקודות בפינה העליונה' : 'Tap the 3 dots in the top corner'}
+                  </p>
+                  <div className="mt-2 inline-flex items-center justify-center w-10 h-10 rounded-lg" style={{ backgroundColor: `${theme.accentColor}15` }}>
+                    <MoreVertical className="w-5 h-5" style={{ color: theme.accentColor }} />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${theme.accentColor}20` }}>
+                  <span className="font-bold" style={{ color: theme.accentColor }}>2</span>
+                </div>
+                <div>
+                  <p className="font-medium" style={{ color: theme.textColor }}>
+                    {isRTL ? 'בחרו "התקן אפליקציה" או "הוסף למסך הבית"' : 'Select "Install app" or "Add to Home screen"'}
+                  </p>
+                  <p className="text-sm" style={{ color: theme.textSecondary }}>
+                    {isRTL ? 'גללו בתפריט עד שתמצאו' : 'Scroll in the menu to find it'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${theme.accentColor}20` }}>
+                  <span className="font-bold" style={{ color: theme.accentColor }}>3</span>
+                </div>
+                <div>
+                  <p className="font-medium" style={{ color: theme.textColor }}>
+                    {isRTL ? 'לחצו "התקן"' : 'Tap "Install"'}
+                  </p>
+                  <p className="text-sm" style={{ color: theme.textSecondary }}>
+                    {isRTL ? 'בחלון שנפתח' : 'In the popup that appears'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowAndroidInstructions(false)}
+              className="w-full mt-6 py-3 rounded-xl font-bold text-white transition-all active:scale-95"
+              style={{ background: `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})` }}
+            >
+              {isRTL ? 'הבנתי' : 'Got it'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

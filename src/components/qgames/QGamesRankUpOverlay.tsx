@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { RANK_TIERS } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
+import { RANK_ICONS } from './QGamesRankBadge';
 
 interface QGamesRankUpOverlayProps {
   previousRankId: string;
@@ -75,31 +76,40 @@ export default function QGamesRankUpOverlay({
         {/* Old → New rank */}
         <div className="flex items-center gap-6">
           {/* Old rank */}
-          <div className="flex flex-col items-center gap-1 opacity-50">
-            <span className="text-4xl">{oldRank.icon}</span>
-            <span className="text-sm" style={{ color: theme.textSecondary }}>
-              {locale === 'he' ? oldRank.nameHe : oldRank.nameEn}
-            </span>
-          </div>
+          {(() => {
+            const OldIcon = RANK_ICONS[oldRank.id];
+            return (
+              <div className="flex flex-col items-center gap-1 opacity-50">
+                {OldIcon ? <OldIcon size={40} style={{ color: oldRank.color }} /> : <span className="text-4xl">{oldRank.icon}</span>}
+                <span className="text-sm" style={{ color: theme.textSecondary }}>
+                  {locale === 'he' ? oldRank.nameHe : oldRank.nameEn}
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Arrow */}
           <span className="text-3xl" style={{ color: newRank.color }}>→</span>
 
           {/* New rank */}
-          <div className="flex flex-col items-center gap-1">
-            <span
-              className="text-6xl"
-              style={{ filter: `drop-shadow(0 0 12px ${newRank.color})` }}
-            >
-              {newRank.icon}
-            </span>
-            <span
-              className="text-lg font-bold"
-              style={{ color: newRank.color }}
-            >
-              {locale === 'he' ? newRank.nameHe : newRank.nameEn}
-            </span>
-          </div>
+          {(() => {
+            const NewIcon = RANK_ICONS[newRank.id];
+            return (
+              <div className="flex flex-col items-center gap-1">
+                {NewIcon ? (
+                  <NewIcon size={56} style={{ color: newRank.color, filter: `drop-shadow(0 0 12px ${newRank.color})` }} />
+                ) : (
+                  <span className="text-6xl" style={{ filter: `drop-shadow(0 0 12px ${newRank.color})` }}>{newRank.icon}</span>
+                )}
+                <span
+                  className="text-lg font-bold"
+                  style={{ color: newRank.color }}
+                >
+                  {locale === 'he' ? newRank.nameHe : newRank.nameEn}
+                </span>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

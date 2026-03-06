@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, ChevronDown, Share2, X, SlidersHorizontal } from 'lucide-react';
 import { QGamesLeaderboardEntry, QGamesMatch, QGameType, GAME_META, getRankForScore } from '@/types/qgames';
 import { getBorderStyle } from './QGamesAvatarBorder';
+import { RANK_ICONS } from './QGamesRankBadge';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useQGamesTheme } from './QGamesThemeContext';
@@ -377,7 +378,7 @@ export default function QGamesLeaderboard({
                     {entry.nickname}
                     {isMe && <span className="text-xs ms-1" style={{ color: `${theme.accentColor}99` }}>({t('you')})</span>}
                   </p>
-                  {!isCompact && (() => { const r = getRankForScore(stats.score); return r.id !== 'rookie' ? <span className="text-xs shrink-0" title={isRTL ? r.nameHe : r.nameEn}>{r.icon}</span> : null; })()}
+                  {!isCompact && (() => { const r = getRankForScore(stats.score); const Icon = RANK_ICONS[r.id]; return r.id !== 'rookie' && Icon ? <Icon size={13} className="shrink-0" style={{ color: r.color }} /> : null; })()}
                 </div>
                 {!isCompact && (
                   <p className="text-white/30 text-[10px]">
@@ -692,9 +693,10 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
           <h3 className="text-white font-bold text-base">{player.nickname}</h3>
           {(() => {
             const playerRank = getRankForScore(player.score);
+            const Icon = RANK_ICONS[playerRank.id];
             return (
               <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-sm">{playerRank.icon}</span>
+                {Icon && <Icon size={16} style={{ color: playerRank.color }} />}
                 <span className="text-xs font-medium" style={{ color: playerRank.color }}>
                   {isRTL ? playerRank.nameHe : playerRank.nameEn}
                 </span>

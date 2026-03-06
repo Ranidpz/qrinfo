@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getRankForScore, getNextRank, RANK_TIERS } from '@/types/qgames';
+import { Sprout, Swords, ShieldHalf, Trophy, Gem, Crown } from 'lucide-react';
+import { getRankForScore, getNextRank } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 
 interface QGamesRankBadgeProps {
@@ -12,10 +13,20 @@ interface QGamesRankBadgeProps {
   locale?: 'he' | 'en';
 }
 
-const sizeClasses = {
-  sm: { container: 'gap-1 px-2 py-0.5 text-xs', icon: 'text-sm' },
-  md: { container: 'gap-1.5 px-3 py-1 text-sm', icon: 'text-lg' },
-  lg: { container: 'gap-2 px-4 py-1.5 text-base', icon: 'text-2xl' },
+const sizeConfig = {
+  sm: { container: 'gap-1 px-2 py-0.5 text-xs', iconSize: 14 },
+  md: { container: 'gap-1.5 px-3 py-1 text-sm', iconSize: 18 },
+  lg: { container: 'gap-2 px-4 py-1.5 text-base', iconSize: 22 },
+};
+
+/** Lucide icon per rank id */
+const RANK_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>> = {
+  rookie: Sprout,
+  contender: Swords,
+  warrior: ShieldHalf,
+  champion: Trophy,
+  legend: Gem,
+  mythic: Crown,
 };
 
 export default function QGamesRankBadge({
@@ -28,10 +39,9 @@ export default function QGamesRankBadge({
   const theme = useQGamesTheme();
   const rank = getRankForScore(score);
   const nextRank = getNextRank(score);
-  const sizes = sizeClasses[size];
+  const cfg = sizeConfig[size];
   const isMaxRank = !nextRank;
 
-  // Progress to next rank (0-100)
   const progress = nextRank
     ? ((score - rank.minScore) / (nextRank.minScore - rank.minScore)) * 100
     : 100;
@@ -43,18 +53,21 @@ export default function QGamesRankBadge({
     return () => clearTimeout(timer);
   }, [progress]);
 
+  const RankIcon = RANK_ICONS[rank.id] || Sprout;
+  const NextRankIcon = nextRank ? (RANK_ICONS[nextRank.id] || Swords) : null;
+
   return (
     <div className="flex flex-col items-start gap-1">
       {/* Badge */}
       <span
-        className={`inline-flex items-center rounded-full font-semibold ${sizes.container}`}
+        className={`inline-flex items-center rounded-full font-semibold ${cfg.container}`}
         style={{
           backgroundColor: `${rank.color}20`,
           color: rank.color,
           border: `1px solid ${rank.color}40`,
         }}
       >
-        <span className={sizes.icon}>{rank.icon}</span>
+        <RankIcon size={cfg.iconSize} style={{ color: rank.color }} />
         <span>{locale === 'he' ? rank.nameHe : rank.nameEn}</span>
       </span>
 
@@ -73,18 +86,25 @@ export default function QGamesRankBadge({
               }}
             />
           </div>
-          <span
-            className="text-[10px]"
-            style={{ color: theme.textSecondary }}
-          >
-            {isMaxRank
-              ? (locale === 'he' ? '⭐ דרגה מקסימלית!' : '⭐ Max rank!')
-              : (locale === 'he'
-                ? `${score}/${nextRank.minScore} עד ${nextRank.icon} ${nextRank.nameHe}`
-                : `${score}/${nextRank.minScore} to ${nextRank.icon} ${nextRank.nameEn}`)}
-          </span>
+          <div className="flex items-center gap-1">
+            {NextRankIcon && (
+              <NextRankIcon size={10} style={{ color: nextRank!.color, opacity: 0.7 }} />
+            )}
+            <span
+              className="text-[10px]"
+              style={{ color: theme.textSecondary }}
+            >
+              {isMaxRank
+                ? (locale === 'he' ? 'דרגה מקסימלית!' : 'Max rank!')
+                : (locale === 'he'
+                  ? `${score}/${nextRank!.minScore} לדרגה הבאה`
+                  : `${score}/${nextRank!.minScore} to next rank`)}
+            </span>
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+export { RANK_ICONS };

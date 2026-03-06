@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.34';
+export const APP_VERSION = '1.13.35';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,27 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.34',
+    version: '1.13.35',
     date: '2026-03-06',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: כפתור התקנה כאפליקציה (PWA) במסך הרשמה',
+        'חדש: הוראות התקנה למסך הבית - iOS ו-Android',
+        'שיפור: אייקוני דירוג Lucide במקום אמוג\'י',
+        'שיפור: אנימציית bounce לכרטיסי משחקים בבורר',
+      ],
+      en: [
+        'New: Install as App (PWA) button on registration screen',
+        'New: Home screen install instructions for iOS & Android',
+        'Improvement: Lucide rank icons instead of emoji',
+        'Improvement: Bounce animation for game cards in selector',
+      ],
+    },
+  },
+  {
+    version: '1.13.34',
+    date: '2026-03-06',
     highlights: {
       he: [
         'חדש: מודל מידע על Q.Games עם לינק לפלטפורמה',

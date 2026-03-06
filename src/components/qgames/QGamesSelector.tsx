@@ -65,22 +65,18 @@ export default function QGamesSelector({
       dir={isRTL ? 'rtl' : 'ltr'}
       style={{ fontFamily: 'var(--font-assistant), sans-serif' }}
     >
-      {/* Info button - physical top-left corner */}
-      <button
-        onClick={() => setShowInfo(true)}
-        className="absolute top-3 z-10 p-2.5 rounded-full transition-colors active:scale-95"
-        style={{
-          left: 12,
-          backgroundColor: `${theme.surfaceColor}cc`,
-          color: theme.textSecondary,
-        }}
-        aria-label={t('infoTitle')}
-      >
-        <Info className="w-5 h-5" />
-      </button>
+      {/* Bounce-in keyframes for game cards */}
+      <style>{`
+        @keyframes game-card-bounce-in {
+          0% { opacity: 0; transform: translateY(30px) scale(0.95); }
+          50% { opacity: 1; transform: translateY(-4px) scale(1.01); }
+          70% { transform: translateY(2px) scale(0.995); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
 
       {/* ── Fixed Profile Header ── */}
-      <div className="shrink-0 flex flex-col items-center px-6" style={{ backgroundColor: theme.backgroundColor }}>
+      <div className="shrink-0 px-4" style={{ backgroundColor: theme.backgroundColor }}>
         {/* Event Logo */}
         {config.branding.eventLogo && (
           <div className="w-full flex justify-center pt-8">
@@ -93,12 +89,22 @@ export default function QGamesSelector({
           </div>
         )}
 
-        {/* Profile hero — compact */}
+        {/* Profile row — same height as info button */}
         <div
-          className={`flex flex-col items-center ${config.branding.eventLogo ? 'pt-3' : 'pt-12'} pb-3 w-full animate-in fade-in slide-in-from-top-4 duration-500`}
+          className={`${config.branding.eventLogo ? 'pt-2' : 'pt-4'} pb-3 w-full animate-in fade-in slide-in-from-top-4 duration-500`}
         >
-          {/* Avatar row: avatar + name + rank inline */}
-          <div className="flex items-center gap-3 w-full max-w-xs">
+          {/* Main row: info button + avatar + name/rank + action buttons */}
+          <div className="flex items-center gap-2.5">
+            {/* Info button */}
+            <button
+              onClick={() => setShowInfo(true)}
+              className="shrink-0 p-2 rounded-full transition-colors active:scale-95"
+              style={{ color: theme.textSecondary }}
+              aria-label={t('infoTitle')}
+            >
+              <Info className="w-5 h-5" />
+            </button>
+
             {/* Avatar */}
             <button
               onClick={onEditProfile}
@@ -199,11 +205,9 @@ export default function QGamesSelector({
               <button
                 key={gameType}
                 onClick={() => onSelectGame(gameType)}
-                className="w-full flex items-center gap-4 p-4 rounded-2xl active:scale-[0.97] transition-all duration-200 group animate-in fade-in slide-in-from-bottom-6"
+                className="w-full flex items-center gap-4 p-4 rounded-2xl active:scale-[0.97] transition-all duration-200 group"
                 style={{
-                  animationDelay: `${300 + index * 100}ms`,
-                  animationDuration: '500ms',
-                  animationFillMode: 'backwards',
+                  animation: `game-card-bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${300 + index * 120}ms backwards`,
                   backgroundColor: theme.surfaceColor,
                   border: `1px solid ${waitingNow > 0 ? `${theme.accentColor}60` : theme.borderColor}`,
                   boxShadow: waitingNow > 0 ? `0 0 16px ${theme.accentColor}25` : 'none',
