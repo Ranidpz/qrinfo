@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
-import { X, Gamepad2, Loader2, RotateCcw, ExternalLink, Monitor, Eye, Settings, Copy, Check, AlertTriangle, Plus, Trash2, MessageCircle, RotateCw, Upload, ImageIcon, ChevronDown, Clock } from 'lucide-react';
+import { X, Gamepad2, Loader2, RotateCcw, ExternalLink, Monitor, Eye, Settings, Copy, Check, AlertTriangle, Plus, Trash2, MessageCircle, RotateCw, Upload, ImageIcon, ChevronDown, Clock, Gift } from 'lucide-react';
 import {
   QGamesConfig,
   QGameType,
@@ -15,6 +15,8 @@ import {
   resolveTheme,
   QGamesChatPhrase,
   QGamesScheduleSlot,
+  DEFAULT_REWARDS_CONFIG,
+  QGamesCustomPrize,
 } from '@/types/qgames';
 import QGamesPreviewPhone from '@/components/qgames/QGamesPreviewPhone';
 
@@ -420,7 +422,7 @@ export default function QGamesModal({
                 {isRTL ? 'משחקים זמינים' : 'Available Games'}
               </label>
               <div className="space-y-2">
-                {(['rps', 'oddoneout', 'tictactoe', 'connect4', 'memory'] as QGameType[]).map((gameType) => {
+                {(['rps', 'oddoneout', 'tictactoe', 'connect4', 'memory', 'frogger'] as QGameType[]).map((gameType) => {
                   const meta = GAME_META[gameType];
                   const isEnabled = config.enabledGames.includes(gameType);
                   const isExpanded = expandedGame === gameType && isEnabled;
@@ -621,6 +623,49 @@ export default function QGamesModal({
                   onChange={(phrases) => setConfig(prev => ({ ...prev, chatPhrases: phrases }))}
                   onReset={() => setConfig(prev => ({ ...prev, chatPhrases: [...DEFAULT_CHAT_PHRASES] }))}
                 />
+              )}
+            </div>
+
+            {/* ── Rewards & Packs ── */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Gift className="w-4 h-4 text-accent" />
+                <span className="text-sm font-semibold text-text-primary">
+                  {isRTL ? 'פרסים וחבילות' : 'Rewards & Packs'}
+                </span>
+              </div>
+              <ToggleRow
+                label={isRTL ? 'הפעל חבילות מתנה' : 'Enable Gift Packs'}
+                checked={config.rewards?.enablePacks ?? true}
+                onChange={(v) => setConfig(prev => ({
+                  ...prev,
+                  rewards: { ...(prev.rewards ?? DEFAULT_REWARDS_CONFIG), enablePacks: v },
+                }))}
+              />
+              {(config.rewards?.enablePacks ?? true) && (
+                <>
+                  {/* Points per pack */}
+                  <SettingRow label={isRTL ? 'נקודות לחבילה' : 'Points per pack'}>
+                    <SettingButtons
+                      values={[10, 15, 20, 30]}
+                      current={config.rewards?.pointsPerPack ?? 15}
+                      onChange={(n) => setConfig(prev => ({
+                        ...prev,
+                        rewards: { ...(prev.rewards ?? DEFAULT_REWARDS_CONFIG), pointsPerPack: n },
+                      }))}
+                    />
+                  </SettingRow>
+
+                  {/* Custom Prizes */}
+                  <CustomPrizesEditor
+                    prizes={config.rewards?.customPrizes ?? []}
+                    isRTL={isRTL}
+                    onChange={(prizes) => setConfig(prev => ({
+                      ...prev,
+                      rewards: { ...(prev.rewards ?? DEFAULT_REWARDS_CONFIG), customPrizes: prizes },
+                    }))}
+                  />
+                </>
               )}
             </div>
 
@@ -1230,6 +1275,149 @@ function SettingButtons({ values, current, onChange, suffix }: { values: number[
           {n}{suffix || ''}
         </button>
       ))}
+    </div>
+  );
+}
+
+// ── Custom Prizes Editor ──
+
+function CustomPrizesEditor({
+  prizes,
+  isRTL,
+  onChange,
+}: {
+  prizes: QGamesCustomPrize[];
+  isRTL: boolean;
+  onChange: (prizes: QGamesCustomPrize[]) => void;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newStock, setNewStock] = useState(10);
+  const [newDrop, setNewDrop] = useState(5);
+
+  const handleAdd = () => {
+    const name = newName.trim();
+    if (!name) return;
+    const prize: QGamesCustomPrize = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      totalStock: newStock,
+      claimed: 0,
+      dropChance: newDrop,
+    };
+    onChange([...prizes, prize]);
+    setNewName('');
+    setNewStock(10);
+    setNewDrop(5);
+    setShowAdd(false);
+  };
+
+  const handleDelete = (id: string) => {
+    onChange(prizes.filter(p => p.id !== id));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-text-secondary">
+          {isRTL ? 'פרסים מותאמים' : 'Custom Prizes'}
+        </span>
+        <span className="text-[10px] text-text-tertiary">
+          {isRTL ? `${prizes.length} פרסים` : `${prizes.length} prizes`}
+        </span>
+      </div>
+
+      {/* Existing prizes list */}
+      {prizes.map((prize) => (
+        <div
+          key={prize.id}
+          className="flex items-center gap-2 p-2.5 rounded-xl bg-bg-primary border border-border/50"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-text-primary truncate">{prize.name}</div>
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className="text-[10px] text-text-tertiary">
+                {isRTL ? `מלאי: ${prize.claimed}/${prize.totalStock}` : `Stock: ${prize.claimed}/${prize.totalStock}`}
+              </span>
+              <span className="text-[10px] text-text-tertiary">
+                {isRTL ? `סיכוי: ${prize.dropChance}%` : `Drop: ${prize.dropChance}%`}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => handleDelete(prize.id)}
+            className="shrink-0 p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+
+      {/* Add form */}
+      {showAdd ? (
+        <div className="p-3 rounded-xl bg-bg-primary border border-accent/30 space-y-2.5">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder={isRTL ? 'שם הפרס' : 'Prize name'}
+            className="w-full px-3 py-2 rounded-lg bg-bg-secondary border border-border text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent"
+            dir="auto"
+          />
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className="text-[10px] text-text-tertiary mb-0.5 block">
+                {isRTL ? 'מלאי' : 'Stock'}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={9999}
+                value={newStock}
+                onChange={(e) => setNewStock(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-bg-secondary border border-border text-sm text-text-primary outline-none focus:border-accent text-center"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] text-text-tertiary mb-0.5 block">
+                {isRTL ? 'סיכוי %' : 'Drop %'}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={newDrop}
+                onChange={(e) => setNewDrop(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-bg-secondary border border-border text-sm text-text-primary outline-none focus:border-accent text-center"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleAdd}
+              disabled={!newName.trim()}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-white bg-accent hover:bg-accent/90 transition-colors disabled:opacity-40"
+            >
+              <Check className="w-3.5 h-3.5" />
+              {isRTL ? 'הוסף' : 'Add'}
+            </button>
+            <button
+              onClick={() => { setShowAdd(false); setNewName(''); }}
+              className="flex-1 py-2 rounded-lg text-xs font-medium text-text-secondary bg-bg-secondary hover:bg-bg-primary transition-colors"
+            >
+              {isRTL ? 'ביטול' : 'Cancel'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-accent bg-accent/10 hover:bg-accent/20 transition-colors border border-dashed border-accent/30"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {isRTL ? 'הוסף פרס' : 'Add prize'}
+        </button>
+      )}
     </div>
   );
 }

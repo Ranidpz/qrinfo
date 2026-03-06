@@ -11,6 +11,7 @@ import OOOAnimatedEmoji from './OOOAnimatedEmoji';
 import TTTAnimatedEmoji from './TTTAnimatedEmoji';
 import MemoryAnimatedEmoji from './MemoryAnimatedEmoji';
 import Connect4AnimatedEmoji from './Connect4AnimatedEmoji';
+import FroggerAnimatedEmoji from './FroggerAnimatedEmoji';
 
 interface QGamesSelectorProps {
   config: QGamesConfig;
@@ -35,10 +36,10 @@ interface QGamesSelectorProps {
 
 /** Circular progress ring around a gift icon showing pack progress */
 function PackProgressRing({
-  score, pointsPerPack, unopenedPacks, onOpenPack, accentColor, bgColor, surfaceColor,
+  score, pointsPerPack, unopenedPacks, onOpenPack, onShowInfo, accentColor, bgColor, surfaceColor,
 }: {
   score: number; pointsPerPack: number; unopenedPacks: number;
-  onOpenPack?: () => void; accentColor: string; bgColor: string; surfaceColor: string;
+  onOpenPack?: () => void; onShowInfo?: () => void; accentColor: string; bgColor: string; surfaceColor: string;
 }) {
   const isReady = unopenedPacks > 0;
   const progressInPack = score % pointsPerPack;
@@ -65,9 +66,8 @@ function PackProgressRing({
 
   return (
     <button
-      onClick={isReady ? onOpenPack : undefined}
-      disabled={!isReady}
-      className={`relative shrink-0 flex items-center justify-center transition-all ${isReady ? 'active:scale-90' : ''}`}
+      onClick={isReady ? onOpenPack : onShowInfo}
+      className="relative shrink-0 flex items-center justify-center transition-all active:scale-90"
       style={{ width: size, height: size }}
     >
       {/* SVG ring */}
@@ -140,6 +140,7 @@ export default function QGamesSelector({
   const theme = useQGamesTheme();
   const [showInfo, setShowInfo] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showPackInfo, setShowPackInfo] = useState(false);
   const enabledSet = new Set(config.enabledGames || ['rps']);
   const enabledGames = GAME_DISPLAY_ORDER.filter(g => enabledSet.has(g));
   const gameName = config.branding.title || 'Q.Games';
@@ -231,6 +232,7 @@ export default function QGamesSelector({
                 pointsPerPack={config.rewards?.pointsPerPack || DEFAULT_POINTS_PER_PACK}
                 unopenedPacks={unopenedPacks}
                 onOpenPack={onOpenPack}
+                onShowInfo={() => setShowPackInfo(true)}
                 accentColor={theme.accentColor}
                 bgColor={theme.backgroundColor}
                 surfaceColor={theme.surfaceColor}
@@ -293,7 +295,7 @@ export default function QGamesSelector({
                   className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0 group-hover:scale-110 transition-transform duration-200"
                   style={{ backgroundColor: theme.surfaceHover }}
                 >
-                  {gameType === 'rps' ? <RPSAnimatedEmoji /> : gameType === 'oddoneout' ? <OOOAnimatedEmoji /> : gameType === 'tictactoe' ? <TTTAnimatedEmoji /> : gameType === 'connect4' ? <Connect4AnimatedEmoji /> : gameType === 'memory' ? <MemoryAnimatedEmoji /> : meta.emoji}
+                  {gameType === 'rps' ? <RPSAnimatedEmoji /> : gameType === 'oddoneout' ? <OOOAnimatedEmoji /> : gameType === 'tictactoe' ? <TTTAnimatedEmoji /> : gameType === 'connect4' ? <Connect4AnimatedEmoji /> : gameType === 'memory' ? <MemoryAnimatedEmoji /> : gameType === 'frogger' ? <FroggerAnimatedEmoji /> : meta.emoji}
                 </div>
 
                 {/* Text */}
@@ -305,7 +307,7 @@ export default function QGamesSelector({
                       className="shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold leading-none"
                       style={{ backgroundColor: `${theme.primaryColor}33`, color: theme.primaryColor }}
                     >
-                      {gameType === 'memory' ? (isRTL ? '2-6 שחקנים' : '2-6 players') : gameType === 'oddoneout' ? (isRTL ? '3 שחקנים' : '3 players') : (isRTL ? '2 שחקנים' : '2 players')}
+                      {gameType === 'memory' ? (isRTL ? '2-6 שחקנים' : '2-6 players') : gameType === 'frogger' ? (isRTL ? '2-4 שחקנים' : '2-4 players') : gameType === 'oddoneout' ? (isRTL ? '3 שחקנים' : '3 players') : (isRTL ? '2 שחקנים' : '2 players')}
                     </span>
                   </div>
                   {/* Live activity badges */}
@@ -430,6 +432,114 @@ export default function QGamesSelector({
         )}
 
       </div>
+
+      {/* ── Pack Info Modal ── */}
+      {showPackInfo && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setShowPackInfo(false)}
+        >
+          <div
+            className="rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 pb-8 sm:pb-5 relative"
+            dir={isRTL ? 'rtl' : 'ltr'}
+            style={{
+              backgroundColor: theme.surfaceColor,
+              border: `1px solid ${theme.borderColor}`,
+              animation: 'info-slide-up 0.3s ease-out',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle (mobile) */}
+            <div className="sm:hidden flex justify-center mb-3">
+              <div className="w-10 h-1 rounded-full" style={{ backgroundColor: theme.borderColor }} />
+            </div>
+
+            {/* Close */}
+            <button
+              onClick={() => setShowPackInfo(false)}
+              className="absolute top-3 end-3 p-1 transition-colors"
+              style={{ color: theme.textSecondary }}
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-4">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: `${theme.accentColor}20` }}
+              >
+                <Gift className="w-5 h-5" style={{ color: theme.accentColor }} />
+              </div>
+              <h2 className="font-bold text-lg" style={{ color: theme.textColor }}>
+                {isRTL ? 'חבילות מתנה' : 'Gift Packs'}
+              </h2>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-3">
+              <p className="text-sm leading-relaxed" style={{ color: theme.textColor }}>
+                {isRTL
+                  ? 'כל משחק מזכה אתכם בנקודות. צברו נקודות ופתחו חבילות מתנה עם פרסים!'
+                  : 'Every game earns you points. Collect points and open gift packs with prizes!'}
+              </p>
+
+              {/* How it works */}
+              <div
+                className="rounded-xl p-3 space-y-2"
+                style={{ backgroundColor: `${theme.accentColor}10`, border: `1px solid ${theme.accentColor}20` }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🎮</span>
+                  <span className="text-sm" style={{ color: theme.textColor }}>
+                    {isRTL ? 'שחקו משחקים וצברו נקודות' : 'Play games and earn points'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🎁</span>
+                  <span className="text-sm" style={{ color: theme.textColor }}>
+                    {isRTL
+                      ? `כל ${config.rewards?.pointsPerPack || DEFAULT_POINTS_PER_PACK} נקודות = חבילה אחת`
+                      : `Every ${config.rewards?.pointsPerPack || DEFAULT_POINTS_PER_PACK} points = 1 pack`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">✨</span>
+                  <span className="text-sm" style={{ color: theme.textColor }}>
+                    {isRTL ? 'פתחו חבילות וגלו פרסים' : 'Open packs and discover prizes'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Current progress */}
+              <div
+                className="rounded-xl p-3 flex items-center justify-between"
+                style={{ backgroundColor: `${theme.textColor}08` }}
+              >
+                <span className="text-sm" style={{ color: theme.textSecondary }}>
+                  {isRTL ? 'הנקודות שלך' : 'Your points'}
+                </span>
+                <span className="text-sm font-bold tabular-nums" style={{ color: theme.accentColor }}>
+                  {playerScore} / {config.rewards?.pointsPerPack || DEFAULT_POINTS_PER_PACK}
+                </span>
+              </div>
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={() => setShowPackInfo(false)}
+              className="w-full mt-4 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.97]"
+              style={{
+                backgroundColor: `${theme.accentColor}15`,
+                color: theme.accentColor,
+                border: `1px solid ${theme.accentColor}30`,
+              }}
+            >
+              {isRTL ? 'הבנתי!' : 'Got it!'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Info Modal ── */}
       {showInfo && (

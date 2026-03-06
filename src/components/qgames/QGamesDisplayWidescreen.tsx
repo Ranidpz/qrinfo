@@ -31,6 +31,7 @@ const translations: Record<string, Record<string, string>> = {
     tictactoe: 'איקס עיגול',
     memory: 'זיכרון',
     connect4: 'ארבע בשורה',
+    frogger: 'פרוגי',
   },
   en: {
     online: 'online',
@@ -57,6 +58,7 @@ const translations: Record<string, Record<string, string>> = {
     tictactoe: 'Tic-Tac-Toe',
     memory: 'Memory Match',
     connect4: 'Connect 4',
+    frogger: 'Frogger',
   },
 };
 
@@ -83,12 +85,13 @@ function useCountUp(target: number, duration = 800, active = true) {
   return value;
 }
 
-function getGameStats(entry: { score: number; wins: number; gamesPlayed: number; rpsPlayed?: number; rpsWins?: number; oddoneoutPlayed?: number; oddoneoutWins?: number; tictactoePlayed?: number; tictactoeWins?: number; connect4Played?: number; connect4Wins?: number; memoryPlayed?: number; memoryWins?: number }, game: QGameType) {
+function getGameStats(entry: { score: number; wins: number; gamesPlayed: number; rpsPlayed?: number; rpsWins?: number; oddoneoutPlayed?: number; oddoneoutWins?: number; tictactoePlayed?: number; tictactoeWins?: number; connect4Played?: number; connect4Wins?: number; memoryPlayed?: number; memoryWins?: number; froggerPlayed?: number; froggerWins?: number }, game: QGameType) {
   if (game === 'rps') return { played: entry.rpsPlayed ?? 0, wins: entry.rpsWins ?? 0 };
   if (game === 'oddoneout') return { played: entry.oddoneoutPlayed ?? 0, wins: entry.oddoneoutWins ?? 0 };
   if (game === 'tictactoe') return { played: entry.tictactoePlayed ?? 0, wins: entry.tictactoeWins ?? 0 };
   if (game === 'connect4') return { played: entry.connect4Played ?? 0, wins: entry.connect4Wins ?? 0 };
   if (game === 'memory') return { played: entry.memoryPlayed ?? 0, wins: entry.memoryWins ?? 0 };
+  if (game === 'frogger') return { played: entry.froggerPlayed ?? 0, wins: entry.froggerWins ?? 0 };
   return { played: entry.gamesPlayed, wins: entry.wins };
 }
 

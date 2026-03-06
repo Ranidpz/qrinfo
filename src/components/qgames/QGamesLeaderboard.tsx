@@ -30,7 +30,7 @@ function useCountUp(target: number, duration = 800, active = true) {
   return value;
 }
 
-type GameFilter = 'all' | 'rps' | 'oddoneout' | 'tictactoe' | 'connect4' | 'memory';
+type GameFilter = 'all' | 'rps' | 'oddoneout' | 'tictactoe' | 'connect4' | 'memory' | 'frogger';
 type SortMode = 'score' | 'winrate';
 
 const MIN_GAMES_FOR_WINRATE = 3;
@@ -79,6 +79,11 @@ function getGameStats(entry: QGamesLeaderboardEntry, filter: GameFilter) {
   if (filter === 'memory') {
     const played = entry.memoryPlayed ?? 0;
     const wins = entry.memoryWins ?? 0;
+    return { played, wins, score: wins * 3 };
+  }
+  if (filter === 'frogger') {
+    const played = entry.froggerPlayed ?? 0;
+    const wins = entry.froggerWins ?? 0;
     return { played, wins, score: wins * 3 };
   }
   return { played: entry.gamesPlayed, wins: entry.wins, score: entry.score };
@@ -659,7 +664,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
     ? Math.round((player.wins / player.gamesPlayed) * 100)
     : 0;
 
-  const hasPerGameStats = (player.rpsPlayed ?? 0) > 0 || (player.oddoneoutPlayed ?? 0) > 0 || (player.tictactoePlayed ?? 0) > 0 || (player.connect4Played ?? 0) > 0 || (player.memoryPlayed ?? 0) > 0;
+  const hasPerGameStats = (player.rpsPlayed ?? 0) > 0 || (player.oddoneoutPlayed ?? 0) > 0 || (player.tictactoePlayed ?? 0) > 0 || (player.connect4Played ?? 0) > 0 || (player.memoryPlayed ?? 0) > 0 || (player.froggerPlayed ?? 0) > 0;
 
   return (
     <div
@@ -741,6 +746,7 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
             <GameStatRow label={t('tictactoe')} played={player.tictactoePlayed ?? 0} wins={player.tictactoeWins ?? 0} delay={480} t={t} />
             <GameStatRow label={t('connect4')} played={player.connect4Played ?? 0} wins={player.connect4Wins ?? 0} delay={560} t={t} />
             <GameStatRow label={t('memory')} played={player.memoryPlayed ?? 0} wins={player.memoryWins ?? 0} delay={640} t={t} />
+            <GameStatRow label={t('frogger')} played={player.froggerPlayed ?? 0} wins={player.froggerWins ?? 0} delay={720} t={t} />
           </div>
         )}
 

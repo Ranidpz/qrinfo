@@ -125,6 +125,8 @@ export async function POST(request: Request) {
       oddoneoutWins: 0,
       connect4Played: 0,
       connect4Wins: 0,
+      froggerPlayed: 0,
+      froggerWins: 0,
       registeredAt: Date.now(),
       lastPlayedAt: Date.now(),
       // Rewards & Progression

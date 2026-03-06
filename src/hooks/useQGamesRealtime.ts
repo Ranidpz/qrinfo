@@ -17,6 +17,8 @@ import {
   RTDBC4State,
   RTDBMemoryState,
   RTDBMemoryPlayer,
+  RTDBFroggerState,
+  RTDBFroggerPlayer,
   LiveMatchInfo,
   ViewerPresenceData,
   OnlineViewerInfo,
@@ -34,6 +36,8 @@ import {
   subscribeToOOOState,
   subscribeToMemoryRoom,
   subscribeToMemoryPlayers,
+  subscribeToFroggerRoom,
+  subscribeToFroggerPlayers,
   setupMatchPresence,
   subscribeToMatchPresence,
   setupViewerPresence,
@@ -684,6 +688,72 @@ export function useMemoryPlayers(
 
     setLoading(true);
     const unsubscribe = subscribeToMemoryPlayers(codeId, roomId, (data) => {
+      setPlayers(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [codeId, roomId]);
+
+  return { players, loading };
+}
+
+// ============ FROGGER ROOM HOOK ============
+
+interface UseFroggerRoomResult {
+  room: RTDBFroggerState | null;
+  loading: boolean;
+}
+
+export function useFroggerRoom(
+  codeId: string | null,
+  roomId: string | null
+): UseFroggerRoomResult {
+  const [room, setRoom] = useState<RTDBFroggerState | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!codeId || !roomId) {
+      setRoom(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeToFroggerRoom(codeId, roomId, (data) => {
+      setRoom(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [codeId, roomId]);
+
+  return { room, loading };
+}
+
+// ============ FROGGER PLAYERS HOOK ============
+
+interface UseFroggerPlayersResult {
+  players: Record<string, RTDBFroggerPlayer>;
+  loading: boolean;
+}
+
+export function useFroggerPlayers(
+  codeId: string | null,
+  roomId: string | null
+): UseFroggerPlayersResult {
+  const [players, setPlayers] = useState<Record<string, RTDBFroggerPlayer>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!codeId || !roomId) {
+      setPlayers({});
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeToFroggerPlayers(codeId, roomId, (data) => {
       setPlayers(data);
       setLoading(false);
     });

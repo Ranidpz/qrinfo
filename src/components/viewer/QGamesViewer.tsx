@@ -55,6 +55,8 @@ import TicTacToeGame from '@/components/qgames/TicTacToeGame';
 import Connect4Game from '@/components/qgames/Connect4Game';
 import MemoryGame from '@/components/qgames/MemoryGame';
 import type { MemoryGameResult } from '@/components/qgames/MemoryGame';
+import FroggerGame from '@/components/qgames/FroggerGame';
+import type { FroggerGameResult } from '@/components/qgames/FroggerGame';
 import QGamesResult from '@/components/qgames/QGamesResult';
 import QGamesLeaderboard from '@/components/qgames/QGamesLeaderboard';
 import QGamesMatchHistory from '@/components/qgames/QGamesMatchHistory';
@@ -89,6 +91,8 @@ const translations: Record<string, Record<string, string>> = {
     roundDraw: 'תיקו בסיבוב!',
     memory: 'זיכרון',
     memoryDescription: 'זכרו את הסדר!',
+    frogger: 'פרוגי',
+    froggerDescription: 'קפצו בין המכשולים!',
     viewLeaderboard: 'טבלת מובילים',
     searchingForOpponent: 'מחפשים לכם חברים לשחק',
     noOpponentYet: 'אין יריב כרגע?',
@@ -218,6 +222,8 @@ const translations: Record<string, Record<string, string>> = {
     roundDraw: 'Round draw!',
     memory: 'Memory Match',
     memoryDescription: 'Remember the sequence!',
+    frogger: 'Frogger',
+    froggerDescription: 'Jump through obstacles!',
     viewLeaderboard: 'Leaderboard',
     searchingForOpponent: 'Looking for friends to play',
     noOpponentYet: 'No opponent yet?',
@@ -1098,6 +1104,47 @@ export default function QGamesViewer({
     setPhase('result');
   }, [player, codeId, visitorId]);
 
+  // Frogger game end callback — persists results to Firestore
+  const handleFroggerMatchEnd = useCallback((results: FroggerGameResult) => {
+    if (!player) return;
+
+    const myResult = results.players.find(p => p.id === visitorId);
+    const isWinner = results.winnerId === visitorId;
+    const oppResult = results.players.find(p => p.id !== visitorId) || results.players[0];
+
+    setResultData({
+      isWinner,
+      isDraw: false,
+      myScore: myResult?.score || 0,
+      oppScore: oppResult?.score || 0,
+      oppNickname: oppResult?.nickname || '',
+      oppAvatar: oppResult?.avatarValue || '',
+    });
+
+    // Persist to Firestore
+    fetch('/api/qgames/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeId,
+        playerId: visitorId,
+        gameType: 'frogger',
+        froggerRoomId: results.roomId,
+        froggerResults: results.players,
+      }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.rewards) {
+          setPendingRewards(data.rewards);
+          if (data.rewards.rankChanged) setShowRankUp(true);
+        }
+      })
+      .catch(console.error);
+
+    setPhase('result');
+  }, [player, codeId, visitorId]);
+
   const handleEquipItem = async (prizeId: string, type: QGamesPrizeType) => {
     if (!visitorId || !player) return;
     try {
@@ -1478,6 +1525,27 @@ export default function QGamesViewer({
           playerAvatarValue={player.avatarValue}
           config={config}
           onMatchEnd={handleMemoryMatchEnd}
+          onBack={handleBackToSelector}
+          onForfeit={handleForfeit}
+          isRTL={isRTL}
+          t={t}
+          shortId={shortId}
+          enableWhatsApp={config.enableWhatsAppInvite}
+          inviterVisitorId={inviteFrom || undefined}
+          viewerCount={viewerCount}
+          onViewLeaderboard={() => setPhase('leaderboard')}
+        />
+      )}
+
+      {phase === 'playing' && selectedGame === 'frogger' && player && (
+        <FroggerGame
+          codeId={codeId}
+          visitorId={visitorId}
+          playerNickname={player.nickname}
+          playerAvatarType={player.avatarType}
+          playerAvatarValue={player.avatarValue}
+          config={config}
+          onMatchEnd={handleFroggerMatchEnd}
           onBack={handleBackToSelector}
           onForfeit={handleForfeit}
           isRTL={isRTL}

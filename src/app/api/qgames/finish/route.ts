@@ -22,6 +22,7 @@ import {
   cleanupMatch,
   leaveQueue,
   deleteMemoryRoom,
+  deleteFroggerRoom,
 } from '@/lib/qgames-realtime';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
@@ -38,11 +39,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { codeId, matchId, playerId, gameType, memoryRoomId, memoryResults } = body;
+    const { codeId, matchId, playerId, gameType, memoryRoomId, memoryResults, froggerRoomId, froggerResults } = body;
 
     // Memory games use roomId instead of matchId
     if (gameType === 'memory') {
       return handleMemoryFinish(codeId, playerId, memoryRoomId, memoryResults);
+    }
+
+    // Frogger games use roomId instead of matchId
+    if (gameType === 'frogger') {
+      return handleFroggerFinish(codeId, playerId, froggerRoomId, froggerResults);
     }
 
     if (!codeId || !matchId || !playerId) {
@@ -331,6 +337,148 @@ async function handleMemoryFinish(
   return NextResponse.json({ success: true, match: matchRecord, rewards: callerRewards });
 }
 
+// ─── Frogger Game Finish ─────────────────────────────────────
+interface FroggerPlayerResult {
+  id: string;
+  nickname: string;
+  avatarType: QGamesAvatarType;
+  avatarValue: string;
+  score: number;
+  screensCompleted: number;
+  rank: number;
+}
+
+async function handleFroggerFinish(
+  codeId: string,
+  playerId: string,
+  roomId: string,
+  playerResults: FroggerPlayerResult[]
+) {
+  if (!codeId || !playerId || !roomId || !playerResults?.length) {
+    return NextResponse.json(
+      { success: false, error: 'Missing required fields for frogger game' },
+      { status: 400 }
+    );
+  }
+
+  const adminDb = getAdminDb();
+
+  // Read config for rewards settings
+  const codeDoc = await adminDb.collection('codes').doc(codeId).get();
+  const codeData = codeDoc.data();
+  const gamesMedia = codeData?.media?.find(
+    (m: { type: string }) => m.type === 'minigames'
+  );
+  const pointsPerPack = gamesMedia?.qgamesConfig?.rewards?.pointsPerPack || DEFAULT_POINTS_PER_PACK;
+
+  // Use roomId as the match doc ID
+  const matchDocRef = adminDb
+    .collection('codes').doc(codeId)
+    .collection('qgames_matches').doc(roomId);
+  const existingMatch = await matchDocRef.get();
+
+  if (existingMatch.exists) {
+    return NextResponse.json({ success: true, alreadyPersisted: true });
+  }
+
+  // Sort by rank (already sorted by caller)
+  const sorted = [...playerResults].sort((a, b) => a.rank - b.rank);
+  const winnerId = sorted[0].score > 0 ? sorted[0].id : null;
+
+  // Build match record
+  const p1 = sorted[0];
+  const p2 = sorted[1] || sorted[0];
+
+  const matchRecord: QGamesMatch = {
+    id: roomId,
+    codeId,
+    gameType: 'frogger',
+    player1Id: p1.id,
+    player1Nickname: p1.nickname,
+    player1AvatarType: p1.avatarType,
+    player1AvatarValue: p1.avatarValue,
+    player2Id: p2.id,
+    player2Nickname: p2.nickname,
+    player2AvatarType: p2.avatarType,
+    player2AvatarValue: p2.avatarValue,
+    player1Score: p1.score,
+    player2Score: p2.score,
+    winnerId,
+    froggerResults: playerResults.map(p => ({
+      id: p.id,
+      nickname: p.nickname,
+      avatarType: p.avatarType,
+      avatarValue: p.avatarValue,
+      score: p.score,
+      screensCompleted: p.screensCompleted,
+      eliminatedAt: null,
+    })),
+    status: 'finished',
+    startedAt: Date.now(),
+    finishedAt: Date.now(),
+    durationMs: 0,
+  };
+
+  await matchDocRef.set(matchRecord);
+
+  // Update stats for all players
+  let callerRewards: QGamesRewardsResult | null = null;
+  for (const p of playerResults) {
+    const isWinner = p.id === winnerId;
+    const rewards = await updatePlayerStatsFrogger(adminDb, codeId, p.id, isWinner, pointsPerPack);
+    if (p.id === playerId) callerRewards = rewards;
+    await updatePlayerLeaderboard(adminDb, codeId, p.id);
+  }
+  await recalculateLeaderboardRanks(codeId);
+
+  // Clean up frogger room from RTDB
+  await deleteFroggerRoom(codeId, roomId);
+
+  return NextResponse.json({ success: true, match: matchRecord, rewards: callerRewards });
+}
+
+async function updatePlayerStatsFrogger(
+  adminDb: FirebaseFirestore.Firestore,
+  codeId: string,
+  playerId: string,
+  isWinner: boolean,
+  pointsPerPack: number
+): Promise<QGamesRewardsResult | null> {
+  const playerRef = adminDb
+    .collection('codes').doc(codeId)
+    .collection('qgames_players').doc(playerId);
+
+  const playerDoc = await playerRef.get();
+  if (!playerDoc.exists) return null;
+
+  const player = playerDoc.data() as QGamesPlayer;
+  const pointsEarned = isWinner ? MATCH_POINTS.WIN : MATCH_POINTS.LOSS;
+  const newScore = player.score + pointsEarned;
+
+  const rewards = calculateRewards(player.score, newScore, pointsPerPack);
+  const newUnopenedPacks = (player.unopenedPacks || 0) + rewards.packsEarned;
+  rewards.unopenedPacks = newUnopenedPacks;
+
+  const updates: Partial<QGamesPlayer> = {
+    totalGamesPlayed: player.totalGamesPlayed + 1,
+    totalWins: player.totalWins + (isWinner ? 1 : 0),
+    totalLosses: player.totalLosses + (isWinner ? 0 : 1),
+    score: newScore,
+    lastPlayedAt: Date.now(),
+    froggerPlayed: (player.froggerPlayed || 0) + 1,
+    froggerWins: (player.froggerWins || 0) + (isWinner ? 1 : 0),
+    rankId: rewards.newRankId,
+  };
+
+  if (rewards.packsEarned > 0) {
+    updates.totalPacksEarned = (player.totalPacksEarned || 0) + rewards.packsEarned;
+    updates.unopenedPacks = newUnopenedPacks;
+  }
+
+  await playerRef.update(updates);
+  return rewards;
+}
+
 /** Calculate rank change and pack earnings for a player */
 function calculateRewards(
   oldScore: number,
@@ -532,6 +680,8 @@ async function updatePlayerLeaderboard(
     memoryWins: player.memoryWins || 0,
     connect4Played: player.connect4Played || 0,
     connect4Wins: player.connect4Wins || 0,
+    froggerPlayed: player.froggerPlayed || 0,
+    froggerWins: player.froggerWins || 0,
     // Rank & equipped items
     rankId: player.rankId || 'rookie',
     equippedTitle: player.equippedTitle || null,

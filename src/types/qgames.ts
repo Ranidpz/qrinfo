@@ -6,7 +6,7 @@
 // =============================================================
 
 /** Available mini-game types */
-export type QGameType = 'rps' | 'tictactoe' | 'memory' | 'oddoneout' | 'connect4';
+export type QGameType = 'rps' | 'tictactoe' | 'memory' | 'oddoneout' | 'connect4' | 'frogger';
 
 /** Game lifecycle phases (admin-controlled) */
 export type QGamesPhase = 'active' | 'paused' | 'finished';
@@ -263,6 +263,8 @@ export interface QGamesPlayer {
   oddoneoutWins: number;
   connect4Played: number;
   connect4Wins: number;
+  froggerPlayed: number;
+  froggerWins: number;
 
   registeredAt: number;
   lastPlayedAt: number;
@@ -318,6 +320,17 @@ export interface QGamesMatch {
     score: number;
     strikes: number;
     eliminated: boolean;
+  }[];
+
+  // Frogger game: all player results (2-4 players)
+  froggerResults?: {
+    id: string;
+    nickname: string;
+    avatarType: QGamesAvatarType;
+    avatarValue: string;
+    score: number;
+    screensCompleted: number;
+    eliminatedAt: number | null;
   }[];
 
   status: MatchStatus;
@@ -548,6 +561,42 @@ export interface RTDBOOOState {
 }
 
 // =============================================================
+// Frogger Game (פרוגי) - Real-time action game
+// =============================================================
+
+/** Frogger game phase */
+export type FroggerPhase = 'countdown' | 'playing' | 'finished';
+
+/** Frogger player in RTDB */
+export interface RTDBFroggerPlayer {
+  nickname: string;
+  avatarType: QGamesAvatarType;
+  avatarValue: string;
+  row: number;                  // current row (0 = bottom safe zone)
+  column: number;               // assigned column (fixed)
+  score: number;
+  screensCompleted: number;
+  sizeMultiplier: number;       // 1.0 base, grows ~20% per screen completion
+  eliminated: boolean;
+  eliminatedAt: number | null;
+  joinedAt: number;
+}
+
+/** Frogger room state in RTDB */
+export interface RTDBFroggerState {
+  hostId: string;
+  status: 'lobby' | 'playing' | 'finished';
+  maxPlayers: number;
+  lanes: number;                // number of enemy lanes (config)
+  baseSpeed: number;            // enemy speed multiplier (config)
+  createdAt: number;
+  startedAt: number | null;     // game start timestamp (for elapsed time)
+  gameSeed: number;             // seed for deterministic PRNG
+  phase: FroggerPhase;
+  players: Record<string, RTDBFroggerPlayer>;
+}
+
+// =============================================================
 // Leaderboard Entry (RTDB)
 // =============================================================
 export interface QGamesLeaderboardEntry {
@@ -574,6 +623,8 @@ export interface QGamesLeaderboardEntry {
   memoryWins?: number;
   connect4Played?: number;
   connect4Wins?: number;
+  froggerPlayed?: number;
+  froggerWins?: number;
 
   // Rewards (display only)
   rankId?: string;
@@ -763,6 +814,11 @@ export interface QGamesConfig {
   memoryRecallTimer: number;      // Seconds for recall phase (default: 10)
   memoryMemorizeTimer: number;    // Seconds to show emojis (default: 3)
 
+  // Frogger settings
+  froggerLanes: number;           // Number of enemy lanes (default: 5)
+  froggerBaseSpeed: number;       // Base enemy speed multiplier (default: 3)
+  froggerMaxPlayers: number;      // Max lobby size (default: 4)
+
   // Branding
   branding: QGamesBranding;
 
@@ -824,7 +880,7 @@ export function is3PlayerGame(gameType: QGameType): boolean {
 
 /** Check if a game type uses lobby-based matchmaking (2-6 players) */
 export function isLobbyGame(gameType: QGameType): boolean {
-  return gameType === 'memory';
+  return gameType === 'memory' || gameType === 'frogger';
 }
 
 // =============================================================
@@ -1103,6 +1159,10 @@ export const DEFAULT_QGAMES_CONFIG: QGamesConfig = {
   memoryRecallTimer: 10,
   memoryMemorizeTimer: 3,
 
+  froggerLanes: 5,
+  froggerBaseSpeed: 3,
+  froggerMaxPlayers: 4,
+
   branding: { ...DEFAULT_QGAMES_BRANDING },
 
   emojiPalette: [...DEFAULT_QGAMES_EMOJI_PALETTE],
@@ -1157,10 +1217,15 @@ export const GAME_META: Record<QGameType, {
     labelKey: 'connect4',
     descriptionKey: 'connect4Description',
   },
+  frogger: {
+    emoji: '🐸',
+    labelKey: 'frogger',
+    descriptionKey: 'froggerDescription',
+  },
 };
 
 /** Fixed display order for game selector (canonical order) */
-export const GAME_DISPLAY_ORDER: QGameType[] = ['rps', 'oddoneout', 'tictactoe', 'connect4', 'memory'];
+export const GAME_DISPLAY_ORDER: QGameType[] = ['rps', 'oddoneout', 'tictactoe', 'connect4', 'memory', 'frogger'];
 
 // =============================================================
 // Memory Emoji Pool
@@ -1220,6 +1285,10 @@ export const QGAMES_PATHS = {
   memoryRoom: (codeId: string, roomId: string) => `qgames/${codeId}/memoryRooms/${roomId}`,
   memoryRoomPlayers: (codeId: string, roomId: string) => `qgames/${codeId}/memoryRooms/${roomId}/players`,
   memoryRoomPlayer: (codeId: string, roomId: string, playerId: string) => `qgames/${codeId}/memoryRooms/${roomId}/players/${playerId}`,
+  froggerRooms: (codeId: string) => `qgames/${codeId}/froggerRooms`,
+  froggerRoom: (codeId: string, roomId: string) => `qgames/${codeId}/froggerRooms/${roomId}`,
+  froggerRoomPlayers: (codeId: string, roomId: string) => `qgames/${codeId}/froggerRooms/${roomId}/players`,
+  froggerRoomPlayer: (codeId: string, roomId: string, playerId: string) => `qgames/${codeId}/froggerRooms/${roomId}/players/${playerId}`,
   oooState: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/ooo`,
   oooRound: (codeId: string, matchId: string, round: number) => `qgames/${codeId}/matches/${matchId}/ooo/rounds/${round}`,
   presence: (codeId: string, matchId: string) => `qgames/${codeId}/matches/${matchId}/presence`,

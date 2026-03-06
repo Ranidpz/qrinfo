@@ -9,6 +9,7 @@ import OOOAnimatedEmoji from './OOOAnimatedEmoji';
 import TTTAnimatedEmoji from './TTTAnimatedEmoji';
 import MemoryAnimatedEmoji from './MemoryAnimatedEmoji';
 import Connect4AnimatedEmoji from './Connect4AnimatedEmoji';
+import FroggerAnimatedEmoji from './FroggerAnimatedEmoji';
 
 interface QGamesResultProps {
   isWinner: boolean;
@@ -46,6 +47,7 @@ const ANIMATED_EMOJI: Record<QGameType, React.ComponentType<{ className?: string
   tictactoe: TTTAnimatedEmoji,
   connect4: Connect4AnimatedEmoji,
   memory: MemoryAnimatedEmoji,
+  frogger: FroggerAnimatedEmoji,
 };
 
 export default function QGamesResult({

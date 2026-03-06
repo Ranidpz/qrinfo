@@ -35,6 +35,8 @@ import {
   RTDBMemoryState,
   RTDBMemoryPlayer,
   MemoryPhase,
+  RTDBFroggerState,
+  RTDBFroggerPlayer,
   MatchStatus,
   QGamesAvatarType,
   LiveMatchInfo,
@@ -1180,6 +1182,219 @@ export async function deleteMemoryRoom(
   roomId: string
 ): Promise<void> {
   const roomRef = ref(realtimeDb, QGAMES_PATHS.memoryRoom(codeId, roomId));
+  await remove(roomRef);
+}
+
+// ============ FROGGER ROOMS ============
+
+/** Create a new frogger room (host creates lobby) */
+export async function createFroggerRoom(
+  codeId: string,
+  roomId: string,
+  hostId: string,
+  hostNickname: string,
+  hostAvatarType: QGamesAvatarType,
+  hostAvatarValue: string,
+  lanes: number,
+  baseSpeed: number,
+  maxPlayers: number,
+  column: number
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.froggerRoom(codeId, roomId));
+  const now = Date.now();
+  const state: RTDBFroggerState = {
+    hostId,
+    status: 'lobby',
+    maxPlayers,
+    lanes,
+    baseSpeed,
+    createdAt: now,
+    startedAt: null,
+    gameSeed: Math.floor(Math.random() * 2 ** 32),
+    phase: 'countdown',
+    players: {
+      [hostId]: {
+        nickname: hostNickname,
+        avatarType: hostAvatarType,
+        avatarValue: hostAvatarValue,
+        row: 0,
+        column,
+        score: 0,
+        screensCompleted: 0,
+        sizeMultiplier: 1.0,
+        eliminated: false,
+        eliminatedAt: null,
+        joinedAt: now,
+      },
+    },
+  };
+  await set(roomRef, state);
+
+  const hostPlayerRef = ref(realtimeDb, QGAMES_PATHS.froggerRoomPlayer(codeId, roomId, hostId));
+  onDisconnect(hostPlayerRef).remove();
+}
+
+/** Join an existing frogger room */
+export async function joinFroggerRoom(
+  codeId: string,
+  roomId: string,
+  playerId: string,
+  nickname: string,
+  avatarType: QGamesAvatarType,
+  avatarValue: string,
+  column: number
+): Promise<boolean> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.froggerRoom(codeId, roomId));
+
+  let success = false;
+  await runTransaction(roomRef, (current: RTDBFroggerState | null) => {
+    if (!current) return current;
+    if (current.status !== 'lobby') return;
+    const playerCount = current.players ? Object.keys(current.players).length : 0;
+    if (playerCount >= current.maxPlayers) return;
+    if (current.players?.[playerId]) return;
+
+    current.players = current.players || {};
+    current.players[playerId] = {
+      nickname,
+      avatarType,
+      avatarValue,
+      row: 0,
+      column,
+      score: 0,
+      screensCompleted: 0,
+      sizeMultiplier: 1.0,
+      eliminated: false,
+      eliminatedAt: null,
+      joinedAt: Date.now(),
+    };
+    success = true;
+    return current;
+  });
+
+  if (success) {
+    const playerRef = ref(realtimeDb, QGAMES_PATHS.froggerRoomPlayer(codeId, roomId, playerId));
+    onDisconnect(playerRef).remove();
+  }
+
+  return success;
+}
+
+/** Leave a frogger room */
+export async function leaveFroggerRoom(
+  codeId: string,
+  roomId: string,
+  playerId: string
+): Promise<void> {
+  const playerRef = ref(realtimeDb, QGAMES_PATHS.froggerRoomPlayer(codeId, roomId, playerId));
+  await remove(playerRef);
+}
+
+/** Find an active frogger room lobby to join */
+export async function findActiveFroggerRoom(codeId: string): Promise<string | null> {
+  const roomsRef = ref(realtimeDb, QGAMES_PATHS.froggerRooms(codeId));
+  const snapshot = await get(roomsRef);
+  if (!snapshot.exists()) return null;
+
+  const rooms = snapshot.val() as Record<string, RTDBFroggerState>;
+  for (const [roomId, room] of Object.entries(rooms)) {
+    if (room.status === 'lobby') {
+      const playerCount = room.players ? Object.keys(room.players).length : 0;
+      if (playerCount < room.maxPlayers) {
+        return roomId;
+      }
+    }
+  }
+  return null;
+}
+
+/** Host starts the frogger game */
+export async function startFroggerGame(
+  codeId: string,
+  roomId: string
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.froggerRoom(codeId, roomId));
+  await update(roomRef, {
+    status: 'playing',
+    phase: 'playing',
+    startedAt: Date.now(),
+  });
+}
+
+/** Update a frogger player's position after a jump */
+export async function updateFroggerPlayerPosition(
+  codeId: string,
+  roomId: string,
+  playerId: string,
+  data: { row: number; score: number; screensCompleted: number; sizeMultiplier: number }
+): Promise<void> {
+  const playerRef = ref(realtimeDb, QGAMES_PATHS.froggerRoomPlayer(codeId, roomId, playerId));
+  await update(playerRef, data);
+}
+
+/** Mark a frogger player as eliminated */
+export async function eliminateFroggerPlayer(
+  codeId: string,
+  roomId: string,
+  playerId: string
+): Promise<void> {
+  const playerRef = ref(realtimeDb, QGAMES_PATHS.froggerRoomPlayer(codeId, roomId, playerId));
+  await update(playerRef, { eliminated: true, eliminatedAt: Date.now() });
+}
+
+/** Mark frogger room as finished */
+export async function finishFroggerRoom(
+  codeId: string,
+  roomId: string
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.froggerRoom(codeId, roomId));
+  await update(roomRef, { status: 'finished', phase: 'finished' });
+}
+
+/** Get frogger room state (one-time read) */
+export async function getFroggerRoom(
+  codeId: string,
+  roomId: string
+): Promise<RTDBFroggerState | null> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.froggerRoom(codeId, roomId));
+  const snapshot = await get(roomRef);
+  return snapshot.exists() ? (snapshot.val() as RTDBFroggerState) : null;
+}
+
+/** Subscribe to frogger room state */
+export function subscribeToFroggerRoom(
+  codeId: string,
+  roomId: string,
+  onUpdate: (state: RTDBFroggerState | null) => void
+): () => void {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.froggerRoom(codeId, roomId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists() ? (snapshot.val() as RTDBFroggerState) : null);
+  };
+  onValue(roomRef, callback);
+  return () => off(roomRef, 'value', callback);
+}
+
+/** Subscribe to frogger room players */
+export function subscribeToFroggerPlayers(
+  codeId: string,
+  roomId: string,
+  onUpdate: (players: Record<string, RTDBFroggerPlayer>) => void
+): () => void {
+  const playersRef = ref(realtimeDb, QGAMES_PATHS.froggerRoomPlayers(codeId, roomId));
+  const callback = (snapshot: DataSnapshot) => {
+    onUpdate(snapshot.exists() ? (snapshot.val() as Record<string, RTDBFroggerPlayer>) : {});
+  };
+  onValue(playersRef, callback);
+  return () => off(playersRef, 'value', callback);
+}
+
+/** Delete a frogger room */
+export async function deleteFroggerRoom(
+  codeId: string,
+  roomId: string
+): Promise<void> {
+  const roomRef = ref(realtimeDb, QGAMES_PATHS.froggerRoom(codeId, roomId));
   await remove(roomRef);
 }
 
