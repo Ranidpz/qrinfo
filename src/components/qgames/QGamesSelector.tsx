@@ -95,7 +95,7 @@ export default function QGamesSelector({
 
         {/* Profile hero — compact */}
         <div
-          className={`flex flex-col items-center ${config.branding.eventLogo ? 'pt-3' : 'pt-12'} pb-3 w-full animate-in fade-in slide-in-from-bottom-4 duration-500`}
+          className={`flex flex-col items-center ${config.branding.eventLogo ? 'pt-3' : 'pt-12'} pb-3 w-full animate-in fade-in slide-in-from-top-4 duration-500`}
         >
           {/* Avatar row: avatar + name + rank inline */}
           <div className="flex items-center gap-3 w-full max-w-xs">
@@ -199,9 +199,10 @@ export default function QGamesSelector({
               <button
                 key={gameType}
                 onClick={() => onSelectGame(gameType)}
-                className="w-full flex items-center gap-4 p-4 rounded-2xl active:scale-[0.97] transition-all duration-200 group animate-in fade-in slide-in-from-bottom-2"
+                className="w-full flex items-center gap-4 p-4 rounded-2xl active:scale-[0.97] transition-all duration-200 group animate-in fade-in slide-in-from-bottom-6"
                 style={{
-                  animationDelay: `${(index + 1) * 80}ms`,
+                  animationDelay: `${300 + index * 100}ms`,
+                  animationDuration: '500ms',
                   animationFillMode: 'backwards',
                   backgroundColor: theme.surfaceColor,
                   border: `1px solid ${waitingNow > 0 ? `${theme.accentColor}60` : theme.borderColor}`,
@@ -414,7 +415,7 @@ export default function QGamesSelector({
 
               <div
                 className="rounded-xl p-3"
-                style={{ backgroundColor: `${theme.accentColor}10`, border: `1px solid ${theme.accentColor}20` }}
+                style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.18)' }}
               >
                 <p className="text-sm leading-relaxed" style={{ color: theme.textColor }}>
                   {t('infoDesc3')}
