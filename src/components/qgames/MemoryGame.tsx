@@ -46,6 +46,8 @@ interface MemoryGameProps {
   shortId?: string;
   enableWhatsApp?: boolean;
   inviterVisitorId?: string;
+  viewerCount?: number;
+  onViewLeaderboard?: () => void;
 }
 
 export interface MemoryGameResult {
@@ -110,6 +112,8 @@ export default function MemoryGame({
   shortId,
   enableWhatsApp,
   inviterVisitorId,
+  viewerCount,
+  onViewLeaderboard,
 }: MemoryGameProps) {
   const theme = useQGamesTheme();
   const sounds = useQGamesSounds(config.enableSound);
@@ -723,6 +727,8 @@ export default function MemoryGame({
             .filter(([pid]) => pid !== visitorId)
             .map(([pid, p]) => ({ id: pid, nickname: p.nickname, avatarType: p.avatarType, avatarValue: p.avatarValue }))}
           isRTL={isRTL}
+          onViewLeaderboard={onViewLeaderboard}
+          viewerCount={viewerCount}
         />
       )}
 

@@ -1464,6 +1464,8 @@ export default function QGamesViewer({
           shortId={shortId}
           enableWhatsApp={config.enableWhatsAppInvite}
           inviterVisitorId={inviteFrom || undefined}
+          viewerCount={viewerCount}
+          onViewLeaderboard={() => setPhase('leaderboard')}
         />
       )}
 
