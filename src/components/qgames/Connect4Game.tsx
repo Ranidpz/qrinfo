@@ -13,7 +13,7 @@ import {
   getC4DropRow,
 } from '@/types/qgames';
 import { useC4State, useCountdown, useQGamesSounds } from '@/hooks/useQGamesRealtime';
-import { startNewC4Round } from '@/lib/qgames-realtime';
+// startNewC4Round not needed — Connect 4 is single round with time scoring
 import { useQGamesTheme } from './QGamesThemeContext';
 import ExitGameButton from './ExitGameButton';
 
@@ -140,16 +140,13 @@ export default function Connect4Game({
   const { state: c4State } = useC4State(isBotMatch ? '' : codeId, isBotMatch ? '' : matchId);
   const sounds = useQGamesSounds(enableSound);
 
-  const [displayScores, setDisplayScores] = useState({ p1: 0, p2: 0 });
-  const [scoreAnimation, setScoreAnimation] = useState<{ player: 'p1' | 'p2'; show: boolean }>({ player: 'p1', show: false });
-  const [roundHistory, setRoundHistory] = useState<Array<{
-    winner: 'p1' | 'p2' | 'draw';
-    myColor: 'R' | 'W';
-  }>>([]);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [finalScore, setFinalScore] = useState<number | null>(null);
 
   const matchEndedRef = useRef(false);
   const roundHandledRef = useRef(-1);
+  const gameStartRef = useRef<number>(Date.now());
 
   // Bot state
   const [botState, setBotState] = useState<RTDBC4State | null>(null);
@@ -184,7 +181,6 @@ export default function Connect4Game({
 
   // Current state (bot or online)
   const state = isBotMatch ? botState : c4State;
-  const currentRound = state?.currentRound ?? 0;
   const isMyTurn = state ? state.currentTurn === playerId : false;
   const myColor: C4Marker = state ? (state.redPlayerId === playerId ? 'R' : 'W') : 'R';
 
@@ -200,8 +196,23 @@ export default function Connect4Game({
   const myAvatar = isPlayer1 ? player1Avatar : player2Avatar;
   const oppNickname = isPlayer1 ? player2Nickname : player1Nickname;
   const oppAvatar = isPlayer1 ? player2Avatar : player1Avatar;
-  const myScore = isPlayer1 ? displayScores.p1 : displayScores.p2;
-  const oppScore = isPlayer1 ? displayScores.p2 : displayScores.p1;
+
+  // Elapsed time ticker
+  useEffect(() => {
+    if (state?.roundFinished) return;
+    const interval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - gameStartRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state?.roundFinished]);
+
+  // Reset game start time when game state initializes
+  useEffect(() => {
+    if (state && state.moveCount === 0 && !state.roundFinished) {
+      gameStartRef.current = Date.now();
+      setElapsedTime(0);
+    }
+  }, [state?.currentRound]);
 
   // Bot move logic
   useEffect(() => {
@@ -261,78 +272,40 @@ export default function Connect4Game({
     };
   }, [isBotMatch, botState?.currentTurn, botState?.roundFinished, botState?.currentRound, playerId, isPlayer1, player1Id, player2Id]);
 
-  // Handle round end
+  // Handle game end — single round with time-based scoring
   useEffect(() => {
     if (!state || !state.roundFinished) return;
     if (roundHandledRef.current === state.currentRound) return;
     roundHandledRef.current = state.currentRound;
 
-    setDisplayScores({ p1: state.player1Score, p2: state.player2Score });
+    // Calculate time-based score for winner
+    const elapsedMs = Date.now() - gameStartRef.current;
+    const elapsedSec = elapsedMs / 1000;
+    const timeScore = Math.max(1, Math.round(10 - elapsedSec / 20));
 
     if (state.winner) {
-      const winnerIsP1 = state.winner === player1Id;
-      setScoreAnimation({ player: winnerIsP1 ? 'p1' : 'p2', show: true });
       if (state.winner === playerId) {
         sounds.playWinRound();
       } else {
         sounds.playLoseRound();
       }
-      setTimeout(() => setScoreAnimation(prev => ({ ...prev, show: false })), 1000);
+      setFinalScore(timeScore);
     } else {
+      // Draw
       sounds.playReveal();
+      setFinalScore(1);
     }
 
-    setRoundHistory(prev => [...prev, {
-      winner: state.winner === player1Id ? 'p1' : state.winner === player2Id ? 'p2' : 'draw',
-      myColor: state.redPlayerId === playerId ? 'R' : 'W',
-    }]);
-
-    // Check if match is over
-    if (state.winner && (state.player1Score >= firstTo || state.player2Score >= firstTo)) {
-      if (!matchEndedRef.current) {
-        matchEndedRef.current = true;
-        const winnerId = state.player1Score >= firstTo ? player1Id : player2Id;
-        setTimeout(() => onMatchEnd(winnerId, state.player1Score, state.player2Score), 2000);
-      }
-      return;
+    // End match (single round)
+    if (!matchEndedRef.current) {
+      matchEndedRef.current = true;
+      const winnerId = state.winner;
+      const winnerScore = state.isDraw ? 1 : timeScore;
+      const loserScore = state.isDraw ? 1 : 0;
+      const p1Score = winnerId === player1Id ? winnerScore : state.isDraw ? 1 : loserScore;
+      const p2Score = winnerId === player2Id ? winnerScore : state.isDraw ? 1 : loserScore;
+      setTimeout(() => onMatchEnd(winnerId, p1Score, p2Score), 2500);
     }
-
-    // Start next round after 2s
-    setTimeout(() => {
-      const nextRound = state.currentRound + 1;
-      if (isBotMatch) {
-        const now = Date.now();
-        botTimerStartRef.current = now;
-        const redPlayer = nextRound % 2 === 0 ? player1Id : player2Id;
-        const whitePlayer = nextRound % 2 === 0 ? player2Id : player1Id;
-        setBotState({
-          board: '_'.repeat(42),
-          currentTurn: redPlayer,
-          redPlayerId: redPlayer,
-          whitePlayerId: whitePlayer,
-          winner: null,
-          isDraw: false,
-          moveCount: 0,
-          lastCol: -1,
-          currentRound: nextRound,
-          player1Score: state.player1Score,
-          player2Score: state.player2Score,
-          firstTo,
-          timerStartedAt: now,
-          timerDuration: turnTimer,
-          winLine: null,
-          roundFinished: false,
-        });
-        roundHandledRef.current = -1;
-      } else if (isPlayer1) {
-        startNewC4Round(
-          codeId, matchId, nextRound,
-          player1Id, player2Id,
-          state.player1Score, state.player2Score,
-          turnTimer, firstTo
-        );
-      }
-    }, 2000);
   }, [state?.roundFinished, state?.currentRound]);
 
   // Handle column click
@@ -463,36 +436,41 @@ export default function Connect4Game({
         />
       )}
 
-      {/* Header: Score Display */}
+      {/* Header: Players + Timer */}
       <div className="flex items-center justify-between px-4 pt-14 pb-1.5">
         {/* My side */}
-        <div className="flex items-center gap-2 relative">
-          <AvatarCircle avatar={myAvatar} size="md" className="ring-2 ring-red-400/30" />
+        <div className="flex items-center gap-2">
+          <AvatarCircle avatar={myAvatar} size="md" className={`ring-2 ${myColor === 'R' ? 'ring-red-400/50' : 'ring-white/50'}`} />
           <div>
             <p className="text-white text-xs font-medium truncate max-w-[80px]">{myNickname}</p>
-            <p className="text-2xl font-black text-white tabular-nums">{myScore}</p>
+            <p className="text-[10px] text-white/40">{myColor === 'R' ? '🔴' : '⚪'}</p>
           </div>
-          {scoreAnimation.show && scoreAnimation.player === (isPlayer1 ? 'p1' : 'p2') && (
-            <span className="absolute -top-2 right-0 text-emerald-400 font-black text-lg animate-bounce">+1</span>
-          )}
         </div>
 
-        {/* VS + Round */}
+        {/* Center: Elapsed time */}
         <div className="text-center">
-          <p className="text-white/30 text-[10px] uppercase tracking-widest">{t('round')} {currentRound + 1}</p>
-          <p className="text-white/50 font-bold text-xs">{t('firstTo')}{firstTo}{t('points')}</p>
+          {state?.roundFinished && finalScore !== null ? (
+            <div className="animate-in zoom-in duration-300">
+              <p className="text-2xl font-black text-emerald-400 tabular-nums">{finalScore}</p>
+              <p className="text-[10px] text-white/40">{isRTL ? 'נקודות' : 'points'}</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-2xl font-black text-white/60 tabular-nums">
+                {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+              </p>
+              <p className="text-[10px] text-white/30">{isRTL ? 'מהר יותר = יותר נקודות' : 'faster = more points'}</p>
+            </div>
+          )}
         </div>
 
         {/* Opponent side */}
-        <div className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-2">
           <div>
             <p className="text-white text-xs font-medium truncate max-w-[80px] text-end">{oppNickname}</p>
-            <p className="text-2xl font-black text-white tabular-nums text-end">{oppScore}</p>
+            <p className="text-[10px] text-white/40 text-end">{myColor === 'R' ? '⚪' : '🔴'}</p>
           </div>
-          <AvatarCircle avatar={oppAvatar} size="md" className="ring-2 ring-white/30" />
-          {scoreAnimation.show && scoreAnimation.player === (isPlayer1 ? 'p2' : 'p1') && (
-            <span className="absolute -top-2 left-0 text-emerald-400 font-black text-lg animate-bounce">+1</span>
-          )}
+          <AvatarCircle avatar={oppAvatar} size="md" className={`ring-2 ${myColor === 'R' ? 'ring-white/50' : 'ring-red-400/50'}`} />
         </div>
       </div>
 
@@ -588,37 +566,8 @@ export default function Connect4Game({
         </div>
       </div>
 
-      {/* Round History Strip */}
-      {roundHistory.length > 0 && (
-        <div className="px-3 py-1.5">
-          <div className="flex items-center gap-1.5 justify-center">
-            {roundHistory.map((entry, i) => {
-              const isLatest = i === roundHistory.length - 1;
-              return (
-                <div
-                  key={i}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 transition-all ${
-                    entry.winner === (isPlayer1 ? 'p1' : 'p2')
-                      ? 'bg-emerald-500/15 ring-1 ring-emerald-400/40'
-                      : entry.winner === 'draw'
-                        ? 'bg-yellow-500/15 ring-1 ring-yellow-400/40'
-                        : 'bg-red-500/15 ring-1 ring-red-400/40'
-                  } ${isLatest ? 'animate-in fade-in zoom-in-95 duration-300' : 'opacity-50'}`}
-                >
-                  {entry.winner === (isPlayer1 ? 'p1' : 'p2') ? '✓' : entry.winner === 'draw' ? '=' : '✗'}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Color indicator */}
-      <div className="text-center pb-16">
-        <p className="text-white/20 text-[10px]">
-          {myColor === 'R' ? '🔴' : '⚪'} {myNickname} · {myColor === 'R' ? '⚪' : '🔴'} {oppNickname}
-        </p>
-      </div>
+      {/* Bottom spacer for Powered by bar */}
+      <div className="pb-16" />
     </div>
   );
 }

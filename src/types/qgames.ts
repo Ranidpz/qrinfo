@@ -897,7 +897,7 @@ export const DEFAULT_QGAMES_CONFIG: QGamesConfig = {
   tttFirstTo: 3,
   tttTurnTimer: 10,
 
-  c4FirstTo: 3,
+  c4FirstTo: 1,
   c4TurnTimer: 15,
 
   memoryMaxStrikes: 3,

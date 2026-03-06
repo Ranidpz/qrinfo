@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.30';
+export const APP_VERSION = '1.13.31';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.30',
+    version: '1.13.31',
     date: '2026-03-05',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: ארבע בשורה - סיבוב אחד עם ניקוד לפי זמן (מהר יותר = יותר נקודות)',
+        'שיפור: טיימר מרכזי מראה זמן שעבר במשחק',
+      ],
+      en: [
+        'Improvement: Connect 4 - single round with time-based scoring (faster = more points)',
+        'Improvement: Central timer shows elapsed game time',
+      ],
+    },
+  },
+  {
+    version: '1.13.30',
+    date: '2026-03-05',
     highlights: {
       he: [
         'חדש: זיהוי דפדפן WhatsApp/אפליקציות - באנר פתיחה בדפדפן',

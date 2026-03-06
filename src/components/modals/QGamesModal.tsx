@@ -494,7 +494,7 @@ export default function QGamesModal({
                             {gameType === 'rps' && (
                               <>
                                 <SettingRow label={isRTL ? 'ראשון ל-' : 'First to'}>
-                                  <SettingButtons values={[3, 5]} current={config.rpsFirstTo} onChange={(n) => setConfig(prev => ({ ...prev, rpsFirstTo: n }))} />
+                                  <SettingButtons values={[1, 3, 5]} current={config.rpsFirstTo} onChange={(n) => setConfig(prev => ({ ...prev, rpsFirstTo: n }))} />
                                 </SettingRow>
                                 <SettingRow label={isRTL ? 'טיימר סיבוב ראשון' : 'First round timer'}>
                                   <span className="text-sm text-text-primary font-mono">{config.rpsFirstRoundTimer}s</span>
@@ -520,7 +520,7 @@ export default function QGamesModal({
                             {gameType === 'tictactoe' && (
                               <>
                                 <SettingRow label={isRTL ? 'ראשון ל-' : 'First to'}>
-                                  <SettingButtons values={[3, 5]} current={config.tttFirstTo} onChange={(n) => setConfig(prev => ({ ...prev, tttFirstTo: n }))} />
+                                  <SettingButtons values={[1, 3, 5]} current={config.tttFirstTo} onChange={(n) => setConfig(prev => ({ ...prev, tttFirstTo: n }))} />
                                 </SettingRow>
                                 <SettingRow label={isRTL ? 'טיימר לתור' : 'Turn timer'}>
                                   <SettingButtons values={[10, 15, 20]} current={config.tttTurnTimer} onChange={(n) => setConfig(prev => ({ ...prev, tttTurnTimer: n }))} suffix="s" />
@@ -529,9 +529,6 @@ export default function QGamesModal({
                             )}
                             {gameType === 'connect4' && (
                               <>
-                                <SettingRow label={isRTL ? 'ראשון ל-' : 'First to'}>
-                                  <SettingButtons values={[3, 5]} current={config.c4FirstTo} onChange={(n) => setConfig(prev => ({ ...prev, c4FirstTo: n }))} />
-                                </SettingRow>
                                 <SettingRow label={isRTL ? 'טיימר לתור' : 'Turn timer'}>
                                   <SettingButtons values={[10, 15, 20, 30]} current={config.c4TurnTimer} onChange={(n) => setConfig(prev => ({ ...prev, c4TurnTimer: n }))} suffix="s" />
                                 </SettingRow>
