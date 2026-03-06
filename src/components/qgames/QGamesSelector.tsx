@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Info, X, ExternalLink, Gift } from 'lucide-react';
+import { Pencil, Info, X, ExternalLink, Gift, Backpack } from 'lucide-react';
 import { QGameType, GAME_META, QGamesConfig, LiveMatchInfo, GAME_DISPLAY_ORDER } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import QGamesRankBadge from './QGamesRankBadge';
@@ -19,7 +19,6 @@ interface QGamesSelectorProps {
   onEditProfile?: () => void;
   isRTL: boolean;
   t: (key: string) => string;
-  viewerCount?: number;
   matchesPerGame?: Record<string, number>;
   queuePerGame?: Record<string, number>;
   liveMatches?: LiveMatchInfo[];
@@ -27,7 +26,10 @@ interface QGamesSelectorProps {
   playerScore?: number;
   unopenedPacks?: number;
   onOpenPack?: () => void;
+  onOpenInventory?: () => void;
   locale?: 'he' | 'en';
+  playerInventoryCount?: number;
+  equippedBorder?: string | null;
 }
 
 export default function QGamesSelector({
@@ -38,14 +40,16 @@ export default function QGamesSelector({
   onEditProfile,
   isRTL,
   t,
-  viewerCount = 0,
   matchesPerGame = {},
   queuePerGame = {},
   liveMatches = [],
   playerScore = 0,
   unopenedPacks = 0,
   onOpenPack,
+  onOpenInventory,
   locale,
+  playerInventoryCount = 0,
+  equippedBorder,
 }: QGamesSelectorProps) {
   const theme = useQGamesTheme();
   const [showInfo, setShowInfo] = useState(false);
@@ -88,78 +92,86 @@ export default function QGamesSelector({
           </div>
         )}
 
-        {/* Profile hero */}
+        {/* Profile hero — compact */}
         <div
-          className={`flex flex-col items-center ${config.branding.eventLogo ? 'pt-4' : 'pt-14'} pb-4 w-full animate-in fade-in slide-in-from-bottom-4 duration-500`}
+          className={`flex flex-col items-center ${config.branding.eventLogo ? 'pt-3' : 'pt-12'} pb-3 w-full animate-in fade-in slide-in-from-bottom-4 duration-500`}
         >
-          {/* Avatar with glow */}
-          <button
-            onClick={onEditProfile}
-            className="relative group mb-4"
-            disabled={!onEditProfile}
-          >
-            <div className="absolute -inset-1.5 rounded-full blur-md transition-all duration-300" style={{ backgroundColor: `${theme.accentColor}33` }} />
-
-            <div
-              className="relative w-24 h-24 rounded-full flex items-center justify-center text-5xl overflow-hidden transition-transform duration-200 group-active:scale-95"
-              style={{ backgroundColor: theme.surfaceColor, boxShadow: `0 0 0 2px ${theme.accentColor}66` }}
+          {/* Avatar row: avatar + name + rank inline */}
+          <div className="flex items-center gap-3 w-full max-w-xs">
+            {/* Avatar */}
+            <button
+              onClick={onEditProfile}
+              className="relative group shrink-0"
+              disabled={!onEditProfile}
             >
-              {playerAvatar.startsWith('http') ? (
-                <img src={playerAvatar} alt="" className="w-full h-full object-cover" />
-              ) : playerAvatar}
+              <div className="absolute -inset-1 rounded-full blur-md transition-all duration-300" style={{ backgroundColor: `${theme.accentColor}25` }} />
+              <div
+                className="relative w-16 h-16 rounded-full flex items-center justify-center text-3xl overflow-hidden transition-transform duration-200 group-active:scale-95"
+                style={{ backgroundColor: theme.surfaceColor, boxShadow: `0 0 0 2px ${theme.accentColor}66` }}
+              >
+                {playerAvatar.startsWith('http') ? (
+                  <img src={playerAvatar} alt="" className="w-full h-full object-cover" />
+                ) : playerAvatar}
+              </div>
+              {onEditProfile && (
+                <div
+                  className="absolute -bottom-0.5 -end-0.5 w-6 h-6 rounded-full flex items-center justify-center shadow-lg"
+                  style={{ backgroundColor: theme.accentColor, boxShadow: `0 0 0 2px ${theme.backgroundColor}` }}
+                >
+                  <Pencil className="w-3 h-3 text-white" />
+                </div>
+              )}
+            </button>
+
+            {/* Name + rank + progress */}
+            <div className="flex-1 min-w-0">
+              <h1 className="font-bold text-lg tracking-tight truncate" style={{ color: theme.textColor }}>
+                {playerNickname}
+              </h1>
+              <QGamesRankBadge
+                score={playerScore}
+                size="sm"
+                isRTL={isRTL}
+                showProgress
+                locale={locale || (isRTL ? 'he' : 'en')}
+              />
             </div>
 
-            {onEditProfile && (
-              <div
-                className="absolute -bottom-0.5 -end-0.5 w-7 h-7 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
-                style={{ backgroundColor: theme.accentColor, boxShadow: `0 0 0 2px ${theme.backgroundColor}` }}
-              >
-                <Pencil className="w-3.5 h-3.5 text-white" />
-              </div>
-            )}
-          </button>
-
-          {/* Player name */}
-          <h1 className="font-bold text-xl tracking-tight mb-1" style={{ color: theme.textColor }}>
-            {playerNickname}
-          </h1>
-
-          {/* Rank badge */}
-          <div className="mt-1 mb-1">
-            <QGamesRankBadge
-              score={playerScore}
-              size="sm"
-              isRTL={isRTL}
-              showProgress
-              locale={locale || (isRTL ? 'he' : 'en')}
-            />
-          </div>
-
-          {/* Pack notification */}
-          {unopenedPacks > 0 && onOpenPack && (
-            <button
-              onClick={onOpenPack}
-              className="mt-2 flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-white transition-all active:scale-95 animate-bounce"
-              style={{
-                background: `linear-gradient(135deg, ${theme.accentColor}, ${theme.primaryColor || '#8B5CF6'})`,
-                boxShadow: `0 4px 15px ${theme.accentColor}40`,
-              }}
-            >
-              <Gift className="w-4 h-4" />
-              {unopenedPacks} {t('packsAvailable')}
-            </button>
-          )}
-
-          {/* Live connected count */}
-          <div className="flex items-center gap-1.5 mt-3 animate-in fade-in duration-500" style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}>
-            <div
-              className={`w-2 h-2 rounded-full ${viewerCount > 0 ? 'animate-pulse' : ''}`}
-              style={{ backgroundColor: viewerCount > 0 ? theme.accentColor : theme.borderColor }}
-            />
-            <span className="text-xs font-medium tabular-nums" style={{ color: viewerCount > 0 ? `${theme.accentColor}b3` : theme.textSecondary }}>
-              {viewerCount}
-            </span>
-            <span className="text-xs" style={{ color: theme.textSecondary }}>{isRTL ? 'מחוברים' : 'online'}</span>
+            {/* Action buttons */}
+            <div className="shrink-0 flex items-center gap-1.5">
+              {/* Pack notification */}
+              {unopenedPacks > 0 && onOpenPack && (
+                <button
+                  onClick={onOpenPack}
+                  className="relative flex items-center justify-center w-10 h-10 rounded-xl text-white transition-all active:scale-95"
+                  style={{
+                    background: `linear-gradient(135deg, #F59E0B, #EF4444)`,
+                    boxShadow: `0 3px 10px rgba(245, 158, 11, 0.35)`,
+                  }}
+                >
+                  <Gift className="w-4.5 h-4.5" />
+                  <span
+                    className="absolute -top-1 -end-1 w-4.5 h-4.5 rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse"
+                    style={{ backgroundColor: theme.accentColor, color: theme.backgroundColor }}
+                  >
+                    {unopenedPacks > 9 ? '9+' : unopenedPacks}
+                  </span>
+                </button>
+              )}
+              {/* Inventory */}
+              {onOpenInventory && playerInventoryCount > 0 && (
+                <button
+                  onClick={onOpenInventory}
+                  className="flex items-center justify-center w-10 h-10 rounded-xl transition-all active:scale-95"
+                  style={{
+                    backgroundColor: theme.surfaceColor,
+                    border: `1px solid ${theme.borderColor}`,
+                  }}
+                >
+                  <Backpack className="w-4.5 h-4.5" style={{ color: theme.textSecondary }} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -406,17 +418,20 @@ export default function QGamesSelector({
                 <p className="text-sm leading-relaxed" style={{ color: theme.textColor }}>
                   {t('infoDesc3')}
                 </p>
+                <p className="text-xs mt-1.5 leading-relaxed" style={{ color: theme.textSecondary }}>
+                  {t('infoDesc3Note')}
+                </p>
               </div>
-
-              <p className="text-sm leading-relaxed" style={{ color: theme.textSecondary }}>
-                {t('infoDesc4')}
-              </p>
             </div>
 
             {/* Divider */}
             <div className="my-4" style={{ borderTop: `1px solid ${theme.borderColor}` }} />
 
-            {/* The Q link with leave confirmation */}
+            {/* The Q link */}
+            <p className="text-sm leading-relaxed mb-3 text-center" style={{ color: theme.textSecondary }}>
+              {t('infoDesc4')}
+            </p>
+
             {!showLeaveConfirm ? (
               <button
                 onClick={() => setShowLeaveConfirm(true)}
@@ -429,7 +444,6 @@ export default function QGamesSelector({
               >
                 <ExternalLink className="w-4 h-4" />
                 {t('infoVisitTheQ')}
-                <span className="text-xs opacity-60">theq.app</span>
               </button>
             ) : (
               <div className="text-center">

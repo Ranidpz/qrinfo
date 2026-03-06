@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.33';
+export const APP_VERSION = '1.13.34';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,20 +14,36 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.33',
+    version: '1.13.34',
     date: '2026-03-06',
     isNew: true,
     highlights: {
       he: [
+        'חדש: מודל מידע על Q.Games עם לינק לפלטפורמה',
+        'חדש: דירוגים בלוח מובילים + מונה מחוברים בצ\'אט',
+        'חדש: מסך אינוונטורי לפרסים',
+        'שיפור: בדג\' דירוג קומפקטי בבורר משחקים',
+      ],
+      en: [
+        'New: Q.Games info modal with platform link',
+        'New: Ranks in leaderboard + online count in chat',
+        'New: Prize inventory screen',
+        'Improvement: Compact rank badge in game selector',
+      ],
+    },
+  },
+  {
+    version: '1.13.33',
+    date: '2026-03-06',
+    highlights: {
+      he: [
         'חדש: מערכת דירוגים וחבילות פרסים',
         'חדש: כפתור לוח מובילים קבוע ליד הצ\'אט',
-        'חדש: מודל מידע על Q.Games',
         'שיפור: בורר משחקים - פרופיל קבוע + גלילת משחקים',
       ],
       en: [
         'New: Rank system and prize packs',
         'New: Fixed leaderboard button next to chat',
-        'New: Q.Games info modal',
         'Improvement: Game selector - fixed profile + scrollable games',
       ],
     },

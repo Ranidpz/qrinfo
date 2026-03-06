@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, ChevronDown, Share2, X, SlidersHorizontal } from 'lucide-react';
-import { QGamesLeaderboardEntry, QGamesMatch, QGameType, GAME_META } from '@/types/qgames';
+import { QGamesLeaderboardEntry, QGamesMatch, QGameType, GAME_META, getRankForScore } from '@/types/qgames';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useQGamesTheme } from './QGamesThemeContext';
@@ -367,13 +367,16 @@ export default function QGamesLeaderboard({
 
               {/* Name + Stats */}
               <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate" style={{
-                  color: isMe ? theme.accentColor : 'white',
-                  fontSize: isCompact ? '0.8rem' : '0.875rem',
-                }}>
-                  {entry.nickname}
-                  {isMe && <span className="text-xs ms-1" style={{ color: `${theme.accentColor}99` }}>({t('you')})</span>}
-                </p>
+                <div className="flex items-center gap-1">
+                  <p className="font-semibold truncate" style={{
+                    color: isMe ? theme.accentColor : 'white',
+                    fontSize: isCompact ? '0.8rem' : '0.875rem',
+                  }}>
+                    {entry.nickname}
+                    {isMe && <span className="text-xs ms-1" style={{ color: `${theme.accentColor}99` }}>({t('you')})</span>}
+                  </p>
+                  {!isCompact && (() => { const r = getRankForScore(stats.score); return r.id !== 'rookie' ? <span className="text-xs shrink-0" title={isRTL ? r.nameHe : r.nameEn}>{r.icon}</span> : null; })()}
+                </div>
                 {!isCompact && (
                   <p className="text-white/30 text-[10px]">
                     {stats.played} {t('games')} · {stats.wins}{t('winsShort')} · {winRate}%
@@ -685,6 +688,22 @@ function PlayerStatsModal({ player, rankMedals, isRTL, t, isCurrentPlayer, onClo
             ) : player.avatarValue}
           </div>
           <h3 className="text-white font-bold text-base">{player.nickname}</h3>
+          {(() => {
+            const playerRank = getRankForScore(player.score);
+            return (
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-sm">{playerRank.icon}</span>
+                <span className="text-xs font-medium" style={{ color: playerRank.color }}>
+                  {isRTL ? playerRank.nameHe : playerRank.nameEn}
+                </span>
+              </div>
+            );
+          })()}
+          {player.equippedTitle && (
+            <p className="text-[10px] mt-0.5" style={{ color: '#c084fc' }}>
+              {player.equippedTitle}
+            </p>
+          )}
           <div className="flex items-center gap-2 mt-0.5">
             {player.rank <= 3 ? (
               <span className="text-base">{rankMedals[player.rank - 1]}</span>

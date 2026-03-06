@@ -61,7 +61,8 @@ import LobbyChat from '@/components/qgames/LobbyChat';
 import QGamesRankBadge from '@/components/qgames/QGamesRankBadge';
 import QGamesPackOpening from '@/components/qgames/QGamesPackOpening';
 import QGamesRankUpOverlay from '@/components/qgames/QGamesRankUpOverlay';
-import { QGamesRewardsResult, QGamesInventoryItem } from '@/types/qgames';
+import QGamesInventory from '@/components/qgames/QGamesInventory';
+import { QGamesRewardsResult, QGamesInventoryItem, QGamesPrizeType } from '@/types/qgames';
 
 // ============ Translations ============
 const translations: Record<string, Record<string, string>> = {
@@ -185,9 +186,10 @@ const translations: Record<string, Record<string, string>> = {
     infoTitle: 'מה זה Q.Games?',
     infoDesc1: 'חבילות משחקים לאירועים ולמשחק עם חברים. בוחרים עם מי לשחק ומכירים אנשים חדשים.',
     infoDesc2: 'מתאים לקבוצות חברים, לובי אירועים ואזורי המתנה.',
-    infoDesc3: 'שחקו, דרגו, צברו נקודות — פתחו חבילות משחקים חדשות וזכו בפרסים אמיתיים.',
-    infoDesc4: 'חלק מפלטפורמת The Q לחוויות QR. פרסים אמיתיים ולא רק קבוצות צבעוניות.',
-    infoVisitTheQ: 'בקרו ב-The Q',
+    infoDesc3: 'שחקו, דרגו, צברו נקודות — פתחו חבילות פרסים וזכו בפרסים אמיתיים.',
+    infoDesc3Note: '*בהתאם להגדרות יוצר המשחק ב-The Q',
+    infoDesc4: 'ליצירת מיני גיימס משלכם, הכנסו לפלטפורמת The Q',
+    infoVisitTheQ: 'theq.app',
     infoLeaveTitle: 'לצאת מהמשחק?',
     infoLeaveMessage: 'אתם עומדים לעבור לאתר חיצוני',
     infoStay: 'להישאר',
@@ -313,9 +315,10 @@ const translations: Record<string, Record<string, string>> = {
     infoTitle: 'What is Q.Games?',
     infoDesc1: 'Game packs for events and playing with friends. Choose who to play with and meet new people.',
     infoDesc2: 'Great for friend groups, event lobbies, and waiting areas.',
-    infoDesc3: 'Play, rank up, earn points — unlock new game packs and win real prizes.',
-    infoDesc4: 'Part of The Q platform for QR experiences. Real prizes, not just colorful teams.',
-    infoVisitTheQ: 'Visit The Q',
+    infoDesc3: 'Play, rank up, earn points — unlock prize packs and win real prizes.',
+    infoDesc3Note: '*Based on the game creator\'s settings in The Q',
+    infoDesc4: 'To create your own mini games, visit The Q platform',
+    infoVisitTheQ: 'theq.app',
     infoLeaveTitle: 'Leave the game?',
     infoLeaveMessage: 'You\'re about to open an external site',
     infoStay: 'Stay',
@@ -423,6 +426,7 @@ export default function QGamesViewer({
   const [pendingRewards, setPendingRewards] = useState<QGamesRewardsResult | null>(null);
   const [showRankUp, setShowRankUp] = useState(false);
   const [showPackOpening, setShowPackOpening] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
 
   // Guard against concurrent match attempts
   const matchingRef = useRef(false);
@@ -1084,6 +1088,25 @@ export default function QGamesViewer({
     setPhase('result');
   }, [player, codeId, visitorId]);
 
+  const handleEquipItem = async (prizeId: string, type: QGamesPrizeType) => {
+    if (!visitorId || !player) return;
+    try {
+      const res = await fetch('/api/qgames/equip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, playerId: visitorId, prizeId, type }),
+      });
+      if (res.ok) {
+        const slot = type === 'title' ? 'equippedTitle' : type === 'avatar_border' ? 'equippedBorder' : 'equippedCelebration';
+        const updated = { ...player, [slot]: prizeId || null };
+        setPlayer(updated);
+        savePlayerSession(codeId, updated);
+      }
+    } catch (e) {
+      console.error('Equip error:', e);
+    }
+  };
+
   const handlePlayAgain = useCallback(async () => {
     // Clean up ghost queue entry from bot match
     if (visitorId) {
@@ -1226,13 +1249,14 @@ export default function QGamesViewer({
           }}
           isRTL={isRTL}
           t={t}
-          viewerCount={viewerCount}
           matchesPerGame={matchesPerGame}
           queuePerGame={queuePerGame}
           liveMatches={liveMatches}
           playerScore={player?.score || 0}
           unopenedPacks={player?.unopenedPacks || 0}
           onOpenPack={() => setShowPackOpening(true)}
+          onOpenInventory={() => setShowInventory(true)}
+          playerInventoryCount={player?.inventory?.length || 0}
           locale={lang}
         />
       )}
@@ -1275,6 +1299,7 @@ export default function QGamesViewer({
           connectedPlayers={chatConnectedPlayers}
           isRTL={isRTL}
           onViewLeaderboard={() => setPhase('leaderboard')}
+          viewerCount={viewerCount}
         />
       )}
 
@@ -1465,6 +1490,8 @@ export default function QGamesViewer({
           thirdPlayerNickname={resultData.thirdPlayerNickname}
           thirdPlayerAvatar={resultData.thirdPlayerAvatar}
           thirdPlayerScore={resultData.thirdPlayerScore}
+          packsEarned={pendingRewards?.packsEarned || 0}
+          onOpenPack={() => setShowPackOpening(true)}
         />
       )}
 
@@ -1682,6 +1709,20 @@ export default function QGamesViewer({
           }}
           codeId={codeId}
           playerId={visitorId}
+          locale={lang}
+        />
+      )}
+
+      {/* Inventory modal */}
+      {showInventory && player && (
+        <QGamesInventory
+          inventory={player.inventory || []}
+          equippedTitle={player.equippedTitle || null}
+          equippedBorder={player.equippedBorder || null}
+          equippedCelebration={player.equippedCelebration || null}
+          onEquip={handleEquipItem}
+          onClose={() => setShowInventory(false)}
+          isRTL={isRTL}
           locale={lang}
         />
       )}

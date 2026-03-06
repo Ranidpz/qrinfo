@@ -36,7 +36,7 @@ export default function QGamesRankBadge({
     : 100;
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-start gap-0.5">
       {/* Badge */}
       <span
         className={`inline-flex items-center rounded-full font-semibold ${sizes.container}`}
@@ -52,9 +52,9 @@ export default function QGamesRankBadge({
 
       {/* Progress bar */}
       {showProgress && (
-        <div className="w-full max-w-[160px] flex flex-col gap-0.5">
+        <div className="w-full max-w-[140px] flex flex-col gap-0.5">
           <div
-            className="h-1.5 rounded-full overflow-hidden"
+            className="h-1 rounded-full overflow-hidden"
             style={{ backgroundColor: `${theme.textColor}15` }}
           >
             <div
@@ -66,11 +66,11 @@ export default function QGamesRankBadge({
             />
           </div>
           <span
-            className="text-[10px] text-center"
+            className="text-[10px]"
             style={{ color: theme.textSecondary }}
           >
             {isMaxRank
-              ? (locale === 'he' ? 'הדרגה הגבוהה ביותר!' : 'Max rank!')
+              ? (locale === 'he' ? 'דרגה מקסימלית!' : 'Max rank!')
               : (locale === 'he'
                 ? `${score}/${nextRank.minScore} ל${nextRank.nameHe}`
                 : `${score}/${nextRank.minScore} to ${nextRank.nameEn}`)}
