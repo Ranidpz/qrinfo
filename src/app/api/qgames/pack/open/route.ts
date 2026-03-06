@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import {
   QGamesPlayer,
   QGamesInventoryItem,
@@ -8,7 +9,6 @@ import {
   QGamesCustomPrize,
   QGAMES_PRIZE_CATALOG,
   RARITY_DROP_RATES,
-  DEFAULT_POINTS_PER_PACK,
 } from '@/types/qgames';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
@@ -81,19 +81,27 @@ export async function POST(request: Request) {
 
     // Use transaction to prevent race conditions
     const result = await adminDb.runTransaction(async (transaction) => {
-      const playerDoc = await transaction.get(playerRef);
+      // ALL reads first (Firestore requirement)
+      const [playerDoc, codeDoc] = await Promise.all([
+        transaction.get(playerRef),
+        transaction.get(adminDb.collection('codes').doc(codeId)),
+      ]);
+
       if (!playerDoc.exists) {
+        console.error(`Pack open: player not found - codeId=${codeId} playerId=${playerId}`);
         return { error: 'Player not found', status: 404 };
       }
 
       const player = playerDoc.data() as QGamesPlayer;
+      const unopenedPacks = player.unopenedPacks || 0;
 
-      if (!player.unopenedPacks || player.unopenedPacks <= 0) {
+      console.log(`Pack open: player=${playerId} unopenedPacks=${unopenedPacks} inventorySize=${(player.inventory || []).length}`);
+
+      if (unopenedPacks <= 0) {
         return { error: 'No packs to open', status: 400 };
       }
 
       // Read config for custom prizes
-      const codeDoc = await transaction.get(adminDb.collection('codes').doc(codeId));
       const codeData = codeDoc.data();
       const gamesMedia = codeData?.media?.find(
         (m: { type: string }) => m.type === 'minigames'
@@ -154,13 +162,12 @@ export async function POST(request: Request) {
         };
       }
 
-      // Update player: decrement unopenedPacks, add to inventory
-      const inventory = player.inventory || [];
-      inventory.push(inventoryItem);
+      console.log(`Pack open: rolled prize=${inventoryItem.prizeId} rarity=${inventoryItem.rarity} isCustom=${isCustomPrize}`);
 
+      // Update player: decrement unopenedPacks, add to inventory using arrayUnion (safer)
       transaction.update(playerRef, {
-        unopenedPacks: player.unopenedPacks - 1,
-        inventory,
+        unopenedPacks: unopenedPacks - 1,
+        inventory: FieldValue.arrayUnion(inventoryItem),
       });
 
       return {
@@ -168,7 +175,7 @@ export async function POST(request: Request) {
         prize: inventoryItem,
         isCustomPrize,
         customPrizeId,
-        remainingPacks: player.unopenedPacks - 1,
+        remainingPacks: unopenedPacks - 1,
       };
     });
 
