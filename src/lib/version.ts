@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.38';
+export const APP_VERSION = '1.13.39';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.38',
+    version: '1.13.39',
     date: '2026-03-06',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: טבעת התקדמות חבילה — רואים כמה נשאר עד לחבילה הבאה',
+        'שיפור: לידרבורד עם כותרת דביקה + פילטרים נשארים למעלה בגלילה',
+        'שיפור: כפתור חזרה בצ\'אט חוזר למסך הקודם',
+      ],
+      en: [
+        'New: Pack progress ring — see how close you are to the next pack',
+        'Improvement: Leaderboard with sticky header + filters stay visible on scroll',
+        'Improvement: Chat back button returns to previous screen',
+      ],
+    },
+  },
+  {
+    version: '1.13.38',
+    date: '2026-03-06',
     highlights: {
       he: [
         'חדש: מודל שחקנים מחוברים — לחצו על מספר המחוברים לראות מי אונליין',

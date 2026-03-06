@@ -182,7 +182,7 @@ export default function QGamesLeaderboard({
   const hasActiveFilter = gameFilter !== 'all' || sortMode !== 'score';
 
   return (
-    <div dir={isRTL ? 'rtl' : 'ltr'} className={compact ? '' : 'min-h-screen flex flex-col p-4'}>
+    <div dir={isRTL ? 'rtl' : 'ltr'} className={compact ? '' : 'min-h-screen flex flex-col'}>
       {/* Custom keyframes */}
       <style>{`
         @keyframes leaderboardRowIn {
@@ -199,114 +199,116 @@ export default function QGamesLeaderboard({
         }
       `}</style>
 
-      {/* Header */}
+      {/* Sticky Header + Filters */}
       {!compact && (
-        <div className="flex items-center gap-3 mb-3">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="text-white/40 hover:text-white/60 transition-colors p-1"
+        <div className="sticky top-0 z-10 px-4 pt-4 pb-1" style={{ backgroundColor: theme.backgroundColor }}>
+          <div className="flex items-center gap-3 mb-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="text-white/40 hover:text-white/60 transition-colors p-1"
+              >
+                <ArrowLeft className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+            <h2 className="font-bold text-lg flex-1" style={{ color: theme.textColor }}>
+              {t('leaderboard')}
+            </h2>
+
+            <div className="flex items-center gap-2">
+              {/* Filter toggle button */}
+              {gameTabs.length > 1 && (
+                <button
+                  onClick={() => setFiltersOpen(!filtersOpen)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{
+                    backgroundColor: hasActiveFilter ? `${theme.accentColor}20` : 'rgba(255,255,255,0.05)',
+                    color: hasActiveFilter ? theme.accentColor : 'rgba(255,255,255,0.5)',
+                  }}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  {gameFilter !== 'all' && <span className="truncate max-w-[80px]">{activeFilterLabel}</span>}
+                  <ChevronDown className={`w-3 h-3 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+
+              {/* Share button */}
+              {shortId && (
+                <button
+                  onClick={handleShareWhatsApp}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                  style={{ backgroundColor: `${theme.accentColor}20`, color: theme.accentColor }}
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  {t('share')}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Collapsible Filter Panel */}
+          {filtersOpen && (
+            <div
+              className="mb-2 rounded-xl overflow-hidden"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                animation: 'filterPanelIn 0.25s ease-out forwards',
+              }}
             >
-              <ArrowLeft className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
-            </button>
+              <div className="p-3 space-y-2.5">
+                {/* Game filter chips */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-white/25 mb-1.5">{t('filterByGame')}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {gameTabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setGameFilter(tab.key)}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={gameFilter === tab.key
+                          ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
+                          : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
+                      >
+                        {tab.emoji && <span className="me-1">{tab.emoji}</span>}
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sort toggle */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-white/25 mb-1.5">{t('sortBy')}</p>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setSortMode('score')}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={sortMode === 'score'
+                        ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
+                        : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
+                    >
+                      {t('byScore')}
+                    </button>
+                    <button
+                      onClick={() => setSortMode('winrate')}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={sortMode === 'winrate'
+                        ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
+                        : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
+                    >
+                      % {t('byWinRate')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
-          <h2 className="font-bold text-lg flex-1" style={{ color: theme.textColor }}>
-            {t('leaderboard')}
-          </h2>
-
-          <div className="flex items-center gap-2">
-            {/* Filter toggle button */}
-            {gameTabs.length > 1 && (
-              <button
-                onClick={() => setFiltersOpen(!filtersOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={{
-                  backgroundColor: hasActiveFilter ? `${theme.accentColor}20` : 'rgba(255,255,255,0.05)',
-                  color: hasActiveFilter ? theme.accentColor : 'rgba(255,255,255,0.5)',
-                }}
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                {gameFilter !== 'all' && <span className="truncate max-w-[80px]">{activeFilterLabel}</span>}
-                <ChevronDown className={`w-3 h-3 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-              </button>
-            )}
-
-            {/* Share button */}
-            {shortId && (
-              <button
-                onClick={handleShareWhatsApp}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{ backgroundColor: `${theme.accentColor}20`, color: theme.accentColor }}
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                {t('share')}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Collapsible Filter Panel */}
-      {!compact && filtersOpen && (
-        <div
-          className="mb-3 rounded-xl overflow-hidden"
-          style={{
-            backgroundColor: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            animation: 'filterPanelIn 0.25s ease-out forwards',
-          }}
-        >
-          <div className="p-3 space-y-2.5">
-            {/* Game filter chips */}
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-white/25 mb-1.5">{t('filterByGame')}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {gameTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setGameFilter(tab.key)}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                    style={gameFilter === tab.key
-                      ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
-                      : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
-                  >
-                    {tab.emoji && <span className="me-1">{tab.emoji}</span>}
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sort toggle */}
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-white/25 mb-1.5">{t('sortBy')}</p>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => setSortMode('score')}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={sortMode === 'score'
-                    ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
-                    : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
-                >
-                  {t('byScore')}
-                </button>
-                <button
-                  onClick={() => setSortMode('winrate')}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={sortMode === 'winrate'
-                    ? { backgroundColor: `${theme.accentColor}26`, color: theme.accentColor, boxShadow: `0 0 0 1px ${theme.accentColor}40` }
-                    : { backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}
-                >
-                  % {t('byWinRate')}
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
       {/* Leaderboard List */}
-      <div className="space-y-1">
+      <div className={compact ? 'space-y-1' : 'space-y-1 px-4 pb-20 flex-1'}>
         {topEntries.length === 0 && (
           <p className="text-white/30 text-sm text-center py-8">{t('noPlayersYet')}</p>
         )}

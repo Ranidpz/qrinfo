@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, ChevronDown, X, AtSign, Trophy } from 'lucide-react';
+import { MessageCircle, ChevronDown, X, AtSign, Trophy, ArrowLeft } from 'lucide-react';
 import { useQGamesTheme } from './QGamesThemeContext';
 import {
   QGamesChatPhrase,
@@ -30,6 +30,7 @@ interface LobbyChatProps {
   isRTL: boolean;
   onViewLeaderboard?: () => void;
   onViewOnline?: () => void;
+  onBack?: () => void;
   viewerCount?: number;
 }
 
@@ -44,6 +45,7 @@ export default function LobbyChat({
   isRTL,
   onViewLeaderboard,
   onViewOnline,
+  onBack,
   viewerCount = 0,
 }: LobbyChatProps) {
   const theme = useQGamesTheme();
@@ -190,10 +192,10 @@ export default function LobbyChat({
           </button>
         )}
 
-        {/* Leaderboard button */}
-        {onViewLeaderboard && (
+        {/* Leaderboard or Back button */}
+        {(onViewLeaderboard || onBack) && (
           <button
-            onClick={onViewLeaderboard}
+            onClick={onBack || onViewLeaderboard}
             className="shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 active:scale-[0.95]"
             style={{
               backgroundColor: theme.surfaceColor,
@@ -201,7 +203,11 @@ export default function LobbyChat({
               backdropFilter: 'blur(12px)',
             }}
           >
-            <Trophy size={18} style={{ color: theme.accentColor }} />
+            {onBack ? (
+              <ArrowLeft size={18} className={isRTL ? 'rotate-180' : ''} style={{ color: theme.accentColor }} />
+            ) : (
+              <Trophy size={18} style={{ color: theme.accentColor }} />
+            )}
           </button>
         )}
       </div>

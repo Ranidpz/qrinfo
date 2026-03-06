@@ -1537,6 +1537,21 @@ export default function QGamesViewer({
             isRTL={isRTL}
             t={t}
           />
+          {player && config.chatEnabled !== false && (
+            <LobbyChat
+              codeId={codeId}
+              visitorId={visitorId}
+              playerNickname={player.nickname}
+              playerAvatarType={player.avatarType}
+              playerAvatarValue={player.avatarValue}
+              phrases={config.chatPhrases?.length ? config.chatPhrases : DEFAULT_CHAT_PHRASES}
+              connectedPlayers={chatConnectedPlayers}
+              isRTL={isRTL}
+              onBack={() => setPhase(resultData ? 'result' : 'selector')}
+              onViewOnline={() => setShowOnlinePlayers(true)}
+              viewerCount={viewerCount}
+            />
+          )}
         </>
       )}
 

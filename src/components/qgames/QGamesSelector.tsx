@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Pencil, Info, X, ExternalLink, Gift, Backpack } from 'lucide-react';
-import { QGameType, GAME_META, QGamesConfig, LiveMatchInfo, GAME_DISPLAY_ORDER } from '@/types/qgames';
+import { useState, useEffect } from 'react';
+import { Pencil, Info, X, ExternalLink, Gift } from 'lucide-react';
+import { QGameType, GAME_META, QGamesConfig, LiveMatchInfo, GAME_DISPLAY_ORDER, DEFAULT_POINTS_PER_PACK } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import QGamesRankBadge from './QGamesRankBadge';
 import { getBorderStyle } from './QGamesAvatarBorder';
@@ -31,6 +31,91 @@ interface QGamesSelectorProps {
   locale?: 'he' | 'en';
   playerInventoryCount?: number;
   equippedBorder?: string | null;
+}
+
+/** Circular progress ring around a gift icon showing pack progress */
+function PackProgressRing({
+  score, pointsPerPack, unopenedPacks, onOpenPack, accentColor, bgColor, surfaceColor,
+}: {
+  score: number; pointsPerPack: number; unopenedPacks: number;
+  onOpenPack?: () => void; accentColor: string; bgColor: string; surfaceColor: string;
+}) {
+  const isReady = unopenedPacks > 0;
+  const progressInPack = score % pointsPerPack;
+  const progressPct = isReady ? 100 : (progressInPack / pointsPerPack) * 100;
+  const remaining = isReady ? 0 : pointsPerPack - progressInPack;
+
+  // Animate from 0
+  const [animPct, setAnimPct] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setAnimPct(progressPct), 200);
+    return () => clearTimeout(t);
+  }, [progressPct]);
+
+  // SVG circle math
+  const size = 48;
+  const stroke = 3;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (animPct / 100) * circumference;
+
+  const readyColor = '#F59E0B';
+  const dimColor = `${accentColor}30`;
+  const fillColor = isReady ? readyColor : accentColor;
+
+  return (
+    <button
+      onClick={isReady ? onOpenPack : undefined}
+      disabled={!isReady}
+      className={`relative shrink-0 flex items-center justify-center transition-all ${isReady ? 'active:scale-90' : ''}`}
+      style={{ width: size, height: size }}
+    >
+      {/* SVG ring */}
+      <svg width={size} height={size} className="absolute inset-0 -rotate-90">
+        {/* Background circle */}
+        <circle
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke={dimColor} strokeWidth={stroke}
+        />
+        {/* Progress arc */}
+        <circle
+          cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke={fillColor} strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          style={{ transition: 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)' }}
+        />
+      </svg>
+
+      {/* Center icon */}
+      <div className="relative z-10 flex flex-col items-center justify-center">
+        <Gift
+          size={isReady ? 20 : 16}
+          style={{
+            color: isReady ? readyColor : `${accentColor}60`,
+            filter: isReady ? `drop-shadow(0 0 6px ${readyColor}88)` : 'none',
+          }}
+          className={isReady ? 'animate-bounce' : ''}
+        />
+        {!isReady && remaining > 0 && (
+          <span className="text-[8px] font-bold tabular-nums leading-none mt-0.5" style={{ color: `${accentColor}80` }}>
+            {remaining}
+          </span>
+        )}
+      </div>
+
+      {/* Ready badge */}
+      {isReady && unopenedPacks > 0 && (
+        <span
+          className="absolute -top-0.5 -end-0.5 w-4.5 h-4.5 rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse z-20"
+          style={{ backgroundColor: readyColor, color: bgColor }}
+        >
+          {unopenedPacks > 9 ? '9+' : unopenedPacks}
+        </span>
+      )}
+    </button>
+  );
 }
 
 export default function QGamesSelector({
@@ -138,50 +223,28 @@ export default function QGamesSelector({
               />
             </div>
 
-            {/* Info button */}
-            <button
-              onClick={() => setShowInfo(true)}
-              className="shrink-0 p-2 rounded-full transition-colors active:scale-95"
-              style={{ color: theme.textSecondary }}
-              aria-label={t('infoTitle')}
-            >
-              <Info className="w-5 h-5" />
-            </button>
+            {/* Pack progress ring + info */}
+            <div className="shrink-0 flex items-center gap-1">
+              {/* Pack ring */}
+              <PackProgressRing
+                score={playerScore}
+                pointsPerPack={config.rewards?.pointsPerPack || DEFAULT_POINTS_PER_PACK}
+                unopenedPacks={unopenedPacks}
+                onOpenPack={onOpenPack}
+                accentColor={theme.accentColor}
+                bgColor={theme.backgroundColor}
+                surfaceColor={theme.surfaceColor}
+              />
 
-            {/* Action buttons */}
-            <div className="shrink-0 flex items-center gap-1.5">
-              {/* Pack notification */}
-              {unopenedPacks > 0 && onOpenPack && (
-                <button
-                  onClick={onOpenPack}
-                  className="relative flex items-center justify-center w-10 h-10 rounded-xl text-white transition-all active:scale-95"
-                  style={{
-                    background: `linear-gradient(135deg, #F59E0B, #EF4444)`,
-                    boxShadow: `0 3px 10px rgba(245, 158, 11, 0.35)`,
-                  }}
-                >
-                  <Gift className="w-4.5 h-4.5" />
-                  <span
-                    className="absolute -top-1 -end-1 w-4.5 h-4.5 rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse"
-                    style={{ backgroundColor: theme.accentColor, color: theme.backgroundColor }}
-                  >
-                    {unopenedPacks > 9 ? '9+' : unopenedPacks}
-                  </span>
-                </button>
-              )}
-              {/* Inventory */}
-              {onOpenInventory && playerInventoryCount > 0 && (
-                <button
-                  onClick={onOpenInventory}
-                  className="flex items-center justify-center w-10 h-10 rounded-xl transition-all active:scale-95"
-                  style={{
-                    backgroundColor: theme.surfaceColor,
-                    border: `1px solid ${theme.borderColor}`,
-                  }}
-                >
-                  <Backpack className="w-4.5 h-4.5" style={{ color: theme.textSecondary }} />
-                </button>
-              )}
+              {/* Info button */}
+              <button
+                onClick={() => setShowInfo(true)}
+                className="shrink-0 p-1.5 rounded-full transition-colors active:scale-95"
+                style={{ color: theme.textSecondary }}
+                aria-label={t('infoTitle')}
+              >
+                <Info className="w-4.5 h-4.5" />
+              </button>
             </div>
           </div>
         </div>
