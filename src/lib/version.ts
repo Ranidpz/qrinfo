@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.40';
+export const APP_VERSION = '1.13.41';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,21 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.40',
+    version: '1.13.41',
     date: '2026-03-06',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: פתיחת חבילה — שגיאה בפתיחת חבילה תוקנה',
+      ],
+      en: [
+        'Fix: Pack opening error resolved',
+      ],
+    },
+  },
+  {
+    version: '1.13.40',
+    date: '2026-03-06',
     highlights: {
       he: [
         'תיקון: כותרת לידרבורד נשארת קבועה למעלה בגלילה (באמת)',
