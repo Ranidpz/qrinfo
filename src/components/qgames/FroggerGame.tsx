@@ -124,6 +124,138 @@ const translations = {
   },
 };
 
+// ============ Game Over Component ============
+
+function CountUpScore({ target, duration = 1200, delay = 0 }: { target: number; duration?: number; delay?: number }) {
+  const [current, setCurrent] = useState(0);
+  useEffect(() => {
+    if (target <= 0) { setCurrent(target); return; }
+    const delayTimer = setTimeout(() => {
+      const startTime = performance.now();
+      const animate = (now: number) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        // Ease-out cubic
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setCurrent(Math.round(eased * target));
+        if (progress < 1) requestAnimationFrame(animate);
+      };
+      requestAnimationFrame(animate);
+    }, delay);
+    return () => clearTimeout(delayTimer);
+  }, [target, duration, delay]);
+  return <>{current}</>;
+}
+
+function FroggerGameOver({ players, visitorId, theme, isRTL, tr, onBack }: {
+  players: Record<string, RTDBFroggerPlayer>;
+  visitorId: string;
+  theme: ReturnType<typeof useQGamesTheme>;
+  isRTL: boolean;
+  tr: typeof translations['he'];
+  onBack: () => void;
+}) {
+  const sorted = useMemo(() =>
+    Object.entries(players)
+      .sort(([, a], [, b]) => {
+        if (a.eliminatedAt === null && b.eliminatedAt !== null) return -1;
+        if (a.eliminatedAt !== null && b.eliminatedAt === null) return 1;
+        return b.score - a.score;
+      }), [players]);
+
+  const RANK_MEDALS = ['🥇', '🥈', '🥉'];
+
+  return (
+    <div
+      className="absolute inset-0 z-50 flex items-center justify-center animate-in fade-in duration-500"
+      style={{ backgroundColor: theme.backgroundColor }}
+    >
+      {/* Subtle decorative glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full blur-[100px] opacity-30" style={{ backgroundColor: theme.primaryColor }} />
+
+      <div className="w-full max-w-sm mx-4 flex flex-col items-center">
+        {/* Trophy + title */}
+        <div className="animate-in zoom-in-50 duration-700 text-center mb-6">
+          <div className="text-6xl mb-2">🏆</div>
+          <p className="text-2xl font-black" style={{ color: theme.textColor }}>
+            {tr.gameOver}
+          </p>
+        </div>
+
+        {/* Player results */}
+        <div className="w-full space-y-3">
+          {sorted.map(([pid, p], i) => {
+            const isMe = pid === visitorId;
+            const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
+            const animDelay = 400 + i * 250;
+
+            return (
+              <div
+                key={pid}
+                className="animate-in slide-in-from-bottom-4 duration-500 ease-out"
+                style={{ animationDelay: `${animDelay}ms`, animationFillMode: 'both' }}
+              >
+                <div
+                  className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+                  style={{
+                    backgroundColor: isMe ? `${theme.primaryColor}25` : `${theme.surfaceColor}`,
+                    border: isMe ? `2px solid ${theme.primaryColor}50` : `1px solid ${theme.textSecondary}20`,
+                    boxShadow: i === 0 ? `0 0 20px ${color}30` : undefined,
+                  }}
+                >
+                  {/* Rank */}
+                  <span className="text-2xl w-8 text-center flex-shrink-0">
+                    {i < 3 ? RANK_MEDALS[i] : `#${i + 1}`}
+                  </span>
+
+                  {/* Avatar */}
+                  <div
+                    className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ border: `2px solid ${color}`, backgroundColor: `${color}15` }}
+                  >
+                    {p.avatarType === 'selfie' && p.avatarValue?.startsWith('http') ? (
+                      <img src={p.avatarValue} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{p.avatarValue}</span>
+                    )}
+                  </div>
+
+                  {/* Name */}
+                  <span className="text-sm font-semibold flex-1 truncate" style={{ color: theme.textColor }}>
+                    {p.nickname}
+                    {isMe && <span style={{ color: theme.textSecondary }}> {isRTL ? '(אני)' : '(me)'}</span>}
+                  </span>
+
+                  {/* Score with count-up */}
+                  <span className="font-black text-lg tabular-nums" style={{ color }}>
+                    <CountUpScore target={p.score} delay={animDelay + 300} />
+                  </span>
+
+                  {/* Eliminated indicator */}
+                  {p.eliminated && <span className="text-sm">💀</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Back button */}
+        <button
+          onClick={onBack}
+          className="mt-8 px-8 py-3 rounded-2xl font-bold text-white transition-all active:scale-95 animate-in fade-in duration-500"
+          style={{
+            backgroundColor: theme.primaryColor,
+            animationDelay: `${400 + sorted.length * 250 + 400}ms`,
+            animationFillMode: 'both',
+          }}
+        >
+          {isRTL ? 'חזרה' : 'Back'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ============ Component ============
 
 export default function FroggerGame({
@@ -958,65 +1090,17 @@ export default function FroggerGame({
 
           {/* Game Over overlay */}
           {localPhase === 'gameOver' && (
-            <div className="absolute inset-0 flex items-center justify-center z-50">
-              <div
-                className="text-center px-8 py-8 rounded-3xl animate-in zoom-in-75 duration-500 mx-4"
-                style={{
-                  backgroundColor: `${theme.surfaceColor}f5`,
-                  border: `2px solid ${theme.primaryColor}`,
-                }}
-              >
-                <div className="text-5xl mb-3">🏆</div>
-                <p className="text-2xl font-black mb-4" style={{ color: theme.textColor }}>
-                  {tr.gameOver}
-                </p>
-
-                {/* Results */}
-                <div className="space-y-2">
-                  {Object.entries(players)
-                    .sort(([, a], [, b]) => {
-                      if (a.eliminatedAt === null && b.eliminatedAt !== null) return -1;
-                      if (a.eliminatedAt !== null && b.eliminatedAt === null) return 1;
-                      return b.score - a.score;
-                    })
-                    .map(([pid, p], i) => (
-                      <div
-                        key={pid}
-                        className="flex items-center gap-3 px-4 py-2 rounded-xl"
-                        style={{
-                          backgroundColor: pid === visitorId ? `${theme.primaryColor}20` : 'transparent',
-                          border: pid === visitorId ? `1px solid ${theme.primaryColor}40` : '1px solid transparent',
-                        }}
-                      >
-                        <span className="font-bold text-lg w-6" style={{ color: PLAYER_COLORS[i % PLAYER_COLORS.length] }}>
-                          #{i + 1}
-                        </span>
-                        <div
-                          className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-sm flex-shrink-0"
-                          style={{ border: `2px solid ${PLAYER_COLORS[i % PLAYER_COLORS.length]}` }}
-                        >
-                          {p.avatarType === 'selfie' && p.avatarValue?.startsWith('http') ? (
-                            <img src={p.avatarValue} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span>{p.avatarValue}</span>
-                          )}
-                        </div>
-                        <span className="text-sm flex-1 truncate" style={{ color: theme.textColor }}>
-                          {p.nickname}
-                          {pid === visitorId && (isRTL ? ' (אני)' : ' (me)')}
-                        </span>
-                        <span className="font-bold" style={{ color: theme.textColor }}>
-                          {p.score}
-                        </span>
-                        {p.eliminated && (
-                          <span className="text-xs" style={{ color: '#EF4444' }}>💀</span>
-                        )}
-                      </div>
-                    ))
-                  }
-                </div>
-              </div>
-            </div>
+            <FroggerGameOver
+              players={players}
+              visitorId={visitorId}
+              theme={theme}
+              isRTL={isRTL}
+              tr={tr}
+              onBack={() => {
+                if (roomId) leaveFroggerRoom(codeId, roomId, visitorId).catch(() => {});
+                onBack();
+              }}
+            />
           )}
 
           {/* Tap hint (first 3 seconds) */}
