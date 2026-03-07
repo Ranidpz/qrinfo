@@ -453,14 +453,14 @@ export default function FroggerGame({
     return () => clearInterval(botInterval);
   }, [localPhase, roomId, codeId, players]);
 
-  // ============ Host: detect game over (all but 1 eliminated) ============
+  // ============ Host: detect game over (ALL eliminated) ============
 
   useEffect(() => {
     if (!isHost || localPhase !== 'playing' || !roomId) return;
     if (playerCount < 2) return;
 
     const alive = Object.entries(players).filter(([, p]) => !p.eliminated);
-    if (alive.length <= 1) {
+    if (alive.length === 0) {
       finishFroggerRoom(codeId, roomId).catch(console.error);
     }
   }, [isHost, localPhase, roomId, playerCount, players, codeId]);
