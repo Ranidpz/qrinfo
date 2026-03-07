@@ -500,7 +500,10 @@ export default function MemoryGame({
   const handleWhatsAppInvite = useCallback(() => {
     if (!shortId) return;
     const baseUrl = `https://qr.playzones.app/v/${shortId}`;
-    const shareUrl = inviterVisitorId ? `${baseUrl}?invite=${inviterVisitorId}` : baseUrl;
+    const params = new URLSearchParams();
+    if (inviterVisitorId) params.set('invite', inviterVisitorId);
+    params.set('game', 'memory');
+    const shareUrl = `${baseUrl}?${params}`;
     const gameName = isRTL ? 'זיכרון' : 'Memory';
     const message = isRTL
       ? `🎮 בוא נשחק ${gameName}! ${shareUrl}`

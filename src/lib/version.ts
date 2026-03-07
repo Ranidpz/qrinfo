@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.49';
+export const APP_VERSION = '1.13.50';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.49',
+    version: '1.13.50',
     date: '2026-03-07',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: הזמנת וואטסאפ מובילה ישר למשחק (לא לבורר)',
+        'חדש: כרטיסי שיאים בלוח מובילים',
+        'שיפור: פרוגי — חזרה ללובי אחרי סיום (לא לבורר משחקים)',
+      ],
+      en: [
+        'New: WhatsApp invite leads directly to the game (not selector)',
+        'New: Record holder cards in leaderboard',
+        'Improvement: Frogger — return to lobby after game over (not game selector)',
+      ],
+    },
+  },
+  {
+    version: '1.13.49',
+    date: '2026-03-07',
     highlights: {
       he: [
         'חדש: מערכת שיאים — שיא הניקוד מוצג במשחק ובסיום',

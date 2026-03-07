@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, ChevronDown, Share2, X, SlidersHorizontal } from 'lucide-react';
-import { QGamesLeaderboardEntry, QGamesMatch, QGameType, GAME_META, getRankForScore } from '@/types/qgames';
+import { QGamesLeaderboardEntry, QGamesMatch, QGameType, GAME_META, GAME_DISPLAY_ORDER, getRankForScore } from '@/types/qgames';
+import { useGameRecord } from '@/hooks/useQGamesRealtime';
 import { getBorderStyle } from './QGamesAvatarBorder';
 import { RANK_ICONS } from './QGamesRankBadge';
 import { db } from '@/lib/firebase';
@@ -28,6 +29,66 @@ function useCountUp(target: number, duration = 800, active = true) {
   }, [target, duration, active]);
 
   return value;
+}
+
+/** Single record holder card for one game type */
+function RecordCard({ codeId, gameType, isRTL, t, onSelect }: {
+  codeId: string;
+  gameType: QGameType;
+  isRTL: boolean;
+  t: (key: string) => string;
+  onSelect: (filter: GameFilter) => void;
+}) {
+  const { record } = useGameRecord(codeId, gameType);
+  const meta = GAME_META[gameType];
+  const theme = useQGamesTheme();
+
+  if (!record) return null;
+
+  return (
+    <button
+      onClick={() => onSelect(gameType as GameFilter)}
+      className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl transition-all active:scale-95"
+      style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+    >
+      <span className="text-lg">{meta.emoji}</span>
+      <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-sm overflow-hidden shrink-0">
+        {record.holderAvatarValue.startsWith('http') ? (
+          <img src={record.holderAvatarValue} alt="" className="w-full h-full object-cover" />
+        ) : record.holderAvatarValue}
+      </div>
+      <div className="text-start min-w-0">
+        <p className="text-[10px] text-white/40 leading-tight truncate">{record.holderNickname}</p>
+        <p className="text-sm font-bold leading-tight" style={{ color: '#facc15' }}>{record.score}</p>
+      </div>
+    </button>
+  );
+}
+
+/** Horizontal scrollable row of record holder cards */
+function RecordHolderCards({ codeId, enabledGames, isRTL, t, onSelectFilter }: {
+  codeId: string;
+  enabledGames?: QGameType[];
+  isRTL: boolean;
+  t: (key: string) => string;
+  onSelectFilter: (filter: GameFilter) => void;
+}) {
+  const games = GAME_DISPLAY_ORDER.filter(g => !enabledGames || enabledGames.includes(g));
+
+  return (
+    <div className="flex gap-2 overflow-x-auto px-4 pb-2 pt-1" style={{ scrollbarWidth: 'none' }}>
+      {games.map(gameType => (
+        <RecordCard
+          key={gameType}
+          codeId={codeId}
+          gameType={gameType}
+          isRTL={isRTL}
+          t={t}
+          onSelect={onSelectFilter}
+        />
+      ))}
+    </div>
+  );
 }
 
 type GameFilter = 'all' | 'rps' | 'oddoneout' | 'tictactoe' | 'connect4' | 'memory' | 'frogger';
@@ -133,6 +194,9 @@ export default function QGamesLeaderboard({
     }
     if (!enabledGames || enabledGames.includes('memory')) {
       tabs.push({ key: 'memory', label: t('memory'), emoji: GAME_META.memory.emoji });
+    }
+    if (!enabledGames || enabledGames.includes('frogger')) {
+      tabs.push({ key: 'frogger', label: t('frogger'), emoji: GAME_META.frogger.emoji });
     }
     return tabs;
   }, [enabledGames, t]);
@@ -312,6 +376,20 @@ export default function QGamesLeaderboard({
             </div>
           )}
         </div>
+      )}
+
+      {/* Record Holder Cards */}
+      {!compact && codeId && (
+        <RecordHolderCards
+          codeId={codeId}
+          enabledGames={enabledGames}
+          isRTL={isRTL}
+          t={t}
+          onSelectFilter={(filter) => {
+            setGameFilter(filter);
+            setFiltersOpen(false);
+          }}
+        />
       )}
 
       {/* Leaderboard List (scrollable) */}

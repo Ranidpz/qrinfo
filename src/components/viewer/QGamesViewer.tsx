@@ -426,6 +426,16 @@ export default function QGamesViewer({
     return null;
   });
 
+  // Read game param from URL (game-specific WhatsApp invite)
+  const [gameFromUrl, setGameFromUrl] = useState<QGameType | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const raw = new URLSearchParams(window.location.search).get('game');
+    if (!raw) return null;
+    const validGames: QGameType[] = ['rps', 'tictactoe', 'memory', 'oddoneout', 'connect4', 'frogger'];
+    return validGames.includes(raw as QGameType) ? (raw as QGameType) : null;
+  });
+  const gameFromUrlConsumed = useRef(false);
+
   // Track when disconnect countdown started (for visual countdown bar)
   const [disconnectStartTime, setDisconnectStartTime] = useState<number | null>(null);
   const [showExitToQ, setShowExitToQ] = useState(false);
@@ -791,6 +801,25 @@ export default function QGamesViewer({
       matchingRef.current = false;
     }
   }, [codeId, player, visitorId, inviteFrom]);
+
+  // Auto-join game from URL param (game-specific WhatsApp invite)
+  useEffect(() => {
+    if (!gameFromUrl || gameFromUrlConsumed.current) return;
+    if (!player || phase !== 'selector') return;
+    if (!config.enabledGames?.includes(gameFromUrl)) {
+      setGameFromUrl(null);
+      return;
+    }
+    gameFromUrlConsumed.current = true;
+    setGameFromUrl(null);
+    // Clean URL to prevent re-trigger on refresh
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('game');
+      window.history.replaceState({}, '', url.toString());
+    }
+    handleSelectGame(gameFromUrl);
+  }, [gameFromUrl, player, phase, config.enabledGames, handleSelectGame]);
 
   const handleCancelQueue = useCallback(async () => {
     if (visitorId) {

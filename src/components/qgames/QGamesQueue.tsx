@@ -155,7 +155,10 @@ export default function QGamesQueue({
 
   const handleWhatsAppInvite = () => {
     const baseUrl = `https://qr.playzones.app/v/${shortId}`;
-    const shareUrl = inviterVisitorId ? `${baseUrl}?invite=${inviterVisitorId}` : baseUrl;
+    const params = new URLSearchParams();
+    if (inviterVisitorId) params.set('invite', inviterVisitorId);
+    if (gameType) params.set('game', gameType);
+    const shareUrl = params.toString() ? `${baseUrl}?${params}` : baseUrl;
     const message = isRTL
       ? `🎮 בוא נשחק ${gameName}! ${shareUrl}`
       : `🎮 Let's play ${gameName}! ${shareUrl}`;

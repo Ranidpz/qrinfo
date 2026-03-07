@@ -319,6 +319,7 @@ export default function FroggerGame({
   t,
   shortId,
   enableWhatsApp,
+  inviterVisitorId,
   viewerCount,
   onViewLeaderboard,
 }: FroggerGameProps) {
@@ -368,6 +369,29 @@ export default function FroggerGame({
     Object.entries(players).filter(([, p]) => !p.eliminated),
     [players]
   );
+
+  // ============ Reset to lobby ============
+  const resetToLobby = useCallback(() => {
+    if (roomId) leaveFroggerRoom(codeId, roomId, visitorId).catch(() => {});
+    setRoomId(null);
+    setIsHost(false);
+    setMyRow(0);
+    setMyScore(0);
+    setMyScreens(0);
+    setMySizeMultiplier(1.0);
+    setEliminated(false);
+    eliminatedRef.current = false;
+    setScreenCompletePopup(false);
+    setDifficulty(0);
+    setEnemies([]);
+    lanesRef.current = null;
+    gameStartRef.current = null;
+    gameFinishedRef.current = false;
+    botEliminatedRef.current = false;
+    matchEndedRef.current = false;
+    joinedRef.current = false;
+    setLocalPhase('lobby');
+  }, [roomId, codeId, visitorId]);
 
   // ============ Viewport measurement ============
 
@@ -481,12 +505,16 @@ export default function FroggerGame({
 
   const handleWhatsAppInvite = useCallback(() => {
     if (!shortId) return;
-    const url = `${window.location.origin}/v/${shortId}`;
+    const baseUrl = `https://qr.playzones.app/v/${shortId}`;
+    const params = new URLSearchParams();
+    if (inviterVisitorId) params.set('invite', inviterVisitorId);
+    params.set('game', 'frogger');
+    const shareUrl = `${baseUrl}?${params}`;
     const text = isRTL
-      ? `🐸 בואו לשחק פרוגי! ${url}`
-      : `🐸 Come play Frogger! ${url}`;
+      ? `🐸 בואו לשחק פרוגי! ${shareUrl}`
+      : `🐸 Come play Frogger! ${shareUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-  }, [shortId, isRTL]);
+  }, [shortId, inviterVisitorId, isRTL]);
 
   // ============ Room status → local phase sync ============
 
@@ -1142,8 +1170,7 @@ export default function FroggerGame({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (roomId) leaveFroggerRoom(codeId, roomId, visitorId).catch(() => {});
-                    onBack();
+                    resetToLobby();
                   }}
                   className="mt-4 px-6 py-2 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
                   style={{ backgroundColor: `${theme.textSecondary}80` }}
@@ -1163,10 +1190,7 @@ export default function FroggerGame({
               isRTL={isRTL}
               tr={tr}
               currentRecord={currentRecord}
-              onBack={() => {
-                if (roomId) leaveFroggerRoom(codeId, roomId, visitorId).catch(() => {});
-                onBack();
-              }}
+              onBack={resetToLobby}
             />
           )}
 

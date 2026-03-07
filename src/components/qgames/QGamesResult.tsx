@@ -91,7 +91,10 @@ export default function QGamesResult({
   const handleWhatsAppShare = () => {
     if (!shortId) return;
     const baseUrl = `https://qr.playzones.app/v/${shortId}`;
-    const shareUrl = visitorId ? `${baseUrl}?invite=${visitorId}` : baseUrl;
+    const params = new URLSearchParams();
+    if (visitorId) params.set('invite', visitorId);
+    params.set('game', gameType);
+    const shareUrl = `${baseUrl}?${params}`;
     const message = isRTL
       ? (isWinner
         ? `🏆 ניצחתי את ${oppNickname} ב${gameName}!\n💪 ${myScore}:${oppScore}\n🎮 בואו לשחק איתי!\n${shareUrl}`
