@@ -1814,6 +1814,8 @@ export default function QGamesViewer({
               setPlayer(updated);
               savePlayerSession(codeId, updated);
             }
+            // Update pendingRewards so result screen button reflects actual remaining packs
+            setPendingRewards(prev => prev ? { ...prev, packsEarned: remaining } : null);
           }}
           codeId={codeId}
           playerId={visitorId}
