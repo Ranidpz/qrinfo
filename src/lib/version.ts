@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.46';
+export const APP_VERSION = '1.13.47';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,21 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.46',
+    version: '1.13.47',
     date: '2026-03-07',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: פרוגי — מסך VS עם תמונות שחקנים לפני המשחק',
+      ],
+      en: [
+        'Improvement: Frogger — VS screen with player avatars before game',
+      ],
+    },
+  },
+  {
+    version: '1.13.46',
+    date: '2026-03-07',
     highlights: {
       he: [
         'תיקון: כפתור פתיחת חבילה נשאר פעיל אחרי פתיחה — תוקן',

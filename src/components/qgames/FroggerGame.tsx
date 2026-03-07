@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Share2 } from 'lucide-react';
 import ExitGameButton from './ExitGameButton';
+import QGamesVSScreen from './QGamesVSScreen';
 import {
   QGamesConfig,
   QGamesAvatarType,
@@ -149,7 +150,6 @@ export default function FroggerGame({
   const [roomId, setRoomId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [localPhase, setLocalPhase] = useState<GamePhase>('lobby');
-  const [countdownNum, setCountdownNum] = useState(3);
   const joinedRef = useRef(false);
   const matchEndedRef = useRef(false);
 
@@ -313,9 +313,8 @@ export default function FroggerGame({
     if (!room) return;
 
     if (room.status === 'playing' && localPhase === 'lobby') {
-      // Game started: begin countdown
+      // Game started: show VS screen
       setLocalPhase('countdown');
-      setCountdownNum(3);
       gameStartRef.current = room.startedAt;
       gameSeedRef.current = room.gameSeed;
 
@@ -334,20 +333,12 @@ export default function FroggerGame({
     }
   }, [room?.status, room?.startedAt, room?.gameSeed, localPhase, visitorId, room]);
 
-  // ============ Countdown 3-2-1 ============
+  // ============ Countdown complete (from VS screen) ============
 
-  useEffect(() => {
-    if (localPhase !== 'countdown') return;
-
-    const t2 = setTimeout(() => { setCountdownNum(2); sounds.playCountdown(); }, 1000);
-    const t1 = setTimeout(() => { setCountdownNum(1); sounds.playCountdown(); }, 2000);
-    const tGo = setTimeout(() => {
-      setLocalPhase('playing');
-      sounds.playCountdown();
-    }, 3000);
-
-    return () => { clearTimeout(t2); clearTimeout(t1); clearTimeout(tGo); };
-  }, [localPhase, sounds]);
+  const handleCountdownComplete = useCallback(() => {
+    setLocalPhase('playing');
+    sounds.playCountdown();
+  }, [sounds]);
 
   // ============ Game Loop (requestAnimationFrame) ============
 
@@ -735,23 +726,25 @@ export default function FroggerGame({
         />
       )}
 
-      {/* ── COUNTDOWN 3-2-1 ── */}
-      {localPhase === 'countdown' && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div
-              key={countdownNum}
-              className="text-9xl font-black animate-in zoom-in-50 duration-300"
-              style={{ color: theme.primaryColor }}
-            >
-              {countdownNum}
-            </div>
-            <p className="text-lg mt-4" style={{ color: theme.textSecondary }}>
-              🐸 {isRTL ? 'התכוננו!' : 'Get ready!'}
-            </p>
-          </div>
-        </div>
-      )}
+      {/* ── VS SCREEN + COUNTDOWN ── */}
+      {localPhase === 'countdown' && (() => {
+        const playerList = Object.entries(players);
+        const me = playerList.find(([pid]) => pid === visitorId);
+        const others = playerList.filter(([pid]) => pid !== visitorId);
+        return (
+          <QGamesVSScreen
+            player1Nickname={me?.[1]?.nickname || playerNickname}
+            player1Avatar={me?.[1]?.avatarValue || playerAvatarValue}
+            player2Nickname={others[0]?.[1]?.nickname || '?'}
+            player2Avatar={others[0]?.[1]?.avatarValue || '🤖'}
+            player3Nickname={others[1]?.[1]?.nickname}
+            player3Avatar={others[1]?.[1]?.avatarValue}
+            gameEmoji="🐸"
+            onCountdownComplete={handleCountdownComplete}
+            isRTL={isRTL}
+          />
+        );
+      })()}
 
       {/* ── PLAYING ── */}
       {(localPhase === 'playing' || localPhase === 'gameOver') && (
