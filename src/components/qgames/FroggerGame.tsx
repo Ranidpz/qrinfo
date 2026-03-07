@@ -159,9 +159,12 @@ export default function FroggerGame({
   const [myScreens, setMyScreens] = useState(0);
   const [mySizeMultiplier, setMySizeMultiplier] = useState(1.0);
   const [eliminated, setEliminated] = useState(false);
+  const eliminatedRef = useRef(false);
   const [screenCompletePopup, setScreenCompletePopup] = useState(false);
   const [difficulty, setDifficulty] = useState(0);
   const gameSeedRef = useRef<number>(0);
+  const lastTapRef = useRef(0);
+  const gameFinishedRef = useRef(false);
 
   // Game engine state
   const [enemies, setEnemies] = useState<EnemyPosition[]>([]);
@@ -384,14 +387,21 @@ export default function FroggerGame({
   // ============ Elimination ============
 
   const handleElimination = useCallback(() => {
-    if (eliminated) return;
+    if (eliminatedRef.current) return;
+    eliminatedRef.current = true;
     setEliminated(true);
     sounds.playLoseMatch();
 
     if (roomId) {
-      eliminateFroggerPlayer(codeId, roomId, visitorId).catch(console.error);
+      eliminateFroggerPlayer(codeId, roomId, visitorId).then(() => {
+        // Direct game finish if bot is also eliminated (avoids race condition)
+        if (isHost && botEliminatedRef.current && !gameFinishedRef.current) {
+          gameFinishedRef.current = true;
+          finishFroggerRoom(codeId, roomId).catch(console.error);
+        }
+      }).catch(console.error);
     }
-  }, [eliminated, roomId, codeId, visitorId, sounds]);
+  }, [roomId, codeId, visitorId, sounds, isHost]);
 
   // ============ Bot AI ============
   const botEliminatedRef = useRef(false);
@@ -411,7 +421,13 @@ export default function FroggerGame({
       const botRect = getPlayerRect(bp.row, bp.column, bp.sizeMultiplier, grid, getTotalColumns());
       if (checkPlayerEnemyCollision(botRect, currentEnemies)) {
         botEliminatedRef.current = true;
-        eliminateFroggerPlayer(codeId, roomId, 'bot_frogger').catch(console.error);
+        eliminateFroggerPlayer(codeId, roomId, 'bot_frogger').then(() => {
+          // Direct game finish if human is also eliminated (avoids race condition)
+          if (isHost && eliminatedRef.current && !gameFinishedRef.current) {
+            gameFinishedRef.current = true;
+            finishFroggerRoom(codeId, roomId).catch(console.error);
+          }
+        }).catch(console.error);
       }
     }, 200); // Check 5x/sec for bot
 
@@ -460,7 +476,8 @@ export default function FroggerGame({
     if (playerCount < 2) return;
 
     const alive = Object.entries(players).filter(([, p]) => !p.eliminated);
-    if (alive.length === 0) {
+    if (alive.length === 0 && !gameFinishedRef.current) {
+      gameFinishedRef.current = true;
       finishFroggerRoom(codeId, roomId).catch(console.error);
     }
   }, [isHost, localPhase, roomId, playerCount, players, codeId]);
@@ -509,6 +526,11 @@ export default function FroggerGame({
 
   const handleTap = useCallback(() => {
     if (eliminated || localPhase !== 'playing') return;
+
+    // Debounce: prevent double-jump from touch+click firing together
+    const now = Date.now();
+    if (now - lastTapRef.current < 250) return;
+    lastTapRef.current = now;
 
     const newRow = myRow + 1;
     let newScore = myScore + 1;
@@ -912,7 +934,9 @@ export default function FroggerGame({
 
           {/* Eliminated overlay */}
           {eliminated && localPhase === 'playing' && (
-            <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center z-40"
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}>
               <div
                 className="text-center px-8 py-6 rounded-3xl animate-in zoom-in-75 duration-300"
                 style={{ backgroundColor: `${theme.surfaceColor}ee`, border: `2px solid #EF4444` }}
@@ -924,6 +948,17 @@ export default function FroggerGame({
                 <p className="text-sm mt-2" style={{ color: theme.textSecondary }}>
                   {tr.score}: {myScore}
                 </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (roomId) leaveFroggerRoom(codeId, roomId, visitorId).catch(() => {});
+                    onBack();
+                  }}
+                  className="mt-4 px-6 py-2 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
+                  style={{ backgroundColor: `${theme.textSecondary}80` }}
+                >
+                  {isRTL ? 'חזרה' : 'Back'}
+                </button>
               </div>
             </div>
           )}

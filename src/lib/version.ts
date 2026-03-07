@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.44';
+export const APP_VERSION = '1.13.45';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,25 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.44',
+    version: '1.13.45',
     date: '2026-03-07',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: פרוגי — קפיצה כפולה תוקנה',
+        'תיקון: פרוגי — המשחק נגמר כשכולם נפסלים',
+        'חדש: פרוגי — כפתור חזרה למי שנפסל',
+      ],
+      en: [
+        'Fix: Frogger — double jump fixed',
+        'Fix: Frogger — game ends when all eliminated',
+        'New: Frogger — back button for eliminated players',
+      ],
+    },
+  },
+  {
+    version: '1.13.44',
+    date: '2026-03-07',
     highlights: {
       he: [
         'שיפור: פרוגי — השחקן האחרון ממשיך לשחק עד שנפסל',
