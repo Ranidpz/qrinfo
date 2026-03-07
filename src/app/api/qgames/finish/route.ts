@@ -10,6 +10,7 @@ import {
   QGamesAvatarType,
   getRankForScore,
   DEFAULT_POINTS_PER_PACK,
+  QGamesRecord,
 } from '@/types/qgames';
 import {
   getMatch,
@@ -23,6 +24,8 @@ import {
   leaveQueue,
   deleteMemoryRoom,
   deleteFroggerRoom,
+  getGameRecord,
+  updateGameRecord,
 } from '@/lib/qgames-realtime';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
@@ -421,6 +424,33 @@ async function handleFroggerFinish(
 
   await matchDocRef.set(matchRecord);
 
+  // ── High Score Record Check ──
+  const eligiblePlayers = playerResults.filter(p => !p.id.startsWith('bot_'));
+  const bestPlayer = eligiblePlayers.length > 0
+    ? eligiblePlayers.reduce((best, p) => p.score > best.score ? p : best, eligiblePlayers[0])
+    : null;
+
+  let newRecord = false;
+  let previousRecord: QGamesRecord | null = null;
+
+  if (bestPlayer && bestPlayer.score > 0) {
+    const currentRecord = await getGameRecord(codeId, 'frogger');
+    previousRecord = currentRecord;
+
+    if (!currentRecord || bestPlayer.score > currentRecord.score) {
+      newRecord = true;
+      await updateGameRecord(codeId, 'frogger', {
+        holderId: bestPlayer.id,
+        holderNickname: bestPlayer.nickname,
+        holderAvatarType: bestPlayer.avatarType,
+        holderAvatarValue: bestPlayer.avatarValue,
+        score: bestPlayer.score,
+        achievedAt: Date.now(),
+        matchId: roomId,
+      });
+    }
+  }
+
   // Update stats for all players
   let callerRewards: QGamesRewardsResult | null = null;
   for (const p of playerResults) {
@@ -434,7 +464,13 @@ async function handleFroggerFinish(
   // Clean up frogger room from RTDB
   await deleteFroggerRoom(codeId, roomId);
 
-  return NextResponse.json({ success: true, match: matchRecord, rewards: callerRewards });
+  return NextResponse.json({
+    success: true,
+    match: matchRecord,
+    rewards: callerRewards,
+    newRecord,
+    previousRecord,
+  });
 }
 
 async function updatePlayerStatsFrogger(

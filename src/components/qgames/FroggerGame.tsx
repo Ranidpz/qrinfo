@@ -9,6 +9,7 @@ import {
   QGamesAvatarType,
   RTDBFroggerPlayer,
   DEFAULT_CHAT_PHRASES,
+  QGamesRecord,
 } from '@/types/qgames';
 import LobbyChat from './LobbyChat';
 import { useQGamesTheme } from '@/components/qgames/QGamesThemeContext';
@@ -22,7 +23,7 @@ import {
   eliminateFroggerPlayer,
   finishFroggerRoom,
 } from '@/lib/qgames-realtime';
-import { useFroggerRoom, useFroggerPlayers, useQGamesSounds } from '@/hooks/useQGamesRealtime';
+import { useFroggerRoom, useFroggerPlayers, useQGamesSounds, useGameRecord } from '@/hooks/useQGamesRealtime';
 import {
   generateLanes,
   getEnemyPositions,
@@ -104,6 +105,9 @@ const translations = {
     winner: 'מנצח!',
     readyToStart: 'מוכנים להתחיל!',
     players: 'שחקנים',
+    record: 'שיא',
+    newRecord: 'שיא חדש!',
+    previousRecord: 'השיא הקודם',
   },
   en: {
     waitingForPlayers: 'Waiting for players...',
@@ -121,6 +125,9 @@ const translations = {
     winner: 'Winner!',
     readyToStart: 'Ready to start!',
     players: 'Players',
+    record: 'Record',
+    newRecord: 'New Record!',
+    previousRecord: 'Previous record',
   },
 };
 
@@ -147,13 +154,14 @@ function CountUpScore({ target, duration = 1200, delay = 0 }: { target: number; 
   return <>{current}</>;
 }
 
-function FroggerGameOver({ players, visitorId, theme, isRTL, tr, onBack }: {
+function FroggerGameOver({ players, visitorId, theme, isRTL, tr, onBack, currentRecord }: {
   players: Record<string, RTDBFroggerPlayer>;
   visitorId: string;
   theme: ReturnType<typeof useQGamesTheme>;
   isRTL: boolean;
   tr: typeof translations['he'];
   onBack: () => void;
+  currentRecord: QGamesRecord | null;
 }) {
   const sorted = useMemo(() =>
     Object.entries(players)
@@ -163,6 +171,15 @@ function FroggerGameOver({ players, visitorId, theme, isRTL, tr, onBack }: {
         return b.score - a.score;
       }), [players]);
 
+  // Check if someone beat the record (optimistic — server will also update)
+  const myPlayer = players[visitorId];
+  const bestNonBotScore = sorted
+    .filter(([pid]) => !pid.startsWith('bot_'))
+    .map(([, p]) => p.score)[0] || 0;
+  const beatRecord = bestNonBotScore > 0 && (!currentRecord || bestNonBotScore > currentRecord.score);
+  // The previous record holder (before this game set a new one)
+  const prevRecord = beatRecord && currentRecord ? currentRecord : null;
+
   const RANK_MEDALS = ['🥇', '🥈', '🥉'];
 
   return (
@@ -171,16 +188,47 @@ function FroggerGameOver({ players, visitorId, theme, isRTL, tr, onBack }: {
       style={{ backgroundColor: theme.backgroundColor }}
     >
       {/* Subtle decorative glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full blur-[100px] opacity-30" style={{ backgroundColor: theme.primaryColor }} />
+      <div
+        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] rounded-full blur-[100px] opacity-30"
+        style={{ backgroundColor: beatRecord ? '#F59E0B' : theme.primaryColor }}
+      />
 
       <div className="w-full max-w-sm mx-4 flex flex-col items-center">
-        {/* Trophy + title */}
-        <div className="animate-in zoom-in-50 duration-700 text-center mb-6">
-          <div className="text-6xl mb-2">🏆</div>
-          <p className="text-2xl font-black" style={{ color: theme.textColor }}>
-            {tr.gameOver}
-          </p>
-        </div>
+        {/* New Record celebration OR standard game over */}
+        {beatRecord ? (
+          <div className="animate-in zoom-in-50 duration-700 text-center mb-6">
+            <div className="text-6xl mb-2 animate-bounce">🏆</div>
+            <p className="text-2xl font-black" style={{ color: '#F59E0B', textShadow: '0 0 20px #F59E0B80' }}>
+              {tr.newRecord}
+            </p>
+            <p className="text-4xl font-black mt-1 tabular-nums" style={{ color: '#F59E0B' }}>
+              {bestNonBotScore}
+            </p>
+            {prevRecord && (
+              <div className="flex items-center justify-center gap-2 mt-2 animate-in fade-in duration-700" style={{ animationDelay: '600ms', animationFillMode: 'both' }}>
+                <span className="text-xs" style={{ color: theme.textSecondary }}>{tr.previousRecord}:</span>
+                <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center text-xs flex-shrink-0"
+                  style={{ border: `1px solid ${theme.textSecondary}40` }}>
+                  {prevRecord.holderAvatarType === 'selfie' && prevRecord.holderAvatarValue?.startsWith('http') ? (
+                    <img src={prevRecord.holderAvatarValue} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[10px]">{prevRecord.holderAvatarValue}</span>
+                  )}
+                </div>
+                <span className="text-xs" style={{ color: theme.textSecondary }}>
+                  {prevRecord.holderNickname} — {prevRecord.score}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="animate-in zoom-in-50 duration-700 text-center mb-6">
+            <div className="text-6xl mb-2">🏆</div>
+            <p className="text-2xl font-black" style={{ color: theme.textColor }}>
+              {tr.gameOver}
+            </p>
+          </div>
+        )}
 
         {/* Player results */}
         <div className="w-full space-y-3">
@@ -277,6 +325,7 @@ export default function FroggerGame({
   const theme = useQGamesTheme();
   const sounds = useQGamesSounds(config.enableSound);
   const tr = translations[isRTL ? 'he' : 'en'];
+  const { record: currentRecord } = useGameRecord(codeId, 'frogger');
 
   // Room state
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -910,10 +959,27 @@ export default function FroggerGame({
               </span>
             </div>
 
-            <div className="text-center">
+            <div className="text-center flex flex-col items-center gap-0.5">
               <span className="text-xs" style={{ color: theme.textSecondary }}>
                 {tr.level} {myScreens + 1}
               </span>
+              {currentRecord && (
+                <div
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full transition-all duration-300 ${myScore > currentRecord.score ? 'animate-pulse' : ''}`}
+                  style={{
+                    backgroundColor: myScore > currentRecord.score ? '#F59E0B30' : `${theme.surfaceColor}80`,
+                    border: myScore > currentRecord.score ? '1px solid #F59E0B60' : 'none',
+                  }}
+                >
+                  <span className="text-[10px]">🏆</span>
+                  <span
+                    className="text-[10px] font-bold tabular-nums"
+                    style={{ color: myScore > currentRecord.score ? '#F59E0B' : theme.textSecondary }}
+                  >
+                    {currentRecord.score}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Other players scores */}
@@ -1096,6 +1162,7 @@ export default function FroggerGame({
               theme={theme}
               isRTL={isRTL}
               tr={tr}
+              currentRecord={currentRecord}
               onBack={() => {
                 if (roomId) leaveFroggerRoom(codeId, roomId, visitorId).catch(() => {});
                 onBack();

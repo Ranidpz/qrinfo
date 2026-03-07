@@ -597,6 +597,19 @@ export interface RTDBFroggerState {
 }
 
 // =============================================================
+// Game Records / High Scores (RTDB)
+// =============================================================
+export interface QGamesRecord {
+  holderId: string;
+  holderNickname: string;
+  holderAvatarType: QGamesAvatarType;
+  holderAvatarValue: string;
+  score: number;
+  achievedAt: number;
+  matchId: string;
+}
+
+// =============================================================
 // Leaderboard Entry (RTDB)
 // =============================================================
 export interface QGamesLeaderboardEntry {
@@ -1301,4 +1314,6 @@ export const QGAMES_PATHS = {
   chatMessage: (codeId: string, messageId: string) => `qgames/${codeId}/chat/${messageId}`,
   chatBans: (codeId: string) => `qgames/${codeId}/chatBans`,
   chatBan: (codeId: string, visitorId: string) => `qgames/${codeId}/chatBans/${visitorId}`,
+  records: (codeId: string) => `qgames/${codeId}/records`,
+  record: (codeId: string, gameType: string) => `qgames/${codeId}/records/${gameType}`,
 };

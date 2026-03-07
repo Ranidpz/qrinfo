@@ -42,6 +42,7 @@ import {
   LiveMatchInfo,
   ViewerPresenceData,
   QGamesChatMessage,
+  QGamesRecord,
 } from '@/types/qgames';
 
 // ============ SESSION / STATS ============
@@ -571,6 +572,42 @@ export async function startNewOOORound(
   // Update current round counter (must be separate from round data write)
   const oooRef = ref(realtimeDb, QGAMES_PATHS.oooState(codeId, matchId));
   await update(oooRef, { currentRound: roundNum });
+}
+
+// ============ GAME RECORDS (HIGH SCORES) ============
+
+/** Get the current record for a game type */
+export async function getGameRecord(
+  codeId: string,
+  gameType: string
+): Promise<QGamesRecord | null> {
+  const recordRef = ref(realtimeDb, QGAMES_PATHS.record(codeId, gameType));
+  const snapshot = await get(recordRef);
+  return snapshot.exists() ? (snapshot.val() as QGamesRecord) : null;
+}
+
+/** Update game record */
+export async function updateGameRecord(
+  codeId: string,
+  gameType: string,
+  record: QGamesRecord
+): Promise<void> {
+  const recordRef = ref(realtimeDb, QGAMES_PATHS.record(codeId, gameType));
+  await set(recordRef, record);
+}
+
+/** Subscribe to game record changes */
+export function subscribeToGameRecord(
+  codeId: string,
+  gameType: string,
+  callback: (record: QGamesRecord | null) => void
+): () => void {
+  const recordRef = ref(realtimeDb, QGAMES_PATHS.record(codeId, gameType));
+  const handler = (snapshot: DataSnapshot) => {
+    callback(snapshot.exists() ? (snapshot.val() as QGamesRecord) : null);
+  };
+  onValue(recordRef, handler);
+  return () => off(recordRef, 'value', handler);
 }
 
 // ============ LEADERBOARD ============

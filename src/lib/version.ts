@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.48';
+export const APP_VERSION = '1.13.49';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.48',
+    version: '1.13.49',
     date: '2026-03-07',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: מערכת שיאים — שיא הניקוד מוצג במשחק ובסיום',
+        'חדש: חגיגת שיא חדש עם אנימציה זהובה',
+      ],
+      en: [
+        'New: High score system — record displayed in-game and on game over',
+        'New: New record celebration with golden animation',
+      ],
+    },
+  },
+  {
+    version: '1.13.48',
+    date: '2026-03-07',
     highlights: {
       he: [
         'שיפור: פרוגי — מסך סיום משחק מחודש עם אנימציות',

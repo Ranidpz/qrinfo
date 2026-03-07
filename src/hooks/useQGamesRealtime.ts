@@ -23,6 +23,7 @@ import {
   ViewerPresenceData,
   OnlineViewerInfo,
   QGamesChatMessage,
+  QGamesRecord,
 } from '@/types/qgames';
 import {
   subscribeToQGamesStats,
@@ -49,6 +50,7 @@ import {
   subscribeToChatMessages,
   subscribeToChatBan,
   cleanupOldChatMessages,
+  subscribeToGameRecord,
 } from '@/lib/qgames-realtime';
 
 // ============ STATS HOOK ============
@@ -762,6 +764,39 @@ export function useFroggerPlayers(
   }, [codeId, roomId]);
 
   return { players, loading };
+}
+
+// ============ GAME RECORD HOOK ============
+
+interface UseGameRecordResult {
+  record: QGamesRecord | null;
+  loading: boolean;
+}
+
+export function useGameRecord(
+  codeId: string | null,
+  gameType: string | null
+): UseGameRecordResult {
+  const [record, setRecord] = useState<QGamesRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!codeId || !gameType) {
+      setRecord(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeToGameRecord(codeId, gameType, (data) => {
+      setRecord(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [codeId, gameType]);
+
+  return { record, loading };
 }
 
 // ============ COUNTDOWN TIMER HOOK ============
