@@ -92,7 +92,7 @@ const translations = {
   he: {
     waitingForPlayers: 'ממתינים לשחקנים...',
     startGame: 'התחילו!',
-    eliminated: 'הודחת!',
+    eliminated: 'הודחת',
     screenComplete: 'שלב הושלם! +10',
     lastStanding: 'אחרון שורד!',
     score: 'ניקוד',
@@ -332,6 +332,7 @@ export default function FroggerGame({
   const [roomId, setRoomId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [localPhase, setLocalPhase] = useState<GamePhase>('lobby');
+  const [initKey, setInitKey] = useState(0); // incremented by resetToLobby to re-trigger init
   const joinedRef = useRef(false);
   const matchEndedRef = useRef(false);
 
@@ -391,6 +392,7 @@ export default function FroggerGame({
     matchEndedRef.current = false;
     joinedRef.current = false;
     setLocalPhase('lobby');
+    setInitKey(k => k + 1); // re-trigger init effect to find/create a fresh room
   }, [roomId, codeId, visitorId]);
 
   // ============ Viewport measurement ============
@@ -463,7 +465,7 @@ export default function FroggerGame({
     };
 
     init();
-  }, [codeId, visitorId, playerNickname, playerAvatarType, playerAvatarValue, config]);
+  }, [codeId, visitorId, playerNickname, playerAvatarType, playerAvatarValue, config, initKey]);
 
   // ============ Cleanup on unmount ============
 
@@ -1000,6 +1002,9 @@ export default function FroggerGame({
                   }}
                 >
                   <span className="text-[10px]">🏆</span>
+                  <span className="text-[10px]" style={{ color: myScore > currentRecord.score ? '#F59E0B' : theme.textSecondary }}>
+                    {isRTL ? 'השיא' : 'Best'}
+                  </span>
                   <span
                     className="text-[10px] font-bold tabular-nums"
                     style={{ color: myScore > currentRecord.score ? '#F59E0B' : theme.textSecondary }}
@@ -1151,8 +1156,9 @@ export default function FroggerGame({
             </div>
           )}
 
-          {/* Eliminated overlay */}
-          {eliminated && localPhase === 'playing' && (
+          {/* Eliminated overlay — only when other players are still alive (spectating mode) */}
+          {eliminated && localPhase === 'playing' &&
+            Object.entries(players).some(([pid, p]) => pid !== visitorId && !p.eliminated) && (
             <div className="absolute inset-0 flex items-center justify-center z-40"
               onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}>

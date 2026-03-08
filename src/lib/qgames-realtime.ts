@@ -896,27 +896,36 @@ export function subscribeToMatchPresence(
 // ============ VIEWER PRESENCE (accurate connected count) ============
 
 /**
- * Register viewer presence. Auto-removed on disconnect via onDisconnect().
- * Returns cleanup function.
+ * Register viewer presence with auto-reconnect support.
+ * Uses .info/connected so presence is re-written on every (re)connection —
+ * this fixes the case where a mobile network blip removes the viewer via
+ * onDisconnect and the count never recovers.
+ * Returns a synchronous cleanup function.
  */
-export async function setupViewerPresence(
+export function setupViewerPresence(
   codeId: string,
   visitorId: string,
   playerInfo?: { nickname: string; avatarType: QGamesAvatarType; avatarValue: string }
-): Promise<() => void> {
+): () => void {
   const viewerRef = ref(realtimeDb, QGAMES_PATHS.viewer(codeId, visitorId));
-  const data: ViewerPresenceData = {
-    joinedAt: Date.now(),
-    nickname: playerInfo?.nickname || '',
-    avatarType: playerInfo?.avatarType || 'emoji',
-    avatarValue: playerInfo?.avatarValue || '👤',
+  const connectedRef = ref(realtimeDb, '.info/connected');
+
+  const handleConnected = (snap: DataSnapshot) => {
+    if (!snap.val()) return; // currently disconnected — nothing to do
+    // (Re)connected: register onDisconnect then write presence
+    onDisconnect(viewerRef).remove();
+    set(viewerRef, {
+      joinedAt: Date.now(),
+      nickname: playerInfo?.nickname || '',
+      avatarType: playerInfo?.avatarType || 'emoji',
+      avatarValue: playerInfo?.avatarValue || '👤',
+    } as ViewerPresenceData);
   };
-  await set(viewerRef, data);
-  const disconnectRef = onDisconnect(viewerRef);
-  disconnectRef.remove();
+
+  onValue(connectedRef, handleConnected);
 
   return () => {
-    disconnectRef.cancel();
+    off(connectedRef, 'value', handleConnected);
     remove(viewerRef);
   };
 }

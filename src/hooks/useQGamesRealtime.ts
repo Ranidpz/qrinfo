@@ -511,16 +511,10 @@ export function useViewerPresence(
     let mounted = true;
     presenceSetupRef.current = false;
 
-    // Register own presence with player info if available
+    // Register own presence with auto-reconnect (setupViewerPresence now uses .info/connected)
     const info = pNickname ? { nickname: pNickname, avatarType: pAvatarType!, avatarValue: pAvatarValue! } : undefined;
-    setupViewerPresence(codeId, visitorId, info).then(cleanup => {
-      if (mounted) {
-        cleanupRef.current = cleanup;
-        presenceSetupRef.current = true;
-      }
-      // Don't call cleanup() when stale — the new effect already owns the same RTDB path.
-      // Calling cleanup() here would remove data the second effect just wrote (StrictMode race).
-    });
+    cleanupRef.current = setupViewerPresence(codeId, visitorId, info);
+    presenceSetupRef.current = true;
 
     // Clean up stale matches on mount (fire-and-forget is OK here — runs client-side)
     cleanupStaleMatches(codeId).catch(() => {});

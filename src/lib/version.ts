@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.50';
+export const APP_VERSION = '1.13.51';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.13.51',
+    date: '2026-03-08',
+    isNew: true,
+    highlights: {
+      he: [
+        'תיקון: נוכחות שחקנים ב-Frogger מתאוששת אחרי נפילת רשת',
+        'תיקון: חזרה ללובי יוצרת חדר חדש נקי',
+        'תיקון: כיסוי "הודחת" מוצג רק כשיש שחקנים פעילים',
+      ],
+      en: [
+        'Fix: Frogger viewer presence recovers after network blip',
+        'Fix: reset to lobby always creates a fresh room',
+        'Fix: eliminated overlay only shown while other players are still alive',
+      ],
+    },
+  },
+  {
     version: '1.13.50',
     date: '2026-03-07',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'חדש: הזמנת וואטסאפ מובילה ישר למשחק (לא לבורר)',
