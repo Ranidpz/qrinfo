@@ -3170,7 +3170,7 @@ export default function CodeEditPage({ params }: PageProps) {
               <div ref={qrCanvasRef} className="hidden">
                 <QRCodeCanvas
                   value={viewUrl}
-                  size={1000}
+                  size={2000}
                   level="H"
                   marginSize={2}
                   fgColor={code.widgets?.qrSign?.qrFgColor || '#000000'}
