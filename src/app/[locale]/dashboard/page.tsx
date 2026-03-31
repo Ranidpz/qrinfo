@@ -2178,14 +2178,13 @@ export default function DashboardPage() {
 
         {/* Search - takes remaining space */}
         <div className="relative flex-1 min-w-0 order-2 sm:order-1">
-          <Search className="absolute start-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+          <Search className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none z-10" />
           <input
             type="text"
             placeholder={tCommon('search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="input ps-12 w-full"
-            list="codes-autocomplete"
+            className="input pe-10 w-full"
           />
           <datalist id="codes-autocomplete">
             {codes.map((code) => (
