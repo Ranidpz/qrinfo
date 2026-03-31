@@ -1770,7 +1770,22 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Hero Section - hide when inside a folder or dismissed */}
       {!currentFolderId && !heroHidden && (
-      <div className="text-center py-8 sm:py-10 relative">
+      <div className="text-center py-8 sm:py-10 relative overflow-hidden rounded-2xl bg-gradient-to-b from-[var(--bg-secondary)] via-[var(--bg-primary)] to-[var(--bg-secondary)]">
+        {/* Floating QR pattern */}
+        <div className="absolute inset-0 overflow-hidden opacity-15 dark:opacity-20 pointer-events-none">
+          <div className="absolute top-4 start-[8%] w-20 h-20 sm:w-28 sm:h-28 flex items-center justify-center rounded-2xl bg-[var(--bg-card)]/50 border border-[var(--border)] rotate-12 animate-float-slow">
+            <QrCode className="w-8 h-8 sm:w-10 sm:h-10 text-[var(--accent)]" strokeWidth={1} />
+          </div>
+          <div className="absolute top-12 end-[10%] w-16 h-16 sm:w-24 sm:h-24 flex items-center justify-center rounded-xl bg-[var(--bg-card)]/50 border border-[var(--border)] -rotate-6 animate-float-medium">
+            <QrCode className="w-6 h-6 sm:w-9 sm:h-9 text-[var(--accent)]" strokeWidth={1} />
+          </div>
+          <div className="absolute bottom-16 start-[15%] w-14 h-14 sm:w-20 sm:h-20 flex items-center justify-center rounded-lg bg-[var(--bg-card)]/50 border border-[var(--border)] rotate-3 animate-float-fast">
+            <QrCode className="w-5 h-5 sm:w-7 sm:h-7 text-[var(--accent)]" strokeWidth={1} />
+          </div>
+          <div className="absolute bottom-8 end-[18%] w-18 h-18 sm:w-24 sm:h-24 flex items-center justify-center rounded-2xl bg-[var(--bg-card)]/50 border border-[var(--border)] -rotate-12 animate-float-slow">
+            <QrCode className="w-7 h-7 sm:w-9 sm:h-9 text-[var(--accent)]" strokeWidth={1} />
+          </div>
+        </div>
         <style jsx>{`
           @keyframes bounceIn {
             0% {
@@ -1840,11 +1855,12 @@ export default function DashboardPage() {
           onClick={() => {
             setHeroHidden(true);
           }}
-          className="absolute top-2 start-2 p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-secondary/50 transition-colors z-10"
+          className="absolute top-2 start-2 p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-secondary/50 transition-colors z-20"
           title={t('hideHero')}
         >
           <X className="w-4 h-4" />
         </button>
+        <div className="relative z-10">
         <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight flex items-center justify-center gap-2 flex-wrap" dir="ltr">
           <span className="text-lg sm:text-xl md:text-2xl font-normal" style={{ color: '#6b7280' }}>The</span>
           <Image
@@ -1912,6 +1928,7 @@ export default function DashboardPage() {
             <Ban className="w-4 h-4 sm:w-5 sm:h-5" />
             {t('heroFeature3')}
           </span>
+        </div>
         </div>
       </div>
       )}
