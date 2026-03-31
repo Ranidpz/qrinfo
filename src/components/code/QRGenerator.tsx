@@ -75,6 +75,7 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
         if (sign.type === 'logo') {
           // Draw logo image
           const logoImg = new Image();
+          logoImg.crossOrigin = 'anonymous';
           logoImg.onload = () => {
             // Clip to circle (matches preview overflow-hidden)
             ctx.save();

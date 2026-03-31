@@ -738,6 +738,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
       if (sign.type === 'logo') {
         const logoImg = new window.Image();
+        logoImg.crossOrigin = 'anonymous';
         logoImg.onload = () => {
           // Clip to circle (matches preview overflow-hidden)
           ctx.save();
