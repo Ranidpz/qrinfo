@@ -1257,15 +1257,15 @@
       "title": "How It Works",
       "step1": {
         "title": "Create Code",
-        "description": "Generate a print-safe QR code"
+        "description": "Generate a print-safe QR code. Add a custom logo, choose colors, and download in vector format for perfect print quality"
       },
       "step2": {
         "title": "Choose Experience",
-        "description": "Select from ready-made experiences"
+        "description": "Select from a variety of ready-made experiences. Schedule, swap, and update experiences on the same printed code — throughout the day, week, or month. Add widgets like WhatsApp, navigation, app install, and more"
       },
       "step3": {
         "title": "Share & Update",
-        "description": "Share and update in real-time"
+        "description": "Share and update in real-time. View advanced analytics — scan counts, locations, devices, and more insights to understand your audience"
       }
     },
     "features": {
@@ -1331,7 +1331,8 @@
         "description": "Trivia quiz game with questions, answers and real-time leaderboard",
         "useCase": "Companies, team building, seminars"
       },
-      "footerNote": "Our experiences are updated monthly. Have an idea we haven't built yet? Contact us for consultation or custom development."
+      "footerNote": "New experiences are added regularly. Can't find what you're looking for? Want a custom branded experience? Contact us and we'll build it together.",
+      "contactUs": "Contact Us"
     },
     "useCases": {
       "title": "Who Is It For?",

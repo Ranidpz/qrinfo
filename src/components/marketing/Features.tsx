@@ -120,10 +120,16 @@ export default function Features() {
         </div>
 
         {/* Footer note */}
-        <div className="text-center mt-10 md:mt-14">
+        <div className="text-center mt-10 md:mt-14 space-y-4">
           <p className="text-[var(--text-secondary)] text-sm md:text-base max-w-2xl mx-auto">
             {t('footerNote')}
           </p>
+          <a
+            href="#contact"
+            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium rounded-xl bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
+          >
+            {t('contactUs')}
+          </a>
         </div>
       </div>
     </section>
