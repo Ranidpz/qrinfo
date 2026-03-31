@@ -3209,7 +3209,7 @@ export default function CodeEditPage({ params }: PageProps) {
               </div>
 
               {/* Quick actions */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setMobilePreviewOpen(true)}
                   className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
@@ -3220,18 +3220,9 @@ export default function CodeEditPage({ params }: PageProps) {
                 <button
                   onClick={handleDownloadQR}
                   className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
-                  title={t('downloadPNG')}
                 >
                   <Printer className="w-4 h-4" />
-                  PNG
-                </button>
-                <button
-                  onClick={handleDownloadSVG}
-                  className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
-                  title={t('downloadSVG')}
-                >
-                  <Download className="w-4 h-4" />
-                  SVG
+                  {t('printQR')}
                 </button>
               </div>
 
