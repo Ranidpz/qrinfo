@@ -707,6 +707,9 @@ export default function CodeEditPage({ params }: PageProps) {
     const ctx = downloadCanvas.getContext('2d');
     if (!ctx) return;
 
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
     const size = sourceCanvas.width;
     downloadCanvas.width = size;
     downloadCanvas.height = size;

@@ -40,8 +40,8 @@ const DEFAULT_SIGN: QRSign = {
   scale: 1.0,
 };
 
-const MAX_LOGO_SIZE = 512; // Max width/height in pixels (high-res for print quality)
-const MAX_FILE_SIZE = 800 * 1024; // 800KB
+const MAX_LOGO_SIZE = 1024; // Max width/height in pixels (high-res for print quality)
+const MAX_FILE_SIZE = 1500 * 1024; // 1.5MB
 
 export default function QRSignModal({
   isOpen,
@@ -135,7 +135,7 @@ export default function QRSignModal({
           ctx.drawImage(img, 0, 0, width, height);
 
           // Export as PNG to preserve transparency
-          const dataUrl = canvas.toDataURL('image/png', 0.9);
+          const dataUrl = canvas.toDataURL('image/png');
           resolve(dataUrl);
         };
         img.onerror = () => reject(new Error('Failed to load image'));
