@@ -742,8 +742,8 @@ export default function CodeEditPage({ params }: PageProps) {
           ctx.arc(centerX, centerY, signRadius, 0, Math.PI * 2);
           ctx.clip();
 
-          // Match preview: logo = 70% of container, maintain aspect ratio
-          const maxLogoSize = signRadius * 2 * 0.7 * scale;
+          // Logo = 70% of circle diameter, capped at 90% to prevent overflow at high scale
+          const maxLogoSize = Math.min(signRadius * 2 * 0.7 * scale, signRadius * 2 * 0.9);
           const imgW = logoImg.naturalWidth;
           const imgH = logoImg.naturalHeight;
           const ratio = Math.min(maxLogoSize / imgW, maxLogoSize / imgH);
