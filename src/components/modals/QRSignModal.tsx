@@ -29,6 +29,8 @@ interface QRSignModalProps {
   onClose: () => void;
   onSave: (sign: QRSign | undefined) => Promise<void>;
   currentSign?: QRSign;
+  userId?: string;
+  codeId?: string;
 }
 
 const DEFAULT_SIGN: QRSign = {
@@ -40,17 +42,19 @@ const DEFAULT_SIGN: QRSign = {
   scale: 1.0,
 };
 
-const MAX_LOGO_SIZE = 1024; // Max width/height in pixels (high-res for print quality)
-const MAX_FILE_SIZE = 1500 * 1024; // 1.5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB (uploaded to Vercel Blob, not base64)
 
 export default function QRSignModal({
   isOpen,
   onClose,
   onSave,
   currentSign,
+  userId,
+  codeId,
 }: QRSignModalProps) {
   const [localSign, setLocalSign] = useState<QRSign>(currentSign || DEFAULT_SIGN);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'logo' | 'text' | 'icon'>('logo');
   const [isDragging, setIsDragging] = useState(false);
   const [logoSize, setLogoSize] = useState<{ width: number; height: number } | null>(null);
@@ -91,61 +95,6 @@ export default function QRSignModal({
     setLocalSign(prev => ({ ...prev, ...updates }));
   };
 
-  // Resize image if needed and convert to base64
-  const processImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new window.Image();
-        img.onload = () => {
-          // Check if resize is needed
-          if (img.width <= MAX_LOGO_SIZE && img.height <= MAX_LOGO_SIZE && file.size <= MAX_FILE_SIZE) {
-            // No resize needed, use original
-            resolve(e.target?.result as string);
-            return;
-          }
-
-          // Resize the image
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          // Calculate new dimensions maintaining aspect ratio
-          if (width > height) {
-            if (width > MAX_LOGO_SIZE) {
-              height = (height * MAX_LOGO_SIZE) / width;
-              width = MAX_LOGO_SIZE;
-            }
-          } else {
-            if (height > MAX_LOGO_SIZE) {
-              width = (width * MAX_LOGO_SIZE) / height;
-              height = MAX_LOGO_SIZE;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Could not get canvas context'));
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Export as PNG to preserve transparency
-          const dataUrl = canvas.toDataURL('image/png');
-          resolve(dataUrl);
-        };
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleFileUpload = async (file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -153,18 +102,77 @@ export default function QRSignModal({
       return;
     }
 
-    // Only allow PNG for transparency support
     if (file.type !== 'image/png' && file.type !== 'image/jpeg' && file.type !== 'image/webp') {
       alert('יש להעלות קובץ PNG, JPEG או WebP');
       return;
     }
 
-    try {
-      const dataUrl = await processImage(file);
-      updateSign({ type: 'logo', value: dataUrl });
-    } catch (error) {
-      console.error('Error processing image:', error);
-      alert('שגיאה בעיבוד התמונה');
+    if (file.size > MAX_FILE_SIZE) {
+      alert('הקובץ גדול מדי (מקסימום 5MB)');
+      return;
+    }
+
+    // Upload to Vercel Blob if userId + codeId available
+    if (userId && codeId) {
+      try {
+        setIsUploading(true);
+
+        // Delete old logo from Blob if it's a Blob URL (not default /theQ.png or base64)
+        const oldValue = localSign.value;
+        if (oldValue && oldValue.includes('blob.vercel-storage.com')) {
+          try {
+            const { fetchWithAuth } = await import('@/lib/fetchWithAuth');
+            await fetchWithAuth('/api/upload', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: oldValue }),
+            });
+            // Deduct old logo size from storage
+            const { updateUserStorage } = await import('@/lib/db');
+            await updateUserStorage(userId, -(localSign.logoSize || 0));
+          } catch {
+            // Non-critical — old file stays in blob
+          }
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', userId);
+        formData.append('codeId', codeId);
+        formData.append('folder', 'qrsign');
+
+        const { fetchWithAuth } = await import('@/lib/fetchWithAuth');
+        const res = await fetchWithAuth('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error('Upload failed');
+
+        const data = await res.json();
+        updateSign({ type: 'logo', value: data.url, logoSize: data.size });
+
+        // Track storage
+        const { updateUserStorage } = await import('@/lib/db');
+        await updateUserStorage(userId, data.size);
+      } catch (error) {
+        console.error('Error uploading logo:', error);
+        alert('שגיאה בהעלאת הלוגו');
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      // Fallback: base64 (no user/code context)
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          updateSign({ type: 'logo', value: e.target?.result as string });
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error processing image:', error);
+        alert('שגיאה בעיבוד התמונה');
+      }
     }
   };
 
@@ -218,6 +226,21 @@ export default function QRSignModal({
   const handleRemove = async () => {
     setIsSaving(true);
     try {
+      // Delete logo from Blob storage if applicable
+      if (currentSign?.value && currentSign.value.includes('blob.vercel-storage.com') && userId) {
+        try {
+          const { fetchWithAuth } = await import('@/lib/fetchWithAuth');
+          await fetchWithAuth('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: currentSign.value }),
+          });
+          const { updateUserStorage } = await import('@/lib/db');
+          await updateUserStorage(userId, -(currentSign.logoSize || 0));
+        } catch {
+          // Non-critical
+        }
+      }
       await onSave(undefined);
       onClose();
     } catch (error) {
@@ -375,13 +398,21 @@ export default function QRSignModal({
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-              className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
-                isDragging
-                  ? 'border-accent bg-accent/10'
-                  : 'border-border hover:border-accent/50 hover:bg-bg-secondary'
+              onClick={() => !isUploading && fileInputRef.current?.click()}
+              className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-dashed transition-all ${
+                isUploading
+                  ? 'border-accent/50 bg-accent/5 cursor-wait'
+                  : isDragging
+                    ? 'border-accent bg-accent/10 cursor-pointer'
+                    : 'border-border hover:border-accent/50 hover:bg-bg-secondary cursor-pointer'
               }`}
             >
+              {isUploading ? (
+                <div className="flex flex-col items-center gap-2 py-4">
+                  <span className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+                  <span className="text-sm text-text-secondary">{t('qrSignUploading')}</span>
+                </div>
+              ) : (
               <div className="p-3 bg-bg-secondary rounded-xl border border-border">
                 <img
                   src={localSign.value}
@@ -389,6 +420,7 @@ export default function QRSignModal({
                   className="w-14 h-14 object-contain"
                 />
               </div>
+              )}
 
               {logoSize && (
                 <span className="text-xs text-text-secondary font-mono">

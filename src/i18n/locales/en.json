@@ -428,6 +428,7 @@
     "qrSignLarge": "Large",
     "qrSignColor": "Sign Color",
     "qrSignBackgroundColor": "Background Color",
+    "qrSignUploading": "Uploading logo...",
     "qrSignRemove": "Remove Sign",
     "qrSignQrColor": "Code Color",
     "qrSignResetQrColor": "Reset",

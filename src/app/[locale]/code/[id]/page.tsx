@@ -4627,6 +4627,8 @@ export default function CodeEditPage({ params }: PageProps) {
         onClose={() => setQrSignModalOpen(false)}
         onSave={handleSaveQRSign}
         currentSign={code.widgets?.qrSign}
+        userId={user?.id}
+        codeId={code.id}
       />
 
       {/* WhatsApp Widget Modal */}
