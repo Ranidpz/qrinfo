@@ -46,6 +46,7 @@ import {
   Map,
   Trophy,
   Tag,
+  Download,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -719,6 +720,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const centerX = size / 2;
       const centerY = size / 2;
       const signRadius = size * 0.125; // 25% of QR / 2
+      const scale = sign.scale ?? 1.0;
 
       // Draw background circle
       ctx.beginPath();
@@ -731,19 +733,32 @@ export default function CodeEditPage({ params }: PageProps) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      if (sign.type === 'text') {
-        const fontSize = signRadius * (sign.value.length <= 2 ? 0.9 : 0.6);
+      if (sign.type === 'logo') {
+        const logoImg = new window.Image();
+        logoImg.onload = () => {
+          const logoSize = signRadius * 1.5 * scale;
+          ctx.drawImage(logoImg, centerX - logoSize / 2, centerY - logoSize / 2, logoSize, logoSize);
+          const link = document.createElement('a');
+          link.download = `${code.title}.png`;
+          link.href = downloadCanvas.toDataURL('image/png');
+          link.click();
+        };
+        logoImg.src = sign.value;
+        return; // async — download happens in onload
+      } else if (sign.type === 'text') {
+        const baseFontSize = signRadius * (sign.value.length === 1 ? 1.1 : sign.value.length === 2 ? 0.9 : 0.6);
+        const fontSize = baseFontSize * scale;
         ctx.font = `bold ${fontSize}px Assistant, Arial, sans-serif`;
         ctx.fillText(sign.value, centerX, centerY);
       } else if (sign.type === 'emoji') {
-        const fontSize = signRadius * 1.1;
+        const fontSize = signRadius * 1.1 * scale;
         ctx.font = `${fontSize}px Arial, sans-serif`;
         ctx.fillText(sign.value, centerX, centerY);
       } else if (sign.type === 'icon') {
         // Use imported icon paths
         const iconData = ICON_PATHS[sign.value];
         if (iconData) {
-          const iconSize = signRadius * 1.3;
+          const iconSize = signRadius * 1.3 * scale;
           ctx.save();
           ctx.translate(centerX - iconSize / 2, centerY - iconSize / 2);
           ctx.scale(iconSize / 24, iconSize / 24);
@@ -772,6 +787,112 @@ export default function CodeEditPage({ params }: PageProps) {
     link.download = `${code.title}.png`;
     link.href = downloadCanvas.toDataURL('image/png');
     link.click();
+  };
+
+  const handleDownloadSVG = () => {
+    if (!code || !qrRef.current) return;
+
+    const svgElement = qrRef.current.querySelector('svg');
+    if (!svgElement) return;
+
+    const svgClone = svgElement.cloneNode(true) as SVGSVGElement;
+    // Set explicit size for standalone SVG
+    svgClone.setAttribute('width', '1000');
+    svgClone.setAttribute('height', '1000');
+    svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgClone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    // Inject sign overlay into SVG
+    const sign = code.widgets?.qrSign;
+    if (sign?.enabled && sign.value) {
+      const size = 1000;
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const signRadius = size * 0.125;
+      const scale = sign.scale ?? 1.0;
+
+      // Background circle
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', String(centerX));
+      circle.setAttribute('cy', String(centerY));
+      circle.setAttribute('r', String(signRadius));
+      circle.setAttribute('fill', sign.backgroundColor);
+      svgClone.appendChild(circle);
+
+      if (sign.type === 'logo') {
+        const logoSize = signRadius * 1.5 * scale;
+        const img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+        img.setAttribute('href', sign.value);
+        img.setAttribute('x', String(centerX - logoSize / 2));
+        img.setAttribute('y', String(centerY - logoSize / 2));
+        img.setAttribute('width', String(logoSize));
+        img.setAttribute('height', String(logoSize));
+        // Clip to circle
+        const clipId = 'sign-clip';
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+        clipPath.setAttribute('id', clipId);
+        const clipCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        clipCircle.setAttribute('cx', String(centerX));
+        clipCircle.setAttribute('cy', String(centerY));
+        clipCircle.setAttribute('r', String(signRadius));
+        clipPath.appendChild(clipCircle);
+        defs.appendChild(clipPath);
+        svgClone.insertBefore(defs, svgClone.firstChild);
+        img.setAttribute('clip-path', `url(#${clipId})`);
+        svgClone.appendChild(img);
+      } else if (sign.type === 'text' || sign.type === 'emoji') {
+        const isEmoji = sign.type === 'emoji';
+        const baseFontSize = isEmoji
+          ? signRadius * 1.1
+          : signRadius * (sign.value.length === 1 ? 1.1 : sign.value.length === 2 ? 0.9 : 0.6);
+        const fontSize = baseFontSize * scale;
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', String(centerX));
+        text.setAttribute('y', String(centerY));
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'central');
+        text.setAttribute('fill', sign.color);
+        text.setAttribute('font-size', String(fontSize));
+        text.setAttribute('font-family', 'Arial, sans-serif');
+        if (!isEmoji) text.setAttribute('font-weight', 'bold');
+        text.textContent = sign.value;
+        svgClone.appendChild(text);
+      } else if (sign.type === 'icon') {
+        const iconData = ICON_PATHS[sign.value];
+        if (iconData) {
+          const iconSize = signRadius * 1.3 * scale;
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('transform', `translate(${centerX - iconSize / 2}, ${centerY - iconSize / 2}) scale(${iconSize / 24})`);
+
+          const paths = iconData.path.split(' M').map((p: string, i: number) => i === 0 ? p : 'M' + p);
+          paths.forEach((pathStr: string) => {
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathStr);
+            if (iconData.fill) {
+              path.setAttribute('fill', sign.color);
+            } else {
+              path.setAttribute('fill', 'none');
+              path.setAttribute('stroke', sign.color);
+              path.setAttribute('stroke-width', '2');
+              path.setAttribute('stroke-linecap', 'round');
+              path.setAttribute('stroke-linejoin', 'round');
+            }
+            g.appendChild(path);
+          });
+          svgClone.appendChild(g);
+        }
+      }
+    }
+
+    const svgData = new XMLSerializer().serializeToString(svgClone);
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `${code.title}.svg`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleDuplicate = async () => {
@@ -2977,6 +3098,7 @@ export default function CodeEditPage({ params }: PageProps) {
                     size={220}
                     level="H"
                     marginSize={1}
+                    fgColor={code.widgets?.qrSign?.qrFgColor || '#000000'}
                   />
                   {code.widgets?.qrSign?.enabled && code.widgets.qrSign.value && (() => {
                     const scale = code.widgets.qrSign.scale ?? 1.0;
@@ -3034,6 +3156,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   size={1000}
                   level="H"
                   marginSize={2}
+                  fgColor={code.widgets?.qrSign?.qrFgColor || '#000000'}
                 />
               </div>
 
@@ -3068,7 +3191,7 @@ export default function CodeEditPage({ params }: PageProps) {
               </div>
 
               {/* Quick actions */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => setMobilePreviewOpen(true)}
                   className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
@@ -3079,9 +3202,18 @@ export default function CodeEditPage({ params }: PageProps) {
                 <button
                   onClick={handleDownloadQR}
                   className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
+                  title={t('downloadPNG')}
                 >
                   <Printer className="w-4 h-4" />
-                  {t('printQR')}
+                  PNG
+                </button>
+                <button
+                  onClick={handleDownloadSVG}
+                  className="btn bg-bg-secondary text-text-primary hover:bg-bg-hover flex items-center justify-center gap-2"
+                  title={t('downloadSVG')}
+                >
+                  <Download className="w-4 h-4" />
+                  SVG
                 </button>
               </div>
 

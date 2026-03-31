@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import Image from 'next/image';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban, QrCode } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban, QrCode, Vote, Gamepad2, Tag, Crosshair, Trophy, Camera, CalendarDays, Cloud, ScrollText, Map, Sparkles, MessageCircle, MapPin, Link as LinkIcon2 } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -98,6 +98,7 @@ export default function DashboardPage() {
     }
     return false;
   });
+  const [heroHidden, setHeroHidden] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [riddleModalOpen, setRiddleModalOpen] = useState(false);
   const [addingRiddle, setAddingRiddle] = useState(false);
@@ -1767,9 +1768,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Section - hide when inside a folder */}
-      {!currentFolderId && (
-      <div className="text-center py-8 sm:py-10">
+      {/* Hero Section - hide when inside a folder or dismissed */}
+      {!currentFolderId && !heroHidden && (
+      <div className="text-center py-8 sm:py-10 relative">
         <style jsx>{`
           @keyframes bounceIn {
             0% {
@@ -1835,6 +1836,15 @@ export default function DashboardPage() {
             animation: fadeIn 0.6s ease-out 1.1s forwards;
           }
           `}</style>
+        <button
+          onClick={() => {
+            setHeroHidden(true);
+          }}
+          className="absolute top-2 start-2 p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-secondary/50 transition-colors z-10"
+          title={t('hideHero')}
+        >
+          <X className="w-4 h-4" />
+        </button>
         <h1 className="hero-title text-3xl sm:text-4xl md:text-5xl font-bold mb-4 tracking-tight flex items-center justify-center gap-2 flex-wrap" dir="ltr">
           <span className="text-lg sm:text-xl md:text-2xl font-normal" style={{ color: '#6b7280' }}>The</span>
           <Image
@@ -1855,9 +1865,38 @@ export default function DashboardPage() {
         <div className="hero-divider flex justify-center mb-4">
           <div className="hero-divider-line h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
         </div>
-        <p className="hero-subtitle text-sm sm:text-base md:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-          {t('subtitle')}
-        </p>
+        <p className="hero-subtitle text-base sm:text-lg font-medium text-accent mb-3">{t('heroSlogan')}</p>
+        <div className="hero-subtitle flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm sm:text-base text-text-secondary max-w-3xl mx-auto leading-relaxed">
+          <span className="flex items-center gap-1"><Upload className="w-3.5 h-3.5 text-accent" />{t('heroUpload')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Vote className="w-3.5 h-3.5 text-accent" />{t('heroVote')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-accent" />{t('heroStage')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Gamepad2 className="w-3.5 h-3.5 text-accent" />{t('heroGames')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Tag className="w-3.5 h-3.5 text-accent" />{t('heroTag')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Crosshair className="w-3.5 h-3.5 text-accent" />{t('heroHunt')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Map className="w-3.5 h-3.5 text-accent" />{t('heroTreasure')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Trophy className="w-3.5 h-3.5 text-accent" />{t('heroTrivia')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Camera className="w-3.5 h-3.5 text-accent" />{t('heroSelfie')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5 text-accent" />{t('heroCal')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><Cloud className="w-3.5 h-3.5 text-accent" />{t('heroWordCloud')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><ScrollText className="w-3.5 h-3.5 text-accent" />{t('heroRiddle')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><LinkIcon2 className="w-3.5 h-3.5 text-accent" />{t('heroLink')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5 text-accent" />{t('heroWhatsapp')}</span>
+          <span className="text-border">|</span>
+          <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-accent" />{t('heroNav')}</span>
+        </div>
         <div className="hero-features flex flex-wrap items-center justify-center gap-3 sm:gap-6 mt-4 text-sm sm:text-base">
           <span className="flex items-center gap-1.5 text-accent font-medium">
             <Printer className="w-4 h-4 sm:w-5 sm:h-5" />

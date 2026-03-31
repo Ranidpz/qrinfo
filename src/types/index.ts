@@ -169,6 +169,7 @@ export interface QRSign {
   color: string;           // Sign color (hex)
   backgroundColor: string; // Background color (hex)
   scale?: number;          // Size scale 0.5-1.5 (default 1.0)
+  qrFgColor?: string;      // QR code body color (default #000000)
 }
 
 // Widgets configuration

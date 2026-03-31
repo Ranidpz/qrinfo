@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.51';
+export const APP_VERSION = '1.13.52';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,34 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.13.52',
+    date: '2026-03-31',
+    isNew: true,
+    highlights: {
+      he: [
+        'תיקון: לוגו מופיע בהורדת QR (היה חסר בקובץ)',
+        'חדש: בחירת צבע לקוד QR עצמו (לא רק הסימן)',
+        'חדש: הורדת QR כקובץ SVG וקטורי לאיכות הדפסה מקסימלית',
+        'שיפור: עיצוב מודל סימן QR — צבעים בשורה אחת, סלייידר מתחת לתצוגה',
+        'שיפור: כפתורי יצירת חוויה קומפקטיים ורספונסיביים',
+        'שיפור: הירו בדשבורד עם סלוגן ואייקונים, ניתן לסגירה',
+        'שיפור: תיאור Q.Games עם כרטיסיות משחקים',
+      ],
+      en: [
+        'Fix: logo now appears in QR download (was missing)',
+        'New: QR code body color picker (not just the sign)',
+        'New: SVG vector download for maximum print quality',
+        'Improved: QR sign modal — colors in one row, slider below preview',
+        'Improved: compact responsive experience creation buttons',
+        'Improved: dashboard hero with slogan and icons, dismissable',
+        'Improved: Q.Games description with game cards',
+      ],
+    },
+  },
+  {
     version: '1.13.51',
     date: '2026-03-08',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'תיקון: נוכחות שחקנים ב-Frogger מתאוששת אחרי נפילת רשת',

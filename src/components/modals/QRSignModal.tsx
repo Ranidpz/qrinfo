@@ -1,12 +1,28 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, QrCode, Type, Grid3X3, Image, Upload, Trash2 } from 'lucide-react';
+import { X, QrCode, Type, Grid3X3, Image, Upload, Trash2, AlertTriangle } from 'lucide-react';
 import { QRSign, QRSignType } from '@/types';
 import { ICON_NAMES, ICON_LABELS } from '@/lib/iconPaths';
 import * as LucideIcons from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+function getRelativeLuminance(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const toLinear = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function getContrastRatio(fg: string, bg: string): number {
+  const l1 = getRelativeLuminance(fg);
+  const l2 = getRelativeLuminance(bg);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
 
 interface QRSignModalProps {
   isOpen: boolean;
@@ -460,8 +476,8 @@ export default function QRSignModal({
           </div>
         )}
 
-        {/* Preview */}
-        <div className="flex flex-col items-center gap-2 py-4">
+        {/* Preview + Size slider */}
+        <div className="flex flex-col items-center gap-3 py-3 bg-bg-secondary/50 rounded-xl px-4">
           <div
             className="rounded-full border border-border shadow-md overflow-hidden"
             style={{
@@ -476,71 +492,87 @@ export default function QRSignModal({
             {renderPreview()}
           </div>
           <span className="text-xs text-text-secondary">{t('qrSignPreview')}</span>
+          <div className="flex items-center gap-3 w-full max-w-[240px]">
+            <span className="text-xs text-text-secondary whitespace-nowrap">{t('qrSignSize')}</span>
+            <input
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.05"
+              value={localSign.scale ?? 1.0}
+              onChange={(e) => updateSign({ scale: parseFloat(e.target.value) })}
+              className="flex-1 h-2 bg-bg-secondary rounded-lg appearance-none cursor-pointer accent-accent"
+            />
+            <span className="text-xs text-text-secondary font-mono w-10 text-center">
+              {Math.round((localSign.scale ?? 1.0) * 100)}%
+            </span>
+          </div>
         </div>
 
-        {/* Size and Colors - horizontal layout */}
-        <div className="grid grid-cols-3 gap-4">
-          {/* Size slider */}
-          <div className="space-y-2">
-            <label className="text-sm text-text-secondary">{t('qrSignSize')}</label>
-            <div className="flex flex-col items-center gap-1">
-              <input
-                type="range"
-                min="0.5"
-                max="2.0"
-                step="0.05"
-                value={localSign.scale ?? 1.0}
-                onChange={(e) => updateSign({ scale: parseFloat(e.target.value) })}
-                className="w-full h-2 bg-bg-secondary rounded-lg appearance-none cursor-pointer accent-accent"
-              />
-              <span className="text-xs text-text-secondary font-mono">
-                {Math.round((localSign.scale ?? 1.0) * 100)}%
-              </span>
-            </div>
-          </div>
-
+        {/* All Colors in one row */}
+        <div className="grid grid-cols-3 gap-3">
           {/* Sign Color */}
-          <div className="space-y-2">
-            <label className="text-sm text-text-secondary">{t('qrSignColor')}</label>
-            <div className="flex flex-col items-center gap-1">
-              <input
-                type="color"
-                value={localSign.color}
-                onChange={(e) => updateSign({ color: e.target.value })}
-                className="w-10 h-10 rounded-lg border border-border cursor-pointer"
-              />
-              <input
-                type="text"
-                value={localSign.color}
-                onChange={(e) => updateSign({ color: e.target.value })}
-                className="w-full px-2 py-1 text-xs border border-border rounded-lg bg-bg-secondary text-text-primary font-mono text-center"
-                placeholder="#000000"
-                dir="ltr"
-              />
-            </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <label className="text-[11px] text-text-secondary">{t('qrSignColor')}</label>
+            <input
+              type="color"
+              value={localSign.color}
+              onChange={(e) => updateSign({ color: e.target.value })}
+              className="w-9 h-9 rounded-lg border border-border cursor-pointer"
+            />
+            <input
+              type="text"
+              value={localSign.color}
+              onChange={(e) => updateSign({ color: e.target.value })}
+              className="w-full px-1.5 py-1 text-[10px] border border-border rounded-lg bg-bg-secondary text-text-primary font-mono text-center"
+              dir="ltr"
+            />
           </div>
 
           {/* Background Color */}
-          <div className="space-y-2">
-            <label className="text-sm text-text-secondary">{t('qrSignBackgroundColor')}</label>
-            <div className="flex flex-col items-center gap-1">
-              <input
-                type="color"
-                value={localSign.backgroundColor}
-                onChange={(e) => updateSign({ backgroundColor: e.target.value })}
-                className="w-10 h-10 rounded-lg border border-border cursor-pointer"
-              />
-              <input
-                type="text"
-                value={localSign.backgroundColor}
-                onChange={(e) => updateSign({ backgroundColor: e.target.value })}
-                className="w-full px-2 py-1 text-xs border border-border rounded-lg bg-bg-secondary text-text-primary font-mono text-center"
-                placeholder="#ffffff"
-                dir="ltr"
-              />
-            </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <label className="text-[11px] text-text-secondary">{t('qrSignBackgroundColor')}</label>
+            <input
+              type="color"
+              value={localSign.backgroundColor}
+              onChange={(e) => updateSign({ backgroundColor: e.target.value })}
+              className="w-9 h-9 rounded-lg border border-border cursor-pointer"
+            />
+            <input
+              type="text"
+              value={localSign.backgroundColor}
+              onChange={(e) => updateSign({ backgroundColor: e.target.value })}
+              className="w-full px-1.5 py-1 text-[10px] border border-border rounded-lg bg-bg-secondary text-text-primary font-mono text-center"
+              dir="ltr"
+            />
+          </div>
+
+          {/* QR Code Color */}
+          <div className="flex flex-col items-center gap-1.5">
+            <label className="text-[11px] text-text-secondary">{t('qrSignQrColor')}</label>
+            <input
+              type="color"
+              value={localSign.qrFgColor || '#000000'}
+              onChange={(e) => updateSign({ qrFgColor: e.target.value })}
+              className="w-9 h-9 rounded-lg border border-border cursor-pointer"
+            />
+            <input
+              type="text"
+              value={localSign.qrFgColor || '#000000'}
+              onChange={(e) => updateSign({ qrFgColor: e.target.value })}
+              className="w-full px-1.5 py-1 text-[10px] border border-border rounded-lg bg-bg-secondary text-text-primary font-mono text-center"
+              dir="ltr"
+            />
           </div>
         </div>
+
+        {/* Contrast warning */}
+        {localSign.qrFgColor && getContrastRatio(localSign.qrFgColor, '#ffffff') < 3 && (
+          <div className="flex items-center justify-center gap-1.5 text-xs text-amber-500">
+            <AlertTriangle size={14} />
+            <span>{t('qrSignLowContrast')}</span>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-2">

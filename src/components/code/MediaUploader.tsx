@@ -371,9 +371,9 @@ export default function MediaUploader({
     badge?: string;
     tooltip?: string;
   }) => (
-    <div className="relative min-w-0">
+    <div className="relative w-[72px] sm:w-[80px]">
       {badge && (
-        <span className="absolute -top-1 -right-1 sm:-top-2 sm:-left-2 sm:right-auto z-20 px-1.5 sm:px-3 py-0.5 text-[10px] sm:text-[15px] font-bold rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg whitespace-nowrap animate-pulse border border-white/20">
+        <span className="absolute -top-1 -right-1 sm:-top-2 sm:-left-2 sm:right-auto z-20 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg whitespace-nowrap animate-pulse border border-white/20">
           ✨{badge}
         </span>
       )}
@@ -381,14 +381,14 @@ export default function MediaUploader({
         onClick={() => setActiveTab(tab)}
         title={tooltip}
         className={clsx(
-          'w-full h-full flex flex-col items-center justify-center gap-1 py-2.5 px-1 sm:px-2 rounded-lg text-xs font-medium transition-all border overflow-hidden',
+          'w-full flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-lg text-[11px] sm:text-xs font-medium transition-all border overflow-hidden',
           activeTab === tab
             ? 'bg-accent text-white border-accent shadow-md'
             : 'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50 hover:text-accent'
         )}
       >
-        <Icon className="w-4 h-4 shrink-0" />
-        <span className="w-full text-center line-clamp-2 leading-tight">{label}</span>
+        <Icon className="w-5 h-5 shrink-0" />
+        <span className="w-full text-center line-clamp-1 leading-tight px-0.5">{label}</span>
       </button>
     </div>
   );
@@ -405,28 +405,28 @@ export default function MediaUploader({
     icon: React.ElementType;
     tooltip?: string;
   }) => (
-    <div className="relative min-w-0">
+    <div className="relative w-[72px] sm:w-[80px]">
       <a
         href={href}
         target="_blank"
         rel="noopener noreferrer"
         title={tooltip}
         className={clsx(
-          'w-full h-full flex flex-col items-center justify-center gap-1 py-2.5 px-1 sm:px-2 rounded-lg text-xs font-medium transition-all border overflow-hidden',
+          'w-full flex flex-col items-center justify-center gap-0.5 py-2 px-1 rounded-lg text-[11px] sm:text-xs font-medium transition-all border overflow-hidden',
           'bg-white dark:bg-bg-secondary text-gray-600 dark:text-text-secondary border-gray-200 dark:border-border hover:border-accent/50 hover:text-accent'
         )}
       >
-        <Icon className="w-4 h-4 shrink-0" />
-        <span className="w-full text-center line-clamp-2 leading-tight">{label}</span>
+        <Icon className="w-5 h-5 shrink-0" />
+        <span className="w-full text-center line-clamp-1 leading-tight px-0.5">{label}</span>
       </a>
     </div>
   );
 
   return (
     <div className="space-y-3">
-      {/* Tab buttons - flexbox with centered incomplete rows */}
+      {/* Tab buttons - responsive grid of square buttons */}
       {(onLinkAdd || onRiddleCreate || onWordCloudCreate) && (
-        <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 overflow-visible pt-3 [&>div]:w-[calc(33.333%-0.375rem)] sm:[&>div]:w-[calc(16.666%-0.417rem)]">
+        <div className="flex flex-wrap justify-center gap-1.5 overflow-visible pt-3">
           <TabButton tab="upload" label={tMedia('imageOrBooklet')} icon={Upload} tooltip={t('tooltipUpload')} />
           {onLinkAdd && <TabButton tab="link" label={tMedia('link')} icon={Link} tooltip={t('tooltipLink')} />}
           {onRiddleCreate && <TabButton tab="riddle" label={tMedia('riddle')} icon={FileText} tooltip={t('tooltipRiddle')} />}
@@ -1071,18 +1071,45 @@ export default function MediaUploader({
         </div>
       ) : activeTab === 'minigames' ? (
         <div className="space-y-3">
-          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
-            <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-              <Gamepad2 className="w-6 h-6 text-accent" />
-            </div>
-            <div className="text-start">
-              <h3 className="font-medium text-text-primary mb-1">
-                {tMedia('minigames')}
+          <div className="p-4 bg-bg-secondary rounded-xl space-y-4">
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-bold text-text-primary flex items-center justify-center gap-2">
+                <Gamepad2 className="w-5 h-5 text-accent" />
+                Q.Games
               </h3>
-              <p className="text-xs text-text-secondary">
+              <p className="text-sm text-text-secondary">
                 {t('minigamesDescription')}
               </p>
             </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="flex flex-col items-center gap-1 p-2.5 bg-bg-card rounded-lg border border-border">
+                <span className="text-xl">🪨</span>
+                <span className="text-xs text-text-primary font-medium text-center leading-tight">{t('minigameRps')}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 p-2.5 bg-bg-card rounded-lg border border-border">
+                <span className="text-xl">❌</span>
+                <span className="text-xs text-text-primary font-medium text-center leading-tight">{t('minigameTtt')}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 p-2.5 bg-bg-card rounded-lg border border-border">
+                <span className="text-xl">🧠</span>
+                <span className="text-xs text-text-primary font-medium text-center leading-tight">{t('minigameMemory')}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 p-2.5 bg-bg-card rounded-lg border border-border">
+                <span className="text-xl">🔴</span>
+                <span className="text-xs text-text-primary font-medium text-center leading-tight">{t('minigameConnect4')}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 p-2.5 bg-bg-card rounded-lg border border-border">
+                <span className="text-xl">🐸</span>
+                <span className="text-xs text-text-primary font-medium text-center leading-tight">{t('minigameFrogger')}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1 p-2.5 bg-bg-card rounded-lg border border-border">
+                <span className="text-xl">🎯</span>
+                <span className="text-xs text-text-primary font-medium text-center leading-tight">{t('minigameOdd')}</span>
+              </div>
+            </div>
+            <p className="text-xs text-accent font-medium text-center">
+              {t('minigamesHighlight')}
+            </p>
           </div>
           <button
             onClick={onQGamesCreate}
