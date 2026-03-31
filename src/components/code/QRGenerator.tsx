@@ -76,14 +76,22 @@ export default function QRGenerator({ shortId, size = 200, title, sign }: QRGene
           // Draw logo image
           const logoImg = new Image();
           logoImg.onload = () => {
-            const logoSize = signRadius * 1.5 * scale;
-            ctx.drawImage(
-              logoImg,
-              centerX - logoSize / 2,
-              centerY - logoSize / 2,
-              logoSize,
-              logoSize
-            );
+            // Clip to circle (matches preview overflow-hidden)
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, signRadius, 0, Math.PI * 2);
+            ctx.clip();
+
+            // Match preview: logo = 70% of container, maintain aspect ratio
+            const maxLogoSize = signRadius * 2 * 0.7 * scale;
+            const imgW = logoImg.naturalWidth;
+            const imgH = logoImg.naturalHeight;
+            const ratio = Math.min(maxLogoSize / imgW, maxLogoSize / imgH);
+            const drawW = imgW * ratio;
+            const drawH = imgH * ratio;
+            ctx.drawImage(logoImg, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
+            ctx.restore();
+
             // Download after logo is loaded
             const link = document.createElement('a');
             link.download = `qr-${shortId}.png`;

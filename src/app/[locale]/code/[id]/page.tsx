@@ -736,8 +736,22 @@ export default function CodeEditPage({ params }: PageProps) {
       if (sign.type === 'logo') {
         const logoImg = new window.Image();
         logoImg.onload = () => {
-          const logoSize = signRadius * 1.5 * scale;
-          ctx.drawImage(logoImg, centerX - logoSize / 2, centerY - logoSize / 2, logoSize, logoSize);
+          // Clip to circle (matches preview overflow-hidden)
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, signRadius, 0, Math.PI * 2);
+          ctx.clip();
+
+          // Match preview: logo = 70% of container, maintain aspect ratio
+          const maxLogoSize = signRadius * 2 * 0.7 * scale;
+          const imgW = logoImg.naturalWidth;
+          const imgH = logoImg.naturalHeight;
+          const ratio = Math.min(maxLogoSize / imgW, maxLogoSize / imgH);
+          const drawW = imgW * ratio;
+          const drawH = imgH * ratio;
+          ctx.drawImage(logoImg, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
+          ctx.restore();
+
           const link = document.createElement('a');
           link.download = `${code.title}.png`;
           link.href = downloadCanvas.toDataURL('image/png');
