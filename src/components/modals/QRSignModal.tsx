@@ -40,8 +40,8 @@ const DEFAULT_SIGN: QRSign = {
   scale: 1.0,
 };
 
-const MAX_LOGO_SIZE = 200; // Max width/height in pixels
-const MAX_FILE_SIZE = 500 * 1024; // 500KB
+const MAX_LOGO_SIZE = 512; // Max width/height in pixels (high-res for print quality)
+const MAX_FILE_SIZE = 800 * 1024; // 800KB
 
 export default function QRSignModal({
   isOpen,
