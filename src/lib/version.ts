@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.52';
+export const APP_VERSION = '1.13.53';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.13.53',
+    date: '2026-05-12',
+    isNew: true,
+    highlights: {
+      he: [
+        'תיקון קריטי: חוברות PDF הציגו מסך שחור — תוקן גובה הקונטיינר של ה-FlipBook',
+      ],
+      en: [
+        'Critical fix: PDF brochures showed black screen — fixed FlipBook container height',
+      ],
+    },
+  },
+  {
     version: '1.13.52',
     date: '2026-03-31',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'תיקון: לוגו מופיע בהורדת QR (היה חסר בקובץ)',

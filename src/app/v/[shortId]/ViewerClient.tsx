@@ -402,7 +402,7 @@ const PDFFlipBookViewer = memo(({
   return (
     <div
       ref={containerRef}
-      className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative"
+      className="w-full h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden relative"
     >
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
@@ -604,7 +604,7 @@ const MultiPDFViewer = memo(({
   }
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
+    <div className="w-full h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
       <Swiper
         modules={[Virtual]}
         onSwiper={(swiper) => { swiperRef.current = swiper; }}

@@ -95,6 +95,7 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Q.Vote tablet/kiosk mode: vote API MUST skip fingerprint dedup when `tabletMode.enabled` (same device = same fingerprint). Client `resetForNextVoter` MUST regenerate `visitorId` in localStorage (prevents vote doc ID collisions). ALL success paths in `submitVoteWithCredentials` MUST call `setSubmitting(false)` before starting the tablet countdown.
 - WhatsApp in-app browser (SFSafariViewController on iOS): has isolated localStorage — `visitorId` and player sessions are lost. Detect with `isInAppBrowser()` in `QGamesRegistration.tsx` and show "Open in browser" banner. iOS detection: `!('safari' in window)` on iOS UA.
 - Satori (next/og `ImageResponse`) does NOT support RTL Hebrew text — renders chars in reverse. Avoid Hebrew text in OG images; use logos instead.
+- ViewerClient.tsx content wrapper uses `min-h-screen` (commit 8444ec5, for QHunt scroll) — direct children that use Tailwind `h-full` collapse to 0px since CSS `height: 100%` requires an explicit parent `height`, not `min-height`. PDFFlipBookViewer & MultiPDFViewer outer wrappers MUST use `h-screen` (not `h-full`) so the flipbook container gets a real height. Same gotcha applies to any new viewer with `h-full` as the root class.
 
 ---
 **Claude: update this file at the end of every significant conversation. Keep it under 100 lines. Add to Lessons Learned. Remove anything outdated. If a section grows too large, it means it should be a code comment instead. When pushing to main, bump version + add changelog entry.**
