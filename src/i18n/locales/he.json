@@ -280,6 +280,19 @@
     "notificationContent": "תוכן ההתראה",
     "noNotifications": "אין התראות"
   },
+  "update": {
+    "buttonLabel": "עדכון זמין",
+    "newLabel": "חדש",
+    "versionLabel": "גרסה",
+    "whatsNew": "מה חדש",
+    "refreshNow": "רענן עכשיו לעדכון",
+    "refreshing": "מרענן...",
+    "gotIt": "הבנתי, תודה!",
+    "later": "אחר כך",
+    "close": "סגור",
+    "updateAvailableTitle": "עדכון זמין",
+    "updateAvailableSubtitle": "גרסה חדשה יצאה לאוויר. רענן כדי לקבל את העדכונים האחרונים."
+  },
   "dashboard": {
     "title": "The Q - One Code. Endless Experiences",
     "heroTagline": "פלטפורמה ליצירת חוויות אינטראקטיביות בקודי QR",

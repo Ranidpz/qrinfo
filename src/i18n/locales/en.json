@@ -280,6 +280,19 @@
     "notificationContent": "Notification content",
     "noNotifications": "No notifications"
   },
+  "update": {
+    "buttonLabel": "Update available",
+    "newLabel": "New",
+    "versionLabel": "Version",
+    "whatsNew": "What's new",
+    "refreshNow": "Refresh to update",
+    "refreshing": "Refreshing...",
+    "gotIt": "Got it, thanks!",
+    "later": "Later",
+    "close": "Close",
+    "updateAvailableTitle": "Update available",
+    "updateAvailableSubtitle": "A new version is live. Refresh to get the latest updates."
+  },
   "dashboard": {
     "title": "The Q - One Code. Endless Experiences",
     "heroTagline": "Platform for creating interactive experiences with QR codes",

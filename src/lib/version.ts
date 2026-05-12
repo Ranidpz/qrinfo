@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.53';
+export const APP_VERSION = '1.13.54';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.53',
+    version: '1.13.54',
     date: '2026-05-12',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: כפתור "עדכון זמין" צף במקום פופאפ אוטומטי — קומפקטי ולא חוסם',
+        'חדש: זיהוי אוטומטי של גרסה חדשה גם כשהדף פתוח (בדיקה כל 5 דקות)',
+        'שיפור: לחיצה על הכפתור מציגה מה התעדכן + רענון בלחיצה אחת',
+      ],
+      en: [
+        'New: Floating "Update available" button instead of auto-popup — compact and non-blocking',
+        'New: Live detection of new versions while page is open (5-minute polling)',
+        'Improved: Click the button to see what changed + refresh in one click',
+      ],
+    },
+  },
+  {
+    version: '1.13.53',
+    date: '2026-05-12',
+    isNew: false,
     highlights: {
       he: [
         'תיקון קריטי: חוברות PDF הציגו מסך שחור — תוקן גובה הקונטיינר של ה-FlipBook',
