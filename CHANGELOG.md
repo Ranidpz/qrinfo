@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.55] - 2026-05-24
+
+### Added
+- Cloudflare R2 storage path for PDF booklet uploads.
+- Fattal booklet migration API scaffolding with per-user storage accounting.
+- Storage delete compatibility for both Cloudflare R2 and Vercel Blob.
+
+---
+
 ## [1.11.1] - 2026-02-08
 
 ### Fixed

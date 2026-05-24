@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.54';
+export const APP_VERSION = '1.13.55';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.13.55',
+    date: '2026-05-24',
+    isNew: true,
+    highlights: {
+      he: [
+        'חדש: חוברות PDF יכולות להישמר ב-Cloudflare R2 במקום Vercel Blob',
+        'חדש: הכנה למיגרציה בטוחה של חוברות פתאל עם שמירת ספירת אחסון לכל משתמש',
+        'שיפור: תמיכה במחיקת קבצים גם מ-R2 וגם מ-Vercel Blob כדי לשמור תאימות לקבצים קיימים',
+      ],
+      en: [
+        'New: PDF booklets can be stored in Cloudflare R2 instead of Vercel Blob',
+        'New: Safe Fattal booklet migration groundwork with per-user storage accounting',
+        'Improved: Delete support for both R2 and Vercel Blob to keep existing files compatible',
+      ],
+    },
+  },
+  {
     version: '1.13.54',
     date: '2026-05-12',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'חדש: כפתור "עדכון זמין" צף במקום פופאפ אוטומטי — קומפקטי ולא חוסם',
