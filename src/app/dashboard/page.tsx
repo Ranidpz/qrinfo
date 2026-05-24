@@ -352,6 +352,7 @@ export default function DashboardPage() {
               mediaUrl={code.media[0]?.url}
               fileName={code.media[0]?.title}
               fileSize={code.media[0]?.size}
+              fileStorageProvider={code.media[0]?.storageProvider}
               views={code.views}
               isOwner={user?.id === code.ownerId}
               isGlobal={!!code.widgets.whatsapp?.enabled}

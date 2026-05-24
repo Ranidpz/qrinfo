@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.56';
+export const APP_VERSION = '1.13.57';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.56',
+    version: '1.13.57',
     date: '2026-05-24',
     isNew: true,
+    highlights: {
+      he: [
+        'חדש: תג קטן בדשבורד מציג אם הקובץ שמור ב-R2 או ב-Blob',
+      ],
+      en: [
+        'New: Small dashboard badge shows whether a file is stored in R2 or Blob',
+      ],
+    },
+  },
+  {
+    version: '1.13.56',
+    date: '2026-05-24',
+    isNew: false,
     highlights: {
       he: [
         'תיקון: מיגרציית חוברות פתאל מזהה כברירת מחדל את הספריות פתאל אילת, פתאל ים המלח ופתאל טבריה',

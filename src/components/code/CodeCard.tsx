@@ -5,7 +5,7 @@ import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, U
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
-import { MediaType, CodeWidgets, ViewMode, PendingReplacement } from '@/types';
+import { MediaType, CodeWidgets, ViewMode, PendingReplacement, StorageProvider } from '@/types';
 import ReplaceMediaConfirm from '@/components/modals/ReplaceMediaConfirm';
 import ReplaceMediaOptionsModal from '@/components/modals/ReplaceMediaOptionsModal';
 import ScheduleReplacementModal from '@/components/modals/ScheduleReplacementModal';
@@ -40,6 +40,7 @@ interface CodeCardProps {
   mediaUrl?: string;
   fileName?: string;
   fileSize?: number;
+  fileStorageProvider?: StorageProvider;
   views: number;
   views24h?: number;
   updatedAt?: Date;
@@ -80,6 +81,22 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
+function getStorageBadge(provider?: StorageProvider): { label: string; title: string; className: string } {
+  if (provider === 'cloudflare-r2') {
+    return {
+      label: 'R2',
+      title: 'Cloudflare R2',
+      className: 'border-emerald-500/25 bg-emerald-500/15 text-emerald-300',
+    };
+  }
+
+  return {
+    label: 'Blob',
+    title: 'Vercel Blob / legacy',
+    className: 'border-amber-500/25 bg-amber-500/15 text-amber-300',
+  };
+}
+
 // Removed - now using translations via useTranslations('media')
 
 export default function CodeCard({
@@ -91,6 +108,7 @@ export default function CodeCard({
   mediaUrl,
   fileName,
   fileSize,
+  fileStorageProvider,
   views,
   views24h = 0,
   updatedAt,
@@ -149,6 +167,7 @@ export default function CodeCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrRef = useRef<HTMLDivElement>(null);
   const prevViewsRef = useRef(views);
+  const storageBadge = getStorageBadge(fileStorageProvider);
 
   // Detect link type from URL
   type LinkType = 'whatsapp' | 'phone' | 'sms' | 'email' | 'url';
@@ -578,6 +597,14 @@ export default function CodeCard({
             <span className="px-2 py-0.5 text-xs font-medium bg-bg-secondary rounded text-text-secondary">
               {getMediaLabel(mediaType)}
             </span>
+            {fileSize !== undefined && fileSize > 0 && (
+              <span
+                className={clsx('px-1.5 py-0.5 text-[10px] font-semibold rounded border', storageBadge.className)}
+                title={storageBadge.title}
+              >
+                {storageBadge.label}
+              </span>
+            )}
             {pendingReplacement && (
               <PendingReplacementBadge
                 scheduledAt={pendingReplacement.scheduledAt}
@@ -881,7 +908,15 @@ export default function CodeCard({
         <div className="flex items-center justify-between text-xs text-text-secondary">
           <span className="font-mono" dir="ltr">{shortId}</span>
           {fileSize !== undefined && fileSize > 0 && (
-            <span className="bg-bg-secondary px-1.5 py-0.5 rounded">{formatBytes(fileSize)}</span>
+            <span className="flex items-center gap-1">
+              <span className="bg-bg-secondary px-1.5 py-0.5 rounded" dir="ltr">{formatBytes(fileSize)}</span>
+              <span
+                className={clsx('px-1.5 py-0.5 text-[10px] font-semibold rounded border leading-none', storageBadge.className)}
+                title={storageBadge.title}
+              >
+                {storageBadge.label}
+              </span>
+            </span>
           )}
         </div>
 

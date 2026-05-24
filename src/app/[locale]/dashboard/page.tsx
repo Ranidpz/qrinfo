@@ -2336,6 +2336,7 @@ export default function DashboardPage() {
               mediaUrl={code.media[0]?.url}
               fileName={code.media[0]?.filename || code.media[0]?.title}
               fileSize={code.media[0]?.size}
+              fileStorageProvider={code.media[0]?.storageProvider}
               mediaCount={code.media.length}
               views={totalViews[code.id] ?? code.views}
               views24h={views24h[code.id] || 0}

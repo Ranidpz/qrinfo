@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.57] - 2026-05-24
+
+### Added
+- Dashboard storage badge showing `R2` or `Blob` next to the file size.
+
+---
+
 ## [1.13.56] - 2026-05-24
 
 ### Fixed
