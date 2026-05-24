@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1053.0",
     "@dearhive/dearflip-jquery-flipbook": "^1.7.3",
     "@types/dompurify": "^3.0.5",
     "@types/qrcode": "^1.5.6",

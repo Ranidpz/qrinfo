@@ -55,6 +55,32 @@ export async function verifyAuthToken(
 }
 
 /**
+ * Verify auth token + require a super_admin user.
+ * Use for admin-wide API routes that are not scoped to a single QR code.
+ */
+export async function requireSuperAdmin(
+  request: NextRequest
+): Promise<AuthOutcome> {
+  const authResult = await verifyAuthToken(request);
+  if ('error' in authResult) return { response: authResult.error };
+
+  const { uid } = authResult;
+  const db = getAdminDb();
+  const userDoc = await db.collection('users').doc(uid).get();
+
+  if (userDoc.data()?.role !== 'super_admin') {
+    return {
+      response: NextResponse.json(
+        { error: 'Forbidden: super admin required' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { uid, isOwner: false, isSuperAdmin: true };
+}
+
+/**
  * Verify auth token + check code ownership or super_admin role.
  * Primary guard for admin-only endpoints.
  */

@@ -32,16 +32,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Validate URL - only allow Vercel Blob storage URLs for security
+  // Validate URL - only allow configured storage URLs for security
   const allowedDomains = [
     'public.blob.vercel-storage.com',
     'blob.vercel-storage.com',
   ];
+  const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
+  const r2PublicHostname = r2PublicUrl ? safeHostname(r2PublicUrl) : null;
 
   let validatedUrl: URL;
   try {
     validatedUrl = new URL(pdfUrl);
-    const isAllowed = allowedDomains.some(domain => validatedUrl.hostname.endsWith(domain));
+    const isAllowed =
+      allowedDomains.some(domain => validatedUrl.hostname.endsWith(domain)) ||
+      (r2PublicHostname !== null && validatedUrl.hostname === r2PublicHostname);
 
     if (!isAllowed) {
       console.log('[PDF Proxy] Domain not allowed:', validatedUrl.hostname);
@@ -51,11 +55,10 @@ export async function GET(request: NextRequest) {
       );
     }
     console.log('[PDF Proxy] Domain validated:', validatedUrl.hostname);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.log('[PDF Proxy] Invalid URL:', errMsg);
+  } catch {
+    console.log('[PDF Proxy] Invalid URL');
     return NextResponse.json(
-      { error: 'Invalid URL', details: errMsg, rawUrl: pdfUrl?.substring(0, 100) },
+      { error: 'Invalid URL' },
       { status: 400 }
     );
   }
@@ -84,8 +87,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           error: `Failed to fetch PDF: ${response.status}`,
-          statusText: response.statusText,
-          body: errorBody.substring(0, 200),
         },
         { status: response.status }
       );
@@ -114,12 +115,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to fetch PDF',
-        details: errorMessage,
-        stack: errorStack?.substring(0, 500),
-        pdfUrl: pdfUrl?.substring(0, 100),
       },
       { status: 500 }
     );
+  }
+}
+
+function safeHostname(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
   }
 }
 
