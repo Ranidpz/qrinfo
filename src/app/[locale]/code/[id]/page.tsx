@@ -209,7 +209,7 @@ type UploadResponse = {
 };
 
 function appendPdfUploadContext(formData: FormData, file: File, codeId: string) {
-  if (file.type !== 'application/pdf') return;
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) return;
   formData.append('codeId', codeId);
   formData.append('folder', 'booklets');
 }
@@ -650,7 +650,7 @@ export default function CodeEditPage({ params }: PageProps) {
         .filter((m) => m.uploadedBy === user.id)
         .reduce((sum, m) => sum + m.size, 0);
 
-      // Delete media from Vercel Blob
+      // Delete stored media
       for (const media of code.media) {
         if (media.type !== 'link') {
           await fetch('/api/upload', {
@@ -1368,7 +1368,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
     setUploading(true);
     try {
-      // Upload to Vercel Blob
+      // Upload file
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
@@ -1502,7 +1502,7 @@ export default function CodeEditPage({ params }: PageProps) {
     if (!mediaToRemove) return;
 
     try {
-      // Delete from Vercel Blob if not a link
+      // Delete stored media if not a link
       if (mediaToRemove.type !== 'link') {
         await fetch('/api/upload', {
           method: 'DELETE',
@@ -1678,7 +1678,7 @@ export default function CodeEditPage({ params }: PageProps) {
         (url) => !content.images?.includes(url)
       );
 
-      // Delete removed images from Vercel Blob
+      // Delete removed stored images
       for (const imageUrl of removedImages) {
         try {
           await fetch('/api/upload', {
@@ -1795,7 +1795,7 @@ export default function CodeEditPage({ params }: PageProps) {
         (url) => !content.companyLogos?.includes(url)
       );
 
-      // Delete removed images from Vercel Blob
+      // Delete removed stored images
       for (const imageUrl of removedImages) {
         try {
           await fetch('/api/upload', {
@@ -1808,7 +1808,7 @@ export default function CodeEditPage({ params }: PageProps) {
         }
       }
 
-      // Delete removed logos from Vercel Blob
+      // Delete removed stored logos
       for (const logoUrl of removedLogos) {
         try {
           await fetch('/api/upload', {

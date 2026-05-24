@@ -10,6 +10,13 @@ import {
 } from '@/lib/r2-storage';
 import sharp from 'sharp';
 
+const PDF_SIGNATURE = Buffer.from('%PDF-');
+
+async function hasPdfSignature(file: File): Promise<boolean> {
+  const header = Buffer.from(await file.slice(0, Math.min(file.size, 1024)).arrayBuffer());
+  return header.includes(PDF_SIGNATURE);
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
@@ -63,6 +70,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const fileNameLower = file.name.toLowerCase();
+    const isPdfByName = fileNameLower.endsWith('.pdf');
+    const isPdfByMime = file.type === 'application/pdf';
+    const isPdfUpload = (isPdfByMime || isPdfByName) && await hasPdfSignature(file);
+
+    if ((isPdfByMime || isPdfByName) && !isPdfUpload) {
+      console.error('Upload rejected - PDF signature missing:', file.type, 'name:', file.name);
+      return NextResponse.json(
+        { error: 'Invalid PDF file' },
+        { status: 400 }
+      );
+    }
+
     // Validate file type
     const allowedTypes = [
       'image/jpeg',
@@ -79,7 +99,7 @@ export async function POST(request: NextRequest) {
       'application/pdf',
     ];
 
-    if (!allowedTypes.includes(file.type)) {
+    if (!allowedTypes.includes(file.type) && !isPdfUpload) {
       console.error('Upload rejected - file type not allowed:', file.type, 'name:', file.name);
       return NextResponse.json(
         { error: 'File type not allowed', fileType: file.type },
@@ -89,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     // Generate unique filename with user folder structure
     const timestamp = Date.now();
-    let extension = file.name.split('.').pop() || 'bin';
+    let extension = isPdfUpload ? 'pdf' : file.name.split('.').pop() || 'bin';
     const randomSuffix = Math.random().toString(36).substring(7);
 
     // Process image: resize and/or convert to WebP
@@ -128,7 +148,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const effectiveFolder = folder || (file.type === 'application/pdf' ? 'booklets' : null);
+    const effectiveFolder = folder || (isPdfUpload ? 'booklets' : null);
 
     // If codeId is provided, save in code folder (for storage tracking)
     // Otherwise save directly in user folder
@@ -145,7 +165,7 @@ export async function POST(request: NextRequest) {
 
     // Determine media type
     let mediaType: 'image' | 'video' | 'pdf' | 'gif' = 'image';
-    if (file.type === 'application/pdf') {
+    if (isPdfUpload) {
       mediaType = 'pdf';
     } else if (file.type === 'image/gif') {
       mediaType = 'gif';
@@ -173,7 +193,7 @@ export async function POST(request: NextRequest) {
       const r2Object = await uploadBufferToR2({
         key: r2Key,
         body: uploadBuffer,
-        contentType: file.type,
+        contentType: 'application/pdf',
         cacheControl: 'public, max-age=31536000, immutable',
         metadata: {
           ownerId: userId,
@@ -210,7 +230,7 @@ export async function POST(request: NextRequest) {
       storageProvider: uploaded.storageProvider,
       storageKey: uploaded.storageKey,
       storageBucket: uploaded.storageBucket,
-      contentType: uploaded.contentType || file.type,
+      contentType: uploaded.contentType || (isPdfUpload ? 'application/pdf' : file.type),
     });
   } catch (error) {
     console.error('Upload error:', error);

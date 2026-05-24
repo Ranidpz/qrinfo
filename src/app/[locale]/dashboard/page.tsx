@@ -52,7 +52,7 @@ type UploadResponse = {
 };
 
 function appendPdfUploadContext(formData: FormData, file: File, codeId?: string) {
-  if (file.type !== 'application/pdf') return;
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) return;
   if (codeId) formData.append('codeId', codeId);
   formData.append('folder', 'booklets');
 }
@@ -304,7 +304,7 @@ export default function DashboardPage() {
     setUploading(true);
 
     try {
-      // Upload file to Vercel Blob
+      // Upload file
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
@@ -1147,7 +1147,7 @@ export default function DashboardPage() {
       // Delete from Firestore
       await deleteQRCode(deleteModal.code.id);
 
-      // Delete media from Vercel Blob
+      // Delete stored media
       for (const media of deleteModal.code.media) {
         if (media.type !== 'link') {
           await fetch('/api/upload', {
@@ -1297,7 +1297,7 @@ export default function DashboardPage() {
       // Show upload progress immediately
       setUploadProgress({ codeId, progress: 0 });
 
-      // Upload new file to Vercel Blob with progress tracking
+      // Upload new file with progress tracking
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
@@ -1333,7 +1333,7 @@ export default function DashboardPage() {
       // Clear progress
       setUploadProgress(null);
 
-      // Delete old media from Vercel Blob if not a link
+      // Delete old stored media if not a link
       const oldMedia = code.media[0];
       if (oldMedia && oldMedia.type !== 'link') {
         await fetch('/api/upload', {
@@ -1480,7 +1480,7 @@ export default function DashboardPage() {
       const pending = code.media[0]?.pendingReplacement;
       if (!pending) return;
 
-      // Delete the pending file from Vercel Blob
+      // Delete the pending stored file
       await fetch('/api/upload', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -1521,7 +1521,7 @@ export default function DashboardPage() {
     if (!pending) return;
 
     try {
-      // Delete old media from Vercel Blob
+      // Delete old stored media
       const oldMedia = code.media[0];
       if (oldMedia && oldMedia.type !== 'link') {
         await fetch('/api/upload', {

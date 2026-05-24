@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.57';
+export const APP_VERSION = '1.13.58';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.57',
+    version: '1.13.58',
     date: '2026-05-24',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: החלפת PDF דרך הדשבורד מזהה קבצי PDF בצורה קשיחה יותר כדי שהעלאות חדשות יישמרו ב-R2',
+      ],
+      en: [
+        'Fix: Dashboard PDF replacements now detect PDFs more reliably so new uploads stay on R2',
+      ],
+    },
+  },
+  {
+    version: '1.13.57',
+    date: '2026-05-24',
+    isNew: false,
     highlights: {
       he: [
         'חדש: תג קטן בדשבורד מציג אם הקובץ שמור ב-R2 או ב-Blob',

@@ -74,7 +74,7 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Q.Tag WhatsApp templates: `src/lib/qtag-whatsapp.ts` sends QR links via INFORU after registration/verification
 
 ## Lessons Learned
-- R2 PDF migration: keep Content Intake preview separate from commit; Fattal commits use server-side R2 upload to `{ownerId}/{codeId}/booklets` and keep Vercel Blob fallback/delete until legacy media migrates.
+- R2 PDF migration: Fattal commits and dashboard PDF replacements must use server-side R2 upload to `{ownerId}/{codeId}/booklets`; detect PDFs by signature plus MIME/`.pdf`, because browser MIME can be imprecise.
 - Excel export: ALWAYS generate xlsx **client-side** (`XLSX.writeFile()` in browser), NEVER server-side in API routes. The `xlsx` package is unreliable on Vercel serverless even with `serverExternalPackages`. Pattern: build rows from state → `XLSX.utils.json_to_sheet()` → `XLSX.writeFile()`. See `QVoteVotersModal.tsx` and `QTagGuestsModal.tsx` for reference.
 - Quick-add modal must use `fixed` positioning (not `absolute`) to work across scanner/list view modes
 - Scanner PIN gate: check `pinUnlocked` before initializing camera to avoid wasted camera starts

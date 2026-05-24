@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.58] - 2026-05-24
+
+### Fixed
+- PDF uploads now verify PDF content by signature and route `.pdf` files to the R2 PDF path even when the browser sends an imprecise MIME type.
+
+---
+
 ## [1.13.57] - 2026-05-24
 
 ### Added

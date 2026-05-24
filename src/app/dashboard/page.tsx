@@ -51,10 +51,13 @@ export default function DashboardPage() {
     setUploading(true);
 
     try {
-      // Upload file to Vercel Blob
+      // Upload file
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        formData.append('folder', 'booklets');
+      }
 
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
@@ -75,6 +78,11 @@ export default function DashboardPage() {
           size: uploadData.size,
           order: 0,
           uploadedBy: user.id,
+          ...(uploadData.filename ? { filename: uploadData.filename } : {}),
+          ...(uploadData.storageProvider ? { storageProvider: uploadData.storageProvider } : {}),
+          ...(uploadData.storageKey ? { storageKey: uploadData.storageKey } : {}),
+          ...(uploadData.storageBucket ? { storageBucket: uploadData.storageBucket } : {}),
+          ...(uploadData.contentType ? { contentType: uploadData.contentType } : {}),
         },
       ]);
 
@@ -141,7 +149,7 @@ export default function DashboardPage() {
       // Delete from Firestore
       await deleteQRCode(deleteModal.code.id);
 
-      // Delete media from Vercel Blob
+      // Delete stored media
       for (const media of deleteModal.code.media) {
         if (media.type !== 'link') {
           await fetch('/api/upload', {
