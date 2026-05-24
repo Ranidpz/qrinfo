@@ -28,7 +28,7 @@ interface ScoredTarget {
   warnings: string[];
 }
 
-export const FATTAL_DEFAULT_FOLDER_NAMES = ['אילת', 'ים המלח', 'טבריה'];
+export const FATTAL_DEFAULT_FOLDER_NAMES = ['פתאל אילת', 'פתאל ים המלח', 'פתאל טבריה'];
 
 const AREA_ALIASES: Record<AreaId, string[]> = {
   eilat: ['אילת', 'eilat'],

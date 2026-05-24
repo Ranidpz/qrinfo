@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.55';
+export const APP_VERSION = '1.13.56';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.55',
+    version: '1.13.56',
     date: '2026-05-24',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: מיגרציית חוברות פתאל מזהה כברירת מחדל את הספריות פתאל אילת, פתאל ים המלח ופתאל טבריה',
+      ],
+      en: [
+        'Fix: Fattal booklet migration now defaults to the Fattal Eilat, Dead Sea, and Tiberias folders',
+      ],
+    },
+  },
+  {
+    version: '1.13.55',
+    date: '2026-05-24',
+    isNew: false,
     highlights: {
       he: [
         'חדש: חוברות PDF יכולות להישמר ב-Cloudflare R2 במקום Vercel Blob',

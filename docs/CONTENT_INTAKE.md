@@ -18,7 +18,7 @@ Keep source connectors separate from workflow rules. WhatsApp downloads files; t
 This endpoint does not upload files, delete files, or replace QR media. It only:
 
 - authenticates a super admin or server integration key
-- loads the selected owner's QR codes in the Fattal folders
+- loads the selected owner's QR codes in the Fattal folders (`פתאל אילת`, `פתאל ים המלח`, `פתאל טבריה`)
 - matches incoming PDF filenames to QR code targets
 - returns matched / missing / duplicate / needs-review status
 - returns a Hebrew WhatsApp reply draft for after the real commit step

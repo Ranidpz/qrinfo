@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.56] - 2026-05-24
+
+### Fixed
+- Fattal booklet migration defaults now target `פתאל אילת`, `פתאל ים המלח`, and `פתאל טבריה`.
+
+---
+
 ## [1.13.55] - 2026-05-24
 
 ### Added
