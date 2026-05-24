@@ -1,6 +1,13 @@
-import { put, del } from '@vercel/blob';
+import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+import { deleteStoredObjectByUrl } from '@/lib/server-storage';
+import {
+  buildStorageKey,
+  getConfiguredPdfStorageProvider,
+  R2_STORAGE_PROVIDER,
+  uploadBufferToR2,
+} from '@/lib/r2-storage';
 import sharp from 'sharp';
 
 export async function POST(request: NextRequest) {
@@ -121,22 +128,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const effectiveFolder = folder || (file.type === 'application/pdf' ? 'booklets' : null);
+
     // If codeId is provided, save in code folder (for storage tracking)
     // Otherwise save directly in user folder
     let filename: string;
-    if (codeId && folder) {
-      filename = `${userId}/${codeId}/${folder}/${timestamp}_${randomSuffix}.${extension}`;
+    if (codeId && effectiveFolder) {
+      filename = `${userId}/${codeId}/${effectiveFolder}/${timestamp}_${randomSuffix}.${extension}`;
     } else if (codeId) {
       filename = `${userId}/${codeId}/${timestamp}_${randomSuffix}.${extension}`;
+    } else if (effectiveFolder) {
+      filename = `${userId}/${effectiveFolder}/${timestamp}_${randomSuffix}.${extension}`;
     } else {
       filename = `${userId}/${timestamp}_${randomSuffix}.${extension}`;
     }
-
-    // Upload to Vercel Blob
-    const blob = await put(filename, uploadData, {
-      access: 'public',
-      addRandomSuffix: false,
-    });
 
     // Determine media type
     let mediaType: 'image' | 'video' | 'pdf' | 'gif' = 'image';
@@ -150,12 +155,62 @@ export async function POST(request: NextRequest) {
 
     // Calculate actual uploaded size
     const uploadedSize = uploadData instanceof Buffer ? uploadData.length : file.size;
+    const useR2 = mediaType === 'pdf' && getConfiguredPdfStorageProvider() === R2_STORAGE_PROVIDER;
+    let uploaded: {
+      url: string;
+      size: number;
+      storageProvider: 'vercel-blob' | typeof R2_STORAGE_PROVIDER;
+      storageKey?: string;
+      storageBucket?: string;
+      contentType?: string;
+    };
+
+    if (useR2) {
+      const uploadBuffer = Buffer.isBuffer(uploadData)
+        ? uploadData
+        : Buffer.from(await uploadData.arrayBuffer());
+      const r2Key = buildStorageKey(filename.split('/').slice(0, -1), filename.split('/').at(-1) || `${timestamp}_${randomSuffix}.${extension}`);
+      const r2Object = await uploadBufferToR2({
+        key: r2Key,
+        body: uploadBuffer,
+        contentType: file.type,
+        cacheControl: 'public, max-age=31536000, immutable',
+        metadata: {
+          ownerId: userId,
+          ...(codeId ? { codeId } : {}),
+          ...(effectiveFolder ? { folder: effectiveFolder } : {}),
+          originalFilename: encodeURIComponent(file.name).slice(0, 500),
+        },
+      });
+      uploaded = {
+        url: r2Object.url,
+        size: r2Object.size,
+        storageProvider: R2_STORAGE_PROVIDER,
+        storageKey: r2Object.key,
+        storageBucket: r2Object.bucket,
+        contentType: r2Object.contentType,
+      };
+    } else {
+      const blob = await put(filename, uploadData, {
+        access: 'public',
+        addRandomSuffix: false,
+      });
+      uploaded = {
+        url: blob.url,
+        size: uploadedSize,
+        storageProvider: 'vercel-blob',
+      };
+    }
 
     return NextResponse.json({
-      url: blob.url,
-      size: uploadedSize,
+      url: uploaded.url,
+      size: uploaded.size,
       type: mediaType,
       filename: file.name,
+      storageProvider: uploaded.storageProvider,
+      storageKey: uploaded.storageKey,
+      storageBucket: uploaded.storageBucket,
+      contentType: uploaded.contentType || file.type,
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -188,7 +243,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await del(url);
+    await deleteStoredObjectByUrl(url);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -50,7 +50,17 @@ firebase use
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | `qrinfo-905c9` | `qrinfo-dev` | |
 | `NEXT_PUBLIC_FIREBASE_DATABASE_URL` | `qrinfo-905c9` | `qrinfo-dev` | |
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | `qrinfo-905c9` | `qrinfo-dev` | Service Account JSON |
-| `BLOB_READ_WRITE_TOKEN` | All Environments | | אותו ערך |
+| `BLOB_READ_WRITE_TOKEN` | All Environments | | להשאיר עד שכל המדיה הישנה מ-Vercel Blob הועברה או נמחקה |
+| `PDF_STORAGE_PROVIDER` | `cloudflare-r2` אחרי חיבור R2 | `vercel-blob` עד בדיקה | מפעיל העלאות PDF חדשות ל-R2 בלבד |
+| `MEDIA_STORAGE_PROVIDER` | `vercel-blob` כרגע | `vercel-blob` כרגע | להחליף ל-R2 רק אחרי שמסיימים שאר המדיה |
+| `CLOUDFLARE_R2_ACCOUNT_ID` | Production R2 | Dev R2/אותו באקט אם מאושר | |
+| `CLOUDFLARE_R2_ACCESS_KEY_ID` | Production R2 key | Dev R2 key | |
+| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | Production R2 secret | Dev R2 secret | |
+| `CLOUDFLARE_R2_BUCKET` | TheQ bucket | TheQ dev/test bucket | |
+| `CLOUDFLARE_R2_PUBLIC_URL` | Public/custom R2 URL | Public/custom R2 URL | חייב CORS שמאפשר קריאת PDF מהאתר |
+| `CONTENT_INTAKE_API_KEY` | Secret | Secret | מפתח לסוכן שמעדכן חוברות פתאל |
+| `FATTAL_BOOKLETS_OWNER_ID` | Owner UID | Owner UID dev | עדיף על email כדי למנוע התאמה שגויה |
+| `FATTAL_BOOKLETS_OWNER_EMAIL` | Optional fallback | Optional fallback | רק אם אין Owner UID |
 | `NEXT_PUBLIC_SUPER_ADMIN_EMAILS` | All Environments | | אותו ערך |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | All Environments | | אותו ערך |
 | `INFORU_API_USER` | All Environments | | אותו ערך |

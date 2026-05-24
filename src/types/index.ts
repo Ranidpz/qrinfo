@@ -3,6 +3,7 @@ export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
 export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames';
+export type StorageProvider = 'vercel-blob' | 'cloudflare-r2';
 
 // Riddle content structure
 export interface RiddleContent {
@@ -34,6 +35,10 @@ export interface SelfiebeamContent {
 export interface UserGalleryImage {
   id: string;
   url: string;
+  size?: number; // bytes
+  storageProvider?: StorageProvider;
+  storageKey?: string;
+  storageBucket?: string;
   uploaderName: string; // Name or "אנונימי"
   uploadedAt: Date;
   // Gamification fields (optional for backwards compatibility)
@@ -109,6 +114,10 @@ export interface PendingReplacement {
   newMediaSize: number;         // Size in bytes
   newMediaType: MediaType;      // Type of the new file
   newMediaFilename?: string;    // Original filename
+  newStorageProvider?: StorageProvider;
+  newStorageKey?: string;
+  newStorageBucket?: string;
+  newContentType?: string;
   scheduledAt: Date;            // When the replacement should happen
   uploadedAt: Date;             // When the replacement was uploaded
   uploadedBy: string;           // User who scheduled it
@@ -139,6 +148,10 @@ export interface MediaItem {
   uploadedBy: string; // User ID
   title?: string;
   filename?: string;   // Original filename
+  storageProvider?: StorageProvider;
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
   pageCount?: number;  // Number of pages (for PDF files)
   pdfSettings?: PDFFlipbookSettings; // Settings for PDF flipbook viewer
   schedule?: MediaSchedule;

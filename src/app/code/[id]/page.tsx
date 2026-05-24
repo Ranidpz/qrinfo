@@ -24,12 +24,38 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage } from '@/lib/db';
-import { QRCode as QRCodeType, MediaItem } from '@/types';
+import { QRCode as QRCodeType, MediaItem, StorageProvider } from '@/types';
 import DeleteConfirm from '@/components/modals/DeleteConfirm';
 import { clsx } from 'clsx';
 
 interface PageProps {
   params: Promise<{ id: string }>;
+}
+
+type UploadResponse = {
+  url: string;
+  type: MediaItem['type'];
+  size: number;
+  filename?: string;
+  storageProvider?: StorageProvider;
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
+};
+
+function appendPdfUploadContext(formData: FormData, file: File, codeId: string) {
+  if (file.type !== 'application/pdf') return;
+  formData.append('codeId', codeId);
+  formData.append('folder', 'booklets');
+}
+
+function uploadStorageMetadata(uploadData: UploadResponse) {
+  return {
+    ...(uploadData.storageProvider ? { storageProvider: uploadData.storageProvider } : {}),
+    ...(uploadData.storageKey ? { storageKey: uploadData.storageKey } : {}),
+    ...(uploadData.storageBucket ? { storageBucket: uploadData.storageBucket } : {}),
+    ...(uploadData.contentType ? { contentType: uploadData.contentType } : {}),
+  };
 }
 
 export default function CodeEditPage({ params }: PageProps) {
@@ -193,6 +219,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
+      appendPdfUploadContext(formData, file, code.id);
 
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
@@ -203,7 +230,7 @@ export default function CodeEditPage({ params }: PageProps) {
         throw new Error('Upload failed');
       }
 
-      const uploadData = await uploadResponse.json();
+      const uploadData = await uploadResponse.json() as UploadResponse;
 
       // Add to media array
       const newMedia: MediaItem = {
@@ -213,6 +240,8 @@ export default function CodeEditPage({ params }: PageProps) {
         size: uploadData.size,
         order: code.media.length,
         uploadedBy: user.id,
+        filename: uploadData.filename,
+        ...uploadStorageMetadata(uploadData),
         createdAt: new Date(),
       };
 

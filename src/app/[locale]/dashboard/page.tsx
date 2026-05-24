@@ -23,7 +23,7 @@ import QTagModal from '@/components/modals/QTagModal';
 import QGamesModal from '@/components/modals/QGamesModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import RouteSettingsModal from '@/components/modals/RouteSettingsModal';
-import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig, MediaType } from '@/types';
+import { ViewMode, FilterOption, QRCode as QRCodeType, Folder, RiddleContent, SelfiebeamContent, RouteConfig, MediaType, StorageProvider } from '@/types';
 import { QVoteConfig } from '@/types/qvote';
 import { getCandidates, bulkCreateCandidates } from '@/lib/qvote';
 import { QStageConfig, DEFAULT_QSTAGE_CONFIG } from '@/types/qstage';
@@ -39,6 +39,42 @@ import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQR
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
+
+type UploadResponse = {
+  url: string;
+  type: MediaType;
+  size: number;
+  filename?: string;
+  storageProvider?: StorageProvider;
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
+};
+
+function appendPdfUploadContext(formData: FormData, file: File, codeId?: string) {
+  if (file.type !== 'application/pdf') return;
+  if (codeId) formData.append('codeId', codeId);
+  formData.append('folder', 'booklets');
+}
+
+function uploadStorageMetadata(uploadData: UploadResponse) {
+  return {
+    ...(uploadData.filename ? { filename: uploadData.filename } : {}),
+    ...(uploadData.storageProvider ? { storageProvider: uploadData.storageProvider } : {}),
+    ...(uploadData.storageKey ? { storageKey: uploadData.storageKey } : {}),
+    ...(uploadData.storageBucket ? { storageBucket: uploadData.storageBucket } : {}),
+    ...(uploadData.contentType ? { contentType: uploadData.contentType } : {}),
+  };
+}
+
+function pendingUploadStorageMetadata(uploadData: UploadResponse) {
+  return {
+    ...(uploadData.storageProvider ? { newStorageProvider: uploadData.storageProvider } : {}),
+    ...(uploadData.storageKey ? { newStorageKey: uploadData.storageKey } : {}),
+    ...(uploadData.storageBucket ? { newStorageBucket: uploadData.storageBucket } : {}),
+    ...(uploadData.contentType ? { newContentType: uploadData.contentType } : {}),
+  };
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -272,6 +308,7 @@ export default function DashboardPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
+      appendPdfUploadContext(formData, file);
 
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
@@ -292,6 +329,7 @@ export default function DashboardPage() {
           size: uploadData.size,
           order: 0,
           uploadedBy: user.id,
+          ...uploadStorageMetadata(uploadData),
         },
       ], currentFolderId);
 
@@ -1263,8 +1301,9 @@ export default function DashboardPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
+      appendPdfUploadContext(formData, file, codeId);
 
-      const uploadData = await new Promise<{ url: string; type: string; size: number; filename: string }>((resolve, reject) => {
+      const uploadData = await new Promise<UploadResponse>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
         xhr.upload.onprogress = (event) => {
@@ -1317,7 +1356,7 @@ export default function DashboardPage() {
         size: uploadData.size,
         order: 0,
         uploadedBy: user.id,
-        filename: uploadData.filename,
+        ...uploadStorageMetadata(uploadData),
         createdAt: new Date(),
       };
 
@@ -1358,8 +1397,9 @@ export default function DashboardPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
+      appendPdfUploadContext(formData, file, codeId);
 
-      const uploadData = await new Promise<{ url: string; type: string; size: number; filename: string }>((resolve, reject) => {
+      const uploadData = await new Promise<UploadResponse>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
         xhr.upload.onprogress = (event) => {
@@ -1402,6 +1442,7 @@ export default function DashboardPage() {
               newMediaSize: uploadData.size,
               newMediaType: uploadData.type as MediaType,
               newMediaFilename: uploadData.filename,
+              ...pendingUploadStorageMetadata(uploadData),
               scheduledAt,
               uploadedAt: new Date(),
               uploadedBy: user.id,
@@ -1504,6 +1545,10 @@ export default function DashboardPage() {
         order: 0,
         uploadedBy: pending.uploadedBy,
         filename: pending.newMediaFilename,
+        ...(pending.newStorageProvider ? { storageProvider: pending.newStorageProvider } : {}),
+        ...(pending.newStorageKey ? { storageKey: pending.newStorageKey } : {}),
+        ...(pending.newStorageBucket ? { storageBucket: pending.newStorageBucket } : {}),
+        ...(pending.newContentType ? { contentType: pending.newContentType } : {}),
         createdAt: new Date(),
       };
 

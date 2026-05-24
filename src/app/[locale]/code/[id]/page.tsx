@@ -53,7 +53,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode, getSiblingCodes } from '@/lib/db';
 import { ICON_PATHS } from '@/lib/iconPaths';
 import { subscribeToCodeViews } from '@/lib/analytics';
-import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign, LandingPageConfig } from '@/types';
+import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign, LandingPageConfig, StorageProvider } from '@/types';
 import { QVoteConfig } from '@/types/qvote';
 import { getCandidates, bulkCreateCandidates } from '@/lib/qvote';
 import { QStageConfig } from '@/types/qstage';
@@ -195,6 +195,32 @@ async function getPdfPageCount(url: string): Promise<number> {
     console.error('Error getting PDF page count:', error);
     return 0;
   }
+}
+
+type UploadResponse = {
+  url: string;
+  type: MediaItem['type'];
+  size: number;
+  filename?: string;
+  storageProvider?: StorageProvider;
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
+};
+
+function appendPdfUploadContext(formData: FormData, file: File, codeId: string) {
+  if (file.type !== 'application/pdf') return;
+  formData.append('codeId', codeId);
+  formData.append('folder', 'booklets');
+}
+
+function uploadStorageMetadata(uploadData: UploadResponse) {
+  return {
+    ...(uploadData.storageProvider ? { storageProvider: uploadData.storageProvider } : {}),
+    ...(uploadData.storageKey ? { storageKey: uploadData.storageKey } : {}),
+    ...(uploadData.storageBucket ? { storageBucket: uploadData.storageBucket } : {}),
+    ...(uploadData.contentType ? { contentType: uploadData.contentType } : {}),
+  };
 }
 
 // Custom Tooltip component for styled tooltips
@@ -1346,6 +1372,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
+      appendPdfUploadContext(formData, file, code.id);
 
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
@@ -1356,7 +1383,7 @@ export default function CodeEditPage({ params }: PageProps) {
         throw new Error('Upload failed');
       }
 
-      const uploadData = await uploadResponse.json();
+      const uploadData = await uploadResponse.json() as UploadResponse;
 
       // Get PDF page count if it's a PDF file
       let pageCount: number | undefined;
@@ -1373,6 +1400,7 @@ export default function CodeEditPage({ params }: PageProps) {
         order: code.media.length,
         uploadedBy: user.id,
         filename: uploadData.filename,
+        ...uploadStorageMetadata(uploadData),
         pageCount,
         createdAt: new Date(),
       };
@@ -1405,6 +1433,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
+      appendPdfUploadContext(formData, file, code.id);
 
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
@@ -1415,7 +1444,7 @@ export default function CodeEditPage({ params }: PageProps) {
         throw new Error('Upload failed');
       }
 
-      const uploadData = await uploadResponse.json();
+      const uploadData = await uploadResponse.json() as UploadResponse;
 
       // Delete old file if not a link
       if (oldMedia.type !== 'link') {
@@ -1450,6 +1479,7 @@ export default function CodeEditPage({ params }: PageProps) {
               size: uploadData.size,
               uploadedBy: user.id,
               filename: uploadData.filename,
+              ...uploadStorageMetadata(uploadData),
               pageCount,
             }
           : m
