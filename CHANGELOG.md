@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.13.59] - 2026-05-24
+
+### Fixed
+- Dashboard storage badges now infer R2 from the public R2 URL and PDF replacements preserve storage metadata in Firestore.
+
+---
+
 ## [1.13.58] - 2026-05-24
 
 ### Fixed

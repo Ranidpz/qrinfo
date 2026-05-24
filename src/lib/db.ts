@@ -434,6 +434,10 @@ export async function updateQRCode(
       // Only add optional fields if they exist
       if (m.title) (mediaItem as Record<string, unknown>).title = m.title;
       if (m.filename) (mediaItem as Record<string, unknown>).filename = m.filename;
+      if (m.storageProvider) (mediaItem as Record<string, unknown>).storageProvider = m.storageProvider;
+      if (m.storageKey) (mediaItem as Record<string, unknown>).storageKey = m.storageKey;
+      if (m.storageBucket) (mediaItem as Record<string, unknown>).storageBucket = m.storageBucket;
+      if (m.contentType) (mediaItem as Record<string, unknown>).contentType = m.contentType;
       if (m.pageCount) (mediaItem as Record<string, unknown>).pageCount = m.pageCount;
       if (m.schedule) (mediaItem as Record<string, unknown>).schedule = m.schedule;
       if (m.pendingReplacement) {

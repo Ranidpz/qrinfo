@@ -81,8 +81,18 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function getStorageBadge(provider?: StorageProvider): { label: string; title: string; className: string } {
-  if (provider === 'cloudflare-r2') {
+function isR2MediaUrl(url?: string): boolean {
+  if (!url) return false;
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname === 'theq-media.playzones.app' || hostname.endsWith('.r2.cloudflarestorage.com');
+  } catch {
+    return false;
+  }
+}
+
+function getStorageBadge(provider?: StorageProvider, mediaUrl?: string): { label: string; title: string; className: string } {
+  if (provider === 'cloudflare-r2' || isR2MediaUrl(mediaUrl)) {
     return {
       label: 'R2',
       title: 'Cloudflare R2',
@@ -167,7 +177,7 @@ export default function CodeCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrRef = useRef<HTMLDivElement>(null);
   const prevViewsRef = useRef(views);
-  const storageBadge = getStorageBadge(fileStorageProvider);
+  const storageBadge = getStorageBadge(fileStorageProvider, mediaUrl);
 
   // Detect link type from URL
   type LinkType = 'whatsapp' | 'phone' | 'sms' | 'email' | 'url';

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.58';
+export const APP_VERSION = '1.13.59';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.13.58',
+    version: '1.13.59',
     date: '2026-05-24',
     isNew: true,
+    highlights: {
+      he: [
+        'תיקון: תג האחסון בדשבורד מזהה R2 גם לפי כתובת הקובץ ושומר את שדות האחסון בהחלפת PDF',
+      ],
+      en: [
+        'Fix: Dashboard storage badge now detects R2 by file URL and preserves storage metadata on PDF replacement',
+      ],
+    },
+  },
+  {
+    version: '1.13.58',
+    date: '2026-05-24',
+    isNew: false,
     highlights: {
       he: [
         'תיקון: החלפת PDF דרך הדשבורד מזהה קבצי PDF בצורה קשיחה יותר כדי שהעלאות חדשות יישמרו ב-R2',
