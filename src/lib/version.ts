@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.14.1';
+export const APP_VERSION = '1.14.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.14.1',
+    version: '1.14.2',
     date: '2026-05-31',
     isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: כפתור "מחיקת כל נתוני ההגרלה" בעורך — מוחק לצמיתות משתתפים וזוכים, עם אישור בהקלדת "מחיקה"',
+      ],
+      en: [
+        'Raffle: a "delete all raffle data" action in the editor — permanently removes participants and winners, with type-to-confirm',
+      ],
+    },
+  },
+  {
+    version: '1.14.1',
+    date: '2026-05-31',
+    isNew: false,
     highlights: {
       he: [
         'שיפור: רשימת הזוכים במסך ההגרלה נטענת מהשרת — רענון באמצע אירוע כבר לא מאבד את הזוכים',

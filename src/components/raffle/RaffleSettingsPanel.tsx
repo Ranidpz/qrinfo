@@ -11,7 +11,7 @@ import {
   Volume2,
   Download,
   Trash2,
-  RotateCcw,
+  AlertTriangle,
   Trophy,
   Play,
   MessageCircle,
@@ -47,7 +47,8 @@ interface RaffleSettingsPanelProps {
   onLoadDemo?: () => void;
   onImport: (participants: RaffleParticipant[]) => void;
   onResetWinners: () => void;
-  onResetAll: () => void;
+  // Permanent deletion of ALL participants + winners (editor only).
+  onResetAll: () => void | Promise<void>;
   // Production: upload an asset to the owner's R2 folder and return its URL.
   // Demo: omitted → falls back to a local object URL.
   uploadAsset?: (file: File, kind: 'image' | 'video') => Promise<string>;
@@ -114,6 +115,22 @@ export default function RaffleSettingsPanel({
   const [dragExcel, setDragExcel] = useState(false);
   const [dragBg, setDragBg] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
+  // Permanent-delete confirmation (type "מחיקה" to enable).
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await Promise.resolve(onResetAll());
+      setImportReport(null);
+      setConfirmDeleteOpen(false);
+      setDeleteText('');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const playPreview = (url: string) => {
     if (typeof Audio === 'undefined') return;
@@ -685,9 +702,26 @@ export default function RaffleSettingsPanel({
             <ActionButton icon={<Trash2 size={15} />} onClick={onResetWinners} disabled={winners.length === 0}>
               אפס רשימת זוכים
             </ActionButton>
-            <ActionButton icon={<RotateCcw size={15} />} onClick={onResetAll}>
-              אפס הכל
-            </ActionButton>
+          </div>
+
+          {/* Danger zone — permanent deletion of ALL raffle data. Recommended at
+              the end of the event (data-retention / privacy). */}
+          <div className="mt-4 space-y-2.5 rounded-xl border border-red-500/30 bg-red-500/[0.06] px-3 py-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-red-400">
+              <AlertTriangle size={15} /> אזור מסוכן
+            </div>
+            <p className="text-xs leading-relaxed text-white/45">
+              מחיקה לצמיתות של כל המשתתפים והזוכים מההגרלה הזו. מומלץ לבצע בסיום האירוע. לא ניתן לשחזר.
+            </p>
+            <button
+              onClick={() => {
+                setDeleteText('');
+                setConfirmDeleteOpen(true);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600/90 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-600"
+            >
+              <Trash2 size={15} /> מחיקת כל נתוני ההגרלה
+            </button>
           </div>
 
           {winners.length > 0 && (
@@ -733,6 +767,58 @@ export default function RaffleSettingsPanel({
           </div>
         </div>
       </aside>
+
+      {/* Type-to-confirm permanent deletion modal */}
+      {confirmDeleteOpen && (
+        <div
+          dir="rtl"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4"
+          onClick={() => !deleting && setConfirmDeleteOpen(false)}
+          style={{ fontFamily: 'var(--font-assistant), sans-serif' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-red-500/30 bg-[#15151c] p-6 text-white shadow-2xl"
+          >
+            <div className="mb-2 flex items-center gap-2 text-lg font-bold text-red-400">
+              <AlertTriangle size={20} /> מחיקת כל הנתונים
+            </div>
+            <p className="mb-4 text-sm leading-relaxed text-white/70">
+              פעולה זו תמחק לצמיתות את כל המשתתפים
+              {participantCount > 0 ? ` (${participantCount.toLocaleString('he-IL')})` : ''} ואת רשימת
+              הזוכים בהגרלה זו. לא ניתן לשחזר. כדי לאשר, הקלידו{' '}
+              <span className="font-bold text-white">מחיקה</span>.
+            </p>
+            <input
+              autoFocus
+              value={deleteText}
+              onChange={(e) => setDeleteText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && deleteText.trim() === 'מחיקה' && !deleting) handleConfirmDelete();
+              }}
+              placeholder="מחיקה"
+              className="mb-4 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-center text-sm outline-none focus:border-red-400"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmDeleteOpen(false)}
+                disabled={deleting}
+                className="flex-1 rounded-lg bg-white/5 px-4 py-2.5 text-sm font-medium transition hover:bg-white/10 disabled:opacity-40"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleteText.trim() !== 'מחיקה' || deleting}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                {deleting ? 'מוחק…' : 'מחק הכל'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

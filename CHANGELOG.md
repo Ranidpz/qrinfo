@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.2] - 2026-05-31
+
+### Added
+- Raffle editor: a **"delete all raffle data"** action (danger zone, Winners tab) that permanently removes all participants and winners for the event, behind a type-to-confirm dialog (type "מחיקה"). Supports the data-retention / privacy duty of deleting personal data after an event.
+
+---
+
 ## [1.14.1] - 2026-05-31
 
 ### Changed

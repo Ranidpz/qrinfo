@@ -241,6 +241,7 @@ export default function RaffleModal({
       await fetchWithAuth(`/api/raffle/participants?codeId=${encodeURIComponent(codeId)}`, { method: 'DELETE' });
       await fetchWithAuth(`/api/raffle/winners?codeId=${encodeURIComponent(codeId)}`, { method: 'DELETE' });
       setParticipantCount(0);
+      setParticipantsList([]);
       setWinners([]);
     } catch {
       /* ignore */
