@@ -52,6 +52,7 @@ interface GalleryClientProps {
   initialSettings?: GallerySettings;
   companyLogos?: string[]; // Company logos to display mixed with selfies
   folderId?: string;
+  isSelfiebeam?: boolean; // True when the code is a Selfie Beam experience
 }
 
 const DEFAULT_SETTINGS: GallerySettings = {
@@ -64,24 +65,30 @@ const DEFAULT_SETTINGS: GallerySettings = {
   borderRadius: 0,
   nameSize: 14,
   showNewBadge: false,
+  displaySpeed: 4.5,
+  featureNewPhotos: false,
 };
 
-// Get adjacent slots (up, down, left, right) for a given slot
-function getAdjacentSlots(slotIndex: number, totalSlots: number, columns: number): number[] {
-  const adjacent: number[] = [];
-  const row = Math.floor(slotIndex / columns);
-  const col = slotIndex % columns;
+// Selfie Beam opens straight into the animated big-screen beam: shuffle mode,
+// a wide 5-column grid, subtle Ken Burns motion, and a rolling window of the most
+// recent ~300 photos. Riddle galleries keep the plain static default above.
+const SELFIEBEAM_DEFAULTS: Partial<GallerySettings> = {
+  displayMode: 'shuffle',
+  displayLimit: 300,
+  gridColumns: 5,
+  fadeEffect: true,
+  displaySpeed: 4.5,
+};
 
-  // Up
-  if (row > 0) adjacent.push(slotIndex - columns);
-  // Down
-  if (slotIndex + columns < totalSlots) adjacent.push(slotIndex + columns);
-  // Left
-  if (col > 0) adjacent.push(slotIndex - 1);
-  // Right
-  if (col < columns - 1) adjacent.push(slotIndex + 1);
-
-  return adjacent;
+// A diagonal red "NEW" ribbon across the top-right corner of a cell (first-appearance photos).
+function NewRibbon() {
+  return (
+    <div className="absolute top-0 right-0 w-[70px] h-[70px] overflow-hidden z-30 pointer-events-none">
+      <div className="absolute top-[14px] right-[-22px] w-[96px] rotate-45 bg-red-500 text-white text-[11px] font-extrabold tracking-widest text-center py-[3px] shadow-md">
+        NEW
+      </div>
+    </div>
+  );
 }
 
 export default function GalleryClient({
@@ -93,6 +100,7 @@ export default function GalleryClient({
   initialSettings,
   companyLogos = [],
   folderId,
+  isSelfiebeam = false,
 }: GalleryClientProps) {
   // Get browser locale for translations
   const [locale, setLocale] = useState<'he' | 'en'>('he');
@@ -105,8 +113,15 @@ export default function GalleryClient({
   const { user } = useAuth();
   const isOwner = user?.id === ownerId;
 
+  // Effective defaults (Selfie Beam opens into the animated beam). A saved
+  // gallerySettings always wins, so owners can still override per code.
+  const experienceDefaults: GallerySettings = {
+    ...DEFAULT_SETTINGS,
+    ...(isSelfiebeam ? SELFIEBEAM_DEFAULTS : {}),
+  };
+
   // Merge initial settings with defaults
-  const settings = { ...DEFAULT_SETTINGS, ...initialSettings };
+  const settings = { ...experienceDefaults, ...initialSettings };
 
   const [images, setImages] = useState<UserGalleryImage[]>(initialImages);
   const [lightboxImage, setLightboxImage] = useState<UserGalleryImage | null>(null);
@@ -124,7 +139,46 @@ export default function GalleryClient({
   const [borderRadius, setBorderRadius] = useState(settings.borderRadius ?? 0);
   const [nameSize, setNameSize] = useState(settings.nameSize ?? 14);
   const [showNewBadge, setShowNewBadge] = useState(settings.showNewBadge ?? false);
-  const [showHint, setShowHint] = useState(true);
+  const [displaySpeed, setDisplaySpeed] = useState(settings.displaySpeed ?? 4.5);
+  const [featureNewPhotos, setFeatureNewPhotos] = useState(settings.featureNewPhotos ?? false);
+  // Ctrl-hint: show once until the owner dismisses it, then never again (persisted).
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem('gallery_hint_dismissed')) {
+      setShowHint(true);
+    }
+  }, []);
+  const dismissHint = useCallback(() => {
+    setShowHint(false);
+    try { localStorage.setItem('gallery_hint_dismissed', '1'); } catch {}
+  }, []);
+
+  // Connection status — the beam keeps cycling cached photos even when offline; this just
+  // tells the operator that NEW photos won't arrive until the connection is back.
+  const [navOnline, setNavOnline] = useState(true);
+  const [fbFromCache, setFbFromCache] = useState(false); // Firestore serving cache (no server sync)
+  useEffect(() => {
+    const update = () => setNavOnline(typeof navigator === 'undefined' ? true : navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+  const connectionLost = !navOnline || fbFromCache;
+  // Debounce: only show the dot if the issue persists (>1.5s), so the normal cache-first
+  // Firestore snapshot on page load doesn't flash it.
+  const [showConnectionDot, setShowConnectionDot] = useState(false);
+  useEffect(() => {
+    if (!connectionLost) {
+      setShowConnectionDot(false);
+      return;
+    }
+    const id = setTimeout(() => setShowConnectionDot(true), 1500);
+    return () => clearTimeout(id);
+  }, [connectionLost]);
   const [savingSettings, setSavingSettings] = useState(false);
 
   // Gamification state - simplified to avoid render loops
@@ -196,6 +250,18 @@ export default function GalleryClient({
   // Ref to hold current images for shuffle mode (so effect doesn't re-run on image changes)
   const imagesRef = useRef<UserGalleryImage[]>(initialImages);
 
+  // Shuffle rotation state (uniform cadence + fair cycling through the whole pool)
+  const poolRef = useRef<UserGalleryImage[]>([]); // ordered pool to cycle (last N + logos)
+  const rotationIndexRef = useRef(0); // pointer into the pool for the next image
+  const newQueueRef = useRef<string[]>([]); // freshly-uploaded image ids to show first
+  const lastSlotRef = useRef<number>(-1); // last slot changed (avoid immediate repeat)
+  const preloadedRef = useRef<Set<string>>(new Set()); // urls already warmed into cache
+
+  // "Feature new photos" effect: a new photo pops up big, then falls into the grid.
+  const featureQueueRef = useRef<string[]>([]);
+  const featuringRef = useRef(false);
+  const [featured, setFeatured] = useState<{ image: UserGalleryImage; phase: 'enter' | 'hold' | 'fly' } | null>(null);
+
   // Track loaded images to hide spinners - use ref to persist across re-renders
   // Initialize with all initial images as "loaded" since they come from server
   const loadedImagesRef = useRef<Set<string>>(new Set(initialImages.map(img => img.id)));
@@ -241,7 +307,9 @@ export default function GalleryClient({
 
   // Real-time updates from Firestore (images AND settings)
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'codes', codeId), (docSnap) => {
+    const unsubscribe = onSnapshot(doc(db, 'codes', codeId), { includeMetadataChanges: true }, (docSnap) => {
+      // metadata.fromCache === true means we're not synced with the server (offline / disconnected)
+      setFbFromCache(docSnap.metadata.fromCache);
       if (!docSnap.exists()) return;
 
       const data = docSnap.data();
@@ -252,16 +320,21 @@ export default function GalleryClient({
         url: string;
         uploaderName: string;
         uploadedAt: { toDate?: () => Date } | Date;
+        approved?: boolean;
       }>;
 
-      const newImages: UserGalleryImage[] = gallery.map((img) => ({
-        id: img.id,
-        url: img.url,
-        uploaderName: img.uploaderName,
-        uploadedAt: img.uploadedAt && typeof (img.uploadedAt as { toDate?: () => Date }).toDate === 'function'
-          ? (img.uploadedAt as { toDate: () => Date }).toDate()
-          : new Date(img.uploadedAt as unknown as string),
-      }));
+      const newImages: UserGalleryImage[] = gallery
+        // Hide pending (un-approved) photos from the beam. undefined === approved,
+        // so existing photos and Riddle galleries are unaffected.
+        .filter((img) => img.approved !== false)
+        .map((img) => ({
+          id: img.id,
+          url: img.url,
+          uploaderName: img.uploaderName,
+          uploadedAt: img.uploadedAt && typeof (img.uploadedAt as { toDate?: () => Date }).toDate === 'function'
+            ? (img.uploadedAt as { toDate: () => Date }).toDate()
+            : new Date(img.uploadedAt as unknown as string),
+        }));
 
       newImages.sort((a, b) =>
         new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
@@ -331,6 +404,8 @@ export default function GalleryClient({
           setBorderRadius(fbSettings.borderRadius ?? DEFAULT_SETTINGS.borderRadius ?? 0);
           setNameSize(fbSettings.nameSize ?? DEFAULT_SETTINGS.nameSize ?? 14);
           setShowNewBadge(fbSettings.showNewBadge ?? DEFAULT_SETTINGS.showNewBadge ?? false);
+          setDisplaySpeed(fbSettings.displaySpeed ?? experienceDefaults.displaySpeed ?? 4.5);
+          setFeatureNewPhotos(fbSettings.featureNewPhotos ?? false);
           settingsLoadedRef.current = true;
         }
       }
@@ -341,60 +416,148 @@ export default function GalleryClient({
 
   // Scroll mode uses CSS animation - no JS scroll needed
 
-  // Get image for a slot - checks adjacent slots to prevent same image next to each other
-  const getImageForSlot = useCallback((
-    slotIndex: number,
-    excludeImageId?: string // Don't use this image (e.g., the one being replaced)
-  ): UserGalleryImage | null => {
-    // Use ref to get current images (avoids re-running effect on image changes)
-    const currentImages = imagesRef.current;
-    const baseImages = displayLimit > 0 ? currentImages.slice(0, displayLimit) : currentImages;
-
-    // Include logos in the available images for shuffle mode
-    const displayImages = [...baseImages, ...logoImages];
-    if (displayImages.length === 0) return null;
-
-    // Get IDs of images in adjacent slots
-    const adjacentSlots = getAdjacentSlots(slotIndex, gridSize, gridColumns);
-    const adjacentImageIds = new Set<string>();
-    adjacentSlots.forEach(adj => {
-      const imgId = currentlyAssignedRef.current.get(adj);
-      if (imgId) adjacentImageIds.add(imgId);
-    });
-
-    // Find images that can be used (not in adjacent slots, not the excluded one)
-    const validImages = displayImages.filter(img =>
-      img.id !== excludeImageId && !adjacentImageIds.has(img.id)
-    );
-
-    if (validImages.length > 0) {
-      return validImages[Math.floor(Math.random() * validImages.length)];
-    }
-
-    // Fallback: any image except the excluded one
-    const fallbackImages = displayImages.filter(img => img.id !== excludeImageId);
-    if (fallbackImages.length > 0) {
-      return fallbackImages[Math.floor(Math.random() * fallbackImages.length)];
-    }
-
-    return displayImages[0];
-  }, [displayLimit, gridSize, gridColumns, logoImages]);
-
   // Track if shuffle mode was already initialized
   const shuffleInitializedRef = useRef(false);
 
-  // Track if we have images (to trigger effect once when images arrive)
+  // Track if we have images (to trigger the shuffle effect once when images arrive)
   const hasImages = images.length > 0;
 
-  // Shuffle mode effect - fills grid then swaps images
+  // Pick the next image to show: freshly-uploaded first, otherwise the next in a fair
+  // rotation through the WHOLE pool — preferring images not already on screen, but
+  // falling back to a repeat when the pool is smaller than the grid (keeps it full).
+  const pickNextImage = useCallback((): UserGalleryImage | null => {
+    const pool = poolRef.current;
+    if (pool.length === 0) return null;
+    const visibleIds = new Set(currentlyAssignedRef.current.values());
+
+    // Priority: fresh uploads not yet on screen
+    while (newQueueRef.current.length > 0) {
+      const id = newQueueRef.current[0];
+      const img = pool.find((p) => p.id === id);
+      if (!img || visibleIds.has(id)) {
+        newQueueRef.current.shift();
+        continue;
+      }
+      newQueueRef.current.shift();
+      return img;
+    }
+
+    // Rotation: walk the pool from the current pointer; return the first not-visible image.
+    let firstCandidate: UserGalleryImage | null = null;
+    for (let n = 0; n < pool.length; n++) {
+      const idx = rotationIndexRef.current % pool.length;
+      rotationIndexRef.current += 1;
+      const img = pool[idx];
+      if (firstCandidate === null) firstCandidate = img;
+      if (!visibleIds.has(img.id)) return img;
+    }
+    // Whole pool already on screen (pool <= grid): allow a repeat so the grid stays full.
+    return firstCandidate;
+  }, []);
+
+  // Fill every empty slot instantly — a removed/un-approved image is replaced at once, so a
+  // cell is NEVER left as a black hole. Repeats are allowed when the pool is smaller than the grid.
+  const fillGrid = useCallback(() => {
+    const additions: Array<[number, UserGalleryImage]> = [];
+    for (let s = 0; s < gridSize; s++) {
+      if (currentlyAssignedRef.current.has(s)) continue;
+      const img = pickNextImage();
+      if (!img) break;
+      currentlyAssignedRef.current.set(s, img.id);
+      additions.push([s, img]);
+    }
+    if (additions.length > 0) {
+      setVisibleSlots((prev) => {
+        const next = new Map(prev);
+        additions.forEach(([s, img]) => next.set(s, img));
+        return next;
+      });
+    }
+  }, [gridSize, pickNextImage]);
+
+  // Keep the rotation pool (last N + logos) in sync, and IMMEDIATELY top up any slots emptied
+  // by deletions/moderation — so holes never linger until the next swap tick.
   useEffect(() => {
-    // Use ref to check images (not state, to avoid re-running on every image change)
+    const base = displayLimit > 0 ? images.slice(0, displayLimit) : images;
+    poolRef.current = [...base, ...logoImages];
+    if (displayMode === 'shuffle' && shuffleInitializedRef.current) fillGrid();
+  }, [images, displayLimit, logoImages, displayMode, fillGrid]);
+
+  // Warm the browser cache for the pool so each swap is instant (no spinner flash),
+  // even with large galleries. The Image objects GC after load — only the HTTP cache is warmed.
+  useEffect(() => {
+    if (displayMode !== 'shuffle') return;
+    const base = displayLimit > 0 ? images.slice(0, displayLimit) : images;
+    for (const img of [...base, ...logoImages]) {
+      if (preloadedRef.current.has(img.url)) continue;
+      preloadedRef.current.add(img.url);
+      const im = new window.Image();
+      im.src = img.url;
+    }
+  }, [images, displayLimit, logoImages, displayMode]);
+
+  // "Feature new photos": pop the photo up big, hold, then drop it into the grid.
+  const processFeatureQueue = useCallback(() => {
+    if (featuringRef.current) return;
+    let img: UserGalleryImage | undefined;
+    while (featureQueueRef.current.length > 0) {
+      const id = featureQueueRef.current.shift();
+      const found = poolRef.current.find((p) => p.id === id) || imagesRef.current.find((p) => p.id === id);
+      if (found) { img = found; break; }
+    }
+    if (!img) return;
+    const featuredImg = img;
+    featuringRef.current = true;
+
+    setFeatured({ image: featuredImg, phase: 'enter' });
+    window.setTimeout(() => setFeatured((f) => (f ? { ...f, phase: 'hold' } : f)), 60);
+    window.setTimeout(() => setFeatured((f) => (f ? { ...f, phase: 'fly' } : f)), 2300);
+    window.setTimeout(() => {
+      // Land the photo into a fresh slot so it "joins" the grid.
+      const slot = Math.floor(Math.random() * Math.max(1, gridSize));
+      currentlyAssignedRef.current.set(slot, featuredImg.id);
+      setVisibleSlots((prev) => {
+        const next = new Map(prev);
+        next.set(slot, featuredImg);
+        return next;
+      });
+      setAnimatingSlot(slot);
+      window.setTimeout(() => setAnimatingSlot(null), 350);
+      featuringRef.current = false;
+      setFeatured(null); // a trigger effect picks up the next queued photo
+    }, 3050);
+  }, [gridSize]);
+
+  // Route freshly-uploaded photos: feature them (if enabled) or queue them for the normal
+  // uniform-cadence rotation. Either way they appear soon, never in a flood.
+  useEffect(() => {
+    if (displayMode !== 'shuffle' || newImageIds.size === 0) return;
+    if (featureNewPhotos) {
+      newImageIds.forEach((id) => {
+        if (!featureQueueRef.current.includes(id)) featureQueueRef.current.push(id);
+      });
+      processFeatureQueue();
+    } else {
+      newImageIds.forEach((id) => {
+        if (!newQueueRef.current.includes(id)) newQueueRef.current.push(id);
+      });
+    }
+  }, [newImageIds, displayMode, featureNewPhotos, processFeatureQueue]);
+
+  // When a feature finishes (featured → null), start the next queued one.
+  useEffect(() => {
+    if (displayMode === 'shuffle' && featureNewPhotos && !featured && featureQueueRef.current.length > 0) {
+      processFeatureQueue();
+    }
+  }, [featured, displayMode, featureNewPhotos, processFeatureQueue]);
+
+  // Shuffle effect — fill the grid, then swap exactly ONE cell at a uniform cadence.
+  useEffect(() => {
     if (displayMode !== 'shuffle' || !hasImages) {
       if (shuffleIntervalRef.current) {
         clearInterval(shuffleIntervalRef.current);
         shuffleIntervalRef.current = null;
       }
-      // Only reset if we're leaving shuffle mode
       if (displayMode !== 'shuffle') {
         setVisibleSlots(new Map());
         setFadingOutSlot(null);
@@ -404,84 +567,55 @@ export default function GalleryClient({
       return;
     }
 
-    // Only reset state when ENTERING shuffle mode for the first time
-    // Don't reset if images just updated while already in shuffle mode
+    // Reset ONLY when entering shuffle (not on speed/size changes or image updates)
     if (!shuffleInitializedRef.current) {
       currentlyAssignedRef.current = new Map();
+      rotationIndexRef.current = 0;
+      newQueueRef.current = [];
+      lastSlotRef.current = -1;
       setVisibleSlots(new Map());
       shuffleInitializedRef.current = true;
     }
 
-    // If interval is already running, don't start another one
-    if (shuffleIntervalRef.current) {
-      return;
-    }
+    // Swap exactly one cell to the next image (the uniform "every X seconds" tick).
+    const swapOne = () => {
+      if (featuringRef.current) return; // hold swaps steady while a photo is being featured
+      const img = pickNextImage();
+      if (!img) return;
 
-    let phase: 'filling' | 'swapping' = 'filling';
-
-    const runInterval = () => {
-      if (phase === 'filling') {
-        // Find empty slots
-        const emptySlots: number[] = [];
-        for (let i = 0; i < gridSize; i++) {
-          if (!currentlyAssignedRef.current.has(i)) {
-            emptySlots.push(i);
-          }
-        }
-
-        if (emptySlots.length === 0) {
-          // Grid is full, switch to swapping phase
-          phase = 'swapping';
-          // Restart interval with longer delay for swapping
-          if (shuffleIntervalRef.current) {
-            clearInterval(shuffleIntervalRef.current);
-          }
-          shuffleIntervalRef.current = setInterval(runInterval, 2500);
-          return;
-        }
-
-        // Pick random empty slot and fill it
-        const slotToFill = emptySlots[Math.floor(Math.random() * emptySlots.length)];
-        const image = getImageForSlot(slotToFill);
-
-        if (image) {
-          currentlyAssignedRef.current.set(slotToFill, image.id);
-          setVisibleSlots(prev => {
-            const updated = new Map(prev);
-            updated.set(slotToFill, image);
-            return updated;
-          });
-          setAnimatingSlot(slotToFill);
-          setTimeout(() => setAnimatingSlot(null), 300);
-        }
-      } else {
-        // Swapping phase - replace a random image
-        const slotToReplace = Math.floor(Math.random() * gridSize);
-        const currentImageId = currentlyAssignedRef.current.get(slotToReplace);
-        const newImage = getImageForSlot(slotToReplace, currentImageId);
-
-        if (newImage && newImage.id !== currentImageId) {
-          // Start fade out
-          setFadingOutSlot(slotToReplace);
-
-          // After fade out, replace with new image
-          setTimeout(() => {
-            currentlyAssignedRef.current.set(slotToReplace, newImage.id);
-            setVisibleSlots(prev => {
-              const updated = new Map(prev);
-              updated.set(slotToReplace, newImage);
-              return updated;
-            });
-            setFadingOutSlot(null);
-            setAnimatingSlot(slotToReplace);
-            setTimeout(() => setAnimatingSlot(null), 300);
-          }, 300);
-        }
+      // Random slot, avoiding the one we just changed and any slot already showing this image.
+      let slot = Math.floor(Math.random() * gridSize);
+      let tries = 0;
+      while (
+        (slot === lastSlotRef.current || currentlyAssignedRef.current.get(slot) === img.id) &&
+        tries < 12
+      ) {
+        slot = Math.floor(Math.random() * gridSize);
+        tries += 1;
       }
+      lastSlotRef.current = slot;
+
+      setFadingOutSlot(slot);
+      window.setTimeout(() => {
+        currentlyAssignedRef.current.set(slot, img.id);
+        setVisibleSlots((prev) => {
+          const next = new Map(prev);
+          next.set(slot, img);
+          return next;
+        });
+        setFadingOutSlot(null);
+        setAnimatingSlot(slot);
+        window.setTimeout(() => setAnimatingSlot(null), 350);
+      }, 350);
     };
 
-    // Start with fast filling interval
-    shuffleIntervalRef.current = setInterval(runInterval, 300);
+    fillGrid();
+
+    const ms = Math.max(1000, Math.round((displaySpeed || 4.5) * 1000));
+    shuffleIntervalRef.current = setInterval(() => {
+      fillGrid(); // safety top-up
+      swapOne();
+    }, ms);
 
     return () => {
       if (shuffleIntervalRef.current) {
@@ -489,54 +623,7 @@ export default function GalleryClient({
         shuffleIntervalRef.current = null;
       }
     };
-  }, [displayMode, hasImages, displayLimit, gridSize, gridColumns, getImageForSlot]);
-
-  // Add new images to the grid immediately when they arrive (in shuffle mode)
-  useEffect(() => {
-    if (displayMode !== 'shuffle' || newImageIds.size === 0) return;
-
-    // Get the new images that just arrived
-    const newImagesArr = images.filter(img => newImageIds.has(img.id));
-    if (newImagesArr.length === 0) return;
-
-    // Add each new image to an empty slot or replace a random one
-    newImagesArr.forEach((newImage, index) => {
-      // Delay each image slightly for a nice staggered effect
-      setTimeout(() => {
-        // Find empty slots first
-        const emptySlots: number[] = [];
-        for (let i = 0; i < gridSize; i++) {
-          if (!currentlyAssignedRef.current.has(i)) {
-            emptySlots.push(i);
-          }
-        }
-
-        let targetSlot: number;
-        if (emptySlots.length > 0) {
-          // Use an empty slot
-          targetSlot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
-        } else {
-          // Replace a random slot
-          targetSlot = Math.floor(Math.random() * gridSize);
-          // Start fade out on current image
-          setFadingOutSlot(targetSlot);
-        }
-
-        // After a short delay (for fade out if replacing), add the new image
-        setTimeout(() => {
-          currentlyAssignedRef.current.set(targetSlot, newImage.id);
-          setVisibleSlots(prev => {
-            const updated = new Map(prev);
-            updated.set(targetSlot, newImage);
-            return updated;
-          });
-          setFadingOutSlot(null);
-          setAnimatingSlot(targetSlot);
-          setTimeout(() => setAnimatingSlot(null), 300);
-        }, emptySlots.length > 0 ? 0 : 300);
-      }, index * 500); // Stagger new images by 500ms
-    });
-  }, [newImageIds, displayMode, images, gridSize]);
+  }, [displayMode, hasImages, gridSize, displaySpeed, pickNextImage, fillGrid]);
 
   // Handle save edited name
   const handleSaveName = async () => {
@@ -642,6 +729,8 @@ export default function GalleryClient({
           borderRadius,
           nameSize,
           showNewBadge,
+          displaySpeed,
+          featureNewPhotos,
           ...newSettings,
         },
       });
@@ -650,7 +739,7 @@ export default function GalleryClient({
     } finally {
       setSavingSettings(false);
     }
-  }, [isOwner, codeId, displayMode, displayLimit, gridColumns, headerHidden, showNames, fadeEffect, borderRadius, nameSize, showNewBadge]);
+  }, [isOwner, codeId, displayMode, displayLimit, gridColumns, headerHidden, showNames, fadeEffect, borderRadius, nameSize, showNewBadge, displaySpeed, featureNewPhotos]);
 
   // Update settings with auto-save
   const updateDisplayMode = (mode: GalleryDisplayMode) => {
@@ -743,7 +832,7 @@ export default function GalleryClient({
         const activeElement = document.activeElement;
         if (activeElement?.tagName !== 'INPUT' && activeElement?.tagName !== 'TEXTAREA') {
           toggleHeader();
-          setShowHint(false);
+          dismissHint();
         }
       }
     };
@@ -752,7 +841,7 @@ export default function GalleryClient({
     return () => {
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [toggleHeader]);
+  }, [toggleHeader, dismissHint]);
 
   // Handle delete all images
   const handleDeleteAllImages = async () => {
@@ -928,14 +1017,8 @@ export default function GalleryClient({
                         markImageAsDisplayed(image.id);
                       }}
                     />
-                    {/* NEW badge */}
-                    {showNewBadge && isNewImage(image.id) && (
-                      <div className="absolute top-2 left-2 z-30">
-                        <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-sm shadow-lg transform -rotate-12">
-                          NEW
-                        </span>
-                      </div>
-                    )}
+                    {/* NEW ribbon */}
+                    {showNewBadge && isNewImage(image.id) && <NewRibbon />}
                     {/* Name badge */}
                     {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
                       <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full">
@@ -990,14 +1073,8 @@ export default function GalleryClient({
                   markImageAsDisplayed(image.id);
                 }}
               />
-              {/* NEW badge */}
-              {showNewBadge && isNewImage(image.id) && (
-                <div className="absolute top-2 left-2 z-30">
-                  <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-sm shadow-lg transform -rotate-12">
-                    NEW
-                  </span>
-                </div>
-              )}
+              {/* NEW ribbon */}
+              {showNewBadge && isNewImage(image.id) && <NewRibbon />}
               {/* Name badge - always visible when enabled */}
               {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
                 <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
@@ -1074,14 +1151,8 @@ export default function GalleryClient({
                     markImageAsDisplayed(image.id);
                   }}
                 />
-                {/* NEW badge */}
-                {showNewBadge && isNewImage(image.id) && (
-                  <div className="absolute top-2 left-2 z-30">
-                    <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-sm shadow-lg transform -rotate-12">
-                      NEW
-                    </span>
-                  </div>
-                )}
+                {/* NEW ribbon */}
+                {showNewBadge && isNewImage(image.id) && <NewRibbon />}
                 {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
                   <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
                     <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
@@ -1119,14 +1190,8 @@ export default function GalleryClient({
                   style={{ borderRadius: `${borderRadius}%` }}
                   loading="eager"
                 />
-                {/* NEW badge */}
-                {showNewBadge && isNewImage(image.id) && (
-                  <div className="absolute top-2 left-2 z-30">
-                    <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-sm shadow-lg transform -rotate-12">
-                      NEW
-                    </span>
-                  </div>
-                )}
+                {/* NEW ribbon */}
+                {showNewBadge && isNewImage(image.id) && <NewRibbon />}
                 {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
                   <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full z-20">
                     <span className="text-white font-medium" style={{ fontSize: `${nameSize}px` }}>{image.uploaderName}</span>
@@ -1303,7 +1368,7 @@ export default function GalleryClient({
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-white/60">{t.latest}</span>
                     <div className="flex gap-1">
-                      {[0, 10, 20, 50, 100].map((limit) => (
+                      {[0, 50, 100, 200, 300, 400].map((limit) => (
                         <button
                           key={limit}
                           onClick={() => updateDisplayLimit(limit)}
@@ -1403,6 +1468,45 @@ export default function GalleryClient({
         </div>
       ) : (
         renderGrid()
+      )}
+
+      {/* "Feature new photo": pops up big, holds, then falls into the grid */}
+      {featured && (
+        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center overflow-hidden">
+          <div
+            className={`absolute inset-0 bg-black/55 transition-opacity duration-700 ${
+              featured.phase === 'hold' ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          <div
+            className="absolute left-1/2 top-1/2 rounded-3xl overflow-hidden shadow-2xl ring-4 ring-white/80"
+            style={{
+              width: '70vmin',
+              height: '70vmin',
+              transform:
+                featured.phase === 'enter'
+                  ? 'translate(-50%, -50%) scale(0.7)'
+                  : featured.phase === 'fly'
+                  ? 'translate(-50%, calc(-50% + 34vh)) scale(0.12)'
+                  : 'translate(-50%, -50%) scale(1)',
+              opacity: featured.phase === 'hold' ? 1 : featured.phase === 'fly' ? 0 : 0,
+              transition:
+                featured.phase === 'fly'
+                  ? 'transform 0.75s cubic-bezier(0.5, 0, 0.75, 0), opacity 0.75s ease-in'
+                  : 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.45s ease-out',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={featured.image.url} alt={featured.image.uploaderName} className="w-full h-full object-cover" />
+            {featured.image.uploaderName &&
+              featured.image.uploaderName !== 'אנונימי' &&
+              featured.image.uploaderName !== 'Anonymous' && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-5 py-2 rounded-full bg-black/60 backdrop-blur-sm">
+                  <span className="text-white text-2xl font-semibold">{featured.image.uploaderName}</span>
+                </div>
+              )}
+          </div>
+        </div>
       )}
 
       {/* Lightbox */}
@@ -1601,11 +1705,23 @@ export default function GalleryClient({
             {t.ctrlHint.replace('{key}', '')} <kbd className="px-2 py-0.5 bg-white/20 rounded text-white font-mono text-xs mx-1">Ctrl</kbd>
           </span>
           <button
-            onClick={() => setShowHint(false)}
+            onClick={dismissHint}
             className="p-1 rounded hover:bg-white/20 text-white/60 hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Connection-status dot — minimal red light when offline (display keeps running) */}
+      {showConnectionDot && (
+        <div className="fixed bottom-3 right-3 z-50">
+          <Tooltip text={t.connectionLost} position="above">
+            <div className="relative w-3.5 h-3.5 cursor-default">
+              <span className="absolute inset-0 rounded-full bg-red-500 opacity-60 animate-ping" />
+              <span className="relative block w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-black/50 shadow" />
+            </div>
+          </Tooltip>
         </div>
       )}
 

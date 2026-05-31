@@ -418,8 +418,14 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
         userGallery: currentGallery.map(img => ({
           id: img.id,
           url: img.url,
+          ...(img.size ? { size: img.size } : {}),
+          ...(img.storageProvider ? { storageProvider: img.storageProvider } : {}),
+          ...(img.storageKey ? { storageKey: img.storageKey } : {}),
+          ...(img.storageBucket ? { storageBucket: img.storageBucket } : {}),
+          ...(img.contentType ? { contentType: img.contentType } : {}),
           uploaderName: img.uploaderName,
           uploadedAt: Timestamp.fromDate(new Date(img.uploadedAt)),
+          ...(img.visitorId ? { visitorId: img.visitorId } : {}),
         })),
       });
 
@@ -558,6 +564,10 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
           url: string;
           uploaderName: string;
           size: number;
+          storageProvider?: UserGalleryImage['storageProvider'];
+          storageKey?: string;
+          storageBucket?: string;
+          contentType?: string;
         };
       };
 
@@ -571,8 +581,14 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
         userGallery: arrayUnion({
           id: data.image.id,
           url: data.image.url,
+          size: data.image.size,
+          ...(data.image.storageProvider ? { storageProvider: data.image.storageProvider } : {}),
+          ...(data.image.storageKey ? { storageKey: data.image.storageKey } : {}),
+          ...(data.image.storageBucket ? { storageBucket: data.image.storageBucket } : {}),
+          ...(data.image.contentType ? { contentType: data.image.contentType } : {}),
           uploaderName: data.image.uploaderName,
           uploadedAt: Timestamp.now(),
+          ...(currentVisitor?.id ? { visitorId: currentVisitor.id } : {}),
         }),
       });
 
@@ -593,6 +609,11 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
       const newImage: UserGalleryImage = {
         id: data.image.id,
         url: data.image.url,
+        size: data.image.size,
+        storageProvider: data.image.storageProvider,
+        storageKey: data.image.storageKey,
+        storageBucket: data.image.storageBucket,
+        contentType: data.image.contentType,
         uploaderName: data.image.uploaderName,
         uploadedAt: new Date(),
         visitorId: currentVisitor?.id,

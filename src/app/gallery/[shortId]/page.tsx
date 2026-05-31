@@ -20,9 +20,13 @@ export default async function GalleryPage({ params }: GalleryPageProps) {
 
     // Extract company logos from selfiebeam/riddle media items
     const companyLogos: string[] = [];
+    let isSelfiebeam = false;
     for (const media of code.media) {
-      if (media.type === 'selfiebeam' && media.selfiebeamContent?.companyLogos) {
-        companyLogos.push(...media.selfiebeamContent.companyLogos);
+      if (media.type === 'selfiebeam') {
+        isSelfiebeam = true;
+        if (media.selfiebeamContent?.companyLogos) {
+          companyLogos.push(...media.selfiebeamContent.companyLogos);
+        }
       }
     }
 
@@ -36,6 +40,7 @@ export default async function GalleryPage({ params }: GalleryPageProps) {
         initialSettings={code.gallerySettings}
         companyLogos={companyLogos}
         folderId={code.folderId}
+        isSelfiebeam={isSelfiebeam}
       />
     );
   } catch (error) {

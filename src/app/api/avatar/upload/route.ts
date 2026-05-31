@@ -1,9 +1,14 @@
-import { put, del, list } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import sharp from 'sharp';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import {
+  buildMediaStorageKey,
+  deleteStoredObjectByUrl,
+  deleteStoredObjectsByPrefix,
+  uploadStoredObject,
+} from '@/lib/media-storage';
 
 // Avatar upload for registration - stores in codeId/avatars folder
 // Converts any image format (including HEIC) to WebP
@@ -76,16 +81,9 @@ export async function POST(request: NextRequest) {
 
     // Delete existing avatar if any (check both new and legacy paths)
     try {
-      const existingBlobs = await list({ prefix: avatarPath });
-      for (const blob of existingBlobs.blobs) {
-        await del(blob.url);
-      }
-      // Also clean up legacy path if we're using the new path
+      await deleteStoredObjectsByPrefix(avatarPath);
       if (ownerId) {
-        const legacyBlobs = await list({ prefix: legacyPath });
-        for (const blob of legacyBlobs.blobs) {
-          await del(blob.url);
-        }
+        await deleteStoredObjectsByPrefix(legacyPath);
       }
     } catch {
       // Ignore errors when listing/deleting - might not exist
@@ -112,16 +110,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload to Vercel Blob with random suffix to prevent caching issues
-    const filename = `${avatarPath}.webp`;
-    const blob = await put(filename, webpBuffer, {
-      access: 'public',
-      addRandomSuffix: true,  // Creates unique filename each upload
+    // Add a unique suffix to prevent stale avatar caching.
+    const filename = buildMediaStorageKey(
+      avatarPath.split('/').slice(0, -1),
+      `${identifier}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.webp`
+    );
+    const uploaded = await uploadStoredObject({
+      key: filename,
+      body: webpBuffer,
+      contentType: 'image/webp',
+      mediaType: 'image',
+      cacheControl: 'public, max-age=31536000, immutable',
+      metadata: {
+        ...(ownerId ? { ownerId } : {}),
+        codeId,
+        folder: 'avatars',
+        visitorId,
+      },
     });
 
     return NextResponse.json({
-      url: blob.url,
-      size: webpBuffer.length,
+      url: uploaded.url,
+      size: uploaded.size,
+      storageProvider: uploaded.storageProvider,
+      storageKey: uploaded.storageKey,
+      storageBucket: uploaded.storageBucket,
+      contentType: uploaded.contentType,
     });
   } catch (error) {
     console.error('Avatar upload error:', error);
@@ -151,7 +165,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid avatar URL' }, { status: 400 });
     }
 
-    await del(url);
+    await deleteStoredObjectByUrl(url);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Avatar delete error:', error);

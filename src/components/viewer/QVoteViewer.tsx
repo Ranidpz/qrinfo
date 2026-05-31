@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QVoteConfig, Candidate, QVotePhase, ImagePositionConfig, DEFAULT_IMAGE_POSITION } from '@/types/qvote';
+import { QVoteConfig, Candidate, CandidatePhoto, QVotePhase, ImagePositionConfig, DEFAULT_IMAGE_POSITION } from '@/types/qvote';
 import { onSnapshot, collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getCandidates, getVoterVotes, createCandidate } from '@/lib/qvote';
@@ -21,6 +21,42 @@ interface QVoteViewerProps {
   mediaId: string;
   shortId: string;
   ownerId?: string;
+}
+
+type QVoteUploadData = {
+  id: string;
+  url: string;
+  thumbnailUrl?: string;
+  size?: number;
+  thumbnailSize?: number;
+  storageProvider?: CandidatePhoto['storageProvider'];
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
+  thumbnailStorageProvider?: CandidatePhoto['thumbnailStorageProvider'];
+  thumbnailStorageKey?: string;
+  thumbnailStorageBucket?: string;
+  thumbnailContentType?: string;
+};
+
+function candidatePhotoFromUpload(data: QVoteUploadData, order: number): CandidatePhoto {
+  return {
+    id: data.id,
+    url: data.url,
+    thumbnailUrl: data.thumbnailUrl || data.url,
+    order,
+    uploadedAt: new Date(),
+    ...(data.size ? { size: data.size } : {}),
+    ...(data.thumbnailSize ? { thumbnailSize: data.thumbnailSize } : {}),
+    ...(data.storageProvider ? { storageProvider: data.storageProvider } : {}),
+    ...(data.storageKey ? { storageKey: data.storageKey } : {}),
+    ...(data.storageBucket ? { storageBucket: data.storageBucket } : {}),
+    ...(data.contentType ? { contentType: data.contentType } : {}),
+    ...(data.thumbnailStorageProvider ? { thumbnailStorageProvider: data.thumbnailStorageProvider } : {}),
+    ...(data.thumbnailStorageKey ? { thumbnailStorageKey: data.thumbnailStorageKey } : {}),
+    ...(data.thumbnailStorageBucket ? { thumbnailStorageBucket: data.thumbnailStorageBucket } : {}),
+    ...(data.thumbnailContentType ? { thumbnailContentType: data.thumbnailContentType } : {}),
+  };
 }
 
 // Translations
@@ -859,7 +895,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     setRegistering(true);
     try {
       // Upload photos
-      const uploadedPhotos = [];
+      const uploadedPhotos: CandidatePhoto[] = [];
       for (const file of photoFiles) {
         // Compress image before upload (target 300KB, max 1200px for mobile)
         const compressed = await compressImage(file, { maxSizeKB: 300, maxWidth: 1200, maxHeight: 1200 });
@@ -883,14 +919,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
           throw new Error(errorData.error || 'Upload failed');
         }
 
-        const data = await response.json();
-        uploadedPhotos.push({
-          id: data.id,
-          url: data.url,
-          thumbnailUrl: data.thumbnailUrl || data.url,
-          order: uploadedPhotos.length,
-          uploadedAt: new Date(),
-        });
+        const data = await response.json() as QVoteUploadData;
+        uploadedPhotos.push(candidatePhotoFromUpload(data, uploadedPhotos.length));
       }
 
       // Create candidate

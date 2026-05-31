@@ -63,7 +63,7 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - ES imports only, no `require()` (ESLint enforced)
 - `@/*` → `./src/*`
 - Dark mode: `dark` class on `<html>`
-- Image uploads: `convertToWebp: true` via Sharp → Vercel Blob. Exception: logos with transparency — upload as PNG (no server-side Sharp) with `preserveAlpha: true` in `compressImage()`. Users have storage quotas (see `STORAGE_LIMITS` in types).
+- Media uploads: route writes/deletes through `src/lib/media-storage.ts`; only that adapter imports `@vercel/blob`. `MEDIA_STORAGE_PROVIDER=cloudflare-r2` sends new uploads to R2 while legacy Blob read/delete stays supported. Preserve `storageProvider/storageKey/storageBucket/contentType` metadata and user quota sizes.
 - Firestore: `serverTimestamp()` for doc create, `Timestamp.now()` for nested objects
 - i18n: `useTranslations()` from next-intl. Both `en.json` and `he.json` must be updated together.
 
@@ -74,7 +74,7 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Q.Tag WhatsApp templates: `src/lib/qtag-whatsapp.ts` sends QR links via INFORU after registration/verification
 
 ## Lessons Learned
-- R2 PDF migration: Fattal commits and dashboard PDF replacements use server-side R2 upload to `{ownerId}/{codeId}/booklets`; `updateQRCode()` must persist storage metadata and badges should infer R2 from URL for legacy records.
+- Fattal content intake: only touch explicit targets in `src/lib/content-intake/fattal.ts` for `playzonest1@gmail.com`; commits log `contentIntakeRuns`/`contentIntakeFileUpdates` and replace PDFs through R2 at `{ownerId}/{codeId}/booklets`; `scripts/fattal-intake.mjs` falls back to one-file commits on Vercel 413 and uses ASCII hash file ids for R2 metadata; WhatsApp Desktop files can be mapped via `ChatStorage.sqlite` + `Message/Media`; commit reports email `info@playzone.co.il` via server-side Resend and must not require a Resend key on the runner Mac.
 - Excel export: ALWAYS generate xlsx **client-side** (`XLSX.writeFile()` in browser), NEVER server-side in API routes. The `xlsx` package is unreliable on Vercel serverless even with `serverExternalPackages`. Pattern: build rows from state → `XLSX.utils.json_to_sheet()` → `XLSX.writeFile()`. See `QVoteVotersModal.tsx` and `QTagGuestsModal.tsx` for reference.
 - Quick-add modal must use `fixed` positioning (not `absolute`) to work across scanner/list view modes
 - Scanner PIN gate: check `pinUnlocked` before initializing camera to avoid wasted camera starts

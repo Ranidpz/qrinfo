@@ -1,11 +1,12 @@
 {
   "name": "temp-next",
-  "version": "1.13.59",
+  "version": "1.14.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "fattal:intake": "node scripts/fattal-intake.mjs",
     "lint": "eslint"
   },
   "dependencies": {

@@ -17,9 +17,10 @@ export const config = {
   // - Gallery pages
   // - Lobby pages (standalone TV display)
   // - Packs pages (prize opening)
+  // - Raffle pages (standalone big-screen draw)
   matcher: [
     // Match all pathnames except for
-    // - … if they start with `/api`, `/_next`, `/v/`, `/gallery/`, `/lobby/`, `/packs/` or contain a dot
-    '/((?!api|_next|v/|gallery/|lobby/|packs/|.*\\..*).*)',
+    // - … if they start with `/api`, `/_next`, `/v/`, `/gallery/`, `/lobby/`, `/packs/`, `/raffle/` or contain a dot
+    '/((?!api|_next|v/|gallery/|lobby/|packs/|raffle/|.*\\..*).*)',
   ],
 };

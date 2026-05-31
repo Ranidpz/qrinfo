@@ -1,10 +1,14 @@
-import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import {
+  buildMediaStorageKey,
+  deleteStoredObjectByUrl,
+  uploadStoredObject,
+} from '@/lib/media-storage';
 
-// POST: Upload a gallery image to Vercel Blob
+// POST: Upload a gallery image to the configured media storage
 // Note: Firestore update is done client-side to avoid permission issues
 export async function POST(request: NextRequest) {
   try {
@@ -60,11 +64,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (500KB max - already compressed on client)
-    const maxSize = 500 * 1024;
+    // Validate file size (1MB max - already cropped/compressed to a ~1000px square WebP on the client)
+    const maxSize = 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'File size exceeds 500KB limit' },
+        { error: 'File size exceeds 1MB limit' },
         { status: 400 }
       );
     }
@@ -73,12 +77,24 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const imageId = `gallery_${timestamp}_${Math.random().toString(36).substring(7)}`;
     const ext = file.type === 'image/webp' ? 'webp' : file.type === 'image/jpeg' ? 'jpg' : 'webp';
-    const filename = `${ownerId}/${codeId}/gallery/${imageId}.${ext}`;
+    const filename = buildMediaStorageKey(
+      [ownerId, codeId, 'gallery'],
+      `${imageId}.${ext}`
+    );
 
-    // Upload to Vercel Blob
-    const blob = await put(filename, file, {
-      access: 'public',
-      addRandomSuffix: false,
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const uploaded = await uploadStoredObject({
+      key: filename,
+      body: buffer,
+      contentType: file.type || (ext === 'webp' ? 'image/webp' : 'image/jpeg'),
+      mediaType: 'image',
+      cacheControl: 'public, max-age=31536000, immutable',
+      metadata: {
+        ownerId,
+        codeId,
+        folder: 'gallery',
+        imageId,
+      },
     });
 
     // Return the image data - client will update Firestore
@@ -86,9 +102,13 @@ export async function POST(request: NextRequest) {
       success: true,
       image: {
         id: imageId,
-        url: blob.url,
+        url: uploaded.url,
         uploaderName: uploaderName || 'אנונימי',
-        size: file.size,
+        size: uploaded.size,
+        storageProvider: uploaded.storageProvider,
+        storageKey: uploaded.storageKey,
+        storageBucket: uploaded.storageBucket,
+        contentType: uploaded.contentType,
       },
     });
   } catch (error) {
@@ -100,7 +120,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: Remove a gallery image from Vercel Blob
+// DELETE: Remove a gallery image from the configured media storage
 // Note: Firestore update is done client-side
 export async function DELETE(request: NextRequest) {
   try {
@@ -130,12 +150,11 @@ export async function DELETE(request: NextRequest) {
       if (isAuthError(auth)) return auth.response;
     }
 
-    // Delete from Vercel Blob
     try {
-      await del(imageUrl);
+      await deleteStoredObjectByUrl(imageUrl);
     } catch (deleteError) {
-      console.error('Failed to delete blob:', deleteError);
-      // Continue even if blob deletion fails
+      console.error('Failed to delete gallery object:', deleteError);
+      // Continue even if storage deletion fails
     }
 
     return NextResponse.json({ success: true });

@@ -463,6 +463,7 @@ export async function updateQRCode(
       if (m.qchallengeConfig) (mediaItem as Record<string, unknown>).qchallengeConfig = m.qchallengeConfig;
       if (m.qtagConfig) (mediaItem as Record<string, unknown>).qtagConfig = m.qtagConfig;
       if (m.qgamesConfig) (mediaItem as Record<string, unknown>).qgamesConfig = m.qgamesConfig;
+      if (m.raffleConfig) (mediaItem as Record<string, unknown>).raffleConfig = m.raffleConfig;
       if (m.pdfSettings) (mediaItem as Record<string, unknown>).pdfSettings = m.pdfSettings;
       return mediaItem;
     });

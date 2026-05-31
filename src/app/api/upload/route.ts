@@ -1,13 +1,10 @@
-import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
-import { deleteStoredObjectByUrl } from '@/lib/server-storage';
 import {
-  buildStorageKey,
-  getConfiguredPdfStorageProvider,
-  R2_STORAGE_PROVIDER,
-  uploadBufferToR2,
-} from '@/lib/r2-storage';
+  buildMediaStorageKey,
+  deleteStoredObjectByUrl,
+  uploadStoredObject,
+} from '@/lib/media-storage';
 import sharp from 'sharp';
 
 const PDF_SIGNATURE = Buffer.from('%PDF-');
@@ -15,6 +12,13 @@ const PDF_SIGNATURE = Buffer.from('%PDF-');
 async function hasPdfSignature(file: File): Promise<boolean> {
   const header = Buffer.from(await file.slice(0, Math.min(file.size, 1024)).arrayBuffer());
   return header.includes(PDF_SIGNATURE);
+}
+
+function getUploadContentType(file: File, mediaType: 'image' | 'video' | 'pdf' | 'gif', extension: string): string {
+  if (mediaType === 'pdf') return 'application/pdf';
+  if (extension === 'webp') return 'image/webp';
+  if (mediaType === 'gif') return 'image/gif';
+  return file.type || 'application/octet-stream';
 }
 
 export async function POST(request: NextRequest) {
@@ -107,7 +111,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique filename with user folder structure
     const timestamp = Date.now();
     let extension = isPdfUpload ? 'pdf' : file.name.split('.').pop() || 'bin';
     const randomSuffix = Math.random().toString(36).substring(7);
@@ -173,54 +176,28 @@ export async function POST(request: NextRequest) {
       mediaType = 'video';
     }
 
-    // Calculate actual uploaded size
-    const uploadedSize = uploadData instanceof Buffer ? uploadData.length : file.size;
-    const useR2 = mediaType === 'pdf' && getConfiguredPdfStorageProvider() === R2_STORAGE_PROVIDER;
-    let uploaded: {
-      url: string;
-      size: number;
-      storageProvider: 'vercel-blob' | typeof R2_STORAGE_PROVIDER;
-      storageKey?: string;
-      storageBucket?: string;
-      contentType?: string;
-    };
-
-    if (useR2) {
-      const uploadBuffer = Buffer.isBuffer(uploadData)
-        ? uploadData
-        : Buffer.from(await uploadData.arrayBuffer());
-      const r2Key = buildStorageKey(filename.split('/').slice(0, -1), filename.split('/').at(-1) || `${timestamp}_${randomSuffix}.${extension}`);
-      const r2Object = await uploadBufferToR2({
-        key: r2Key,
-        body: uploadBuffer,
-        contentType: 'application/pdf',
-        cacheControl: 'public, max-age=31536000, immutable',
-        metadata: {
-          ownerId: userId,
-          ...(codeId ? { codeId } : {}),
-          ...(effectiveFolder ? { folder: effectiveFolder } : {}),
-          originalFilename: encodeURIComponent(file.name).slice(0, 500),
-        },
-      });
-      uploaded = {
-        url: r2Object.url,
-        size: r2Object.size,
-        storageProvider: R2_STORAGE_PROVIDER,
-        storageKey: r2Object.key,
-        storageBucket: r2Object.bucket,
-        contentType: r2Object.contentType,
-      };
-    } else {
-      const blob = await put(filename, uploadData, {
-        access: 'public',
-        addRandomSuffix: false,
-      });
-      uploaded = {
-        url: blob.url,
-        size: uploadedSize,
-        storageProvider: 'vercel-blob',
-      };
-    }
+    const uploadBuffer = Buffer.isBuffer(uploadData)
+      ? uploadData
+      : Buffer.from(await uploadData.arrayBuffer());
+    const contentType = getUploadContentType(file, mediaType, extension);
+    const storageKey = buildMediaStorageKey(
+      filename.split('/').slice(0, -1),
+      filename.split('/').at(-1) || `${timestamp}_${randomSuffix}.${extension}`
+    );
+    const uploaded = await uploadStoredObject({
+      key: storageKey,
+      body: uploadBuffer,
+      contentType,
+      mediaType,
+      cacheControl: 'public, max-age=31536000, immutable',
+      metadata: {
+        ownerId: userId,
+        ...(codeId ? { codeId } : {}),
+        ...(effectiveFolder ? { folder: effectiveFolder } : {}),
+        mediaType,
+        originalFilename: encodeURIComponent(file.name).slice(0, 500),
+      },
+    });
 
     return NextResponse.json({
       url: uploaded.url,
@@ -230,7 +207,7 @@ export async function POST(request: NextRequest) {
       storageProvider: uploaded.storageProvider,
       storageKey: uploaded.storageKey,
       storageBucket: uploaded.storageBucket,
-      contentType: uploaded.contentType || (isPdfUpload ? 'application/pdf' : file.type),
+      contentType: uploaded.contentType || contentType,
     });
   } catch (error) {
     console.error('Upload error:', error);

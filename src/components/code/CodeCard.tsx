@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -107,7 +107,32 @@ function getStorageBadge(provider?: StorageProvider, mediaUrl?: string): { label
   };
 }
 
-// Removed - now using translations via useTranslations('media')
+// Single source of truth for experience-type card icons (gradient + icon).
+// Image-based types (image/video/pdf/gif/riddle/selfiebeam/link/wordcloud) are
+// handled separately; this map covers the icon-based experiences only.
+const EXPERIENCE_ICONS: Partial<
+  Record<MediaType, { grad: string; Icon: React.ComponentType<{ className?: string }> }>
+> = {
+  qvote: { grad: 'from-blue-500 to-purple-600', Icon: Vote },
+  qstage: { grad: 'from-pink-500 via-purple-500 to-blue-500', Icon: Sparkles },
+  qhunt: { grad: 'from-cyan-500 to-pink-500', Icon: Crosshair },
+  qtreasure: { grad: 'from-amber-500 to-emerald-700', Icon: MapIcon },
+  qchallenge: { grad: 'from-purple-600 to-blue-500', Icon: Trophy },
+  minigames: { grad: 'from-indigo-500 via-purple-500 to-pink-500', Icon: Gamepad2 },
+  qtag: { grad: 'from-teal-500 to-emerald-600', Icon: Tag },
+  raffle: { grad: 'from-amber-400 to-yellow-600', Icon: Gift },
+};
+
+function ExperienceIcon({ type, big }: { type: MediaType; big?: boolean }) {
+  const e = EXPERIENCE_ICONS[type];
+  if (!e) return null;
+  const Icon = e.Icon;
+  return (
+    <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${e.grad}`}>
+      <Icon className={big ? 'w-16 h-16 text-white/90' : 'w-6 h-6 text-white'} />
+    </div>
+  );
+}
 
 export default function CodeCard({
   id,
@@ -254,6 +279,12 @@ export default function CodeCard({
       case 'weeklycal': return tMedia('weeklycal');
       case 'qvote': return 'Q.Vote';
       case 'qtag': return 'Q.Tag';
+      case 'qstage': return 'Q.Stage';
+      case 'qhunt': return 'Q.Hunt';
+      case 'qtreasure': return 'Q.Treasure';
+      case 'qchallenge': return 'Q.Challenge';
+      case 'minigames': return 'Q.Games';
+      case 'raffle': return 'הגרלה';
       default: return tMedia('image');
     }
   };
@@ -545,10 +576,8 @@ export default function CodeCard({
               <img src="/media/riddle.jpg" alt={title} className="w-full h-full object-cover" />
             ) : mediaType === 'selfiebeam' ? (
               <img src="/media/SELFIEBEAM.jpg" alt={title} className="w-full h-full object-cover" />
-            ) : mediaType === 'qtag' ? (
-              <div className="w-full h-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
-                <Tag className="w-6 h-6 text-white" />
-              </div>
+            ) : EXPERIENCE_ICONS[mediaType] ? (
+              <ExperienceIcon type={mediaType} />
             ) : thumbnail ? (
               <img src={thumbnail} alt={title} className="w-full h-full object-cover" />
             ) : (
@@ -829,10 +858,8 @@ export default function CodeCard({
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
-        ) : mediaType === 'qtag' ? (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-teal-500 to-emerald-600">
-            <Tag className="w-16 h-16 text-white/90" />
-          </div>
+        ) : EXPERIENCE_ICONS[mediaType] ? (
+          <ExperienceIcon type={mediaType} big />
         ) : thumbnail ? (
           <img
             src={thumbnail}

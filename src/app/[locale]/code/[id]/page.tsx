@@ -34,6 +34,7 @@ import {
   QrCode,
   MessageCircle,
   Vote,
+  Gift,
   CalendarDays,
   Smartphone,
   LayoutGrid,
@@ -94,6 +95,8 @@ import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
+import RaffleModal from '@/components/modals/RaffleModal';
+import type { RaffleConfig } from '@/lib/raffle/types';
 import QStageModal from '@/components/modals/QStageModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import QRSignModal from '@/components/modals/QRSignModal';
@@ -181,6 +184,50 @@ function getLinkTypeLabel(url?: string): string {
     case 'sms': return 'SMS';
     case 'email': return 'אימייל';
     default: return 'לינק';
+  }
+}
+
+// Short, always-visible label for the kind of experience a media item is —
+// shown as a corner badge so it's obvious at a glance (a custom title can hide the type).
+function getExperienceTypeLabel(
+  type: MediaItem['type'],
+  t: (key: string) => string,
+  locale: string
+): string {
+  const he = locale === 'he';
+  switch (type) {
+    case 'link': return he ? 'קישור' : 'Link';
+    case 'image': return he ? 'תמונה' : 'Image';
+    case 'video': return he ? 'וידאו' : 'Video';
+    case 'pdf': return 'PDF';
+    case 'gif': return 'GIF';
+    case 'riddle': return t('riddle');
+    case 'selfiebeam': return 'Selfie Beam';
+    case 'wordcloud': return t('wordcloud');
+    case 'weeklycal': return he ? 'לוח פעילות' : 'Activity Board';
+    case 'qvote': return 'Q.Vote';
+    case 'qtag': return 'Q.Tag';
+    case 'qstage': return 'Q.Stage';
+    case 'qhunt': return 'Q.Hunt';
+    case 'qtreasure': return 'Q.Treasure';
+    case 'qchallenge': return 'Q.Challenge';
+    case 'minigames': return 'Q.Games';
+    case 'raffle': return he ? 'הגרלה' : 'Raffle';
+    default: return String(type).toUpperCase();
+  }
+}
+
+function isManagedStorageUrl(url?: string): boolean {
+  if (!url) return false;
+  try {
+    const hostname = new URL(url).hostname;
+    return (
+      hostname.endsWith('blob.vercel-storage.com') ||
+      hostname === 'theq-media.playzones.app' ||
+      hostname.endsWith('.r2.cloudflarestorage.com')
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -327,6 +374,8 @@ export default function CodeEditPage({ params }: PageProps) {
   // Q.Vote modal state
   const [qvoteModalOpen, setQvoteModalOpen] = useState(false);
   const [editingQVoteId, setEditingQVoteId] = useState<string | null>(null);
+  const [raffleModalOpen, setRaffleModalOpen] = useState(false);
+  const [editingRaffleId, setEditingRaffleId] = useState<string | null>(null);
   const [addingQVote, setAddingQVote] = useState(false);
 
   // Weekly Calendar modal state
@@ -988,6 +1037,8 @@ export default function CodeEditPage({ params }: PageProps) {
             });
           }
           if (m.weeklycalConfig) mediaData.weeklycalConfig = m.weeklycalConfig;
+          // Raffle: copy config but reset the live winners list on duplicate
+          if (m.raffleConfig) mediaData.raffleConfig = removeUndefined({ ...m.raffleConfig });
           if (m.qtagConfig) mediaData.qtagConfig = removeUndefined({
             ...m.qtagConfig,
             branding: removeUndefined({ ...m.qtagConfig.branding, colors: { ...m.qtagConfig.branding.colors } }),
@@ -1060,6 +1111,8 @@ export default function CodeEditPage({ params }: PageProps) {
         newTitle = tMedia('weeklycal') || 'לוח פעילות';
       } else if (media.type === 'qvote') {
         newTitle = 'Q.Vote';
+      } else if (media.type === 'raffle') {
+        newTitle = 'הגרלה';
       } else if (media.type === 'qstage') {
         newTitle = 'Q.Stage';
       } else if (media.title) {
@@ -1772,43 +1825,21 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
-  // Handler for adding or editing a selfiebeam
-  const handleSaveSelfiebeam = async (content: SelfiebeamContent, imageFiles: File[], logoFiles: File[]) => {
+  // Handler for adding or editing a selfiebeam.
+  // Beam photos are managed live in the modal's Photos tab (SelfiebeamPhotoManager) →
+  // this only saves config (title/colors/content/youtube/settings) + company logos.
+  const handleSaveSelfiebeam = async (content: SelfiebeamContent, logoFiles: File[]) => {
     if (!code || !user) return;
 
     setAddingSelfiebeam(true);
     try {
-      // Get the original images and logos from the existing selfiebeam (if editing)
       const existingSelfiebeam = editingSelfiebeamId
         ? code.media.find(m => m.id === editingSelfiebeamId)?.selfiebeamContent
         : null;
-      const originalImages = existingSelfiebeam?.images || [];
       const originalLogos = existingSelfiebeam?.companyLogos || [];
 
-      // Find images that were removed (in original but not in content.images)
-      const removedImages = originalImages.filter(
-        (url) => !content.images?.includes(url)
-      );
-
-      // Find logos that were removed
-      const removedLogos = originalLogos.filter(
-        (url) => !content.companyLogos?.includes(url)
-      );
-
-      // Delete removed stored images
-      for (const imageUrl of removedImages) {
-        try {
-          await fetch('/api/upload', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: imageUrl }),
-          });
-        } catch (error) {
-          console.error('Failed to delete image from blob:', error);
-        }
-      }
-
-      // Delete removed stored logos
+      // Delete logos the admin removed in the modal
+      const removedLogos = originalLogos.filter((url) => !content.companyLogos?.includes(url));
       for (const logoUrl of removedLogos) {
         try {
           await fetch('/api/upload', {
@@ -1821,89 +1852,53 @@ export default function CodeEditPage({ params }: PageProps) {
         }
       }
 
-      const uploadedImageUrls: string[] = [...(content.images || [])];
+      // Upload any new logos (kept in original format to preserve transparency)
       const uploadedLogoUrls: string[] = [...(content.companyLogos || [])];
-      let totalImageSize = 0;
-
-      // Upload any new images
-      for (const file of imageFiles) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('userId', user.id);
-
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error('Image upload failed');
-        }
-
-        const uploadData = await uploadResponse.json();
-        uploadedImageUrls.push(uploadData.url);
-        totalImageSize += uploadData.size;
-      }
-
-      // Upload any new logos
+      let totalLogoSize = 0;
       for (const file of logoFiles) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('userId', user.id);
-
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
+        const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
         if (!uploadResponse.ok) {
           throw new Error('Logo upload failed');
         }
-
         const uploadData = await uploadResponse.json();
         uploadedLogoUrls.push(uploadData.url);
-        totalImageSize += uploadData.size;
+        totalLogoSize += uploadData.size;
       }
 
-      let updatedMedia: MediaItem[];
-
-      // Build selfiebeamContent without undefined values for Firebase
       const selfiebeamContent: SelfiebeamContent = {
         title: content.title,
         content: content.content,
         backgroundColor: content.backgroundColor,
         textColor: content.textColor,
-        images: uploadedImageUrls.length > 0 ? uploadedImageUrls : [],
+        images: content.images || [], // legacy, preserved
         galleryEnabled: content.galleryEnabled || false,
         allowAnonymous: content.allowAnonymous ?? true,
-        companyLogos: uploadedLogoUrls.length > 0 ? uploadedLogoUrls : [],
+        autoApprove: content.autoApprove ?? true,
+        maxUploadsPerUser: content.maxUploadsPerUser ?? 3,
+        companyLogos: uploadedLogoUrls,
       };
       if (content.youtubeUrl) {
         selfiebeamContent.youtubeUrl = content.youtubeUrl;
       }
 
+      let updatedMedia: MediaItem[];
       if (editingSelfiebeamId) {
-        // Update existing selfiebeam
         const existingMedia = code.media.find(m => m.id === editingSelfiebeamId);
         const oldSize = existingMedia?.size || 0;
-
         updatedMedia = code.media.map((m) =>
           m.id === editingSelfiebeamId
-            ? {
-                ...m,
-                title: content.title,
-                size: oldSize + totalImageSize,
-                selfiebeamContent,
-              }
+            ? { ...m, title: content.title, size: oldSize + totalLogoSize, selfiebeamContent }
             : m
         );
       } else {
-        // Create new selfiebeam media item
         const newMedia: MediaItem = {
           id: `media_${Date.now()}`,
-          url: '', // Selfiebeam doesn't have a direct URL
+          url: '',
           type: 'selfiebeam',
-          size: totalImageSize,
+          size: totalLogoSize,
           order: code.media.length,
           uploadedBy: user.id,
           title: content.title,
@@ -1915,9 +1910,8 @@ export default function CodeEditPage({ params }: PageProps) {
 
       await updateQRCode(code.id, { media: updatedMedia });
 
-      // Update user storage if images were uploaded
-      if (totalImageSize > 0) {
-        await updateUserStorage(user.id, totalImageSize);
+      if (totalLogoSize > 0) {
+        await updateUserStorage(user.id, totalLogoSize);
         await refreshUser();
       }
 
@@ -1929,6 +1923,58 @@ export default function CodeEditPage({ params }: PageProps) {
       alert(tErrors('createSelfiebeamError'));
     } finally {
       setAddingSelfiebeam(false);
+    }
+  };
+
+  // Handler for adding/editing the Raffle experience. The RaffleModal manages
+  // its own R2 uploads + participant import; here we just persist the config
+  // (and create the media item on first save, with a public-link token).
+  const handleSaveRaffle = async (config: RaffleConfig): Promise<RaffleConfig | void> => {
+    if (!code || !user) return;
+    // Never create a second raffle on the same code. Target the media being
+    // edited, else any existing raffle media, else create a new one. Always
+    // preserve the existing token so the public link can't drift.
+    const existingRaffle = code.media.find((m) => m.type === 'raffle');
+    const targetId = editingRaffleId || existingRaffle?.id || null;
+    const existingToken = (existingRaffle?.raffleConfig as RaffleConfig | undefined)?.token;
+    const cfg: RaffleConfig = {
+      ...config,
+      token:
+        existingToken ||
+        config.token ||
+        `tkn_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`,
+    };
+    let updatedMedia: MediaItem[];
+    if (targetId) {
+      updatedMedia = code.media.map((m) =>
+        m.id === targetId ? { ...m, type: 'raffle', raffleConfig: cfg } : m
+      );
+      if (targetId !== editingRaffleId) setEditingRaffleId(targetId);
+    } else {
+      const newMediaId = `media_${Date.now()}`;
+      const newMedia: MediaItem = {
+        id: newMediaId,
+        url: '',
+        type: 'raffle',
+        size: 0,
+        order: code.media.length,
+        uploadedBy: user.id,
+        title: 'הגרלה',
+        raffleConfig: cfg,
+        createdAt: new Date(),
+      };
+      updatedMedia = [...code.media, newMedia];
+      setEditingRaffleId(newMediaId);
+    }
+    try {
+      const cleanedMedia = updatedMedia.map((m) =>
+        removeUndefined(m as unknown as Record<string, unknown>)
+      ) as unknown as MediaItem[];
+      await updateQRCode(code.id, { media: cleanedMedia });
+      setCode((prev) => (prev ? { ...prev, media: updatedMedia } : null));
+      return cfg; // so the modal shows the link with the ACTUAL saved token
+    } catch (error) {
+      console.error('Error saving raffle:', error);
     }
   };
 
@@ -2083,7 +2129,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Check if landing image was deleted (old exists but new is undefined/empty)
       const oldLandingUrl = existingConfig?.branding?.landing?.splashImageUrl;
       const newLandingUrl = config.branding?.landing?.splashImageUrl;
-      if (oldLandingUrl && !newLandingUrl && oldLandingUrl.includes('blob.vercel-storage.com')) {
+      if (oldLandingUrl && !newLandingUrl && isManagedStorageUrl(oldLandingUrl)) {
         fetch('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
@@ -2094,7 +2140,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Upload landing image if provided
       if (landingImageFile) {
         // Delete old landing image if exists (being replaced)
-        if (oldLandingUrl && oldLandingUrl.includes('blob.vercel-storage.com')) {
+        if (oldLandingUrl && isManagedStorageUrl(oldLandingUrl)) {
           fetch('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
@@ -2131,7 +2177,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Check if day background image was deleted
       const oldDayBgUrl = existingConfig?.branding?.dayBackgroundImageUrl;
       const newDayBgUrl = config.branding?.dayBackgroundImageUrl;
-      if (oldDayBgUrl && !newDayBgUrl && oldDayBgUrl.includes('blob.vercel-storage.com')) {
+      if (oldDayBgUrl && !newDayBgUrl && isManagedStorageUrl(oldDayBgUrl)) {
         fetch('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
@@ -2142,7 +2188,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Upload day background image if provided
       if (dayBgImageFile) {
         // Delete old day background image if exists (being replaced)
-        if (oldDayBgUrl && oldDayBgUrl.includes('blob.vercel-storage.com')) {
+        if (oldDayBgUrl && isManagedStorageUrl(oldDayBgUrl)) {
           fetch('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
@@ -2233,7 +2279,7 @@ export default function CodeEditPage({ params }: PageProps) {
       if (backgroundImageFile) {
         // Delete old background image if exists (being replaced)
         const oldBgUrl = existingConfig?.backgroundImage;
-        if (oldBgUrl && oldBgUrl.includes('blob.vercel-storage.com')) {
+        if (oldBgUrl && isManagedStorageUrl(oldBgUrl)) {
           fetch('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
@@ -2263,7 +2309,7 @@ export default function CodeEditPage({ params }: PageProps) {
       if (backgroundVideoFile) {
         // Delete old background video if exists (being replaced)
         const oldVideoUrl = existingConfig?.backgroundVideo;
-        if (oldVideoUrl && oldVideoUrl.includes('blob.vercel-storage.com')) {
+        if (oldVideoUrl && isManagedStorageUrl(oldVideoUrl)) {
           fetch('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
@@ -2640,7 +2686,7 @@ export default function CodeEditPage({ params }: PageProps) {
           finalConfig.branding.eventLogoSize = data.size;
           totalImageSize += data.size;
           // Delete old logo
-          if (oldLogo && oldLogo.includes('blob.vercel-storage.com')) {
+          if (oldLogo && isManagedStorageUrl(oldLogo)) {
             fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldLogo }) }).catch(() => {});
           }
         }
@@ -2669,7 +2715,7 @@ export default function CodeEditPage({ params }: PageProps) {
           finalConfig.branding.backgroundImageSize = data.size;
           totalImageSize += data.size;
           // Delete old background
-          if (oldBg && oldBg.includes('blob.vercel-storage.com')) {
+          if (oldBg && isManagedStorageUrl(oldBg)) {
             fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldBg }) }).catch(() => {});
           }
         }
@@ -2677,12 +2723,12 @@ export default function CodeEditPage({ params }: PageProps) {
 
       // Handle removal: logo removed in modal (was set, now undefined, no new file)
       if (!finalConfig.branding.eventLogo && oldLogo && !logoFile) {
-        if (oldLogo.includes('blob.vercel-storage.com')) {
+        if (isManagedStorageUrl(oldLogo)) {
           fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldLogo }) }).catch(() => {});
         }
       }
       if (!finalConfig.branding.backgroundImage && oldBg && !backgroundFile) {
-        if (oldBg.includes('blob.vercel-storage.com')) {
+        if (isManagedStorageUrl(oldBg)) {
           fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldBg }) }).catch(() => {});
         }
       }
@@ -3015,7 +3061,7 @@ export default function CodeEditPage({ params }: PageProps) {
     if (backgroundImageFile) {
       // Delete old image if exists
       const oldUrl = code.landingPageConfig?.backgroundImageUrl;
-      if (oldUrl && oldUrl.includes('blob.vercel-storage.com')) {
+      if (oldUrl && isManagedStorageUrl(oldUrl)) {
         fetch('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
@@ -3656,6 +3702,16 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
 
+                {/* Raffle Button */}
+                <Tooltip text="הגרלה">
+                  <button
+                    onClick={() => { setEditingRaffleId(null); setRaffleModalOpen(true); }}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <Gift className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
                 {/* Weekly Calendar Button */}
                 <Tooltip text={tMedia('weeklycal')}>
                   <button
@@ -3789,6 +3845,9 @@ export default function CodeEditPage({ params }: PageProps) {
                       } else if (media.type === 'selfiebeam') {
                         setEditingSelfiebeamId(media.id);
                         setSelfiebeamModalOpen(true);
+                      } else if (media.type === 'raffle') {
+                        setEditingRaffleId(media.id);
+                        setRaffleModalOpen(true);
                       } else if (media.type === 'weeklycal') {
                         setEditingWeeklyCalId(media.id);
                         setWeeklyCalModalOpen(true);
@@ -3888,6 +3947,12 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Gamepad2 className="w-6 h-6 text-white" />
                       </div>
+                    ) : media.type === 'raffle' ? (
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-400 to-yellow-600"
+                      >
+                        <Gift className="w-6 h-6 text-white" />
+                      </div>
                     ) : (
                       <img
                         src={media.url}
@@ -3915,6 +3980,9 @@ export default function CodeEditPage({ params }: PageProps) {
                           : media.type === 'qchallenge' ? 'Q.Challenge'
                           : media.type === 'minigames' ? 'Q.Games'
                           : media.type.toUpperCase()}
+                      </span>
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-bg-primary text-text-secondary border border-border whitespace-nowrap">
+                        {getExperienceTypeLabel(media.type, tMedia, locale)}
                       </span>
                       <span className="text-xs text-text-secondary">#{index + 1}</span>
                     </div>
@@ -4017,6 +4085,21 @@ export default function CodeEditPage({ params }: PageProps) {
                         onClick={() => {
                           setEditingSelfiebeamId(media.id);
                           setSelfiebeamModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Edit button for raffle */}
+                  {media.type === 'raffle' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingRaffleId(media.id);
+                          setRaffleModalOpen(true);
                         }}
                         className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
                       >
@@ -4486,6 +4569,9 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveSelfiebeam}
         loading={addingSelfiebeam}
         initialContent={editingSelfiebeamId ? code?.media.find(m => m.id === editingSelfiebeamId)?.selfiebeamContent : undefined}
+        codeId={code.id}
+        ownerId={code.ownerId}
+        shortId={code.shortId}
       />
 
       {/* Q.Vote Modal */}
@@ -4498,6 +4584,19 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveQVote}
         loading={addingQVote}
         initialConfig={editingQVoteId ? code?.media.find(m => m.id === editingQVoteId)?.qvoteConfig : undefined}
+        shortId={code.shortId}
+      />
+
+      {/* Raffle Modal */}
+      <RaffleModal
+        isOpen={raffleModalOpen}
+        onClose={() => {
+          setRaffleModalOpen(false);
+          setEditingRaffleId(null);
+        }}
+        onSave={handleSaveRaffle}
+        initialConfig={editingRaffleId ? code?.media.find(m => m.id === editingRaffleId)?.raffleConfig : undefined}
+        codeId={code.id}
         shortId={code.shortId}
       />
 

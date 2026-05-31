@@ -48,6 +48,7 @@ export interface IntakeMissingTarget {
 
 export interface ContentIntakePreview {
   workflow: 'fattal-booklets';
+  runId?: string;
   generatedAt: string;
   commitReady: boolean;
   summary: {
@@ -61,4 +62,35 @@ export interface ContentIntakePreview {
   matches: IntakeFileMatch[];
   missingTargets: IntakeMissingTarget[];
   suggestedReplyAfterCommitHe: string;
+}
+
+export type ContentIntakeRunStatus =
+  | 'previewed'
+  | 'committing'
+  | 'completed'
+  | 'completed_with_issues'
+  | 'failed';
+
+export type ContentIntakeCommitItemStatus =
+  | 'updated'
+  | 'skipped'
+  | 'skipped_duplicate'
+  | 'failed';
+
+export interface ContentIntakeCommitResult {
+  fileId?: string;
+  filename: string;
+  status: ContentIntakeCommitItemStatus;
+  codeId?: string;
+  shortId?: string;
+  title?: string;
+  dedupeId?: string;
+  detectedDate?: string;
+  url?: string;
+  size?: number;
+  storageDelta?: number;
+  pageCount?: number;
+  warning?: string;
+  reason?: string;
+  error?: string;
 }

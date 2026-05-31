@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.0] - 2026-05-31
+
+### Added
+- **"Raffle" (הגרלה) experience** — a black big-screen name draw for live events: an animated spinning wheel (7-slot reel, O(1) render that scales to thousands), spin/win/buzzer sounds, an editable silver-shine idle title, and a winner reveal with an animated border shine.
+- Excel participant import (parsed client-side) with a duplicates report, plus a full management table — search, inline edit, delete, add, and a per-row WhatsApp link + phone copy.
+- Atomic server-side draw and a **secure public big-screen link** (`/raffle/{shortId}?token=`): names only — phone numbers never leave the server. `/v/{shortId}` redirects raffle codes to the big screen.
+- Raffle is a real media type, addable from both the dashboard and the code editor; background image/video and custom sounds upload to Cloudflare R2 in the owner's folder.
+
+### Changed
+- Dashboard cards now resolve the correct label + icon for every experience type from a single source-of-truth map (fixes experiences mislabeled as "image").
+
+---
+
 ## [1.13.59] - 2026-05-24
 
 ### Fixed

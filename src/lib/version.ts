@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.13.59';
+export const APP_VERSION = '1.14.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.14.0',
+    date: '2026-05-31',
+    isNew: true,
+    highlights: {
+      he: [
+        'חדש: חוויית "הגרלה" — מסך ענק להגרלת שמות באירועים, עם גלגל מונפש וצלילים',
+        'טעינת משתתפים מ-Excel עם דוח כפילויות, וטבלת ניהול (עריכה/מחיקה/חיפוש/וואטסאפ)',
+        'הגרלה אטומית בשרת ולינק ציבורי מאובטח — שמות בלבד, בלי חשיפת טלפונים',
+      ],
+      en: [
+        'New: "Raffle" experience — big-screen name draw for events, with an animated wheel and sounds',
+        'Excel participant import with a duplicates report, plus a management table (edit/delete/search/WhatsApp)',
+        'Atomic server-side draw and a secure public link — names only, phone numbers never exposed',
+      ],
+    },
+  },
+  {
     version: '1.13.59',
     date: '2026-05-24',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'תיקון: תג האחסון בדשבורד מזהה R2 גם לפי כתובת הקובץ ושומר את שדות האחסון בהחלפת PDF',

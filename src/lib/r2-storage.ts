@@ -1,6 +1,7 @@
 import {
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -16,6 +17,13 @@ export interface R2UploadResult {
   size: number;
   contentType: string;
   etag?: string;
+}
+
+export interface R2ListedObject {
+  key: string;
+  url: string;
+  size: number;
+  contentType?: string;
 }
 
 interface R2Config {
@@ -59,6 +67,16 @@ export function isR2Configured(): boolean {
 
 export function getConfiguredPdfStorageProvider(): 'cloudflare-r2' | 'vercel-blob' {
   const provider = readEnv('PDF_STORAGE_PROVIDER') || readEnv('MEDIA_STORAGE_PROVIDER');
+  return provider === R2_STORAGE_PROVIDER ? R2_STORAGE_PROVIDER : 'vercel-blob';
+}
+
+export function getConfiguredMediaStorageProvider(mediaType?: string): 'cloudflare-r2' | 'vercel-blob' {
+  const mediaProvider = readEnv('MEDIA_STORAGE_PROVIDER');
+  const pdfProvider = readEnv('PDF_STORAGE_PROVIDER');
+  const provider = mediaType === 'pdf'
+    ? pdfProvider || mediaProvider
+    : mediaProvider;
+
   return provider === R2_STORAGE_PROVIDER ? R2_STORAGE_PROVIDER : 'vercel-blob';
 }
 
@@ -211,4 +229,49 @@ export async function deleteR2ObjectByUrl(url: string): Promise<void> {
     Bucket: config.bucket,
     Key: key,
   }));
+}
+
+export async function deleteR2ObjectByKey(key: string): Promise<void> {
+  const config = getR2Config();
+  if (!config) {
+    throw new Error('Cloudflare R2 is not configured');
+  }
+
+  const client = getR2Client(config);
+  await client.send(new DeleteObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
+  }));
+}
+
+export async function listR2ObjectsByPrefix(prefix: string): Promise<R2ListedObject[]> {
+  const config = getR2Config();
+  if (!config) {
+    throw new Error('Cloudflare R2 is not configured');
+  }
+
+  const client = getR2Client(config);
+  const objects: R2ListedObject[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const response = await client.send(new ListObjectsV2Command({
+      Bucket: config.bucket,
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+    }));
+
+    for (const item of response.Contents || []) {
+      if (!item.Key) continue;
+      objects.push({
+        key: item.Key,
+        url: getR2PublicUrl(item.Key),
+        size: item.Size || 0,
+      });
+    }
+
+    continuationToken = response.NextContinuationToken;
+  } while (continuationToken);
+
+  return objects;
 }

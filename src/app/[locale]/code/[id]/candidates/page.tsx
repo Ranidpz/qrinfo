@@ -240,6 +240,42 @@ import QVoteVotersModal from '@/components/modals/QVoteVotersModal';
 import { MediaItem } from '@/types';
 import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
 
+type QVoteUploadData = {
+  id: string;
+  url: string;
+  thumbnailUrl?: string;
+  size?: number;
+  thumbnailSize?: number;
+  storageProvider?: CandidatePhoto['storageProvider'];
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
+  thumbnailStorageProvider?: CandidatePhoto['thumbnailStorageProvider'];
+  thumbnailStorageKey?: string;
+  thumbnailStorageBucket?: string;
+  thumbnailContentType?: string;
+};
+
+function candidatePhotoFromUpload(data: QVoteUploadData, order: number): CandidatePhoto {
+  return {
+    id: data.id,
+    url: data.url,
+    thumbnailUrl: data.thumbnailUrl || data.url,
+    order,
+    uploadedAt: new Date(),
+    ...(data.size ? { size: data.size } : {}),
+    ...(data.thumbnailSize ? { thumbnailSize: data.thumbnailSize } : {}),
+    ...(data.storageProvider ? { storageProvider: data.storageProvider } : {}),
+    ...(data.storageKey ? { storageKey: data.storageKey } : {}),
+    ...(data.storageBucket ? { storageBucket: data.storageBucket } : {}),
+    ...(data.contentType ? { contentType: data.contentType } : {}),
+    ...(data.thumbnailStorageProvider ? { thumbnailStorageProvider: data.thumbnailStorageProvider } : {}),
+    ...(data.thumbnailStorageKey ? { thumbnailStorageKey: data.thumbnailStorageKey } : {}),
+    ...(data.thumbnailStorageBucket ? { thumbnailStorageBucket: data.thumbnailStorageBucket } : {}),
+    ...(data.thumbnailContentType ? { thumbnailContentType: data.thumbnailContentType } : {}),
+  };
+}
+
 export default function QVoteCandidatesPage() {
   const params = useParams();
   const router = useRouter();
@@ -936,20 +972,13 @@ export default function QVoteCandidatesPage() {
         const candidateData = uploadResults.successful.map(({ index, data }) => {
           const item = compressedItems[index];
           const candidateName = item.filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-          const uploadData = data as { id: string; url: string; thumbnailUrl?: string; size: number };
+          const uploadData = data as QVoteUploadData;
 
           return {
             source: 'producer' as const,
             name: candidateName,
             formData: { name: candidateName },
-            photos: [{
-              id: uploadData.id,
-              url: uploadData.url,
-              thumbnailUrl: uploadData.thumbnailUrl || uploadData.url,
-              order: 0,
-              uploadedAt: new Date(),
-              size: uploadData.size,
-            }],
+            photos: [candidatePhotoFromUpload(uploadData, 0)],
             isApproved: true,
             isFinalist: false,
             isHidden: false,
@@ -1134,7 +1163,7 @@ export default function QVoteCandidatesPage() {
 
     setAddingManually(true);
     try {
-      const uploadedPhotos = [];
+      const uploadedPhotos: CandidatePhoto[] = [];
       for (let i = 0; i < manualPhotos.length; i++) {
         const file = manualPhotos[i];
         if (!file) continue;
@@ -1158,15 +1187,8 @@ export default function QVoteCandidatesPage() {
 
         if (!response.ok) continue;
 
-        const data = await response.json();
-        uploadedPhotos.push({
-          id: data.id,
-          url: data.url,
-          thumbnailUrl: data.thumbnailUrl || data.url,
-          order: i,
-          uploadedAt: new Date(),
-          size: data.size, // Store compressed file size
-        });
+        const data = await response.json() as QVoteUploadData;
+        uploadedPhotos.push(candidatePhotoFromUpload(data, i));
       }
 
       if (uploadedPhotos.length === 0) throw new Error('No photos uploaded');
@@ -1233,16 +1255,9 @@ export default function QVoteCandidatesPage() {
 
       if (!response.ok) throw new Error('Upload failed');
 
-      const data = await response.json();
+      const data = await response.json() as QVoteUploadData;
       const newPhotos = [...editingCandidate.photos];
-      newPhotos[editPhotoIndex] = {
-        id: data.id,
-        url: data.url,
-        thumbnailUrl: data.thumbnailUrl || data.url,
-        order: editPhotoIndex,
-        uploadedAt: new Date(),
-        size: data.size, // Store compressed file size
-      };
+      newPhotos[editPhotoIndex] = candidatePhotoFromUpload(data, editPhotoIndex);
 
       await updateCandidate(codeId, editingCandidate.id, { photos: newPhotos });
       setCandidates((prev) =>
@@ -1263,7 +1278,7 @@ export default function QVoteCandidatesPage() {
   };
 
   // Upload photo via drag-drop (for edit modal slots and card replacement)
-  const uploadPhotoFile = async (file: File): Promise<{ id: string; url: string; thumbnailUrl: string; size?: number } | null> => {
+  const uploadPhotoFile = async (file: File): Promise<QVoteUploadData | null> => {
     try {
       // Compress image before upload (target 300KB, max 1200px)
       const compressed = await compressImage(file, { maxSizeKB: 300, maxWidth: 1200, maxHeight: 1200 });
@@ -1306,14 +1321,7 @@ export default function QVoteCandidatesPage() {
 
     if (uploadedPhoto) {
       const newPhotos = [...editModalCandidate.photos];
-      newPhotos[slotIndex] = {
-        id: uploadedPhoto.id,
-        url: uploadedPhoto.url,
-        thumbnailUrl: uploadedPhoto.thumbnailUrl || uploadedPhoto.url,
-        order: slotIndex,
-        uploadedAt: new Date(),
-        size: uploadedPhoto.size, // Store compressed file size
-      };
+      newPhotos[slotIndex] = candidatePhotoFromUpload(uploadedPhoto, slotIndex);
 
       // Update in Firebase
       await updateCandidate(codeId, editModalCandidate.id, { photos: newPhotos });
@@ -1346,14 +1354,7 @@ export default function QVoteCandidatesPage() {
 
     if (uploadedPhoto) {
       const newPhotos = [...candidate.photos];
-      newPhotos[0] = {
-        id: uploadedPhoto.id,
-        url: uploadedPhoto.url,
-        thumbnailUrl: uploadedPhoto.thumbnailUrl || uploadedPhoto.url,
-        order: 0,
-        uploadedAt: new Date(),
-        size: uploadedPhoto.size, // Store compressed file size
-      };
+      newPhotos[0] = candidatePhotoFromUpload(uploadedPhoto, 0);
 
       await updateCandidate(codeId, candidateId, { photos: newPhotos });
       setCandidates((prev) =>

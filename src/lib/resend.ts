@@ -26,7 +26,9 @@ interface SendEmailParams {
   to: string | string[];
   subject: string;
   html: string;
+  text?: string;
   from?: string;
+  idempotencyKey?: string;
 }
 
 export async function sendEmail(
@@ -39,7 +41,8 @@ export async function sendEmail(
       to: Array.isArray(params.to) ? params.to : [params.to],
       subject: params.subject,
       html: params.html,
-    });
+      ...(params.text ? { text: params.text } : {}),
+    }, params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined);
 
     if (error) {
       console.error('[Resend] Send error:', error.message);

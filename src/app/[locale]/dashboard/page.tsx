@@ -15,6 +15,7 @@ import RiddleModal from '@/components/modals/RiddleModal';
 import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
+import { DEFAULT_RAFFLE_CONFIG } from '@/lib/raffle/types';
 import QStageModal from '@/components/modals/QStageModal';
 import QHuntModal from '@/components/modals/QHuntModal';
 import QTreasureModal from '@/components/modals/QTreasureModal';
@@ -480,17 +481,18 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSelfiebeamCreate = async (content: SelfiebeamContent, imageFiles: File[]) => {
+  const handleSelfiebeamCreate = async (content: SelfiebeamContent, logoFiles: File[]) => {
     if (!user) return;
 
     setAddingSelfiebeam(true);
 
     try {
-      // Upload images if any
-      const uploadedImages: string[] = [];
-      let totalImageSize = 0;
+      // Beam photos are added later from the editor's Photos tab (needs a saved code).
+      // On creation we only persist config + any company logos.
+      const uploadedLogos: string[] = [...(content.companyLogos || [])];
+      let totalLogoSize = 0;
 
-      for (const file of imageFiles) {
+      for (const file of logoFiles) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('userId', user.id);
@@ -501,23 +503,26 @@ export default function DashboardPage() {
         });
 
         if (!uploadResponse.ok) {
-          throw new Error('Failed to upload image');
+          throw new Error('Failed to upload logo');
         }
 
         const uploadData = await uploadResponse.json();
-        uploadedImages.push(uploadData.url);
-        totalImageSize += uploadData.size;
+        uploadedLogos.push(uploadData.url);
+        totalLogoSize += uploadData.size;
       }
 
-      // Create selfiebeam content with uploaded image URLs (filter out undefined values for Firebase)
+      // Create selfiebeam content (filter out undefined values for Firebase)
       const selfiebeamContent: SelfiebeamContent = {
         title: content.title,
         content: content.content,
         backgroundColor: content.backgroundColor,
         textColor: content.textColor,
-        images: uploadedImages.length > 0 ? uploadedImages : [],
+        images: content.images || [],
         galleryEnabled: content.galleryEnabled || false,
         allowAnonymous: content.allowAnonymous ?? true,
+        autoApprove: content.autoApprove ?? true,
+        maxUploadsPerUser: content.maxUploadsPerUser ?? 3,
+        companyLogos: uploadedLogos,
       };
       // Only add youtubeUrl if it exists
       if (content.youtubeUrl) {
@@ -529,7 +534,7 @@ export default function DashboardPage() {
         {
           url: '', // Selfiebeam doesn't have a direct URL
           type: 'selfiebeam',
-          size: totalImageSize,
+          size: totalLogoSize,
           order: 0,
           uploadedBy: user.id,
           title: content.title,
@@ -537,9 +542,9 @@ export default function DashboardPage() {
         },
       ], currentFolderId);
 
-      // Update user storage for images
-      if (totalImageSize > 0) {
-        await updateUserStorage(user.id, totalImageSize);
+      // Update user storage for logos
+      if (totalLogoSize > 0) {
+        await updateUserStorage(user.id, totalLogoSize);
         await refreshUser();
       }
 
@@ -661,6 +666,36 @@ export default function DashboardPage() {
       alert(tErrors('createCodeError'));
     } finally {
       setAddingQVote(false);
+    }
+  };
+
+  // Create a new code with a Raffle experience, then open it in the editor
+  // (where the owner configures it + imports participants + gets the link).
+  const handleCreateRaffle = async () => {
+    if (!user) return;
+    try {
+      const token = `tkn_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+      const newCode = await createQRCode(
+        user.id,
+        'הגרלה',
+        [
+          {
+            url: '',
+            type: 'raffle',
+            size: 0,
+            order: 0,
+            uploadedBy: user.id,
+            title: 'הגרלה',
+            raffleConfig: { ...DEFAULT_RAFFLE_CONFIG, token },
+          },
+        ],
+        currentFolderId
+      );
+      setCodes((prev) => [newCode, ...prev]);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating raffle:', error);
+      alert(tErrors('createCodeError'));
     }
   };
 
@@ -2012,6 +2047,7 @@ export default function DashboardPage() {
                   onWordCloudCreate={() => setWordCloudModalOpen(true)}
                   onSelfiebeamCreate={() => setSelfiebeamModalOpen(true)}
                   onQVoteCreate={() => setQvoteModalOpen(true)}
+                  onRaffleCreate={handleCreateRaffle}
                   onQStageCreate={() => setQstageModalOpen(true)}
                   onWeeklyCalendarCreate={() => setWeeklyCalModalOpen(true)}
                   onQHuntCreate={() => setQhuntModalOpen(true)}

@@ -66,6 +66,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   // Resolve station redirects OUTSIDE try-catch
   // (Next.js redirect() throws a special error that must not be caught)
   let redirectTarget: string | null = null;
+  let raffleRedirect: string | null = null; // full path, e.g. /raffle/{shortId}?token=
 
   try {
     const code = await getQRCodeByShortId(shortId);
@@ -87,6 +88,13 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     }
 
     if (!redirectTarget && code) {
+      // Raffle codes open the dedicated big-screen page (with the link token).
+      const raffleMedia = code.media.find((m) => m.type === 'raffle');
+      if (raffleMedia) {
+        const tok = raffleMedia.raffleConfig?.token || '';
+        raffleRedirect = `/raffle/${code.shortId}${tok ? `?token=${encodeURIComponent(tok)}` : ''}`;
+      }
+
       // Filter media by schedule
       const now = new Date();
       const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -110,7 +118,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
       // Sort by order
       activeMedia.sort((a, b) => a.order - b.order);
 
-      return (
+      if (!raffleRedirect) return (
         <ViewerClient
           media={activeMedia}
           widgets={code.widgets}
@@ -131,6 +139,9 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   }
 
   // Redirect OUTSIDE try-catch (redirect() throws a special Next.js error)
+  if (raffleRedirect) {
+    redirect(raffleRedirect);
+  }
   if (redirectTarget) {
     redirect(`/v/${redirectTarget}?station=${shortId}`);
   }

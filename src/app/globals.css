@@ -792,3 +792,119 @@ body {
   animation: chatBounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/* ============================================================
+   Raffle ("הגרלה") winner reveal — animated shine on the name border
+   ============================================================ */
+@property --raffle-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes raffle-angle-spin {
+  to {
+    --raffle-angle: 360deg;
+  }
+}
+
+/* border ring appears instantly (no scale) so there's no jump from the reel */
+@keyframes raffle-frame-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* glow via text-shadow — cheaper & universally supported (no filter, no
+   color-mix) so it stays smooth on weak devices and old browsers */
+@keyframes raffle-name-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 12px var(--raffle-c, #ffd60a), 0 0 26px var(--raffle-c, #ffd60a);
+  }
+  50% {
+    text-shadow: 0 0 22px var(--raffle-c, #ffd60a), 0 0 56px var(--raffle-c, #ffd60a);
+  }
+}
+
+@keyframes raffle-caption-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* NOTE: positioning (absolute + centering + width:max-content) is set inline in
+   the component so it can't be overridden by source-order. Only paint the box. */
+.raffle-winner-frame {
+  border-radius: 24px;
+  padding: 0.26em 0.7em;
+  isolation: isolate;
+  animation: raffle-frame-in 0.18s ease-out both;
+}
+
+/* rotating light that travels around the rounded-rect border.
+   `var(--raffle-angle, 0deg)` fallback → renders a static gold/white ring even
+   where @property/animation is unsupported (older Safari/Firefox). */
+.raffle-winner-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 3px;
+  background: conic-gradient(
+    from var(--raffle-angle, 0deg),
+    transparent 0deg,
+    var(--raffle-c, #ffd60a) 26deg,
+    #ffffff 50deg,
+    var(--raffle-c, #ffd60a) 74deg,
+    transparent 120deg,
+    transparent 206deg,
+    var(--raffle-c, #ffd60a) 232deg,
+    #ffffff 256deg,
+    var(--raffle-c, #ffd60a) 280deg,
+    transparent 326deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: raffle-angle-spin 2.6s linear infinite;
+  pointer-events: none;
+}
+
+/* soft static glow ring behind the moving light */
+.raffle-winner-frame::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 0 26px var(--raffle-c, #ffd60a);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.raffle-winner-name {
+  animation: raffle-name-glow 2.2s ease-in-out infinite;
+}
+
+.raffle-winner-caption {
+  animation: raffle-caption-in 0.3s ease-out both;
+}
+
+/* Respect reduced-motion: keep the highlight, drop the continuous motion */
+@media (prefers-reduced-motion: reduce) {
+  .raffle-winner-frame::before {
+    animation: none;
+  }
+  .raffle-winner-name {
+    animation: none;
+    text-shadow: 0 0 22px var(--raffle-c, #ffd60a);
+  }
+}
+

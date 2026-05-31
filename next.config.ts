@@ -4,6 +4,10 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
+  // Allow running a second dev server (e.g. a preview instance) without clashing
+  // over the default `.next` build dir. Unset → defaults to `.next` (no change).
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
+
   // Fix jsdom ESM issue with isomorphic-dompurify
   serverExternalPackages: ['jsdom', 'xlsx'],
 

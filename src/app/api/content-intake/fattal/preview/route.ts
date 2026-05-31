@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
-import { getAdminDb } from '@/lib/firebase-admin';
 import { hasValidServerApiKey } from '@/lib/server-api-key';
-import {
-  buildFattalPreview,
-  FATTAL_DEFAULT_FOLDER_NAMES,
-} from '@/lib/content-intake/fattal';
-import type { ContentIntakeTarget, IntakeFileCandidate } from '@/lib/content-intake/types';
+import { buildFattalPreview } from '@/lib/content-intake/fattal';
+import { loadMappedFattalTargets, resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
+import { createContentIntakeRun } from '@/lib/content-intake/runs';
+import type { IntakeFileCandidate } from '@/lib/content-intake/types';
 
 interface PreviewRequestBody {
   files?: unknown;
   receivedAt?: unknown;
   ownerId?: unknown;
   ownerEmail?: unknown;
-  folderNames?: unknown;
+  saveRun?: unknown;
+  source?: unknown;
 }
 
 export async function POST(request: NextRequest) {
@@ -23,9 +22,11 @@ export async function POST(request: NextRequest) {
       'x-integration-key',
     ]);
 
+    let createdBy: string | undefined;
     if (!isIntegrationAuth) {
       const auth = await requireSuperAdmin(request);
       if (isAuthError(auth)) return auth.response;
+      createdBy = auth.uid;
     }
 
     const body = await request.json() as PreviewRequestBody;
@@ -37,7 +38,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ownerId = await resolveOwnerId(body, isIntegrationAuth);
+    const ownerId = await resolveFattalOwnerId({
+      ownerId: body.ownerId,
+      ownerEmail: body.ownerEmail,
+      integrationAuth: isIntegrationAuth,
+    });
     if (!ownerId) {
       return NextResponse.json(
         { error: 'ownerId or ownerEmail is required for Fattal preview' },
@@ -45,11 +50,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const folderNames = parseFolderNames(body.folderNames);
-    const targets = await loadFattalTargets(ownerId, folderNames);
+    const targets = await loadMappedFattalTargets(ownerId);
     if (targets.length === 0) {
       return NextResponse.json(
-        { error: 'No Fattal booklet QR targets found for the selected owner and folders' },
+        { error: 'No mapped Fattal booklet QR targets found for the selected owner' },
         { status: 404 }
       );
     }
@@ -59,6 +63,18 @@ export async function POST(request: NextRequest) {
       targets,
       receivedAt: typeof body.receivedAt === 'string' ? body.receivedAt : undefined,
     });
+
+    if (body.saveRun !== false) {
+      preview.runId = await createContentIntakeRun({
+        ownerId,
+        ownerEmail: typeof body.ownerEmail === 'string' ? body.ownerEmail : undefined,
+        source: typeof body.source === 'string' ? body.source : 'manual',
+        receivedAt: typeof body.receivedAt === 'string' ? body.receivedAt : undefined,
+        createdBy,
+        status: 'previewed',
+        preview,
+      });
+    }
 
     return NextResponse.json(preview);
   } catch (error) {
@@ -95,97 +111,4 @@ function parseFiles(value: unknown): IntakeFileCandidate[] {
   }
 
   return files;
-}
-
-function parseFolderNames(value: unknown): string[] {
-  if (!Array.isArray(value)) return FATTAL_DEFAULT_FOLDER_NAMES;
-  const names = value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
-  return names.length > 0 ? names : FATTAL_DEFAULT_FOLDER_NAMES;
-}
-
-async function resolveOwnerId(body: PreviewRequestBody, isIntegrationAuth: boolean): Promise<string | null> {
-  const envOwnerId = process.env.FATTAL_BOOKLETS_OWNER_ID;
-  const envOwnerEmail = process.env.FATTAL_BOOKLETS_OWNER_EMAIL;
-  const requestedOwnerId = typeof body.ownerId === 'string' ? body.ownerId : undefined;
-  const requestedOwnerEmail = typeof body.ownerEmail === 'string' ? body.ownerEmail : undefined;
-
-  if (isIntegrationAuth && envOwnerId && requestedOwnerId && requestedOwnerId !== envOwnerId) {
-    return null;
-  }
-
-  if (requestedOwnerId || envOwnerId) {
-    return requestedOwnerId || envOwnerId || null;
-  }
-
-  const ownerEmail = requestedOwnerEmail || envOwnerEmail;
-  if (!ownerEmail) return null;
-
-  const db = getAdminDb();
-  const userSnapshot = await db.collection('users')
-    .where('email', '==', ownerEmail)
-    .limit(1)
-    .get();
-
-  if (userSnapshot.empty) return null;
-  return userSnapshot.docs[0].id;
-}
-
-async function loadFattalTargets(ownerId: string, folderNames: string[]): Promise<ContentIntakeTarget[]> {
-  const db = getAdminDb();
-  const normalizedFolderNames = new Set(folderNames.map(normalizeName));
-
-  const folderSnapshot = await db.collection('folders')
-    .where('ownerId', '==', ownerId)
-    .get();
-
-  const folders = folderSnapshot.docs
-    .map((folderDoc) => ({
-      id: folderDoc.id,
-      name: String(folderDoc.data().name || ''),
-    }))
-    .filter((folder) => normalizedFolderNames.has(normalizeName(folder.name)));
-
-  if (folders.length === 0) return [];
-
-  const folderById = new Map(folders.map((folder) => [folder.id, folder.name]));
-  const folderIds = new Set(folders.map((folder) => folder.id));
-
-  const codesSnapshot = await db.collection('codes')
-    .where('ownerId', '==', ownerId)
-    .get();
-
-  const targets: ContentIntakeTarget[] = [];
-
-  for (const codeDoc of codesSnapshot.docs) {
-    const data = codeDoc.data();
-    const folderId = typeof data.folderId === 'string' ? data.folderId : undefined;
-    if (!folderId || !folderIds.has(folderId)) continue;
-    if (data.parentCodeShortId) continue;
-
-    const title = String(data.title || '');
-    if (!title) continue;
-
-    const firstMedia = Array.isArray(data.media) ? data.media[0] : undefined;
-    targets.push({
-      codeId: codeDoc.id,
-      shortId: typeof data.shortId === 'string' ? data.shortId : undefined,
-      title,
-      ownerId,
-      folderId,
-      folderName: folderById.get(folderId),
-      currentMediaType: typeof firstMedia?.type === 'string' ? firstMedia.type : undefined,
-      currentFilename: typeof firstMedia?.filename === 'string' ? firstMedia.filename : undefined,
-    });
-  }
-
-  return targets;
-}
-
-function normalizeName(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[ךםןףץ]/g, (char) => ({ 'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ' }[char] || char))
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
 }

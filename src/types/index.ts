@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle';
 export type StorageProvider = 'vercel-blob' | 'cloudflare-r2';
 
 // Riddle content structure
@@ -29,6 +29,8 @@ export interface SelfiebeamContent {
   galleryEnabled?: boolean; // Allow users to upload selfies
   allowAnonymous?: boolean; // Allow anonymous uploads (no name required)
   companyLogos?: string[]; // Company logos to display in gallery mixed with selfies
+  autoApprove?: boolean; // When false, participant photos are pending until an admin approves them. Default true.
+  maxUploadsPerUser?: number; // How many selfies one participant may upload (1-3). Default 3.
 }
 
 // User gallery image (selfies uploaded by viewers)
@@ -39,8 +41,13 @@ export interface UserGalleryImage {
   storageProvider?: StorageProvider;
   storageKey?: string;
   storageBucket?: string;
+  contentType?: string;
   uploaderName: string; // Name or "אנונימי"
   uploadedAt: Date;
+  // Moderation (optional for backwards compatibility — undefined === approved, so
+  // existing photos and Riddle galleries are unaffected). The beam shows approved !== false.
+  approved?: boolean;
+  source?: 'admin' | 'participant'; // who added it (admin seed vs participant selfie)
   // Gamification fields (optional for backwards compatibility)
   visitorId?: string;  // Link to visitor document
 }
@@ -59,6 +66,8 @@ export interface GallerySettings {
   borderRadius?: number; // Image border radius 0-50 (percentage)
   nameSize?: number; // Name text size 10-20 (pixels)
   showNewBadge?: boolean; // Show NEW badge on first-time displayed images
+  displaySpeed?: number; // Shuffle: seconds between each photo swap (2-10). Default 4.5.
+  featureNewPhotos?: boolean; // Shuffle: a newly-added photo pops up big then falls into the grid. Default false.
 }
 
 // Landing page button style
@@ -168,6 +177,7 @@ export interface MediaItem {
   qchallengeConfig?: import('./qchallenge').QChallengeConfig; // Configuration for qchallenge type (trivia quiz game)
   qtagConfig?: import('./qtag').QTagConfig; // Configuration for qtag type (event registration & check-in)
   qgamesConfig?: import('./qgames').QGamesConfig; // Configuration for minigames type (1v1 mini games)
+  raffleConfig?: import('./raffle').RaffleConfig; // Configuration for raffle type (big-screen draw)
   createdAt: Date;
 }
 

@@ -235,6 +235,15 @@ export interface CandidatePhoto {
   order: number;
   uploadedAt: Date;
   size?: number;                    // File size in bytes (after compression)
+  thumbnailSize?: number;
+  storageProvider?: import('./index').StorageProvider;
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
+  thumbnailStorageProvider?: import('./index').StorageProvider;
+  thumbnailStorageKey?: string;
+  thumbnailStorageBucket?: string;
+  thumbnailContentType?: string;
   position?: ImagePositionConfig;   // Position/crop config for this photo
 }
 

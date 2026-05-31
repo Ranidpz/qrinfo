@@ -42,7 +42,21 @@ const DEFAULT_SIGN: QRSign = {
   scale: 1.0,
 };
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB (uploaded to Vercel Blob, not base64)
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB (uploaded to managed media storage, not base64)
+
+function isManagedStorageUrl(url?: string): boolean {
+  if (!url) return false;
+  try {
+    const hostname = new URL(url).hostname;
+    return (
+      hostname.endsWith('blob.vercel-storage.com') ||
+      hostname === 'theq-media.playzones.app' ||
+      hostname.endsWith('.r2.cloudflarestorage.com')
+    );
+  } catch {
+    return false;
+  }
+}
 
 export default function QRSignModal({
   isOpen,
@@ -117,9 +131,9 @@ export default function QRSignModal({
       try {
         setIsUploading(true);
 
-        // Delete old logo from Blob if it's a Blob URL (not default /theQ.png or base64)
+        // Delete old logo from managed storage if it is not the default /theQ.png or base64.
         const oldValue = localSign.value;
-        if (oldValue && oldValue.includes('blob.vercel-storage.com')) {
+        if (isManagedStorageUrl(oldValue)) {
           try {
             const { fetchWithAuth } = await import('@/lib/fetchWithAuth');
             await fetchWithAuth('/api/upload', {
@@ -226,17 +240,18 @@ export default function QRSignModal({
   const handleRemove = async () => {
     setIsSaving(true);
     try {
-      // Delete logo from Blob storage if applicable
-      if (currentSign?.value && currentSign.value.includes('blob.vercel-storage.com') && userId) {
+      // Delete logo from managed storage if applicable.
+      const currentValue = currentSign?.value;
+      if (isManagedStorageUrl(currentValue) && userId) {
         try {
           const { fetchWithAuth } = await import('@/lib/fetchWithAuth');
           await fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: currentSign.value }),
+            body: JSON.stringify({ url: currentValue }),
           });
           const { updateUserStorage } = await import('@/lib/db');
-          await updateUserStorage(userId, -(currentSign.logoSize || 0));
+          await updateUserStorage(userId, -(currentSign?.logoSize || 0));
         } catch {
           // Non-critical
         }

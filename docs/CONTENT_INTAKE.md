@@ -3,6 +3,8 @@
 Content Intake is the generic layer for automated customer file updates.
 The first workflow is `fattal-booklets`: PDF entertainment booklets are matched to existing QR codes before any media is replaced.
 
+For current R2 storage behavior, dashboard badges, and metadata backfill rules, read `docs/R2_STORAGE.md` first.
+
 ## Naming Model
 
 - Product feature: Auto Content Updates / Content Intake
@@ -18,7 +20,7 @@ Keep source connectors separate from workflow rules. WhatsApp downloads files; t
 This endpoint does not upload files, delete files, or replace QR media. It only:
 
 - authenticates a super admin or server integration key
-- loads the selected owner's QR codes in the Fattal folders (`פתאל אילת`, `פתאל ים המלח`, `פתאל טבריה`)
+- loads only the explicit Fattal booklet target list for the selected owner
 - matches incoming PDF filenames to QR code targets
 - returns matched / missing / duplicate / needs-review status
 - returns a Hebrew WhatsApp reply draft for after the real commit step
@@ -39,7 +41,7 @@ For an automated agent, set:
 
 ```json
 {
-  "ownerEmail": "support@example.com",
+  "ownerEmail": "playzonest1@gmail.com",
   "receivedAt": "2026-05-24T08:10:00+03:00",
   "files": [
     {
@@ -63,11 +65,65 @@ The response includes:
 - `missingTargets`: QR codes in the target folders that did not receive a matching file
 - `suggestedReplyAfterCommitHe`: draft text for the WhatsApp group after the real update step
 
-## PDF Commit Endpoint
+## Batch Commit Endpoint
+
+`POST /api/content-intake/fattal/commit`
+
+This endpoint is the manual / connector-safe commit path for a full WhatsApp batch. It rebuilds the preview from the uploaded files, replaces only confidently matched targets, skips ambiguous files, records a run log, and returns the final Hebrew WhatsApp reply.
+
+It supports:
+
+- `multipart/form-data` with one or more `files` / `file` PDF fields
+- JSON files with `sourceUrl` for a future connector that stores temporary download URLs
+
+The run is stored in:
+
+- `contentIntakeRuns`: batch status, preview, commit results, suggested reply
+- `contentIntakeFileUpdates`: per-file dedupe records by target + PDF hash/source message
+
+The Fattal workflow must not scan every QR code owned by `playzonest1@gmail.com`. It uses the explicit target mapping in `src/lib/content-intake/fattal.ts` so other experiences managed by the same user are ignored.
+
+### Multipart Request
+
+```text
+files=<PDF file>
+files=<PDF file>
+ownerEmail=playzonest1@gmail.com
+receivedAt=2026-05-24T08:10:00+03:00
+source=manual
+```
+
+### JSON Request
+
+```json
+{
+  "ownerEmail": "playzonest1@gmail.com",
+  "receivedAt": "2026-05-24T08:10:00+03:00",
+  "source": "whatsapp",
+  "files": [
+    {
+      "name": "לאונרדו קלאב אילת אמצש 24.05.2026.pdf",
+      "sourceUrl": "https://example.com/temp/leonardo-club.pdf",
+      "sourceMessageId": "msg-123"
+    }
+  ]
+}
+```
+
+### Batch Commit Behavior
+
+- `matched`: replaces the QR PDF through the R2 storage path and records the update
+- `needs_review`, `duplicate`, `unmatched`: skipped, not overwritten
+- exact same PDF for the same QR target: skipped as `skipped_duplicate`
+- missing target PDFs: reported in `missingTargets` and in `suggestedReplyAfterCommitHe`
+- Vercel request bodies are limited; `scripts/fattal-intake.mjs` first tries a batch commit and falls back to one-file commit requests on `413 FUNCTION_PAYLOAD_TOO_LARGE`.
+- R2 metadata must stay ASCII-safe; local intake file ids are hash-based and must not include Hebrew filenames.
+
+## Single PDF Commit Endpoint
 
 `POST /api/codes/{codeId}/pdf`
 
-This endpoint is the first R2-backed commit path. It replaces the PDF media on one existing QR code, uploads the new PDF to Cloudflare R2 under:
+This endpoint replaces the PDF media on one existing QR code, uploads the new PDF to Cloudflare R2 under:
 
 ```text
 {ownerId}/{codeId}/booklets/{unique-pdf-name}.pdf
@@ -106,16 +162,15 @@ Use this when the agent has a temporary download URL and the PDF may be too larg
 }
 ```
 
-### Commit Flow For The Agent
+### Low-Level Commit Flow
 
 1. Call preview with all received PDF names.
-2. Stop if `commitReady` is false and send the suggested review reply.
-3. For each matched file, call `POST /api/codes/{codeId}/pdf`.
-4. Send the Hebrew success reply only after every commit returned `success: true`.
+2. Prefer `POST /api/content-intake/fattal/commit` for the whole batch.
+3. Use `POST /api/codes/{codeId}/pdf` only for one-off manual repair.
 
 ## Remaining Migration Work
 
-- Existing Fattal PDFs can be copied with `POST /api/content-intake/fattal/migrate-existing`. It is `super_admin` only and defaults to `dryRun: true`; send `{ "dryRun": false, "deleteOld": false }` to copy to R2 without deleting old Blob objects, then rerun with `deleteOld: true` only after viewer checks pass.
-- Add a batch commit endpoint that accepts the full preview result and writes a run log.
+- Existing Fattal PDFs were copied to R2 without deleting old Blob objects. If rerunning `POST /api/content-intake/fattal/migrate-existing`, keep `dryRun: true` first and only use `deleteOld: true` after viewer checks pass.
+- Backfill Firestore storage metadata for records whose URL already points to R2 but whose `storageProvider` is missing. This is metadata-only and must not change file URLs, file sizes, `storageUsed`, or delete old Blob objects.
 - Move the remaining media upload families (images, gallery, avatars, Q.Vote) to the same storage adapter after PDF rollout is stable.
 - Keep Vercel Blob delete/read support until legacy Blob media has either been migrated or intentionally left in place.

@@ -6,11 +6,19 @@ import type {
   IntakeFileMatch,
 } from './types';
 
-type AreaId = 'eilat' | 'dead-sea' | 'tiberias';
+export type FattalAreaId = 'eilat' | 'dead-sea' | 'tiberias';
+
+export interface FattalBookletTargetConfig {
+  key: string;
+  area: FattalAreaId;
+  title: string;
+  shortId: string;
+  aliases: string[];
+}
 
 interface FattalAliasSet {
   key: string;
-  area?: AreaId;
+  area?: FattalAreaId;
   aliases: string[];
 }
 
@@ -28,13 +36,101 @@ interface ScoredTarget {
   warnings: string[];
 }
 
+export const FATTAL_DEFAULT_OWNER_EMAIL = 'playzonest1@gmail.com';
 export const FATTAL_DEFAULT_FOLDER_NAMES = ['פתאל אילת', 'פתאל ים המלח', 'פתאל טבריה'];
 
-const AREA_ALIASES: Record<AreaId, string[]> = {
+const AREA_ALIASES: Record<FattalAreaId, string[]> = {
   eilat: ['אילת', 'eilat'],
   'dead-sea': ['ים המלח', 'dead sea', 'deadsea'],
   tiberias: ['טבריה', 'tiberias', 'kinneret', 'כנרת'],
 };
+
+export const FATTAL_BOOKLET_TARGETS: FattalBookletTargetConfig[] = [
+  {
+    key: 'u-splash-eilat',
+    area: 'eilat',
+    title: 'יו ספלאש אילת',
+    shortId: '5ubXFS',
+    aliases: ['u splash eilat', 'u-splash eilat', 'יו ספלאש אילת', 'י ספלאש', 'ספלאש אילת'],
+  },
+  {
+    key: 'leonardo-plaza-eilat',
+    area: 'eilat',
+    title: 'לאונרדו פלאזה אילת',
+    shortId: 'FYvDZF',
+    aliases: ['leonardo plaza eilat', 'לאונרדו פלאזה אילת', 'לאונרדו פלזה אילת', 'לאונרדו פלאזה סופש'],
+  },
+  {
+    key: 'u-privilege-eilat',
+    area: 'eilat',
+    title: 'לאונרדו פריוילג׳ אילת',
+    shortId: '62ug4h',
+    aliases: ['u privilege eilat', 'יו פריוילג אילת', 'יו פריווילג אילת', 'י פריוילג', 'י פריווילג', 'פריוילג אילת', 'פריווילג אילת', 'פריוילג׳ אילת', 'פריווליג', 'פירווליג'],
+  },
+  {
+    key: 'magic-palace-eilat',
+    area: 'eilat',
+    title: 'מג׳יק פאלאס אילת',
+    shortId: 'mfRe6t',
+    aliases: ['magic palace eilat', 'מגיק פאלאס אילת', "מג'יק פאלאס אילת", 'מג׳יק פאלאס אילת', 'פאלאס אילת', 'פאלאס', 'תוכנית בידור פאלאס', 'תוכניית בידור פאלאס'],
+  },
+  {
+    key: 'leonardo-club-eilat',
+    area: 'eilat',
+    title: 'לאונרדו קלאב אילת',
+    shortId: 'jKptn6',
+    aliases: ['leonardo club eilat', 'לאונרדו קלאב אילת', 'קלאב אילת', 'לאונרדו קלאב סופש'],
+  },
+  {
+    key: 'u-coral-eilat',
+    area: 'eilat',
+    title: 'יו קורל אילת',
+    shortId: 'JbdmGF',
+    aliases: ['u coral eilat', 'u coral beach eilat', 'יו קורל אילת', 'יי קורל אילת', 'יו קורל', 'יי קורל', 'י קורל', 'יו קורל סופש', 'יו קורל סופהש'],
+  },
+  {
+    key: 'royal-resort-eilat',
+    area: 'eilat',
+    title: 'רויאל ריזורט אילת',
+    shortId: 'tDet2R',
+    aliases: ['royal resort eilat', 'רויאל ריזורט אילת', 'רויאל ריזורט'],
+  },
+  {
+    key: 'herods-eilat',
+    area: 'eilat',
+    title: 'הרודס אילת',
+    shortId: 'tnhKzx',
+    aliases: ['herods eilat', 'הרודס אילת', 'סופש הרודס', 'הרודס סופש'],
+  },
+  {
+    key: 'herods-dead-sea',
+    area: 'dead-sea',
+    title: 'הרודס ים המלח',
+    shortId: 'N8bPqx',
+    aliases: ['herods dead sea', 'herods ים המלח', 'הרודס ים המלח'],
+  },
+  {
+    key: 'leonardo-club-dead-sea',
+    area: 'dead-sea',
+    title: 'לאונרדו קלאב ים המלח',
+    shortId: '4nVJXf',
+    aliases: ['leonardo club dead sea', 'לאונרדו קלאב ים המלח'],
+  },
+  {
+    key: 'leonardo-plaza-dead-sea',
+    area: 'dead-sea',
+    title: 'לאונרדו פלאזה ים המלח',
+    shortId: '7KRYAj',
+    aliases: ['leonardo plaza dead sea', 'לאונרדו פלאזה ים המלח', 'לאונרדו פלזה ים המלח', 'פלאזה ים המלח', 'תוכניה סופש פלאזה ים המלח'],
+  },
+  {
+    key: 'leonardo-club-tiberias',
+    area: 'tiberias',
+    title: 'לאונרדו קלאב טבריה',
+    shortId: 'fjcVpn',
+    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה'],
+  },
+];
 
 const FATTAL_ALIAS_SETS: FattalAliasSet[] = [
   {
@@ -45,37 +141,37 @@ const FATTAL_ALIAS_SETS: FattalAliasSet[] = [
   {
     key: 'herods-eilat',
     area: 'eilat',
-    aliases: ['herods eilat', 'הרודס אילת'],
+    aliases: ['herods eilat', 'הרודס אילת', 'סופש הרודס', 'הרודס סופש'],
   },
   {
     key: 'u-splash-eilat',
     area: 'eilat',
-    aliases: ['u splash eilat', 'u-splash eilat', 'יו ספלאש אילת', 'ספלאש אילת'],
+    aliases: ['u splash eilat', 'u-splash eilat', 'יו ספלאש אילת', 'י ספלאש', 'ספלאש אילת'],
   },
   {
     key: 'leonardo-plaza-eilat',
     area: 'eilat',
-    aliases: ['leonardo plaza eilat', 'לאונרדו פלאזה אילת', 'לאונרדו פלזה אילת'],
+    aliases: ['leonardo plaza eilat', 'לאונרדו פלאזה אילת', 'לאונרדו פלזה אילת', 'לאונרדו פלאזה סופש'],
   },
   {
     key: 'u-privilege-eilat',
     area: 'eilat',
-    aliases: ['u privilege eilat', 'יו פריוילג אילת', 'יו פריווילג אילת', 'פריוילג אילת', 'פריווילג אילת'],
+    aliases: ['u privilege eilat', 'יו פריוילג אילת', 'יו פריווילג אילת', 'י פריוילג', 'י פריווילג', 'פריוילג אילת', 'פריווילג אילת', 'פריווליג', 'פירווליג'],
   },
   {
     key: 'magic-palace-eilat',
     area: 'eilat',
-    aliases: ['magic palace eilat', 'מגיק פאלאס אילת', "מג'יק פאלאס אילת", 'פאלאס אילת'],
+    aliases: ['magic palace eilat', 'מגיק פאלאס אילת', "מג'יק פאלאס אילת", 'פאלאס אילת', 'פאלאס', 'תוכנית בידור פאלאס', 'תוכניית בידור פאלאס'],
   },
   {
     key: 'leonardo-club-eilat',
     area: 'eilat',
-    aliases: ['leonardo club eilat', 'לאונרדו קלאב אילת', 'קלאב אילת'],
+    aliases: ['leonardo club eilat', 'לאונרדו קלאב אילת', 'קלאב אילת', 'לאונרדו קלאב סופש'],
   },
   {
     key: 'u-coral-eilat',
     area: 'eilat',
-    aliases: ['u coral eilat', 'u coral beach eilat', 'יו קורל אילת', 'יי קורל אילת', 'יו קורל', 'יי קורל'],
+    aliases: ['u coral eilat', 'u coral beach eilat', 'יו קורל אילת', 'יי קורל אילת', 'יו קורל', 'יי קורל', 'י קורל', 'יו קורל סופש', 'יו קורל סופהש'],
   },
   {
     key: 'herods-dead-sea',
@@ -85,7 +181,7 @@ const FATTAL_ALIAS_SETS: FattalAliasSet[] = [
   {
     key: 'leonardo-plaza-dead-sea',
     area: 'dead-sea',
-    aliases: ['leonardo plaza dead sea', 'לאונרדו פלאזה ים המלח', 'לאונרדו פלזה ים המלח'],
+    aliases: ['leonardo plaza dead sea', 'לאונרדו פלאזה ים המלח', 'לאונרדו פלזה ים המלח', 'פלאזה ים המלח', 'תוכניה סופש פלאזה ים המלח'],
   },
   {
     key: 'leonardo-club-dead-sea',
@@ -233,7 +329,7 @@ function scoreTarget(file: IntakeFileCandidate, target: ContentIntakeTarget): Sc
 
   for (const alias of aliases) {
     if (alias.length >= 3 && fileText.includes(alias)) {
-      const aliasScore = alias.split(' ').length >= 2 ? 88 : 72;
+      const aliasScore = alias.split(' ').length >= 2 ? 88 : 82;
       if (aliasScore > score) {
         score = aliasScore;
         reasons.splice(0, reasons.length, `Filename contains alias "${alias}"`);
@@ -296,8 +392,10 @@ function markDuplicateMatches(matches: IntakeFileMatch[]): IntakeFileMatch[] {
 }
 
 function getTargetAliases(target: ContentIntakeTarget): string[] {
-  const baseAliases = [target.title, target.currentFilename, target.folderName, ...(target.aliases || [])]
+  const baseAliases = [target.title, target.folderName, ...(target.aliases || [])]
     .filter(Boolean) as string[];
+  if (target.aliases && target.aliases.length > 0) return baseAliases;
+
   const normalizedTitle = normalizeText(`${target.title} ${target.folderName || ''}`);
 
   const matchingSets = FATTAL_ALIAS_SETS.filter((set) =>
@@ -376,8 +474,8 @@ function daysBetween(a: string, b: string): number {
   return Math.round((aTime - bTime) / 86400000);
 }
 
-function detectArea(normalizedText: string): AreaId | undefined {
-  for (const [area, aliases] of Object.entries(AREA_ALIASES) as [AreaId, string[]][]) {
+function detectArea(normalizedText: string): FattalAreaId | undefined {
+  for (const [area, aliases] of Object.entries(AREA_ALIASES) as [FattalAreaId, string[]][]) {
     if (aliases.some((alias) => normalizedText.includes(normalizeText(alias)))) {
       return area;
     }
@@ -385,7 +483,7 @@ function detectArea(normalizedText: string): AreaId | undefined {
   return undefined;
 }
 
-function areaLabel(area: AreaId): string {
+function areaLabel(area: FattalAreaId): string {
   return AREA_ALIASES[area][0];
 }
 

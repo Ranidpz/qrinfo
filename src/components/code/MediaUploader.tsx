@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -38,6 +38,7 @@ interface MediaUploaderProps {
   onWordCloudCreate?: () => void;
   onSelfiebeamCreate?: () => void;
   onQVoteCreate?: () => void;
+  onRaffleCreate?: () => void;
   onQStageCreate?: () => void;
   onWeeklyCalendarCreate?: () => void;
   onQHuntCreate?: () => void;
@@ -57,6 +58,7 @@ export default function MediaUploader({
   onWordCloudCreate,
   onSelfiebeamCreate,
   onQVoteCreate,
+  onRaffleCreate,
   onQStageCreate,
   onWeeklyCalendarCreate,
   onQHuntCreate,
@@ -68,7 +70,7 @@ export default function MediaUploader({
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames'>('upload');
   const [linkUrl, setLinkUrl] = useState('');
   const [linkMode, setLinkMode] = useState<LinkMode>('url');
   const [showLinkModeDropdown, setShowLinkModeDropdown] = useState(false);
@@ -434,6 +436,7 @@ export default function MediaUploader({
           {onSelfiebeamCreate && <TabButton tab="selfiebeam" label={tMedia('selfiebeam')} icon={Camera} tooltip={t('tooltipSelfiebeam')} />}
           {onWeeklyCalendarCreate && <TabButton tab="weeklycal" label={tMedia('weeklycal') || 'Weekly'} icon={CalendarDays} tooltip={t('tooltipWeeklyCal') || 'Create a weekly schedule'} />}
           {onQVoteCreate && <TabButton tab="qvote" label="Q.Vote" icon={Vote} tooltip={t('tooltipQVote') || 'Create a voting experience'} />}
+          {onRaffleCreate && <TabButton tab="raffle" label="הגרלה" icon={Gift} tooltip="הגרלת שמות על מסך ענק" />}
           {onQStageCreate && <TabButton tab="qstage" label="Q.Stage" icon={Sparkles} tooltip={t('tooltipQStage') || 'Live voting display for events'} />}
           {onQHuntCreate && <TabButton tab="qhunt" label="Q.Hunt" icon={Crosshair} tooltip={t('tooltipQHunt') || 'Real-time code hunting game'} />}
           {onQTreasureCreate && <TabButton tab="qtreasure" label="מטמון" icon={Map} tooltip={t('tooltipQTreasure') || 'Treasure hunt with stations'} />}
@@ -923,6 +926,28 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQVote') || 'Create Q.Vote'}
+          </button>
+        </div>
+      ) : activeTab === 'raffle' ? (
+        /* Raffle (big-screen draw) creation */
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center flex-shrink-0">
+              <Gift className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-start">
+              <h3 className="font-medium text-text-primary mb-1">הגרלה</h3>
+              <p className="text-xs text-text-secondary">
+                הגרלת שמות על מסך ענק — טעינת משתתפים מ-Excel, הגרלה חיה ולינק ציבורי.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onRaffleCreate}
+            disabled={disabled}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            צור הגרלה
           </button>
         </div>
       ) : activeTab === 'qstage' ? (

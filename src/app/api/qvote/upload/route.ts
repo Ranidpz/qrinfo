@@ -1,10 +1,14 @@
-import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import {
+  buildMediaStorageKey,
+  deleteStoredObjectByUrl,
+  uploadStoredObject,
+} from '@/lib/media-storage';
 
-// POST: Upload a candidate photo to Vercel Blob
+// POST: Upload a candidate photo to the configured media storage
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
@@ -74,33 +78,58 @@ export async function POST(request: NextRequest) {
     const extension = file.type === 'image/webp' ? 'webp' : 'jpg';
 
     // Build path with owner folder structure: {ownerId}/{codeId}/qvote/photos/...
-    const basePath = ownerId ? `${ownerId}/${codeId}/qvote` : `qvote/${codeId}`;
+    const basePathParts = ownerId ? [ownerId, codeId, 'qvote'] : ['qvote', codeId];
 
     // Read file into buffer once — File stream may only be consumable once
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     // Upload main image
-    const mainFilename = `${basePath}/photos/${photoId}.${extension}`;
-    const mainBlob = await put(mainFilename, fileBuffer, {
-      access: 'public',
-      addRandomSuffix: false,
+    const mainFilename = buildMediaStorageKey([...basePathParts, 'photos'], `${photoId}.${extension}`);
+    const mainObject = await uploadStoredObject({
+      key: mainFilename,
+      body: fileBuffer,
       contentType: file.type,
+      mediaType: 'image',
+      cacheControl: 'public, max-age=31536000, immutable',
+      metadata: {
+        ...(ownerId ? { ownerId } : {}),
+        codeId,
+        folder: 'qvote/photos',
+        photoId,
+      },
     });
 
     // Upload thumbnail (same for now - could resize server-side)
-    const thumbnailFilename = `${basePath}/thumbs/${photoId}_thumb.${extension}`;
-    const thumbnailBlob = await put(thumbnailFilename, fileBuffer, {
-      access: 'public',
-      addRandomSuffix: false,
+    const thumbnailFilename = buildMediaStorageKey([...basePathParts, 'thumbs'], `${photoId}_thumb.${extension}`);
+    const thumbnailObject = await uploadStoredObject({
+      key: thumbnailFilename,
+      body: fileBuffer,
       contentType: file.type,
+      mediaType: 'image',
+      cacheControl: 'public, max-age=31536000, immutable',
+      metadata: {
+        ...(ownerId ? { ownerId } : {}),
+        codeId,
+        folder: 'qvote/thumbs',
+        photoId,
+      },
     });
 
     return NextResponse.json({
       success: true,
       id: photoId,
-      url: mainBlob.url,
-      thumbnailUrl: thumbnailBlob.url,
-      size: file.size,
+      url: mainObject.url,
+      thumbnailUrl: thumbnailObject.url,
+      size: mainObject.size,
+      thumbnailSize: thumbnailObject.size,
+      storageProvider: mainObject.storageProvider,
+      storageKey: mainObject.storageKey,
+      storageBucket: mainObject.storageBucket,
+      contentType: mainObject.contentType,
+      thumbnailStorageProvider: thumbnailObject.storageProvider,
+      thumbnailStorageKey: thumbnailObject.storageKey,
+      thumbnailStorageBucket: thumbnailObject.storageBucket,
+      thumbnailContentType: thumbnailObject.contentType,
     });
   } catch (error) {
     console.error('Q.Vote upload error:', error);
@@ -111,7 +140,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: Remove a Q.Vote photo from Vercel Blob (admin only)
+// DELETE: Remove a Q.Vote photo from configured media storage (admin only)
 export async function DELETE(request: NextRequest) {
   try {
     // Rate limiting
@@ -140,17 +169,15 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete main image
     try {
-      await del(imageUrl);
+      await deleteStoredObjectByUrl(imageUrl);
     } catch (deleteError) {
       console.error('Failed to delete main image:', deleteError);
     }
 
-    // Delete thumbnail if provided
     if (thumbnailUrl) {
       try {
-        await del(thumbnailUrl);
+        await deleteStoredObjectByUrl(thumbnailUrl);
       } catch (deleteError) {
         console.error('Failed to delete thumbnail:', deleteError);
       }

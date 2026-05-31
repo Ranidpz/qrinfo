@@ -2,12 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { SelfiebeamContent, UserGalleryImage } from '@/types';
-import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2 } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
 import { queuedUpload } from '@/lib/uploadQueue';
 import { getBrowserLocale, uploadTranslations } from '@/lib/publicTranslations';
+import SquareImageCropper from '@/components/viewer/SquareImageCropper';
 
 interface SelfiebeamViewerProps {
   content: SelfiebeamContent;
@@ -124,44 +125,6 @@ function extractYoutubeId(url: string): string | null {
   return null;
 }
 
-// Compress image to WebP format
-async function compressImage(file: File): Promise<Blob> {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-
-  // Try createImageBitmap first, fall back to Image element for broader format support
-  let img: ImageBitmap | HTMLImageElement;
-  try {
-    img = await createImageBitmap(file);
-  } catch {
-    // Fallback: use Image element (supports more formats in some browsers)
-    img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error('Failed to load image'));
-      image.src = URL.createObjectURL(file);
-    });
-  }
-
-  // Resize to 600x600 max (enough for selfies)
-  const maxDim = 600;
-  let { width, height } = img;
-  if (width > maxDim || height > maxDim) {
-    const ratio = Math.min(maxDim / width, maxDim / height);
-    width *= ratio;
-    height *= ratio;
-  }
-
-  canvas.width = width;
-  canvas.height = height;
-  ctx.drawImage(img, 0, 0, width, height);
-
-  // Convert to WebP (lighter than JPEG)
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob!), 'image/webp', 0.7);
-  });
-}
-
 export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: SelfiebeamViewerProps) {
   // Get browser locale for translations
   const [locale, setLocale] = useState<'he' | 'en'>('he');
@@ -177,10 +140,10 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   // Gallery upload state
   const [showNameModal, setShowNameModal] = useState(false);
   const [uploaderName, setUploaderName] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [cropperFile, setCropperFile] = useState<File | null>(null); // photo being framed
+  const [pendingBlob, setPendingBlob] = useState<Blob | null>(null); // cropped, awaiting name
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [controlsExpanded, setControlsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // My uploaded images state (stored in sessionStorage by image ID)
@@ -290,6 +253,11 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
         userGallery: currentGallery.map(img => ({
           id: img.id,
           url: img.url,
+          ...(img.size ? { size: img.size } : {}),
+          ...(img.storageProvider ? { storageProvider: img.storageProvider } : {}),
+          ...(img.storageKey ? { storageKey: img.storageKey } : {}),
+          ...(img.storageBucket ? { storageBucket: img.storageBucket } : {}),
+          ...(img.contentType ? { contentType: img.contentType } : {}),
           uploaderName: img.uploaderName,
           uploadedAt: Timestamp.fromDate(new Date(img.uploadedAt)),
         })),
@@ -314,7 +282,8 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   const youtubeId = content.youtubeUrl ? extractYoutubeId(content.youtubeUrl) : null;
   const hasImages = content.images && content.images.length > 0;
   const galleryEnabled = content.galleryEnabled && codeId;
-  const canUploadMore = myUploadedImages.length < MAX_USER_IMAGES;
+  const maxImages = Math.max(1, Math.min(3, content.maxUploadsPerUser ?? MAX_USER_IMAGES));
+  const canUploadMore = myUploadedImages.length < maxImages;
 
   const openLightbox = (index: number) => {
     setCurrentImageIndex(index);
@@ -339,7 +308,7 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
     setLightboxImage(content.images[newIndex]);
   };
 
-  // Handle file selection for gallery
+  // Handle file selection — open the framing cropper (pinch/zoom/pan)
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -349,32 +318,35 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       return;
     }
 
-    setSelectedFile(file);
+    // Reset the input so picking the same file again re-triggers onChange
+    e.target.value = '';
+    setCropperFile(file);
+  };
 
-    // If anonymous is allowed, show name modal
-    // Otherwise go straight to upload with empty name (will show as "אנונימי")
+  // After the participant frames their selfie, decide whether to ask for a name first
+  const handleCropConfirm = (blob: Blob) => {
+    setCropperFile(null);
     if (!content.allowAnonymous) {
+      setPendingBlob(blob);
       setShowNameModal(true);
     } else {
-      handleUpload(file, '');
+      handleUpload(blob, '');
     }
   };
 
-  // Handle gallery upload
-  const handleUpload = async (file: File, name: string) => {
+  // Handle gallery upload of the already-cropped 1000px square WebP
+  const handleUpload = async (blob: Blob, name: string) => {
     if (!codeId || !ownerId) return;
 
     setUploading(true);
     setShowNameModal(false);
+    setPendingBlob(null);
     setUploadStatus('idle');
 
     try {
-      // Compress image
-      const compressedBlob = await compressImage(file);
-
-      // Create form data
+      // Create form data (blob is already a cropped, compressed WebP)
       const formData = new FormData();
-      formData.append('file', compressedBlob, `selfie_${Date.now()}.webp`);
+      formData.append('file', blob, `selfie_${Date.now()}.webp`);
       formData.append('codeId', codeId);
       formData.append('ownerId', ownerId);
       formData.append('uploaderName', name || t.anonymous);
@@ -387,6 +359,10 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
           url: string;
           uploaderName: string;
           size: number;
+          storageProvider?: UserGalleryImage['storageProvider'];
+          storageKey?: string;
+          storageBucket?: string;
+          contentType?: string;
         };
       };
 
@@ -394,13 +370,24 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
         throw new Error('Upload failed');
       }
 
+      // Moderation: when auto-approve is off, the participant's photo waits for admin
+      // approval before it appears on the beam. Default (autoApprove !== false) = approved.
+      const approved = content.autoApprove !== false;
+
       // Update Firestore with the new gallery image (client-side to use auth)
       const codeRef = doc(db, 'codes', codeId);
       await updateDoc(codeRef, {
         userGallery: arrayUnion({
           id: data.image.id,
           url: data.image.url,
+          size: data.image.size,
+          ...(data.image.storageProvider ? { storageProvider: data.image.storageProvider } : {}),
+          ...(data.image.storageKey ? { storageKey: data.image.storageKey } : {}),
+          ...(data.image.storageBucket ? { storageBucket: data.image.storageBucket } : {}),
+          ...(data.image.contentType ? { contentType: data.image.contentType } : {}),
           uploaderName: data.image.uploaderName,
+          approved,
+          source: 'participant',
           uploadedAt: Timestamp.now(),
         }),
       });
@@ -418,6 +405,11 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       const newImage: UserGalleryImage = {
         id: data.image.id,
         url: data.image.url,
+        size: data.image.size,
+        storageProvider: data.image.storageProvider,
+        storageKey: data.image.storageKey,
+        storageBucket: data.image.storageBucket,
+        contentType: data.image.contentType,
         uploaderName: data.image.uploaderName,
         uploadedAt: new Date(),
       };
@@ -428,7 +420,6 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       // Reset after 3 seconds
       setTimeout(() => {
         setUploadStatus('idle');
-        setSelectedFile(null);
         setUploaderName('');
       }, 3000);
     } catch (error) {
@@ -438,7 +429,6 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       // Reset after 3 seconds
       setTimeout(() => {
         setUploadStatus('idle');
-        setSelectedFile(null);
       }, 3000);
     } finally {
       setUploading(false);
@@ -450,10 +440,10 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
     fileInputRef.current?.click();
   };
 
-  // Submit name and upload
+  // Submit name and upload the framed selfie
   const handleNameSubmit = () => {
-    if (selectedFile) {
-      handleUpload(selectedFile, uploaderName);
+    if (pendingBlob) {
+      handleUpload(pendingBlob, uploaderName);
     }
   };
 
@@ -481,6 +471,76 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
               dir="auto"
               dangerouslySetInnerHTML={{ __html: formatContent(content.content) }}
             />
+          )}
+
+          {/* ===== Capture (participant selfie) ===== */}
+          {galleryEnabled && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <button
+                onClick={handleCameraClick}
+                disabled={uploading || !canUploadMore}
+                className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-full flex flex-col items-center justify-center gap-2 bg-white shadow-2xl transition-all disabled:opacity-70 active:scale-95"
+              >
+                {uploading ? (
+                  <Loader2 className="w-14 h-14 animate-spin text-gray-500" />
+                ) : uploadStatus === 'success' ? (
+                  <Check className="w-16 h-16 text-green-500" />
+                ) : uploadStatus === 'error' ? (
+                  <AlertCircle className="w-16 h-16 text-red-500" />
+                ) : (
+                  <Camera className="w-16 h-16 text-gray-700" />
+                )}
+                <span className="text-base font-semibold text-gray-700">
+                  {uploading
+                    ? t.uploading
+                    : uploadStatus === 'success'
+                    ? t.uploaded
+                    : uploadStatus === 'error'
+                    ? t.error
+                    : !canUploadMore
+                    ? t.maxReached
+                    : t.takePhoto}
+                </span>
+              </button>
+
+              {/* Counter: X of Y */}
+              <p className="text-sm font-medium opacity-90" style={{ color: content.textColor }}>
+                {t.uploadedOf
+                  .replace('{count}', String(myUploadedImages.length))
+                  .replace('{max}', String(maxImages))}
+              </p>
+
+              {/* My uploaded selfies */}
+              {myUploadedImages.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-2.5 mt-1">
+                  {myUploadedImages.map((img) => (
+                    <div
+                      key={img.id}
+                      className={`relative transition-all duration-300 ${
+                        fadingOutImageId === img.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100'
+                      }`}
+                    >
+                      <img
+                        src={img.url}
+                        alt=""
+                        className="w-20 h-20 rounded-2xl object-cover border-2 border-white/40 shadow-lg"
+                      />
+                      <button
+                        onClick={() => handleDeleteMyImage(img)}
+                        disabled={deletingImageId === img.id || fadingOutImageId === img.id}
+                        className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg disabled:opacity-50"
+                      >
+                        {deletingImageId === img.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* YouTube Video */}
@@ -617,107 +677,22 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
         onChange={handleFileSelect}
       />
 
-      {/* Floating Action Button (FAB) - Collapsible Controls */}
-      {galleryEnabled && (
-        <>
-          {/* Backdrop when expanded */}
-          {controlsExpanded && (
-            <div
-              className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
-              onClick={() => setControlsExpanded(false)}
-            />
-          )}
-
-          {/* Collapsible Controls Container */}
-          <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
-            {/* Expanded Controls */}
-            <div
-              className={`flex flex-col items-end gap-3 transition-all duration-300 origin-bottom-right ${
-                controlsExpanded
-                  ? 'opacity-100 scale-100 translate-y-0'
-                  : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
-              }`}
-            >
-              {/* My Uploaded Images Gallery */}
-              {myUploadedImages.length > 0 && (
-                <div className="flex gap-2 bg-black/60 backdrop-blur-sm rounded-2xl p-2">
-                  {myUploadedImages.map((img) => (
-                    <div
-                      key={img.id}
-                      className={`relative transition-all duration-300 ${
-                        fadingOutImageId === img.id ? 'opacity-0 scale-75' : 'opacity-100 scale-100'
-                      }`}
-                    >
-                      <img
-                        src={img.url}
-                        alt=""
-                        className="w-16 h-16 rounded-xl object-cover border-2 border-white/30"
-                      />
-                      <button
-                        onClick={() => handleDeleteMyImage(img)}
-                        disabled={deletingImageId === img.id || fadingOutImageId === img.id}
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg disabled:opacity-50"
-                      >
-                        {deletingImageId === img.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3 h-3" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Camera Button */}
-              <button
-                onClick={handleCameraClick}
-                disabled={uploading || !canUploadMore}
-                className="flex items-center gap-2 px-5 py-3 rounded-full bg-white shadow-lg hover:shadow-xl transition-all disabled:opacity-70"
-              >
-                {uploading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-600" />
-                ) : uploadStatus === 'success' ? (
-                  <Check className="w-5 h-5 text-green-500" />
-                ) : uploadStatus === 'error' ? (
-                  <AlertCircle className="w-5 h-5 text-red-500" />
-                ) : (
-                  <Camera className="w-5 h-5 text-gray-600" />
-                )}
-                <span className="text-sm font-medium text-gray-700">
-                  {uploading
-                    ? t.uploading
-                    : uploadStatus === 'success'
-                    ? t.uploaded
-                    : uploadStatus === 'error'
-                    ? t.error
-                    : !canUploadMore
-                    ? t.maxReached
-                    : t.takePhoto}
-                </span>
-              </button>
-            </div>
-
-            {/* Main FAB Toggle Button */}
-            <button
-              onClick={() => setControlsExpanded(!controlsExpanded)}
-              className={`w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center ${
-                controlsExpanded
-                  ? 'bg-slate-800 text-white rotate-45'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
-              }`}
-            >
-              {controlsExpanded ? (
-                <Plus className="w-7 h-7" />
-              ) : uploading ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
-              ) : (
-                <Camera className="w-6 h-6" />
-              )}
-            </button>
-          </div>
-        </>
+      {/* Selfie framing cropper (pinch / zoom / pan) */}
+      {cropperFile && (
+        <SquareImageCropper
+          file={cropperFile}
+          onCancel={() => setCropperFile(null)}
+          onConfirm={handleCropConfirm}
+          labels={{
+            title: t.cropTitle,
+            hint: t.cropHint,
+            confirm: t.cropConfirm,
+            cancel: t.cancel,
+            processing: t.cropProcessing,
+          }}
+        />
       )}
+
 
       {/* Name Input Modal */}
       {showNameModal && (
@@ -741,7 +716,7 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
               <button
                 onClick={() => {
                   setShowNameModal(false);
-                  setSelectedFile(null);
+                  setPendingBlob(null);
                 }}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
               >

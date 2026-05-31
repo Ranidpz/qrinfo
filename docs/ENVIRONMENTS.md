@@ -50,9 +50,9 @@ firebase use
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | `qrinfo-905c9` | `qrinfo-dev` | |
 | `NEXT_PUBLIC_FIREBASE_DATABASE_URL` | `qrinfo-905c9` | `qrinfo-dev` | |
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | `qrinfo-905c9` | `qrinfo-dev` | Service Account JSON |
-| `BLOB_READ_WRITE_TOKEN` | All Environments | | להשאיר עד שכל המדיה הישנה מ-Vercel Blob הועברה או נמחקה |
-| `PDF_STORAGE_PROVIDER` | `cloudflare-r2` אחרי חיבור R2 | `vercel-blob` עד בדיקה | מפעיל העלאות PDF חדשות ל-R2 בלבד |
-| `MEDIA_STORAGE_PROVIDER` | `vercel-blob` כרגע | `vercel-blob` כרגע | להחליף ל-R2 רק אחרי שמסיימים שאר המדיה |
+| `BLOB_READ_WRITE_TOKEN` | All Environments | All Environments | להשאיר עבור קריאה/מחיקה של מדיה ישנה מ-Vercel Blob |
+| `MEDIA_STORAGE_PROVIDER` | `cloudflare-r2` | `cloudflare-r2` אם Preview משתמש באותו R2, אחרת `vercel-blob` | שולט בכל העלאת מדיה חדשה דרך `src/lib/media-storage.ts` |
+| `PDF_STORAGE_PROVIDER` | `cloudflare-r2` | כמו Production או ריק | Override ל-PDF בלבד; אם ריק, PDF הולך לפי `MEDIA_STORAGE_PROVIDER` |
 | `CLOUDFLARE_R2_ACCOUNT_ID` | Production R2 | Dev R2/אותו באקט אם מאושר | |
 | `CLOUDFLARE_R2_ACCESS_KEY_ID` | Production R2 key | Dev R2 key | |
 | `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | Production R2 secret | Dev R2 secret | |
@@ -69,6 +69,11 @@ firebase use
 | `INFORU_WHATSAPP_TEMPLATE_HE` | All Environments | | אותו ערך |
 | `INFORU_WHATSAPP_TEMPLATE_EN` | All Environments | | אותו ערך |
 | `OTP_HASH_SALT` | All Environments | | אותו ערך |
+
+Notes:
+- `MEDIA_STORAGE_PROVIDER=cloudflare-r2` affects new uploads in `/api/upload`, `/api/gallery`, `/api/qvote/upload`, and `/api/avatar/upload`. It does not migrate existing Firestore records.
+- `PDF_STORAGE_PROVIDER` is optional and only overrides PDFs. Leave it aligned with `MEDIA_STORAGE_PROVIDER` unless testing a PDF-only rollback.
+- R2 metadata fields are `storageProvider`, `storageKey`, `storageBucket`, and `contentType`; see `docs/R2_STORAGE.md` before changing storage logic.
 
 ### איפה למצוא את הערכים
 

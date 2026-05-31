@@ -58,3 +58,9 @@ stress-test/results/
 .agent/
 .claude/skills/
 .cursor/skills/
+
+# Preview dev server build dir (separate instance)
+.next-preview/
+
+# git worktrees created by tooling (never commit)
+.claude/worktrees/
