@@ -57,9 +57,36 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
     }
   }, [codeId, token]);
 
+  // Load already-recorded winners from the server (owner-only). Survives a
+  // mid-event reload. Falls back silently to session-only if not the owner.
+  const fetchWinners = useCallback(async () => {
+    try {
+      const r = await fetchWithAuth(`/api/raffle/winners?codeId=${encodeURIComponent(codeId)}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      setSessionWinners(
+        (data.winners || []).map(
+          (w: { id: string; firstName: string; lastName: string; rank: number; wonAt?: number }) => ({
+            id: w.id,
+            firstName: w.firstName,
+            lastName: w.lastName,
+            phone: '',
+            rank: w.rank,
+            wonAt: w.wonAt || Date.now(),
+          })
+        )
+      );
+    } catch {
+      /* not the owner / offline — keep the local session list */
+    }
+  }, [codeId]);
+
   useEffect(() => {
-    if (authorized) fetchNames();
-  }, [authorized, fetchNames]);
+    if (authorized) {
+      fetchNames();
+      fetchWinners();
+    }
+  }, [authorized, fetchNames, fetchWinners]);
 
   const onRequestDraw = useCallback(async (): Promise<RaffleWinner | null> => {
     try {

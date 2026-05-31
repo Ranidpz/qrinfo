@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.14.1] - 2026-05-31
+
+### Changed
+- Raffle big-screen control drawer now loads already-recorded winners from the server on open (owner), so a mid-event page refresh no longer loses the visible winners list. Non-owners (token-only) keep the local session list unchanged.
+
+---
+
 ## [1.14.0] - 2026-05-31
 
 ### Added

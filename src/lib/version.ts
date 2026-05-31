@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.14.0';
+export const APP_VERSION = '1.14.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.14.0',
+    version: '1.14.1',
     date: '2026-05-31',
     isNew: true,
+    highlights: {
+      he: [
+        'שיפור: רשימת הזוכים במסך ההגרלה נטענת מהשרת — רענון באמצע אירוע כבר לא מאבד את הזוכים',
+      ],
+      en: [
+        'Improvement: The big-screen winners list now loads from the server — a mid-event refresh no longer loses winners',
+      ],
+    },
+  },
+  {
+    version: '1.14.0',
+    date: '2026-05-31',
+    isNew: false,
     highlights: {
       he: [
         'חדש: חוויית "הגרלה" — מסך ענק להגרלת שמות באירועים, עם גלגל מונפש וצלילים',
