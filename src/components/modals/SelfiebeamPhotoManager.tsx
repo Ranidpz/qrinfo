@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import {
   Search, Check, X, Trash2, Loader2, Plus, Image as ImageIcon, ShieldCheck, Clock, User, Pencil,
@@ -39,6 +40,39 @@ interface RawGalleryEntry {
 const PAGE = 60; // lazy-load page size — grid renders more as you scroll
 const ANON = ['אנונימי', 'Anonymous'];
 
+// Instant, styled tooltip (no browser-default `title` delay). Rendered via a portal to
+// <body> with fixed positioning so it's never clipped by the scrolling grid (overflow-hidden)
+// and always sits ABOVE the trigger, on either side of the modal. Position is measured on
+// hover from the trigger's bounding rect.
+function IconTip({ label, children }: { label: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
+
+  const show = () => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setTip({ x: r.left + r.width / 2, y: r.top }); // center-x, top edge of the trigger
+  };
+  const hide = () => setTip(null);
+
+  return (
+    <span ref={ref} className="inline-flex" onMouseEnter={show} onMouseLeave={hide} onClick={hide}>
+      {children}
+      {tip && typeof document !== 'undefined' && createPortal(
+        <span
+          className="pointer-events-none fixed z-[100] -translate-x-1/2 -translate-y-full mb-0 px-2 py-1 rounded-md bg-gray-900 text-white text-[11px] font-medium whitespace-nowrap shadow-lg border border-white/10"
+          style={{ left: tip.x, top: tip.y - 6 }}
+        >
+          {label}
+          <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-900" />
+        </span>,
+        document.body
+      )}
+    </span>
+  );
+}
+
 export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPhotoManagerProps) {
   const t = useTranslations('modals');
 
@@ -52,6 +86,11 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [busyBulk, setBusyBulk] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  // Drag-to-replace: a new file dropped onto an existing photo, awaiting confirm.
+  const [replaceTarget, setReplaceTarget] = useState<{ target: UserGalleryImage; file: File } | null>(null);
+  const [replacePreview, setReplacePreview] = useState<string>('');
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState(false);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
   const [lastBatch, setLastBatch] = useState<{ count: number; at: Date } | null>(null);
@@ -125,6 +164,11 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
     setDupeThumbs(urls);
     return () => { urls.forEach((u) => URL.revokeObjectURL(u)); };
   }, [pendingDupes]);
+
+  // Revoke the replace-preview object URL if the component unmounts mid-flow.
+  const replacePreviewRef = useRef('');
+  useEffect(() => { replacePreviewRef.current = replacePreview; }, [replacePreview]);
+  useEffect(() => () => { if (replacePreviewRef.current) URL.revokeObjectURL(replacePreviewRef.current); }, []);
 
   // Infinite scroll: load the next page when scrolled near the bottom of the grid.
   const onGridScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -299,6 +343,87 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
       console.error('Failed to delete image:', err);
     } finally {
       markBusy(img.id, false);
+    }
+  };
+
+  // --- Drag-to-replace: drop a new image on an existing photo to swap it in place. ---
+  // Opens a confirm modal; on confirm we upload the new file, swap it into the SAME gallery
+  // slot (preserving position + pinned state), then delete the old object from storage and
+  // reconcile the owner's quota. The new file inherits the old one's pinned flag.
+  const openReplace = (target: UserGalleryImage, file: File) => {
+    if (replacePreview) URL.revokeObjectURL(replacePreview);
+    setReplacePreview(URL.createObjectURL(file));
+    setReplaceTarget({ target, file });
+  };
+
+  const cancelReplace = () => {
+    if (replacePreview) URL.revokeObjectURL(replacePreview);
+    setReplacePreview('');
+    setReplaceTarget(null);
+  };
+
+  const confirmReplace = async () => {
+    if (!replaceTarget) return;
+    const { target, file } = replaceTarget;
+    setReplacing(true);
+    markBusy(target.id, true);
+    try {
+      // 1) Upload the replacement through the same path as a normal admin add.
+      const fileHash = await hashFile(file);
+      const blob = await cropImageToSquareWebp(file, { size: 1000, quality: 0.82 });
+      const fd = new FormData();
+      fd.append('file', blob, `replace_${Date.now()}.webp`);
+      fd.append('codeId', codeId);
+      fd.append('ownerId', ownerId);
+      fd.append('uploaderName', '');
+      const res = await fetch('/api/gallery', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(`Replace upload failed: ${res.status}`);
+      const data = (await res.json()) as { image?: RawGalleryEntry };
+      const up = data.image;
+      if (!up) throw new Error('Replace upload returned no image');
+
+      // 2) Swap the new entry into the old one's slot (keep position + pinned + name).
+      const ref = doc(db, 'codes', codeId);
+      const snap = await getDoc(ref);
+      const gallery = (snap.data()?.userGallery || []) as RawGalleryEntry[];
+      const oldEntry = gallery.find((g) => g.id === target.id);
+      const newEntry: RawGalleryEntry = {
+        id: up.id,
+        url: up.url,
+        ...(up.size ? { size: up.size } : {}),
+        ...(up.storageProvider ? { storageProvider: up.storageProvider } : {}),
+        ...(up.storageKey ? { storageKey: up.storageKey } : {}),
+        ...(up.storageBucket ? { storageBucket: up.storageBucket } : {}),
+        ...(up.contentType ? { contentType: up.contentType } : {}),
+        uploaderName: oldEntry?.uploaderName || 'אנונימי',
+        approved: true,
+        source: 'admin',
+        fileHash,
+        ...(oldEntry?.pinned ? { pinned: true } : {}),
+        uploadedAt: Timestamp.now(),
+      };
+      await updateDoc(ref, {
+        userGallery: gallery.map((g) => (g.id === target.id ? newEntry : g)),
+      });
+
+      // 3) Delete the old object from storage and reconcile quota (added new, removed old).
+      if (target.url) {
+        await fetch('/api/gallery', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: target.url, codeId }),
+        }).catch(() => {});
+      }
+      const delta = (up.size || 0) - (oldEntry?.size || 0);
+      if (delta !== 0) {
+        await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(delta) }).catch(() => {});
+      }
+      cancelReplace();
+    } catch (err) {
+      console.error('Failed to replace image:', err);
+    } finally {
+      markBusy(target.id, false);
+      setReplacing(false);
     }
   };
 
@@ -612,6 +737,14 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
         </p>
       )}
 
+      {/* Hint: dragging a file onto a single photo swaps it (only shown when there are photos). */}
+      {visible.length > 0 && (
+        <p className="text-xs text-text-secondary flex items-center gap-1.5">
+          <ImageIcon className="w-3.5 h-3.5 shrink-0 text-accent" />
+          {t('selfiebeamReplaceTip')}
+        </p>
+      )}
+
       {/* Grid */}
       {visible.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
@@ -627,12 +760,22 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
             const isSelected = selectedIds.has(img.id);
             const isEditing = editingNameId === img.id;
             const showName = img.uploaderName && !ANON.includes(img.uploaderName);
+            const isDragOver = dragOverId === img.id;
             return (
               <div
                 key={img.id}
                 onClick={(e) => !isEditing && handleSelectClick(index, e.shiftKey)}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverId(img.id); }}
+                onDragLeave={(e) => { e.preventDefault(); if (dragOverId === img.id) setDragOverId(null); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDragOverId(null);
+                  const f = Array.from(e.dataTransfer.files).find((file) => file.type.startsWith('image/'));
+                  if (f) openReplace(img, f);
+                }}
                 className={`relative aspect-square rounded-lg overflow-hidden bg-bg-secondary group cursor-pointer select-none ${
-                  isSelected ? 'ring-2 ring-accent' : isPending ? 'ring-2 ring-amber-500' : ''
+                  isDragOver ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg-card' : isSelected ? 'ring-2 ring-accent' : isPending ? 'ring-2 ring-amber-500' : ''
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -693,35 +836,56 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                   </span>
                 )}
 
-                {/* Hover overlay — single-item actions. The overlay background does NOT stop
-                    propagation, so clicking it toggles selection; only the buttons stop it. */}
+                {/* Drag-over hint — when a file is dragged onto this photo, show "drop to replace". */}
+                {isDragOver && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 bg-accent/40 backdrop-blur-[1px] pointer-events-none">
+                    <ImageIcon className="w-6 h-6 text-white" />
+                    <span className="text-[11px] font-bold text-white px-1.5 text-center">{t('selfiebeamReplaceHint')}</span>
+                  </div>
+                )}
+
+                {/* Hover toolbar — a compact panel pinned to the bottom edge so it never covers
+                    or crops the photo. pointer-events only on hover, so the invisible bar doesn't
+                    swallow card-selection clicks; the buttons themselves stopPropagation. */}
                 {!isEditing && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center gap-1.5 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-around gap-0.5 px-1 py-1 bg-gradient-to-t from-black/90 via-black/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
                     {isBusy ? (
-                      <Loader2 className="w-5 h-5 text-white animate-spin" />
+                      <Loader2 className="w-4 h-4 my-0.5 text-white animate-spin" />
                     ) : (
                       <>
                         {isPending ? (
-                          <button onClick={(e) => { e.stopPropagation(); setApproval(img.id, true); }} title={t('selfiebeamPhotoApprove')} className="p-1.5 rounded-full bg-green-500 text-white hover:bg-green-600">
-                            <Check className="w-4 h-4" />
-                          </button>
+                          <IconTip label={t('selfiebeamTipApprove')}>
+                            <button onClick={(e) => { e.stopPropagation(); setApproval(img.id, true); }} className="p-1 rounded-md bg-green-500 text-white hover:bg-green-600">
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                          </IconTip>
                         ) : (
-                          <button onClick={(e) => { e.stopPropagation(); setApproval(img.id, false); }} title={t('selfiebeamPhotoReject')} className="p-1.5 rounded-full bg-amber-500 text-white hover:bg-amber-600">
-                            <Clock className="w-4 h-4" />
-                          </button>
+                          <IconTip label={t('selfiebeamTipReject')}>
+                            <button onClick={(e) => { e.stopPropagation(); setApproval(img.id, false); }} className="p-1 rounded-md bg-amber-500 text-white hover:bg-amber-600">
+                              <Clock className="w-3.5 h-3.5" />
+                            </button>
+                          </IconTip>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); startEditName(img); }} title={t('selfiebeamEditName')} className="p-1.5 rounded-full bg-white/20 text-white hover:bg-white/30">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); boostImages([img.id]); }} title={t('selfiebeamBoost')} className="p-1.5 rounded-full bg-accent text-white hover:opacity-90">
-                          <ArrowUp className="w-4 h-4" />
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); setPinned([img.id], !isPinned); }} title={isPinned ? t('selfiebeamUnpin') : t('selfiebeamPin')} className="p-1.5 rounded-full bg-sky-500 text-white hover:bg-sky-600">
-                          {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); deleteImage(img); }} title={t('selfiebeamPhotoDelete')} className="p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <IconTip label={t('selfiebeamTipEdit')}>
+                          <button onClick={(e) => { e.stopPropagation(); startEditName(img); }} className="p-1 rounded-md bg-white/25 text-white hover:bg-white/40">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </IconTip>
+                        <IconTip label={t('selfiebeamTipBoost')}>
+                          <button onClick={(e) => { e.stopPropagation(); boostImages([img.id]); }} className="p-1 rounded-md bg-accent text-white hover:opacity-90">
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                        </IconTip>
+                        <IconTip label={isPinned ? t('selfiebeamTipUnpin') : t('selfiebeamTipPin')}>
+                          <button onClick={(e) => { e.stopPropagation(); setPinned([img.id], !isPinned); }} className="p-1 rounded-md bg-sky-500 text-white hover:bg-sky-600">
+                            {isPinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+                          </button>
+                        </IconTip>
+                        <IconTip label={t('selfiebeamTipDelete')}>
+                          <button onClick={(e) => { e.stopPropagation(); deleteImage(img); }} className="p-1 rounded-md bg-red-500 text-white hover:bg-red-600">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </IconTip>
                       </>
                     )}
                   </div>
@@ -769,6 +933,56 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                 className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
               >
                 {t('selfiebeamBulkDelete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drag-to-replace confirmation — shows old → new previews; confirm swaps in place
+          and permanently deletes the old file from storage. */}
+      {replaceTarget && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !replacing && cancelReplace()}
+        >
+          <div
+            className="bg-bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-text-primary">{t('selfiebeamReplaceTitle')}</h3>
+              <p className="text-sm text-text-secondary mt-1">{t('selfiebeamReplaceWarning')}</p>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <div className="text-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={replaceTarget.target.url} alt="" className="w-24 h-24 rounded-lg object-cover border border-border opacity-60" />
+                <span className="text-[11px] text-text-secondary mt-1 block">{t('selfiebeamReplaceOld')}</span>
+              </div>
+              <ArrowUp className="w-5 h-5 text-accent rotate-90 rtl:-rotate-90 shrink-0" />
+              <div className="text-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={replacePreview} alt="" className="w-24 h-24 rounded-lg object-cover border-2 border-accent" />
+                <span className="text-[11px] text-accent font-medium mt-1 block">{t('selfiebeamReplaceNew')}</span>
+              </div>
+            </div>
+            <p className="text-xs text-text-secondary text-center">{t('selfiebeamCannotUndo')}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={cancelReplace}
+                disabled={replacing}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-bg-secondary text-text-primary hover:opacity-90 transition-colors disabled:opacity-50"
+              >
+                {t('selfiebeamCancel')}
+              </button>
+              <button
+                onClick={confirmReplace}
+                disabled={replacing}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-accent text-white hover:opacity-90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {replacing && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t('selfiebeamReplaceConfirm')}
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.14.3';
+export const APP_VERSION = '1.14.4';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.14.3',
+    version: '1.14.4',
     date: '2026-06-01',
     isNew: true,
+    highlights: {
+      he: [
+        'סלפי בים: כפתורי הפעולה על כל תמונה אורגנו לפאנל קומפקטי בתחתית, עם הסברים ברורים בריחוף',
+        'סלפי בים: גרירת תמונה מעל תמונה קיימת מחליפה אותה — עם אישור, והתמונה הישנה נמחקת מהאחסון',
+      ],
+      en: [
+        'Selfie Beam: per-photo action buttons reorganized into a compact bottom panel with clear hover hints',
+        'Selfie Beam: drag a photo onto an existing one to replace it — with confirmation, and the old photo is removed from storage',
+      ],
+    },
+  },
+  {
+    version: '1.14.3',
+    date: '2026-06-01',
     highlights: {
       he: [
         'סלפי בים: זיהוי כפילויות אוטומטי בגרירת תמונות — מעלה רק חדשות (לפי תוכן הקובץ), עם תצוגה מקדימה ואפשרות "העלה בכל זאת"',
