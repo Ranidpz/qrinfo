@@ -20,6 +20,7 @@ const SB_DEFAULTS: GallerySettings = {
   showNewBadge: false,
   displaySpeed: 4.5,
   featureNewPhotos: false,
+  minPinnedOnScreen: 1,
 };
 
 interface Props {
@@ -171,6 +172,25 @@ export default function SelfiebeamBeamSettings({ codeId }: Props) {
       <Toggle label={t('selfiebeamShowNames')} value={settings.showNames ?? false} onChange={(v) => update({ showNames: v })} />
       <Toggle label={t('selfiebeamShowNew')} value={settings.showNewBadge ?? false} onChange={(v) => update({ showNewBadge: v })} />
       <Toggle label={t('selfiebeamFeatureNew')} value={settings.featureNewPhotos ?? false} onChange={(v) => update({ featureNewPhotos: v })} />
+
+      {/* Pinned photos always on screen (e.g. event logos) */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-text-secondary">{t('selfiebeamMinPinned')}</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={5}
+              value={settings.minPinnedOnScreen ?? 1}
+              onChange={(e) => update({ minPinnedOnScreen: Number(e.target.value) })}
+              className="w-28 h-2 bg-border rounded-lg appearance-none cursor-pointer accent-accent"
+            />
+            <span className="text-sm text-text-primary w-4 text-center">{settings.minPinnedOnScreen ?? 1}</span>
+          </div>
+        </div>
+        <p className="text-xs text-text-secondary">{t('selfiebeamMinPinnedDesc')}</p>
+      </div>
 
       <p className="text-xs text-text-secondary flex items-center gap-1.5 pt-1">
         <Sparkles className="w-3.5 h-3.5 text-accent" />

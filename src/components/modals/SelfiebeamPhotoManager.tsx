@@ -4,11 +4,13 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Search, Check, X, Trash2, Loader2, Plus, Image as ImageIcon, ShieldCheck, Clock, User, Pencil,
+  Pin, PinOff, ArrowUp, AlertTriangle,
 } from 'lucide-react';
 import { onSnapshot, doc, getDoc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { uploadQueue } from '@/lib/uploadQueue';
 import { cropImageToSquareWebp } from '@/lib/imageCrop';
+import { hashFile } from '@/lib/imageHash';
 import { UserGalleryImage } from '@/types';
 
 interface SelfiebeamPhotoManagerProps {
@@ -30,6 +32,8 @@ interface RawGalleryEntry {
   uploadedAt: unknown;
   approved?: boolean;
   source?: 'admin' | 'participant';
+  fileHash?: string;
+  pinned?: boolean;
 }
 
 const PAGE = 60; // lazy-load page size — grid renders more as you scroll
@@ -47,9 +51,13 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
   const [approvingAll, setApprovingAll] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [busyBulk, setBusyBulk] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
   const [lastBatch, setLastBatch] = useState<{ count: number; at: Date } | null>(null);
+  const [pendingDupes, setPendingDupes] = useState<File[] | null>(null);
+  const [dupeThumbs, setDupeThumbs] = useState<string[]>([]);
+  const [skipInfo, setSkipInfo] = useState<{ uploaded: number; skipped: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Live subscription to the code's gallery pool.
@@ -68,6 +76,8 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
         uploaderName: img.uploaderName,
         approved: img.approved,
         source: img.source,
+        fileHash: img.fileHash,
+        pinned: img.pinned,
         uploadedAt:
           img.uploadedAt && typeof (img.uploadedAt as { toDate?: () => Date }).toDate === 'function'
             ? (img.uploadedAt as { toDate: () => Date }).toDate()
@@ -103,6 +113,19 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
   // Reset the window when the filter/search changes.
   useEffect(() => { setRenderLimit(PAGE); }, [filter, search]);
 
+  // Build small previews for the duplicates banner (first 6 only). The files are already in
+  // memory, so object URLs are instant and free — just remember to revoke them on cleanup.
+  const DUPE_THUMB_MAX = 6;
+  useEffect(() => {
+    if (!pendingDupes || pendingDupes.length === 0) {
+      setDupeThumbs([]);
+      return;
+    }
+    const urls = pendingDupes.slice(0, DUPE_THUMB_MAX).map((f) => URL.createObjectURL(f));
+    setDupeThumbs(urls);
+    return () => { urls.forEach((u) => URL.revokeObjectURL(u)); };
+  }, [pendingDupes]);
+
   // Infinite scroll: load the next page when scrolled near the bottom of the grid.
   const onGridScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -112,64 +135,101 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
   };
 
   // --- Bulk upload (admin seed → approved, source 'admin') ---
+  // Dedup key is the SHA-256 of the ORIGINAL file bytes (see lib/imageHash). Same content ⇒
+  // skipped even if renamed; a different image that happens to share a name still uploads.
+  // `allowDuplicates` is the "upload anyway" override path.
   const handleFiles = useCallback(
-    async (fileList: FileList | File[]) => {
+    async (fileList: FileList | File[], allowDuplicates = false) => {
       const files = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
       if (files.length === 0) return;
 
       setUploading({ done: 0, total: files.length });
+      setSkipInfo(null);
       try {
-        const items = await Promise.all(
-          files.map(async (file, i) => {
-            const blob = await cropImageToSquareWebp(file, { size: 1000, quality: 0.82 });
-            const fd = new FormData();
-            fd.append('file', blob, `seed_${Date.now()}_${i}.webp`);
-            fd.append('codeId', codeId);
-            fd.append('ownerId', ownerId);
-            fd.append('uploaderName', '');
-            return { formData: fd, label: file.name };
-          })
+        // 1) Hash original bytes, then split into new vs already-seen (existing pool + this batch).
+        const hashes = await Promise.all(files.map((f) => hashFile(f)));
+        const existing = new Set(
+          images.map((i) => i.fileHash).filter((h): h is string => !!h)
         );
-
-        const result = await uploadQueue.uploadBatch(items, '/api/gallery', (p) =>
-          setUploading({ done: p.completed + p.failed, total: p.total })
-        );
-
-        let totalSize = 0;
-        const entries = result.successful
-          .map(({ data }) => (data as { image?: RawGalleryEntry }).image)
-          .filter((img): img is RawGalleryEntry => !!img)
-          .map((img) => {
-            totalSize += img.size || 0;
-            return {
-              id: img.id,
-              url: img.url,
-              ...(img.size ? { size: img.size } : {}),
-              ...(img.storageProvider ? { storageProvider: img.storageProvider } : {}),
-              ...(img.storageKey ? { storageKey: img.storageKey } : {}),
-              ...(img.storageBucket ? { storageBucket: img.storageBucket } : {}),
-              ...(img.contentType ? { contentType: img.contentType } : {}),
-              uploaderName: 'אנונימי',
-              approved: true,
-              source: 'admin' as const,
-              uploadedAt: Timestamp.now(),
-            };
-          });
-
-        if (entries.length > 0) {
-          await updateDoc(doc(db, 'codes', codeId), { userGallery: arrayUnion(...entries) });
-          if (totalSize > 0) {
-            await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(totalSize) });
+        const batchSeen = new Set<string>();
+        const newFiles: File[] = [];
+        const newHashes: string[] = [];
+        const dupes: File[] = [];
+        files.forEach((file, i) => {
+          const h = hashes[i];
+          if (!allowDuplicates && (existing.has(h) || batchSeen.has(h))) {
+            dupes.push(file);
+            return;
           }
-          setLastBatch({ count: entries.length, at: new Date() });
+          batchSeen.add(h);
+          newFiles.push(file);
+          newHashes.push(h);
+        });
+
+        // 2) Upload only the new ones. `successful` carries each item's original index,
+        //    so we can attach the right fileHash back to each entry.
+        let uploadedCount = 0;
+        if (newFiles.length > 0) {
+          setUploading({ done: 0, total: newFiles.length });
+          const items = await Promise.all(
+            newFiles.map(async (file, i) => {
+              const blob = await cropImageToSquareWebp(file, { size: 1000, quality: 0.82 });
+              const fd = new FormData();
+              fd.append('file', blob, `seed_${Date.now()}_${i}.webp`);
+              fd.append('codeId', codeId);
+              fd.append('ownerId', ownerId);
+              fd.append('uploaderName', '');
+              return { formData: fd, label: file.name };
+            })
+          );
+
+          const result = await uploadQueue.uploadBatch(items, '/api/gallery', (p) =>
+            setUploading({ done: p.completed + p.failed, total: p.total })
+          );
+
+          let totalSize = 0;
+          const entries = result.successful
+            .map(({ index, data }) => {
+              const img = (data as { image?: RawGalleryEntry }).image;
+              if (!img) return null;
+              totalSize += img.size || 0;
+              return {
+                id: img.id,
+                url: img.url,
+                ...(img.size ? { size: img.size } : {}),
+                ...(img.storageProvider ? { storageProvider: img.storageProvider } : {}),
+                ...(img.storageKey ? { storageKey: img.storageKey } : {}),
+                ...(img.storageBucket ? { storageBucket: img.storageBucket } : {}),
+                ...(img.contentType ? { contentType: img.contentType } : {}),
+                uploaderName: 'אנונימי',
+                approved: true,
+                source: 'admin' as const,
+                fileHash: newHashes[index],
+                uploadedAt: Timestamp.now(),
+              };
+            })
+            .filter((e): e is NonNullable<typeof e> => !!e);
+
+          if (entries.length > 0) {
+            await updateDoc(doc(db, 'codes', codeId), { userGallery: arrayUnion(...entries) });
+            if (totalSize > 0) {
+              await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(totalSize) });
+            }
+            uploadedCount = entries.length;
+            setLastBatch({ count: entries.length, at: new Date() });
+          }
         }
+
+        // 3) Surface duplicates so the operator can skip (default) or "upload anyway".
+        setPendingDupes(dupes.length > 0 ? dupes : null);
+        setSkipInfo({ uploaded: uploadedCount, skipped: dupes.length });
       } catch (err) {
         console.error('Beam photo upload failed:', err);
       } finally {
         setUploading(null);
       }
     },
-    [codeId, ownerId]
+    [codeId, ownerId, images]
   );
 
   const markBusy = (id: string, busy: boolean) =>
@@ -209,6 +269,18 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
     }
   };
 
+  // Reclaim a user's storage quota after deletes. Admin-seed entries carry `size`; older
+  // rows without it contribute 0. Guard against ever pushing storageUsed below zero.
+  const reclaimStorage = async (entries: RawGalleryEntry[]) => {
+    const freed = entries.reduce((sum, e) => sum + (e.size || 0), 0);
+    if (freed <= 0) return;
+    try {
+      await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(-freed) });
+    } catch (err) {
+      console.error('Failed to reclaim storage:', err);
+    }
+  };
+
   const deleteImage = async (img: UserGalleryImage) => {
     markBusy(img.id, true);
     try {
@@ -220,11 +292,46 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
       const ref = doc(db, 'codes', codeId);
       const snap = await getDoc(ref);
       const gallery = (snap.data()?.userGallery || []) as RawGalleryEntry[];
+      const removed = gallery.filter((g) => g.id === img.id);
       await updateDoc(ref, { userGallery: gallery.filter((g) => g.id !== img.id) });
+      await reclaimStorage(removed);
     } catch (err) {
       console.error('Failed to delete image:', err);
     } finally {
       markBusy(img.id, false);
+    }
+  };
+
+  // --- Boost: re-surface old photos by bumping uploadedAt to now (no re-upload, no duplicate). ---
+  const boostImages = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    try {
+      const ref = doc(db, 'codes', codeId);
+      const snap = await getDoc(ref);
+      const gallery = (snap.data()?.userGallery || []) as RawGalleryEntry[];
+      const now = Timestamp.now();
+      await updateDoc(ref, {
+        userGallery: gallery.map((g) => (idSet.has(g.id) ? { ...g, uploadedAt: now } : g)),
+      });
+    } catch (err) {
+      console.error('Failed to boost images:', err);
+    }
+  };
+
+  // --- Pin: keep an image always present on the beam (like a logo). ---
+  const setPinned = async (ids: string[], pinned: boolean) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    try {
+      const ref = doc(db, 'codes', codeId);
+      const snap = await getDoc(ref);
+      const gallery = (snap.data()?.userGallery || []) as RawGalleryEntry[];
+      await updateDoc(ref, {
+        userGallery: gallery.map((g) => (idSet.has(g.id) ? { ...g, pinned } : g)),
+      });
+    } catch (err) {
+      console.error('Failed to update pin:', err);
     }
   };
 
@@ -300,6 +407,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
   const bulkDelete = async () => {
     if (selectedIds.size === 0) return;
     setBusyBulk(true);
+    setShowBulkDeleteConfirm(false);
     try {
       const toDelete = images.filter((i) => selectedIds.has(i.id));
       await Promise.all(
@@ -314,7 +422,9 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
       const ref = doc(db, 'codes', codeId);
       const snap = await getDoc(ref);
       const gallery = (snap.data()?.userGallery || []) as RawGalleryEntry[];
+      const removed = gallery.filter((g) => selectedIds.has(g.id));
       await updateDoc(ref, { userGallery: gallery.filter((g) => !selectedIds.has(g.id)) });
+      await reclaimStorage(removed);
       clearSelection();
     } catch (err) {
       console.error('Bulk delete failed:', err);
@@ -330,6 +440,8 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
   ];
 
   const selectionMode = selectedIds.size > 0;
+  const selectedAllPinned =
+    selectionMode && images.filter((i) => selectedIds.has(i.id)).every((i) => i.pinned);
 
   return (
     <div className="space-y-4">
@@ -364,6 +476,49 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
         onChange={(e) => { if (e.target.files) handleFiles(e.target.files); e.target.value = ''; }}
       />
 
+      {/* Storage ceiling warning — userGallery is one Firestore doc (~3-4k entries max). */}
+      {images.length >= 2500 && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 text-sm">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>{t('selfiebeamCeilingWarning', { count: images.length })}</span>
+        </div>
+      )}
+
+      {/* Dedup result + "upload anyway" override for the photos detected as already present. */}
+      {skipInfo && (skipInfo.uploaded > 0 || skipInfo.skipped > 0) && (
+        <p className="text-xs text-text-secondary flex items-center gap-1.5">
+          <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+          {t('selfiebeamDedupResult', { uploaded: skipInfo.uploaded, skipped: skipInfo.skipped })}
+        </p>
+      )}
+      {pendingDupes && pendingDupes.length > 0 && (
+        <div className="flex flex-col gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-sm text-text-primary">{t('selfiebeamDupesFound', { count: pendingDupes.length })}</span>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setPendingDupes(null)} className="px-2.5 py-1.5 rounded-md bg-bg-secondary text-text-secondary hover:text-text-primary text-sm font-medium">
+                {t('selfiebeamDupesSkip')}
+              </button>
+              <button onClick={() => { const d = pendingDupes; setPendingDupes(null); handleFiles(d, true); }} className="px-2.5 py-1.5 rounded-md bg-accent/15 text-accent hover:bg-accent/25 text-sm font-medium">
+                {t('selfiebeamDupesUploadAnyway')}
+              </button>
+            </div>
+          </div>
+          {/* Small previews so you know WHICH photos before choosing "upload anyway". */}
+          {dupeThumbs.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              {dupeThumbs.map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={url} alt="" className="w-10 h-10 rounded object-cover border border-amber-500/30" />
+              ))}
+              {pendingDupes.length > dupeThumbs.length && (
+                <span className="text-xs text-text-secondary ms-0.5">{t('selfiebeamDupesMore', { count: pendingDupes.length - dupeThumbs.length })}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Toolbar: search + filter, OR bulk-action bar when items are selected */}
       {selectionMode ? (
         <div className="flex items-center justify-between gap-2 flex-wrap bg-accent/10 border border-accent/30 rounded-lg px-3 py-2">
@@ -380,7 +535,22 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
             <button onClick={() => bulkSetApproval(false)} disabled={busyBulk} className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-amber-500/15 text-amber-500 hover:bg-amber-500/25 text-sm font-medium disabled:opacity-50">
               <Clock className="w-4 h-4" />{t('selfiebeamBulkUnapprove')}
             </button>
-            <button onClick={bulkDelete} disabled={busyBulk} className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-500/15 text-red-500 hover:bg-red-500/25 text-sm font-medium disabled:opacity-50">
+            <button
+              onClick={async () => { setBusyBulk(true); try { await boostImages([...selectedIds]); clearSelection(); } finally { setBusyBulk(false); } }}
+              disabled={busyBulk}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-accent/15 text-accent hover:bg-accent/25 text-sm font-medium disabled:opacity-50"
+            >
+              <ArrowUp className="w-4 h-4" />{t('selfiebeamBulkBoost')}
+            </button>
+            <button
+              onClick={async () => { setBusyBulk(true); try { await setPinned([...selectedIds], !selectedAllPinned); clearSelection(); } finally { setBusyBulk(false); } }}
+              disabled={busyBulk}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-sky-500/15 text-sky-500 hover:bg-sky-500/25 text-sm font-medium disabled:opacity-50"
+            >
+              {selectedAllPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+              {selectedAllPinned ? t('selfiebeamBulkUnpin') : t('selfiebeamBulkPin')}
+            </button>
+            <button onClick={() => setShowBulkDeleteConfirm(true)} disabled={busyBulk} className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-red-500/15 text-red-500 hover:bg-red-500/25 text-sm font-medium disabled:opacity-50">
               <Trash2 className="w-4 h-4" />{t('selfiebeamBulkDelete')}
             </button>
           </div>
@@ -452,6 +622,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
         <div onScroll={onGridScroll} className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-[52vh] overflow-y-auto pe-1">
           {visible.map((img, index) => {
             const isPending = img.approved === false;
+            const isPinned = img.pinned;
             const isBusy = busyIds.has(img.id);
             const isSelected = selectedIds.has(img.id);
             const isEditing = editingNameId === img.id;
@@ -488,6 +659,13 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                 {isPending && (
                   <span className="absolute top-1 end-1 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold">
                     <Clock className="w-2.5 h-2.5" />{t('selfiebeamPhotoPending')}
+                  </span>
+                )}
+
+                {/* Pinned badge (top-end) — shown for approved pinned photos */}
+                {isPinned && !isPending && (
+                  <span className="absolute top-1 end-1 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-sky-500 text-white text-[9px] font-bold">
+                    <Pin className="w-2.5 h-2.5" />{t('selfiebeamPinnedBadge')}
                   </span>
                 )}
 
@@ -535,6 +713,12 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                         <button onClick={(e) => { e.stopPropagation(); startEditName(img); }} title={t('selfiebeamEditName')} className="p-1.5 rounded-full bg-white/20 text-white hover:bg-white/30">
                           <Pencil className="w-4 h-4" />
                         </button>
+                        <button onClick={(e) => { e.stopPropagation(); boostImages([img.id]); }} title={t('selfiebeamBoost')} className="p-1.5 rounded-full bg-accent text-white hover:opacity-90">
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setPinned([img.id], !isPinned); }} title={isPinned ? t('selfiebeamUnpin') : t('selfiebeamPin')} className="p-1.5 rounded-full bg-sky-500 text-white hover:bg-sky-600">
+                          {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                        </button>
                         <button onClick={(e) => { e.stopPropagation(); deleteImage(img); }} title={t('selfiebeamPhotoDelete')} className="p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -550,6 +734,45 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
 
       {filtered.length > visible.length && (
         <p className="text-xs text-text-secondary text-center">{t('selfiebeamPhotoCount', { shown: visible.length, count: filtered.length })}</p>
+      )}
+
+      {/* Bulk-delete confirmation — explicit modal, matching the delete-all dialog on the beam. */}
+      {showBulkDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowBulkDeleteConfirm(false)}
+        >
+          <div
+            className="bg-bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-text-primary">{t('selfiebeamBulkDeleteTitle')}</h3>
+              <p className="text-sm text-text-secondary mt-2">
+                {t('selfiebeamBulkDeleteWarning', { count: selectedIds.size })}
+                <br />
+                {t('selfiebeamCannotUndo')}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-bg-secondary text-text-primary hover:opacity-90 transition-colors"
+              >
+                {t('selfiebeamCancel')}
+              </button>
+              <button
+                onClick={bulkDelete}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+              >
+                {t('selfiebeamBulkDelete')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

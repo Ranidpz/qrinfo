@@ -64,3 +64,6 @@ stress-test/results/
 
 # git worktrees created by tooling (never commit)
 .claude/worktrees/
+
+# scheduled tasks runtime lock (never commit)
+.claude/scheduled_tasks.lock

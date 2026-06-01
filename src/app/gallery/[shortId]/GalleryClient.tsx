@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { UserGalleryImage, GallerySettings, GalleryDisplayMode } from '@/types';
 import { X, Trash2, Settings, Loader2, ImageIcon, Play, Shuffle } from 'lucide-react';
-import { onSnapshot, doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
+import { onSnapshot, doc, updateDoc, Timestamp, getDoc, increment } from 'firebase/firestore';
 import { getBrowserLocale, galleryTranslations } from '@/lib/publicTranslations';
 
 // Styled tooltip component that appears immediately on hover
@@ -83,8 +83,8 @@ const SELFIEBEAM_DEFAULTS: Partial<GallerySettings> = {
 // A diagonal red "NEW" ribbon across the top-right corner of a cell (first-appearance photos).
 function NewRibbon() {
   return (
-    <div className="absolute top-0 right-0 w-[70px] h-[70px] overflow-hidden z-30 pointer-events-none">
-      <div className="absolute top-[14px] right-[-22px] w-[96px] rotate-45 bg-red-500 text-white text-[11px] font-extrabold tracking-widest text-center py-[3px] shadow-md">
+    <div className="absolute top-0 right-0 w-[92px] h-[92px] overflow-hidden z-30 pointer-events-none">
+      <div className="absolute top-[20px] right-[-28px] w-[128px] rotate-45 bg-red-500 text-white text-[14px] font-extrabold tracking-widest text-center py-1 shadow-md">
         NEW
       </div>
     </div>
@@ -141,6 +141,7 @@ export default function GalleryClient({
   const [showNewBadge, setShowNewBadge] = useState(settings.showNewBadge ?? false);
   const [displaySpeed, setDisplaySpeed] = useState(settings.displaySpeed ?? 4.5);
   const [featureNewPhotos, setFeatureNewPhotos] = useState(settings.featureNewPhotos ?? false);
+  const [minPinnedOnScreen, setMinPinnedOnScreen] = useState(settings.minPinnedOnScreen ?? 1);
   // Ctrl-hint: show once until the owner dismisses it, then never again (persisted).
   const [showHint, setShowHint] = useState(false);
   useEffect(() => {
@@ -256,10 +257,13 @@ export default function GalleryClient({
   const newQueueRef = useRef<string[]>([]); // freshly-uploaded image ids to show first
   const lastSlotRef = useRef<number>(-1); // last slot changed (avoid immediate repeat)
   const preloadedRef = useRef<Set<string>>(new Set()); // urls already warmed into cache
+  const pinnedIdsRef = useRef<Set<string>>(new Set()); // fast lookup of pinned image ids
+  const pinRotationRef = useRef(0); // fair rotation pointer through pinned images
 
   // "Feature new photos" effect: a new photo pops up big, then falls into the grid.
   const featureQueueRef = useRef<string[]>([]);
   const featuringRef = useRef(false);
+  const featuringIdRef = useRef<string | null>(null); // id currently mid-reveal (keep it out of the grid)
   const [featured, setFeatured] = useState<{ image: UserGalleryImage; phase: 'enter' | 'hold' | 'fly' } | null>(null);
 
   // Track loaded images to hide spinners - use ref to persist across re-renders
@@ -321,6 +325,7 @@ export default function GalleryClient({
         uploaderName: string;
         uploadedAt: { toDate?: () => Date } | Date;
         approved?: boolean;
+        pinned?: boolean;
       }>;
 
       const newImages: UserGalleryImage[] = gallery
@@ -331,6 +336,7 @@ export default function GalleryClient({
           id: img.id,
           url: img.url,
           uploaderName: img.uploaderName,
+          pinned: img.pinned,
           uploadedAt: img.uploadedAt && typeof (img.uploadedAt as { toDate?: () => Date }).toDate === 'function'
             ? (img.uploadedAt as { toDate: () => Date }).toDate()
             : new Date(img.uploadedAt as unknown as string),
@@ -406,6 +412,7 @@ export default function GalleryClient({
           setShowNewBadge(fbSettings.showNewBadge ?? DEFAULT_SETTINGS.showNewBadge ?? false);
           setDisplaySpeed(fbSettings.displaySpeed ?? experienceDefaults.displaySpeed ?? 4.5);
           setFeatureNewPhotos(fbSettings.featureNewPhotos ?? false);
+          setMinPinnedOnScreen(fbSettings.minPinnedOnScreen ?? 1);
           settingsLoadedRef.current = true;
         }
       }
@@ -429,12 +436,16 @@ export default function GalleryClient({
     const pool = poolRef.current;
     if (pool.length === 0) return null;
     const visibleIds = new Set(currentlyAssignedRef.current.values());
+    // Photos waiting for / mid- big reveal must NOT appear in the grid yet — their first
+    // appearance is the reveal itself, so the NEW badge stays in sync.
+    const held = new Set(featureQueueRef.current);
+    if (featuringIdRef.current) held.add(featuringIdRef.current);
 
     // Priority: fresh uploads not yet on screen
     while (newQueueRef.current.length > 0) {
       const id = newQueueRef.current[0];
       const img = pool.find((p) => p.id === id);
-      if (!img || visibleIds.has(id)) {
+      if (!img || visibleIds.has(id) || held.has(id)) {
         newQueueRef.current.shift();
         continue;
       }
@@ -448,6 +459,7 @@ export default function GalleryClient({
       const idx = rotationIndexRef.current % pool.length;
       rotationIndexRef.current += 1;
       const img = pool[idx];
+      if (held.has(img.id)) continue; // skip photos reserved for their big reveal
       if (firstCandidate === null) firstCandidate = img;
       if (!visibleIds.has(img.id)) return img;
     }
@@ -475,20 +487,78 @@ export default function GalleryClient({
     }
   }, [gridSize, pickNextImage]);
 
+  // Keep a fast lookup of which image ids are pinned (used by the beam invariant below).
+  useEffect(() => {
+    pinnedIdsRef.current = new Set(images.filter((i) => i.pinned).map((i) => i.id));
+  }, [images]);
+
+  // Pinned-presence invariant: ensure at least `minPinnedOnScreen` pinned photos occupy grid
+  // cells at all times. Pinned photos are still swapped out by the normal rotation, so they
+  // "move" around the grid — this just tops the count back up (placing into NON-pinned slots)
+  // so a pin is always visible. No-op when there are no pinned photos (Riddle/legacy safe).
+  const enforcePins = useCallback(() => {
+    const target = Math.max(0, minPinnedOnScreen || 0);
+    if (target <= 0) return;
+    const pins = poolRef.current.filter((p) => p.pinned);
+    if (pins.length === 0) return;
+
+    const countOnScreen = () => {
+      let c = 0;
+      currentlyAssignedRef.current.forEach((id) => { if (pinnedIdsRef.current.has(id)) c += 1; });
+      return c;
+    };
+
+    const additions: Array<[number, UserGalleryImage]> = [];
+    let guard = 0;
+    while (countOnScreen() + additions.length < target && guard < pins.length + target) {
+      guard += 1;
+      const visibleIds = new Set(currentlyAssignedRef.current.values());
+      additions.forEach(([, img]) => visibleIds.add(img.id));
+      // Next pinned image not already on screen (fair rotation through all pins).
+      let chosen: UserGalleryImage | null = null;
+      for (let n = 0; n < pins.length; n++) {
+        const idx = pinRotationRef.current % pins.length;
+        pinRotationRef.current += 1;
+        const cand = pins[idx];
+        if (!visibleIds.has(cand.id)) { chosen = cand; break; }
+      }
+      if (!chosen) break;
+      // Place into a non-pinned slot so we never evict another pin.
+      let slot = Math.floor(Math.random() * gridSize);
+      let tries = 0;
+      while (pinnedIdsRef.current.has(currentlyAssignedRef.current.get(slot) || '') && tries < 25) {
+        slot = Math.floor(Math.random() * gridSize);
+        tries += 1;
+      }
+      currentlyAssignedRef.current.set(slot, chosen.id);
+      additions.push([slot, chosen]);
+    }
+    if (additions.length > 0) {
+      setVisibleSlots((prev) => {
+        const next = new Map(prev);
+        additions.forEach(([s, img]) => next.set(s, img));
+        return next;
+      });
+    }
+  }, [gridSize, minPinnedOnScreen]);
+
   // Keep the rotation pool (last N + logos) in sync, and IMMEDIATELY top up any slots emptied
   // by deletions/moderation — so holes never linger until the next swap tick.
   useEffect(() => {
     const base = displayLimit > 0 ? images.slice(0, displayLimit) : images;
-    poolRef.current = [...base, ...logoImages];
-    if (displayMode === 'shuffle' && shuffleInitializedRef.current) fillGrid();
-  }, [images, displayLimit, logoImages, displayMode, fillGrid]);
+    // Pinned photos stay in the pool even after they age out of the rolling window (like logos).
+    const pinnedExtra = displayLimit > 0 ? images.filter((i) => i.pinned && !base.includes(i)) : [];
+    poolRef.current = [...base, ...pinnedExtra, ...logoImages];
+    if (displayMode === 'shuffle' && shuffleInitializedRef.current) { fillGrid(); enforcePins(); }
+  }, [images, displayLimit, logoImages, displayMode, fillGrid, enforcePins]);
 
   // Warm the browser cache for the pool so each swap is instant (no spinner flash),
   // even with large galleries. The Image objects GC after load — only the HTTP cache is warmed.
   useEffect(() => {
     if (displayMode !== 'shuffle') return;
     const base = displayLimit > 0 ? images.slice(0, displayLimit) : images;
-    for (const img of [...base, ...logoImages]) {
+    const pinnedExtra = displayLimit > 0 ? images.filter((i) => i.pinned && !base.includes(i)) : [];
+    for (const img of [...base, ...pinnedExtra, ...logoImages]) {
       if (preloadedRef.current.has(img.url)) continue;
       preloadedRef.current.add(img.url);
       const im = new window.Image();
@@ -508,6 +578,7 @@ export default function GalleryClient({
     if (!img) return;
     const featuredImg = img;
     featuringRef.current = true;
+    featuringIdRef.current = featuredImg.id;
 
     setFeatured({ image: featuredImg, phase: 'enter' });
     window.setTimeout(() => setFeatured((f) => (f ? { ...f, phase: 'hold' } : f)), 60);
@@ -524,6 +595,7 @@ export default function GalleryClient({
       setAnimatingSlot(slot);
       window.setTimeout(() => setAnimatingSlot(null), 350);
       featuringRef.current = false;
+      featuringIdRef.current = null;
       setFeatured(null); // a trigger effect picks up the next queued photo
     }, 3050);
   }, [gridSize]);
@@ -606,10 +678,12 @@ export default function GalleryClient({
         setFadingOutSlot(null);
         setAnimatingSlot(slot);
         window.setTimeout(() => setAnimatingSlot(null), 350);
+        enforcePins(); // if this swap evicted the last pin, re-place one in a different slot
       }, 350);
     };
 
     fillGrid();
+    enforcePins();
 
     const ms = Math.max(1000, Math.round((displaySpeed || 4.5) * 1000));
     shuffleIntervalRef.current = setInterval(() => {
@@ -623,7 +697,7 @@ export default function GalleryClient({
         shuffleIntervalRef.current = null;
       }
     };
-  }, [displayMode, hasImages, gridSize, displaySpeed, pickNextImage, fillGrid]);
+  }, [displayMode, hasImages, gridSize, displaySpeed, pickNextImage, fillGrid, enforcePins]);
 
   // Handle save edited name
   const handleSaveName = async () => {
@@ -865,9 +939,10 @@ export default function GalleryClient({
         url: string;
         uploaderName: string;
         uploadedAt: unknown;
+        size?: number;
       }>;
 
-      // Delete all images from Vercel Blob
+      // Delete all images from storage (R2). Pass codeId so the API authorizes the owner.
       for (const image of currentGallery) {
         await fetch('/api/gallery', {
           method: 'DELETE',
@@ -876,6 +951,7 @@ export default function GalleryClient({
           },
           body: JSON.stringify({
             imageUrl: image.url,
+            codeId,
           }),
         });
       }
@@ -884,6 +960,17 @@ export default function GalleryClient({
       await updateDoc(codeRef, {
         userGallery: [],
       });
+
+      // Reclaim the owner's storage quota for everything just removed (older rows without
+      // `size` contribute 0; guard keeps storageUsed from ever going negative).
+      const freed = currentGallery.reduce((sum, img) => sum + (img.size || 0), 0);
+      if (freed > 0 && ownerId) {
+        try {
+          await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(-freed) });
+        } catch (err) {
+          console.error('Failed to reclaim storage on delete-all:', err);
+        }
+      }
 
       setLightboxImage(null);
     } catch (error) {
@@ -1498,6 +1585,7 @@ export default function GalleryClient({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={featured.image.url} alt={featured.image.uploaderName} className="w-full h-full object-cover" />
+            {showNewBadge && isNewImage(featured.image.id) && <NewRibbon />}
             {featured.image.uploaderName &&
               featured.image.uploaderName !== 'אנונימי' &&
               featured.image.uploaderName !== 'Anonymous' && (

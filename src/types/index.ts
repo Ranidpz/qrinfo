@@ -48,6 +48,10 @@ export interface UserGalleryImage {
   // existing photos and Riddle galleries are unaffected). The beam shows approved !== false.
   approved?: boolean;
   source?: 'admin' | 'participant'; // who added it (admin seed vs participant selfie)
+  // Dedup + beam controls (optional for backwards compatibility — undefined is the safe default,
+  // so existing photos and Riddle galleries are unaffected).
+  fileHash?: string; // SHA-256 hex of the original file bytes — dedup key (see lib/imageHash.ts)
+  pinned?: boolean;  // Selfie Beam: keep this image always present in the beam rotation
   // Gamification fields (optional for backwards compatibility)
   visitorId?: string;  // Link to visitor document
 }
@@ -68,6 +72,7 @@ export interface GallerySettings {
   showNewBadge?: boolean; // Show NEW badge on first-time displayed images
   displaySpeed?: number; // Shuffle: seconds between each photo swap (2-10). Default 4.5.
   featureNewPhotos?: boolean; // Shuffle: a newly-added photo pops up big then falls into the grid. Default false.
+  minPinnedOnScreen?: number; // Selfie Beam: how many pinned images stay on the beam at all times. Default 1.
 }
 
 // Landing page button style
