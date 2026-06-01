@@ -103,14 +103,14 @@ export default function DashboardPage() {
     }
   };
 
-  const handleLinkAdd = async (url: string) => {
+  const handleLinkAdd = async (url: string, name?: string) => {
     if (!user) return;
 
     setUploading(true);
 
     try {
       // Create QR code with link
-      const newCode = await createQRCode(user.id, 'לינק חדש', [
+      const newCode = await createQRCode(user.id, name?.trim() || 'לינק חדש', [
         {
           url,
           type: 'link',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2 } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2, Instagram, Facebook } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -205,7 +205,7 @@ export default function CodeCard({
   const storageBadge = getStorageBadge(fileStorageProvider, mediaUrl);
 
   // Detect link type from URL
-  type LinkType = 'whatsapp' | 'phone' | 'sms' | 'email' | 'url';
+  type LinkType = 'whatsapp' | 'phone' | 'sms' | 'email' | 'instagram' | 'facebook' | 'url';
 
   const detectLinkType = (url?: string): LinkType => {
     if (!url) return 'url';
@@ -214,7 +214,10 @@ export default function CodeCard({
       if (url.startsWith('sms:')) return 'sms';
       if (url.startsWith('mailto:')) return 'email';
       const urlObj = new URL(url);
-      if (urlObj.hostname === 'wa.me' || urlObj.hostname === 'api.whatsapp.com') return 'whatsapp';
+      const host = urlObj.hostname.replace(/^www\./, '');
+      if (host === 'wa.me' || host === 'api.whatsapp.com') return 'whatsapp';
+      if (host === 'instagram.com' || host.endsWith('.instagram.com') || host === 'instagr.am') return 'instagram';
+      if (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.com' || host === 'fb.me') return 'facebook';
       return 'url';
     } catch {
       return 'url';
@@ -258,8 +261,19 @@ export default function CodeCard({
       case 'phone': return tMedia('phone') || 'טלפון';
       case 'sms': return 'SMS';
       case 'email': return tMedia('email') || 'אימייל';
+      case 'instagram': return 'Instagram';
+      case 'facebook': return 'Facebook';
       default: return tMedia('link');
     }
+  };
+
+  // Brand icon shown on the card badge for social-profile links
+  const getLinkBadgeIcon = (): React.ReactNode => {
+    if (mediaType !== 'link') return null;
+    const type = detectLinkType(mediaUrl);
+    if (type === 'instagram') return <Instagram className="w-3 h-3 text-[#E1306C]" />;
+    if (type === 'facebook') return <Facebook className="w-3 h-3 text-[#1877F2]" />;
+    return null;
   };
 
   // Get translated media label
@@ -633,7 +647,8 @@ export default function CodeCard({
 
           {/* Badges */}
           <div className="hidden sm:flex items-center gap-1.5">
-            <span className="px-2 py-0.5 text-xs font-medium bg-bg-secondary rounded text-text-secondary">
+            <span className="px-2 py-0.5 text-xs font-medium bg-bg-secondary rounded text-text-secondary inline-flex items-center gap-1">
+              {getLinkBadgeIcon()}
               {getMediaLabel(mediaType)}
             </span>
             {fileSize !== undefined && fileSize > 0 && (
@@ -889,7 +904,8 @@ export default function CodeCard({
 
         {/* Badges */}
         <div className="absolute top-2 right-2 flex gap-1.5">
-          <span className="px-2 py-0.5 text-xs font-medium bg-bg-card/80 backdrop-blur-sm rounded text-text-primary">
+          <span className="px-2 py-0.5 text-xs font-medium bg-bg-card/80 backdrop-blur-sm rounded text-text-primary inline-flex items-center gap-1">
+            {getLinkBadgeIcon()}
             {getMediaLabel(mediaType)}
           </span>
           {isGlobal && (

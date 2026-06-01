@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift, Instagram, Facebook } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -10,7 +10,7 @@ import GooglePlacesAutocomplete from '@/components/ui/GooglePlacesAutocomplete';
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
 // Link mode types
-type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email' | 'navigation' | 'social' | 'payment';
+type LinkMode = 'url' | 'whatsapp' | 'phone' | 'sms' | 'email' | 'navigation' | 'social' | 'payment' | 'instagram' | 'facebook';
 
 // WhatsApp icon component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -28,24 +28,26 @@ const linkModeOptions: { mode: LinkMode; icon: React.ReactNode; label: string; l
   { mode: 'email', icon: <Mail className="w-4 h-4" />, label: 'אימייל', labelKey: 'linkModeEmail' },
   { mode: 'navigation', icon: <MapPin className="w-4 h-4" />, label: 'ניווט', labelKey: 'linkModeNavigation' },
   { mode: 'social', icon: <Star className="w-4 h-4" />, label: 'פרגנו לנו', labelKey: 'linkModeSocial' },
+  { mode: 'instagram', icon: <Instagram className="w-4 h-4" />, label: 'Instagram', labelKey: 'linkModeInstagram' },
+  { mode: 'facebook', icon: <Facebook className="w-4 h-4" />, label: 'Facebook', labelKey: 'linkModeFacebook' },
   { mode: 'payment', icon: <CreditCard className="w-4 h-4" />, label: 'תשלום', labelKey: 'linkModePayment' },
 ];
 
 interface MediaUploaderProps {
   onFileSelect: (file: File) => void;
-  onLinkAdd?: (url: string) => void;
-  onRiddleCreate?: () => void;
-  onWordCloudCreate?: () => void;
-  onSelfiebeamCreate?: () => void;
-  onQVoteCreate?: () => void;
-  onRaffleCreate?: () => void;
-  onQStageCreate?: () => void;
-  onWeeklyCalendarCreate?: () => void;
-  onQHuntCreate?: () => void;
-  onQTreasureCreate?: () => void;
-  onQChallengeCreate?: () => void;
-  onQTagCreate?: () => void;
-  onQGamesCreate?: () => void;
+  onLinkAdd?: (url: string, name: string) => void;
+  onRiddleCreate?: (name: string) => void;
+  onWordCloudCreate?: (name: string) => void;
+  onSelfiebeamCreate?: (name: string) => void;
+  onQVoteCreate?: (name: string) => void;
+  onRaffleCreate?: (name: string) => void;
+  onQStageCreate?: (name: string) => void;
+  onWeeklyCalendarCreate?: (name: string) => void;
+  onQHuntCreate?: (name: string) => void;
+  onQTreasureCreate?: (name: string) => void;
+  onQChallengeCreate?: (name: string) => void;
+  onQTagCreate?: (name: string) => void;
+  onQGamesCreate?: (name: string) => void;
   maxSize?: number; // bytes
   accept?: string[];
   disabled?: boolean;
@@ -71,6 +73,8 @@ export default function MediaUploader({
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames'>('upload');
+  // Required name given to every experience before it can be created
+  const [experienceName, setExperienceName] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [linkMode, setLinkMode] = useState<LinkMode>('url');
   const [showLinkModeDropdown, setShowLinkModeDropdown] = useState(false);
@@ -86,6 +90,9 @@ export default function MediaUploader({
   const [navApp, setNavApp] = useState<'google' | 'waze'>('google');
   // Social/review fields
   const [socialUrl, setSocialUrl] = useState('');
+  // Social profile fields (Instagram / Facebook "follow us")
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [facebookUrl, setFacebookUrl] = useState('');
   // Payment fields
   const [paymentUrl, setPaymentUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -187,12 +194,37 @@ export default function MediaUploader({
     setNavAddress('');
     setNavApp('google');
     setSocialUrl('');
+    setInstagramUrl('');
+    setFacebookUrl('');
     setPaymentUrl('');
     setLinkMode('url');
   };
 
+  // Build a social profile URL from a full URL or a bare @handle
+  const buildSocialProfileUrl = (input: string, base: string): string | null => {
+    let v = input.trim();
+    if (!v) return null;
+    if (v.startsWith('http://') || v.startsWith('https://')) {
+      try { return new URL(v).toString(); } catch { return null; }
+    }
+    // Strip leading @ and slashes for handle/domain detection
+    v = v.replace(/^@+/, '').replace(/^\/+/, '');
+    // Looks like a domain (e.g. instagram.com/name) → just add protocol
+    if (v.includes('.') || v.includes('/')) {
+      try { return new URL('https://' + v).toString(); } catch { return null; }
+    }
+    // Treat as a username/handle → build the profile URL
+    return base + encodeURIComponent(v);
+  };
+
   const handleLinkSubmit = () => {
     setError(null);
+
+    const name = experienceName.trim();
+    if (!name) {
+      setError(t('experienceNameRequired') || 'יש לתת שם לחוויה');
+      return;
+    }
 
     switch (linkMode) {
       case 'whatsapp': {
@@ -209,7 +241,7 @@ export default function MediaUploader({
         if (messageText.trim()) {
           url += `?text=${encodeURIComponent(messageText.trim())}`;
         }
-        onLinkAdd?.(url);
+        onLinkAdd?.(url, name);
         resetLinkFields();
         break;
       }
@@ -225,7 +257,7 @@ export default function MediaUploader({
         }
         const formattedNumber = formatPhoneNumber(phoneNumber, true);
         const url = `tel:+${formattedNumber.replace('+', '')}`;
-        onLinkAdd?.(url);
+        onLinkAdd?.(url, name);
         resetLinkFields();
         break;
       }
@@ -244,7 +276,7 @@ export default function MediaUploader({
         if (messageText.trim()) {
           url += `?body=${encodeURIComponent(messageText.trim())}`;
         }
-        onLinkAdd?.(url);
+        onLinkAdd?.(url, name);
         resetLinkFields();
         break;
       }
@@ -269,7 +301,7 @@ export default function MediaUploader({
         if (params.length > 0) {
           url += `?${params.join('&')}`;
         }
-        onLinkAdd?.(url);
+        onLinkAdd?.(url, name);
         resetLinkFields();
         break;
       }
@@ -286,7 +318,7 @@ export default function MediaUploader({
         } else {
           url = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
         }
-        onLinkAdd?.(url);
+        onLinkAdd?.(url, name);
         resetLinkFields();
         break;
       }
@@ -303,7 +335,7 @@ export default function MediaUploader({
         }
         try {
           new URL(url);
-          onLinkAdd?.(url);
+          onLinkAdd?.(url, name);
           resetLinkFields();
         } catch {
           setError(t('invalidUrl'));
@@ -323,11 +355,41 @@ export default function MediaUploader({
         }
         try {
           new URL(url);
-          onLinkAdd?.(url);
+          onLinkAdd?.(url, name);
           resetLinkFields();
         } catch {
           setError(t('invalidUrl'));
         }
+        break;
+      }
+
+      case 'instagram': {
+        if (!instagramUrl.trim()) {
+          setError(tMedia('instagramUrlRequired') || 'יש להזין קישור או שם משתמש לאינסטגרם');
+          return;
+        }
+        const url = buildSocialProfileUrl(instagramUrl, 'https://instagram.com/');
+        if (!url) {
+          setError(t('invalidUrl'));
+          return;
+        }
+        onLinkAdd?.(url, name);
+        resetLinkFields();
+        break;
+      }
+
+      case 'facebook': {
+        if (!facebookUrl.trim()) {
+          setError(tMedia('facebookUrlRequired') || 'יש להזין קישור או שם משתמש לפייסבוק');
+          return;
+        }
+        const url = buildSocialProfileUrl(facebookUrl, 'https://facebook.com/');
+        if (!url) {
+          setError(t('invalidUrl'));
+          return;
+        }
+        onLinkAdd?.(url, name);
+        resetLinkFields();
         break;
       }
 
@@ -341,7 +403,7 @@ export default function MediaUploader({
         }
         try {
           new URL(url);
-          onLinkAdd?.(url);
+          onLinkAdd?.(url, name);
           resetLinkFields();
         } catch {
           setError(t('invalidUrl'));
@@ -350,6 +412,19 @@ export default function MediaUploader({
       }
     }
   };
+
+  // Gate for non-link experiences: require a name, then hand it to the create callback
+  const handleExperienceCreate = (cb?: (name: string) => void) => {
+    setError(null);
+    const name = experienceName.trim();
+    if (!name) {
+      setError(t('experienceNameRequired') || 'יש לתת שם לחוויה');
+      return;
+    }
+    cb?.(name);
+  };
+
+  const nameMissing = !experienceName.trim();
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -444,6 +519,25 @@ export default function MediaUploader({
           {onQTagCreate && <TabButton tab="qtag" label="Q.Tag" icon={Tag} tooltip={t('tooltipQTag') || 'Event registration & check-in'} />}
           <TabButton tab="minigames" label={tMedia('minigames')} icon={Gamepad2} tooltip={t('tooltipMinigames')} />
           <ExternalLinkButton href="https://oleague.playzones.app/landing" label="oLeague" icon={Medal} tooltip={t('tooltipOLeague')} />
+        </div>
+      )}
+
+      {/* Experience name - required before any non-upload experience can be created */}
+      {activeTab !== 'upload' && (
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+            <Sparkles className="w-3.5 h-3.5 text-accent" />
+            {t('experienceName') || 'שם החוויה'}
+            <span className="text-danger">*</span>
+          </label>
+          <input
+            type="text"
+            value={experienceName}
+            onChange={(e) => setExperienceName(e.target.value)}
+            placeholder={t('experienceNamePlaceholder') || 'תנו שם לחוויה שלכם...'}
+            className="input w-full text-sm"
+            maxLength={80}
+          />
         </div>
       )}
 
@@ -559,6 +653,8 @@ export default function MediaUploader({
                 phone: { bg: 'bg-blue-500/15', border: 'border-blue-500/50', text: 'text-blue-400' },
                 sms: { bg: 'bg-violet-500/15', border: 'border-violet-500/50', text: 'text-violet-400' },
                 email: { bg: 'bg-rose-500/15', border: 'border-rose-500/50', text: 'text-rose-400' },
+                instagram: { bg: 'bg-[#E1306C]/15', border: 'border-[#E1306C]/50', text: 'text-[#E1306C]' },
+                facebook: { bg: 'bg-[#1877F2]/15', border: 'border-[#1877F2]/50', text: 'text-[#1877F2]' },
                 url: { bg: 'bg-accent/15', border: 'border-accent/50', text: 'text-accent' },
               };
               const colors = colorMap[option.mode] || colorMap.url;
@@ -778,6 +874,44 @@ export default function MediaUploader({
             </div>
           )}
 
+          {linkMode === 'instagram' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+                <Instagram className="w-5 h-5 text-[#E1306C] flex-shrink-0" />
+                <input
+                  type="text"
+                  value={instagramUrl}
+                  onChange={(e) => setInstagramUrl(e.target.value)}
+                  placeholder={tMedia('instagramUrlPlaceholder') || 'instagram.com/yourpage או @username'}
+                  className="input flex-1 text-sm"
+                  dir="ltr"
+                />
+              </div>
+              <p className="text-xs text-text-secondary text-center">
+                {tMedia('instagramDescription') || 'סורקי הקוד יועברו לעמוד האינסטגרם שלכם'}
+              </p>
+            </div>
+          )}
+
+          {linkMode === 'facebook' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
+                <Facebook className="w-5 h-5 text-[#1877F2] flex-shrink-0" />
+                <input
+                  type="text"
+                  value={facebookUrl}
+                  onChange={(e) => setFacebookUrl(e.target.value)}
+                  placeholder={tMedia('facebookUrlPlaceholder') || 'facebook.com/yourpage'}
+                  className="input flex-1 text-sm"
+                  dir="ltr"
+                />
+              </div>
+              <p className="text-xs text-text-secondary text-center">
+                {tMedia('facebookDescription') || 'סורקי הקוד יועברו לעמוד הפייסבוק שלכם'}
+              </p>
+            </div>
+          )}
+
           {linkMode === 'payment' && (
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-bg-secondary rounded-xl">
@@ -805,17 +939,22 @@ export default function MediaUploader({
           <button
             onClick={handleLinkSubmit}
             disabled={
+              nameMissing ||
               (linkMode === 'url' && !linkUrl.trim()) ||
               ((linkMode === 'whatsapp' || linkMode === 'phone' || linkMode === 'sms') && !phoneNumber.trim()) ||
               (linkMode === 'email' && !emailAddress.trim()) ||
               (linkMode === 'navigation' && !navAddress.trim()) ||
               (linkMode === 'social' && !socialUrl.trim()) ||
+              (linkMode === 'instagram' && !instagramUrl.trim()) ||
+              (linkMode === 'facebook' && !facebookUrl.trim()) ||
               (linkMode === 'payment' && !paymentUrl.trim())
             }
             className={clsx(
               'btn w-full disabled:opacity-50',
               linkMode === 'whatsapp' ? 'bg-[#25D366] hover:bg-[#20BA5C] text-white' :
               linkMode === 'social' ? 'bg-yellow-500 hover:bg-yellow-600 text-white' :
+              linkMode === 'instagram' ? 'bg-[#E1306C] hover:bg-[#c92a5f] text-white' :
+              linkMode === 'facebook' ? 'bg-[#1877F2] hover:bg-[#1465d4] text-white' :
               linkMode === 'payment' ? 'bg-green-500 hover:bg-green-600 text-white' :
               linkMode === 'navigation' ? 'bg-blue-500 hover:bg-blue-600 text-white' :
               'btn-primary'
@@ -845,8 +984,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onRiddleCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onRiddleCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createRiddle')}
@@ -869,8 +1008,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onWordCloudCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onWordCloudCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createWordCloud')}
@@ -897,8 +1036,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onSelfiebeamCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onSelfiebeamCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createSelfiebeam')}
@@ -921,8 +1060,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onQVoteCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onQVoteCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQVote') || 'Create Q.Vote'}
@@ -943,8 +1082,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onRaffleCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onRaffleCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             צור הגרלה
@@ -967,8 +1106,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onQStageCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onQStageCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQStage') || 'Create Q.Stage'}
@@ -991,8 +1130,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onWeeklyCalendarCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onWeeklyCalendarCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createWeeklyCal') || 'Create Weekly Calendar'}
@@ -1015,8 +1154,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onQHuntCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onQHuntCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQHunt') || 'Create Q.Hunt'}
@@ -1039,8 +1178,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onQTreasureCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onQTreasureCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQTreasure') || 'Create Q.Treasure'}
@@ -1063,8 +1202,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onQChallengeCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onQChallengeCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQChallenge') || 'Create Q.Challenge'}
@@ -1087,8 +1226,8 @@ export default function MediaUploader({
             </div>
           </div>
           <button
-            onClick={onQTagCreate}
-            disabled={disabled}
+            onClick={() => handleExperienceCreate(onQTagCreate)}
+            disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQTag') || 'Create Q.Tag'}
@@ -1137,8 +1276,8 @@ export default function MediaUploader({
             </p>
           </div>
           <button
-            onClick={onQGamesCreate}
-            disabled={disabled || !onQGamesCreate}
+            onClick={() => handleExperienceCreate(onQGamesCreate)}
+            disabled={disabled || !onQGamesCreate || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
             {t('createQGames') || 'Create Q.Games'}

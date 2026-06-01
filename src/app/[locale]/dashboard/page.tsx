@@ -162,6 +162,8 @@ export default function DashboardPage() {
   const [qtagModalOpen, setQtagModalOpen] = useState(false);
   const [addingQTag, setAddingQTag] = useState(false);
   const [editingQTagCode, setEditingQTagCode] = useState<QRCodeType | null>(null);
+  // Name the user gives an experience in the uploader before its modal opens / it is created
+  const [pendingExperienceName, setPendingExperienceName] = useState('');
 
   // Set initial view mode based on screen size (list for mobile, grid for desktop)
   useEffect(() => {
@@ -351,14 +353,14 @@ export default function DashboardPage() {
     }
   };
 
-  const handleLinkAdd = async (url: string) => {
+  const handleLinkAdd = async (url: string, name?: string) => {
     if (!user) return;
 
     setUploading(true);
 
     try {
       // Create QR code with link (in current folder if inside one)
-      const newCode = await createQRCode(user.id, tCode('newLink'), [
+      const newCode = await createQRCode(user.id, name?.trim() || tCode('newLink'), [
         {
           url,
           type: 'link',
@@ -388,7 +390,7 @@ export default function DashboardPage() {
 
     try {
       // Create QR code with wordcloud link (in current folder if inside one)
-      const newCode = await createQRCode(user.id, title || tModals('wordCloud'), [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || title || tModals('wordCloud'), [
         {
           url,
           type: 'wordcloud',
@@ -449,7 +451,7 @@ export default function DashboardPage() {
       };
 
       // Create QR code with riddle (in current folder if inside one)
-      const newCode = await createQRCode(user.id, content.title, [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || content.title, [
         {
           url: '', // Riddle doesn't have a direct URL
           type: 'riddle',
@@ -530,7 +532,7 @@ export default function DashboardPage() {
       }
 
       // Create QR code with selfiebeam (in current folder if inside one)
-      const newCode = await createQRCode(user.id, content.title, [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || content.title, [
         {
           url: '', // Selfiebeam doesn't have a direct URL
           type: 'selfiebeam',
@@ -637,7 +639,7 @@ export default function DashboardPage() {
       };
 
       // Create QR code with Q.Vote (in current folder if inside one)
-      const newCode = await createQRCode(user.id, 'Q.Vote', [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || 'Q.Vote', [
         {
           url: '',
           type: 'qvote',
@@ -671,13 +673,14 @@ export default function DashboardPage() {
 
   // Create a new code with a Raffle experience, then open it in the editor
   // (where the owner configures it + imports participants + gets the link).
-  const handleCreateRaffle = async () => {
+  const handleCreateRaffle = async (name?: string) => {
     if (!user) return;
     try {
+      const raffleTitle = name?.trim() || 'הגרלה';
       const token = `tkn_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
       const newCode = await createQRCode(
         user.id,
-        'הגרלה',
+        raffleTitle,
         [
           {
             url: '',
@@ -685,7 +688,7 @@ export default function DashboardPage() {
             size: 0,
             order: 0,
             uploadedBy: user.id,
-            title: 'הגרלה',
+            title: raffleTitle,
             raffleConfig: { ...DEFAULT_RAFFLE_CONFIG, token },
           },
         ],
@@ -706,7 +709,7 @@ export default function DashboardPage() {
 
     try {
       // Create QR code with Q.Stage (in current folder if inside one)
-      const newCode = await createQRCode(user.id, 'Q.Stage', [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || 'Q.Stage', [
         {
           url: '',
           type: 'qstage',
@@ -742,7 +745,7 @@ export default function DashboardPage() {
       const calendarTitle = config.mode === 'booths' ? 'Q.Cal - דוכנים' : 'Q.Cal';
 
       // Create QR code with weekly calendar (in current folder if inside one)
-      const newCode = await createQRCode(user.id, calendarTitle, [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || calendarTitle, [
         {
           url: '', // Weekly calendar doesn't have a direct URL
           type: 'weeklycal',
@@ -862,7 +865,7 @@ export default function DashboardPage() {
         }
       }
 
-      const newCode = await createQRCode(user.id, config.eventName || 'Q.Tag', [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || config.eventName || 'Q.Tag', [
         {
           url: '',
           type: 'qtag',
@@ -996,7 +999,7 @@ export default function DashboardPage() {
 
     try {
       // Create QR code with QHunt (in current folder if inside one)
-      const newCode = await createQRCode(user.id, 'Q.Hunt', [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || 'Q.Hunt', [
         {
           url: '',
           type: 'qhunt',
@@ -1029,7 +1032,7 @@ export default function DashboardPage() {
 
     try {
       // Create QR code with QTreasure (in current folder if inside one)
-      const newCode = await createQRCode(user.id, 'Q.Treasure', [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || 'Q.Treasure', [
         {
           url: '',
           type: 'qtreasure',
@@ -1062,7 +1065,7 @@ export default function DashboardPage() {
 
     try {
       // Create QR code with QChallenge (in current folder if inside one)
-      const newCode = await createQRCode(user.id, 'Q.Challenge', [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || 'Q.Challenge', [
         {
           url: '',
           type: 'qchallenge',
@@ -1139,7 +1142,7 @@ export default function DashboardPage() {
         }
       }
 
-      const newCode = await createQRCode(user.id, 'Q.Games', [
+      const newCode = await createQRCode(user.id, pendingExperienceName.trim() || 'Q.Games', [
         {
           url: '',
           type: 'minigames' as MediaType,
@@ -2043,18 +2046,18 @@ export default function DashboardPage() {
                 <MediaUploader
                   onFileSelect={handleFileSelect}
                   onLinkAdd={handleLinkAdd}
-                  onRiddleCreate={() => setRiddleModalOpen(true)}
-                  onWordCloudCreate={() => setWordCloudModalOpen(true)}
-                  onSelfiebeamCreate={() => setSelfiebeamModalOpen(true)}
-                  onQVoteCreate={() => setQvoteModalOpen(true)}
+                  onRiddleCreate={(name) => { setPendingExperienceName(name); setRiddleModalOpen(true); }}
+                  onWordCloudCreate={(name) => { setPendingExperienceName(name); setWordCloudModalOpen(true); }}
+                  onSelfiebeamCreate={(name) => { setPendingExperienceName(name); setSelfiebeamModalOpen(true); }}
+                  onQVoteCreate={(name) => { setPendingExperienceName(name); setQvoteModalOpen(true); }}
                   onRaffleCreate={handleCreateRaffle}
-                  onQStageCreate={() => setQstageModalOpen(true)}
-                  onWeeklyCalendarCreate={() => setWeeklyCalModalOpen(true)}
-                  onQHuntCreate={() => setQhuntModalOpen(true)}
-                  onQTreasureCreate={() => setQtreasureModalOpen(true)}
-                  onQChallengeCreate={() => setQchallengeModalOpen(true)}
-                  onQTagCreate={() => setQtagModalOpen(true)}
-                  onQGamesCreate={() => setQgamesModalOpen(true)}
+                  onQStageCreate={(name) => { setPendingExperienceName(name); setQstageModalOpen(true); }}
+                  onWeeklyCalendarCreate={(name) => { setPendingExperienceName(name); setWeeklyCalModalOpen(true); }}
+                  onQHuntCreate={(name) => { setPendingExperienceName(name); setQhuntModalOpen(true); }}
+                  onQTreasureCreate={(name) => { setPendingExperienceName(name); setQtreasureModalOpen(true); }}
+                  onQChallengeCreate={(name) => { setPendingExperienceName(name); setQchallengeModalOpen(true); }}
+                  onQTagCreate={(name) => { setPendingExperienceName(name); setEditingQTagCode(null); setQtagModalOpen(true); }}
+                  onQGamesCreate={(name) => { setPendingExperienceName(name); setQgamesModalOpen(true); }}
                   disabled={uploading}
                 />
               </div>

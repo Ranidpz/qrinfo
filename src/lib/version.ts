@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.14.4';
+export const APP_VERSION = '1.15.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,23 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.14.4',
+    version: '1.15.0',
     date: '2026-06-01',
     isNew: true,
+    highlights: {
+      he: [
+        'לינק: נוספו סוגי קישור לאינסטגרם ולפייסבוק — הסורקים מועברים ישירות לעמוד שלכם, עם האייקון המתאים על כרטיס החוויה',
+        'יצירת חוויה: עכשיו חובה לתת שם לחוויה לפני היצירה — אין יותר חוויות שנוצרות עם שם ברירת מחדל כמו "לינק" או "הגרלה"',
+      ],
+      en: [
+        'Link: added Instagram and Facebook link types — scanners go straight to your page, with the matching icon on the experience card',
+        'Create experience: you must now name an experience before creating it — no more items created with default names like "Link" or "Raffle"',
+      ],
+    },
+  },
+  {
+    version: '1.14.4',
+    date: '2026-06-01',
     highlights: {
       he: [
         'סלפי בים: כפתורי הפעולה על כל תמונה אורגנו לפאנל קומפקטי בתחתית, עם הסברים ברורים בריחוף',
