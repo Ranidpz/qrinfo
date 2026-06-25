@@ -1883,6 +1883,10 @@ export default function CodeEditPage({ params }: PageProps) {
       if (content.youtubeUrl) {
         selfiebeamContent.youtubeUrl = content.youtubeUrl;
       }
+      // Preserve the photographer link token (omit when disabled so the field is cleared)
+      if (content.photographerToken) {
+        selfiebeamContent.photographerToken = content.photographerToken;
+      }
 
       let updatedMedia: MediaItem[];
       if (editingSelfiebeamId) {
@@ -4570,6 +4574,7 @@ export default function CodeEditPage({ params }: PageProps) {
         loading={addingSelfiebeam}
         initialContent={editingSelfiebeamId ? code?.media.find(m => m.id === editingSelfiebeamId)?.selfiebeamContent : undefined}
         codeId={code.id}
+        mediaId={editingSelfiebeamId || undefined}
         ownerId={code.ownerId}
         shortId={code.shortId}
       />

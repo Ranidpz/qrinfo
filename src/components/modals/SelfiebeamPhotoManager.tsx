@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   Search, Check, X, Trash2, Loader2, Plus, Image as ImageIcon, ShieldCheck, Clock, User, Pencil,
-  Pin, PinOff, ArrowUp, AlertTriangle,
+  Pin, PinOff, ArrowUp, AlertTriangle, Flag,
 } from 'lucide-react';
 import { onSnapshot, doc, getDoc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -13,6 +13,7 @@ import { uploadQueue } from '@/lib/uploadQueue';
 import { cropImageToSquareWebp } from '@/lib/imageCrop';
 import { hashFile } from '@/lib/imageHash';
 import { UserGalleryImage } from '@/types';
+import { searchCountries, countryName, toCountryTag, type SelfiebeamCountry } from '@/lib/selfiebeam/countries';
 
 interface SelfiebeamPhotoManagerProps {
   codeId: string;
@@ -35,6 +36,7 @@ interface RawGalleryEntry {
   source?: 'admin' | 'participant';
   fileHash?: string;
   pinned?: boolean;
+  country?: UserGalleryImage['country'];
 }
 
 const PAGE = 60; // lazy-load page size — grid renders more as you scroll
@@ -73,8 +75,103 @@ function IconTip({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+// Per-photo country flag picker for the editor. A toolbar button opens a dark, editor-themed
+// dropdown (portaled to <body> so the scrolling grid never clips it) with search + flag list.
+function EditorCountryControl({
+  current,
+  onPick,
+  locale,
+  labels,
+}: {
+  current?: UserGalleryImage['country'];
+  onPick: (country: SelfiebeamCountry | null) => void;
+  locale: 'he' | 'en';
+  labels: { tip: string; search: string; remove: string; noResults: string };
+}) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ x: number; bottom: number } | null>(null);
+  const [query, setQuery] = useState('');
+  const results = useMemo(() => searchCountries(query), [query]);
+  const dir = locale === 'he' ? 'rtl' : 'ltr';
+
+  const open = () => {
+    const el = btnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setQuery('');
+    setPos({ x: r.left + r.width / 2, bottom: window.innerHeight - r.top + 8 });
+  };
+  const close = () => setPos(null);
+
+  return (
+    <>
+      <IconTip label={labels.tip}>
+        <button
+          ref={btnRef}
+          onClick={(e) => { e.stopPropagation(); if (pos) close(); else open(); }}
+          className="p-1 rounded-md bg-white/25 text-white hover:bg-white/40 flex items-center justify-center w-[26px] h-[26px]"
+        >
+          {current?.flag ? (
+            <img src={current.flag} alt="" className="w-4 h-3 object-cover rounded-[1px]" />
+          ) : (
+            <Flag className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </IconTip>
+      {pos && typeof document !== 'undefined' && createPortal(
+        <>
+          <div className="fixed inset-0 z-[99]" onClick={(e) => { e.stopPropagation(); close(); }} />
+          <div
+            dir={dir}
+            onClick={(e) => e.stopPropagation()}
+            className="fixed z-[100] -translate-x-1/2 w-56 max-h-72 overflow-hidden rounded-lg bg-bg-card border border-border shadow-xl flex flex-col"
+            style={{ left: pos.x, bottom: pos.bottom }}
+          >
+            <div className="p-2 border-b border-border">
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={labels.search}
+                className="w-full px-2.5 py-1.5 text-sm bg-black/20 border border-border rounded-md text-text-primary placeholder:text-text-secondary outline-none focus:border-accent"
+              />
+            </div>
+            <div className="overflow-y-auto">
+              {current && (
+                <button
+                  onClick={() => { onPick(null); close(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-white/5"
+                >
+                  <X className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-start">{labels.remove}</span>
+                </button>
+              )}
+              {results.length === 0 ? (
+                <div className="px-3 py-3 text-xs text-text-secondary text-center">{labels.noResults}</div>
+              ) : (
+                results.map((c) => (
+                  <button
+                    key={c.code}
+                    onClick={() => { onPick(c); close(); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-white/5 ${current?.code === c.code ? 'bg-accent/15' : ''}`}
+                  >
+                    <img src={c.flag} alt="" className="w-6 h-4 object-cover rounded-[2px] shrink-0" />
+                    <span className="truncate text-start flex-1">{countryName(c, locale)}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+    </>
+  );
+}
+
 export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPhotoManagerProps) {
   const t = useTranslations('modals');
+  const locale = (useLocale() === 'he' ? 'he' : 'en') as 'he' | 'en';
 
   const [images, setImages] = useState<UserGalleryImage[]>([]);
   const [filter, setFilter] = useState<FilterMode>('all');
@@ -117,6 +214,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
         source: img.source,
         fileHash: img.fileHash,
         pinned: img.pinned,
+        country: img.country,
         uploadedAt:
           img.uploadedAt && typeof (img.uploadedAt as { toDate?: () => Date }).toDate === 'function'
             ? (img.uploadedAt as { toDate: () => Date }).toDate()
@@ -400,6 +498,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
         source: 'admin',
         fileHash,
         ...(oldEntry?.pinned ? { pinned: true } : {}),
+        ...(oldEntry?.country ? { country: oldEntry.country } : {}),
         uploadedAt: Timestamp.now(),
       };
       await updateDoc(ref, {
@@ -476,6 +575,27 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
       await updateDoc(ref, { userGallery: gallery.map((g) => (g.id === id ? { ...g, uploaderName: name } : g)) });
     } catch (err) {
       console.error('Failed to save name:', err);
+    }
+  };
+
+  // --- Country flag editing (admin can set/change the flag shown on a photo) ---
+  const setPhotoCountry = async (id: string, country: SelfiebeamCountry | null) => {
+    const tag = country ? toCountryTag(country, locale) : null;
+    try {
+      const ref = doc(db, 'codes', codeId);
+      const snap = await getDoc(ref);
+      const gallery = (snap.data()?.userGallery || []) as RawGalleryEntry[];
+      await updateDoc(ref, {
+        userGallery: gallery.map((g) => {
+          if (g.id !== id) return g;
+          const next: RawGalleryEntry = { ...g };
+          if (tag) next.country = tag;
+          else delete next.country;
+          return next;
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to set country:', err);
     }
   };
 
@@ -812,6 +932,13 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                   </span>
                 )}
 
+                {/* Country flag badge (top-start, beside the select checkbox) */}
+                {img.country?.flag && (
+                  <span className="absolute top-1 start-8 z-10 rounded-[2px] overflow-hidden shadow ring-1 ring-black/40 pointer-events-none">
+                    <img src={img.country.flag} alt={img.country.name} className="w-6 h-4 object-cover block" />
+                  </span>
+                )}
+
                 {/* Name (bottom) — editable */}
                 {isEditing ? (
                   <div className="absolute bottom-0 inset-x-0 p-1 bg-black/80" onClick={(e) => e.stopPropagation()}>
@@ -871,6 +998,17 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                         </IconTip>
+                        <EditorCountryControl
+                          current={img.country}
+                          onPick={(c) => setPhotoCountry(img.id, c)}
+                          locale={locale}
+                          labels={{
+                            tip: t('selfiebeamTipCountry'),
+                            search: t('selfiebeamCountrySearch'),
+                            remove: t('selfiebeamCountryRemove'),
+                            noResults: t('selfiebeamCountryNoResults'),
+                          }}
+                        />
                         <IconTip label={t('selfiebeamTipBoost')}>
                           <button onClick={(e) => { e.stopPropagation(); boostImages([img.id]); }} className="p-1 rounded-md bg-accent text-white hover:opacity-90">
                             <ArrowUp className="w-3.5 h-3.5" />

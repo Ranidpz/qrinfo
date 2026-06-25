@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.15.0';
+export const APP_VERSION = '1.16.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,30 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.16.0',
+    date: '2026-06-25',
+    isNew: true,
+    highlights: {
+      he: [
+        'סלפי בים: כל מי שמעלה תמונה יכול לבחור מדינה (חיפוש עם השלמה אוטומטית), ודגל קטן מופיע על התמונה במסך הגדול',
+        'סלפי בים: סליידר לגודל הדגל (עד פי 4) בהגדרות הבים',
+        'סלפי בים: "מצב צלם" — לינק נפרד לצלם שטח עם העלאות ללא הגבלה, זוכר את המדינה האחרונה ומדלג על השם. הלינק הציבורי נשאר מוגבל',
+        'סלפי בים: בלינק הצלם לחיצה על תמונה פותחת עריכה — החלפת תמונה, שינוי שם ודגל, ומחיקה עם אישור',
+        'סלפי בים: עריכת דגל מדינה לכל תמונה בעורך הניהול; כל ההעלאות נשמרות ב-Cloudflare R2 בתיקיית הבעלים לפי שם האירוע, בפורמט WebP קל',
+      ],
+      en: [
+        'Selfie Beam: anyone uploading a photo can pick a country (autocomplete search), and a small flag appears on the photo on the big screen',
+        'Selfie Beam: a flag-size slider (up to 4x) in the beam settings',
+        'Selfie Beam: "Photographer mode" — a separate staff link with unlimited uploads that remembers the last country and skips the name. The public link stays capped',
+        'Selfie Beam: in the photographer link, tap a photo to edit it — replace the photo, change name and flag, or delete with confirmation',
+        'Selfie Beam: per-photo country-flag editing in the admin editor; all uploads now go to Cloudflare R2 in the owner\'s folder by event name, as lightweight WebP',
+      ],
+    },
+  },
+  {
     version: '1.15.0',
     date: '2026-06-01',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'לינק: נוספו סוגי קישור לאינסטגרם ולפייסבוק — הסורקים מועברים ישירות לעמוד שלכם, עם האייקון המתאים על כרטיס החוויה',

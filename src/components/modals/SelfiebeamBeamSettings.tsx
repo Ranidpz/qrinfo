@@ -21,6 +21,7 @@ const SB_DEFAULTS: GallerySettings = {
   displaySpeed: 4.5,
   featureNewPhotos: false,
   minPinnedOnScreen: 1,
+  flagSize: 100,
 };
 
 interface Props {
@@ -163,6 +164,23 @@ export default function SelfiebeamBeamSettings({ codeId }: Props) {
             className="w-32 h-2 bg-border rounded-lg appearance-none cursor-pointer accent-accent"
           />
           <span className="text-sm text-text-primary w-8 text-center">{settings.borderRadius ?? 0}%</span>
+        </div>
+      </div>
+
+      {/* Country flag size — also adjustable live from the beam's gear panel */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-text-secondary">{t('selfiebeamFlagSize')}</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min={25}
+            max={400}
+            step={5}
+            value={settings.flagSize ?? 100}
+            onChange={(e) => update({ flagSize: Number(e.target.value) })}
+            className="w-32 h-2 bg-border rounded-lg appearance-none cursor-pointer accent-accent"
+          />
+          <span className="text-sm text-text-primary w-10 text-center">{settings.flagSize ?? 100}%</span>
         </div>
       </div>
 

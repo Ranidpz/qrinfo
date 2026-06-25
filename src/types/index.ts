@@ -31,6 +31,11 @@ export interface SelfiebeamContent {
   companyLogos?: string[]; // Company logos to display in gallery mixed with selfies
   autoApprove?: boolean; // When false, participant photos are pending until an admin approves them. Default true.
   maxUploadsPerUser?: number; // How many selfies one participant may upload (1-3). Default 3.
+  // Photographer link: when set, a separate staff link `/v/{shortId}?pk={photographerToken}`
+  // unlocks unlimited uploads + a streamlined flow (remember country, skip name). The public
+  // link `/v/{shortId}` stays capped by maxUploadsPerUser. Both work at once on the same beam.
+  // Empty/undefined = no photographer link. The token is an unguessable handle, not a secret.
+  photographerToken?: string;
 }
 
 // User gallery image (selfies uploaded by viewers)
@@ -52,6 +57,14 @@ export interface UserGalleryImage {
   // so existing photos and Riddle galleries are unaffected).
   fileHash?: string; // SHA-256 hex of the original file bytes — dedup key (see lib/imageHash.ts)
   pinned?: boolean;  // Selfie Beam: keep this image always present in the beam rotation
+  // Selfie Beam: optional country tag chosen by the participant. Renders a small flag
+  // next to the photo on the beam. Self-contained (name + flag baked in) for backwards
+  // compatibility — undefined means no flag, so existing photos are unaffected.
+  country?: {
+    code: string;  // 'us', 'il', 'm25', ... (see lib/selfiebeam/countries.ts)
+    name: string;  // display name in the uploader's locale at upload time
+    flag: string;  // public path to the flag asset, e.g. '/flags/us.svg'
+  };
   // Gamification fields (optional for backwards compatibility)
   visitorId?: string;  // Link to visitor document
 }
@@ -73,6 +86,7 @@ export interface GallerySettings {
   displaySpeed?: number; // Shuffle: seconds between each photo swap (2-10). Default 4.5.
   featureNewPhotos?: boolean; // Shuffle: a newly-added photo pops up big then falls into the grid. Default false.
   minPinnedOnScreen?: number; // Selfie Beam: how many pinned images stay on the beam at all times. Default 1.
+  flagSize?: number; // Selfie Beam: country flag size as a percentage (25-400). Default 100.
 }
 
 // Landing page button style

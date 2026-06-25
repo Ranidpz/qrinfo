@@ -67,3 +67,6 @@ stress-test/results/
 
 # scheduled tasks runtime lock (never commit)
 .claude/scheduled_tasks.lock
+
+# Local non-project assets (presentations, exports)
+outputs/

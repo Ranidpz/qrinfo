@@ -530,6 +530,10 @@ export default function DashboardPage() {
       if (content.youtubeUrl) {
         selfiebeamContent.youtubeUrl = content.youtubeUrl;
       }
+      // Preserve the photographer link token (omit when disabled so the field is cleared)
+      if (content.photographerToken) {
+        selfiebeamContent.photographerToken = content.photographerToken;
+      }
 
       // Create QR code with selfiebeam (in current folder if inside one)
       const newCode = await createQRCode(user.id, pendingExperienceName.trim() || content.title, [

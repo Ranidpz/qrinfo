@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   X, FileText, Trash2, Loader2, Camera, Users, Pipette, Building2,
-  Palette, Settings as SettingsIcon, Images, ShieldCheck, Monitor, Smartphone, ImagePlus,
+  Palette, Settings as SettingsIcon, Images, ShieldCheck, Monitor, Smartphone, ImagePlus, Zap, Copy, Check,
 } from 'lucide-react';
 import { SelfiebeamContent } from '@/types';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useTranslations } from 'next-intl';
 import SelfiebeamPhotoManager from './SelfiebeamPhotoManager';
 import SelfiebeamBeamSettings from './SelfiebeamBeamSettings';
@@ -17,6 +19,7 @@ interface SelfiebeamModalProps {
   loading?: boolean;
   initialContent?: SelfiebeamContent;
   codeId?: string; // present when editing an existing code → enables live photo management
+  mediaId?: string; // the selfiebeam media item id (present when editing) → enables instant token save
   ownerId?: string;
   shortId?: string; // present when editing → enables the "open beam display" link
 }
@@ -54,6 +57,7 @@ export default function SelfiebeamModal({
   loading = false,
   initialContent,
   codeId,
+  mediaId,
   ownerId,
   shortId,
 }: SelfiebeamModalProps) {
@@ -69,6 +73,8 @@ export default function SelfiebeamModal({
   const [allowAnonymous, setAllowAnonymous] = useState(true);
   const [autoApprove, setAutoApprove] = useState(true);
   const [maxUploadsPerUser, setMaxUploadsPerUser] = useState(3);
+  const [photographerToken, setPhotographerToken] = useState('');
+  const [photographerLinkCopied, setPhotographerLinkCopied] = useState(false);
   const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoPreviews, setLogoPreviews] = useState<string[]>([]);
   const [existingLogos, setExistingLogos] = useState<string[]>([]);
@@ -95,6 +101,7 @@ export default function SelfiebeamModal({
         setAllowAnonymous(initialContent.allowAnonymous ?? true);
         setAutoApprove(initialContent.autoApprove ?? true);
         setMaxUploadsPerUser(initialContent.maxUploadsPerUser ?? 3);
+        setPhotographerToken(initialContent.photographerToken ?? '');
         setLogoPreviews(initialContent.companyLogos || []);
         setExistingLogos(initialContent.companyLogos || []);
         setLegacyImages(initialContent.images || []);
@@ -185,6 +192,7 @@ export default function SelfiebeamModal({
       allowAnonymous,
       autoApprove,
       maxUploadsPerUser,
+      photographerToken: photographerToken || undefined,
       companyLogos: existingLogos,
     };
 
@@ -196,6 +204,55 @@ export default function SelfiebeamModal({
     { key: 'design', label: t('selfiebeamTabDesign'), icon: Palette },
     { key: 'settings', label: t('selfiebeamTabSettings'), icon: SettingsIcon },
   ];
+
+  // Photographer link: an unguessable handle (not a secret) that unlocks unlimited uploads
+  // for staff while the public link stays capped. Persisted to Firestore the moment the toggle
+  // flips (when editing an existing code) so the link works immediately — no Save needed.
+  const togglePhotographerLink = async (enabled: boolean) => {
+    const token = enabled ? (photographerToken || crypto.randomUUID().replace(/-/g, '').slice(0, 12)) : '';
+    setPhotographerToken(token);
+    setPhotographerLinkCopied(false);
+
+    if (!codeId) return; // brand-new code with no doc yet — token persists on Save instead
+    try {
+      const ref = doc(db, 'codes', codeId);
+      const snap = await getDoc(ref);
+      const media = (snap.data()?.media || []) as Array<{ id: string; type?: string; selfiebeamContent?: SelfiebeamContent }>;
+      // Target the edited media item by id; if the id wasn't passed (some open paths don't set
+      // it), fall back to every selfiebeam item so the token still saves.
+      let touched = 0;
+      const nextMedia = media.map((m) => {
+        const isTarget = mediaId ? m.id === mediaId : m.type === 'selfiebeam';
+        if (isTarget && m.selfiebeamContent) {
+          touched++;
+          return { ...m, selfiebeamContent: { ...m.selfiebeamContent, photographerToken: token } };
+        }
+        return m;
+      });
+      if (!touched) {
+        console.warn('Photographer token: no selfiebeam media item matched — will persist on Save.');
+        return;
+      }
+      await updateDoc(ref, { media: nextMedia });
+    } catch (err) {
+      console.error('Failed to persist photographer token:', err);
+    }
+  };
+
+  const photographerLink = shortId
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/v/${shortId}?pk=${photographerToken}`
+    : '';
+
+  const copyPhotographerLink = async () => {
+    if (!photographerLink) return;
+    try {
+      await navigator.clipboard.writeText(photographerLink);
+      setPhotographerLinkCopied(true);
+      setTimeout(() => setPhotographerLinkCopied(false), 2000);
+    } catch {
+      // clipboard blocked — user can still select the field manually
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -231,6 +288,18 @@ export default function SelfiebeamModal({
               >
                 <Smartphone className="w-4 h-4" />
                 {t('selfiebeamOpenUpload')}
+              </a>
+            )}
+            {shortId && galleryEnabled && photographerToken && (
+              <a
+                href={photographerLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={t('selfiebeamOpenPhotographer')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/15 text-accent hover:bg-accent/25 transition-colors text-sm font-medium"
+              >
+                <Zap className="w-4 h-4" />
+                {t('selfiebeamOpenPhotographer')}
               </a>
             )}
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-bg-secondary text-text-secondary">
@@ -472,6 +541,7 @@ export default function SelfiebeamModal({
                       </div>
                     </div>
 
+                    {/* Public link upload cap — always governs the freely-shared /v/{shortId} link */}
                     <div className="h-px bg-border" />
                     <div className="flex items-start gap-3">
                       <ImagePlus className="w-5 h-5 text-accent shrink-0 mt-0.5" />
@@ -496,6 +566,43 @@ export default function SelfiebeamModal({
                             ))}
                           </div>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Photographer link — a SEPARATE unlimited link for staff. The public link
+                        above stays capped; both feed the same beam. */}
+                    <div className="h-px bg-border" />
+                    <div className="flex items-start gap-3">
+                      <Zap className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+                      <div className="flex-1 space-y-2">
+                        <ToggleRow
+                          label={t('selfiebeamPhotographerMode')}
+                          description={t('selfiebeamPhotographerModeDesc')}
+                          checked={!!photographerToken}
+                          onChange={togglePhotographerLink}
+                        />
+                        {photographerToken && shortId && (
+                          <div className="flex items-center gap-2">
+                            <input
+                              readOnly
+                              value={photographerLink}
+                              onFocus={(e) => e.currentTarget.select()}
+                              className="flex-1 min-w-0 px-3 py-2 text-xs bg-black/20 border border-border rounded-lg text-text-primary outline-none"
+                              dir="ltr"
+                            />
+                            <button
+                              type="button"
+                              onClick={copyPhotographerLink}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 shrink-0"
+                            >
+                              {photographerLinkCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                              {photographerLinkCopied ? t('selfiebeamCopied') : t('selfiebeamCopyLink')}
+                            </button>
+                          </div>
+                        )}
+                        {photographerToken && !shortId && (
+                          <p className="text-xs text-amber-400">{t('selfiebeamPhotographerSaveFirst')}</p>
+                        )}
                       </div>
                     </div>
                   </>

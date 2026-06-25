@@ -67,6 +67,7 @@ const DEFAULT_SETTINGS: GallerySettings = {
   showNewBadge: false,
   displaySpeed: 4.5,
   featureNewPhotos: false,
+  flagSize: 100,
 };
 
 // Selfie Beam opens straight into the animated big-screen beam: shuffle mode,
@@ -87,6 +88,26 @@ function NewRibbon() {
       <div className="absolute top-[20px] right-[-28px] w-[128px] rotate-45 bg-red-500 text-white text-[14px] font-extrabold tracking-widest text-center py-1 shadow-md">
         NEW
       </div>
+    </div>
+  );
+}
+
+// Small country flag, pinned to the top-left of a photo (top-right is the NEW ribbon,
+// bottom-right is the name badge). Height = base * scale%, controlled by the flagSize setting.
+function CountryFlag({ country, scale = 100, base = 30 }: { country?: UserGalleryImage['country']; scale?: number; base?: number }) {
+  if (!country?.flag) return null;
+  const h = Math.max(Math.round(base * scale / 100), 12);
+  return (
+    <div
+      className="absolute top-2 left-2 z-20 rounded-[3px] overflow-hidden shadow-md ring-1 ring-black/30 pointer-events-none"
+      title={country.name}
+    >
+      <img
+        src={country.flag}
+        alt={country.name}
+        style={{ height: h, width: 'auto', display: 'block' }}
+        loading="lazy"
+      />
     </div>
   );
 }
@@ -138,6 +159,7 @@ export default function GalleryClient({
   const [fadeEffect, setFadeEffect] = useState(settings.fadeEffect ?? false);
   const [borderRadius, setBorderRadius] = useState(settings.borderRadius ?? 0);
   const [nameSize, setNameSize] = useState(settings.nameSize ?? 14);
+  const [flagSize, setFlagSize] = useState(settings.flagSize ?? 100);
   const [showNewBadge, setShowNewBadge] = useState(settings.showNewBadge ?? false);
   const [displaySpeed, setDisplaySpeed] = useState(settings.displaySpeed ?? 4.5);
   const [featureNewPhotos, setFeatureNewPhotos] = useState(settings.featureNewPhotos ?? false);
@@ -326,6 +348,7 @@ export default function GalleryClient({
         uploadedAt: { toDate?: () => Date } | Date;
         approved?: boolean;
         pinned?: boolean;
+        country?: UserGalleryImage['country'];
       }>;
 
       const newImages: UserGalleryImage[] = gallery
@@ -337,6 +360,7 @@ export default function GalleryClient({
           url: img.url,
           uploaderName: img.uploaderName,
           pinned: img.pinned,
+          country: img.country,
           uploadedAt: img.uploadedAt && typeof (img.uploadedAt as { toDate?: () => Date }).toDate === 'function'
             ? (img.uploadedAt as { toDate: () => Date }).toDate()
             : new Date(img.uploadedAt as unknown as string),
@@ -409,6 +433,7 @@ export default function GalleryClient({
           setFadeEffect(fbSettings.fadeEffect ?? DEFAULT_SETTINGS.fadeEffect ?? false);
           setBorderRadius(fbSettings.borderRadius ?? DEFAULT_SETTINGS.borderRadius ?? 0);
           setNameSize(fbSettings.nameSize ?? DEFAULT_SETTINGS.nameSize ?? 14);
+          setFlagSize(fbSettings.flagSize ?? DEFAULT_SETTINGS.flagSize ?? 100);
           setShowNewBadge(fbSettings.showNewBadge ?? DEFAULT_SETTINGS.showNewBadge ?? false);
           setDisplaySpeed(fbSettings.displaySpeed ?? experienceDefaults.displaySpeed ?? 4.5);
           setFeatureNewPhotos(fbSettings.featureNewPhotos ?? false);
@@ -802,6 +827,7 @@ export default function GalleryClient({
           fadeEffect,
           borderRadius,
           nameSize,
+          flagSize,
           showNewBadge,
           displaySpeed,
           featureNewPhotos,
@@ -813,7 +839,7 @@ export default function GalleryClient({
     } finally {
       setSavingSettings(false);
     }
-  }, [isOwner, codeId, displayMode, displayLimit, gridColumns, headerHidden, showNames, fadeEffect, borderRadius, nameSize, showNewBadge, displaySpeed, featureNewPhotos]);
+  }, [isOwner, codeId, displayMode, displayLimit, gridColumns, headerHidden, showNames, fadeEffect, borderRadius, nameSize, flagSize, showNewBadge, displaySpeed, featureNewPhotos]);
 
   // Update settings with auto-save
   const updateDisplayMode = (mode: GalleryDisplayMode) => {
@@ -871,6 +897,11 @@ export default function GalleryClient({
   const updateNameSize = useCallback((value: number) => {
     setNameSize(value);
     if (isOwner) saveSettings({ nameSize: value });
+  }, [isOwner, saveSettings]);
+
+  const updateFlagSize = useCallback((value: number) => {
+    setFlagSize(value);
+    if (isOwner) saveSettings({ flagSize: value });
   }, [isOwner, saveSettings]);
 
   // Mark image as displayed - removes NEW badge after delay and saves to localStorage
@@ -1104,6 +1135,8 @@ export default function GalleryClient({
                         markImageAsDisplayed(image.id);
                       }}
                     />
+                    {/* Country flag */}
+                    <CountryFlag country={image.country} scale={flagSize} />
                     {/* NEW ribbon */}
                     {showNewBadge && isNewImage(image.id) && <NewRibbon />}
                     {/* Name badge */}
@@ -1160,6 +1193,8 @@ export default function GalleryClient({
                   markImageAsDisplayed(image.id);
                 }}
               />
+              {/* Country flag */}
+              <CountryFlag country={image.country} scale={flagSize} />
               {/* NEW ribbon */}
               {showNewBadge && isNewImage(image.id) && <NewRibbon />}
               {/* Name badge - always visible when enabled */}
@@ -1238,6 +1273,8 @@ export default function GalleryClient({
                     markImageAsDisplayed(image.id);
                   }}
                 />
+                {/* Country flag */}
+                <CountryFlag country={image.country} scale={flagSize} />
                 {/* NEW ribbon */}
                 {showNewBadge && isNewImage(image.id) && <NewRibbon />}
                 {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
@@ -1277,6 +1314,8 @@ export default function GalleryClient({
                   style={{ borderRadius: `${borderRadius}%` }}
                   loading="eager"
                 />
+                {/* Country flag */}
+                <CountryFlag country={image.country} scale={flagSize} />
                 {/* NEW ribbon */}
                 {showNewBadge && isNewImage(image.id) && <NewRibbon />}
                 {showNames && image.uploaderName && image.uploaderName !== 'אנונימי' && image.uploaderName !== 'Anonymous' && (
@@ -1506,6 +1545,23 @@ export default function GalleryClient({
                   </div>
                 </Tooltip>
 
+                {/* Flag size slider */}
+                <Tooltip text={t.flagSizeLabel} position="above">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-white/60">{t.flag}</span>
+                    <input
+                      type="range"
+                      min="25"
+                      max="400"
+                      step="5"
+                      value={flagSize}
+                      onChange={(e) => updateFlagSize(Number(e.target.value))}
+                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <span className="text-sm text-white/60 w-10">{flagSize}%</span>
+                  </div>
+                </Tooltip>
+
                 <div className="w-px h-5 bg-white/20" />
 
                 {/* Image count + Delete button together */}
@@ -1585,6 +1641,7 @@ export default function GalleryClient({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={featured.image.url} alt={featured.image.uploaderName} className="w-full h-full object-cover" />
+            <CountryFlag country={featured.image.country} scale={flagSize} base={60} />
             {showNewBadge && isNewImage(featured.image.id) && <NewRibbon />}
             {featured.image.uploaderName &&
               featured.image.uploaderName !== 'אנונימי' &&
