@@ -109,10 +109,10 @@ function EditorCountryControl({
         <button
           ref={btnRef}
           onClick={(e) => { e.stopPropagation(); if (pos) close(); else open(); }}
-          className="p-1 rounded-md bg-white/25 text-white hover:bg-white/40 flex items-center justify-center w-[26px] h-[26px]"
+          className="p-1 rounded-md bg-white/25 text-white hover:bg-white/40 flex items-center justify-center"
         >
           {current?.flag ? (
-            <img src={current.flag} alt="" className="w-4 h-3 object-cover rounded-[1px]" />
+            <img src={current.flag} alt="" className="w-3.5 h-2.5 object-cover rounded-[1px]" />
           ) : (
             <Flag className="w-3.5 h-3.5" />
           )}
@@ -975,7 +975,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                     or crops the photo. pointer-events only on hover, so the invisible bar doesn't
                     swallow card-selection clicks; the buttons themselves stopPropagation. */}
                 {!isEditing && (
-                  <div className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-around gap-0.5 px-1 py-1 bg-gradient-to-t from-black/90 via-black/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
+                  <div className="absolute inset-x-0 bottom-0 z-10 flex flex-wrap items-center justify-center gap-1 px-1 py-1.5 bg-gradient-to-t from-black/90 via-black/70 to-transparent opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
                     {isBusy ? (
                       <Loader2 className="w-4 h-4 my-0.5 text-white animate-spin" />
                     ) : (

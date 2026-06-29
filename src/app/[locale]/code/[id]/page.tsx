@@ -1828,7 +1828,7 @@ export default function CodeEditPage({ params }: PageProps) {
   // Handler for adding or editing a selfiebeam.
   // Beam photos are managed live in the modal's Photos tab (SelfiebeamPhotoManager) →
   // this only saves config (title/colors/content/youtube/settings) + company logos.
-  const handleSaveSelfiebeam = async (content: SelfiebeamContent, logoFiles: File[]) => {
+  const handleSaveSelfiebeam = async (content: SelfiebeamContent, logoFiles: File[]): Promise<SelfiebeamContent | void> => {
     if (!code || !user) return;
 
     setAddingSelfiebeam(true);
@@ -1892,6 +1892,7 @@ export default function CodeEditPage({ params }: PageProps) {
       }
 
       let updatedMedia: MediaItem[];
+      let savedMediaId = editingSelfiebeamId;
       if (editingSelfiebeamId) {
         const existingMedia = code.media.find(m => m.id === editingSelfiebeamId);
         const oldSize = existingMedia?.size || 0;
@@ -1912,19 +1913,27 @@ export default function CodeEditPage({ params }: PageProps) {
           selfiebeamContent,
           createdAt: new Date(),
         };
+        savedMediaId = newMedia.id;
         updatedMedia = [...code.media, newMedia];
       }
 
       await updateQRCode(code.id, { media: updatedMedia });
 
+      // Keep server-side storage accurate, but don't call refreshUser() here:
+      // it swaps the user object reference, which re-runs the loadCode effect and
+      // churns the page while the modal is open. (Same pattern as SelfiebeamPhotoManager.)
       if (totalLogoSize > 0) {
         await updateUserStorage(user.id, totalLogoSize);
-        await refreshUser();
       }
 
       setCode((prev) => prev ? { ...prev, media: updatedMedia } : null);
-      setSelfiebeamModalOpen(false);
-      setEditingSelfiebeamId(null);
+      // Stay open so the admin can keep working — the modal flashes "saved".
+      // On the first save of a NEW item, switch into edit mode so a follow-up
+      // Save updates it instead of creating a duplicate experience.
+      if (!editingSelfiebeamId && savedMediaId) {
+        setEditingSelfiebeamId(savedMediaId);
+      }
+      return selfiebeamContent;
     } catch (error) {
       console.error('Error saving selfiebeam:', error);
       alert(tErrors('createSelfiebeamError'));

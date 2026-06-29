@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.16.1';
+export const APP_VERSION = '1.16.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.16.1',
+    version: '1.16.2',
     date: '2026-06-25',
     isNew: true,
+    highlights: {
+      he: [
+        'סלפי בים (עורך): כפתורי הפעולה על כל תמונה — כולל עריכת דגל ומחיקה — נחתכו בכרטיסים צרים. תוקן: הם עוברים עכשיו לשתי שורות ונגישים תמיד',
+      ],
+      en: [
+        'Selfie Beam (editor): per-photo action buttons — including flag editing and delete — were clipped on narrow cards. Fixed: they now wrap to a second row and are always reachable',
+      ],
+    },
+  },
+  {
+    version: '1.16.1',
+    date: '2026-06-25',
+    isNew: false,
     highlights: {
       he: [
         'מצב צלם: אפליקציה מותקנת (PWA) מלינק הצלם נפתחת עכשיו כצלם עם העלאות ללא הגבלה — לא כמשתמש רגיל',

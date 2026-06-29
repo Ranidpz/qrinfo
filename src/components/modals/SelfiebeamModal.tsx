@@ -15,7 +15,10 @@ import SelfiebeamBeamSettings from './SelfiebeamBeamSettings';
 interface SelfiebeamModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (content: SelfiebeamContent, logoFiles: File[]) => Promise<void>;
+  // Resolves to the persisted content on success (so the modal can reconcile its
+  // logo state and show a "saved" confirmation without closing); void/undefined
+  // means the parent handled closing/navigation or the save failed.
+  onSave: (content: SelfiebeamContent, logoFiles: File[]) => Promise<SelfiebeamContent | void>;
   loading?: boolean;
   initialContent?: SelfiebeamContent;
   codeId?: string; // present when editing an existing code → enables live photo management
@@ -81,52 +84,75 @@ export default function SelfiebeamModal({
   const [existingLogos, setExistingLogos] = useState<string[]>([]);
   const [isDraggingLogo, setIsDraggingLogo] = useState(false);
   const [error, setError] = useState('');
+  const [justSaved, setJustSaved] = useState(false);
   // Preserve any legacy content.images so we don't wipe old data (beam reads userGallery now).
   const [legacyImages, setLegacyImages] = useState<string[]>([]);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  // Tracks which item we last initialized the form for, so a Save (which mutates
+  // the parent's code state → new initialContent reference) doesn't reset the
+  // active tab / fields while the user keeps editing.
+  const initKeyRef = useRef<string | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const t = useTranslations('modals');
   const tCommon = useTranslations('common');
 
   useEffect(() => {
-    if (isOpen) {
-      // Photos is the primary surface; fall back to Design when creating a new code (no codeId yet)
-      setActiveTab(codeId ? 'photos' : 'design');
-      if (initialContent) {
-        setTitle(initialContent.title);
-        setContent(initialContent.content);
-        setBackgroundColor(initialContent.backgroundColor);
-        setTextColor(initialContent.textColor);
-        setYoutubeUrl(initialContent.youtubeUrl || '');
-        setGalleryEnabled(initialContent.galleryEnabled || false);
-        setAllowAnonymous(initialContent.allowAnonymous ?? true);
-        setAutoApprove(initialContent.autoApprove ?? true);
-        setMaxUploadsPerUser(initialContent.maxUploadsPerUser ?? 3);
-        setPhotographerToken(initialContent.photographerToken ?? '');
-        setPhotographerOnly(initialContent.photographerOnly ?? false);
-        setLogoPreviews(initialContent.companyLogos || []);
-        setExistingLogos(initialContent.companyLogos || []);
-        setLegacyImages(initialContent.images || []);
-      } else {
-        setTitle('');
-        setContent('');
-        setBackgroundColor('#1a1a2e');
-        setTextColor('#ffffff');
-        setYoutubeUrl('');
-        setGalleryEnabled(false);
-        setAllowAnonymous(true);
-        setAutoApprove(true);
-        setMaxUploadsPerUser(3);
-        setLogoPreviews([]);
-        setExistingLogos([]);
-        setLegacyImages([]);
-      }
-      setLogoFiles([]);
-      setError('');
-      setCustomBgColor('');
-      setCustomTextColor('');
+    if (!isOpen) {
+      // Reset so reopening the modal re-initializes from fresh data.
+      initKeyRef.current = null;
+      setJustSaved(false);
+      return;
     }
-  }, [isOpen, initialContent, codeId]);
+    // Re-initialize only when the modal opens or switches to a different item —
+    // NOT on every initialContent reference change. A Save updates the parent's
+    // code state (new initialContent reference) but we want the user's tab and
+    // edits to stay put so they can keep working.
+    const itemKey = mediaId ?? '__create__';
+    if (initKeyRef.current === itemKey) return;
+    initKeyRef.current = itemKey;
+
+    // Photos is the primary surface; fall back to Design when creating a new code (no codeId yet)
+    setActiveTab(codeId ? 'photos' : 'design');
+    if (initialContent) {
+      setTitle(initialContent.title);
+      setContent(initialContent.content);
+      setBackgroundColor(initialContent.backgroundColor);
+      setTextColor(initialContent.textColor);
+      setYoutubeUrl(initialContent.youtubeUrl || '');
+      setGalleryEnabled(initialContent.galleryEnabled || false);
+      setAllowAnonymous(initialContent.allowAnonymous ?? true);
+      setAutoApprove(initialContent.autoApprove ?? true);
+      setMaxUploadsPerUser(initialContent.maxUploadsPerUser ?? 3);
+      setPhotographerToken(initialContent.photographerToken ?? '');
+      setPhotographerOnly(initialContent.photographerOnly ?? false);
+      setLogoPreviews(initialContent.companyLogos || []);
+      setExistingLogos(initialContent.companyLogos || []);
+      setLegacyImages(initialContent.images || []);
+    } else {
+      setTitle('');
+      setContent('');
+      setBackgroundColor('#1a1a2e');
+      setTextColor('#ffffff');
+      setYoutubeUrl('');
+      setGalleryEnabled(false);
+      setAllowAnonymous(true);
+      setAutoApprove(true);
+      setMaxUploadsPerUser(3);
+      setLogoPreviews([]);
+      setExistingLogos([]);
+      setLegacyImages([]);
+    }
+    setLogoFiles([]);
+    setError('');
+    setCustomBgColor('');
+    setCustomTextColor('');
+  }, [isOpen, initialContent, codeId, mediaId]);
+
+  // Clear the pending "saved" timer on unmount.
+  useEffect(() => () => {
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+  }, []);
 
   // Generate previews for newly added logo files
   useEffect(() => {
@@ -199,7 +225,18 @@ export default function SelfiebeamModal({
       companyLogos: existingLogos,
     };
 
-    await onSave(selfiebeamContent, logoFiles);
+    const saved = await onSave(selfiebeamContent, logoFiles);
+
+    // Stay-open save: on success the parent returns the persisted content. Adopt
+    // its final logo URLs and drop the pending File objects so a follow-up Save
+    // doesn't re-upload them, then flash a "saved" confirmation without closing.
+    if (saved && typeof saved === 'object') {
+      setExistingLogos(saved.companyLogos || []);
+      setLogoFiles([]);
+      setJustSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setJustSaved(false), 2500);
+    }
   };
 
   const tabs: { key: TabKey; label: string; icon: typeof Palette; disabled?: boolean }[] = [
@@ -655,9 +692,17 @@ export default function SelfiebeamModal({
           <button
             onClick={handleSave}
             disabled={loading || !title.trim()}
-            className="btn bg-accent text-white hover:bg-accent-hover disabled:opacity-50 min-w-[100px]"
+            className={`btn text-white disabled:opacity-50 min-w-[110px] transition-colors ${
+              justSaved ? 'bg-success hover:bg-success' : 'bg-accent hover:bg-accent-hover'
+            }`}
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : tCommon('save')}
+            {loading ? (
+              <span className="flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />{tCommon('saving')}</span>
+            ) : justSaved ? (
+              <span className="flex items-center gap-2"><Check className="w-5 h-5" />{tCommon('saved')}</span>
+            ) : (
+              tCommon('save')
+            )}
           </button>
         </div>
       </div>
