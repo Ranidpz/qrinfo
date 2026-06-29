@@ -90,6 +90,7 @@ export interface GallerySettings {
   featureNewPhotos?: boolean; // Shuffle: a newly-added photo pops up big then falls into the grid. Default false.
   minPinnedOnScreen?: number; // Selfie Beam: how many pinned images stay on the beam at all times. Default 1.
   flagSize?: number; // Selfie Beam: country flag size as a percentage (25-400). Default 100.
+  swapBatch?: number; // Shuffle: how many cells swap each tick, cascaded (1-4). Default 1.
 }
 
 // Landing page button style

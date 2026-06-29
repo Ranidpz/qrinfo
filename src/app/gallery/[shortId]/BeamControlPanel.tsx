@@ -10,7 +10,7 @@ import { galleryTranslations } from '@/lib/publicTranslations';
 
 type GalleryT = (typeof galleryTranslations)['he'];
 
-// The 13 GallerySettings fields the beam actually renders. Mirrors the editor.
+// The GallerySettings fields the beam actually renders. Mirrors the editor.
 export interface BeamPanelValues {
   displayMode: GalleryDisplayMode;
   displayLimit: number;
@@ -25,6 +25,7 @@ export interface BeamPanelValues {
   displaySpeed: number;
   featureNewPhotos: boolean;
   minPinnedOnScreen: number;
+  swapBatch: number;
 }
 
 interface Props {
@@ -210,6 +211,9 @@ export default function BeamControlPanel({
           <Slider label={t.columns} value={values.gridColumns} min={2} max={8} onChange={(v) => onChange({ gridColumns: v })} />
           {isShuffle && (
             <Slider label={t.swapSpeed} value={values.displaySpeed} suffix={t.seconds} min={2} max={10} step={0.5} onChange={(v) => onChange({ displaySpeed: v })} />
+          )}
+          {isShuffle && (
+            <Slider label={t.photosPerSwap} value={values.swapBatch} min={1} max={4} onChange={(v) => onChange({ swapBatch: v })} />
           )}
           <Slider label={t.roundCorners} value={values.borderRadius} suffix="%" min={0} max={50} onChange={(v) => onChange({ borderRadius: v })} />
           <Slider label={t.flagSizeLabel} value={values.flagSize} suffix="%" min={25} max={400} step={5} onChange={(v) => onChange({ flagSize: v })} />

@@ -69,6 +69,7 @@ const DEFAULT_SETTINGS: GallerySettings = {
   displaySpeed: 4.5,
   featureNewPhotos: false,
   flagSize: 100,
+  swapBatch: 1,
 };
 
 // Selfie Beam opens straight into the animated big-screen beam: shuffle mode,
@@ -81,6 +82,10 @@ const SELFIEBEAM_DEFAULTS: Partial<GallerySettings> = {
   fadeEffect: true,
   displaySpeed: 4.5,
 };
+
+// Two photos count as "the same" for shuffle purposes when they share content — so a photo
+// uploaded twice (same file, different ids) never sits side by side. Falls back to url, then id.
+const keyOf = (img: UserGalleryImage): string => img.fileHash || img.url || img.id;
 
 // A diagonal red "NEW" ribbon across the top-right corner of a cell (first-appearance photos).
 function NewRibbon() {
@@ -166,6 +171,7 @@ export default function GalleryClient({
   const [displaySpeed, setDisplaySpeed] = useState(settings.displaySpeed ?? 4.5);
   const [featureNewPhotos, setFeatureNewPhotos] = useState(settings.featureNewPhotos ?? false);
   const [minPinnedOnScreen, setMinPinnedOnScreen] = useState(settings.minPinnedOnScreen ?? 1);
+  const [swapBatch, setSwapBatch] = useState(settings.swapBatch ?? 1);
 
   // ── Per-screen LOCAL overrides ─────────────────────────────────────────────
   // The editor's gallerySettings (Firestore) is the shared default; this browser
@@ -203,6 +209,7 @@ export default function GalleryClient({
     setDisplaySpeed(eff.displaySpeed ?? 4.5);
     setFeatureNewPhotos(eff.featureNewPhotos ?? false);
     setMinPinnedOnScreen(eff.minPinnedOnScreen ?? 1);
+    setSwapBatch(eff.swapBatch ?? 1);
   }, [experienceDefaults]);
 
   // Apply one or more fields to both the live state (instant preview) and the
@@ -221,6 +228,7 @@ export default function GalleryClient({
     if (patch.displaySpeed !== undefined) setDisplaySpeed(patch.displaySpeed);
     if (patch.featureNewPhotos !== undefined) setFeatureNewPhotos(patch.featureNewPhotos);
     if (patch.minPinnedOnScreen !== undefined) setMinPinnedOnScreen(patch.minPinnedOnScreen);
+    if (patch.swapBatch !== undefined) setSwapBatch(patch.swapBatch);
     localOverridesRef.current = { ...localOverridesRef.current, ...patch };
     setHasOverrides(Object.keys(localOverridesRef.current).length > 0);
     schedulePersist();
@@ -396,6 +404,13 @@ export default function GalleryClient({
   // Total grid cells = columns * rows (fills screen exactly)
   const gridSize = gridColumns * gridRows;
 
+  // Live refs to the grid geometry so the (dependency-free) shuffle picker can compute
+  // a cell's orthogonal neighbours without being recreated on every column/row change.
+  const gridColsRef = useRef(gridColumns);
+  gridColsRef.current = gridColumns;
+  const gridRowsRef = useRef(gridRows);
+  gridRowsRef.current = gridRows;
+
   // Convert company logos to UserGalleryImage format for display (memoized to prevent re-renders)
   const logoImages = useMemo<UserGalleryImage[]>(() =>
     companyLogos.map((url, index) => ({
@@ -522,23 +537,57 @@ export default function GalleryClient({
   // Track if we have images (to trigger the shuffle effect once when images arrive)
   const hasImages = images.length > 0;
 
-  // Pick the next image to show: freshly-uploaded first, otherwise the next in a fair
-  // rotation through the WHOLE pool — preferring images not already on screen, but
-  // falling back to a repeat when the pool is smaller than the grid (keeps it full).
-  const pickNextImage = useCallback((): UserGalleryImage | null => {
+  // Pick the next image for a cell. Goal: real variety even when there are FAR fewer photos
+  // than grid cells. We choose the image that is currently shown the FEWEST times AND does
+  // not already sit in one of the target cell's orthogonal neighbours (or the cell itself) —
+  // identical photos are compared by CONTENT (keyOf), so duplicate uploads never cluster.
+  // When the pool is larger than the grid this naturally yields all-distinct cells (every
+  // count is 0). `slot < 0` (no target) just skips the neighbour rule.
+  const pickNextImage = useCallback((slot = -1, allowAdjacent = true): UserGalleryImage | null => {
     const pool = poolRef.current;
     if (pool.length === 0) return null;
-    const visibleIds = new Set(currentlyAssignedRef.current.values());
+
+    // id -> content key, resolved against the pool (falls back to the full image list).
+    const keyById = (id: string): string => {
+      const im = poolRef.current.find((p) => p.id === id) || imagesRef.current.find((p) => p.id === id);
+      return im ? keyOf(im) : id;
+    };
+
     // Photos waiting for / mid- big reveal must NOT appear in the grid yet — their first
     // appearance is the reveal itself, so the NEW badge stays in sync.
     const held = new Set(featureQueueRef.current);
     if (featuringIdRef.current) held.add(featuringIdRef.current);
 
-    // Priority: fresh uploads not yet on screen
+    // How many times each content key is on the grid right now (for even spreading).
+    const counts = new Map<string, number>();
+    currentlyAssignedRef.current.forEach((id) => {
+      const k = keyById(id);
+      counts.set(k, (counts.get(k) || 0) + 1);
+    });
+
+    // Keys we must NOT place here: the cell's own current image + its 4 orthogonal neighbours.
+    const blocked = new Set<string>();
+    if (slot >= 0) {
+      const cols = Math.max(1, gridColsRef.current);
+      const rows = Math.max(1, gridRowsRef.current);
+      const r = Math.floor(slot / cols);
+      const c = slot % cols;
+      const around = [slot];
+      if (c > 0) around.push(slot - 1);
+      if (c < cols - 1) around.push(slot + 1);
+      if (r > 0) around.push(slot - cols);
+      if (r < rows - 1) around.push(slot + cols);
+      around.forEach((n) => {
+        const id = currentlyAssignedRef.current.get(n);
+        if (id) blocked.add(keyById(id));
+      });
+    }
+
+    // Priority: a freshly-uploaded photo not already on screen and not adjacent here.
     while (newQueueRef.current.length > 0) {
       const id = newQueueRef.current[0];
       const img = pool.find((p) => p.id === id);
-      if (!img || visibleIds.has(id) || held.has(id)) {
+      if (!img || held.has(id) || (counts.get(keyOf(img)) || 0) > 0 || blocked.has(keyOf(img))) {
         newQueueRef.current.shift();
         continue;
       }
@@ -546,18 +595,28 @@ export default function GalleryClient({
       return img;
     }
 
-    // Rotation: walk the pool from the current pointer; return the first not-visible image.
-    let firstCandidate: UserGalleryImage | null = null;
+    // Walk the whole pool from a rotating pointer (fair tie-breaking). Track the
+    // lowest-count image that avoids the neighbours; keep a relaxed fallback in case the
+    // pool is so small that every image touches a neighbour.
+    const start = rotationIndexRef.current;
+    rotationIndexRef.current += 1;
+    let best: UserGalleryImage | null = null;
+    let bestCount = Infinity;
+    let fallback: UserGalleryImage | null = null;
+    let fallbackCount = Infinity;
     for (let n = 0; n < pool.length; n++) {
-      const idx = rotationIndexRef.current % pool.length;
-      rotationIndexRef.current += 1;
-      const img = pool[idx];
-      if (held.has(img.id)) continue; // skip photos reserved for their big reveal
-      if (firstCandidate === null) firstCandidate = img;
-      if (!visibleIds.has(img.id)) return img;
+      const img = pool[(start + n) % pool.length];
+      if (held.has(img.id)) continue; // reserved for its big reveal
+      const k = keyOf(img);
+      const cnt = counts.get(k) || 0;
+      if (cnt < fallbackCount) { fallbackCount = cnt; fallback = img; }
+      if (blocked.has(k)) continue; // would touch an identical neighbour / no-op the cell
+      if (cnt < bestCount) { bestCount = cnt; best = img; if (cnt === 0) break; }
     }
-    // Whole pool already on screen (pool <= grid): allow a repeat so the grid stays full.
-    return firstCandidate;
+    // `best` avoids the neighbours. The relaxed fallback (which may sit beside an identical
+    // photo) is only used to KEEP THE GRID FULL on initial fill — callers that must not create
+    // a visible duplicate (the swap tick) pass allowAdjacent=false and get null instead.
+    return best || (allowAdjacent ? fallback : null);
   }, []);
 
   // Fill every empty slot instantly — a removed/un-approved image is replaced at once, so a
@@ -566,7 +625,7 @@ export default function GalleryClient({
     const additions: Array<[number, UserGalleryImage]> = [];
     for (let s = 0; s < gridSize; s++) {
       if (currentlyAssignedRef.current.has(s)) continue;
-      const img = pickNextImage();
+      const img = pickNextImage(s);
       if (!img) break;
       currentlyAssignedRef.current.set(s, img.id);
       additions.push([s, img]);
@@ -742,22 +801,24 @@ export default function GalleryClient({
       shuffleInitializedRef.current = true;
     }
 
-    // Swap exactly one cell to the next image (the uniform "every X seconds" tick).
-    const swapOne = () => {
-      if (featuringRef.current) return; // hold swaps steady while a photo is being featured
-      const img = pickNextImage();
-      if (!img) return;
+    // Swap ONE cell to the next image, skipping `exclude`d slots. Returns the slot it
+    // changed, or -1 if nothing improvable (e.g. very few photos) — so we never place two
+    // identical photos side by side.
+    const swapOne = (exclude?: Set<number>): number => {
+      if (featuringRef.current) return -1; // hold swaps steady while a photo is being featured
 
-      // Random slot, avoiding the one we just changed and any slot already showing this image.
-      let slot = Math.floor(Math.random() * gridSize);
-      let tries = 0;
-      while (
-        (slot === lastSlotRef.current || currentlyAssignedRef.current.get(slot) === img.id) &&
-        tries < 12
-      ) {
-        slot = Math.floor(Math.random() * gridSize);
-        tries += 1;
+      // Try a few random cells and commit the FIRST swap that changes the cell without
+      // touching an identical orthogonal neighbour (pickNextImage(..., false) returns null
+      // when it can't).
+      let slot = -1;
+      let img: UserGalleryImage | null = null;
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const s = Math.floor(Math.random() * gridSize);
+        if (s === lastSlotRef.current || (exclude && exclude.has(s))) continue;
+        const candidate = pickNextImage(s, false);
+        if (candidate) { slot = s; img = candidate; break; }
       }
+      if (!img || slot < 0) return -1; // nothing improvable this tick — keep the grid as-is
       lastSlotRef.current = slot;
 
       setFadingOutSlot(slot);
@@ -773,15 +834,26 @@ export default function GalleryClient({
         window.setTimeout(() => setAnimatingSlot(null), 350);
         enforcePins(); // if this swap evicted the last pin, re-place one in a different slot
       }, 350);
+      return slot;
     };
 
     fillGrid();
     enforcePins();
 
     const ms = Math.max(1000, Math.round((displaySpeed || 4.5) * 1000));
+    // How many cells refresh each tick. >1 cascades them ~220ms apart so it reads as a
+    // lively multi-swap rather than a single jump.
+    const batch = Math.max(1, Math.min(4, Math.round(swapBatch || 1)));
     shuffleIntervalRef.current = setInterval(() => {
       fillGrid(); // safety top-up
-      swapOne();
+      if (batch <= 1) { swapOne(); return; }
+      const usedThisTick = new Set<number>();
+      for (let i = 0; i < batch; i++) {
+        window.setTimeout(() => {
+          const s = swapOne(usedThisTick);
+          if (s >= 0) usedThisTick.add(s);
+        }, i * 220);
+      }
     }, ms);
 
     return () => {
@@ -790,7 +862,7 @@ export default function GalleryClient({
         shuffleIntervalRef.current = null;
       }
     };
-  }, [displayMode, hasImages, gridSize, displaySpeed, pickNextImage, fillGrid, enforcePins]);
+  }, [displayMode, hasImages, gridSize, displaySpeed, swapBatch, pickNextImage, fillGrid, enforcePins]);
 
   // Handle save edited name
   const handleSaveName = async () => {
@@ -1381,6 +1453,7 @@ export default function GalleryClient({
             displaySpeed,
             featureNewPhotos,
             minPinnedOnScreen,
+            swapBatch,
           }}
           onChange={handlePanelChange}
           hasOverrides={hasOverrides}

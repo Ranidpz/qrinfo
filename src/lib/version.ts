@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.17.2';
+export const APP_VERSION = '1.17.4';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,24 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.17.3',
+    version: '1.17.4',
     date: '2026-06-29',
     isNew: true,
+    highlights: {
+      he: [
+        'מסך הבים: רנדומיזציה חכמה — כשיש פחות תמונות ממספר התאים, התמונות מתפזרות שווה ואף שתי תמונות זהות לא יוצגו צמודות זו לזו (גם כשמוכרחים לחזור על תמונות)',
+        'מסך הבים: הגדרה חדשה בפאנל — כמה תמונות מתחלפות בכל פעם (1–4), לתחושת תנועה חיה יותר',
+      ],
+      en: [
+        'Beam screen: smarter randomization — when there are fewer photos than cells, they spread out evenly and no two identical photos ever sit side by side (even when repeats are unavoidable)',
+        'Beam screen: a new panel setting for how many photos swap at once (1–4), for a livelier feel',
+      ],
+    },
+  },
+  {
+    version: '1.17.3',
+    date: '2026-06-29',
+    isNew: false,
     highlights: {
       he: [
         'סלפי בים (עורך): מחיקת תמונה דורשת עכשיו אישור (מודאל עם תצוגת התמונה) — כדי שלא יימחקו תמונות בלחיצה בטעות',
