@@ -1324,38 +1324,42 @@ export default function GalleryClient({
         displayMode === 'scroll' ? 'h-screen overflow-hidden' : 'overflow-y-auto'
       }`}
     >
-      {/* Header (title only) — can be hidden via the panel or the Ctrl/Cmd shortcut */}
+      {/* Header — title links to the editor (right in RTL); settings gear sits inside
+          the header (left in RTL). The whole header, gear included, hides with
+          headerHidden so the big event screen stays clean. Press Ctrl/Cmd to bring
+          it back. */}
       {!headerHidden && (
         <div className="sticky top-0 z-30 bg-black/80 backdrop-blur-sm border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-            {/* Title links to the experience editor (owner) — opens in a new tab so the
-                live beam keeps running. Logged-in non-owners go home; guests to login. */}
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            {/* Title → experience editor; opens in a new tab so the live beam keeps
+                running. Logged-in non-owners go home; guests to login. */}
             <a
               href={isOwner ? `/${locale}/code/${codeId}` : (user ? `/${locale}` : `/${locale}/login`)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-lg font-semibold inline-flex items-center gap-1.5 hover:text-blue-300 transition-colors"
+              className="text-lg font-semibold inline-flex items-center gap-1.5 min-w-0 hover:text-blue-300 transition-colors"
             >
-              {title}
-              <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+              <span className="truncate">{title}</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-50 shrink-0" />
             </a>
+
+            {/* Settings gear — opens the per-screen panel. Hidden with the header. */}
+            <button
+              onClick={() => setShowSettings((v) => !v)}
+              aria-label={t.screenSettings}
+              title={t.screenSettings}
+              className={`relative shrink-0 p-2 rounded-lg transition-colors ${
+                showSettings ? 'bg-white/25 text-white' : 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white'
+              }`}
+            >
+              <Settings className="w-5 h-5" />
+              {hasOverrides && (
+                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-400 ring-2 ring-black/60" />
+              )}
+            </button>
           </div>
         </div>
       )}
-
-      {/* Floating settings gear — available on ANY browser viewing the beam.
-          The panel it opens is local-only and safe (changes only this screen). */}
-      <button
-        onClick={() => setShowSettings((v) => !v)}
-        aria-label={t.screenSettings}
-        title={t.screenSettings}
-        className="fixed bottom-4 left-4 z-40 p-3 rounded-full bg-black/50 hover:bg-black/80 text-white/70 hover:text-white backdrop-blur-sm border border-white/15 shadow-lg transition-colors"
-      >
-        <Settings className="w-5 h-5" />
-        {hasOverrides && (
-          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-400 ring-2 ring-black/60" />
-        )}
-      </button>
 
       {/* Draggable per-screen control panel (local overrides + live preview + reset) */}
       {showSettings && (

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.17.1';
+export const APP_VERSION = '1.17.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.17.1',
+    version: '1.17.2',
     date: '2026-06-29',
     isNew: true,
+    highlights: {
+      he: [
+        'מסך הבים (סלפי בים): גלגל ההגדרות עבר אל תוך ההדר העליון (השם מימין, הגלגל משמאל) ונסתר יחד עם הכותרת — כך שאפשר להסתיר אותו מהמסך הגדול באירוע ולהשאיר תצוגה נקייה',
+      ],
+      en: [
+        'Beam screen (Selfie Beam): the settings gear moved into the top header (title right, gear left) and now hides together with the title — so it can be kept off the big event screen for a clean display',
+      ],
+    },
+  },
+  {
+    version: '1.17.1',
+    date: '2026-06-29',
+    isNew: false,
     highlights: {
       he: [
         'סלפי בים: לינק שנפתח בתוך וואטסאפ/אינסטגרם/פייסבוק מזוהה אוטומטית — מופיע מסך "פתחו בדפדפן" שמונע תקיעות בהעלאת תמונות (במיוחד בלינק הצלם באייפון)',
