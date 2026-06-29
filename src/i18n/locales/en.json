@@ -428,6 +428,8 @@
     "selfiebeamMaxUploadsDesc": "How many selfies each participant may upload from their phone.",
     "selfiebeamPhotographerMode": "Photographer link (unlimited)",
     "selfiebeamPhotographerModeDesc": "Creates a SEPARATE link for a field photographer — unlimited uploads, pick a country once and it sticks, no name needed. The public link above stays capped; both feed the same beam. Share this link only with your staff.",
+    "selfiebeamPhotographerOnly": "Photographer only (no public uploads)",
+    "selfiebeamPhotographerOnlyDesc": "Hide the upload button on the public link — only the photographer link can add photos. The experience still shows publicly.",
     "selfiebeamOpenPhotographer": "Photographer link",
     "selfiebeamCopyLink": "Copy",
     "selfiebeamCopied": "Copied!",

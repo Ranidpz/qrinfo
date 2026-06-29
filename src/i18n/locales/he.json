@@ -428,6 +428,8 @@
     "selfiebeamMaxUploadsDesc": "מספר הסלפי שכל משתתף יכול להעלות מהנייד.",
     "selfiebeamPhotographerMode": "לינק צלם (ללא הגבלה)",
     "selfiebeamPhotographerModeDesc": "יוצר לינק נפרד לצלם שטח — העלאות ללא הגבלה, בוחרים מדינה פעם אחת והיא נשמרת, בלי צורך בשם. הלינק הציבורי שלמעלה נשאר מוגבל; שניהם מזינים את אותו בים. שתפו את הלינק הזה רק עם הצוות שלכם.",
+    "selfiebeamPhotographerOnly": "רק צלם (בלי העלאות ציבוריות)",
+    "selfiebeamPhotographerOnlyDesc": "מסתיר את כפתור ההעלאה בלינק הציבורי — רק לינק הצלם יכול להוסיף תמונות. החוויה עדיין מוצגת לכולם.",
     "selfiebeamOpenPhotographer": "לינק צלם",
     "selfiebeamCopyLink": "העתקה",
     "selfiebeamCopied": "הועתק!",

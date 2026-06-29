@@ -534,6 +534,9 @@ export default function DashboardPage() {
       if (content.photographerToken) {
         selfiebeamContent.photographerToken = content.photographerToken;
       }
+      if (content.photographerOnly) {
+        selfiebeamContent.photographerOnly = true;
+      }
 
       // Create QR code with selfiebeam (in current folder if inside one)
       const newCode = await createQRCode(user.id, pendingExperienceName.trim() || content.title, [

@@ -1887,6 +1887,9 @@ export default function CodeEditPage({ params }: PageProps) {
       if (content.photographerToken) {
         selfiebeamContent.photographerToken = content.photographerToken;
       }
+      if (content.photographerOnly) {
+        selfiebeamContent.photographerOnly = true;
+      }
 
       let updatedMedia: MediaItem[];
       if (editingSelfiebeamId) {

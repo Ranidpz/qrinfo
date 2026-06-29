@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.16.0';
+export const APP_VERSION = '1.16.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.16.0',
+    version: '1.16.1',
     date: '2026-06-25',
     isNew: true,
+    highlights: {
+      he: [
+        'מצב צלם: אפליקציה מותקנת (PWA) מלינק הצלם נפתחת עכשיו כצלם עם העלאות ללא הגבלה — לא כמשתמש רגיל',
+        'מצב צלם: מתג "רק צלם" — אפשר להגביל שרק לינק הצלם יעלה תמונות, בעוד הלינק הציבורי מציג את החוויה בלי כפתור העלאה',
+        'מצב צלם: אינדיקטור "מציג 8 אחרונות מתוך N" כשמעלים הרבה תמונות',
+      ],
+      en: [
+        'Photographer mode: an installed PWA from the photographer link now opens as a photographer with unlimited uploads — not as a regular user',
+        'Photographer mode: a "photographer only" toggle restricts uploads to the photographer link, while the public link shows the experience without an upload button',
+        'Photographer mode: a "showing last 8 of N" indicator when many photos are uploaded',
+      ],
+    },
+  },
+  {
+    version: '1.16.0',
+    date: '2026-06-25',
+    isNew: false,
     highlights: {
       he: [
         'סלפי בים: כל מי שמעלה תמונה יכול לבחור מדינה (חיפוש עם השלמה אוטומטית), ודגל קטן מופיע על התמונה במסך הגדול',

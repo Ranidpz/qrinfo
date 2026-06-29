@@ -6,6 +6,10 @@ export async function GET(
   { params }: { params: Promise<{ shortId: string }> }
 ) {
   const { shortId } = await params;
+  // Preserve the photographer token so an installed PWA launches as a photographer (otherwise
+  // start_url has no ?pk= and the installed app falls back to the capped public mode).
+  const pk = request.nextUrl.searchParams.get('pk');
+  const pkSuffix = pk ? `?pk=${encodeURIComponent(pk)}` : '';
 
   try {
     const code = await getQRCodeByShortId(shortId);
@@ -19,13 +23,13 @@ export async function GET(
       name: code?.title || 'QR Experience',
       short_name: code?.title?.slice(0, 12) || 'QR',
       description: 'Experience powered by QR.info',
-      start_url: `/v/${shortId}`,
+      start_url: `/v/${shortId}${pkSuffix}`,
       scope: `/v/${shortId}`,
       display: 'standalone',
       orientation: 'portrait',
       background_color: backgroundColor,
       theme_color: themeColor,
-      id: `/v/${shortId}`,
+      id: `/v/${shortId}${pkSuffix}`,
       icons: [
         {
           src: '/icons/icon-192x192.png',
@@ -67,12 +71,12 @@ export async function GET(
     return NextResponse.json({
       name: 'QR Experience',
       short_name: 'QR',
-      start_url: `/v/${shortId}`,
+      start_url: `/v/${shortId}${pkSuffix}`,
       scope: `/v/${shortId}`,
       display: 'standalone',
       background_color: '#ffffff',
       theme_color: '#3b82f6',
-      id: `/v/${shortId}`,
+      id: `/v/${shortId}${pkSuffix}`,
       icons: [
         {
           src: '/icons/icon-192x192.png',

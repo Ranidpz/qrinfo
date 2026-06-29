@@ -14,6 +14,7 @@ interface ViewerPageProps {
     station?: string;
     token?: string;
     invite?: string;
+    pk?: string;
   }>;
 }
 
@@ -167,7 +168,10 @@ function getDescriptionByMediaType(mediaType: string): string {
 
 export async function generateMetadata({ params, searchParams }: ViewerPageProps) {
   const { shortId } = await params;
-  await searchParams;
+  // Carry the photographer token into the manifest so an installed PWA launches as a
+  // photographer (otherwise the app opens at start_url without ?pk= and falls back to the
+  // capped public mode).
+  const { pk } = await searchParams;
 
   try {
     const code = await getQRCodeByShortId(shortId);
@@ -218,7 +222,7 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
     return {
       title: `${ogTitle} - QR.info`,
       description,
-      manifest: `/v/${shortId}/manifest.json`,
+      manifest: `/v/${shortId}/manifest.json${pk ? `?pk=${encodeURIComponent(pk)}` : ''}`,
       appleWebApp: {
         capable: true,
         statusBarStyle: 'black-translucent',

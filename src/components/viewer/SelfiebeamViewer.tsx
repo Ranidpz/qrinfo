@@ -132,20 +132,33 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = uploadTranslations[locale];
 
-  // Photographer-link token from the URL (?pk=...). Read once on mount (client-only).
+  // Photographer-link token: from the URL (?pk=...) or remembered on this device.
   const [pkParam, setPkParam] = useState<string | null>(null);
+  const [storedPk, setStoredPk] = useState<string | null>(null);
 
   useEffect(() => {
     setLocale(getBrowserLocale());
     try {
-      setPkParam(new URLSearchParams(window.location.search).get('pk'));
+      const fromUrl = new URLSearchParams(window.location.search).get('pk');
+      setPkParam(fromUrl);
+      const key = codeId ? `pk_${codeId}` : null;
+      if (key) {
+        // Remember a valid token on this device so an installed PWA (which may launch without
+        // the ?pk= param) still opens in photographer mode.
+        if (fromUrl && fromUrl === content.photographerToken) localStorage.setItem(key, fromUrl);
+        setStoredPk(localStorage.getItem(key));
+      }
     } catch {
-      // ignore — no query string
+      // ignore — no query string / storage unavailable
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Photographer mode is unlocked only via the staff link `/v/{shortId}?pk={photographerToken}`.
-  const photographerMode = !!content.photographerToken && pkParam === content.photographerToken;
+  // Photographer mode is unlocked via the staff link `/v/{shortId}?pk={photographerToken}` —
+  // either in the URL, or remembered on this device (for the installed PWA).
+  const photographerMode =
+    !!content.photographerToken &&
+    (pkParam === content.photographerToken || storedPk === content.photographerToken);
 
   // Where to remember "my uploads": a field photographer needs them to survive refresh AND
   // tab-close, so use localStorage in photographer mode. The public link uses sessionStorage so
@@ -400,6 +413,9 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   const youtubeId = content.youtubeUrl ? extractYoutubeId(content.youtubeUrl) : null;
   const hasImages = content.images && content.images.length > 0;
   const galleryEnabled = content.galleryEnabled && codeId;
+  // "Photographer only": the public link can view the experience but not upload — only the
+  // photographer link (photographerMode) can.
+  const canUpload = galleryEnabled && (!content.photographerOnly || photographerMode);
   const maxImages = Math.max(1, Math.min(3, content.maxUploadsPerUser ?? MAX_USER_IMAGES));
   const canUploadMore = photographerMode || myUploadedImages.length < maxImages;
 
@@ -609,7 +625,7 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
           )}
 
           {/* ===== Capture (participant selfie) ===== */}
-          {galleryEnabled && (
+          {canUpload && (
             <div className="flex flex-col items-center gap-4 py-4">
               <button
                 onClick={handleCameraClick}
@@ -679,6 +695,13 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
                     </button>
                   ))}
                 </div>
+              )}
+
+              {/* "Showing last N of M" — photographer mode caps the strip at 8 thumbnails */}
+              {photographerMode && myUploadedImages.length > 8 && (
+                <p className="text-xs opacity-60" style={{ color: content.textColor }}>
+                  {t.showingRecent.replace('{shown}', '8').replace('{count}', String(myUploadedImages.length))}
+                </p>
               )}
             </div>
           )}

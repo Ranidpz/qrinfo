@@ -75,6 +75,7 @@ export default function SelfiebeamModal({
   const [maxUploadsPerUser, setMaxUploadsPerUser] = useState(3);
   const [photographerToken, setPhotographerToken] = useState('');
   const [photographerLinkCopied, setPhotographerLinkCopied] = useState(false);
+  const [photographerOnly, setPhotographerOnly] = useState(false);
   const [logoFiles, setLogoFiles] = useState<File[]>([]);
   const [logoPreviews, setLogoPreviews] = useState<string[]>([]);
   const [existingLogos, setExistingLogos] = useState<string[]>([]);
@@ -102,6 +103,7 @@ export default function SelfiebeamModal({
         setAutoApprove(initialContent.autoApprove ?? true);
         setMaxUploadsPerUser(initialContent.maxUploadsPerUser ?? 3);
         setPhotographerToken(initialContent.photographerToken ?? '');
+        setPhotographerOnly(initialContent.photographerOnly ?? false);
         setLogoPreviews(initialContent.companyLogos || []);
         setExistingLogos(initialContent.companyLogos || []);
         setLegacyImages(initialContent.images || []);
@@ -193,6 +195,7 @@ export default function SelfiebeamModal({
       autoApprove,
       maxUploadsPerUser,
       photographerToken: photographerToken || undefined,
+      photographerOnly,
       companyLogos: existingLogos,
     };
 
@@ -602,6 +605,18 @@ export default function SelfiebeamModal({
                         )}
                         {photographerToken && !shortId && (
                           <p className="text-xs text-amber-400">{t('selfiebeamPhotographerSaveFirst')}</p>
+                        )}
+
+                        {/* Photographer-only: hide uploads on the public link */}
+                        {photographerToken && (
+                          <div className="pt-1">
+                            <ToggleRow
+                              label={t('selfiebeamPhotographerOnly')}
+                              description={t('selfiebeamPhotographerOnlyDesc')}
+                              checked={photographerOnly}
+                              onChange={setPhotographerOnly}
+                            />
+                          </div>
                         )}
                       </div>
                     </div>

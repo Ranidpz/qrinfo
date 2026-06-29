@@ -36,6 +36,9 @@ export interface SelfiebeamContent {
   // link `/v/{shortId}` stays capped by maxUploadsPerUser. Both work at once on the same beam.
   // Empty/undefined = no photographer link. The token is an unguessable handle, not a secret.
   photographerToken?: string;
+  // When true, ONLY the photographer link can upload — the public `/v/{shortId}` link shows the
+  // experience but hides the upload capture. Default false (public can upload, capped).
+  photographerOnly?: boolean;
 }
 
 // User gallery image (selfies uploaded by viewers)
