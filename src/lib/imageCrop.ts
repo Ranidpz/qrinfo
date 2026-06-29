@@ -67,8 +67,26 @@ async function decodeImage(file: File | Blob): Promise<DecodedImage> {
 
 /**
  * Center-crop (or crop the given region of) an image to a square and return a WebP Blob.
+ *
+ * Mobile cameras produce huge images (12MP ≈ 48MB decoded). On phones — especially after many
+ * shots in one session — `createImageBitmap`/canvas can intermittently fail with out-of-memory.
+ * Those failures are usually transient: a short delay lets the previous (closed) bitmap get GC'd,
+ * and the second attempt succeeds. So we retry once before giving up, instead of silently losing
+ * the photographer's shot.
  */
 export async function cropImageToSquareWebp(
+  file: File | Blob,
+  options: SquareCropOptions = {}
+): Promise<Blob> {
+  try {
+    return await cropOnce(file, options);
+  } catch {
+    await new Promise((r) => setTimeout(r, 250)); // give the GC a moment to reclaim memory
+    return await cropOnce(file, options);
+  }
+}
+
+async function cropOnce(
   file: File | Blob,
   options: SquareCropOptions = {}
 ): Promise<Blob> {
