@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.17.2',
+    version: '1.17.3',
     date: '2026-06-29',
     isNew: true,
+    highlights: {
+      he: [
+        'סלפי בים (עורך): מחיקת תמונה דורשת עכשיו אישור (מודאל עם תצוגת התמונה) — כדי שלא יימחקו תמונות בלחיצה בטעות',
+      ],
+      en: [
+        'Selfie Beam (editor): deleting a photo now asks for confirmation (a modal with a preview of the photo) — so photos are not removed by an accidental click',
+      ],
+    },
+  },
+  {
+    version: '1.17.2',
+    date: '2026-06-29',
+    isNew: false,
     highlights: {
       he: [
         'מסך הבים (סלפי בים): גלגל ההגדרות עבר אל תוך ההדר העליון (השם מימין, הגלגל משמאל) ונסתר יחד עם הכותרת — כך שאפשר להסתיר אותו מהמסך הגדול באירוע ולהשאיר תצוגה נקייה',

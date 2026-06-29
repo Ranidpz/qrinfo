@@ -183,6 +183,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [busyBulk, setBusyBulk] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [confirmDeleteImg, setConfirmDeleteImg] = useState<UserGalleryImage | null>(null);
   // Drag-to-replace: a new file dropped onto an existing photo, awaiting confirm.
   const [replaceTarget, setReplaceTarget] = useState<{ target: UserGalleryImage; file: File } | null>(null);
   const [replacePreview, setReplacePreview] = useState<string>('');
@@ -1020,7 +1021,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                           </button>
                         </IconTip>
                         <IconTip label={t('selfiebeamTipDelete')}>
-                          <button onClick={(e) => { e.stopPropagation(); deleteImage(img); }} className="p-1 rounded-md bg-red-500 text-white hover:bg-red-600">
+                          <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteImg(img); }} className="p-1 rounded-md bg-red-500 text-white hover:bg-red-600">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </IconTip>
@@ -1071,6 +1072,41 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
                 className="flex-1 px-4 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
               >
                 {t('selfiebeamBulkDelete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Single-photo delete confirmation — so a photo is never removed by an accidental click. */}
+      {confirmDeleteImg && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setConfirmDeleteImg(null)}
+        >
+          <div
+            className="bg-bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={confirmDeleteImg.url} alt="" className="w-24 h-24 mx-auto mb-4 rounded-xl object-cover border border-border" />
+              <h3 className="text-lg font-semibold text-text-primary">{t('selfiebeamTipDelete')}</h3>
+              <p className="text-sm text-text-secondary mt-2">{t('selfiebeamCannotUndo')}</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeleteImg(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-bg-secondary text-text-primary hover:opacity-90 transition-colors"
+              >
+                {t('selfiebeamCancel')}
+              </button>
+              <button
+                onClick={() => { const img = confirmDeleteImg; setConfirmDeleteImg(null); deleteImage(img); }}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                {t('selfiebeamTipDelete')}
               </button>
             </div>
           </div>
