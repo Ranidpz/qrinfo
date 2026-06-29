@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.16.2';
+export const APP_VERSION = '1.17.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.17.0',
+    date: '2026-06-29',
+    isNew: true,
+    highlights: {
+      he: [
+        'מסך הבים (סלפי בים): פאנל הגדרות נגרר חדש שנפתח מגלגל שיניים על המסך — כוונון עמודות, מהירות החלפה, גודל דגל, עיגול פינות, תנועה, שמות ועוד, עם תצוגה חיה',
+        'ההגדרות נשמרות מקומית לכל מסך בנפרד (בדפדפן שעליו עובדים), עם כפתור איפוס חזרה למה שהוגדר בעורך',
+        'כותרת הבים מקושרת לדף עריכת החוויה (נפתחת בלשונית חדשה כדי לא לקטוע את התצוגה; מי שאינו מחובר מועבר להתחברות)',
+      ],
+      en: [
+        'Beam screen (Selfie Beam): a new draggable settings panel opened from an on-screen gear — tune columns, swap speed, flag size, corner radius, motion, names and more, with live preview',
+        'Settings are saved locally per screen (the browser you work on), with a Reset button back to the editor defaults',
+        'The beam title now links to the experience editor (opens in a new tab so the display keeps running; signed-out viewers are sent to login)',
+      ],
+    },
+  },
+  {
     version: '1.16.2',
     date: '2026-06-25',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'סלפי בים (עורך): כפתורי הפעולה על כל תמונה — כולל עריכת דגל ומחיקה — נחתכו בכרטיסים צרים. תוקן: הם עוברים עכשיו לשתי שורות ונגישים תמיד',

@@ -78,6 +78,18 @@ export const galleryTranslations = {
     flagSizeLabel: 'גודל דגל המדינה',
     deleteAllImages: 'מחק את כל התמונות',
     enterName: 'הזינו שם...',
+    // Per-screen settings panel (local to this browser)
+    screenSettings: 'הגדרות מסך',
+    displayModeLabel: 'תצוגה',
+    swapSpeed: 'מהירות החלפה',
+    seconds: 'שנ׳',
+    featureNew: 'הקפצת תמונה חדשה',
+    minPinned: 'מינימום נעוצות במסך',
+    hideHeader: 'הסתר כותרת',
+    resetToDefault: 'איפוס לברירת מחדל',
+    localOverrideActive: 'הגדרות מקומיות פעילות',
+    localScreenHint: 'השינויים נשמרים בדפדפן הזה בלבד. ברירת המחדל נקבעת בעורך.',
+    dragToMove: 'גררו כדי להזיז',
   },
   en: {
     anonymous: 'Anonymous',
@@ -115,6 +127,18 @@ export const galleryTranslations = {
     flagSizeLabel: 'Country flag size',
     deleteAllImages: 'Delete all images',
     enterName: 'Enter name...',
+    // Per-screen settings panel (local to this browser)
+    screenSettings: 'Screen settings',
+    displayModeLabel: 'Display',
+    swapSpeed: 'Swap speed',
+    seconds: 'sec',
+    featureNew: 'Feature new photo',
+    minPinned: 'Min pinned on screen',
+    hideHeader: 'Hide header',
+    resetToDefault: 'Reset to default',
+    localOverrideActive: 'Local settings active',
+    localScreenHint: 'Changes are saved on this browser only. The default is set in the editor.',
+    dragToMove: 'Drag to move',
   },
 };
 
@@ -152,6 +176,14 @@ export const uploadTranslations = {
     saveLabel: 'שמירה',
     deleteConfirm: 'למחוק את התמונה? לא ניתן לבטל.',
     nameLabel: 'שם',
+    // In-app browser banner (link opened inside WhatsApp / Instagram / Facebook)
+    inAppBrowserTitle: 'מומלץ לפתוח בדפדפן',
+    inAppBrowserBody: 'נכנסתם דרך קישור בוואטסאפ. כדי לצלם ולהעלות תמונות בלי תקלות, פתחו את הדף בדפדפן.',
+    inAppBrowserBodyPhotographer: 'קישור הצלם נפתח בתוך וואטסאפ. כדי לצלם ולהעלות בלי הגבלה — ושהקישור יישמר במכשיר — פתחו אותו בדפדפן.',
+    openInBrowser: 'פתחו בדפדפן',
+    copyLink: 'העתקת קישור',
+    linkCopied: 'הקישור הועתק! הדביקו בדפדפן',
+    continueAnyway: 'המשיכו כאן בכל זאת',
   },
   en: {
     uploading: 'Uploading...',
@@ -185,6 +217,14 @@ export const uploadTranslations = {
     saveLabel: 'Save',
     deleteConfirm: 'Delete this photo? This cannot be undone.',
     nameLabel: 'Name',
+    // In-app browser banner (link opened inside WhatsApp / Instagram / Facebook)
+    inAppBrowserTitle: 'Open in your browser',
+    inAppBrowserBody: 'You opened this from a WhatsApp link. To take and upload photos without issues, open this page in your browser.',
+    inAppBrowserBodyPhotographer: 'The photographer link opened inside WhatsApp. To shoot and upload without limits — and keep the link on your device — open it in your browser.',
+    openInBrowser: 'Open in browser',
+    copyLink: 'Copy link',
+    linkCopied: 'Link copied! Paste in your browser',
+    continueAnyway: 'Continue here anyway',
   },
 };
 

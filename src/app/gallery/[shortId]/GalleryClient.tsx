@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { UserGalleryImage, GallerySettings, GalleryDisplayMode } from '@/types';
-import { X, Trash2, Settings, Loader2, ImageIcon, Play, Shuffle } from 'lucide-react';
+import { X, Trash2, Settings, Loader2, ImageIcon, ExternalLink } from 'lucide-react';
 import { onSnapshot, doc, updateDoc, Timestamp, getDoc, increment } from 'firebase/firestore';
 import { getBrowserLocale, galleryTranslations } from '@/lib/publicTranslations';
 
@@ -42,6 +42,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getVisitorId } from '@/lib/xp';
 import { getFolder } from '@/lib/db';
 import LiveLeaderboard from '@/components/gamification/LiveLeaderboard';
+import BeamControlPanel from './BeamControlPanel';
 
 interface GalleryClientProps {
   codeId: string;
@@ -136,12 +137,13 @@ export default function GalleryClient({
 
   // Effective defaults (Selfie Beam opens into the animated beam). A saved
   // gallerySettings always wins, so owners can still override per code.
-  const experienceDefaults: GallerySettings = {
+  // Memoized so it has a stable identity (used as a dependency below).
+  const experienceDefaults = useMemo<GallerySettings>(() => ({
     ...DEFAULT_SETTINGS,
     ...(isSelfiebeam ? SELFIEBEAM_DEFAULTS : {}),
-  };
+  }), [isSelfiebeam]);
 
-  // Merge initial settings with defaults
+  // Merge initial settings with defaults (used only for first-render state init)
   const settings = { ...experienceDefaults, ...initialSettings };
 
   const [images, setImages] = useState<UserGalleryImage[]>(initialImages);
@@ -164,6 +166,86 @@ export default function GalleryClient({
   const [displaySpeed, setDisplaySpeed] = useState(settings.displaySpeed ?? 4.5);
   const [featureNewPhotos, setFeatureNewPhotos] = useState(settings.featureNewPhotos ?? false);
   const [minPinnedOnScreen, setMinPinnedOnScreen] = useState(settings.minPinnedOnScreen ?? 1);
+
+  // ── Per-screen LOCAL overrides ─────────────────────────────────────────────
+  // The editor's gallerySettings (Firestore) is the shared default; this browser
+  // can override any field locally (saved to localStorage on THIS device only),
+  // with live preview and a Reset back to the editor default. The draggable
+  // BeamControlPanel edits these — it does NOT write Firestore.
+  const overridesStorageKey = useMemo(() => `beam-settings-${codeId}`, [codeId]);
+  const localOverridesRef = useRef<Partial<GallerySettings>>({});
+  const lastFbSettingsRef = useRef<GallerySettings | undefined>(initialSettings);
+  const [hasOverrides, setHasOverrides] = useState(false);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const schedulePersist = useCallback(() => {
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(overridesStorageKey, JSON.stringify(localOverridesRef.current));
+      } catch { /* ignore quota / privacy mode */ }
+    }, 250);
+  }, [overridesStorageKey]);
+
+  // Push a full settings object into the 13 render states (defaults < editor < local).
+  const applyEffective = useCallback((fb: GallerySettings | undefined) => {
+    const eff: GallerySettings = { ...experienceDefaults, ...(fb || {}), ...localOverridesRef.current };
+    setDisplayMode(eff.displayMode);
+    setDisplayLimit(eff.displayLimit);
+    setGridColumns(eff.gridColumns);
+    setHeaderHidden(eff.headerHidden);
+    setShowNames(eff.showNames ?? false);
+    setFadeEffect(eff.fadeEffect ?? false);
+    setBorderRadius(eff.borderRadius ?? 0);
+    setNameSize(eff.nameSize ?? 14);
+    setFlagSize(eff.flagSize ?? 100);
+    setShowNewBadge(eff.showNewBadge ?? false);
+    setDisplaySpeed(eff.displaySpeed ?? 4.5);
+    setFeatureNewPhotos(eff.featureNewPhotos ?? false);
+    setMinPinnedOnScreen(eff.minPinnedOnScreen ?? 1);
+  }, [experienceDefaults]);
+
+  // Apply one or more fields to both the live state (instant preview) and the
+  // per-browser override record (persisted). Used by the draggable panel.
+  const handlePanelChange = useCallback((patch: Partial<GallerySettings>) => {
+    if (patch.displayMode !== undefined) setDisplayMode(patch.displayMode);
+    if (patch.displayLimit !== undefined) setDisplayLimit(patch.displayLimit);
+    if (patch.gridColumns !== undefined) setGridColumns(patch.gridColumns);
+    if (patch.headerHidden !== undefined) setHeaderHidden(patch.headerHidden);
+    if (patch.showNames !== undefined) setShowNames(patch.showNames);
+    if (patch.fadeEffect !== undefined) setFadeEffect(patch.fadeEffect);
+    if (patch.borderRadius !== undefined) setBorderRadius(patch.borderRadius);
+    if (patch.nameSize !== undefined) setNameSize(patch.nameSize);
+    if (patch.flagSize !== undefined) setFlagSize(patch.flagSize);
+    if (patch.showNewBadge !== undefined) setShowNewBadge(patch.showNewBadge);
+    if (patch.displaySpeed !== undefined) setDisplaySpeed(patch.displaySpeed);
+    if (patch.featureNewPhotos !== undefined) setFeatureNewPhotos(patch.featureNewPhotos);
+    if (patch.minPinnedOnScreen !== undefined) setMinPinnedOnScreen(patch.minPinnedOnScreen);
+    localOverridesRef.current = { ...localOverridesRef.current, ...patch };
+    setHasOverrides(Object.keys(localOverridesRef.current).length > 0);
+    schedulePersist();
+  }, [schedulePersist]);
+
+  const resetOverrides = useCallback(() => {
+    localOverridesRef.current = {};
+    setHasOverrides(false);
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    try { localStorage.removeItem(overridesStorageKey); } catch { /* ignore */ }
+    applyEffective(lastFbSettingsRef.current);
+  }, [overridesStorageKey, applyEffective]);
+
+  // Load this screen's saved overrides once on mount (client-only; SSR-safe).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(overridesStorageKey);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        localOverridesRef.current = parsed;
+        setHasOverrides(true);
+        applyEffective(lastFbSettingsRef.current);
+      }
+    } catch { /* ignore */ }
+  }, [overridesStorageKey, applyEffective]);
   // Ctrl-hint: show once until the owner dismisses it, then never again (persisted).
   const [showHint, setShowHint] = useState(false);
   useEffect(() => {
@@ -202,8 +284,6 @@ export default function GalleryClient({
     const id = setTimeout(() => setShowConnectionDot(true), 1500);
     return () => clearTimeout(id);
   }, [connectionLost]);
-  const [savingSettings, setSavingSettings] = useState(false);
-
   // Gamification state - simplified to avoid render loops
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [isRouteEnabled, setIsRouteEnabled] = useState(false);
@@ -421,30 +501,18 @@ export default function GalleryClient({
       imagesRef.current = newImages;
       setImages(newImages);
 
-      // Update gallery settings from Firebase (only if not currently saving)
-      if (!savingSettings) {
-        const fbSettings = data.gallerySettings as GallerySettings | undefined;
-        if (fbSettings) {
-          setDisplayMode(fbSettings.displayMode ?? DEFAULT_SETTINGS.displayMode);
-          setDisplayLimit(fbSettings.displayLimit ?? DEFAULT_SETTINGS.displayLimit);
-          setGridColumns(fbSettings.gridColumns ?? DEFAULT_SETTINGS.gridColumns);
-          setHeaderHidden(fbSettings.headerHidden ?? DEFAULT_SETTINGS.headerHidden);
-          setShowNames(fbSettings.showNames ?? DEFAULT_SETTINGS.showNames ?? false);
-          setFadeEffect(fbSettings.fadeEffect ?? DEFAULT_SETTINGS.fadeEffect ?? false);
-          setBorderRadius(fbSettings.borderRadius ?? DEFAULT_SETTINGS.borderRadius ?? 0);
-          setNameSize(fbSettings.nameSize ?? DEFAULT_SETTINGS.nameSize ?? 14);
-          setFlagSize(fbSettings.flagSize ?? DEFAULT_SETTINGS.flagSize ?? 100);
-          setShowNewBadge(fbSettings.showNewBadge ?? DEFAULT_SETTINGS.showNewBadge ?? false);
-          setDisplaySpeed(fbSettings.displaySpeed ?? experienceDefaults.displaySpeed ?? 4.5);
-          setFeatureNewPhotos(fbSettings.featureNewPhotos ?? false);
-          setMinPinnedOnScreen(fbSettings.minPinnedOnScreen ?? 1);
-          settingsLoadedRef.current = true;
-        }
-      }
+      // Apply the editor's gallerySettings as the live default, with THIS
+      // screen's local overrides layered on top (local always wins). Local
+      // overrides live in localOverridesRef, so editor changes to fields the
+      // operator hasn't touched locally still flow through in real time.
+      const fbSettings = data.gallerySettings as GallerySettings | undefined;
+      lastFbSettingsRef.current = fbSettings;
+      applyEffective(fbSettings);
+      settingsLoadedRef.current = true;
     });
 
     return () => unsubscribe();
-  }, [codeId, savingSettings]);
+  }, [codeId, applyEffective]);
 
   // Scroll mode uses CSS animation - no JS scroll needed
 
@@ -810,99 +878,18 @@ export default function GalleryClient({
     }
   };
 
-  // Save settings to Firebase (only for owner)
-  const saveSettings = useCallback(async (newSettings: Partial<GallerySettings>) => {
-    if (!isOwner) return;
-
-    setSavingSettings(true);
-    try {
-      const codeRef = doc(db, 'codes', codeId);
-      await updateDoc(codeRef, {
-        gallerySettings: {
-          displayMode,
-          displayLimit,
-          gridColumns,
-          headerHidden,
-          showNames,
-          fadeEffect,
-          borderRadius,
-          nameSize,
-          flagSize,
-          showNewBadge,
-          displaySpeed,
-          featureNewPhotos,
-          ...newSettings,
-        },
-      });
-    } catch (error) {
-      console.error('Error saving gallery settings:', error);
-    } finally {
-      setSavingSettings(false);
-    }
-  }, [isOwner, codeId, displayMode, displayLimit, gridColumns, headerHidden, showNames, fadeEffect, borderRadius, nameSize, flagSize, showNewBadge, displaySpeed, featureNewPhotos]);
-
-  // Update settings with auto-save
-  const updateDisplayMode = (mode: GalleryDisplayMode) => {
-    setDisplayMode(mode);
-    if (isOwner) saveSettings({ displayMode: mode });
-  };
-
-  const updateDisplayLimit = (limit: number) => {
-    setDisplayLimit(limit);
-    if (isOwner) saveSettings({ displayLimit: limit });
-  };
-
-  const updateGridColumns = (cols: number) => {
-    setGridColumns(cols);
-    if (isOwner) saveSettings({ gridColumns: cols });
-  };
-
+  // Toggle the header (also bound to the Ctrl/Cmd shortcut). Persists as a
+  // per-screen local override — hiding the header on one screen no longer
+  // affects the shared default or other screens.
   const toggleHeader = useCallback(() => {
     setHeaderHidden(prev => {
       const newValue = !prev;
-      if (isOwner) saveSettings({ headerHidden: newValue });
+      localOverridesRef.current = { ...localOverridesRef.current, headerHidden: newValue };
+      setHasOverrides(Object.keys(localOverridesRef.current).length > 0);
+      schedulePersist();
       return newValue;
     });
-  }, [isOwner, saveSettings]);
-
-  const toggleShowNames = useCallback(() => {
-    setShowNames(prev => {
-      const newValue = !prev;
-      if (isOwner) saveSettings({ showNames: newValue });
-      return newValue;
-    });
-  }, [isOwner, saveSettings]);
-
-  const toggleFadeEffect = useCallback(() => {
-    setFadeEffect(prev => {
-      const newValue = !prev;
-      if (isOwner) saveSettings({ fadeEffect: newValue });
-      return newValue;
-    });
-  }, [isOwner, saveSettings]);
-
-  const toggleShowNewBadge = useCallback(() => {
-    setShowNewBadge(prev => {
-      const newValue = !prev;
-      if (isOwner) saveSettings({ showNewBadge: newValue });
-      return newValue;
-    });
-  }, [isOwner, saveSettings]);
-
-  const updateBorderRadius = useCallback((value: number) => {
-    setBorderRadius(value);
-    if (isOwner) saveSettings({ borderRadius: value });
-  }, [isOwner, saveSettings]);
-
-  const updateNameSize = useCallback((value: number) => {
-    setNameSize(value);
-    if (isOwner) saveSettings({ nameSize: value });
-  }, [isOwner, saveSettings]);
-
-  const updateFlagSize = useCallback((value: number) => {
-    setFlagSize(value);
-    if (isOwner) saveSettings({ flagSize: value });
-  }, [isOwner, saveSettings]);
+  }, [schedulePersist]);
 
   // Mark image as displayed - removes NEW badge after delay and saves to localStorage
   const markImageAsDisplayed = useCallback((imageId: string) => {
@@ -1337,259 +1324,69 @@ export default function GalleryClient({
         displayMode === 'scroll' ? 'h-screen overflow-hidden' : 'overflow-y-auto'
       }`}
     >
-      {/* Header - can be hidden */}
+      {/* Header (title only) — can be hidden via the panel or the Ctrl/Cmd shortcut */}
       {!headerHidden && (
         <div className="sticky top-0 z-30 bg-black/80 backdrop-blur-sm border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-            <h1 className="text-lg font-semibold">{title}</h1>
-
-            {/* Settings button - only for owner */}
-            {isOwner && (
-              <div className="flex items-center gap-2">
-                {savingSettings && (
-                  <Loader2 className="w-4 h-4 animate-spin text-white/40" />
-                )}
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}
-                >
-                  <Settings className="w-5 h-5" />
-                </button>
-              </div>
-            )}
+            {/* Title links to the experience editor (owner) — opens in a new tab so the
+                live beam keeps running. Logged-in non-owners go home; guests to login. */}
+            <a
+              href={isOwner ? `/${locale}/code/${codeId}` : (user ? `/${locale}` : `/${locale}/login`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-semibold inline-flex items-center gap-1.5 hover:text-blue-300 transition-colors"
+            >
+              {title}
+              <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+            </a>
           </div>
-
-          {/* Settings Panel with smooth animation - only for owner */}
-          {isOwner && (
-          <div
-            className={`overflow-hidden transition-all duration-300 ease-out ${
-              showSettings ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-            }`}
-          >
-            <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
-              {/* Row 1: Display mode + Grid columns + Toggles */}
-              <div className="flex items-center justify-center flex-wrap gap-3">
-                {/* Display mode buttons */}
-                <div className="flex gap-1">
-                  <Tooltip text={t.staticView}>
-                    <button
-                      onClick={() => updateDisplayMode('static')}
-                      className={`p-2 rounded-lg transition-colors ${
-                        displayMode === 'static'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white/10 text-white/60 hover:bg-white/20'
-                      }`}
-                    >
-                      <ImageIcon className="w-5 h-5" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip text={t.autoScroll}>
-                    <button
-                      onClick={() => updateDisplayMode('scroll')}
-                      className={`p-2 rounded-lg transition-colors ${
-                        displayMode === 'scroll'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white/10 text-white/60 hover:bg-white/20'
-                      }`}
-                    >
-                      <Play className="w-5 h-5" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip text={t.shuffleMode}>
-                    <button
-                      onClick={() => updateDisplayMode('shuffle')}
-                      className={`p-2 rounded-lg transition-colors ${
-                        displayMode === 'shuffle'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white/10 text-white/60 hover:bg-white/20'
-                      }`}
-                    >
-                      <Shuffle className="w-5 h-5" />
-                    </button>
-                  </Tooltip>
-                </div>
-
-                <div className="w-px h-5 bg-white/20" />
-
-                {/* Grid columns slider */}
-                <Tooltip text={t.columnCount}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">{t.columns}</span>
-                    <input
-                      type="range"
-                      min="2"
-                      max="6"
-                      value={gridColumns}
-                      onChange={(e) => updateGridColumns(Number(e.target.value))}
-                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                    <span className="text-sm text-white/60 w-3">{gridColumns}</span>
-                  </div>
-                </Tooltip>
-
-                <div className="w-px h-5 bg-white/20" />
-
-                {/* Toggles */}
-                <div className="flex items-center gap-3">
-                  <Tooltip text={t.showNamesOnImages}>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={toggleShowNames}
-                        className={`relative w-10 h-5 rounded-full transition-colors ${
-                          showNames ? 'bg-blue-500' : 'bg-white/20'
-                        }`}
-                      >
-                        <div
-                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
-                            showNames ? 'right-0.5' : 'left-0.5'
-                          }`}
-                        />
-                      </button>
-                      <span className="text-sm text-white/60">{t.showNames}</span>
-                    </div>
-                  </Tooltip>
-
-                  <Tooltip text={t.subtleMotion}>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={toggleFadeEffect}
-                        className={`relative w-10 h-5 rounded-full transition-colors ${
-                          fadeEffect ? 'bg-blue-500' : 'bg-white/20'
-                        }`}
-                      >
-                        <div
-                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
-                            fadeEffect ? 'right-0.5' : 'left-0.5'
-                          }`}
-                        />
-                      </button>
-                      <span className="text-sm text-white/60">{t.movement}</span>
-                    </div>
-                  </Tooltip>
-
-                  <Tooltip text={t.showNewBadge}>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={toggleShowNewBadge}
-                        className={`relative w-10 h-5 rounded-full transition-colors ${
-                          showNewBadge ? 'bg-blue-500' : 'bg-white/20'
-                        }`}
-                      >
-                        <div
-                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
-                            showNewBadge ? 'right-0.5' : 'left-0.5'
-                          }`}
-                        />
-                      </button>
-                      <span className="text-sm text-white/60">NEW</span>
-                    </div>
-                  </Tooltip>
-                </div>
-              </div>
-
-              {/* Row 2: Display limit + Sliders + Image count + Delete */}
-              <div className="flex items-center justify-center flex-wrap gap-3">
-                {/* Display limit buttons */}
-                <Tooltip text={t.imageCount} position="above">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">{t.latest}</span>
-                    <div className="flex gap-1">
-                      {[0, 50, 100, 200, 300, 400].map((limit) => (
-                        <button
-                          key={limit}
-                          onClick={() => updateDisplayLimit(limit)}
-                          className={`px-2 py-1 text-sm rounded-lg transition-colors ${
-                            displayLimit === limit
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-white/10 text-white/60 hover:bg-white/20'
-                          }`}
-                        >
-                          {limit === 0 ? t.all : limit}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </Tooltip>
-
-                <div className="w-px h-5 bg-white/20" />
-
-                {/* Border radius slider */}
-                <Tooltip text={t.cornerRadius} position="above">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">{t.roundCorners}</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="50"
-                      value={borderRadius}
-                      onChange={(e) => updateBorderRadius(Number(e.target.value))}
-                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                    <span className="text-sm text-white/60 w-6">{borderRadius}%</span>
-                  </div>
-                </Tooltip>
-
-                {/* Name size slider */}
-                <Tooltip text={t.nameTextSize} position="above">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">{t.names}</span>
-                    <input
-                      type="range"
-                      min="10"
-                      max="48"
-                      value={nameSize}
-                      onChange={(e) => updateNameSize(Number(e.target.value))}
-                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                    <span className="text-sm text-white/60 w-6">{nameSize}px</span>
-                  </div>
-                </Tooltip>
-
-                {/* Flag size slider */}
-                <Tooltip text={t.flagSizeLabel} position="above">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/60">{t.flag}</span>
-                    <input
-                      type="range"
-                      min="25"
-                      max="400"
-                      step="5"
-                      value={flagSize}
-                      onChange={(e) => updateFlagSize(Number(e.target.value))}
-                      className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                    <span className="text-sm text-white/60 w-10">{flagSize}%</span>
-                  </div>
-                </Tooltip>
-
-                <div className="w-px h-5 bg-white/20" />
-
-                {/* Image count + Delete button together */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-white/50">
-                    {images.length} {t.images}
-                  </span>
-                  {isOwner && images.length > 0 && (
-                    <Tooltip text={t.deleteAllImages} position="above">
-                      <button
-                        onClick={() => setShowDeleteAllConfirm(true)}
-                        disabled={deletingAll}
-                        className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
-                      >
-                        {deletingAll ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
-                    </Tooltip>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-          )}
         </div>
+      )}
+
+      {/* Floating settings gear — available on ANY browser viewing the beam.
+          The panel it opens is local-only and safe (changes only this screen). */}
+      <button
+        onClick={() => setShowSettings((v) => !v)}
+        aria-label={t.screenSettings}
+        title={t.screenSettings}
+        className="fixed bottom-4 left-4 z-40 p-3 rounded-full bg-black/50 hover:bg-black/80 text-white/70 hover:text-white backdrop-blur-sm border border-white/15 shadow-lg transition-colors"
+      >
+        <Settings className="w-5 h-5" />
+        {hasOverrides && (
+          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-400 ring-2 ring-black/60" />
+        )}
+      </button>
+
+      {/* Draggable per-screen control panel (local overrides + live preview + reset) */}
+      {showSettings && (
+        <BeamControlPanel
+          t={t}
+          dir={locale === 'he' ? 'rtl' : 'ltr'}
+          codeId={codeId}
+          values={{
+            displayMode,
+            displayLimit,
+            gridColumns,
+            headerHidden,
+            showNames,
+            fadeEffect,
+            borderRadius,
+            nameSize,
+            flagSize,
+            showNewBadge,
+            displaySpeed,
+            featureNewPhotos,
+            minPinnedOnScreen,
+          }}
+          onChange={handlePanelChange}
+          hasOverrides={hasOverrides}
+          onReset={resetOverrides}
+          onClose={() => setShowSettings(false)}
+          isOwner={isOwner}
+          imageCount={images.length}
+          deletingAll={deletingAll}
+          onDeleteAll={() => setShowDeleteAllConfirm(true)}
+        />
       )}
 
       {/* Grid */}
