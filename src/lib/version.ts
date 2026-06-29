@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.17.0';
+export const APP_VERSION = '1.17.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,24 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.17.0',
+    version: '1.17.1',
     date: '2026-06-29',
     isNew: true,
+    highlights: {
+      he: [
+        'סלפי בים: לינק שנפתח בתוך וואטסאפ/אינסטגרם/פייסבוק מזוהה אוטומטית — מופיע מסך "פתחו בדפדפן" שמונע תקיעות בהעלאת תמונות (במיוחד בלינק הצלם באייפון)',
+        'המסך מציע פתיחה בדפדפן בלחיצה אחת, העתקת קישור כגיבוי, ואפשרות "המשיכו כאן בכל זאת" למי שרק צופה',
+      ],
+      en: [
+        'Selfie Beam: a link opened inside WhatsApp/Instagram/Facebook is now auto-detected — an "open in browser" screen prevents photo-upload failures (especially the photographer link on iPhone)',
+        'The screen offers one-tap open-in-browser, copy-link as a fallback, and a "continue anyway" option for viewers',
+      ],
+    },
+  },
+  {
+    version: '1.17.0',
+    date: '2026-06-29',
+    isNew: false,
     highlights: {
       he: [
         'מסך הבים (סלפי בים): פאנל הגדרות נגרר חדש שנפתח מגלגל שיניים על המסך — כוונון עמודות, מהירות החלפה, גודל דגל, עיגול פינות, תנועה, שמות ועוד, עם תצוגה חיה',

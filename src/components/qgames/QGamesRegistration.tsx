@@ -5,27 +5,7 @@ import { User, Camera, X, Check, RotateCcw, Loader2, ZoomIn, ZoomOut, ExternalLi
 import { QGamesConfig, DEFAULT_QGAMES_EMOJI_PALETTE } from '@/types/qgames';
 import { useQGamesTheme } from './QGamesThemeContext';
 import { compressImage } from '@/lib/imageCompression';
-
-/** Detect if running inside an in-app browser (WhatsApp, Facebook, Instagram, etc.)
- *  Only detect via known UA strings — avoid fragile heuristics like window.safari check
- *  which causes false positives in regular Safari. */
-function isInAppBrowser(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  // Facebook
-  if (/FBAN|FBAV/i.test(ua)) return true;
-  // Instagram
-  if (/Instagram/i.test(ua)) return true;
-  // WhatsApp
-  if (/WhatsApp/i.test(ua)) return true;
-  // Telegram
-  if (/TelegramBot|Telegram/i.test(ua)) return true;
-  // Line
-  if (/\bLine\//i.test(ua)) return true;
-  // Android WebView (generic)
-  if (/; wv\b/.test(ua)) return true;
-  return false;
-}
+import { isInAppBrowser } from '@/lib/inAppBrowser';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { SelfiebeamContent, UserGalleryImage } from '@/types';
-import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Pencil, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Pencil, RefreshCw, ExternalLink, Copy, CheckCheck } from 'lucide-react';
 import { onSnapshot, doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
@@ -11,6 +11,7 @@ import { getBrowserLocale, uploadTranslations } from '@/lib/publicTranslations';
 import SquareImageCropper from '@/components/viewer/SquareImageCropper';
 import CountryPicker from '@/components/viewer/CountryPicker';
 import { toCountryTag, findCountryByCode, type SelfiebeamCountry, type SelfiebeamCountryTag } from '@/lib/selfiebeam/countries';
+import { isInAppBrowser, openCurrentUrlInBrowser } from '@/lib/inAppBrowser';
 
 interface SelfiebeamViewerProps {
   content: SelfiebeamContent;
@@ -136,8 +137,16 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   const [pkParam, setPkParam] = useState<string | null>(null);
   const [storedPk, setStoredPk] = useState<string | null>(null);
 
+  // In-app browser (WhatsApp/Instagram/Facebook) gate: these browsers isolate localStorage and
+  // break camera/upload, so a link tapped inside WhatsApp fails. Nudge the user to reopen in the
+  // real browser before they hit the camera error (the photographer ?pk= link especially).
+  const [inAppBrowser, setInAppBrowser] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
   useEffect(() => {
     setLocale(getBrowserLocale());
+    setInAppBrowser(isInAppBrowser());
     try {
       const fromUrl = new URLSearchParams(window.location.search).get('pk');
       setPkParam(fromUrl);
@@ -597,6 +606,77 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
     // Show a blank field for the anonymous placeholder so they can type a real name.
     setEditName([t.anonymous, 'אנונימי', 'Anonymous'].includes(image.uploaderName) ? '' : image.uploaderName);
   };
+
+  // Reopen the current page in the system browser (escapes the in-app browser).
+  const handleOpenInBrowser = () => openCurrentUrlInBrowser();
+
+  // Copy the current URL so the user can paste it into a real browser if the open trick is blocked.
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+    } catch {
+      const input = document.createElement('input');
+      input.value = window.location.href;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+    }
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  // ===== In-app browser gate (WhatsApp / Instagram / Facebook) =====
+  // Only gate when the user is actually here to upload — SFSafariViewController on iOS isolates
+  // localStorage and breaks camera/upload, so capture fails (the photographer ?pk= link can't even
+  // persist its token). Pure viewers (canUpload === false) are never blocked. Dismissible.
+  if (inAppBrowser && canUpload && !bannerDismissed) {
+    return (
+      <div
+        className="min-h-screen w-full flex flex-col items-center justify-center p-8 text-center"
+        style={{ backgroundColor: content.backgroundColor, color: content.textColor }}
+        dir={locale === 'he' ? 'rtl' : 'ltr'}
+      >
+        <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-6">
+          <ExternalLink className="w-10 h-10" style={{ color: content.textColor }} />
+        </div>
+
+        <h1 className="text-2xl font-bold mb-3">{t.inAppBrowserTitle}</h1>
+
+        <p className="max-w-xs mb-8 opacity-80 leading-relaxed">
+          {photographerMode ? t.inAppBrowserBodyPhotographer : t.inAppBrowserBody}
+        </p>
+
+        {/* Primary: break out into the system browser */}
+        <button
+          onClick={handleOpenInBrowser}
+          className="w-full max-w-xs flex items-center justify-center gap-2 py-4 rounded-2xl text-lg font-bold bg-white text-gray-900 shadow-2xl transition-all active:scale-95 mb-3"
+        >
+          <ExternalLink className="w-5 h-5" />
+          {t.openInBrowser}
+        </button>
+
+        {/* Fallback: copy the link to paste into a browser manually */}
+        <button
+          onClick={handleCopyLink}
+          className="w-full max-w-xs flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium border border-white/30 transition-all active:scale-95 mb-8"
+          style={{ color: content.textColor }}
+        >
+          {linkCopied ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {linkCopied ? t.linkCopied : t.copyLink}
+        </button>
+
+        {/* Escape hatch — let a pure viewer continue inside the in-app browser anyway */}
+        <button
+          onClick={() => setBannerDismissed(true)}
+          className="text-xs underline opacity-60 transition-opacity active:opacity-40"
+          style={{ color: content.textColor }}
+        >
+          {t.continueAnyway}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
