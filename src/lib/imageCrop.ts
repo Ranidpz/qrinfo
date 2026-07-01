@@ -12,6 +12,11 @@
  * covers everything from phones to 4K projectors while staying ~150-300KB.
  */
 
+// Keep each exported selfie light so the big-screen beam can hold hundreds of photos
+// without lag or storage bloat. A 1000px WebP/JPEG selfie normally lands ~120–350KB; this
+// ceiling only re-compresses the rare high-detail outlier, so the common path is untouched.
+const TARGET_MAX_BYTES = 450 * 1024;
+
 export interface SquareCropOptions {
   /** Output square edge in px (default 1000). Never upscales beyond the source square. */
   size?: number;
@@ -127,14 +132,23 @@ async function cropOnce(
     // returns a PNG instead — a photographic 1000px PNG is ~2-3MB, which then trips the
     // /api/gallery size limit and the upload fails ("Error" on the phone, works on desktop).
     // So: ask for WebP, and if we didn't actually get WebP back, re-encode the same canvas
-    // as JPEG (universally supported, small). Desktop / modern browsers keep the WebP path.
-    const encode = (type: string): Promise<Blob | null> =>
-      new Promise((resolve) => canvas.toBlob((b) => resolve(b), type, quality));
+    // as JPEG (universally supported). Desktop / modern browsers keep the WebP path.
+    const encode = (type: string, q: number): Promise<Blob | null> =>
+      new Promise((resolve) => canvas.toBlob((b) => resolve(b), type, q));
 
-    let blob = await encode('image/webp');
+    let blob = await encode('image/webp', quality);
     if (!blob || blob.type !== 'image/webp') {
-      blob = await encode('image/jpeg');
+      blob = await encode('image/jpeg', quality);
     }
+
+    // Cap the weight so the beam stays light with hundreds of photos: if a very detailed
+    // shot came out heavy (more likely with the larger JPEG fallback), step the quality
+    // down once. Normal selfies land well under the ceiling, so this rarely triggers.
+    if (blob && blob.size > TARGET_MAX_BYTES) {
+      const lighter = await encode(blob.type === 'image/webp' ? 'image/webp' : 'image/jpeg', 0.7);
+      if (lighter && lighter.size < blob.size) blob = lighter;
+    }
+
     if (!blob) throw new Error('Canvas toBlob failed');
     return blob;
   } finally {
