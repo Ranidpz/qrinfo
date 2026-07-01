@@ -70,6 +70,11 @@ export interface UserGalleryImage {
   };
   // Gamification fields (optional for backwards compatibility)
   visitorId?: string;  // Link to visitor document
+  // Client-only, transient: an object URL for the just-captured local blob, shown INSTANTLY
+  // in the "my uploads" strip so the thumbnail doesn't flash an empty box while the uploaded
+  // copy round-trips back from R2. Never persisted (Firestore writes use explicit fields);
+  // revoked once the R2 image has loaded. Undefined for everything except a fresh upload.
+  localPreview?: string;
 }
 
 // Gallery display mode

@@ -163,6 +163,30 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Free any leftover instant-preview object URLs when the viewer unmounts.
+  useEffect(() => {
+    const urls = previewUrlsRef.current;
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u));
+      urls.clear();
+    };
+  }, []);
+
+  // Once the uploaded copy has downloaded from R2, drop that photo's instant local preview
+  // and revoke its blob URL — the visible thumbnail then switches to the (now-cached) R2 URL.
+  const releaseLocalPreview = (imageId: string) => {
+    setMyUploadedImages((prev) =>
+      prev.map((img) => {
+        if (img.id === imageId && img.localPreview) {
+          URL.revokeObjectURL(img.localPreview);
+          previewUrlsRef.current.delete(img.localPreview);
+          return { ...img, localPreview: undefined };
+        }
+        return img;
+      })
+    );
+  };
+
   // Photographer mode is unlocked via the staff link `/v/{shortId}?pk={photographerToken}` —
   // either in the URL, or remembered on this device (for the installed PWA).
   const photographerMode =
@@ -189,6 +213,11 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Instant local previews (object URLs) for just-uploaded photos, tracked so we can revoke
+  // them (free the blobs) once the R2 copy has loaded, or on unmount. Important in
+  // photographer mode, where a session can rack up hundreds of shots.
+  const previewUrlsRef = useRef<Set<string>>(new Set());
 
   // My uploaded images state (stored in sessionStorage by image ID)
   const [myUploadedImages, setMyUploadedImages] = useState<UserGalleryImage[]>([]);
@@ -222,17 +251,31 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
     if (ids.size) {
       // Filter allGalleryImages to get my uploads, but keep fading out images
       const myImages = allGalleryImages.filter(img => ids.has(img.id));
+      // Carry over any still-active instant local preview (set on a fresh upload) so this
+      // Firestore snapshot doesn't replace it with the R2 URL that's still downloading —
+      // which would flash the empty box right back. Uses the functional-update `prev` so it
+      // never reads a stale copy. Released later by releaseLocalPreview once R2 has loaded.
+      const mergePreviews = (list: UserGalleryImage[], prev: UserGalleryImage[]) => {
+        const previewById = new Map(
+          prev.filter(m => m.localPreview).map(m => [m.id, m.localPreview as string])
+        );
+        return list.map(img => {
+          const lp = previewById.get(img.id);
+          return lp ? { ...img, localPreview: lp } : img;
+        });
+      };
       // Only update if not currently fading out (to prevent jump)
       if (!fadingOutImageId) {
-        setMyUploadedImages(myImages);
+        setMyUploadedImages(prev => mergePreviews(myImages, prev));
       } else {
         // Keep the fading image in the list until animation completes
-        const fadingImage = myUploadedImages.find(img => img.id === fadingOutImageId);
-        if (fadingImage && !myImages.find(img => img.id === fadingOutImageId)) {
-          setMyUploadedImages([...myImages, fadingImage]);
-        } else {
-          setMyUploadedImages(myImages);
-        }
+        setMyUploadedImages(prev => {
+          const fadingImage = prev.find(img => img.id === fadingOutImageId);
+          const base = fadingImage && !myImages.find(img => img.id === fadingOutImageId)
+            ? [...myImages, fadingImage]
+            : myImages;
+          return mergePreviews(base, prev);
+        });
       }
     }
   }, [codeId, allGalleryImages, fadingOutImageId, photographerMode]);
@@ -544,6 +587,12 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       // Save the image ID to sessionStorage
       saveUploadedImageId(data.image.id);
 
+      // Show the freshly captured photo INSTANTLY from the local blob, so the thumbnail never
+      // flashes an empty box while the uploaded copy round-trips back from R2. Released (and the
+      // blob revoked) once the R2 image has loaded, or on unmount.
+      const localPreview = URL.createObjectURL(blob);
+      previewUrlsRef.current.add(localPreview);
+
       // Add to myUploadedImages immediately (no need to wait for Firestore listener)
       const newImage: UserGalleryImage = {
         id: data.image.id,
@@ -556,8 +605,15 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
         ...(country ? { country } : {}),
         uploaderName: data.image.uploaderName,
         uploadedAt: new Date(),
+        localPreview,
       };
-      setMyUploadedImages(prev => [...prev, newImage]);
+      // Idempotent: if the Firestore snapshot already raced this entry in, just attach the
+      // instant preview to it instead of appending a duplicate.
+      setMyUploadedImages(prev =>
+        prev.some(m => m.id === newImage.id)
+          ? prev.map(m => (m.id === newImage.id ? { ...m, localPreview } : m))
+          : [...prev, newImage]
+      );
 
       setUploadStatus('success');
       // Keep the country selected between shots in photographer mode; otherwise reset.
@@ -758,10 +814,22 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
                       }`}
                     >
                       <img
-                        src={img.url}
+                        src={img.localPreview || img.url}
                         alt=""
                         className="w-20 h-20 rounded-2xl object-cover border-2 border-white/40 shadow-lg"
                       />
+                      {/* Hidden preloader: warm the R2 copy, then drop the local preview so the
+                          visible thumbnail switches to the cached R2 image seamlessly. */}
+                      {img.localPreview && (
+                        <img
+                          src={img.url}
+                          alt=""
+                          aria-hidden="true"
+                          style={{ display: 'none' }}
+                          onLoad={() => releaseLocalPreview(img.id)}
+                          onError={() => releaseLocalPreview(img.id)}
+                        />
+                      )}
                       {/* Current flag */}
                       {img.country?.flag && (
                         <span className="absolute bottom-1 left-1 rounded-[2px] overflow-hidden ring-1 ring-black/40 shadow">
