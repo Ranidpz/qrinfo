@@ -74,8 +74,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (1MB max - already cropped/compressed to a ~1000px square WebP on the client)
-    const maxSize = 1024 * 1024;
+    // Validate file size. The client crops to a ~1000px square: WebP on modern browsers, or
+    // JPEG on older iOS Safari (which can't encode WebP). Both are small, but JPEG runs a bit
+    // larger than WebP, so allow 2MB of headroom (still well under Vercel's 4.5MB body limit).
+    const maxSize = 2 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
         { error: 'File size exceeds 1MB limit' },

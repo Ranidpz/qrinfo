@@ -123,13 +123,20 @@ async function cropOnce(
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(draw, sx, sy, side, side, 0, 0, out, out);
 
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))),
-        'image/webp',
-        quality
-      );
-    });
+    // Encode. iOS Safari before v17 IGNORES 'image/webp' in canvas.toBlob and silently
+    // returns a PNG instead — a photographic 1000px PNG is ~2-3MB, which then trips the
+    // /api/gallery size limit and the upload fails ("Error" on the phone, works on desktop).
+    // So: ask for WebP, and if we didn't actually get WebP back, re-encode the same canvas
+    // as JPEG (universally supported, small). Desktop / modern browsers keep the WebP path.
+    const encode = (type: string): Promise<Blob | null> =>
+      new Promise((resolve) => canvas.toBlob((b) => resolve(b), type, quality));
+
+    let blob = await encode('image/webp');
+    if (!blob || blob.type !== 'image/webp') {
+      blob = await encode('image/jpeg');
+    }
+    if (!blob) throw new Error('Canvas toBlob failed');
+    return blob;
   } finally {
     cleanup();
   }

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.17.4';
+export const APP_VERSION = '1.17.5';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.17.5',
+    date: '2026-07-01',
+    isNew: true,
+    highlights: {
+      he: [
+        'סלפי בים: תוקנה תקלת העלאת תמונות מאייפונים ישנים (iOS 16 ומטה) — הצילום נשמר עכשיו בפורמט תואם כשאין תמיכה ב-WebP, כך שהלינק לצלם ולינק ההעלאה עובדים מכל טלפון',
+      ],
+      en: [
+        'Selfie Beam: fixed photo-upload failures from older iPhones (iOS 16 and below) — the capture now saves in a compatible format when WebP is unsupported, so the photographer link and upload link work from any phone',
+      ],
+    },
+  },
+  {
     version: '1.17.4',
     date: '2026-06-29',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'מסך הבים: רנדומיזציה חכמה — כשיש פחות תמונות ממספר התאים, התמונות מתפזרות שווה ואף שתי תמונות זהות לא יוצגו צמודות זו לזו (גם כשמוכרחים לחזור על תמונות)',
