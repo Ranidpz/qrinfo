@@ -97,6 +97,13 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
+      // QBet entries subcollection (phones + OTP state + predictions).
+      // FULLY locked — reads AND writes go only through the Admin SDK:
+      // participants use /api/qbet/* and owners use /api/qbet/entries.
+      match /qbetEntries/{entryId} {
+        allow read, write: if false;
+      }
+
       // Q.Games Players subcollection (all writes via Admin SDK / API routes)
       match /qgames_players/{playerId} {
         allow read: if true;

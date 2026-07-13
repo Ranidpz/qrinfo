@@ -10,6 +10,7 @@ import ContactWidget from '@/components/viewer/ContactWidget';
 // Dynamic imports for components that use isomorphic-dompurify (jsdom SSR issue)
 const RiddleViewer = dynamic(() => import('@/components/viewer/RiddleViewer'), { ssr: false });
 const SelfiebeamViewer = dynamic(() => import('@/components/viewer/SelfiebeamViewer'), { ssr: false });
+const QBetViewer = dynamic(() => import('@/components/viewer/QBetViewer'), { ssr: false });
 import QVoteViewer from '@/components/viewer/QVoteViewer';
 import WeeklyCalendarViewer from '@/components/viewer/WeeklyCalendarViewer';
 import { QStageDisplay, QStageMobileVoter } from '@/components/qstage';
@@ -1158,6 +1159,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isQChallenge = media.length === 1 && currentMedia?.type === 'qchallenge';
   const isQTag = media.length === 1 && currentMedia?.type === 'qtag';
   const isMinigames = media.length === 1 && currentMedia?.type === 'minigames';
+  const isQBet = media.length === 1 && currentMedia?.type === 'qbet';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
@@ -1557,6 +1559,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} folderId={folderId} />
         ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+        ) : isQBet && currentMedia.qbetConfig ? (
+          <QBetViewer config={currentMedia.qbetConfig} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isQVote && currentMedia.qvoteConfig ? (
           <QVoteViewer config={currentMedia.qvoteConfig} codeId={codeId} mediaId={currentMedia.id} shortId={shortId} ownerId={ownerId} />
         ) : isWeeklyCal && currentMedia.weeklycalConfig ? (

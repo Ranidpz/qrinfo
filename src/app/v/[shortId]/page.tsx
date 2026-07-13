@@ -162,6 +162,7 @@ function getDescriptionByMediaType(mediaType: string): string {
     weeklycal: 'צפו בלוח האירועים 📅',
     qtag: 'הזמנה לאירוע 🎉',
     minigames: 'מוזמנים לשחק! 🎮',
+    qbet: 'מנחשים את תוצאת המשחק ⚽',
   };
   return descriptions[mediaType] || 'תוכן QR דינמי';
 }

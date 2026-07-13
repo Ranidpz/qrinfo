@@ -80,6 +80,21 @@ export function checkRateLimit(
 }
 
 /**
+ * Validate that a request originates from an allowed host (CSRF / origin check).
+ * Same-origin requests may omit the Origin header, so a missing Origin is allowed.
+ * Mirrors the check used by the Q.Vote endpoints; shared here for reuse across
+ * public unauthenticated write endpoints (Q.Treasure scans/registration, etc).
+ */
+export function validateOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  const host = request.headers.get('host');
+  if (!origin) return true; // Same-origin requests may not send an Origin header
+  if (!host) return false;
+  const allowedHosts = [host, 'localhost:3000', 'localhost:3001'];
+  return allowedHosts.some((h) => origin.includes(h));
+}
+
+/**
  * Get client IP from request headers
  */
 export function getClientIp(request: Request): string {

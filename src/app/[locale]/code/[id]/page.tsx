@@ -35,6 +35,7 @@ import {
   MessageCircle,
   Vote,
   Gift,
+  Dices,
   CalendarDays,
   Smartphone,
   LayoutGrid,
@@ -96,7 +97,9 @@ import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
 import RaffleModal from '@/components/modals/RaffleModal';
-import type { RaffleConfig } from '@/lib/raffle/types';
+import { DEFAULT_RAFFLE_CONFIG, type RaffleConfig } from '@/lib/raffle/types';
+import QBetModal from '@/components/modals/QBetModal';
+import type { QBetConfig } from '@/lib/qbet/types';
 import QStageModal from '@/components/modals/QStageModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
 import QRSignModal from '@/components/modals/QRSignModal';
@@ -376,6 +379,8 @@ export default function CodeEditPage({ params }: PageProps) {
   const [editingQVoteId, setEditingQVoteId] = useState<string | null>(null);
   const [raffleModalOpen, setRaffleModalOpen] = useState(false);
   const [editingRaffleId, setEditingRaffleId] = useState<string | null>(null);
+  const [qbetModalOpen, setQbetModalOpen] = useState(false);
+  const [editingQBetId, setEditingQBetId] = useState<string | null>(null);
   const [addingQVote, setAddingQVote] = useState(false);
 
   // Weekly Calendar modal state
@@ -1992,6 +1997,175 @@ export default function CodeEditPage({ params }: PageProps) {
     } catch (error) {
       console.error('Error saving raffle:', error);
     }
+  };
+
+  // Handler for adding/editing the QBet ("הימור") experience. Participant data
+  // lives in Supabase (via /api/qbet/*); here we only persist the config —
+  // uploading the landing poster first when a new file was picked. Returns the
+  // saved config so the modal adopts the final image URL (save-and-stay-open).
+  // Errors are rethrown so the modal can show a save-failed message.
+  const handleSaveQBet = async (
+    config: QBetConfig,
+    bgImageFile?: File | null,
+    logoFile?: File | null
+  ): Promise<QBetConfig | void> => {
+    if (!code || !user) return;
+    // Never create a second qbet on the same code.
+    const existingQBet = code.media.find((m) => m.type === 'qbet');
+    const targetId = editingQBetId || existingQBet?.id || null;
+    const previousConfig = existingQBet?.qbetConfig;
+    const cfg: QBetConfig = { ...config };
+
+    let storageDelta = 0;
+    const previousUrl = previousConfig?.backgroundImageUrl || '';
+    const previousSize = previousConfig?.backgroundImageSize || 0;
+    const previousLogoUrl = previousConfig?.logoUrl || '';
+    const previousLogoSize = previousConfig?.logoSize || 0;
+
+    if (bgImageFile) {
+      const formData = new FormData();
+      formData.append('file', bgImageFile);
+      formData.append('userId', user.id);
+      const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!uploadResponse.ok) {
+        throw new Error('QBet background upload failed');
+      }
+      const uploadData = await uploadResponse.json();
+      cfg.backgroundImageUrl = uploadData.url;
+      cfg.backgroundImageSize = uploadData.size || 0;
+      storageDelta += uploadData.size || 0;
+    }
+
+    // Logo: compressed client-side as PNG with alpha preserved (Q.Games pattern)
+    if (logoFile) {
+      const logoFormData = new FormData();
+      logoFormData.append('file', logoFile);
+      logoFormData.append('userId', user.id);
+      const logoResponse = await fetch('/api/upload', { method: 'POST', body: logoFormData });
+      if (!logoResponse.ok) {
+        throw new Error('QBet logo upload failed');
+      }
+      const logoData = await logoResponse.json();
+      cfg.logoUrl = logoData.url;
+      cfg.logoSize = logoData.size || 0;
+      storageDelta += logoData.size || 0;
+    }
+
+    // Poster/logo replaced or removed → delete the old blob + free the quota
+    if (previousUrl && previousUrl !== cfg.backgroundImageUrl) {
+      try {
+        await fetch('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: previousUrl }),
+        });
+      } catch (error) {
+        console.error('Failed to delete QBet background:', error);
+      }
+      storageDelta -= previousSize;
+    }
+    if (previousLogoUrl && previousLogoUrl !== cfg.logoUrl) {
+      try {
+        await fetch('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: previousLogoUrl }),
+        });
+      } catch (error) {
+        console.error('Failed to delete QBet logo:', error);
+      }
+      storageDelta -= previousLogoSize;
+    }
+    if (!cfg.backgroundImageUrl) cfg.backgroundImageSize = 0;
+    if (!cfg.logoUrl) cfg.logoSize = 0;
+
+    let updatedMedia: MediaItem[];
+    if (targetId) {
+      updatedMedia = code.media.map((m) =>
+        m.id === targetId
+          ? { ...m, type: 'qbet' as const, title: cfg.title || m.title, qbetConfig: cfg }
+          : m
+      );
+      if (targetId !== editingQBetId) setEditingQBetId(targetId);
+    } else {
+      const newMediaId = `media_${Date.now()}`;
+      const newMedia: MediaItem = {
+        id: newMediaId,
+        url: '',
+        type: 'qbet',
+        size: 0,
+        order: code.media.length,
+        uploadedBy: user.id,
+        title: cfg.title || 'הימור',
+        qbetConfig: cfg,
+        createdAt: new Date(),
+      };
+      updatedMedia = [...code.media, newMedia];
+      setEditingQBetId(newMediaId);
+    }
+
+    const cleanedMedia = updatedMedia.map((m) =>
+      removeUndefined(m as unknown as Record<string, unknown>)
+    ) as unknown as MediaItem[];
+    await updateQRCode(code.id, { media: cleanedMedia });
+    setCode((prev) => (prev ? { ...prev, media: updatedMedia } : null));
+    if (storageDelta !== 0) {
+      try {
+        await updateUserStorage(user.id, storageDelta);
+      } catch (error) {
+        console.error('Failed to update storage usage:', error);
+      }
+    }
+    return cfg;
+  };
+
+  // Spin the QBet winners into a SEPARATE raffle code (Fattal engine, untouched).
+  // Deliberately a new code: adding a raffle media to the qbet code itself would
+  // hijack /v routing — v/[shortId] redirects any code containing a raffle media
+  // straight to the big-screen page.
+  const handleCreateWinnersRaffle = async (
+    winners: { fullName: string; phone: string }[]
+  ) => {
+    if (!code || !user || winners.length === 0) return;
+    const raffleTitle = `הגרלת הזוכים — ${code.title}`;
+    const token = `tkn_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+    const newCode = await createQRCode(
+      user.id,
+      raffleTitle,
+      [
+        {
+          url: '',
+          type: 'raffle',
+          size: 0,
+          order: 0,
+          uploadedBy: user.id,
+          title: raffleTitle,
+          raffleConfig: { ...DEFAULT_RAFFLE_CONFIG, idleTitle: raffleTitle, token },
+        },
+      ],
+      code.folderId ?? null
+    );
+    const res = await fetchWithAuth('/api/raffle/participants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codeId: newCode.id,
+        mode: 'replace',
+        participants: winners.map((w) => {
+          const parts = w.fullName.trim().split(/\s+/);
+          return {
+            firstName: parts[0] || w.fullName,
+            lastName: parts.slice(1).join(' '),
+            phone: w.phone,
+            quantity: 1,
+          };
+        }),
+      }),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to import winners into the raffle');
+    }
+    router.push(`/code/${newCode.id}`);
   };
 
   // Handler for adding/editing Q.Vote
@@ -3728,6 +3902,16 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
 
+                {/* QBet Button */}
+                <Tooltip text="הימור">
+                  <button
+                    onClick={() => { setEditingQBetId(null); setQbetModalOpen(true); }}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <Dices className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
                 {/* Weekly Calendar Button */}
                 <Tooltip text={tMedia('weeklycal')}>
                   <button
@@ -3969,12 +4153,28 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Gift className="w-6 h-6 text-white" />
                       </div>
-                    ) : (
+                    ) : media.type === 'qbet' ? (
+                      media.qbetConfig?.backgroundImageUrl ? (
+                        <img
+                          src={media.qbetConfig.backgroundImageUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 via-indigo-600 to-red-500">
+                          <Dices className="w-6 h-6 text-white" />
+                        </div>
+                      )
+                    ) : media.url ? (
                       <img
                         src={media.url}
                         alt=""
                         className="w-full h-full object-cover"
                       />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-bg-secondary">
+                        <FileText className="w-6 h-6 text-text-secondary" />
+                      </div>
                     )}
                   </div>
 
@@ -4116,6 +4316,21 @@ export default function CodeEditPage({ params }: PageProps) {
                         onClick={() => {
                           setEditingRaffleId(media.id);
                           setRaffleModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Edit button for qbet */}
+                  {media.type === 'qbet' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingQBetId(media.id);
+                          setQbetModalOpen(true);
                         }}
                         className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
                       >
@@ -4613,6 +4828,25 @@ export default function CodeEditPage({ params }: PageProps) {
         }}
         onSave={handleSaveRaffle}
         initialConfig={editingRaffleId ? code?.media.find(m => m.id === editingRaffleId)?.raffleConfig : undefined}
+        codeId={code.id}
+        shortId={code.shortId}
+      />
+
+      {/* QBet Modal — initialConfig falls back to the existing qbet media so
+          opening via the toolbar button edits it instead of resetting it */}
+      <QBetModal
+        isOpen={qbetModalOpen}
+        onClose={() => {
+          setQbetModalOpen(false);
+          setEditingQBetId(null);
+        }}
+        onSave={handleSaveQBet}
+        onCreateWinnersRaffle={handleCreateWinnersRaffle}
+        initialConfig={
+          (editingQBetId
+            ? code?.media.find(m => m.id === editingQBetId)?.qbetConfig
+            : undefined) || code?.media.find(m => m.type === 'qbet')?.qbetConfig
+        }
         codeId={code.id}
         shortId={code.shortId}
       />

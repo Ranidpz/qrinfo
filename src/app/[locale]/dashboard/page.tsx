@@ -16,6 +16,7 @@ import WordCloudModal from '@/components/modals/WordCloudModal';
 import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
 import { DEFAULT_RAFFLE_CONFIG } from '@/lib/raffle/types';
+import { DEFAULT_QBET_CONFIG } from '@/lib/qbet/types';
 import QStageModal from '@/components/modals/QStageModal';
 import QHuntModal from '@/components/modals/QHuntModal';
 import QTreasureModal from '@/components/modals/QTreasureModal';
@@ -705,6 +706,37 @@ export default function DashboardPage() {
       router.push(`/code/${newCode.id}`);
     } catch (error) {
       console.error('Error creating raffle:', error);
+      alert(tErrors('createCodeError'));
+    }
+  };
+
+  // Create a new code with a QBet ("הימור") experience, then open it in the
+  // editor (where the owner uploads the poster, picks the teams and later
+  // publishes the final result). Participant data lives in Supabase.
+  const handleCreateQBet = async (name?: string) => {
+    if (!user) return;
+    try {
+      const qbetTitle = name?.trim() || 'הימור';
+      const newCode = await createQRCode(
+        user.id,
+        qbetTitle,
+        [
+          {
+            url: '',
+            type: 'qbet',
+            size: 0,
+            order: 0,
+            uploadedBy: user.id,
+            title: qbetTitle,
+            qbetConfig: { ...DEFAULT_QBET_CONFIG, title: qbetTitle },
+          },
+        ],
+        currentFolderId
+      );
+      setCodes((prev) => [newCode, ...prev]);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating qbet:', error);
       alert(tErrors('createCodeError'));
     }
   };
@@ -2058,6 +2090,7 @@ export default function DashboardPage() {
                   onSelfiebeamCreate={(name) => { setPendingExperienceName(name); setSelfiebeamModalOpen(true); }}
                   onQVoteCreate={(name) => { setPendingExperienceName(name); setQvoteModalOpen(true); }}
                   onRaffleCreate={handleCreateRaffle}
+                  onQBetCreate={handleCreateQBet}
                   onQStageCreate={(name) => { setPendingExperienceName(name); setQstageModalOpen(true); }}
                   onWeeklyCalendarCreate={(name) => { setPendingExperienceName(name); setWeeklyCalModalOpen(true); }}
                   onQHuntCreate={(name) => { setPendingExperienceName(name); setQhuntModalOpen(true); }}

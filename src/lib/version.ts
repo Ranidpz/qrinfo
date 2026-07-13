@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.17.7';
+export const APP_VERSION = '1.18.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.18.0',
+    date: '2026-07-13',
+    isNew: true,
+    highlights: {
+      he: [
+        'חדש: חוויית "הימור" — דף נחיתה עם פוסטר ולוגו, הרשמה עם אימות וואטסאפ, וניחוש תוצאת משחק כדורגל עם דגלי המדינות',
+        'הזוכים (ניחוש מדויק) מסומנים אוטומטית, מיוצאים לאקסל, וניתן ליצור מהם הגרלה על מסך ענק בלחיצה',
+        'כפתור קריאה-לפעולה מונפש עם גרדיאנט צבעים מתכוונן, וצבעי רקע/טקסט לעיצוב הדף; גרירת תמונות תומכת גם ב-AVIF',
+      ],
+      en: [
+        'New: "Match Bet" experience — a poster landing page with logo, WhatsApp-verified registration, and football score prediction with country flags',
+        'Exact-score winners are auto-flagged, exported to Excel, and can be turned into a big-screen raffle in one click',
+        'Animated call-to-action button with a configurable color gradient, plus background/text colors; image drop supports AVIF too',
+      ],
+    },
+  },
+  {
     version: '1.17.7',
     date: '2026-07-01',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'סלפי בים: תוקנה תקלת העלאת תמונות מאייפונים ישנים (iOS 16 ומטה) — הצילום נשמר עכשיו בפורמט תואם כשאין תמיכה ב-WebP, כך שהלינק לצלם ולינק ההעלאה עובדים מכל טלפון',

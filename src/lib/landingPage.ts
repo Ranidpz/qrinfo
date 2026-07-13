@@ -28,6 +28,7 @@ export const MEDIA_TYPE_INFO: Record<MediaType, {
   qtag: { icon: 'Tag', labelHe: 'רישום לאירוע', labelEn: 'Event Registration' },
   minigames: { icon: 'Gamepad2', labelHe: 'מיניגיימס', labelEn: 'Mini Games' },
   raffle: { icon: 'Gift', labelHe: 'הגרלה', labelEn: 'Raffle' },
+  qbet: { icon: 'Dices', labelHe: 'הימור', labelEn: 'Match Bet' },
 };
 
 /**
@@ -110,6 +111,8 @@ function getMediaTitle(item: MediaItem, locale: 'he' | 'en'): string {
       return item.qtreasureConfig?.branding?.gameTitle || item.title || 'Q.Treasure';
     case 'qchallenge':
       return item.qchallengeConfig?.branding?.quizTitle || item.title || 'Q.Challenge';
+    case 'qbet':
+      return item.qbetConfig?.title || item.title || (isHe ? 'הימור' : 'Match Bet');
     case 'pdf':
       return item.title || item.filename?.replace(/\.pdf$/i, '') || (isHe ? 'מסמך' : 'Document');
     case 'video':

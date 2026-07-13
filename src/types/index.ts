@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle' | 'qbet';
 export type StorageProvider = 'vercel-blob' | 'cloudflare-r2';
 
 // Riddle content structure
@@ -206,6 +206,7 @@ export interface MediaItem {
   qtagConfig?: import('./qtag').QTagConfig; // Configuration for qtag type (event registration & check-in)
   qgamesConfig?: import('./qgames').QGamesConfig; // Configuration for minigames type (1v1 mini games)
   raffleConfig?: import('./raffle').RaffleConfig; // Configuration for raffle type (big-screen draw)
+  qbetConfig?: import('./qbet').QBetConfig; // Configuration for qbet type (match score betting; entries live in the codes/{id}/qbetEntries Firestore subcollection)
   createdAt: Date;
 }
 
