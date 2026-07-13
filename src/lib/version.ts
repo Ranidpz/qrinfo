@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.0';
+export const APP_VERSION = '1.18.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,28 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.18.0',
+    version: '1.18.1',
     date: '2026-07-13',
     isNew: true,
+    highlights: {
+      he: [
+        'הימור: דף הנחיתה נפתח באנימציה — זום איטי לתמונת הרקע, לוגו וכפתור שנכנסים בהדרגה, ומעבר חלק בין השלבים',
+        'הימור: מתג החלפת שפה (עברית/אנגלית) שנפתח אוטומטית לפי שפת הדפדפן, עם דגלים גדולים יותר ושמות קבוצות מתורגמים',
+        'הימור: נעילה אוטומטית לפי שעת תחילת המשחק (מספר דקות אחרי השריקה), מתג לאפשר או לחסום שינוי הימור, ושורת הסכמה לשמירת הטלפון הניתנת לעריכה',
+        'הימור: ברשימת הנרשמים — לחיצה על המספר פותחת וואטסאפ, ומוצגת שעת שליחת הניחוש',
+      ],
+      en: [
+        'Match Bet: the landing page now animates in — a slow background zoom, logo and button easing in, and smooth transitions between steps',
+        'Match Bet: a language switch (Hebrew/English) that opens in the browser language, with bigger flags and translated team names',
+        'Match Bet: automatic lock by kickoff time (minutes after the whistle), a toggle to allow or block changing a bet, and an editable consent line for storing the phone number',
+        'Match Bet: in the registrants list — tap a number to open WhatsApp, and see when each bet was submitted',
+      ],
+    },
+  },
+  {
+    version: '1.18.0',
+    date: '2026-07-13',
+    isNew: false,
     highlights: {
       he: [
         'חדש: חוויית "הימור" — דף נחיתה עם פוסטר ולוגו, הרשמה עם אימות וואטסאפ, וניחוש תוצאת משחק כדורגל עם דגלי המדינות',

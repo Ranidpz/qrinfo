@@ -10,11 +10,28 @@
 // owner's config, buttons render inverted (bg=fontColor, text=backgroundColor).
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Check, Loader2, Lock, Minus, Plus, Trophy } from 'lucide-react';
+import { Check, Languages, Loader2, Lock, Minus, Plus, Trophy } from 'lucide-react';
 import type { QBetConfig, QBetResult, QBetTeam } from '@/lib/qbet/types';
-import { isBettingLocked, isWinningPrediction, DEFAULT_QBET_GRADIENT } from '@/lib/qbet/types';
+import {
+  isBettingLocked,
+  isWinningPrediction,
+  bettingCloseTime,
+  DEFAULT_QBET_GRADIENT,
+  DEFAULT_QBET_DISCLAIMER,
+} from '@/lib/qbet/types';
 import { isValidIsraeliMobile, formatPhoneForDisplay } from '@/lib/phone-utils';
 import { getBrowserLocale, qbetTranslations, type PublicLocale } from '@/lib/publicTranslations';
+import { SELFIEBEAM_COUNTRIES } from '@/lib/selfiebeam/countries';
+
+// Resolve a team's display name in the active language (falls back to the
+// baked-in name for custom teams not in the country list).
+function teamName(team: QBetTeam, locale: PublicLocale): string {
+  const c = SELFIEBEAM_COUNTRIES.find((x) => x.code === team.code);
+  if (c) return locale === 'en' ? c.nameEn : c.nameHe;
+  return team.name;
+}
+
+const LANG_KEY = 'qbet_lang';
 
 interface QBetViewerProps {
   config: QBetConfig;
@@ -43,14 +60,30 @@ function withAlpha(hex: string, alphaHex: string): string {
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? `${hex}${alphaHex}` : hex;
 }
 
-// Shared keyframes: done-screen pop + animated CTA border (flowing gradient +
-// shine sweep). Rendered on both the landing screen and the step screens.
+// Shared keyframes: entrance animations (Ken Burns zoom, bounce/fade/rise,
+// step slide) + animated CTA border (flowing gradient + shine sweep).
+// transform/opacity only — GPU-composited, cross-browser, and fully disabled
+// for users who prefer reduced motion.
 const QBET_STYLE = `
 @keyframes qbetPop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
 @keyframes qbetFlow{0%{background-position:0% 50%}100%{background-position:300% 50%}}
 @keyframes qbetShine{0%{transform:translateX(-160%) skewX(-18deg)}55%,100%{transform:translateX(320%) skewX(-18deg)}}
+@keyframes qbetKenBurns{0%{transform:scale(1)}100%{transform:scale(1.12)}}
+@keyframes qbetBounceIn{0%{transform:scale(.55);opacity:0}60%{transform:scale(1.07);opacity:1}80%{transform:scale(.97)}100%{transform:scale(1);opacity:1}}
+@keyframes qbetFadeIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+@keyframes qbetRise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:none}}
+@keyframes qbetSlideL{0%{opacity:0;transform:translateX(-22px)}100%{opacity:1;transform:none}}
+@keyframes qbetSlideR{0%{opacity:0;transform:translateX(22px)}100%{opacity:1;transform:none}}
 .qbet-cta{animation:qbetFlow 5s linear infinite}
 .qbet-cta-shine{position:absolute;top:0;bottom:0;left:0;width:45%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent);animation:qbetShine 3.2s ease-in-out infinite;pointer-events:none}
+.qbet-kb{animation:qbetKenBurns 14s ease-out both}
+.qbet-bounce{animation:qbetBounceIn .55s ease-out both}
+.qbet-fade{animation:qbetFadeIn .7s ease-out both}
+.qbet-rise{animation:qbetRise .45s ease-out both}
+.qbet-step-rtl{animation:qbetSlideL .28s ease-out both}
+.qbet-step-ltr{animation:qbetSlideR .28s ease-out both}
+.qbet-noise{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");background-size:140px 140px}
+@media (prefers-reduced-motion:reduce){.qbet-kb,.qbet-bounce,.qbet-fade,.qbet-rise,.qbet-step-rtl,.qbet-step-ltr,.qbet-cta,.qbet-cta-shine{animation:none}}
 `;
 
 export default function QBetViewer({ config, codeId }: QBetViewerProps) {
@@ -90,6 +123,10 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
   const storageKey = `qbet_${codeId}`;
   const bg = config.backgroundColor || '#0b0f1a';
   const font = config.fontColor || '#ffffff';
+  // undefined = config saved before this field existed → show the default text;
+  // '' = owner explicitly cleared it → hidden.
+  const disclaimer =
+    config.disclaimerText === undefined ? DEFAULT_QBET_DISCLAIMER : config.disclaimerText;
 
   const persistCreds = useCallback(
     (next: StoredCreds | null) => {
@@ -143,8 +180,24 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
     [codeId]
   );
 
+  // Open in the browser language, unless the visitor already chose one here.
+  const setLocalePersisted = useCallback((next: PublicLocale) => {
+    setLocale(next);
+    try {
+      localStorage.setItem(LANG_KEY, next);
+    } catch {
+      /* private mode */
+    }
+  }, []);
+
   useEffect(() => {
-    setLocale(getBrowserLocale());
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(LANG_KEY);
+    } catch {
+      saved = null;
+    }
+    setLocale(saved === 'he' || saved === 'en' ? saved : getBrowserLocale());
     let stored: StoredCreds | null = null;
     try {
       stored = JSON.parse(localStorage.getItem(storageKey) || 'null');
@@ -173,6 +226,22 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
     const iv = setInterval(() => void refreshStatus(credsRef.current), 60 * 1000);
     return () => clearInterval(iv);
   }, [step, liveState.finalResult, refreshStatus]);
+
+  // Auto-lock watcher: when the scheduled close time passes while a participant
+  // is mid-flow, flip them to the locked/done screen (the server enforces it too).
+  useEffect(() => {
+    if (step !== 'register' && step !== 'otp' && step !== 'predict') return;
+    if (bettingCloseTime(config) == null) return;
+    const check = () => {
+      if (isBettingLocked(config)) {
+        setLiveState((s) => ({ ...s, locked: true }));
+        setStep(savedPrediction ? 'done' : 'locked');
+      }
+    };
+    check();
+    const iv = setInterval(check, 15 * 1000);
+    return () => clearInterval(iv);
+  }, [step, config, savedPrediction]);
 
   // ---------- actions ----------
 
@@ -334,6 +403,9 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
           setLiveState((s) => ({ ...s, locked: true }));
           setStep(savedPrediction ? 'done' : 'locked');
           break;
+        case 'CHANGE_NOT_ALLOWED':
+          setError(t.cannotChange);
+          break;
         case 'NOT_VERIFIED':
           // Token rotated (verified again elsewhere) — re-prove phone ownership.
           persistCreds(null);
@@ -364,40 +436,83 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
     caretColor: font,
   };
 
-  const FlagImg = ({ team, size }: { team: QBetTeam; size: 'sm' | 'lg' }) => (
+  const FlagImg = ({ team, size }: { team: QBetTeam; size: 'sm' | 'lg' | 'xl' }) => (
     <img
       src={team.flag}
-      alt={team.name}
+      alt={teamName(team, locale)}
       className={
-        size === 'lg'
+        size === 'xl'
+          ? 'w-[5.5rem] h-[3.7rem] object-cover rounded-lg shadow-xl ring-1 ring-white/10'
+          : size === 'lg'
           ? 'w-16 h-11 object-cover rounded-md shadow-lg'
           : 'w-9 h-6 object-cover rounded shadow'
       }
     />
   );
 
+  const closeAt = bettingCloseTime(config);
+  const closesLine =
+    closeAt && !liveState.finalResult && !liveState.locked
+      ? t.closesAt.replace(
+          '{time}',
+          new Date(closeAt).toLocaleTimeString(locale === 'he' ? 'he-IL' : 'en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        )
+      : null;
+
+  // Big flag-forward matchup header — the flags are the focal point.
   const MatchHeader = () => (
-    <div className="text-center mb-8">
-      <h1 className="text-2xl font-bold leading-tight">{config.title}</h1>
-      {config.matchLabel ? (
-        <p className="mt-1 text-sm" style={{ color: withAlpha(font, 'B3') }}>
-          {config.matchLabel}
-        </p>
-      ) : null}
-      <div className="mt-4 flex items-center justify-center gap-3">
-        <div className="flex items-center gap-2">
-          <FlagImg team={config.teamHome} size="sm" />
-          <span className="text-sm font-semibold">{config.teamHome.name}</span>
+    <div className="qbet-rise mb-8">
+      <h1 className="text-xl font-bold leading-tight text-center mb-5">{config.title}</h1>
+      <div className="flex items-stretch justify-center gap-3">
+        <div className="flex flex-col items-center gap-2 flex-1 max-w-[42%]">
+          <FlagImg team={config.teamHome} size="xl" />
+          <span className="text-sm font-semibold text-center leading-tight">
+            {teamName(config.teamHome, locale)}
+          </span>
         </div>
-        <span className="text-xs" style={{ color: withAlpha(font, '80') }}>
+        <span
+          className="self-center text-lg font-extrabold px-1 shrink-0"
+          style={{ color: withAlpha(font, '73') }}
+        >
           VS
         </span>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{config.teamAway.name}</span>
-          <FlagImg team={config.teamAway} size="sm" />
+        <div className="flex flex-col items-center gap-2 flex-1 max-w-[42%]">
+          <FlagImg team={config.teamAway} size="xl" />
+          <span className="text-sm font-semibold text-center leading-tight">
+            {teamName(config.teamAway, locale)}
+          </span>
         </div>
       </div>
+      {closesLine && (
+        <p className="mt-4 text-xs text-center" style={{ color: withAlpha(font, '99') }}>
+          {closesLine}
+        </p>
+      )}
     </div>
+  );
+
+  const toggleLocale = () => setLocalePersisted(locale === 'he' ? 'en' : 'he');
+  const LangSwitch = ({ className }: { className?: string }) => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleLocale();
+      }}
+      className={`flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold backdrop-blur-sm active:scale-95 transition-transform ${className || ''}`}
+      style={{
+        background: withAlpha(font, '1F'),
+        color: font,
+        border: `1px solid ${withAlpha(font, '33')}`,
+      }}
+      aria-label={t.switchLanguage}
+    >
+      <Languages className="w-3.5 h-3.5" />
+      {t.switchLanguage}
+    </button>
   );
 
   const Feedback = () =>
@@ -413,18 +528,18 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
   const ScoreLine = ({ result }: { result: QBetResult }) => (
     <div className="flex items-center justify-center gap-4">
       <div className="flex flex-col items-center gap-1.5">
-        <FlagImg team={config.teamHome} size="sm" />
+        <FlagImg team={config.teamHome} size="lg" />
         <span className="text-xs font-medium" style={{ color: withAlpha(font, 'B3') }}>
-          {config.teamHome.name}
+          {teamName(config.teamHome, locale)}
         </span>
       </div>
       <span className="text-3xl font-bold tabular-nums" dir="ltr">
         {result.home} : {result.away}
       </span>
       <div className="flex flex-col items-center gap-1.5">
-        <FlagImg team={config.teamAway} size="sm" />
+        <FlagImg team={config.teamAway} size="lg" />
         <span className="text-xs font-medium" style={{ color: withAlpha(font, 'B3') }}>
-          {config.teamAway.name}
+          {teamName(config.teamAway, locale)}
         </span>
       </div>
     </div>
@@ -440,13 +555,15 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
     onChange: (v: number) => void;
   }) => (
     <div className="flex-1 flex flex-col items-center gap-3">
-      <FlagImg team={team} size="lg" />
-      <span className="text-base font-semibold text-center leading-tight">{team.name}</span>
+      <FlagImg team={team} size="xl" />
+      <span className="text-base font-semibold text-center leading-tight">
+        {teamName(team, locale)}
+      </span>
       <button
         type="button"
         onClick={() => onChange(Math.min(maxGoals, value + 1))}
         disabled={value >= maxGoals}
-        aria-label={`+ ${team.name}`}
+        aria-label={`+ ${teamName(team, locale)}`}
         className="w-12 h-12 rounded-full flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40"
         style={{ border: `1px solid ${withAlpha(font, '44')}`, color: font }}
       >
@@ -457,7 +574,7 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
         type="button"
         onClick={() => onChange(Math.max(0, value - 1))}
         disabled={value <= 0}
-        aria-label={`- ${team.name}`}
+        aria-label={`- ${teamName(team, locale)}`}
         className="w-12 h-12 rounded-full flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40"
         style={{ border: `1px solid ${withAlpha(font, '44')}`, color: font }}
       >
@@ -503,21 +620,22 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
   // title text overlay + the animated CTA button pinned near the bottom.
   if (step === 'landing') {
     return (
+      <div className="relative" dir={locale === 'he' ? 'rtl' : 'ltr'}>
+        <style>{QBET_STYLE}</style>
+        <LangSwitch className="absolute top-3 end-3 z-20" />
       <button
         type="button"
         onClick={enterFromLanding}
         aria-label={t.enterAria}
         className="relative block w-full min-h-[100dvh] cursor-pointer text-start"
         style={{ background: bg, color: font }}
-        dir={locale === 'he' ? 'rtl' : 'ltr'}
       >
-        <style>{QBET_STYLE}</style>
         {config.backgroundImageUrl ? (
           <>
             <img
               src={config.backgroundImageUrl}
               alt={config.title}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="qbet-kb absolute inset-0 w-full h-full object-cover"
             />
             {(config.logoUrl || config.landingTitle) && (
               <span className="absolute inset-x-0 top-0 pt-[5dvh] px-8 flex flex-col items-center gap-4 pointer-events-none">
@@ -525,21 +643,31 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
                   <img
                     src={config.logoUrl}
                     alt=""
-                    className="max-h-[13dvh] max-w-[65%] object-contain"
-                    style={{ filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.5))' }}
+                    className="qbet-bounce max-h-[13dvh] max-w-[65%] object-contain"
+                    style={{
+                      filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.5))',
+                      animationDelay: '150ms',
+                    }}
                   />
                 )}
                 {config.landingTitle && (
                   <span
-                    className="text-[2.6rem] font-extrabold text-center leading-tight"
-                    style={{ color: font, textShadow: '0 2px 18px rgba(0,0,0,0.65)' }}
+                    className="qbet-fade text-[2.6rem] font-extrabold text-center leading-tight"
+                    style={{
+                      color: font,
+                      textShadow: '0 2px 18px rgba(0,0,0,0.65)',
+                      animationDelay: '450ms',
+                    }}
                   >
                     {config.landingTitle}
                   </span>
                 )}
               </span>
             )}
-            <span className="absolute inset-x-6 bottom-[6dvh] pointer-events-none">
+            <span
+              className="qbet-bounce absolute inset-x-6 bottom-[6dvh] pointer-events-none"
+              style={{ animationDelay: '700ms' }}
+            >
               <CtaButton />
             </span>
           </>
@@ -549,35 +677,64 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
               <img
                 src={config.logoUrl}
                 alt=""
-                className="max-h-[13dvh] max-w-[65%] object-contain"
-                style={{ filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.5))' }}
+                className="qbet-bounce max-h-[13dvh] max-w-[65%] object-contain"
+                style={{
+                  filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.5))',
+                  animationDelay: '100ms',
+                }}
               />
             )}
-            <span className="text-3xl font-bold">{config.landingTitle || config.title}</span>
-            <span className="flex items-center gap-4">
-              <FlagImg team={config.teamHome} size="lg" />
+            <span className="qbet-fade text-3xl font-bold" style={{ animationDelay: '320ms' }}>
+              {config.landingTitle || config.title}
+            </span>
+            <span className="qbet-fade flex items-center gap-4" style={{ animationDelay: '480ms' }}>
+              <FlagImg team={config.teamHome} size="xl" />
               <span className="text-lg font-semibold" style={{ color: withAlpha(font, '80') }}>
                 VS
               </span>
-              <FlagImg team={config.teamAway} size="lg" />
+              <FlagImg team={config.teamAway} size="xl" />
             </span>
-            <span className="block w-full mt-2 pointer-events-none">
+            <span
+              className="qbet-bounce block w-full mt-2 pointer-events-none"
+              style={{ animationDelay: '650ms' }}
+            >
               <CtaButton />
             </span>
           </span>
         )}
       </button>
+      </div>
     );
   }
 
   return (
     <div
-      className="min-h-[100dvh] w-full flex flex-col items-center justify-center px-6 py-10"
+      className="relative min-h-[100dvh] w-full overflow-hidden"
       style={{ background: bg, color: font }}
       dir={locale === 'he' ? 'rtl' : 'ltr'}
     >
       <style>{QBET_STYLE}</style>
-      <div className="w-full max-w-sm">
+      {/* Dimmed grainy poster behind the form steps — subtle depth, text stays readable */}
+      {config.backgroundImageUrl && (
+        <img
+          src={config.backgroundImageUrl}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ opacity: 0.16, filter: 'blur(2.5px) saturate(0.85)', transform: 'scale(1.06)' }}
+        />
+      )}
+      <div
+        className="qbet-noise absolute inset-0 pointer-events-none"
+        style={{ opacity: 0.07 }}
+        aria-hidden="true"
+      />
+      <LangSwitch className="absolute top-3 end-3 z-20" />
+      <div className="relative z-10 min-h-[100dvh] flex flex-col items-center justify-center px-6 py-10">
+      <div
+        key={step}
+        className={`w-full max-w-sm ${locale === 'he' ? 'qbet-step-rtl' : 'qbet-step-ltr'}`}
+      >
         {step === 'register' && (
           <>
             <MatchHeader />
@@ -588,7 +745,7 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
               }}
               className="space-y-4"
             >
-              <div className="space-y-1.5">
+              <div className="qbet-rise space-y-1.5" style={{ animationDelay: '80ms' }}>
                 <label className="block text-sm font-medium" htmlFor="qbet-name">
                   {t.fullNameLabel}
                 </label>
@@ -604,7 +761,7 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
                   style={inputStyle}
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="qbet-rise space-y-1.5" style={{ animationDelay: '160ms' }}>
                 <label className="block text-sm font-medium" htmlFor="qbet-phone">
                   {t.phoneLabel}
                 </label>
@@ -624,12 +781,20 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
-                style={buttonStyle}
+                className="qbet-rise w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+                style={{ ...buttonStyle, animationDelay: '240ms' }}
               >
                 {submitting && <Loader2 className="w-5 h-5 animate-spin" />}
                 {submitting ? t.sending : t.sendCode}
               </button>
+              {disclaimer && (
+                <p
+                  className="qbet-rise text-[11px] leading-relaxed text-center"
+                  style={{ color: withAlpha(font, '8C'), animationDelay: '320ms' }}
+                >
+                  {disclaimer}
+                </p>
+              )}
               <Feedback />
             </form>
           </>
@@ -639,7 +804,7 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
           <>
             <MatchHeader />
             <div className="space-y-4">
-              <div className="text-center space-y-1">
+              <div className="qbet-rise text-center space-y-1" style={{ animationDelay: '60ms' }}>
                 <h2 className="text-lg font-semibold">{t.otpTitle}</h2>
                 <p className="text-sm" style={{ color: withAlpha(font, 'B3') }}>
                   {t.otpSentTo}{' '}
@@ -659,8 +824,8 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
                 dir="ltr"
                 autoFocus
                 aria-label={t.otpTitle}
-                className="w-full h-14 rounded-xl text-center text-3xl font-bold tracking-[0.5em] outline-none"
-                style={inputStyle}
+                className="qbet-rise w-full h-14 rounded-xl text-center text-3xl font-bold tracking-[0.5em] outline-none"
+                style={{ ...inputStyle, animationDelay: '140ms' }}
               />
               <button
                 type="button"
@@ -709,12 +874,18 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
           <>
             <MatchHeader />
             <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-center">{t.predictTitle}</h2>
+              <h2
+                className="qbet-rise text-lg font-semibold text-center"
+                style={{ animationDelay: '60ms' }}
+              >
+                {t.predictTitle}
+              </h2>
               <div
-                className="rounded-2xl p-5"
+                className="qbet-rise rounded-2xl p-5"
                 style={{
                   background: withAlpha(font, '0D'),
                   border: `1px solid ${withAlpha(font, '22')}`,
+                  animationDelay: '140ms',
                 }}
               >
                 <div className="flex items-start justify-center gap-2">
@@ -727,8 +898,8 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
                 type="button"
                 onClick={() => void submitPrediction()}
                 disabled={submitting}
-                className="w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
-                style={buttonStyle}
+                className="qbet-rise w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+                style={{ ...buttonStyle, animationDelay: '220ms' }}
               >
                 {submitting && <Loader2 className="w-5 h-5 animate-spin" />}
                 {submitting ? t.savingPrediction : t.sendPrediction}
@@ -809,7 +980,7 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>{t.waitingForResult}</span>
                 </div>
-                {!liveState.locked && (
+                {!liveState.locked && config.allowChangePrediction !== false && (
                   <button
                     type="button"
                     onClick={() => {
@@ -855,6 +1026,7 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

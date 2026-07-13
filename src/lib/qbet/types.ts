@@ -38,10 +38,21 @@ export interface QBetConfig {
   maxGoals: number; // score picker ceiling
   locked?: boolean; // owner-locked (match started) — blocks new/changed predictions
   finalResult?: QBetResult | null; // published result; publishing also locks predictions
+  // Auto-lock: betting closes automatically `autoLockMinutes` after kickoff.
+  kickoffAt?: string; // ISO datetime of the match kickoff ('' / undefined = no auto-lock)
+  autoLockMinutes?: number; // minutes after kickoff to lock (default 0 = at kickoff)
+  allowChangePrediction?: boolean; // default true — participants may update their pick until lock
+  // Consent line under the register button. '' = hidden; undefined = default text
+  // (so configs saved before this field existed still show the default).
+  disclaimerText?: string;
 }
 
 // Poster-inspired default: blue → purple → red (מונדיאל vibes)
 export const DEFAULT_QBET_GRADIENT = ['#2563eb', '#7c3aed', '#dc2626'];
+
+// Default participant consent line (owner-editable in the settings modal)
+export const DEFAULT_QBET_DISCLAIMER =
+  'ההרשמה מהווה הסכמה לשמירת מספר הטלפון לצורך יצירת קשר וחלוקת פרסים, והיא תנאי להשתתפות במשחק בהתאם לתקנון המפורסם באתר.';
 
 export const DEFAULT_QBET_CONFIG: QBetConfig = {
   title: 'הימור המשחק',
@@ -58,13 +69,31 @@ export const DEFAULT_QBET_CONFIG: QBetConfig = {
   maxGoals: 15,
   locked: false,
   finalResult: null,
+  allowChangePrediction: true,
+  disclaimerText: DEFAULT_QBET_DISCLAIMER,
 };
 
-// Betting closes once the owner locks it or publishes a final result.
+// The epoch-ms moment betting auto-closes (kickoff + grace), or null when the
+// owner hasn't scheduled a kickoff.
+export function bettingCloseTime(
+  config: Pick<QBetConfig, 'kickoffAt' | 'autoLockMinutes'>
+): number | null {
+  if (!config.kickoffAt) return null;
+  const kickoff = new Date(config.kickoffAt).getTime();
+  if (isNaN(kickoff)) return null;
+  return kickoff + (config.autoLockMinutes ?? 0) * 60_000;
+}
+
+// Betting closes once the owner locks it, publishes a final result, or the
+// scheduled auto-lock time passes. `now` is injectable for testing.
 export function isBettingLocked(
-  config: Pick<QBetConfig, 'locked' | 'finalResult'>
+  config: Pick<QBetConfig, 'locked' | 'finalResult' | 'kickoffAt' | 'autoLockMinutes'>,
+  now: number = Date.now()
 ): boolean {
-  return !!config.locked || config.finalResult != null;
+  if (config.locked) return true;
+  if (config.finalResult != null) return true;
+  const closeAt = bettingCloseTime(config);
+  return closeAt != null && now >= closeAt;
 }
 
 // Winner rule: exact score match on a verified entry.

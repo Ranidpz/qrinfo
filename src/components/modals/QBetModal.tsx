@@ -12,10 +12,12 @@ import * as XLSX from 'xlsx';
 import {
   Check,
   ChevronDown,
+  Clock,
   Dices,
   Download,
   Gift,
   Loader2,
+  MessageCircle,
   Plus,
   RefreshCw,
   Search,
@@ -32,6 +34,7 @@ import { SELFIEBEAM_COUNTRIES, type SelfiebeamCountry } from '@/lib/selfiebeam/c
 import {
   DEFAULT_QBET_CONFIG,
   DEFAULT_QBET_GRADIENT,
+  bettingCloseTime,
   isWinningPrediction,
   type QBetConfig,
   type QBetEntry,
@@ -57,6 +60,26 @@ interface QBetModalProps {
 
 function countryToTeam(c: SelfiebeamCountry): QBetTeam {
   return { code: c.code, name: c.nameHe, flag: c.flag };
+}
+
+// Compact "13.7 · 20:45" stamp for when a prediction was submitted
+function formatPickTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })} · ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+// ISO ⇄ <input type="datetime-local"> value (local wall-clock, no timezone).
+function isoToLocalInput(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+function localInputToIso(local: string): string | undefined {
+  if (!local) return undefined;
+  const d = new Date(local);
+  return isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
 // Searchable country/flag picker (reuses the Selfie Beam flag assets).
@@ -162,7 +185,10 @@ export default function QBetModal({
   shortId,
 }: QBetModalProps) {
   const [activeTab, setActiveTab] = useState<'settings' | 'entries'>('settings');
-  const [config, setConfig] = useState<QBetConfig>(initialConfig || DEFAULT_QBET_CONFIG);
+  const [config, setConfig] = useState<QBetConfig>({
+    ...DEFAULT_QBET_CONFIG,
+    ...(initialConfig || {}),
+  });
 
   // Landing image + logo (deferred upload — the parent uploads on Save)
   const [bgFile, setBgFile] = useState<File | null>(null);
@@ -194,10 +220,12 @@ export default function QBetModal({
   const [entriesError, setEntriesError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // Re-sync when (re)opening
+  // Re-sync when (re)opening. Spread defaults FIRST so configs saved before a
+  // field existed (e.g. disclaimerText / allowChangePrediction) pick up the
+  // default; owner-cleared values ('' / false) still win.
   useEffect(() => {
     if (!isOpen) return;
-    const cfg = initialConfig || DEFAULT_QBET_CONFIG;
+    const cfg = { ...DEFAULT_QBET_CONFIG, ...(initialConfig || {}) };
     setConfig(cfg);
     setResultHome(cfg.finalResult ? String(cfg.finalResult.home) : '');
     setResultAway(cfg.finalResult ? String(cfg.finalResult.away) : '');
@@ -398,6 +426,7 @@ export default function QBetModal({
             ? 'זכה'
             : ''
           : '',
+        'שעת ניחוש': e.predictedAt ? new Date(e.predictedAt).toLocaleString('he-IL') : '',
         'תאריך הרשמה': e.createdAt ? new Date(e.createdAt).toLocaleString('he-IL') : '',
       };
     });
@@ -410,6 +439,7 @@ export default function QBetModal({
       { wch: 8 },
       { wch: 6 },
       { wch: 8 },
+      { wch: 18 },
       { wch: 18 },
     ];
     const workbook = XLSX.utils.book_new();
@@ -446,10 +476,10 @@ export default function QBetModal({
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-bg-primary border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-bg-primary border border-border rounded-2xl w-full max-w-2xl max-h-[94dvh] flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-red-500 flex items-center justify-center">
               <Dices className="w-5 h-5 text-white" />
@@ -501,7 +531,7 @@ export default function QBetModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
           {activeTab === 'settings' ? (
             <div className="space-y-6">
               {/* Landing image */}
@@ -647,31 +677,16 @@ export default function QBetModal({
                 </div>
               </div>
 
-              {/* Titles */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-text-secondary">כותרת</label>
-                  <input
-                    type="text"
-                    value={config.title}
-                    onChange={(e) => update({ title: e.target.value })}
-                    maxLength={60}
-                    className="input w-full text-sm"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-text-secondary">
-                    תיאור המשחק (אופציונלי)
-                  </label>
-                  <input
-                    type="text"
-                    value={config.matchLabel || ''}
-                    onChange={(e) => update({ matchLabel: e.target.value })}
-                    placeholder="למשל: גמר המונדיאל 2026"
-                    maxLength={60}
-                    className="input w-full text-sm"
-                  />
-                </div>
+              {/* Title */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-text-secondary">כותרת</label>
+                <input
+                  type="text"
+                  value={config.title}
+                  onChange={(e) => update({ title: e.target.value })}
+                  maxLength={60}
+                  className="input w-full text-sm"
+                />
               </div>
 
               {/* Landing title overlay */}
@@ -854,6 +869,24 @@ export default function QBetModal({
                 </div>
               </div>
 
+              {/* Participant consent line */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-text-primary">
+                  טקסט אישור התנאים
+                </label>
+                <p className="text-xs text-text-secondary">
+                  מוצג מתחת לכפתור ההרשמה — ההרשמה מהווה אישור. אפשר לנסח מחדש, או להשאיר
+                  ריק כדי להסתיר את השורה.
+                </p>
+                <textarea
+                  value={config.disclaimerText ?? ''}
+                  onChange={(e) => update({ disclaimerText: e.target.value })}
+                  rows={3}
+                  maxLength={300}
+                  className="input w-full text-sm leading-relaxed resize-none"
+                />
+              </div>
+
               {/* Match status */}
               <div className="rounded-xl bg-bg-secondary border border-border p-4 space-y-4">
                 <div className="flex items-center justify-between gap-3">
@@ -875,6 +908,85 @@ export default function QBetModal({
                     <span
                       className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
                       style={{ insetInlineStart: config.locked ? '26px' : '2px' }}
+                    />
+                  </button>
+                </div>
+
+                {/* Auto-lock by kickoff time */}
+                <div className="border-t border-border pt-4 space-y-2">
+                  <p className="text-sm font-medium text-text-primary">נעילה אוטומטית לפי שעת המשחק</p>
+                  <p className="text-xs text-text-secondary">
+                    ההימורים ייסגרו אוטומטית מספר דקות אחרי שריקת הפתיחה — בלי צורך לנעול ידנית.
+                    השאירו ריק כדי לנעול רק ידנית.
+                  </p>
+                  <div className="flex items-end gap-3 flex-wrap">
+                    <div className="space-y-1 flex-1 min-w-[180px]">
+                      <label className="block text-xs text-text-secondary">שעת תחילת המשחק</label>
+                      <input
+                        type="datetime-local"
+                        value={isoToLocalInput(config.kickoffAt)}
+                        onChange={(e) => update({ kickoffAt: localInputToIso(e.target.value) })}
+                        className="input w-full text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1 w-28">
+                      <label className="block text-xs text-text-secondary">דקות עד נעילה</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={180}
+                        value={config.autoLockMinutes ?? ''}
+                        placeholder="0"
+                        disabled={!config.kickoffAt}
+                        onChange={(e) => {
+                          const n = parseInt(e.target.value, 10);
+                          update({ autoLockMinutes: Number.isFinite(n) && n >= 0 ? n : undefined });
+                        }}
+                        className="input w-full text-sm text-center disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+                  {(() => {
+                    const closeAt = bettingCloseTime(config);
+                    if (!closeAt) return null;
+                    return (
+                      <p className="text-xs text-accent">
+                        ההימור ייסגר ב-
+                        {new Date(closeAt).toLocaleString('he-IL', {
+                          day: 'numeric',
+                          month: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    );
+                  })()}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">שינוי הימור</p>
+                    <p className="text-xs text-text-secondary">
+                      כשפעיל — משתתפים יכולים לעדכן את הניחוש עד הנעילה. כשכבוי — ניחוש אחד בלבד
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={config.allowChangePrediction !== false}
+                    onClick={() =>
+                      update({ allowChangePrediction: config.allowChangePrediction === false })
+                    }
+                    className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${
+                      config.allowChangePrediction !== false ? 'bg-accent' : 'bg-border'
+                    }`}
+                  >
+                    <span
+                      className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
+                      style={{
+                        insetInlineStart:
+                          config.allowChangePrediction !== false ? '26px' : '2px',
+                      }}
                     />
                   </button>
                 </div>
@@ -1030,47 +1142,64 @@ export default function QBetModal({
                     return (
                       <div
                         key={entry.id}
-                        className={`flex items-center gap-3 px-3 py-2.5 ${
-                          idx > 0 ? 'border-t border-border' : ''
-                        } ${isWinner ? 'bg-accent/10' : ''}`}
+                        className={`px-3 py-2.5 ${idx > 0 ? 'border-t border-border' : ''} ${
+                          isWinner ? 'bg-accent/10' : ''
+                        }`}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-text-primary truncate flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <p className="min-w-0 flex-1 text-sm font-medium text-text-primary truncate flex items-center gap-1.5">
                             {isWinner && <Trophy className="w-4 h-4 text-amber-400 shrink-0" />}
                             {entry.fullName}
                           </p>
-                          <p className="text-xs text-text-secondary" dir="ltr">
-                            {formatPhoneForDisplay(entry.phone)}
-                          </p>
-                        </div>
-                        <div className="text-center shrink-0">
                           {hasPick ? (
-                            <span className="text-sm font-bold text-text-primary tabular-nums" dir="ltr">
+                            <span
+                              className="px-2 py-0.5 rounded-lg bg-bg-secondary text-sm font-bold text-text-primary tabular-nums shrink-0"
+                              dir="ltr"
+                            >
                               {entry.predictionHome} : {entry.predictionAway}
                             </span>
                           ) : (
-                            <span className="text-xs text-text-secondary">ללא ניחוש</span>
+                            <span className="text-xs text-text-secondary shrink-0">ללא ניחוש</span>
                           )}
-                          {!entry.verified && (
-                            <p className="text-[10px] text-amber-400">לא אומת</p>
+                          {confirmDeleteId === entry.id ? (
+                            <button
+                              onClick={() => void handleDeleteEntry(entry.id)}
+                              className="px-2 py-1 rounded-lg bg-danger/20 text-danger text-xs font-medium shrink-0"
+                            >
+                              לאשר מחיקה?
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(entry.id)}
+                              className="p-1.5 rounded-lg text-text-secondary hover:text-danger transition-colors shrink-0"
+                              aria-label="מחיקה"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
-                        {confirmDeleteId === entry.id ? (
-                          <button
-                            onClick={() => void handleDeleteEntry(entry.id)}
-                            className="px-2 py-1 rounded-lg bg-danger/20 text-danger text-xs font-medium shrink-0"
+                        <div className="mt-1.5 flex items-center gap-3 flex-wrap">
+                          <a
+                            href={`https://wa.me/${entry.phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs font-medium text-emerald-400 hover:underline"
+                            dir="ltr"
+                            aria-label="שליחת וואטסאפ"
                           >
-                            לאשר מחיקה?
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmDeleteId(entry.id)}
-                            className="p-1.5 rounded-lg text-text-secondary hover:text-danger transition-colors shrink-0"
-                            aria-label="מחיקה"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                            {formatPhoneForDisplay(entry.phone)}
+                          </a>
+                          {entry.predictedAt && (
+                            <span className="flex items-center gap-1 text-[11px] text-text-secondary">
+                              <Clock className="w-3 h-3 shrink-0" />
+                              {formatPickTime(entry.predictedAt)}
+                            </span>
+                          )}
+                          {!entry.verified && (
+                            <span className="text-[10px] text-amber-400">לא אומת</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

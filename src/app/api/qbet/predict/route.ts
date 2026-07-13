@@ -91,6 +91,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Owner can disable prediction changes — first submission only.
+    if (
+      loaded.config.allowChangePrediction === false &&
+      entry.predictionHome != null &&
+      entry.predictionAway != null
+    ) {
+      return NextResponse.json(
+        { error: 'Prediction already submitted', errorCode: 'CHANGE_NOT_ALLOWED' },
+        { status: 409 }
+      );
+    }
+
     await savePrediction(codeId, entry.id, home, away);
 
     return NextResponse.json({ success: true });
