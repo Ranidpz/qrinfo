@@ -885,6 +885,23 @@ export default function QBetModal({
                   maxLength={300}
                   className="input w-full text-sm leading-relaxed resize-none"
                 />
+                <div className="pt-1 space-y-1">
+                  <label className="block text-xs font-medium text-text-secondary">
+                    קישור לתקנון (אופציונלי)
+                  </label>
+                  <input
+                    type="url"
+                    dir="ltr"
+                    value={config.regulationsUrl ?? ''}
+                    onChange={(e) => update({ regulationsUrl: e.target.value })}
+                    placeholder="https://example.com/regulations"
+                    maxLength={300}
+                    className="input w-full text-sm"
+                  />
+                  <p className="text-[11px] text-text-secondary">
+                    אם תזינו קישור — יופיע ״לתקנון המלא״ לחיץ מתחת לשורת ההסכמה. אם לא — יישאר בלי קישור.
+                  </p>
+                </div>
               </div>
 
               {/* Match status */}

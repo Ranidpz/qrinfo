@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.1';
+export const APP_VERSION = '1.18.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,24 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.18.2',
+    date: '2026-07-14',
+    isNew: true,
+    highlights: {
+      he: [
+        'הימור: שופרה הנפשת הפתיחה — הדגלים קופצים פנימה אחד אחרי השני ואז שאר הפרטים עולים מלמטה, בלי תזוזה צדדית; תוקנה קפיצה חוזרת של הדגלים בזמן שימוש',
+        'הימור: אייקון החלפת שפה נקי (בלי טקסט), וקישור ״לתקנון המלא״ שמופיע מתחת לשורת ההסכמה אם מוגדר קישור בהגדרות',
+      ],
+      en: [
+        'Match Bet: a smoother entrance — flags bounce in one after another, then the rest rises up from below (no side-slide); fixed the flags re-animating during use',
+        'Match Bet: a clean icon-only language switch, and a "read the full regulations" link under the consent line when a URL is set in the settings',
+      ],
+    },
+  },
+  {
     version: '1.18.1',
     date: '2026-07-13',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'הימור: דף הנחיתה נפתח באנימציה — זום איטי לתמונת הרקע, לוגו וכפתור שנכנסים בהדרגה, ומעבר חלק בין השלבים',

@@ -45,6 +45,9 @@ export interface QBetConfig {
   // Consent line under the register button. '' = hidden; undefined = default text
   // (so configs saved before this field existed still show the default).
   disclaimerText?: string;
+  // Optional link to the published regulations; when set, a "regulations" link
+  // appears under the disclaimer. Empty/undefined = no link.
+  regulationsUrl?: string;
 }
 
 // Poster-inspired default: blue → purple → red (מונדיאל vibes)
