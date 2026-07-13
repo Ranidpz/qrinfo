@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.2';
+export const APP_VERSION = '1.18.3';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.18.2',
+    version: '1.18.3',
     date: '2026-07-14',
     isNew: true,
+    highlights: {
+      he: [
+        'הימור: כל מסך נפתח תמיד מלמעלה במעבר בין השלבים (למשל אחרי שליחת ההימור) — אין צורך לגלול חזרה למעלה',
+      ],
+      en: [
+        'Match Bet: every step now always opens from the top when moving between screens (e.g. after placing a bet) — no need to scroll back up',
+      ],
+    },
+  },
+  {
+    version: '1.18.2',
+    date: '2026-07-14',
+    isNew: false,
     highlights: {
       he: [
         'הימור: שופרה הנפשת הפתיחה — הדגלים קופצים פנימה אחד אחרי השני ואז שאר הפרטים עולים מלמטה, בלי תזוזה צדדית; תוקנה קפיצה חוזרת של הדגלים בזמן שימוש',

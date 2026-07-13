@@ -330,6 +330,20 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
   const credsRef = useRef<StoredCreds | null>(null);
   credsRef.current = creds;
   const verifyingRef = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Always land at the top of the screen when moving between steps — otherwise a
+  // scroll position from a tall step (e.g. the score picker) carries into the
+  // next. The qbet root no longer scrolls internally, so reset every scrollable
+  // ancestor (the viewer shell / any layout wrapper) plus the window.
+  useEffect(() => {
+    let el: HTMLElement | null = scrollRef.current;
+    while (el) {
+      if (el.scrollTop > 0 && el.scrollHeight > el.clientHeight) el.scrollTop = 0;
+      el = el.parentElement;
+    }
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
+  }, [step]);
 
   const storageKey = `qbet_${codeId}`;
   const bg = config.backgroundColor || '#0b0f1a';
@@ -768,29 +782,28 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
 
   return (
     <div
-      className="relative min-h-[100dvh] w-full overflow-hidden"
+      ref={scrollRef}
+      className="relative min-h-[100dvh] w-full"
       style={{ background: bg, color: font }}
       dir={locale === 'he' ? 'rtl' : 'ltr'}
     >
       <style>{QBET_STYLE}</style>
-      {/* Dimmed grainy poster behind the form steps — subtle depth, text stays readable */}
-      {config.backgroundImageUrl && (
-        <img
-          src={config.backgroundImageUrl}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ opacity: 0.16, filter: 'blur(2.5px) saturate(0.85)', transform: 'scale(1.06)' }}
-        />
-      )}
-      <div
-        className="qbet-noise absolute inset-0 pointer-events-none"
-        style={{ opacity: 0.07 }}
-        aria-hidden="true"
-      />
+      {/* Dimmed grainy poster + grain, clipped in its own layer so tall content
+          can grow past it (the page scrolls) instead of being cropped. */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        {config.backgroundImageUrl && (
+          <img
+            src={config.backgroundImageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ opacity: 0.16, filter: 'blur(2.5px) saturate(0.85)', transform: 'scale(1.06)' }}
+          />
+        )}
+        <div className="qbet-noise absolute inset-0" style={{ opacity: 0.07 }} />
+      </div>
       <LangSwitch font={font} onToggle={toggleLocale} ariaLabel={t.switchLanguage} className="absolute top-3 end-3 z-20" />
-      <div className="relative z-10 min-h-[100dvh] w-full overflow-y-auto flex flex-col items-center px-6 py-10">
-      <div className="w-full max-w-sm my-auto">
+      <div className="relative z-10 min-h-[100dvh] w-full flex flex-col items-center justify-center px-6 py-10">
+      <div className="w-full max-w-sm">
         {/* Header stays mounted across steps — flags bounce once, not on every re-render */}
         {(step === 'register' || step === 'otp' || step === 'predict') && (
           <MatchHeader config={config} font={font} locale={locale} closesLine={closesLine} />
