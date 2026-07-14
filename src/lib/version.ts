@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.4';
+export const APP_VERSION = '1.18.5';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.18.4',
+    version: '1.18.5',
     date: '2026-07-14',
     isNew: true,
+    highlights: {
+      he: [
+        'הימור: אחרי פרסום התוצאה, הזוכים מוצגים בראש רשימת הנרשמים בצבע זהב ובמספור לפי סדר הניחוש (מספר 1 = ניחש נכון ראשון, המנצח בתיקו)',
+      ],
+      en: [
+        'Match Bet: once the result is published, winners are pinned to the top of the registrants list in gold and numbered by prediction time (No. 1 = predicted the exact score first, the tiebreak winner)',
+      ],
+    },
+  },
+  {
+    version: '1.18.4',
+    date: '2026-07-14',
+    isNew: false,
     highlights: {
       he: [
         'הימור: קונפטי חגיגי שנופל פעם אחת על מסך ״ההימור נקלט!״ — פוף בהצלחה אחרי שליחת הניחוש',

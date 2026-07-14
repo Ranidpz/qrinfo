@@ -380,13 +380,26 @@ export default function QBetModal({
 
   const draftResult = applyResultDraft(config).finalResult;
   const predictedCount = entries.filter((e) => e.predictionHome != null).length;
+  const isEntryWinner = (e: QBetEntry) =>
+    !!draftResult &&
+    e.verified &&
+    isWinningPrediction({ home: e.predictionHome, away: e.predictionAway }, draftResult);
+  // Winners ordered by prediction time — earliest first (the first to predict the
+  // exact score wins a tie).
   const winners = draftResult
-    ? entries.filter(
-        (e) =>
-          e.verified &&
-          isWinningPrediction({ home: e.predictionHome, away: e.predictionAway }, draftResult)
-      )
+    ? entries
+        .filter(isEntryWinner)
+        .slice()
+        .sort((a, b) => {
+          const ta = a.predictedAt ? new Date(a.predictedAt).getTime() : Infinity;
+          const tb = b.predictedAt ? new Date(b.predictedAt).getTime() : Infinity;
+          return ta - tb;
+        })
     : [];
+  // List order: winners (by prediction time) pinned on top, then everyone else.
+  const displayEntries = draftResult
+    ? [...winners, ...entries.filter((e) => !isEntryWinner(e))]
+    : entries;
 
   // Kick the winners into a fresh raffle code (the parent creates the code and
   // navigates to it — this modal unmounts on success).
@@ -1137,6 +1150,12 @@ export default function QBetModal({
               {entriesError && <p className="text-sm text-danger">{entriesError}</p>}
 
               {/* List */}
+              {winners.length > 0 && (
+                <p className="flex items-center gap-1.5 text-xs text-amber-400">
+                  <Trophy className="w-3.5 h-3.5 shrink-0" />
+                  {winners.length} זוכים למעלה, ממוינים לפי סדר הניחוש (מספר 1 = ניחש ראשון)
+                </p>
+              )}
               {loadingEntries && entries.length === 0 ? (
                 <div className="py-10 flex justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-text-secondary" />
@@ -1147,25 +1166,28 @@ export default function QBetModal({
                 </p>
               ) : (
                 <div className="rounded-xl border border-border overflow-hidden">
-                  {entries.map((entry, idx) => {
+                  {displayEntries.map((entry, idx) => {
                     const hasPick = entry.predictionHome != null && entry.predictionAway != null;
-                    const isWinner =
-                      !!draftResult &&
-                      entry.verified &&
-                      isWinningPrediction(
-                        { home: entry.predictionHome, away: entry.predictionAway },
-                        draftResult
-                      );
+                    const isWinner = isEntryWinner(entry);
+                    // Winners are pinned first, so idx doubles as the time-order rank.
+                    const winnerRank = isWinner ? idx + 1 : null;
                     return (
                       <div
                         key={entry.id}
                         className={`px-3 py-2.5 ${idx > 0 ? 'border-t border-border' : ''} ${
-                          isWinner ? 'bg-accent/10' : ''
+                          isWinner ? 'bg-amber-400/10 border-s-[3px] border-amber-400' : ''
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <p className="min-w-0 flex-1 text-sm font-medium text-text-primary truncate flex items-center gap-1.5">
-                            {isWinner && <Trophy className="w-4 h-4 text-amber-400 shrink-0" />}
+                            {isWinner && (
+                              <span
+                                className="shrink-0 w-5 h-5 rounded-full bg-amber-400 text-black text-[11px] font-bold flex items-center justify-center"
+                                title="דירוג לפי סדר הניחוש"
+                              >
+                                {winnerRank}
+                              </span>
+                            )}
                             {entry.fullName}
                           </p>
                           {hasPick ? (
