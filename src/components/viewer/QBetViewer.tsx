@@ -10,6 +10,7 @@
 // owner's config, buttons render inverted (bg=fontColor, text=backgroundColor).
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, Languages, Loader2, Lock, Minus, Plus, Trophy } from 'lucide-react';
 import type { QBetConfig, QBetResult, QBetTeam } from '@/lib/qbet/types';
 import {
@@ -179,8 +180,14 @@ function ScoreLine({
           {teamName(config.teamHome, locale)}
         </span>
       </div>
-      <span className="text-3xl font-bold tabular-nums" dir="ltr">
-        {result.home} : {result.away}
+      {/* Score follows the page direction (via flex order) so each digit stays
+          aligned with its own flag. Forcing dir="ltr" here desynced the digits
+          from the RTL-flipped flags in Hebrew — home digit landed under the away
+          flag and vice-versa. */}
+      <span className="flex items-center gap-1.5 text-3xl font-bold tabular-nums">
+        <span>{result.home}</span>
+        <span>:</span>
+        <span>{result.away}</span>
       </span>
       <div className="flex flex-col items-center gap-1.5">
         <FlagImg team={config.teamAway} size="lg" locale={locale} />
@@ -893,27 +900,41 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
       dir={locale === 'he' ? 'rtl' : 'ltr'}
     >
       <style>{QBET_STYLE}</style>
-      {confetti && (
-        <div className="fixed inset-0 z-40 overflow-hidden pointer-events-none" aria-hidden="true">
-          {confettiPieces.map((p) => (
-            <span
-              key={p.id}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: `${p.left}%`,
-                width: p.w,
-                height: p.h,
-                background: p.color,
-                borderRadius: p.round ? '50%' : '1px',
-                ['--dx' as string]: `${p.dx}px`,
-                ['--rot' as string]: `${p.rot}deg`,
-                animation: `qbetConfetti ${p.duration}ms cubic-bezier(.2,.55,.4,1) ${p.delay}ms both`,
-              } as React.CSSProperties}
-            />
-          ))}
-        </div>
-      )}
+      {confetti &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          // Rendered into <body> so position:fixed is truly viewport-relative.
+          // Inside the viewer subtree a transformed ancestor (the fadeIn wrapper)
+          // combined with overflow-y-auto turned this into a scroll-clipped box,
+          // so the pieces fell outside the visible area on the taller "prediction
+          // received" screen. The keyframe is inlined here so the portal is
+          // self-contained (doesn't depend on the viewer's own <style> tag).
+          <div
+            className="pointer-events-none overflow-hidden"
+            style={{ position: 'fixed', inset: 0, zIndex: 9999 }}
+            aria-hidden="true"
+          >
+            <style>{`@keyframes qbetConfetti{0%{transform:translate3d(0,-14vh,0) rotate(0);opacity:0}8%{opacity:1}100%{transform:translate3d(var(--dx,0),114vh,0) rotate(var(--rot,540deg));opacity:1}}`}</style>
+            {confettiPieces.map((p) => (
+              <span
+                key={p.id}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: `${p.left}%`,
+                  width: p.w,
+                  height: p.h,
+                  background: p.color,
+                  borderRadius: p.round ? '50%' : '1px',
+                  ['--dx' as string]: `${p.dx}px`,
+                  ['--rot' as string]: `${p.rot}deg`,
+                  animation: `qbetConfetti ${p.duration}ms cubic-bezier(.2,.55,.4,1) ${p.delay}ms both`,
+                } as React.CSSProperties}
+              />
+            ))}
+          </div>,
+          document.body
+        )}
       {/* Dimmed grainy poster + grain, clipped in its own layer so tall content
           can grow past it (the page scrolls) instead of being cropped. */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
@@ -1167,8 +1188,10 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
                     <p className="text-xs" style={{ color: withAlpha(font, '80') }}>
                       {t.yourPick}
                     </p>
-                    <span className="text-xl font-bold tabular-nums" dir="ltr">
-                      {savedPrediction.home} : {savedPrediction.away}
+                    <span className="flex items-center justify-center gap-1.5 text-xl font-bold tabular-nums">
+                      <span>{savedPrediction.home}</span>
+                      <span>:</span>
+                      <span>{savedPrediction.away}</span>
                     </span>
                   </div>
                 )}

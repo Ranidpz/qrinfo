@@ -6,6 +6,10 @@
 // modal adopts it (so a second Save never re-uploads the image).
 // The registrants tab reads the qbetEntries subcollection via /api/qbet/entries
 // (owner-only) and exports Excel CLIENT-SIDE (XLSX.writeFile — never server-side).
+//
+// Settings are split across three tabs (Design / Content / Match) + Registrants
+// so no single panel is an endless scroll. `SETTINGS_TABS` lives at module scope
+// (stable identity — never remounts).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
@@ -18,11 +22,13 @@ import {
   Gift,
   Loader2,
   MessageCircle,
+  Palette,
   Plus,
   RefreshCw,
   Search,
   Trash2,
   Trophy,
+  Type,
   Upload,
   Users,
   X,
@@ -40,6 +46,16 @@ import {
   type QBetEntry,
   type QBetTeam,
 } from '@/lib/qbet/types';
+
+type SettingsTab = 'design' | 'content' | 'match';
+type QBetTab = SettingsTab | 'entries';
+
+// Settings tabs — module scope so the tab bar never remounts on re-render.
+const SETTINGS_TABS: { key: SettingsTab; label: string; icon: typeof Palette }[] = [
+  { key: 'design', label: 'עיצוב', icon: Palette },
+  { key: 'content', label: 'תוכן', icon: Type },
+  { key: 'match', label: 'משחק', icon: Trophy },
+];
 
 interface QBetModalProps {
   isOpen: boolean;
@@ -188,7 +204,7 @@ export default function QBetModal({
   codeId,
   shortId,
 }: QBetModalProps) {
-  const [activeTab, setActiveTab] = useState<'settings' | 'entries'>('settings');
+  const [activeTab, setActiveTab] = useState<QBetTab>('design');
   const [config, setConfig] = useState<QBetConfig>({
     ...DEFAULT_QBET_CONFIG,
     ...(initialConfig || {}),
@@ -240,7 +256,7 @@ export default function QBetModal({
     setBgPreview(null);
     setLogoFile(null);
     setLogoPreview(null);
-    setActiveTab('settings');
+    setActiveTab('design');
     setSaveError(false);
     setConfirmDeleteId(null);
     setConfirmRaffle(false);
@@ -579,20 +595,27 @@ export default function QBetModal({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 px-5 pt-3">
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
-              activeTab === 'settings'
-                ? 'bg-bg-secondary text-text-primary'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            הגדרות
-          </button>
+        <div className="flex gap-1 px-4 sm:px-5 pt-3 overflow-x-auto">
+          {SETTINGS_TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`shrink-0 px-3.5 py-2 rounded-t-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                  activeTab === t.key
+                    ? 'bg-bg-secondary text-text-primary'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {t.label}
+              </button>
+            );
+          })}
           <button
             onClick={() => setActiveTab('entries')}
-            className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+            className={`shrink-0 px-3.5 py-2 rounded-t-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
               activeTab === 'entries'
                 ? 'bg-bg-secondary text-text-primary'
                 : 'text-text-secondary hover:text-text-primary'
@@ -610,193 +633,155 @@ export default function QBetModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
-          {activeTab === 'settings' ? (
+          {/* ===== Design tab ===== */}
+          {activeTab === 'design' && (
             <div className="space-y-6">
-              {/* Landing image */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-text-primary">
-                  תמונת דף הנחיתה
-                </label>
-                <p className="text-xs text-text-secondary">
-                  התמונה מכסה את כל המסך — לחיצה עליה מובילה להרשמה. מומלץ פורמט אנכי (9:16)
-                  עם כפתור קריאה לפעולה בתוך העיצוב.
-                </p>
-                <div className="flex items-start gap-3">
-                  <div
-                    onClick={() => !processingImage && fileInputRef.current?.click()}
-                    {...makeDropHandlers('bg', handleImagePick)}
-                    className={`w-28 h-48 rounded-xl overflow-hidden flex items-center justify-center shrink-0 cursor-pointer border-2 transition-colors ${
-                      dragTarget === 'bg'
-                        ? 'border-accent border-dashed bg-accent/10'
-                        : 'bg-bg-secondary border-border hover:border-accent/50'
-                    }`}
-                  >
-                    {processingImage ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-text-secondary" />
-                    ) : bgImageShown ? (
-                      <img src={bgImageShown} alt="" className="w-full h-full object-cover pointer-events-none" />
-                    ) : (
-                      <div className="flex flex-col items-center gap-1.5 text-text-secondary px-2 text-center pointer-events-none">
-                        <Upload className="w-6 h-6" />
-                        <span className="text-[10px] leading-tight">גררו לכאן או לחצו</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,.avif,.heic,.heif"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) void handleImagePick(file);
-                        e.target.value = '';
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={processingImage}
-                      className="btn btn-primary text-sm disabled:opacity-50"
+              {/* Landing image + Logo — same row with a divider */}
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
+                {/* Landing image */}
+                <div className="flex-1 space-y-2">
+                  <label className="block text-sm font-medium text-text-primary">
+                    תמונת דף הנחיתה
+                  </label>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    מכסה את כל המסך — לחיצה עליה מובילה להרשמה. מומלץ פורמט אנכי (9:16).
+                  </p>
+                  <div className="flex items-start gap-3">
+                    <div
+                      onClick={() => !processingImage && fileInputRef.current?.click()}
+                      {...makeDropHandlers('bg', handleImagePick)}
+                      className={`w-24 h-40 rounded-xl overflow-hidden flex items-center justify-center shrink-0 cursor-pointer border-2 transition-colors ${
+                        dragTarget === 'bg'
+                          ? 'border-accent border-dashed bg-accent/10'
+                          : 'bg-bg-secondary border-border hover:border-accent/50'
+                      }`}
                     >
-                      {bgImageShown ? 'החלפת תמונה' : 'העלאת תמונה'}
-                    </button>
-                    {bgImageShown && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBgFile(null);
-                          setBgPreview((prev) => {
-                            if (prev) URL.revokeObjectURL(prev);
-                            return null;
-                          });
-                          update({ backgroundImageUrl: '', backgroundImageSize: 0 });
+                      {processingImage ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-text-secondary" />
+                      ) : bgImageShown ? (
+                        <img src={bgImageShown} alt="" className="w-full h-full object-cover pointer-events-none" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1.5 text-text-secondary px-2 text-center pointer-events-none">
+                          <Upload className="w-6 h-6" />
+                          <span className="text-[10px] leading-tight">גררו או לחצו</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,.avif,.heic,.heif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleImagePick(file);
+                          e.target.value = '';
                         }}
-                        className="block text-xs text-danger hover:underline"
-                      >
-                        הסרת התמונה
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Logo (transparent PNG) */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-text-primary">
-                  לוגו (PNG עם רקע שקוף)
-                </label>
-                <p className="text-xs text-text-secondary">
-                  מוצג במרכז החלק העליון של דף הנחיתה, מעל התמונה.
-                </p>
-                <div className="flex items-center gap-3">
-                  <div
-                    onClick={() => !processingLogo && logoInputRef.current?.click()}
-                    {...makeDropHandlers('logo', handleLogoPick)}
-                    className={`w-28 h-16 rounded-xl overflow-hidden flex items-center justify-center shrink-0 p-1.5 cursor-pointer border-2 transition-colors ${
-                      dragTarget === 'logo'
-                        ? 'border-accent border-dashed bg-accent/10'
-                        : 'bg-bg-secondary border-border hover:border-accent/50'
-                    }`}
-                  >
-                    {processingLogo ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-text-secondary" />
-                    ) : logoPreview || config.logoUrl ? (
-                      <img
-                        src={logoPreview || config.logoUrl}
-                        alt=""
-                        className="max-w-full max-h-full object-contain pointer-events-none"
                       />
-                    ) : (
-                      <div className="flex flex-col items-center gap-1 text-text-secondary text-center pointer-events-none">
-                        <Upload className="w-5 h-5" />
-                        <span className="text-[10px] leading-tight">גררו או לחצו</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept="image/*,.avif,.heic,.heif"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) void handleLogoPick(file);
-                        e.target.value = '';
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => logoInputRef.current?.click()}
-                      disabled={processingLogo}
-                      className="btn btn-primary text-sm disabled:opacity-50"
-                    >
-                      {logoPreview || config.logoUrl ? 'החלפת לוגו' : 'העלאת לוגו'}
-                    </button>
-                    {(logoPreview || config.logoUrl) && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setLogoFile(null);
-                          setLogoPreview((prev) => {
-                            if (prev) URL.revokeObjectURL(prev);
-                            return null;
-                          });
-                          update({ logoUrl: '', logoSize: 0 });
-                        }}
-                        className="block text-xs text-danger hover:underline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={processingImage}
+                        className="btn btn-primary text-sm disabled:opacity-50"
                       >
-                        הסרת הלוגו
+                        {bgImageShown ? 'החלפת תמונה' : 'העלאת תמונה'}
                       </button>
-                    )}
+                      {bgImageShown && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBgFile(null);
+                            setBgPreview((prev) => {
+                              if (prev) URL.revokeObjectURL(prev);
+                              return null;
+                            });
+                            update({ backgroundImageUrl: '', backgroundImageSize: 0 });
+                          }}
+                          className="block text-xs text-danger hover:underline"
+                        >
+                          הסרת התמונה
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Title */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-text-secondary">כותרת</label>
-                <input
-                  type="text"
-                  value={config.title}
-                  onChange={(e) => update({ title: e.target.value })}
-                  maxLength={60}
-                  className="input w-full text-sm"
-                />
-              </div>
+                {/* Divider — vertical on wide screens, horizontal when stacked */}
+                <div className="hidden sm:block w-px self-stretch bg-border" aria-hidden="true" />
+                <div className="sm:hidden h-px bg-border" aria-hidden="true" />
 
-              {/* Landing title overlay */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-text-secondary">
-                  כותרת על הפוסטר (אופציונלי)
-                </label>
-                <input
-                  type="text"
-                  value={config.landingTitle || ''}
-                  onChange={(e) => update({ landingTitle: e.target.value })}
-                  placeholder="למשל: שידור המונדיאל — השאירו ריק אם הכיתוב כבר בתוך התמונה"
-                  maxLength={40}
-                  className="input w-full text-sm"
-                />
-              </div>
-
-              {/* Teams */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-text-primary">המשחק</label>
-                <div className="flex items-end gap-3">
-                  <TeamPicker
-                    label="קבוצת בית"
-                    team={config.teamHome}
-                    onPick={(team) => update({ teamHome: team })}
-                  />
-                  <span className="pb-3 text-xs font-bold text-text-secondary">VS</span>
-                  <TeamPicker
-                    label="קבוצת חוץ"
-                    team={config.teamAway}
-                    onPick={(team) => update({ teamAway: team })}
-                  />
+                {/* Logo (transparent PNG) */}
+                <div className="flex-1 space-y-2">
+                  <label className="block text-sm font-medium text-text-primary">
+                    לוגו (PNG עם רקע שקוף)
+                  </label>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    מוצג במרכז החלק העליון של דף הנחיתה, מעל התמונה.
+                  </p>
+                  <div className="flex items-start gap-3">
+                    <div
+                      onClick={() => !processingLogo && logoInputRef.current?.click()}
+                      {...makeDropHandlers('logo', handleLogoPick)}
+                      className={`w-24 h-16 rounded-xl overflow-hidden flex items-center justify-center shrink-0 p-1.5 cursor-pointer border-2 transition-colors ${
+                        dragTarget === 'logo'
+                          ? 'border-accent border-dashed bg-accent/10'
+                          : 'bg-bg-secondary border-border hover:border-accent/50'
+                      }`}
+                    >
+                      {processingLogo ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-text-secondary" />
+                      ) : logoPreview || config.logoUrl ? (
+                        <img
+                          src={logoPreview || config.logoUrl}
+                          alt=""
+                          className="max-w-full max-h-full object-contain pointer-events-none"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 text-text-secondary text-center pointer-events-none">
+                          <Upload className="w-5 h-5" />
+                          <span className="text-[10px] leading-tight">גררו או לחצו</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/*,.avif,.heic,.heif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleLogoPick(file);
+                          e.target.value = '';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={processingLogo}
+                        className="btn btn-primary text-sm disabled:opacity-50"
+                      >
+                        {logoPreview || config.logoUrl ? 'החלפת לוגו' : 'העלאת לוגו'}
+                      </button>
+                      {(logoPreview || config.logoUrl) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoPreview((prev) => {
+                              if (prev) URL.revokeObjectURL(prev);
+                              return null;
+                            });
+                            update({ logoUrl: '', logoSize: 0 });
+                          }}
+                          className="block text-xs text-danger hover:underline"
+                        >
+                          הסרת הלוגו
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -946,6 +931,56 @@ export default function QBetModal({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ===== Content tab ===== */}
+          {activeTab === 'content' && (
+            <div className="space-y-6">
+              {/* Title */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-text-secondary">כותרת</label>
+                <input
+                  type="text"
+                  value={config.title}
+                  onChange={(e) => update({ title: e.target.value })}
+                  maxLength={60}
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              {/* Landing title overlay */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-text-secondary">
+                  כותרת על הפוסטר (אופציונלי)
+                </label>
+                <input
+                  type="text"
+                  value={config.landingTitle || ''}
+                  onChange={(e) => update({ landingTitle: e.target.value })}
+                  placeholder="למשל: שידור המונדיאל — השאירו ריק אם הכיתוב כבר בתוך התמונה"
+                  maxLength={40}
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              {/* Teams */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-text-primary">הקבוצות</label>
+                <div className="flex items-end gap-3">
+                  <TeamPicker
+                    label="קבוצת בית"
+                    team={config.teamHome}
+                    onPick={(team) => update({ teamHome: team })}
+                  />
+                  <span className="pb-3 text-xs font-bold text-text-secondary">VS</span>
+                  <TeamPicker
+                    label="קבוצת חוץ"
+                    team={config.teamAway}
+                    onPick={(team) => update({ teamAway: team })}
+                  />
+                </div>
+              </div>
 
               {/* Participant consent line */}
               <div className="space-y-1.5">
@@ -981,8 +1016,12 @@ export default function QBetModal({
                   </p>
                 </div>
               </div>
+            </div>
+          )}
 
-              {/* Match status */}
+          {/* ===== Match tab ===== */}
+          {activeTab === 'match' && (
+            <div className="space-y-6">
               <div className="rounded-xl bg-bg-secondary border border-border p-4 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -1134,7 +1173,10 @@ export default function QBetModal({
                 </div>
               </div>
             </div>
-          ) : (
+          )}
+
+          {/* ===== Registrants tab ===== */}
+          {activeTab === 'entries' && (
             <div className="space-y-4">
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2">
@@ -1328,8 +1370,8 @@ export default function QBetModal({
           )}
         </div>
 
-        {/* Footer */}
-        {activeTab === 'settings' && (
+        {/* Footer — the Save button covers all three settings tabs */}
+        {activeTab !== 'entries' && (
           <div className="px-5 py-4 border-t border-border flex items-center justify-between gap-3">
             <p className="text-xs text-danger">{saveError ? 'השמירה נכשלה — נסו שוב' : ''}</p>
             <button

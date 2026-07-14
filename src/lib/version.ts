@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.7';
+export const APP_VERSION = '1.18.8';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.18.7',
+    version: '1.18.8',
     date: '2026-07-14',
     isNew: true,
+    highlights: {
+      he: [
+        'ניחוש: מסך הגדרת החוויה אורגן מחדש בלשוניות — עיצוב, תוכן ומשחק — במקום מסך אחד ארוך; תמונת דף הנחיתה והלוגו יושבות עכשיו זו לצד זו',
+        'ניחוש: תוקן באג בעברית שבו במסך ״הניחוש נקלט!״ התוצאה הוצגה הפוכה מהבחירה (הספרות לא היו מיושרות עם הדגלים)',
+        'ניחוש: הקונפטי החגיגי חזר להופיע במסך ״הניחוש נקלט!״ אחרי שליחת הניחוש',
+      ],
+      en: [
+        'Match Prediction: the experience settings are reorganized into tabs — Design, Content, and Match — instead of one long screen; the landing image and logo now sit side by side',
+        'Match Prediction: fixed a Hebrew bug where the score on the "prediction received!" screen showed reversed from the pick (digits were not aligned with their flags)',
+        'Match Prediction: the celebratory confetti is back on the "prediction received!" screen after a prediction is placed',
+      ],
+    },
+  },
+  {
+    version: '1.18.7',
+    date: '2026-07-14',
+    isNew: false,
     highlights: {
       he: [
         'ניחוש: במסך ״הניחוש נקלט!״ נוסף טיימר שרץ אחורה (שעות, דקות, שניות) עד לשריקת הפתיחה של המשחק',
