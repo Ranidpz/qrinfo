@@ -1,4 +1,4 @@
-// QBet ("הימור") experience — shared types.
+// QBet ("ניחוש") experience — shared types.
 // Flow: participant lands on a full-screen poster → taps → registers with full
 // name + phone → verifies via WhatsApp OTP (INFORU) → predicts the match score
 // → waits for the final result. The owner publishes the final result in the
@@ -58,7 +58,7 @@ export const DEFAULT_QBET_DISCLAIMER =
   'ההרשמה מהווה הסכמה לשמירת מספר הטלפון לצורך יצירת קשר וחלוקת פרסים, והיא תנאי להשתתפות במשחק בהתאם לתקנון המפורסם באתר.';
 
 export const DEFAULT_QBET_CONFIG: QBetConfig = {
-  title: 'הימור המשחק',
+  title: 'ניחוש המשחק',
   matchLabel: '',
   logoUrl: '',
   landingTitle: '',

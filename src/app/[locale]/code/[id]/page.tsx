@@ -1999,7 +1999,7 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
-  // Handler for adding/editing the QBet ("הימור") experience. Participant data
+  // Handler for adding/editing the QBet ("ניחוש") experience. Participant data
   // lives in Supabase (via /api/qbet/*); here we only persist the config —
   // uploading the landing poster first when a new file was picked. Returns the
   // saved config so the modal adopts the final image URL (save-and-stay-open).
@@ -2096,7 +2096,7 @@ export default function CodeEditPage({ params }: PageProps) {
         size: 0,
         order: code.media.length,
         uploadedBy: user.id,
-        title: cfg.title || 'הימור',
+        title: cfg.title || 'ניחוש',
         qbetConfig: cfg,
         createdAt: new Date(),
       };
@@ -3903,7 +3903,7 @@ export default function CodeEditPage({ params }: PageProps) {
                 </Tooltip>
 
                 {/* QBet Button */}
-                <Tooltip text="הימור">
+                <Tooltip text="ניחוש">
                   <button
                     onClick={() => { setEditingQBetId(null); setQbetModalOpen(true); }}
                     className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"

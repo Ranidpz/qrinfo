@@ -1,6 +1,6 @@
 'use client';
 
-// QBet ("הימור") settings modal — owner side.
+// QBet ("ניחוש") settings modal — owner side.
 // Save-and-stay-open (like SelfiebeamModal): the parent handleSaveQBet uploads
 // the landing image + persists the config, returns the saved config, and the
 // modal adopts it (so a second Save never re-uploads the image).
@@ -579,7 +579,7 @@ export default function QBetModal({
               <Dices className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="font-semibold text-text-primary leading-tight">הימור</h2>
+              <h2 className="font-semibold text-text-primary leading-tight">ניחוש</h2>
               <p className="text-xs text-text-secondary" dir="ltr">
                 {origin}/v/{shortId}
               </p>
@@ -1025,7 +1025,7 @@ export default function QBetModal({
               <div className="rounded-xl bg-bg-secondary border border-border p-4 space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-text-primary">נעילת הימורים</p>
+                    <p className="text-sm font-medium text-text-primary">נעילת ניחושים</p>
                     <p className="text-xs text-text-secondary">
                       נועלים כשהמשחק מתחיל — נרשמים חדשים ושינויי ניחוש ייחסמו
                     </p>
@@ -1050,7 +1050,7 @@ export default function QBetModal({
                 <div className="border-t border-border pt-4 space-y-2">
                   <p className="text-sm font-medium text-text-primary">נעילה אוטומטית לפי שעת המשחק</p>
                   <p className="text-xs text-text-secondary">
-                    ההימורים ייסגרו אוטומטית מספר דקות אחרי שריקת הפתיחה — בלי צורך לנעול ידנית.
+                    הניחושים ייסגרו אוטומטית מספר דקות אחרי שריקת הפתיחה — בלי צורך לנעול ידנית.
                     השאירו ריק כדי לנעול רק ידנית.
                   </p>
                   <div className="flex items-end gap-3 flex-wrap">
@@ -1085,7 +1085,7 @@ export default function QBetModal({
                     if (!closeAt) return null;
                     return (
                       <p className="text-xs text-accent">
-                        ההימור ייסגר ב-
+                        הניחוש ייסגר ב-
                         {new Date(closeAt).toLocaleString('he-IL', {
                           day: 'numeric',
                           month: 'numeric',
@@ -1099,7 +1099,7 @@ export default function QBetModal({
 
                 <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
                   <div>
-                    <p className="text-sm font-medium text-text-primary">שינוי הימור</p>
+                    <p className="text-sm font-medium text-text-primary">שינוי ניחוש</p>
                     <p className="text-xs text-text-secondary">
                       כשפעיל — משתתפים יכולים לעדכן את הניחוש עד הנעילה. כשכבוי — ניחוש אחד בלבד
                     </p>
@@ -1129,7 +1129,7 @@ export default function QBetModal({
                   <p className="text-sm font-medium text-text-primary">התוצאה הסופית</p>
                   <p className="text-xs text-text-secondary">
                     מזינים את התוצאה בסוף המשחק ולוחצים שמירה — הזוכים יסומנו ברשימת הנרשמים
-                    ובאקסל, והמשתתפים יראו אם צדקו. פרסום תוצאה נועל את ההימורים.
+                    ובאקסל, והמשתתפים יראו אם צדקו. פרסום תוצאה נועל את הניחושים.
                   </p>
                   <div className="flex items-center justify-center gap-3 pt-1" dir="ltr">
                     <div className="flex flex-col items-center gap-1">

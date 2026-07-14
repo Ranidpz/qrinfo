@@ -300,7 +300,7 @@ export default function CodeCard({
       case 'qchallenge': return 'Q.Challenge';
       case 'minigames': return 'Q.Games';
       case 'raffle': return 'הגרלה';
-      case 'qbet': return 'הימור';
+      case 'qbet': return 'ניחוש';
       default: return tMedia('image');
     }
   };

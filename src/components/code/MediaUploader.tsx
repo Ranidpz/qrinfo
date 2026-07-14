@@ -514,7 +514,7 @@ export default function MediaUploader({
           {onWeeklyCalendarCreate && <TabButton tab="weeklycal" label={tMedia('weeklycal') || 'Weekly'} icon={CalendarDays} tooltip={t('tooltipWeeklyCal') || 'Create a weekly schedule'} />}
           {onQVoteCreate && <TabButton tab="qvote" label="Q.Vote" icon={Vote} tooltip={t('tooltipQVote') || 'Create a voting experience'} />}
           {onRaffleCreate && <TabButton tab="raffle" label="הגרלה" icon={Gift} tooltip="הגרלת שמות על מסך ענק" />}
-          {onQBetCreate && <TabButton tab="qbet" label="הימור" icon={Dices} tooltip="ניחוש תוצאת משחק עם אימות וואטסאפ" />}
+          {onQBetCreate && <TabButton tab="qbet" label="ניחוש" icon={Dices} tooltip="ניחוש תוצאת משחק עם אימות וואטסאפ" />}
           {onQStageCreate && <TabButton tab="qstage" label="Q.Stage" icon={Sparkles} tooltip={t('tooltipQStage') || 'Live voting display for events'} />}
           {onQHuntCreate && <TabButton tab="qhunt" label="Q.Hunt" icon={Crosshair} tooltip={t('tooltipQHunt') || 'Real-time code hunting game'} />}
           {onQTreasureCreate && <TabButton tab="qtreasure" label="מטמון" icon={Map} tooltip={t('tooltipQTreasure') || 'Treasure hunt with stations'} />}
@@ -1100,7 +1100,7 @@ export default function MediaUploader({
               <Dices className="w-6 h-6 text-white" />
             </div>
             <div className="text-start">
-              <h3 className="font-medium text-text-primary mb-1">הימור</h3>
+              <h3 className="font-medium text-text-primary mb-1">ניחוש</h3>
               <p className="text-xs text-text-secondary">
                 ניחוש תוצאת משחק — דף נחיתה עם פוסטר, הרשמה עם אימות וואטסאפ, בחירת תוצאה וייצוא הזוכים לאקסל.
               </p>
@@ -1111,7 +1111,7 @@ export default function MediaUploader({
             disabled={disabled || nameMissing}
             className="btn btn-primary w-full disabled:opacity-50"
           >
-            צור הימור
+            צור ניחוש
           </button>
         </div>
       ) : activeTab === 'qstage' ? (

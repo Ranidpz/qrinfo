@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.8';
+export const APP_VERSION = '1.18.9';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.18.8',
+    version: '1.18.9',
     date: '2026-07-14',
     isNew: true,
+    highlights: {
+      he: [
+        'ניחוש: שם החוויה עודכן מ״הימור״ ל״ניחוש״ בכל ממשק הניהול — תג הכרטיס, כפתור היצירה, כותרת המודל וכל הכיתובים',
+      ],
+      en: [
+        'Match Prediction: the experience is renamed from "Bet" to "Prediction" across the dashboard — card badge, create button, modal title and all labels',
+      ],
+    },
+  },
+  {
+    version: '1.18.8',
+    date: '2026-07-14',
+    isNew: false,
     highlights: {
       he: [
         'ניחוש: מסך הגדרת החוויה אורגן מחדש בלשוניות — עיצוב, תוכן ומשחק — במקום מסך אחד ארוך; תמונת דף הנחיתה והלוגו יושבות עכשיו זו לצד זו',

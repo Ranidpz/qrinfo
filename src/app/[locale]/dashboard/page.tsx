@@ -710,13 +710,13 @@ export default function DashboardPage() {
     }
   };
 
-  // Create a new code with a QBet ("הימור") experience, then open it in the
+  // Create a new code with a QBet ("ניחוש") experience, then open it in the
   // editor (where the owner uploads the poster, picks the teams and later
   // publishes the final result). Participant data lives in Supabase.
   const handleCreateQBet = async (name?: string) => {
     if (!user) return;
     try {
-      const qbetTitle = name?.trim() || 'הימור';
+      const qbetTitle = name?.trim() || 'ניחוש';
       const newCode = await createQRCode(
         user.id,
         qbetTitle,
