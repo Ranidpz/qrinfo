@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.5';
+export const APP_VERSION = '1.18.6';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,24 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.18.5',
+    version: '1.18.6',
     date: '2026-07-14',
     isNew: true,
+    highlights: {
+      he: [
+        'הימור: ברשימת הנרשמים — מספר הטלפון לחיץ ופותח שיחת וואטסאפ, וכל שורה מציגה זמן קבלה מלא (יום, תאריך ושעה)',
+        'הימור: הרשמות שלא אומתו בוואטסאפ כבר לא מופיעות ברשימה ולא נספרות כמשתתפים — רק מספרן מוצג כהערה, כדי שהרשימה תציג משתתפים אמיתיים בלבד',
+      ],
+      en: [
+        'Match Bet: in the registrants list — the phone number is now a tappable WhatsApp link, and every row shows a full received time (weekday, date and hour)',
+        'Match Bet: registrations that were never verified over WhatsApp no longer appear in the list or count as participants — only their number is noted, so the list shows real participants only',
+      ],
+    },
+  },
+  {
+    version: '1.18.5',
+    date: '2026-07-14',
+    isNew: false,
     highlights: {
       he: [
         'הימור: אחרי פרסום התוצאה, הזוכים מוצגים בראש רשימת הנרשמים בצבע זהב ובמספור לפי סדר הניחוש (מספר 1 = ניחש נכון ראשון, המנצח בתיקו)',

@@ -62,11 +62,15 @@ function countryToTeam(c: SelfiebeamCountry): QBetTeam {
   return { code: c.code, name: c.nameHe, flag: c.flag };
 }
 
-// Compact "13.7 · 20:45" stamp for when a prediction was submitted
-function formatPickTime(iso: string): string {
+// "יום שלישי, 14.7 · 20:45" — when the bet/registration was received
+function formatReceivedTime(iso?: string | null): string {
+  if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return `${d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })} · ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+  const weekday = d.toLocaleDateString('he-IL', { weekday: 'long' });
+  const date = d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' });
+  const time = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  return `${weekday}, ${date} · ${time}`;
 }
 
 // ISO ⇄ <input type="datetime-local"> value (local wall-clock, no timezone).
@@ -379,7 +383,12 @@ export default function QBetModal({
   };
 
   const draftResult = applyResultDraft(config).finalResult;
-  const predictedCount = entries.filter((e) => e.predictionHome != null).length;
+  // Only completed registrations (verified) count as participants. An unverified
+  // row is someone who requested a WhatsApp code but never entered it — it can't
+  // have a prediction, so we keep it out of the list and only surface its count.
+  const verifiedEntries = entries.filter((e) => e.verified);
+  const unverifiedCount = entries.length - verifiedEntries.length;
+  const predictedCount = verifiedEntries.filter((e) => e.predictionHome != null).length;
   const isEntryWinner = (e: QBetEntry) =>
     !!draftResult &&
     e.verified &&
@@ -387,7 +396,7 @@ export default function QBetModal({
   // Winners ordered by prediction time — earliest first (the first to predict the
   // exact score wins a tie).
   const winners = draftResult
-    ? entries
+    ? verifiedEntries
         .filter(isEntryWinner)
         .slice()
         .sort((a, b) => {
@@ -398,8 +407,8 @@ export default function QBetModal({
     : [];
   // List order: winners (by prediction time) pinned on top, then everyone else.
   const displayEntries = draftResult
-    ? [...winners, ...entries.filter((e) => !isEntryWinner(e))]
-    : entries;
+    ? [...winners, ...verifiedEntries.filter((e) => !isEntryWinner(e))]
+    : verifiedEntries;
 
   // Kick the winners into a fresh raffle code (the parent creates the code and
   // navigates to it — this modal unmounts on success).
@@ -424,7 +433,7 @@ export default function QBetModal({
       : DEFAULT_QBET_GRADIENT;
 
   const handleExport = () => {
-    const rows = entries.map((e) => {
+    const rows = verifiedEntries.map((e) => {
       const hasPick = e.predictionHome != null && e.predictionAway != null;
       return {
         'שם מלא': e.fullName,
@@ -432,13 +441,7 @@ export default function QBetModal({
         [`ניחוש ${config.teamHome.name}`]: hasPick ? e.predictionHome : '',
         [`ניחוש ${config.teamAway.name}`]: hasPick ? e.predictionAway : '',
         'ניחוש': hasPick ? `${e.predictionHome}-${e.predictionAway}` : '',
-        'אומת': e.verified ? 'כן' : 'לא',
-        'זכייה': draftResult
-          ? e.verified &&
-            isWinningPrediction({ home: e.predictionHome, away: e.predictionAway }, draftResult)
-            ? 'זכה'
-            : ''
-          : '',
+        'זכייה': draftResult && isEntryWinner(e) ? 'זכה' : '',
         'שעת ניחוש': e.predictedAt ? new Date(e.predictedAt).toLocaleString('he-IL') : '',
         'תאריך הרשמה': e.createdAt ? new Date(e.createdAt).toLocaleString('he-IL') : '',
       };
@@ -450,7 +453,6 @@ export default function QBetModal({
       { wch: 12 },
       { wch: 12 },
       { wch: 8 },
-      { wch: 6 },
       { wch: 8 },
       { wch: 18 },
       { wch: 18 },
@@ -1074,7 +1076,7 @@ export default function QBetModal({
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-xl bg-bg-secondary p-3 text-center">
-                  <p className="text-xl font-bold text-text-primary">{entries.length}</p>
+                  <p className="text-xl font-bold text-text-primary">{verifiedEntries.length}</p>
                   <p className="text-xs text-text-secondary">נרשמים</p>
                 </div>
                 <div className="rounded-xl bg-bg-secondary p-3 text-center">
@@ -1093,7 +1095,7 @@ export default function QBetModal({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleExport}
-                  disabled={entries.length === 0}
+                  disabled={verifiedEntries.length === 0}
                   className="btn btn-primary text-sm flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Download className="w-4 h-4" />
@@ -1156,13 +1158,18 @@ export default function QBetModal({
                   {winners.length} זוכים למעלה, ממוינים לפי סדר הניחוש (מספר 1 = ניחש ראשון)
                 </p>
               )}
+              {unverifiedCount > 0 && (
+                <p className="text-[11px] text-text-secondary">
+                  {unverifiedCount} התחילו הרשמה ולא אימתו בוואטסאפ — לא נספרים כמשתתפים ואינם מופיעים ברשימה.
+                </p>
+              )}
               {loadingEntries && entries.length === 0 ? (
                 <div className="py-10 flex justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-text-secondary" />
                 </div>
-              ) : entries.length === 0 && !entriesError ? (
+              ) : displayEntries.length === 0 && !entriesError ? (
                 <p className="py-10 text-center text-sm text-text-secondary">
-                  עדיין אין נרשמים — שתפו את הקוד ותנו לקהל להמר
+                  עדיין אין משתתפים מאומתים — שתפו את הקוד ותנו לקהל להמר
                 </p>
               ) : (
                 <div className="rounded-xl border border-border overflow-hidden">
@@ -1229,14 +1236,11 @@ export default function QBetModal({
                             <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                             {formatPhoneForDisplay(entry.phone)}
                           </a>
-                          {entry.predictedAt && (
+                          {(entry.predictedAt || entry.createdAt) && (
                             <span className="flex items-center gap-1 text-[11px] text-text-secondary">
                               <Clock className="w-3 h-3 shrink-0" />
-                              {formatPickTime(entry.predictedAt)}
+                              {formatReceivedTime(entry.predictedAt || entry.createdAt)}
                             </span>
-                          )}
-                          {!entry.verified && (
-                            <span className="text-[10px] text-amber-400">לא אומת</span>
                           )}
                         </div>
                       </div>
