@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.3';
+export const APP_VERSION = '1.18.4';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,22 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.18.3',
+    version: '1.18.4',
     date: '2026-07-14',
     isNew: true,
+    highlights: {
+      he: [
+        'הימור: קונפטי חגיגי שנופל פעם אחת על מסך ״ההימור נקלט!״ — פוף בהצלחה אחרי שליחת הניחוש',
+      ],
+      en: [
+        'Match Bet: a one-shot celebratory confetti burst on the "bet received!" screen after a bet is placed',
+      ],
+    },
+  },
+  {
+    version: '1.18.3',
+    date: '2026-07-14',
+    isNew: false,
     highlights: {
       he: [
         'הימור: כל מסך נפתח תמיד מלמעלה במעבר בין השלבים (למשל אחרי שליחת ההימור) — אין צורך לגלול חזרה למעלה',

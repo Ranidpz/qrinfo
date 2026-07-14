@@ -9,7 +9,7 @@
 // Mobile-first + minimalist by design; backgroundColor/fontColor come from the
 // owner's config, buttons render inverted (bg=fontColor, text=backgroundColor).
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Check, Languages, Loader2, Lock, Minus, Plus, Trophy } from 'lucide-react';
 import type { QBetConfig, QBetResult, QBetTeam } from '@/lib/qbet/types';
 import {
@@ -73,6 +73,7 @@ const QBET_STYLE = `
 @keyframes qbetFadeIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
 @keyframes qbetRise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:none}}
 @keyframes qbetContentRise{0%{opacity:0;transform:translateY(26px)}100%{opacity:1;transform:none}}
+@keyframes qbetConfetti{0%{transform:translate3d(0,-14vh,0) rotate(0);opacity:0}8%{opacity:1}100%{transform:translate3d(var(--dx,0),114vh,0) rotate(var(--rot,540deg));opacity:1}}
 .qbet-cta{animation:qbetFlow 5s linear infinite}
 .qbet-cta-shine{position:absolute;top:0;bottom:0;left:0;width:45%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent);animation:qbetShine 3.2s ease-in-out infinite;pointer-events:none}
 .qbet-kb{animation:qbetKenBurns 14s ease-out both}
@@ -331,6 +332,42 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
   credsRef.current = creds;
   const verifyingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // One-shot success confetti on the "bet received" screen. Pieces are generated
+  // once (stable positions/colors) so a re-render mid-fall never restarts them.
+  const [confetti, setConfetti] = useState(false);
+  const confettiPieces = useMemo(() => {
+    const palette = ['#f43f5e', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#f97316', '#22d3ee', '#ffffff'];
+    return Array.from({ length: 46 }, (_, id) => {
+      const size = 6 + Math.random() * 6;
+      const rect = Math.random() > 0.45;
+      return {
+        id,
+        left: Math.random() * 100,
+        w: size,
+        h: rect ? size * (1.5 + Math.random()) : size,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        delay: Math.random() * 450,
+        duration: 2400 + Math.random() * 1500,
+        dx: Math.round((Math.random() * 2 - 1) * 70),
+        rot: (Math.random() > 0.5 ? 1 : -1) * Math.round(360 + Math.random() * 600),
+        round: Math.random() > 0.7,
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (step !== 'done') return;
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return; // respect reduced-motion
+    }
+    setConfetti(true);
+    const to = setTimeout(() => setConfetti(false), 4200);
+    return () => clearTimeout(to);
+  }, [step]);
 
   // Always land at the top of the screen when moving between steps — otherwise a
   // scroll position from a tall step (e.g. the score picker) carries into the
@@ -788,6 +825,27 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
       dir={locale === 'he' ? 'rtl' : 'ltr'}
     >
       <style>{QBET_STYLE}</style>
+      {confetti && (
+        <div className="fixed inset-0 z-40 overflow-hidden pointer-events-none" aria-hidden="true">
+          {confettiPieces.map((p) => (
+            <span
+              key={p.id}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: `${p.left}%`,
+                width: p.w,
+                height: p.h,
+                background: p.color,
+                borderRadius: p.round ? '50%' : '1px',
+                ['--dx' as string]: `${p.dx}px`,
+                ['--rot' as string]: `${p.rot}deg`,
+                animation: `qbetConfetti ${p.duration}ms cubic-bezier(.2,.55,.4,1) ${p.delay}ms both`,
+              } as React.CSSProperties}
+            />
+          ))}
+        </div>
+      )}
       {/* Dimmed grainy poster + grain, clipped in its own layer so tall content
           can grow past it (the page scrolls) instead of being cropped. */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
