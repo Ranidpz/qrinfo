@@ -161,3 +161,17 @@ export async function listEntries(codeId: string): Promise<QBetEntryRecord[]> {
 export async function deleteEntry(codeId: string, entryId: string): Promise<void> {
   await entriesCol(codeId).doc(entryId).delete();
 }
+
+// Wipe every entry for a code (owner-only, from the settings modal). Batched so
+// large lists don't exceed the 500-write batch cap.
+export async function deleteAllEntries(codeId: string): Promise<number> {
+  const snap = await entriesCol(codeId).get();
+  const docs = snap.docs;
+  const db = getAdminDb();
+  for (let i = 0; i < docs.length; i += 450) {
+    const batch = db.batch();
+    docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  return docs.length;
+}

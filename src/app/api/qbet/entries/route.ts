@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
-import { listEntries, deleteEntry } from '@/lib/qbet/store';
+import { listEntries, deleteEntry, deleteAllEntries } from '@/lib/qbet/store';
 import type { QBetEntry } from '@/lib/qbet/types';
 
 // Admin endpoint (owner only): list all entries for the Excel export + the
@@ -40,14 +40,21 @@ export async function DELETE(request: NextRequest) {
   try {
     const codeId = request.nextUrl.searchParams.get('codeId');
     const entryId = request.nextUrl.searchParams.get('entryId');
-    if (!codeId || !entryId) {
+    const deleteAll = request.nextUrl.searchParams.get('all') === 'true';
+    // entryId is only required for a single-entry delete.
+    if (!codeId || (!entryId && !deleteAll)) {
       return NextResponse.json({ error: 'Missing codeId or entryId' }, { status: 400 });
     }
 
     const auth = await requireCodeOwner(request, codeId);
     if (isAuthError(auth)) return auth.response;
 
-    await deleteEntry(codeId, entryId);
+    if (deleteAll) {
+      const deleted = await deleteAllEntries(codeId);
+      return NextResponse.json({ success: true, deleted });
+    }
+
+    await deleteEntry(codeId, entryId!);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('QBet entries DELETE error:', error);

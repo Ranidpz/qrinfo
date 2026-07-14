@@ -260,6 +260,67 @@ function CtaButton({ config, gradient, label }: { config: QBetConfig; gradient: 
   );
 }
 
+// Live HH:MM:SS countdown to kickoff. Self-contained state so its per-second
+// tick never re-renders (or restarts the animations of) the rest of the screen.
+function Countdown({
+  target,
+  font,
+  labels,
+}: {
+  target: number;
+  font: string;
+  labels: { until: string; started: string; h: string; m: string; s: string };
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  const diff = target - now;
+  if (diff <= 0) {
+    return (
+      <p className="text-sm font-semibold" style={{ color: withAlpha(font, 'CC') }}>
+        {labels.started}
+      </p>
+    );
+  }
+  const totalSec = Math.floor(diff / 1000);
+  const cells: [string, string][] = [
+    [String(Math.floor(totalSec / 3600)).padStart(2, '0'), labels.h],
+    [String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0'), labels.m],
+    [String(totalSec % 60).padStart(2, '0'), labels.s],
+  ];
+  return (
+    <div className="space-y-2">
+      <p className="text-xs tracking-wide" style={{ color: withAlpha(font, '80') }}>
+        {labels.until}
+      </p>
+      <div className="flex items-start justify-center gap-2" dir="ltr">
+        {cells.map(([v, label], i) => (
+          <span key={i} className="flex items-start gap-2">
+            <span className="flex flex-col items-center">
+              <span
+                className="w-14 h-14 flex items-center justify-center rounded-xl text-2xl font-bold tabular-nums"
+                style={{ background: withAlpha(font, '12'), border: `1px solid ${withAlpha(font, '22')}` }}
+              >
+                {v}
+              </span>
+              <span className="text-[10px] mt-1" style={{ color: withAlpha(font, '80') }}>
+                {label}
+              </span>
+            </span>
+            {i < 2 && (
+              <span className="text-2xl font-bold pt-3" style={{ color: withAlpha(font, '59') }}>
+                :
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Feedback({ error, info, font }: { error: string | null; info: string | null; font: string }) {
   if (!error && !info) return null;
   return (
@@ -706,6 +767,13 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
     caretColor: font,
   };
 
+  // Kickoff time (epoch ms) for the "bet received" countdown — null when unset.
+  const kickoffMs = (() => {
+    if (!config.kickoffAt) return null;
+    const ms = new Date(config.kickoffAt).getTime();
+    return isNaN(ms) ? null : ms;
+  })();
+
   const closeAt = bettingCloseTime(config);
   const closesLine =
     closeAt && !liveState.finalResult && !liveState.locked
@@ -1123,6 +1191,19 @@ export default function QBetViewer({ config, codeId }: QBetViewerProps) {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>{t.waitingForResult}</span>
                 </div>
+                {kickoffMs != null && (
+                  <Countdown
+                    target={kickoffMs}
+                    font={font}
+                    labels={{
+                      until: t.untilKickoff,
+                      started: t.matchStarted,
+                      h: t.hoursLabel,
+                      m: t.minutesLabel,
+                      s: t.secondsLabel,
+                    }}
+                  />
+                )}
                 {!liveState.locked && config.allowChangePrediction !== false && (
                   <button
                     type="button"

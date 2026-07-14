@@ -223,6 +223,9 @@ export default function QBetModal({
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [entriesError, setEntriesError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [deleteAllText, setDeleteAllText] = useState('');
+  const [deletingAll, setDeletingAll] = useState(false);
 
   // Re-sync when (re)opening. Spread defaults FIRST so configs saved before a
   // field existed (e.g. disclaimerText / allowChangePrediction) pick up the
@@ -382,6 +385,23 @@ export default function QBetModal({
     }
   };
 
+  const handleDeleteAll = async () => {
+    setDeletingAll(true);
+    try {
+      await fetchWithAuth(
+        `/api/qbet/entries?codeId=${encodeURIComponent(codeId)}&all=true`,
+        { method: 'DELETE' }
+      );
+      setShowDeleteAll(false);
+      setDeleteAllText('');
+      await loadEntries();
+    } catch {
+      /* keep list as-is */
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   const draftResult = applyResultDraft(config).finalResult;
   // Only completed registrations (verified) count as participants. An unverified
   // row is someone who requested a WhatsApp code but never entered it — it can't
@@ -492,6 +512,49 @@ export default function QBetModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+      {/* Delete-all confirmation — type-to-confirm, dangerous & irreversible */}
+      {showDeleteAll && (
+        <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-bg-primary border border-danger/40 rounded-2xl w-full max-w-sm p-5 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2 text-danger">
+              <Trash2 className="w-5 h-5" />
+              <h3 className="font-semibold">מחיקת כל הנרשמים</h3>
+            </div>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              פעולה זו תמחק לצמיתות את כל {entries.length} הרשומות (נרשמים, ניחושים והזוכים).
+              לא ניתן לשחזר. להמשך, הקלידו <span className="font-bold text-text-primary">מחיקה</span>.
+            </p>
+            <input
+              type="text"
+              value={deleteAllText}
+              onChange={(e) => setDeleteAllText(e.target.value)}
+              placeholder="מחיקה"
+              className="input w-full text-sm text-center"
+              autoFocus
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void handleDeleteAll()}
+                disabled={deleteAllText.trim() !== 'מחיקה' || deletingAll}
+                className="flex-1 h-10 rounded-lg bg-danger text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
+              >
+                {deletingAll && <Loader2 className="w-4 h-4 animate-spin" />}
+                {deletingAll ? 'מוחק...' : 'מחק הכל'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteAll(false);
+                  setDeleteAllText('');
+                }}
+                disabled={deletingAll}
+                className="px-4 h-10 rounded-lg bg-bg-secondary text-text-primary text-sm"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-bg-primary border border-border rounded-2xl w-full max-w-2xl max-h-[94dvh] flex flex-col shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-border">
@@ -1109,6 +1172,19 @@ export default function QBetModal({
                 >
                   <RefreshCw className={`w-4 h-4 ${loadingEntries ? 'animate-spin' : ''}`} />
                 </button>
+                {entries.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setDeleteAllText('');
+                      setShowDeleteAll(true);
+                    }}
+                    className="ms-auto p-2 rounded-lg text-danger hover:bg-danger/10 transition-colors flex items-center gap-1.5 text-sm"
+                    aria-label="מחיקת כל הנרשמים"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    מחק הכל
+                  </button>
+                )}
               </div>
 
               {/* Winners → raffle bridge (Fattal engine, separate code) */}

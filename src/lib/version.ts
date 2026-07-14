@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.6';
+export const APP_VERSION = '1.18.7';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.18.6',
+    version: '1.18.7',
     date: '2026-07-14',
     isNew: true,
+    highlights: {
+      he: [
+        'ניחוש: במסך ״הניחוש נקלט!״ נוסף טיימר שרץ אחורה (שעות, דקות, שניות) עד לשריקת הפתיחה של המשחק',
+        'ניחוש: הכיתובים למשתתפים עודכנו מ״הימור״ ל״ניחוש״',
+        'ניחוש: כפתור ״מחק הכל״ בניהול הנרשמים, עם אישור מחיקה מסוכן (הקלדת ״מחיקה״) שמונע מחיקה בטעות',
+      ],
+      en: [
+        'Match Prediction: the "prediction received!" screen now shows a live countdown (hours, minutes, seconds) to the match kickoff',
+        'Match Prediction: participant-facing wording updated from "bet" to "prediction"',
+        'Match Prediction: a "delete all" button in the registrants manager, gated by a dangerous type-to-confirm ("delete") step to prevent accidental wipes',
+      ],
+    },
+  },
+  {
+    version: '1.18.6',
+    date: '2026-07-14',
+    isNew: false,
     highlights: {
       he: [
         'הימור: ברשימת הנרשמים — מספר הטלפון לחיץ ופותח שיחת וואטסאפ, וכל שורה מציגה זמן קבלה מלא (יום, תאריך ושעה)',
