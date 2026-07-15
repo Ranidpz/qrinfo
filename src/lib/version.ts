@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.18.9';
+export const APP_VERSION = '1.19.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.19.0',
+    date: '2026-07-15',
+    isNew: true,
+    highlights: {
+      he: [
+        'ניחוש: בטאב הנרשמים נוסף חיפוש חי לפי שם או מספר טלפון — לאיתור מהיר של משתתף ברשימה, כולל ספירת תוצאות',
+        'ניחוש: תוקנה תקלה שבה גלילת רשימת הנרשמים הסתירה את לשוניות המודל — הכותרת והלשוניות נשארות עכשיו קבועות למעלה בכל גלילה',
+        'ניחוש: ״הימרו״ שונה ל״ניחשו״ בכרטיס הסטטיסטיקה',
+      ],
+      en: [
+        'Match Prediction: the registrants tab now has a live search by name or phone number — quickly find a participant, with a result count',
+        'Match Prediction: fixed the modal tabs getting hidden when scrolling a long registrants list — the header and tabs now stay pinned at the top',
+        'Match Prediction: the "bet" stat label is now "predicted"',
+      ],
+    },
+  },
+  {
     version: '1.18.9',
     date: '2026-07-14',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'ניחוש: שם החוויה עודכן מ״הימור״ ל״ניחוש״ בכל ממשק הניהול — תג הכרטיס, כפתור היצירה, כותרת המודל וכל הכיתובים',

@@ -238,6 +238,7 @@ export default function QBetModal({
   const [entries, setEntries] = useState<QBetEntry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [entriesError, setEntriesError] = useState<string | null>(null);
+  const [entriesQuery, setEntriesQuery] = useState(''); // search by name / phone
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [deleteAllText, setDeleteAllText] = useState('');
@@ -261,6 +262,7 @@ export default function QBetModal({
     setConfirmDeleteId(null);
     setConfirmRaffle(false);
     setRaffleError(null);
+    setEntriesQuery('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -446,6 +448,18 @@ export default function QBetModal({
     ? [...winners, ...verifiedEntries.filter((e) => !isEntryWinner(e))]
     : verifiedEntries;
 
+  // Owner-side live search — match by name (case-insensitive) or phone digits.
+  const entriesSearch = entriesQuery.trim();
+  const entriesSearchDigits = entriesSearch.replace(/\D/g, '');
+  const filteredEntries = entriesSearch
+    ? displayEntries.filter(
+        (e) =>
+          e.fullName?.toLowerCase().includes(entriesSearch.toLowerCase()) ||
+          (entriesSearchDigits.length > 0 &&
+            e.phone.replace(/\D/g, '').includes(entriesSearchDigits))
+      )
+    : displayEntries;
+
   // Kick the winners into a fresh raffle code (the parent creates the code and
   // navigates to it — this modal unmounts on success).
   const handleWinnersRaffle = async () => {
@@ -571,9 +585,9 @@ export default function QBetModal({
           </div>
         </div>
       )}
-      <div className="bg-bg-primary border border-border rounded-2xl w-full max-w-2xl max-h-[94dvh] flex flex-col shadow-2xl">
+      <div className="bg-bg-primary border border-border rounded-2xl w-full max-w-2xl max-h-[94dvh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-border">
+        <div className="shrink-0 flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-red-500 flex items-center justify-center">
               <Dices className="w-5 h-5 text-white" />
@@ -594,8 +608,9 @@ export default function QBetModal({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 px-4 sm:px-5 pt-3 overflow-x-auto">
+        {/* Tabs — shrink-0 so a long registrants list can never squash them
+            (flex-column shrink + overflow-x-auto was clipping the tab tops). */}
+        <div className="shrink-0 flex gap-1 px-4 sm:px-5 pt-3 overflow-x-auto">
           {SETTINGS_TABS.map((t) => {
             const Icon = t.icon;
             return (
@@ -631,8 +646,9 @@ export default function QBetModal({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+        {/* Content — min-h-0 lets it scroll INTERNALLY instead of growing and
+            pushing the tabs/header out of view on a long list. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4">
           {/* ===== Design tab ===== */}
           {activeTab === 'design' && (
             <div className="space-y-6">
@@ -1186,7 +1202,7 @@ export default function QBetModal({
                 </div>
                 <div className="rounded-xl bg-bg-secondary p-3 text-center">
                   <p className="text-xl font-bold text-text-primary">{predictedCount}</p>
-                  <p className="text-xs text-text-secondary">הימרו</p>
+                  <p className="text-xs text-text-secondary">ניחשו</p>
                 </div>
                 <div className="rounded-xl bg-bg-secondary p-3 text-center">
                   <p className="text-xl font-bold text-accent">
@@ -1228,6 +1244,30 @@ export default function QBetModal({
                   </button>
                 )}
               </div>
+
+              {/* Search / filter by name or phone */}
+              {displayEntries.length > 0 && (
+                <div className="relative">
+                  <Search className="w-4 h-4 text-text-secondary absolute top-1/2 -translate-y-1/2 start-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={entriesQuery}
+                    onChange={(e) => setEntriesQuery(e.target.value)}
+                    placeholder="חיפוש לפי שם או מספר טלפון..."
+                    className="input w-full text-sm ps-9 pe-9"
+                  />
+                  {entriesQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setEntriesQuery('')}
+                      className="absolute top-1/2 -translate-y-1/2 end-2 p-1 rounded-md text-text-secondary hover:text-text-primary"
+                      aria-label="ניקוי חיפוש"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Winners → raffle bridge (Fattal engine, separate code) */}
               {draftResult && winners.length > 0 && onCreateWinnersRaffle && (
@@ -1281,21 +1321,33 @@ export default function QBetModal({
                   {unverifiedCount} התחילו הרשמה ולא אימתו בוואטסאפ — לא נספרים כמשתתפים ואינם מופיעים ברשימה.
                 </p>
               )}
+              {entriesSearch && filteredEntries.length > 0 && (
+                <p className="text-xs text-text-secondary">
+                  מציג {filteredEntries.length} מתוך {displayEntries.length} נרשמים
+                </p>
+              )}
               {loadingEntries && entries.length === 0 ? (
                 <div className="py-10 flex justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-text-secondary" />
                 </div>
               ) : displayEntries.length === 0 && !entriesError ? (
                 <p className="py-10 text-center text-sm text-text-secondary">
-                  עדיין אין משתתפים מאומתים — שתפו את הקוד ותנו לקהל להמר
+                  עדיין אין משתתפים מאומתים — שתפו את הקוד ותנו לקהל לנחש
+                </p>
+              ) : filteredEntries.length === 0 ? (
+                <p className="py-8 text-center text-sm text-text-secondary">
+                  לא נמצאו נרשמים התואמים ל״{entriesSearch}״
                 </p>
               ) : (
                 <div className="rounded-xl border border-border overflow-hidden">
-                  {displayEntries.map((entry, idx) => {
+                  {filteredEntries.map((entry, idx) => {
                     const hasPick = entry.predictionHome != null && entry.predictionAway != null;
                     const isWinner = isEntryWinner(entry);
-                    // Winners are pinned first, so idx doubles as the time-order rank.
-                    const winnerRank = isWinner ? idx + 1 : null;
+                    // Rank comes from the winners array — search filtering breaks
+                    // the old "idx + 1" assumption (winners are pinned first).
+                    const winnerRank = isWinner
+                      ? winners.findIndex((w) => w.id === entry.id) + 1
+                      : null;
                     return (
                       <div
                         key={entry.id}
@@ -1372,7 +1424,7 @@ export default function QBetModal({
 
         {/* Footer — the Save button covers all three settings tabs */}
         {activeTab !== 'entries' && (
-          <div className="px-5 py-4 border-t border-border flex items-center justify-between gap-3">
+          <div className="shrink-0 px-5 py-4 border-t border-border flex items-center justify-between gap-3">
             <p className="text-xs text-danger">{saveError ? 'השמירה נכשלה — נסו שוב' : ''}</p>
             <button
               onClick={() => void handleSave()}
