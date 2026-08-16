@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.2';
+export const APP_VERSION = '1.19.3';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.19.2',
+    version: '1.19.3',
     date: '2026-08-16',
     isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: חלון ההגדרות עוצב מחדש — אזור הגרירה הגדול הוחלף בשני כפתורים, ״בחרו קובץ״ ו״הדביקו רשימה״, כך שרשימת המשתתפים נראית מיד בלי לגלול',
+        'הגרלה: אפשר לגרור קובץ לכל מקום בחלון ההגדרות, לא רק לאזור מסומן',
+        'הגרלה: תוקנה קריאת קבצי CSV — כותרות בעברית הפכו לג׳יבריש והזיהוי של העמודות נכשל',
+      ],
+      en: [
+        'Raffle: the settings dialog was redesigned — the large drop area became two buttons, "choose a file" and "paste a list", so the participant list is visible without scrolling',
+        'Raffle: a file can now be dropped anywhere on the settings dialog, not only on a marked area',
+        'Raffle: fixed reading CSV files — Hebrew headers came out as mojibake and column detection failed',
+      ],
+    },
+  },
+  {
+    version: '1.19.2',
+    date: '2026-08-16',
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: נוסף סוג הגרלה — אנשים (שם וטלפון) או קודים. בהגרלת קודים הרשימה, התבנית והכפילות עובדות לפי הקוד עצמו',

@@ -107,6 +107,11 @@ export default function RaffleSettingsPanel({
   const previewRef = useRef<HTMLAudioElement | null>(null);
 
   const [dragBg, setDragBg] = useState(false);
+  // Whole-dialog file drop: the import panel registers its handler here, and
+  // the dialog itself is the drop target so there is no zone to aim at.
+  const importFileRef = useRef<((file: File) => void) | null>(null);
+  const [dragFile, setDragFile] = useState(false);
+  const dragDepth = useRef(0); // dragenter/leave fire per child — count them
   const [bgUploading, setBgUploading] = useState(false);
   // Permanent-delete confirmation (type "מחיקה" to enable).
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -232,7 +237,42 @@ export default function RaffleSettingsPanel({
               }`
         }`}
         style={{ fontFamily: 'var(--font-assistant), sans-serif' }}
+        onDragEnter={(e) => {
+          if (!e.dataTransfer?.types?.includes('Files')) return;
+          dragDepth.current += 1;
+          setDragFile(true);
+        }}
+        onDragOver={(e) => {
+          if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
+        }}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDragFile(false);
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer?.types?.includes('Files')) return;
+          e.preventDefault();
+          dragDepth.current = 0;
+          setDragFile(false);
+          const f = e.dataTransfer.files?.[0];
+          // Background image/video zones handle their own drops; anything else
+          // dropped on the dialog is a participant list.
+          if (f && importFileRef.current) {
+            setTab('participants');
+            importFileRef.current(f);
+          }
+        }}
       >
+        {/* drop affordance — only while a file is actually over the dialog */}
+        {dragFile && (
+          <div className="pointer-events-none absolute inset-0 z-[60] flex items-center justify-center rounded-2xl border-2 border-dashed border-emerald-400 bg-black/70">
+            <div className="flex flex-col items-center gap-2 text-emerald-300">
+              <Upload size={32} />
+              <span className="text-base font-semibold">שחררו כאן כדי לטעון את הרשימה</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <h2 className="shrink-0 text-lg font-bold">הגדרות הגרלה</h2>
           <div className="flex items-center gap-2">
@@ -280,48 +320,53 @@ export default function RaffleSettingsPanel({
 
         <div className={`flex-1 overflow-y-auto ${isModal ? 'px-6 py-6' : 'px-5 py-5 space-y-7'}`}>
           <div className={grpCls('participants', 'col')}>
-          <Section icon={<Users size={15} />} title="סוג הגרלה">
-            <div className="grid grid-cols-2 gap-1.5">
+          {/* Type + count on one line — the type governs everything below it,
+              so it reads as a heading rather than as another setting. */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex rounded-lg bg-white/5 p-1">
               {(
                 [
-                  { key: 'people', label: 'אנשים', hint: 'שם + טלפון' },
-                  { key: 'codes', label: 'קודים', hint: 'קוד בכל שורה' },
+                  { key: 'people', label: 'אנשים' },
+                  { key: 'codes', label: 'קודים' },
                 ] as const
               ).map((opt) => (
                 <button
                   key={opt.key}
                   onClick={() => onConfigChange({ listType: opt.key })}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    listType === opt.key ? 'bg-amber-400 text-black' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  className={`h-9 rounded-md px-4 text-sm font-medium transition ${
+                    listType === opt.key ? 'bg-amber-400 text-black' : 'text-white/60 hover:text-white'
                   }`}
                 >
                   {opt.label}
-                  <span className={`block text-[11px] font-normal ${listType === opt.key ? 'text-black/60' : 'text-white/40'}`}>
-                    {opt.hint}
-                  </span>
                 </button>
               ))}
             </div>
-            <p className="text-xs leading-relaxed text-white/40">
-              {isCodes
-                ? 'הרשימה מכילה קודים בלבד. הכפילות נבדקת לפי הקוד עצמו, והמסך הגדול מציג את הקוד הזוכה.'
-                : 'הרשימה מכילה אנשים. הכפילות נבדקת לפי מספר הטלפון.'}
-            </p>
-          </Section>
-
-          <Section icon={<Upload size={15} />} title={isCodes ? 'טעינת קודים' : 'טעינת משתתפים'}>
             {participantCount > 0 && (
-              <div className="rounded-lg bg-emerald-600/90 px-3 py-2 text-center text-sm font-medium">
-                ברשימה <AnimatedNumber value={participantCount} /> {isCodes ? 'קודים' : 'משתתפים'}
-                {isDemoData ? ' (דמו)' : ''}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-bold text-emerald-400">
+                  <AnimatedNumber value={participantCount} />
+                </span>
+                <span className="text-white/45">
+                  {isCodes ? 'קודים ברשימה' : 'משתתפים ברשימה'}
+                  {isDemoData ? ' (דמו)' : ''}
+                </span>
               </div>
             )}
+          </div>
+          <p className="text-sm leading-relaxed text-white/45">
+            {isCodes
+              ? 'הרשימה מכילה קודים בלבד, והכפילות נבדקת לפי הקוד עצמו.'
+              : 'הרשימה מכילה אנשים, והכפילות נבדקת לפי מספר הטלפון.'}
+          </p>
+
+          <Section icon={<Upload size={15} />} title={isCodes ? 'טעינת קודים' : 'טעינת משתתפים'}>
             <RaffleImportPanel
               listType={listType}
               participantCount={participantCount}
               onImport={onImport}
               onDownloadTemplate={downloadTemplate}
               onLoadDemo={!hideDemo && onLoadDemo ? onLoadDemo : undefined}
+              fileHandlerRef={importFileRef}
             />
           </Section>
 
@@ -331,18 +376,17 @@ export default function RaffleSettingsPanel({
             </Section>
           )}
 
+          {/* The header already carries the primary "open the big screen"
+              action — this section is just the shareable link. */}
           {bigScreenUrl && (
             <Section icon={<LinkIcon size={15} />} title="קישור מסך ענק">
-              <p className="text-xs leading-relaxed text-white/40">
-                פתחו את הקישור על המסך הגדול. שמות בלבד — בלי טלפונים.
-              </p>
               <div className="flex items-center gap-2">
                 <input
                   readOnly
                   value={bigScreenUrl}
                   dir="ltr"
                   onFocus={(e) => e.currentTarget.select()}
-                  className="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/70"
+                  className="h-11 min-w-0 flex-1 rounded-lg bg-white/5 px-4 text-sm text-white/70 outline-none"
                 />
                 <button
                   onClick={async () => {
@@ -354,20 +398,15 @@ export default function RaffleSettingsPanel({
                       /* ignore */
                     }
                   }}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-3 text-xs font-medium text-black"
+                  className="flex h-11 shrink-0 items-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/[0.16] active:scale-[0.99]"
                 >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  {copied ? 'הועתק' : 'העתק'}
+                  {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                  {copied ? 'הועתק' : 'העתיקו'}
                 </button>
               </div>
-              <a
-                href={bigScreenUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-black transition hover:bg-amber-300"
-              >
-                <ExternalLink size={16} /> פתח מסך ענק
-              </a>
+              <p className="text-sm leading-relaxed text-white/45">
+                פתחו את הקישור על המסך הגדול. {isCodes ? 'קודים בלבד.' : 'שמות בלבד — בלי טלפונים.'}
+              </p>
             </Section>
           )}
           </div>
@@ -886,13 +925,21 @@ function BgDropzone({
   return (
     <button
       onClick={onPick}
+      onDragEnter={(e) => e.stopPropagation()}
       onDragOver={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         onDragStateChange(true);
       }}
-      onDragLeave={() => onDragStateChange(false)}
+      onDragLeave={(e) => {
+        e.stopPropagation();
+        onDragStateChange(false);
+      }}
+      // stopPropagation so a background asset isn't ALSO read as a participant
+      // list by the dialog-wide drop handler.
       onDrop={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         onDragStateChange(false);
         const f = e.dataTransfer.files?.[0];
         if (f) onFile(f);
