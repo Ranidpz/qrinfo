@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.1';
+export const APP_VERSION = '1.19.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,30 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.19.1',
+    version: '1.19.2',
     date: '2026-08-16',
     isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: נוסף סוג הגרלה — אנשים (שם וטלפון) או קודים. בהגרלת קודים הרשימה, התבנית והכפילות עובדות לפי הקוד עצמו',
+        'הגרלה: אפשר להדביק רשימה ישירות מאקסל במקום להעלות קובץ — גם עמודה אחת וגם כמה עמודות יחד, והמערכת מזהה לבד את עמודת הקודים',
+        'הגרלה: כל יבוא עובר עכשיו תצוגה מקדימה לפני השמירה — כמה נטענו, כמה כפולים אוחדו, כמה שורות דולגו ואיזו עמודה זוהתה — ואז בוחרים להחליף את הרשימה או להוסיף אליה',
+        'הגרלה: בניהול הרשימה נוספו תיבות סימון, בחירת הכל, מחיקת שורות נבחרות ומחיקת כל הרשימה',
+        'הגרלה: תוקן זיהוי העמודות ביבוא — קובץ ללא כותרת מוכרת גרם לכך ששורת הכותרת נספרה כמשתתף והקודים נכנסו לעמודה הלא נכונה',
+      ],
+      en: [
+        'Raffle: a raffle now has a list type — people (name and phone) or codes. In a code raffle the list, the template and duplicate detection all work off the code itself',
+        'Raffle: paste a list straight from Excel instead of uploading a file — one column or several at once, with the code column detected automatically',
+        'Raffle: every import now shows a preview before saving — how many loaded, how many duplicates were merged, how many rows were skipped and which column was detected — then you choose to replace the list or add to it',
+        'Raffle: the list manager gained checkboxes, select-all, deleting the selected rows and deleting the whole list',
+        'Raffle: fixed column detection on import — a file without a recognised header counted the header row as a participant and put codes in the wrong column',
+      ],
+    },
+  },
+  {
+    version: '1.19.1',
+    date: '2026-08-16',
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: נוסף סגנון הנפשה שני — ״חשיפת קוד״. התווים מתערבבים על המסך ואז ננעלים אחד-אחד משמאל לימין עד לחשיפת הקוד הזוכה המלא, עם האטה מכוונת בשני התווים האחרונים לשיא מתח',

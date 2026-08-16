@@ -19,6 +19,7 @@ import {
   Film,
   Loader2,
   Sparkles,
+  Users,
   Link as LinkIcon,
   Copy,
   Check,
@@ -39,6 +40,7 @@ import {
   CODE_LOCK_MS_DEFAULT,
 } from '@/lib/raffle/types';
 import AnimatedNumber from './AnimatedNumber';
+import RaffleImportPanel from './RaffleImportPanel';
 
 interface RaffleSettingsPanelProps {
   open: boolean;
@@ -49,7 +51,8 @@ interface RaffleSettingsPanelProps {
   isDemoData: boolean;
   winners: RaffleWinner[];
   onLoadDemo?: () => void;
-  onImport: (participants: RaffleParticipant[]) => void;
+  // 'replace' wipes the current list first; 'merge' adds to it.
+  onImport: (participants: RaffleParticipant[], mode: 'replace' | 'merge') => void | Promise<void>;
   onResetWinners: () => void;
   // Permanent deletion of ALL participants + winners (editor only).
   onResetAll: () => void | Promise<void>;
@@ -64,14 +67,6 @@ interface RaffleSettingsPanelProps {
   variant?: 'drawer' | 'modal';
   // Editor: a participant management table (edit/delete/add) under the import.
   participantsManager?: React.ReactNode;
-}
-
-function normalizePhone(raw: string | number): string {
-  let digits = String(raw ?? '').replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('972')) digits = '0' + digits.slice(3);
-  if (digits.length === 9) digits = '0' + digits; // lost leading zero in Excel
-  return digits;
 }
 
 // Build a wa.me link with a correctly formatted international number (no +).
@@ -104,19 +99,13 @@ export default function RaffleSettingsPanel({
 }: RaffleSettingsPanelProps) {
   const [copied, setCopied] = useState(false);
   const isModal = variant === 'modal';
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const listType = config.listType ?? 'people';
+  const isCodes = listType === 'codes';
   const soundFileRef = useRef<HTMLInputElement | null>(null);
   const imageRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLAudioElement | null>(null);
 
-  const [importReport, setImportReport] = useState<{
-    loaded: number;
-    duplicates: number;
-    noPhone: number;
-    dupNames: string[];
-  } | null>(null);
-  const [dragExcel, setDragExcel] = useState(false);
   const [dragBg, setDragBg] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
   // Permanent-delete confirmation (type "מחיקה" to enable).
@@ -128,7 +117,6 @@ export default function RaffleSettingsPanel({
     setDeleting(true);
     try {
       await Promise.resolve(onResetAll());
-      setImportReport(null);
       setConfirmDeleteOpen(false);
       setDeleteText('');
     } finally {
@@ -171,71 +159,21 @@ export default function RaffleSettingsPanel({
     }
   };
 
-  const handleFile = async (file: File) => {
-    const XLSX = await import('xlsx');
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<(string | number)[]>(ws, {
-      header: 1,
-      defval: '',
-    });
-    if (rows.length === 0) return;
-
-    // Locate header columns (Hebrew or English), else fall back to positions.
-    const header = rows[0].map((c) => String(c).trim().toLowerCase());
-    const find = (...keys: string[]) =>
-      header.findIndex((h) => keys.some((k) => h.includes(k)));
-    let iFirst = find('first name', 'שם פרטי', 'שם');
-    let iLast = find('last name', 'שם משפחה', 'משפחה');
-    let iPhone = find('phone', 'טלפון', 'נייד');
-    let iQty = find('quantity', 'כמות');
-    const hasHeader = iFirst >= 0 || iPhone >= 0;
-    if (!hasHeader) {
-      iFirst = 0;
-      iLast = 1;
-      iPhone = 2;
-      iQty = 3;
-    }
-
-    const seen = new Map<string, RaffleParticipant>();
-    const start = hasHeader ? 1 : 0;
-    let duplicates = 0;
-    let noPhone = 0;
-    const dupNames: string[] = [];
-    for (let r = start; r < rows.length; r++) {
-      const row = rows[r];
-      const firstName = String(row[iFirst] ?? '').trim();
-      const lastName = iLast >= 0 ? String(row[iLast] ?? '').trim() : '';
-      const phone = normalizePhone(row[iPhone] as string | number);
-      if (!firstName && !lastName && !phone) continue; // skip empty rows
-      const qty = iQty >= 0 ? parseInt(String(row[iQty]), 10) : 1;
-      const quantity = Number.isFinite(qty) && qty > 0 ? qty : 1;
-      if (!phone) noPhone++;
-      const id = phone || `row-${r}`;
-      // Dedupe by phone (the unique key). Same phone again = duplicate → merged
-      // (first kept). Same name + different phone = kept (different people).
-      if (phone && seen.has(id)) {
-        duplicates++;
-        const nm = `${firstName} ${lastName}`.trim();
-        if (dupNames.length < 12 && nm) dupNames.push(nm);
-        continue;
-      }
-      seen.set(id, { id, firstName, lastName, phone, quantity, remaining: quantity });
-    }
-    setImportReport({ loaded: seen.size, duplicates, noPhone, dupNames });
-    onImport(Array.from(seen.values()));
-  };
-
   const downloadTemplate = async () => {
     const XLSX = await import('xlsx');
-    const ws = XLSX.utils.aoa_to_sheet([
-      ['שם פרטי', 'שם משפחה', 'טלפון', 'כמות'],
-      ['ישראל', 'ישראלי', '0501234567', 1],
-    ]);
+    const ws = isCodes
+      ? XLSX.utils.aoa_to_sheet([
+          ['קוד', 'כמות'],
+          ['ABC123456', 1],
+          ['DEF789012', 1],
+        ])
+      : XLSX.utils.aoa_to_sheet([
+          ['שם פרטי', 'שם משפחה', 'טלפון', 'כמות'],
+          ['ישראל', 'ישראלי', '0501234567', 1],
+        ]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'משתתפים');
-    XLSX.writeFile(wb, 'תבנית-הגרלה.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, isCodes ? 'קודים' : 'משתתפים');
+    XLSX.writeFile(wb, isCodes ? 'תבנית-קודים.xlsx' : 'תבנית-הגרלה.xlsx');
   };
 
   const exportWinners = () => {
@@ -342,99 +280,53 @@ export default function RaffleSettingsPanel({
 
         <div className={`flex-1 overflow-y-auto ${isModal ? 'px-6 py-6' : 'px-5 py-5 space-y-7'}`}>
           <div className={grpCls('participants', 'col')}>
-          <Section icon={<Upload size={15} />} title="טעינת משתתפים">
-            <button
-              onClick={() => fileRef.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragExcel(true);
-              }}
-              onDragLeave={() => setDragExcel(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragExcel(false);
-                const f = e.dataTransfer.files?.[0];
-                if (f) handleFile(f);
-              }}
-              className={`flex w-full flex-col items-center gap-1.5 rounded-xl border border-dashed px-4 py-5 text-center transition ${
-                dragExcel
-                  ? 'border-emerald-400 bg-emerald-500/20'
-                  : 'border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10'
-              }`}
-            >
-              <Upload size={20} className="text-emerald-400" />
-              <span className="text-sm font-medium">
-                {dragExcel ? 'שחררו כאן' : 'גררו לכאן או לחצו לבחירת קובץ Excel'}
-              </span>
-              <span className="text-xs text-white/40">עמודות: שם, טלפון, כמות</span>
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
-                e.target.value = '';
-              }}
-            />
+          <Section icon={<Users size={15} />} title="סוג הגרלה">
+            <div className="grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  { key: 'people', label: 'אנשים', hint: 'שם + טלפון' },
+                  { key: 'codes', label: 'קודים', hint: 'קוד בכל שורה' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => onConfigChange({ listType: opt.key })}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    listType === opt.key ? 'bg-amber-400 text-black' : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  {opt.label}
+                  <span className={`block text-[11px] font-normal ${listType === opt.key ? 'text-black/60' : 'text-white/40'}`}>
+                    {opt.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs leading-relaxed text-white/40">
+              {isCodes
+                ? 'הרשימה מכילה קודים בלבד. הכפילות נבדקת לפי הקוד עצמו, והמסך הגדול מציג את הקוד הזוכה.'
+                : 'הרשימה מכילה אנשים. הכפילות נבדקת לפי מספר הטלפון.'}
+            </p>
+          </Section>
+
+          <Section icon={<Upload size={15} />} title={isCodes ? 'טעינת קודים' : 'טעינת משתתפים'}>
             {participantCount > 0 && (
               <div className="rounded-lg bg-emerald-600/90 px-3 py-2 text-center text-sm font-medium">
-                נטענו <AnimatedNumber value={participantCount} /> משתתפים
+                ברשימה <AnimatedNumber value={participantCount} /> {isCodes ? 'קודים' : 'משתתפים'}
                 {isDemoData ? ' (דמו)' : ''}
               </div>
             )}
-            {importReport && (
-              <div className="space-y-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-white/60">נטענו (ייחודיים)</span>
-                  <span className="font-semibold text-emerald-400">
-                    {importReport.loaded.toLocaleString('he-IL')}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/60">כפולים אוחדו (טלפון זהה)</span>
-                  <span className={`font-semibold ${importReport.duplicates ? 'text-amber-400' : 'text-white/40'}`}>
-                    {importReport.duplicates.toLocaleString('he-IL')}
-                  </span>
-                </div>
-                {importReport.noPhone > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/60">ללא טלפון (לא נבדקה כפילות)</span>
-                    <span className="font-semibold text-amber-400">
-                      {importReport.noPhone.toLocaleString('he-IL')}
-                    </span>
-                  </div>
-                )}
-                {importReport.dupNames.length > 0 && (
-                  <div className="border-t border-white/10 pt-1.5 text-white/45" dir="rtl">
-                    כפולים שאוחדו: {importReport.dupNames.join(' · ')}
-                    {importReport.duplicates > importReport.dupNames.length ? ' ועוד…' : ''}
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={downloadTemplate}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-xs hover:bg-white/10"
-              >
-                <Download size={14} /> הורד תבנית
-              </button>
-              {!hideDemo && onLoadDemo && (
-                <button
-                  onClick={onLoadDemo}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white/5 px-3 py-2 text-xs hover:bg-white/10"
-                >
-                  טען דמו (1000)
-                </button>
-              )}
-            </div>
+            <RaffleImportPanel
+              listType={listType}
+              participantCount={participantCount}
+              onImport={onImport}
+              onDownloadTemplate={downloadTemplate}
+              onLoadDemo={!hideDemo && onLoadDemo ? onLoadDemo : undefined}
+            />
           </Section>
 
           {participantsManager && (
-            <Section icon={<Upload size={15} />} title="ניהול משתתפים">
+            <Section icon={<Users size={15} />} title={isCodes ? 'ניהול קודים' : 'ניהול משתתפים'}>
               {participantsManager}
             </Section>
           )}
@@ -646,7 +538,8 @@ export default function RaffleSettingsPanel({
             )}
           </Section>
 
-          <Section icon={<Eye size={15} />} title="מצב תצוגה">
+          {/* Codes have no name/phone split — nothing to choose between. */}
+          <Section icon={<Eye size={15} />} title="מצב תצוגה" hidden={isCodes}>
             <div className="grid grid-cols-2 gap-1.5">
               {(['names', 'phones'] as const).map((m) => (
                 <button
@@ -899,11 +792,14 @@ function Section({
   icon,
   title,
   children,
+  hidden,
 }: {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
+  hidden?: boolean;
 }) {
+  if (hidden) return null;
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2 text-sm font-semibold text-white/60">

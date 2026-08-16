@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Menu } from 'lucide-react';
 import RaffleStage from '@/components/raffle/RaffleStage';
 import RaffleSettingsPanel from '@/components/raffle/RaffleSettingsPanel';
+import RaffleParticipantsTable from '@/components/raffle/RaffleParticipantsTable';
 import {
   DEFAULT_RAFFLE_CONFIG,
   type RaffleConfig,
@@ -11,6 +12,8 @@ import {
   type RaffleWinner,
 } from '@/lib/raffle/types';
 import { generateDemoParticipants, generateDemoCodes } from '@/lib/raffle/demo';
+
+type Fields = { firstName: string; lastName: string; phone: string; quantity: number };
 
 export default function RaffleDemoPage() {
   const [participants, setParticipants] = useState<RaffleParticipant[]>(() =>
@@ -21,24 +24,24 @@ export default function RaffleDemoPage() {
   const [isDemoData, setIsDemoData] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
 
-  // Demo data follows the animation style: the code-reveal preview only makes
-  // sense on a list of codes, the wheel on a list of names.
+  // Demo data follows the list type, so switching to a code raffle previews
+  // against real codes instead of names.
   const demoDataFor = useCallback(
-    (style: RaffleConfig['animationStyle']) =>
-      style === 'codeReveal' ? generateDemoCodes(3000) : generateDemoParticipants(1000),
+    (listType: RaffleConfig['listType']) =>
+      listType === 'codes' ? generateDemoCodes(3000) : generateDemoParticipants(1000),
     []
   );
 
   const onConfigChange = useCallback(
     (patch: Partial<RaffleConfig>) => {
-      const nextStyle = patch.animationStyle;
-      if (nextStyle && nextStyle !== (config.animationStyle ?? 'wheel') && isDemoData) {
-        setParticipants(demoDataFor(nextStyle));
+      const nextType = patch.listType;
+      if (nextType && nextType !== (config.listType ?? 'people') && isDemoData) {
+        setParticipants(demoDataFor(nextType));
         setWinners([]);
       }
       setConfig((c) => ({ ...c, ...patch }));
     },
-    [config.animationStyle, isDemoData, demoDataFor]
+    [config.listType, isDemoData, demoDataFor]
   );
 
   // Demo draw: pick a random eligible participant, decrement quantity, record
@@ -69,13 +72,18 @@ export default function RaffleDemoPage() {
   }, [participants, config.allowRepeat, winners.length]);
 
   const onLoadDemo = useCallback(() => {
-    setParticipants(demoDataFor(config.animationStyle));
+    setParticipants(demoDataFor(config.listType));
     setWinners([]);
     setIsDemoData(true);
-  }, [demoDataFor, config.animationStyle]);
+  }, [demoDataFor, config.listType]);
 
-  const onImport = useCallback((list: RaffleParticipant[]) => {
-    setParticipants(list);
+  const onImport = useCallback((list: RaffleParticipant[], mode: 'replace' | 'merge' = 'replace') => {
+    setParticipants((prev) => {
+      if (mode === 'replace') return list;
+      const byId = new Map(prev.map((p) => [p.id, p]));
+      list.forEach((p) => byId.set(p.id, p));
+      return [...byId.values()];
+    });
     setWinners([]);
     setIsDemoData(false);
   }, []);
@@ -86,8 +94,34 @@ export default function RaffleDemoPage() {
     setParticipants((prev) => prev.map((p) => ({ ...p, remaining: p.quantity })));
   }, []);
 
+  // Local stand-ins for the editor's server-backed list management, so the demo
+  // previews the real management UI too.
+  const onUpdateRow = useCallback((id: string, f: Fields) => {
+    setParticipants((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...f, remaining: f.quantity } : p))
+    );
+  }, []);
+  const onDeleteRow = useCallback((id: string) => {
+    setParticipants((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+  const onDeleteRows = useCallback((ids: string[]) => {
+    const kill = new Set(ids);
+    setParticipants((prev) => prev.filter((p) => !kill.has(p.id)));
+  }, []);
+  const onDeleteAllRows = useCallback(() => {
+    setParticipants([]);
+    setWinners([]);
+  }, []);
+  const onAddRow = useCallback((f: Fields) => {
+    setParticipants((prev) => [
+      { id: f.phone || f.firstName || `row-${prev.length}`, ...f, remaining: f.quantity },
+      ...prev,
+    ]);
+    setIsDemoData(false);
+  }, []);
+
   const onResetAll = useCallback(() => {
-    setParticipants(demoDataFor(DEFAULT_RAFFLE_CONFIG.animationStyle));
+    setParticipants(demoDataFor(DEFAULT_RAFFLE_CONFIG.listType));
     setWinners([]);
     setConfig(DEFAULT_RAFFLE_CONFIG);
     setIsDemoData(true);
@@ -122,6 +156,17 @@ export default function RaffleDemoPage() {
         onImport={onImport}
         onResetWinners={onResetWinners}
         onResetAll={onResetAll}
+        participantsManager={
+          <RaffleParticipantsTable
+            participants={participants}
+            listType={config.listType ?? 'people'}
+            onUpdate={onUpdateRow}
+            onDelete={onDeleteRow}
+            onAdd={onAddRow}
+            onDeleteMany={onDeleteRows}
+            onDeleteAll={onDeleteAllRows}
+          />
+        }
       />
     </main>
   );

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
@@ -14,10 +15,26 @@ interface IncomingParticipant {
   quantity?: number;
 }
 
-function phoneId(phone: string, fallbackIndex: number): string {
-  const norm = normalizePhoneNumber(String(phone || ''));
-  const digits = norm.replace(/[^0-9]/g, '');
-  return digits || `row-${fallbackIndex}`;
+// Document id = the row's natural unique key, so re-importing the same list
+// updates rows instead of duplicating them.
+//   people: the normalized phone (rows without one get a unique id — 'replace'
+//           can use the row index, but a 'merge' must never reuse `row-0` and
+//           overwrite an unrelated existing row).
+//   codes:  the code itself, which is what makes a code list dedupe at all.
+function docIdFor(
+  listType: 'people' | 'codes',
+  phone: string,
+  code: string,
+  index: number,
+  mode: 'replace' | 'merge'
+): string {
+  if (listType === 'codes') {
+    const clean = code.replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 200);
+    return clean ? `c_${clean}` : `c_row-${index}`;
+  }
+  const digits = normalizePhoneNumber(String(phone || '')).replace(/[^0-9]/g, '');
+  if (digits) return digits;
+  return mode === 'replace' ? `row-${index}` : `n_${crypto.randomUUID()}`;
 }
 
 // GET — full participant list (with phones) for the owner's management UI.
@@ -45,6 +62,7 @@ export async function POST(request: NextRequest) {
     const codeId: string = body?.codeId;
     const incoming: IncomingParticipant[] = Array.isArray(body?.participants) ? body.participants : [];
     const mode: 'replace' | 'merge' = body?.mode === 'merge' ? 'merge' : 'replace';
+    const listType: 'people' | 'codes' = body?.listType === 'codes' ? 'codes' : 'people';
 
     if (!codeId) return NextResponse.json({ error: 'codeId is required' }, { status: 400 });
     if (incoming.length === 0) return NextResponse.json({ error: 'No participants provided' }, { status: 400 });
@@ -65,7 +83,7 @@ export async function POST(request: NextRequest) {
       if (!firstName && !lastName && !phone) return;
       const q = Number(p.quantity);
       const quantity = Number.isFinite(q) && q > 0 ? Math.floor(q) : 1;
-      const id = phoneId(phone, i);
+      const id = docIdFor(listType, phone, firstName, i, mode);
       byId.set(id, { firstName, lastName, phone, quantity, remaining: quantity, rand: Math.random() });
     });
 
@@ -122,7 +140,8 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// DELETE — one participant (?participantId=) or all.
+// DELETE — one participant (?participantId=), a selected set (JSON body with
+// participantIds), or the whole list.
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -139,6 +158,23 @@ export async function DELETE(request: NextRequest) {
     if (participantId) {
       await col.doc(participantId).delete();
       return NextResponse.json({ ok: true, deleted: 1 });
+    }
+
+    // Selected rows — ids travel in the body so a large selection can't blow
+    // the URL length limit.
+    const body = await request.json().catch(() => null);
+    const ids: unknown = body && typeof body === 'object' ? (body as Record<string, unknown>).participantIds : null;
+    if (Array.isArray(ids) && ids.length > 0) {
+      const clean = ids.map((v) => String(v)).filter(Boolean);
+      if (clean.length > 50000) {
+        return NextResponse.json({ error: 'Too many ids (max 50,000)' }, { status: 400 });
+      }
+      for (let i = 0; i < clean.length; i += 450) {
+        const batch = db.batch();
+        clean.slice(i, i + 450).forEach((id) => batch.delete(col.doc(id)));
+        await batch.commit();
+      }
+      return NextResponse.json({ ok: true, deleted: clean.length });
     }
 
     const existing = await col.get();

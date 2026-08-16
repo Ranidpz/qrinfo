@@ -7,6 +7,11 @@ export type RaffleBackgroundType = 'color' | 'image' | 'video';
 // 'wheel' = the classic spinning reel. 'codeReveal' = the code is revealed one
 // character at a time, left→right, out of a scramble of the real loaded codes.
 export type RaffleAnimationStyle = 'wheel' | 'codeReveal';
+// What the participant list actually holds. 'people' = name + phone rows (the
+// original raffle). 'codes' = one code per row, no name and no phone.
+// Absent means 'people', so every raffle created before this option existed
+// keeps behaving exactly as it did.
+export type RaffleListType = 'people' | 'codes';
 // 'buzzer' / 'win' are the bundled presets; 'custom' uses customWinSoundUrl.
 export type RaffleWinSound = 'buzzer' | 'win' | 'custom';
 
@@ -61,6 +66,8 @@ export interface RaffleConfig {
   // Which sound plays when the reel lands on a winner.
   winSound: RaffleWinSound;
   customWinSoundUrl?: string;
+  // Whether the list holds people (name + phone) or plain codes.
+  listType?: RaffleListType;
   // Which on-screen animation runs. Absent = 'wheel' (every existing raffle).
   animationStyle?: RaffleAnimationStyle;
   // codeReveal only — base pace per locked character (ms). The real schedule
@@ -85,6 +92,7 @@ export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
   allowRepeat: true,
   soundsEnabled: true,
   winSound: 'win',
+  listType: 'people',
   animationStyle: 'wheel',
   codeLockMs: 1600,
   codeTickSounds: true,

@@ -113,12 +113,17 @@ export default function RaffleModal({
       await fetchWithAuth('/api/raffle/participants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codeId, mode: 'merge', participants: [fields] }),
+        body: JSON.stringify({
+          codeId,
+          mode: 'merge',
+          listType: config.listType ?? 'people',
+          participants: [fields],
+        }),
       });
       refreshParticipants();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [codeId]
+    [codeId, config.listType]
   );
 
   const refreshWinners = useCallback(async () => {
@@ -200,7 +205,7 @@ export default function RaffleModal({
   );
 
   const onImport = useCallback(
-    async (participants: RaffleParticipant[]) => {
+    async (participants: RaffleParticipant[], mode: 'replace' | 'merge' = 'replace') => {
       setLoadingParticipants(true);
       try {
         await fetchWithAuth('/api/raffle/participants', {
@@ -208,7 +213,8 @@ export default function RaffleModal({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             codeId,
-            mode: 'replace',
+            mode,
+            listType: config.listType ?? 'people',
             participants: participants.map((p) => ({
               firstName: p.firstName,
               lastName: p.lastName,
@@ -224,8 +230,31 @@ export default function RaffleModal({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    [codeId, config.listType]
+  );
+
+  const deleteManyParticipants = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      setLoadingParticipants(true);
+      await fetchWithAuth(`/api/raffle/participants?codeId=${encodeURIComponent(codeId)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantIds: ids }),
+      });
+      await refreshParticipants();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [codeId]
   );
+
+  const deleteAllParticipants = useCallback(async () => {
+    setLoadingParticipants(true);
+    await fetchWithAuth(`/api/raffle/participants?codeId=${encodeURIComponent(codeId)}`, {
+      method: 'DELETE',
+    });
+    await refreshParticipants();
+  }, [codeId, refreshParticipants]);
 
   const onResetWinners = useCallback(async () => {
     try {
@@ -282,9 +311,12 @@ export default function RaffleModal({
         <RaffleParticipantsTable
           participants={participantsList}
           loading={loadingParticipants}
+          listType={config.listType ?? 'people'}
           onUpdate={updateParticipant}
           onDelete={deleteParticipant}
           onAdd={addParticipant}
+          onDeleteMany={deleteManyParticipants}
+          onDeleteAll={deleteAllParticipants}
         />
       }
     />
