@@ -4,6 +4,9 @@
 
 export type RaffleDisplayMode = 'names' | 'phones';
 export type RaffleBackgroundType = 'color' | 'image' | 'video';
+// 'wheel' = the classic spinning reel. 'codeReveal' = the code is revealed one
+// character at a time, left→right, out of a scramble of the real loaded codes.
+export type RaffleAnimationStyle = 'wheel' | 'codeReveal';
 // 'buzzer' / 'win' are the bundled presets; 'custom' uses customWinSoundUrl.
 export type RaffleWinSound = 'buzzer' | 'win' | 'custom';
 
@@ -58,6 +61,14 @@ export interface RaffleConfig {
   // Which sound plays when the reel lands on a winner.
   winSound: RaffleWinSound;
   customWinSoundUrl?: string;
+  // Which on-screen animation runs. Absent = 'wheel' (every existing raffle).
+  animationStyle?: RaffleAnimationStyle;
+  // codeReveal only — base pace per locked character (ms). The real schedule
+  // starts faster and slows down on the last two characters for suspense.
+  codeLockMs?: number;
+  // codeReveal only — the synthesized ticking + "pop" layer. Independent of
+  // `soundsEnabled` (which is the master switch for every sound).
+  codeTickSounds?: boolean;
   // Shared secret for the public big-screen link (/raffle/{shortId}?token=).
   // Generated when the raffle is first created. Gates the names + draw APIs.
   token?: string;
@@ -74,7 +85,16 @@ export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
   allowRepeat: true,
   soundsEnabled: true,
   winSound: 'win',
+  animationStyle: 'wheel',
+  codeLockMs: 1600,
+  codeTickSounds: true,
 };
+
+// codeReveal pace bounds (ms per character) — kept here so the settings panel
+// and the animation agree on the allowed range.
+export const CODE_LOCK_MS_MIN = 800;
+export const CODE_LOCK_MS_MAX = 3000;
+export const CODE_LOCK_MS_DEFAULT = 1600;
 
 // Resolve the URL of the configured winner sound.
 export function resolveWinSoundUrl(config: RaffleConfig): string {

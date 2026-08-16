@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Menu, X, RotateCcw, Trophy, Eye, Volume2, Palette, ChevronDown } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
-import RaffleDisplay from '@/components/raffle/RaffleDisplay';
+import RaffleStage from '@/components/raffle/RaffleStage';
 import type { RaffleConfig, RaffleParticipant, RaffleWinner } from '@/lib/raffle/types';
 import { fullName } from '@/lib/raffle/types';
 
@@ -88,6 +88,41 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
     }
   }, [authorized, fetchNames, fetchWinners]);
 
+  // Keep the projector/laptop screen awake for the whole event. Silently
+  // unavailable on browsers without the API — never blocks anything.
+  useEffect(() => {
+    let sentinel: { release: () => Promise<void> } | null = null;
+    let unmounted = false;
+    const wakeLock = (
+      navigator as Navigator & {
+        wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> };
+      }
+    ).wakeLock;
+
+    const acquire = async () => {
+      if (!wakeLock || unmounted || sentinel) return;
+      try {
+        sentinel = await wakeLock.request('screen');
+      } catch {
+        /* denied, or the tab isn't visible yet */
+      }
+    };
+    // The lock is dropped whenever the tab is hidden — take it again on return.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        sentinel = null;
+        acquire();
+      }
+    };
+    acquire();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      unmounted = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      sentinel?.release().catch(() => {});
+    };
+  }, []);
+
   const onRequestDraw = useCallback(async (): Promise<RaffleWinner | null> => {
     try {
       const r = await fetch('/api/raffle/draw', {
@@ -145,7 +180,7 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-black">
-      <RaffleDisplay
+      <RaffleStage
         participants={participants}
         config={display}
         onRequestDraw={onRequestDraw}
@@ -233,6 +268,29 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
             open={displayOpen}
             onToggle={() => setDisplayOpen((v) => !v)}
           >
+            <div className="space-y-1.5">
+              <div className="text-xs text-white/40">סגנון אנימציה</div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    { key: 'wheel', label: 'גלגל' },
+                    { key: 'codeReveal', label: 'חשיפת קוד' },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => patchDisplay({ animationStyle: opt.key })}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      (display.animationStyle ?? 'wheel') === opt.key
+                        ? 'bg-amber-400 text-black'
+                        : 'bg-white/5 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <ColorRow label="צבע טקסט" value={display.fontColor} onChange={(v) => patchDisplay({ fontColor: v })} />
             <ColorRow label="צבע זוכה" value={display.winnerColor} onChange={(v) => patchDisplay({ winnerColor: v })} />
             {display.backgroundType === 'color' && (

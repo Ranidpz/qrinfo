@@ -23,6 +23,28 @@ function rng(seed: number): () => number {
   };
 }
 
+// Demo set for the "code reveal" style: the code itself is the label, which is
+// exactly how a real code list lands (one code per row, no phone).
+// Ambiguous glyphs (I/O/0/1) are left out, as they are in printed codes.
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export function generateDemoCodes(count = 3000, length = 9): RaffleParticipant[] {
+  const rand = rng(20260817);
+  const out: RaffleParticipant[] = [];
+  const used = new Set<string>();
+
+  while (out.length < count) {
+    let code = '';
+    for (let i = 0; i < length; i++) {
+      code += CODE_ALPHABET[Math.floor(rand() * CODE_ALPHABET.length)];
+    }
+    if (used.has(code)) continue;
+    used.add(code);
+    out.push({ id: code, firstName: code, lastName: '', phone: '', quantity: 1, remaining: 1 });
+  }
+  return out;
+}
+
 // Deterministic demo set so the screen recording looks consistent run-to-run.
 export function generateDemoParticipants(count = 1000): RaffleParticipant[] {
   const rand = rng(20260528);

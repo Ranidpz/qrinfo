@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { Menu } from 'lucide-react';
-import RaffleDisplay from '@/components/raffle/RaffleDisplay';
+import RaffleStage from '@/components/raffle/RaffleStage';
 import RaffleSettingsPanel from '@/components/raffle/RaffleSettingsPanel';
 import {
   DEFAULT_RAFFLE_CONFIG,
@@ -10,7 +10,7 @@ import {
   type RaffleParticipant,
   type RaffleWinner,
 } from '@/lib/raffle/types';
-import { generateDemoParticipants } from '@/lib/raffle/demo';
+import { generateDemoParticipants, generateDemoCodes } from '@/lib/raffle/demo';
 
 export default function RaffleDemoPage() {
   const [participants, setParticipants] = useState<RaffleParticipant[]>(() =>
@@ -21,9 +21,25 @@ export default function RaffleDemoPage() {
   const [isDemoData, setIsDemoData] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
 
-  const onConfigChange = useCallback((patch: Partial<RaffleConfig>) => {
-    setConfig((c) => ({ ...c, ...patch }));
-  }, []);
+  // Demo data follows the animation style: the code-reveal preview only makes
+  // sense on a list of codes, the wheel on a list of names.
+  const demoDataFor = useCallback(
+    (style: RaffleConfig['animationStyle']) =>
+      style === 'codeReveal' ? generateDemoCodes(3000) : generateDemoParticipants(1000),
+    []
+  );
+
+  const onConfigChange = useCallback(
+    (patch: Partial<RaffleConfig>) => {
+      const nextStyle = patch.animationStyle;
+      if (nextStyle && nextStyle !== (config.animationStyle ?? 'wheel') && isDemoData) {
+        setParticipants(demoDataFor(nextStyle));
+        setWinners([]);
+      }
+      setConfig((c) => ({ ...c, ...patch }));
+    },
+    [config.animationStyle, isDemoData, demoDataFor]
+  );
 
   // Demo draw: pick a random eligible participant, decrement quantity, record
   // the winner. In Phase 2 this becomes an atomic server call to Supabase.
@@ -53,10 +69,10 @@ export default function RaffleDemoPage() {
   }, [participants, config.allowRepeat, winners.length]);
 
   const onLoadDemo = useCallback(() => {
-    setParticipants(generateDemoParticipants(1000));
+    setParticipants(demoDataFor(config.animationStyle));
     setWinners([]);
     setIsDemoData(true);
-  }, []);
+  }, [demoDataFor, config.animationStyle]);
 
   const onImport = useCallback((list: RaffleParticipant[]) => {
     setParticipants(list);
@@ -71,15 +87,15 @@ export default function RaffleDemoPage() {
   }, []);
 
   const onResetAll = useCallback(() => {
-    setParticipants(generateDemoParticipants(1000));
+    setParticipants(demoDataFor(DEFAULT_RAFFLE_CONFIG.animationStyle));
     setWinners([]);
     setConfig(DEFAULT_RAFFLE_CONFIG);
     setIsDemoData(true);
-  }, []);
+  }, [demoDataFor]);
 
   return (
     <main className="h-screen w-screen overflow-hidden bg-black">
-      <RaffleDisplay
+      <RaffleStage
         participants={participants}
         config={config}
         onRequestDraw={onRequestDraw}

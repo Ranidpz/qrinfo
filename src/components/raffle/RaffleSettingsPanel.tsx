@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
   Film,
   Loader2,
+  Sparkles,
   Link as LinkIcon,
   Copy,
   Check,
@@ -33,6 +34,9 @@ import {
   fullName,
   resolveWinSoundUrl,
   RAFFLE_WIN_SOUND_PRESETS,
+  CODE_LOCK_MS_MIN,
+  CODE_LOCK_MS_MAX,
+  CODE_LOCK_MS_DEFAULT,
 } from '@/lib/raffle/types';
 import AnimatedNumber from './AnimatedNumber';
 
@@ -587,6 +591,61 @@ export default function RaffleSettingsPanel({
             </p>
           </Section>
 
+          <Section icon={<Sparkles size={15} />} title="סגנון אנימציה">
+            <div className="grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  { key: 'wheel', label: 'גלגל מסתובב' },
+                  { key: 'codeReveal', label: 'חשיפת קוד' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => onConfigChange({ animationStyle: opt.key })}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    (config.animationStyle ?? 'wheel') === opt.key
+                      ? 'bg-amber-400 text-black'
+                      : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {(config.animationStyle ?? 'wheel') === 'codeReveal' ? (
+              <>
+                <p className="text-xs leading-relaxed text-white/40">
+                  התווים מתערבבים ואז ננעלים אחד-אחד משמאל לימין עד לחשיפת הקוד המלא. מתאים
+                  לרשימות של קודים.
+                </p>
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs text-white/40">
+                    <span>קצב נעילה</span>
+                    <span className="text-white/70">
+                      {((config.codeLockMs ?? CODE_LOCK_MS_DEFAULT) / 1000).toFixed(1)} שנ׳ לתו
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={CODE_LOCK_MS_MIN}
+                    max={CODE_LOCK_MS_MAX}
+                    step={100}
+                    value={config.codeLockMs ?? CODE_LOCK_MS_DEFAULT}
+                    onChange={(e) => onConfigChange({ codeLockMs: Number(e.target.value) })}
+                    className="w-full accent-amber-400"
+                  />
+                  <p className="text-xs leading-relaxed text-white/40">
+                    הקצב מתחיל מהיר יותר ומאט בשני התווים האחרונים, לשיא מתח בסוף.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs leading-relaxed text-white/40">
+                הגלגל הקלאסי — השמות רצים אנכית ונעצרים על הזוכה.
+              </p>
+            )}
+          </Section>
+
           <Section icon={<Eye size={15} />} title="מצב תצוגה">
             <div className="grid grid-cols-2 gap-1.5">
               {(['names', 'phones'] as const).map((m) => (
@@ -624,6 +683,19 @@ export default function RaffleSettingsPanel({
               checked={config.soundsEnabled}
               onChange={(v) => onConfigChange({ soundsEnabled: v })}
             />
+
+            {(config.animationStyle ?? 'wheel') === 'codeReveal' && (
+              <>
+                <CheckRow
+                  label="תיתוק ונעילת תווים"
+                  checked={config.codeTickSounds !== false}
+                  onChange={(v) => onConfigChange({ codeTickSounds: v })}
+                />
+                <p className="text-xs leading-relaxed text-white/40">
+                  תיתוק בזמן שהתווים רצים ו״פוק״ בכל נעילה. צליל הזכייה נשאר זה שנבחר למטה.
+                </p>
+              </>
+            )}
 
             <div className="space-y-2 pt-1">
               <div className="text-xs text-white/40">צליל זכייה</div>

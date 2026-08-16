@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.0';
+export const APP_VERSION = '1.19.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,28 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.19.1',
+    date: '2026-08-16',
+    isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: נוסף סגנון הנפשה שני — ״חשיפת קוד״. התווים מתערבבים על המסך ואז ננעלים אחד-אחד משמאל לימין עד לחשיפת הקוד הזוכה המלא, עם האטה מכוונת בשני התווים האחרונים לשיא מתח',
+        'הגרלה: הסגנון נבחר בהגדרות (״גלגל מסתובב״ או ״חשיפת קוד״), עם סרגל לקביעת קצב הנעילה — כל ההגרלות הקיימות ממשיכות בגלגל כרגיל',
+        'הגרלה: צלילי תיתוק בזמן שהתווים רצים ו״פוק״ בכל נעילת תו, עם מתג הפעלה נפרד. צליל הזכייה נשאר זה שנבחר בהגדרות',
+        'הגרלה: מסך המצגת שומר על המסך דלוק לאורך כל האירוע',
+      ],
+      en: [
+        'Raffle: a second animation style — "code reveal". The characters scramble on screen and then lock one by one, left to right, until the full winning code stands, with a deliberate slow-down on the last two characters',
+        'Raffle: pick the style in the settings ("spinning wheel" or "code reveal") with a slider for the locking pace — every existing raffle keeps using the wheel',
+        'Raffle: ticking while the characters run and a "pop" on every locked character, with its own on/off switch. The winning sound stays the one chosen in the settings',
+        'Raffle: the big-screen page now keeps the display awake for the whole event',
+      ],
+    },
+  },
+  {
     version: '1.19.0',
     date: '2026-07-15',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'ניחוש: בטאב הנרשמים נוסף חיפוש חי לפי שם או מספר טלפון — לאיתור מהיר של משתתף ברשימה, כולל ספירת תוצאות',
