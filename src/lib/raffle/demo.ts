@@ -45,25 +45,29 @@ export function generateDemoCodes(count = 3000, length = 9): RaffleParticipant[]
   return out;
 }
 
+// Every demo row carries this instead of a phone number. Randomly generated
+// numbers looked real enough to alarm people — and a random Israeli mobile
+// WILL collide with somebody's actual line — so the demo shows a number that
+// obviously never belongs to anyone.
+export const DEMO_PHONE = '000000000';
+
 // Deterministic demo set so the screen recording looks consistent run-to-run.
 export function generateDemoParticipants(count = 1000): RaffleParticipant[] {
   const rand = rng(20260528);
   const out: RaffleParticipant[] = [];
-  const usedPhones = new Set<string>();
 
-  while (out.length < count) {
+  // The id used to be the phone, which kept rows unique. With one shared
+  // placeholder phone it has to come from the index instead — ids drive the
+  // per-row draw/edit/delete lookups, so duplicates would decrement every
+  // matching row at once.
+  for (let i = 0; i < count; i++) {
     const first = FIRST_NAMES[Math.floor(rand() * FIRST_NAMES.length)];
     const last = LAST_NAMES[Math.floor(rand() * LAST_NAMES.length)];
-    const prefix = ['050', '052', '053', '054', '055', '058'][Math.floor(rand() * 6)];
-    const rest = String(Math.floor(rand() * 9000000) + 1000000);
-    const phone = `${prefix}${rest}`;
-    if (usedPhones.has(phone)) continue;
-    usedPhones.add(phone);
     out.push({
-      id: phone,
+      id: `demo-${String(i + 1).padStart(4, '0')}`,
       firstName: first,
       lastName: last,
-      phone,
+      phone: DEMO_PHONE,
       quantity: 1,
       remaining: 1,
     });

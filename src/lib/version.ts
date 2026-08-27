@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.3';
+export const APP_VERSION = '1.19.4';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.19.4',
+    date: '2026-08-27',
+    isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: במסך הדמו כל הטלפונים הוחלפו ב-000000000 — קודם נוצרו מספרים אקראיים שנראו כמו מספרים אמיתיים',
+        'הגרלה: מעבר לרשימת קודים בדמו עובר אוטומטית לאנימציית חשיפת הקוד, ומעבר לרשימת אנשים חוזר לגלגל',
+        'הגרלה: לדמו אפשר להגיע ישירות במצב מסוים דרך הכתובת — סוג רשימה, סגנון אנימציה, ואפשרות להסתיר את חלון ההגדרות',
+      ],
+      en: [
+        'Raffle: every phone in the demo screen is now 000000000 — the previous random numbers looked like real ones',
+        'Raffle: switching the demo to a code list now switches to the code-reveal animation, and back to the wheel for a people list',
+        'Raffle: the demo can be opened directly in a given state from the URL — list type, animation style, and an option to hide the settings dialog',
+      ],
+    },
+  },
+  {
     version: '1.19.3',
     date: '2026-08-16',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: חלון ההגדרות עוצב מחדש — אזור הגרירה הגדול הוחלף בשני כפתורים, ״בחרו קובץ״ ו״הדביקו רשימה״, כך שרשימת המשתתפים נראית מיד בלי לגלול',

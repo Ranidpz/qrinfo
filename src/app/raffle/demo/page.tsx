@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import RaffleStage from '@/components/raffle/RaffleStage';
 import RaffleSettingsPanel from '@/components/raffle/RaffleSettingsPanel';
@@ -15,33 +16,80 @@ import { generateDemoParticipants, generateDemoCodes } from '@/lib/raffle/demo';
 
 type Fields = { firstName: string; lastName: string; phone: string; quantity: number };
 
+// Module scope so the participants state initializer can call it before the
+// component's own callbacks exist.
+function demoDataFor(listType: RaffleConfig['listType']): RaffleParticipant[] {
+  return listType === 'codes' ? generateDemoCodes(3000) : generateDemoParticipants(1000);
+}
+
+// A code list only reads right with the character-by-character reveal, and a
+// name list with the wheel. Pairing them keeps the demo from opening on the
+// animation the viewer did not come to see.
+function styleFor(listType: RaffleConfig['listType']): RaffleConfig['animationStyle'] {
+  return listType === 'codes' ? 'codeReveal' : 'wheel';
+}
+
 export default function RaffleDemoPage() {
+  return (
+    <Suspense fallback={<main className="h-screen w-screen bg-black" />}>
+      <RaffleDemo />
+    </Suspense>
+  );
+}
+
+function RaffleDemo() {
+  // A link handed to a client should land on exactly what was pitched, so the
+  // demo opens straight into a given list type and animation:
+  //   ?list=codes|people   ?style=code|wheel   ?panel=off
+  const search = useSearchParams();
+  const initial = useMemo<{ config: RaffleConfig; panelHidden: boolean }>(() => {
+    const listParam = (search.get('list') || '').toLowerCase();
+    const styleParam = (search.get('style') || '').toLowerCase();
+
+    const listType: RaffleConfig['listType'] =
+      listParam === 'codes' ? 'codes' : listParam === 'people' ? 'people' : DEFAULT_RAFFLE_CONFIG.listType;
+
+    const animationStyle: RaffleConfig['animationStyle'] =
+      styleParam === 'code' || styleParam === 'codereveal'
+        ? 'codeReveal'
+        : styleParam === 'wheel'
+          ? 'wheel'
+          : listParam
+            ? styleFor(listType)
+            : DEFAULT_RAFFLE_CONFIG.animationStyle;
+
+    return {
+      config: { ...DEFAULT_RAFFLE_CONFIG, listType, animationStyle },
+      panelHidden: (search.get('panel') || '').toLowerCase() === 'off',
+    };
+  }, [search]);
+
   const [participants, setParticipants] = useState<RaffleParticipant[]>(() =>
-    generateDemoParticipants(1000)
+    demoDataFor(initial.config.listType)
   );
   const [winners, setWinners] = useState<RaffleWinner[]>([]);
-  const [config, setConfig] = useState<RaffleConfig>(DEFAULT_RAFFLE_CONFIG);
+  const [config, setConfig] = useState<RaffleConfig>(initial.config);
   const [isDemoData, setIsDemoData] = useState(true);
   const [panelOpen, setPanelOpen] = useState(false);
-
-  // Demo data follows the list type, so switching to a code raffle previews
-  // against real codes instead of names.
-  const demoDataFor = useCallback(
-    (listType: RaffleConfig['listType']) =>
-      listType === 'codes' ? generateDemoCodes(3000) : generateDemoParticipants(1000),
-    []
-  );
 
   const onConfigChange = useCallback(
     (patch: Partial<RaffleConfig>) => {
       const nextType = patch.listType;
-      if (nextType && nextType !== (config.listType ?? 'people') && isDemoData) {
+      const switching = !!nextType && nextType !== (config.listType ?? 'people');
+      if (switching && isDemoData) {
         setParticipants(demoDataFor(nextType));
         setWinners([]);
       }
-      setConfig((c) => ({ ...c, ...patch }));
+      setConfig((c) => {
+        const next = { ...c, ...patch };
+        // Follow the list type, unless this same change picked a style itself.
+        if (switching && patch.animationStyle === undefined) {
+          next.animationStyle = styleFor(nextType);
+        }
+        return next;
+      });
     },
-    [config.listType, isDemoData, demoDataFor]
+    [config.listType, isDemoData]
   );
 
   // Demo draw: pick a random eligible participant, decrement quantity, record
@@ -75,7 +123,7 @@ export default function RaffleDemoPage() {
     setParticipants(demoDataFor(config.listType));
     setWinners([]);
     setIsDemoData(true);
-  }, [demoDataFor, config.listType]);
+  }, [config.listType]);
 
   const onImport = useCallback((list: RaffleParticipant[], mode: 'replace' | 'merge' = 'replace') => {
     setParticipants((prev) => {
@@ -121,11 +169,13 @@ export default function RaffleDemoPage() {
   }, []);
 
   const onResetAll = useCallback(() => {
-    setParticipants(demoDataFor(DEFAULT_RAFFLE_CONFIG.listType));
+    // Reset to what the link promised, not to the global default — a demo
+    // opened as a code raffle should stay a code raffle after a reset.
+    setParticipants(demoDataFor(initial.config.listType));
     setWinners([]);
-    setConfig(DEFAULT_RAFFLE_CONFIG);
+    setConfig(initial.config);
     setIsDemoData(true);
-  }, [demoDataFor]);
+  }, [initial.config]);
 
   return (
     <main className="h-screen w-screen overflow-hidden bg-black">
@@ -136,14 +186,19 @@ export default function RaffleDemoPage() {
         canShowPhones
       />
 
-      <button
-        onClick={() => setPanelOpen(true)}
-        aria-label="הגדרות"
-        className="fixed left-5 top-5 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
-      >
-        <Menu size={22} />
-      </button>
+      {/* ?panel=off hands out a bare screen — no settings, no participant
+          manager — for links that go to a client rather than an operator. */}
+      {!initial.panelHidden && (
+        <button
+          onClick={() => setPanelOpen(true)}
+          aria-label="הגדרות"
+          className="fixed left-5 top-5 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition hover:bg-white/20"
+        >
+          <Menu size={22} />
+        </button>
+      )}
 
+      {!initial.panelHidden && (
       <RaffleSettingsPanel
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
@@ -168,6 +223,7 @@ export default function RaffleDemoPage() {
           />
         }
       />
+      )}
     </main>
   );
 }
