@@ -20,6 +20,7 @@ import {
   Loader2,
   Sparkles,
   Users,
+  Plus,
   Link as LinkIcon,
   Copy,
   Check,
@@ -33,6 +34,7 @@ import type {
 } from '@/lib/raffle/types';
 import {
   fullName,
+  prizeForRank,
   resolveWinSoundUrl,
   RAFFLE_WIN_SOUND_PRESETS,
   CODE_LOCK_MS_MIN,
@@ -101,6 +103,15 @@ export default function RaffleSettingsPanel({
   const isModal = variant === 'modal';
   const listType = config.listType ?? 'people';
   const isCodes = listType === 'codes';
+  // Prize labels in draw order. Three empty rows by default so the operator
+  // sees where they go; blanks show nothing on screen.
+  const prizeRows: string[] =
+    Array.isArray(config.prizes) && config.prizes.length > 0 ? config.prizes : ['', '', ''];
+  const setPrize = (i: number, v: string) => {
+    const next = [...prizeRows];
+    next[i] = v;
+    onConfigChange({ prizes: next });
+  };
   const soundFileRef = useRef<HTMLInputElement | null>(null);
   const imageRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLInputElement | null>(null);
@@ -182,10 +193,11 @@ export default function RaffleSettingsPanel({
   };
 
   const exportWinners = () => {
-    const head = ['מקום', 'שם פרטי', 'שם משפחה', 'טלפון', 'שעה'];
+    const head = ['מקום', 'פרס', 'שם פרטי', 'שם משפחה', 'טלפון', 'שעה'];
     const lines = winners.map((w) =>
       [
         w.rank,
+        prizeForRank(config, w.rank),
         w.firstName,
         w.lastName,
         w.phone,
@@ -609,6 +621,40 @@ export default function RaffleSettingsPanel({
             </p>
           </Section>
 
+          <Section icon={<Trophy size={15} />} title="פרסים (רשות)">
+            <p className="text-sm leading-relaxed text-white/45">
+              לפי סדר ההגרלות: הפרס בשורה הראשונה מוצג מתחת לזוכה בהגרלה הראשונה, וכן הלאה. שורה
+              ריקה — בלי פרס.
+            </p>
+            <div className="space-y-2">
+              {prizeRows.map((v, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 text-sm text-white/50">הגרלה {i + 1}</span>
+                  <input
+                    value={v}
+                    onChange={(e) => setPrize(i, e.target.value)}
+                    placeholder="שם הפרס"
+                    className="h-11 min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-amber-400/60"
+                  />
+                  <button
+                    onClick={() => onConfigChange({ prizes: prizeRows.filter((_, j) => j !== i) })}
+                    disabled={prizeRows.length <= 1}
+                    aria-label="הסירו פרס"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/40 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-30"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => onConfigChange({ prizes: [...prizeRows, ''] })}
+              className="flex items-center gap-2 text-sm text-white/45 transition hover:text-white/80"
+            >
+              <Plus size={16} /> הוסיפו פרס
+            </button>
+          </Section>
+
           <Section icon={<Volume2 size={15} />} title="צלילים">
             <CheckRow
               label="הפעל צלילים"
@@ -743,6 +789,9 @@ export default function RaffleSettingsPanel({
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{fullName(w)}</div>
+                        {prizeForRank(config, w.rank) && (
+                          <div className="truncate text-xs text-amber-300/80">{prizeForRank(config, w.rank)}</div>
+                        )}
                         <div className="truncate text-xs text-white/40" dir="ltr">{w.phone}</div>
                       </div>
                       {w.phone && (

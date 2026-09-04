@@ -10,6 +10,7 @@ import type {
 } from '@/lib/raffle/types';
 import {
   participantLabel,
+  prizeForRank,
   resolveWinSoundUrl,
   RAFFLE_SPIN_SOUND,
   RAFFLE_BUZZER_SOUND,
@@ -494,9 +495,17 @@ export default function RaffleDisplay({
               transform: 'translateX(-50%)',
               color: config.winnerColor,
               fontSize: 'clamp(1.4rem, 4vw, 2.6rem)',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
             }}
           >
-            זוכה
+            <div>זוכה</div>
+            {/* optional prize for this draw (by rank) — nothing else changes */}
+            {prizeForRank(config, winner.rank) && (
+              <div style={{ fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)', fontWeight: 800, marginTop: '0.25em' }}>
+                {prizeForRank(config, winner.rank)}
+              </div>
+            )}
           </div>
         </div>
       )}

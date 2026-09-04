@@ -10,6 +10,7 @@ import type {
 } from '@/lib/raffle/types';
 import {
   participantLabel,
+  prizeForRank,
   resolveWinSoundUrl,
   RAFFLE_BUZZER_SOUND,
   CODE_LOCK_MS_DEFAULT,
@@ -42,7 +43,9 @@ const SCRAMBLE_MS = 55; // how often the unlocked characters re-roll
 const TICK_MS = 75; // ticking cadence while characters are running
 const MIN_SCRAMBLE_MS = 1600; // guaranteed scramble before the first lock
 const RUSH_MS = 120; // per-character pace when the operator cuts it short
-const MAX_CELLS = 24;
+// Display cap only — the font scales down with the count (24px floor), so a
+// 40-character code still fits a 1080p screen. Nothing else limits code length.
+const MAX_CELLS = 40;
 const POOL_SAMPLE = 800; // labels sampled to build the per-position pools
 const FALLBACK_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789';
 const IDLE_CHAR = '-'; // the placeholder shown per position before the run
@@ -433,6 +436,9 @@ export default function RaffleCodeReveal({
   }, [config.backgroundType, config.backgroundColor, config.backgroundImageUrl]);
 
   const showRow = hasPool && !loading;
+  // Optional prize under the winner — resolved from the winner's rank, so a
+  // rehearsal + reset + live run line up again from the first prize.
+  const prize = phase === 'won' && winnerRef.current ? prizeForRank(config, winnerRef.current.rank) : '';
 
   return (
     <div
@@ -516,9 +522,16 @@ export default function RaffleCodeReveal({
               transform: 'translateX(-50%)',
               color: config.winnerColor,
               fontSize: 'clamp(1.2rem, 3vw, 2.2rem)',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
             }}
           >
-            זוכה
+            <div>זוכה</div>
+            {prize && (
+              <div style={{ fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)', fontWeight: 800, marginTop: '0.25em' }}>
+                {prize}
+              </div>
+            )}
           </div>
         )}
       </div>

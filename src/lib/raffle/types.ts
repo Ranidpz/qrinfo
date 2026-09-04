@@ -79,6 +79,11 @@ export interface RaffleConfig {
   // Shared secret for the public big-screen link (/raffle/{shortId}?token=).
   // Generated when the raffle is first created. Gates the names + draw APIs.
   token?: string;
+  // Optional prize label per draw, in DRAW ORDER: prizes[0] is shown under the
+  // first winner (rank 1), prizes[1] under the second, and so on. An empty or
+  // missing entry shows nothing. Resetting the winners restarts the ranks, so
+  // the labels line up again for the live run after a rehearsal.
+  prizes?: string[];
 }
 
 export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
@@ -111,6 +116,13 @@ export function resolveWinSoundUrl(config: RaffleConfig): string {
   }
   if (config.winSound === 'buzzer') return RAFFLE_WIN_SOUND_PRESETS.buzzer;
   return RAFFLE_WIN_SOUND_PRESETS.win;
+}
+
+// Prize label for a winner of the given rank (1-based), or '' when none is set.
+export function prizeForRank(config: Pick<RaffleConfig, 'prizes'>, rank: number): string {
+  const list = config.prizes;
+  if (!Array.isArray(list) || rank < 1) return '';
+  return String(list[rank - 1] ?? '').trim();
 }
 
 export function fullName(p: { firstName: string; lastName: string }): string {

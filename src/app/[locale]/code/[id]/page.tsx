@@ -4827,7 +4827,14 @@ export default function CodeEditPage({ params }: PageProps) {
           setEditingRaffleId(null);
         }}
         onSave={handleSaveRaffle}
-        initialConfig={editingRaffleId ? code?.media.find(m => m.id === editingRaffleId)?.raffleConfig : undefined}
+        // Fall back to the existing raffle media: the toolbar button clears
+        // editingRaffleId, and without this the modal opened on DEFAULTS and its
+        // first save overwrote the real config (style, list type, colours…).
+        initialConfig={
+          (editingRaffleId
+            ? code?.media.find(m => m.id === editingRaffleId)?.raffleConfig
+            : undefined) || code?.media.find(m => m.type === 'raffle')?.raffleConfig
+        }
         codeId={code.id}
         shortId={code.shortId}
       />

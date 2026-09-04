@@ -5,7 +5,7 @@ import { Menu, X, RotateCcw, Trophy, Eye, Volume2, Palette, ChevronDown } from '
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import RaffleStage from '@/components/raffle/RaffleStage';
 import type { RaffleConfig, RaffleParticipant, RaffleWinner } from '@/lib/raffle/types';
-import { fullName } from '@/lib/raffle/types';
+import { fullName, prizeForRank } from '@/lib/raffle/types';
 
 interface RaffleClientProps {
   config: RaffleConfig;
@@ -251,7 +251,12 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400 text-sm font-bold text-black">
                         {w.rank}
                       </span>
-                      <div className="min-w-0 flex-1 truncate text-sm font-medium">{fullName(w)}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{fullName(w)}</div>
+                        {prizeForRank(display, w.rank) && (
+                          <div className="truncate text-xs text-amber-300/80">{prizeForRank(display, w.rank)}</div>
+                        )}
+                      </div>
                       <span className="shrink-0 text-xs text-white/40">
                         {new Date(w.wonAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                       </span>

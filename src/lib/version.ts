@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.4';
+export const APP_VERSION = '1.19.5';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
+    version: '1.19.5',
+    date: '2026-09-04',
+    isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: תוקנה תקלה חמורה — פתיחת ההגדרות מכפתור סרגל הכלים איפסה את כל ההגדרות לברירת המחדל (סגנון אנימציה, סוג רשימה, צבעים) ושמרה אותן',
+        'הגרלה: פרסים לפי סדר ההגרלות (רשות) — שם הפרס מוצג מתחת לזוכה על המסך הגדול, ברשימות הזוכים ובייצוא',
+        'הגרלה: אין יותר מגבלה מעשית על אורך הקוד — עד 40 תווים בתצוגה, והגופן מתאים את עצמו',
+      ],
+      en: [
+        'Raffle: fixed a serious bug — opening the settings from the toolbar button reset every setting to its default (animation style, list type, colours) and saved it',
+        'Raffle: optional prizes in draw order — the prize name is shown under the winner on the big screen, in the winners lists and in the export',
+        'Raffle: no practical limit on code length any more — up to 40 characters on screen, with the font scaling to fit',
+      ],
+    },
+  },
+  {
     version: '1.19.4',
     date: '2026-08-27',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: במסך הדמו כל הטלפונים הוחלפו ב-000000000 — קודם נוצרו מספרים אקראיים שנראו כמו מספרים אמיתיים',
