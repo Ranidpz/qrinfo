@@ -47,8 +47,11 @@ import RaffleConfetti from './RaffleConfetti';
 // 'leaving' = the press after a win: the code and prize break apart and fall
 // away, then the board comes back clean (dashes + next prize) and waits.
 type Phase = 'idle' | 'scrambling' | 'locking' | 'won' | 'leaving';
-const LEAVE_MS = 620; // exit animation length (see .raffle-leave in globals.css)
-const ENTER_MS = 520; // board re-entrance
+// Per-character stagger of the between-draw transition (see globals.css);
+// total length scales with the code width so long codes aren't cut short.
+const STAGGER_MS = 45;
+const leaveMs = (n: number) => 180 + n * STAGGER_MS + 60;
+const enterMs = (n: number) => 140 + n * STAGGER_MS + 200;
 
 const SCRAMBLE_MS = 55; // how often the unlocked characters re-roll
 const TICK_MS = 75; // ticking cadence while characters are running
@@ -347,12 +350,13 @@ export default function RaffleCodeReveal({
   const leave = useCallback(() => {
     if (leaveTimerRef.current !== null) return;
     setPhaseBoth('leaving');
+    const n = Math.max(1, widthRef.current);
     leaveTimerRef.current = window.setTimeout(() => {
       leaveTimerRef.current = null;
       resetToIdle();
       setEntering(true);
-      window.setTimeout(() => setEntering(false), ENTER_MS);
-    }, LEAVE_MS);
+      window.setTimeout(() => setEntering(false), enterMs(n));
+    }, leaveMs(n));
   }, [setPhaseBoth, resetToIdle]);
 
   useEffect(
@@ -550,6 +554,7 @@ export default function RaffleCodeReveal({
             dir="ltr"
             className={`flex items-center justify-center ${leaving ? 'raffle-leave' : ''} ${entering ? 'raffle-enter' : ''}`}
             style={{
+              ['--n' as string]: width,
               gap: `${(fontPx * 0.14).toFixed(1)}px`,
               fontFamily:
                 "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
@@ -590,6 +595,7 @@ export default function RaffleCodeReveal({
           <div
             className={`raffle-winner-caption font-bold tracking-wide ${leaving ? 'raffle-leave' : ''} ${entering ? 'raffle-enter' : ''}`}
             style={{
+              ['--n' as string]: width,
               position: 'absolute',
               left: '50%',
               top: `calc(50% + ${Math.round(fontPx * 0.75)}px)`,

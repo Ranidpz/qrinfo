@@ -929,50 +929,67 @@ body {
   }
 }
 
-/* Between draws: the board breaks apart and falls (per-character stagger),
-   then a clean board rises back in. transform/opacity only. */
+/* Between draws — terminal-style, no easing: each character flickers once and
+   cuts out, one after the other; then each dash snaps on with a brief flash.
+   `--i` = character index (stagger), `--n` = character count (caption timing).
+   steps() timing = hard cuts, nothing "flows". transform/opacity only. */
 .raffle-leave .raffle-cell {
-  animation: raffle-cell-leave 0.5s cubic-bezier(0.55, 0, 0.85, 0.35) both;
-  animation-delay: calc(var(--i, 0) * 30ms);
+  animation: raffle-cell-out 0.18s steps(3, jump-none) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes raffle-cell-out {
+  0% {
+    opacity: 1;
+  }
+  33% {
+    opacity: 0;
+  }
+  66% {
+    opacity: 1;
+    transform: translate3d(2px, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
 }
 .raffle-winner-caption.raffle-leave {
-  animation: raffle-caption-leave 0.45s ease-in 0.12s both;
+  animation: raffle-snap-out 0.12s steps(1, end) both;
+  animation-delay: calc(var(--n, 9) * 22ms);
 }
-@keyframes raffle-cell-leave {
+@keyframes raffle-snap-out {
   from {
     opacity: 1;
-    transform: translate3d(0, 0, 0) rotate(0deg);
   }
   to {
     opacity: 0;
-    transform: translate3d(0, 0.9em, 0) rotate(12deg) scale(0.7);
-  }
-}
-@keyframes raffle-caption-leave {
-  from {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-  to {
-    opacity: 0;
-    transform: translate(-50%, 0.6em);
   }
 }
 .raffle-enter .raffle-cell {
-  animation: raffle-cell-enter 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  animation-delay: calc(var(--i, 0) * 25ms);
+  animation: raffle-cell-in 0.14s steps(2, jump-none) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes raffle-cell-in {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.95; /* the flash */
+  }
+  100% {
+    opacity: 0.28; /* idle dash opacity, matches the inline value */
+  }
 }
 .raffle-winner-caption.raffle-enter {
-  animation: raffle-caption-in 0.4s ease-out 0.25s both;
+  animation: raffle-snap-in 0.1s steps(1, end) both;
+  animation-delay: calc(var(--n, 9) * 45ms + 80ms);
 }
-@keyframes raffle-cell-enter {
+@keyframes raffle-snap-in {
   from {
     opacity: 0;
-    transform: translate3d(0, -0.5em, 0);
   }
   to {
-    opacity: 0.28; /* matches the idle dash opacity set inline */
-    transform: translate3d(0, 0, 0);
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {

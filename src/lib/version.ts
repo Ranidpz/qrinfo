@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.1';
+export const APP_VERSION = '1.20.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,18 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.20.1',
+    version: '1.20.2',
     date: '2026-09-04',
     isNew: true,
+    highlights: {
+      he: ['הגרלה (חשיפת קוד): המעבר בין הגרלות הוחלף — במקום נפילה רכה, כל תו מהבהב ונכבה בחיתוך חד אחד אחרי השני, והמקפים נדלקים בפתאומיות עם הבזק קצר. סגנון טרמינל, בלי ריכוכים'],
+      en: ['Raffle (code reveal): the between-draw transition was replaced — instead of a soft fall, each character flickers and cuts out one after the other, and the dashes snap on with a brief flash. Terminal style, no easing'],
+    },
+  },
+  {
+    version: '1.20.1',
+    date: '2026-09-04',
+    isNew: false,
     highlights: {
       he: [
         'הגרלה (חשיפת קוד): מעבר בין הגרלות — לחיצה אחרי זכייה מפרקת את הקוד והפרס בנפילה מהירה, ולוח נקי עולה עם הפרס הבא וממתין ללחיצה הבאה. בלי קפיצה חתוכה ישר לערבוב',
