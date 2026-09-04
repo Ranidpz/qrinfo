@@ -3,7 +3,8 @@
 // when participants/winners move to Supabase (server-side only).
 
 export type RaffleDisplayMode = 'names' | 'phones';
-export type RaffleBackgroundType = 'color' | 'image' | 'video';
+export type RaffleBackgroundType = 'color' | 'image' | 'video' | 'gradient';
+export type RaffleGradientShape = 'radial' | 'linear';
 // 'wheel' = the classic spinning reel. 'codeReveal' = the code is revealed one
 // character at a time, left→right, out of a scramble of the real loaded codes.
 export type RaffleAnimationStyle = 'wheel' | 'codeReveal';
@@ -59,6 +60,11 @@ export interface RaffleConfig {
   backgroundColor: string;
   backgroundImageUrl?: string;
   backgroundVideoUrl?: string;
+  // backgroundType 'gradient': two colours. Radial = `gradientFrom` at the
+  // centre fading to `gradientTo` at the edges; linear = top → bottom.
+  gradientFrom?: string;
+  gradientTo?: string;
+  gradientShape?: RaffleGradientShape;
   // 'phones' is honored only for the authenticated owner; the public link is
   // always forced to 'names' so phone numbers never leave the server.
   displayMode: RaffleDisplayMode;
@@ -124,6 +130,39 @@ export function resolveWinSoundUrl(config: RaffleConfig): string {
   }
   if (config.winSound === 'buzzer') return RAFFLE_WIN_SOUND_PRESETS.buzzer;
   return RAFFLE_WIN_SOUND_PRESETS.win;
+}
+
+// Defaults sampled from a typical stage backdrop (deep navy, slightly lighter
+// at the centre) so picking "gradient" looks right before touching a colour.
+export const DEFAULT_GRADIENT_FROM = '#232460';
+export const DEFAULT_GRADIENT_TO = '#111236';
+
+// CSS for the big-screen background — ONE place for both animations.
+export function raffleBackgroundStyle(
+  config: Pick<
+    RaffleConfig,
+    'backgroundType' | 'backgroundColor' | 'backgroundImageUrl' | 'gradientFrom' | 'gradientTo' | 'gradientShape'
+  >
+): Record<string, string> {
+  if (config.backgroundType === 'image' && config.backgroundImageUrl) {
+    return {
+      backgroundImage: `url(${config.backgroundImageUrl})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    };
+  }
+  if (config.backgroundType === 'gradient') {
+    const from = config.gradientFrom || DEFAULT_GRADIENT_FROM;
+    const to = config.gradientTo || DEFAULT_GRADIENT_TO;
+    return {
+      backgroundColor: to,
+      backgroundImage:
+        (config.gradientShape ?? 'radial') === 'linear'
+          ? `linear-gradient(180deg, ${from} 0%, ${to} 100%)`
+          : `radial-gradient(ellipse at center, ${from} 0%, ${to} 75%)`,
+    };
+  }
+  return { backgroundColor: config.backgroundColor };
 }
 
 // Whether the start-of-draw sound plays for this config (see `startSound`).

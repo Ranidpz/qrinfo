@@ -14,6 +14,7 @@ import {
   startSoundEnabled,
   resolveStartSoundUrl,
   resolveWinSoundUrl,
+  raffleBackgroundStyle,
   RAFFLE_SPIN_SOUND,
   RAFFLE_BUZZER_SOUND,
 } from '@/lib/raffle/types';
@@ -354,16 +355,18 @@ export default function RaffleDisplay({
 
   useEffect(() => () => stopRaf(), [stopRaf]);
 
-  const background = useMemo(() => {
-    if (config.backgroundType === 'image' && config.backgroundImageUrl) {
-      return {
-        backgroundImage: `url(${config.backgroundImageUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      } as const;
-    }
-    return { backgroundColor: config.backgroundColor } as const;
-  }, [config.backgroundType, config.backgroundColor, config.backgroundImageUrl]);
+  const background = useMemo(
+    () => raffleBackgroundStyle(config),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      config.backgroundType,
+      config.backgroundColor,
+      config.backgroundImageUrl,
+      config.gradientFrom,
+      config.gradientTo,
+      config.gradientShape,
+    ]
+  );
 
   const showReel = phase === 'spinning' || phase === 'stopping';
 

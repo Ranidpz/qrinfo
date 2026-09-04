@@ -42,6 +42,9 @@ import {
   resolveWinSoundUrl,
   RAFFLE_WIN_SOUND_PRESETS,
   RAFFLE_SPIN_SOUND,
+  DEFAULT_GRADIENT_FROM,
+  DEFAULT_GRADIENT_TO,
+  raffleBackgroundStyle,
   CODE_LOCK_MS_MIN,
   CODE_LOCK_MS_MAX,
   CODE_LOCK_MS_DEFAULT,
@@ -443,8 +446,8 @@ export default function RaffleSettingsPanel({
 
           <div className={grpCls('design', 'grid')}>
           <Section icon={<Palette size={15} />} title="רקע">
-            <div className="grid grid-cols-3 gap-1.5">
-              {(['color', 'video', 'image'] as const).map((t) => (
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['color', 'gradient', 'video', 'image'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => onConfigChange({ backgroundType: t })}
@@ -454,7 +457,7 @@ export default function RaffleSettingsPanel({
                       : 'bg-white/5 text-white/70 hover:bg-white/10'
                   }`}
                 >
-                  {t === 'color' ? 'צבע' : t === 'video' ? 'וידאו' : 'תמונה'}
+                  {t === 'color' ? 'צבע' : t === 'gradient' ? 'גרדיאנט' : t === 'video' ? 'וידאו' : 'תמונה'}
                 </button>
               ))}
             </div>
@@ -465,6 +468,46 @@ export default function RaffleSettingsPanel({
                 value={config.backgroundColor}
                 onChange={(v) => onConfigChange({ backgroundColor: v })}
               />
+            )}
+
+            {config.backgroundType === 'gradient' && (
+              <>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      { key: 'radial', label: 'רדיאלי (מהמרכז)' },
+                      { key: 'linear', label: 'ליניארי (מלמעלה)' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => onConfigChange({ gradientShape: opt.key })}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        (config.gradientShape ?? 'radial') === opt.key
+                          ? 'bg-white/15 text-white'
+                          : 'bg-white/5 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <ColorRow
+                  label={(config.gradientShape ?? 'radial') === 'linear' ? 'צבע עליון' : 'צבע מרכז'}
+                  value={config.gradientFrom || DEFAULT_GRADIENT_FROM}
+                  onChange={(v) => onConfigChange({ gradientFrom: v })}
+                />
+                <ColorRow
+                  label={(config.gradientShape ?? 'radial') === 'linear' ? 'צבע תחתון' : 'צבע קצוות'}
+                  value={config.gradientTo || DEFAULT_GRADIENT_TO}
+                  onChange={(v) => onConfigChange({ gradientTo: v })}
+                />
+                <div
+                  className="h-16 rounded-lg border border-white/10"
+                  style={raffleBackgroundStyle(config)}
+                  aria-hidden
+                />
+              </>
             )}
 
             {config.backgroundType === 'image' && (
@@ -533,9 +576,15 @@ export default function RaffleSettingsPanel({
               value={config.winnerColor}
               onChange={(v) => onConfigChange({ winnerColor: v })}
             />
+            <p className="text-xs leading-relaxed text-white/40">
+              {(config.animationStyle ?? 'wheel') === 'codeReveal'
+                ? 'בחשיפת קוד: הקוד בצבע הטקסט; צבע הזוכה צובע את הזוהר סביבו ואת שם הפרס.'
+                : 'בגלגל: השמות בצבע הטקסט; השם הזוכה ושם הפרס בצבע הזוכה.'}
+            </p>
           </Section>
 
-          <Section icon={<Type size={15} />} title="כותרת פתיחה">
+          {/* Code reveal idles on the dash row, not a title — hide what has no effect. */}
+          <Section icon={<Type size={15} />} title="כותרת פתיחה" hidden={(config.animationStyle ?? 'wheel') === 'codeReveal'}>
             <input
               value={config.idleTitle ?? 'הגרלה'}
               onChange={(e) => onConfigChange({ idleTitle: e.target.value })}

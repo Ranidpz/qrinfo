@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.8';
+export const APP_VERSION = '1.19.9';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.19.8',
+    version: '1.19.9',
     date: '2026-09-04',
     isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: רקע גרדיאנט — שני צבעים, רדיאלי (מהמרכז) או ליניארי (מלמעלה), עם תצוגה מקדימה. ברירת המחדל: כחול-כהה של רקע במה',
+        'הגרלה: בחשיפת קוד הקוד נצבע עכשיו ב״צבע טקסט״ כמו השמות בגלגל; ״צבע זוכה״ צובע את הזוהר ואת שם הפרס',
+        'הגרלה: ״כותרת פתיחה״ מוסתרת בחשיפת קוד — שם מסך הפתיחה הוא שורת המקפים',
+      ],
+      en: [
+        'Raffle: gradient background — two colours, radial (from the centre) or linear (top down), with a preview. Default: deep stage navy',
+        'Raffle: in the code reveal the code is now painted in the "text colour", like names on the wheel; the "winner colour" paints the glow and the prize',
+        'Raffle: "opening title" is hidden for the code reveal — its idle screen is the dash row',
+      ],
+    },
+  },
+  {
+    version: '1.19.8',
+    date: '2026-09-04',
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: צליל ההתחלה דלוק כברירת מחדל בשני הסגנונות, ואפשר לבחור לו סיבוב / זכייה / באזר עם השמעה מקדימה, או להעלות צליל משלכם',

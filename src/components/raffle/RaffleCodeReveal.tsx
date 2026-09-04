@@ -14,6 +14,7 @@ import {
   startSoundEnabled,
   resolveStartSoundUrl,
   resolveWinSoundUrl,
+  raffleBackgroundStyle,
   RAFFLE_BUZZER_SOUND,
   RAFFLE_SPIN_SOUND,
   CODE_LOCK_MS_DEFAULT,
@@ -240,7 +241,7 @@ export default function RaffleCodeReveal({
       const p = pools[i] && pools[i].length ? pools[i] : FALLBACK_CHARS.split('');
       el.textContent = p[(Math.random() * p.length) | 0];
       el.style.color = fontColor;
-      el.style.opacity = '0.6';
+      el.style.opacity = '0.45';
       el.style.textShadow = 'none';
     }
   }, []);
@@ -266,12 +267,14 @@ export default function RaffleCodeReveal({
     lockedRef.current = i + 1;
 
     const el = cellRefs.current[i];
-    const { winnerColor } = configRef.current;
+    // Locked characters are the TEXT colour ("צבע טקסט"), exactly like the
+    // wheel's names; the winner colour paints the glow, caption and prize.
+    const { fontColor, winnerColor } = configRef.current;
     if (el) {
       el.textContent = code[i] ?? IDLE_CHAR;
-      el.style.color = winnerColor;
+      el.style.color = fontColor;
       el.style.opacity = '1';
-      el.style.textShadow = `0 0 ${Math.round(fontPx * 0.22)}px ${winnerColor}66`;
+      el.style.textShadow = `0 0 ${Math.round(fontPx * 0.22)}px ${winnerColor}99`;
       el.style.transform = 'scale(1.16)';
       window.setTimeout(() => {
         if (el) el.style.transform = 'scale(1)';
@@ -435,16 +438,18 @@ export default function RaffleCodeReveal({
 
   useEffect(() => () => stopRaf(), [stopRaf]);
 
-  const background = useMemo(() => {
-    if (config.backgroundType === 'image' && config.backgroundImageUrl) {
-      return {
-        backgroundImage: `url(${config.backgroundImageUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      } as const;
-    }
-    return { backgroundColor: config.backgroundColor } as const;
-  }, [config.backgroundType, config.backgroundColor, config.backgroundImageUrl]);
+  const background = useMemo(
+    () => raffleBackgroundStyle(config),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      config.backgroundType,
+      config.backgroundColor,
+      config.backgroundImageUrl,
+      config.gradientFrom,
+      config.gradientTo,
+      config.gradientShape,
+    ]
+  );
 
   const showRow = hasPool && !loading;
   // Optional prize under the winner — resolved from the winner's rank, so a
