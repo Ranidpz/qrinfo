@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.0';
+export const APP_VERSION = '1.20.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,24 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.20.0',
+    version: '1.20.1',
     date: '2026-09-04',
     isNew: true,
+    highlights: {
+      he: [
+        'הגרלה (חשיפת קוד): מעבר בין הגרלות — לחיצה אחרי זכייה מפרקת את הקוד והפרס בנפילה מהירה, ולוח נקי עולה עם הפרס הבא וממתין ללחיצה הבאה. בלי קפיצה חתוכה ישר לערבוב',
+        'הגרלה (חשיפת קוד): הפרס של ההגרלה הבאה מוצג כבר על לוח ההמתנה, מעומעם, ומתחזק עם הריצה והזכייה',
+      ],
+      en: [
+        'Raffle (code reveal): a transition between draws — a press after a win breaks the code and prize apart in a quick fall, and a clean board rises with the next prize, waiting for the next press. No hard cut straight into the scramble',
+        'Raffle (code reveal): the next draw\'s prize is shown on the waiting board, dimmed, brightening through the run and the win',
+      ],
+    },
+  },
+  {
+    version: '1.20.0',
+    date: '2026-09-04',
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: קונפטי בזכייה — מתפרץ מאחורי הזוכה החוצה ונופל. ארבעה מצבים: כבוי, בצבעי העיצוב (זהב, לבן וגוון בהיר של הרקע), צבעוני, או שני צבעים משלכם. אפשר להגביל להגרלה האחרונה בלבד',

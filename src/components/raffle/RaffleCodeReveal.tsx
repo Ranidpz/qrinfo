@@ -44,7 +44,11 @@ import RaffleConfetti from './RaffleConfetti';
 //   * The character pools are snapshotted when the run starts, so a mid-run
 //     participant refetch can't disturb what's on screen.
 
-type Phase = 'idle' | 'scrambling' | 'locking' | 'won';
+// 'leaving' = the press after a win: the code and prize break apart and fall
+// away, then the board comes back clean (dashes + next prize) and waits.
+type Phase = 'idle' | 'scrambling' | 'locking' | 'won' | 'leaving';
+const LEAVE_MS = 620; // exit animation length (see .raffle-leave in globals.css)
+const ENTER_MS = 520; // board re-entrance
 
 const SCRAMBLE_MS = 55; // how often the unlocked characters re-roll
 const TICK_MS = 75; // ticking cadence while characters are running
@@ -104,6 +108,9 @@ export default function RaffleCodeReveal({
   const [phase, setPhase] = useState<Phase>('idle');
   // Re-render once the winner lands so the prize can switch to the REAL rank.
   const [wonRankState, setWonRankState] = useState(0);
+  // True for a beat after the board comes back, to play its entrance.
+  const [entering, setEntering] = useState(false);
+  const leaveTimerRef = useRef<number | null>(null);
   const [fontPx, setFontPx] = useState(120);
 
   const mode: RaffleDisplayMode =
@@ -331,9 +338,29 @@ export default function RaffleCodeReveal({
     winnerRef.current = null;
     codeRef.current = '';
     rushRef.current = false;
+    setWonRankState(0);
     setPhaseBoth('idle');
     paintIdle();
   }, [stopRaf, setPhaseBoth, paintIdle]);
+
+  // Press after a win: break the board apart, then bring a clean one back.
+  const leave = useCallback(() => {
+    if (leaveTimerRef.current !== null) return;
+    setPhaseBoth('leaving');
+    leaveTimerRef.current = window.setTimeout(() => {
+      leaveTimerRef.current = null;
+      resetToIdle();
+      setEntering(true);
+      window.setTimeout(() => setEntering(false), ENTER_MS);
+    }, LEAVE_MS);
+  }, [setPhaseBoth, resetToIdle]);
+
+  useEffect(
+    () => () => {
+      if (leaveTimerRef.current !== null) window.clearTimeout(leaveTimerRef.current);
+    },
+    []
+  );
 
   const start = useCallback(() => {
     if (!hasPool) return;
@@ -394,7 +421,12 @@ export default function RaffleCodeReveal({
 
   const toggle = useCallback(() => {
     const p = phaseRef.current;
-    if (p === 'idle' || p === 'won') {
+    if (p === 'leaving') return; // let the transition finish
+    if (p === 'won') {
+      leave();
+      return;
+    }
+    if (p === 'idle') {
       start();
       return;
     }
@@ -404,7 +436,7 @@ export default function RaffleCodeReveal({
       playFile(buzzerAudioRef.current);
       if (winnerRef.current) nextLockAtRef.current = performance.now();
     }
-  }, [start, playFile]);
+  }, [start, leave, playFile]);
 
   // A hidden tab suspends rAF entirely. Shift the schedule by exactly the time
   // the tab was away, so the reveal resumes at its real pace instead of
@@ -466,10 +498,12 @@ export default function RaffleCodeReveal({
   // The prize is on screen from the FIRST frame of the run (the client wants
   // the audience to know what's at stake while the characters run): before the
   // server answers it uses the expected rank, then the winner's real rank.
-  const running = phase === 'scrambling' || phase === 'locking' || phase === 'won';
+  // Also on the idle board, so the audience sees what the NEXT draw is for.
   const prizeRank = wonRankState || nextRank || 0;
-  const prize = running && prizeRank > 0 ? prizeForRank(config, prizeRank) : '';
-  const wonRank = phase === 'won' ? wonRankState : 0;
+  const prize = prizeRank > 0 && hasPool ? prizeForRank(config, prizeRank) : '';
+  const leaving = phase === 'leaving';
+  // Keep the confetti mounted through the exit so it isn't cut mid-fall.
+  const wonRank = phase === 'won' || leaving ? wonRankState : 0;
   const burst = wonRank > 0 && confettiForRank(config, wonRank);
   const confettiColors = useMemo(() => confettiPalette(config), [config]);
 
@@ -514,7 +548,7 @@ export default function RaffleCodeReveal({
         {showRow && (
           <div
             dir="ltr"
-            className="flex items-center justify-center"
+            className={`flex items-center justify-center ${leaving ? 'raffle-leave' : ''} ${entering ? 'raffle-enter' : ''}`}
             style={{
               gap: `${(fontPx * 0.14).toFixed(1)}px`,
               fontFamily:
@@ -530,8 +564,9 @@ export default function RaffleCodeReveal({
                 ref={(el) => {
                   cellRefs.current[i] = el;
                 }}
-                className="inline-flex items-center justify-center will-change-transform"
+                className="raffle-cell inline-flex items-center justify-center will-change-transform"
                 style={{
+                  ['--i' as string]: i,
                   width: `${(fontPx * 0.68).toFixed(1)}px`,
                   color: config.fontColor,
                   opacity: 0.28,
@@ -551,9 +586,9 @@ export default function RaffleCodeReveal({
         {/* Absolutely placed so the code itself never shifts. The prize sits
             here from the start of the run; "זוכה" only appears at the win when
             no prize is set. */}
-        {(prize || phase === 'won') && (
+        {showRow && (prize || phase === 'won' || leaving) && (
           <div
-            className="raffle-winner-caption font-bold tracking-wide"
+            className={`raffle-winner-caption font-bold tracking-wide ${leaving ? 'raffle-leave' : ''} ${entering ? 'raffle-enter' : ''}`}
             style={{
               position: 'absolute',
               left: '50%',
@@ -573,9 +608,9 @@ export default function RaffleCodeReveal({
                   fontSize: 'clamp(2rem, 6.5vw, 5.4rem)',
                   fontWeight: 800,
                   lineHeight: 1.15,
-                  // dim while running, full glow on the win
-                  opacity: phase === 'won' ? 1 : 0.85,
-                  textShadow: phase === 'won' ? `0 0 34px ${config.winnerColor}80` : 'none',
+                  // waiting: quiet · running: present · win: full glow
+                  opacity: phase === 'won' || leaving ? 1 : phase === 'idle' ? 0.7 : 0.85,
+                  textShadow: phase === 'won' || leaving ? `0 0 34px ${config.winnerColor}80` : 'none',
                   transition: 'opacity 300ms, text-shadow 300ms',
                 }}
               >

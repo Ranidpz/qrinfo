@@ -929,6 +929,61 @@ body {
   }
 }
 
+/* Between draws: the board breaks apart and falls (per-character stagger),
+   then a clean board rises back in. transform/opacity only. */
+.raffle-leave .raffle-cell {
+  animation: raffle-cell-leave 0.5s cubic-bezier(0.55, 0, 0.85, 0.35) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+.raffle-winner-caption.raffle-leave {
+  animation: raffle-caption-leave 0.45s ease-in 0.12s both;
+}
+@keyframes raffle-cell-leave {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 0.9em, 0) rotate(12deg) scale(0.7);
+  }
+}
+@keyframes raffle-caption-leave {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, 0.6em);
+  }
+}
+.raffle-enter .raffle-cell {
+  animation: raffle-cell-enter 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 25ms);
+}
+.raffle-winner-caption.raffle-enter {
+  animation: raffle-caption-in 0.4s ease-out 0.25s both;
+}
+@keyframes raffle-cell-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -0.5em, 0);
+  }
+  to {
+    opacity: 0.28; /* matches the idle dash opacity set inline */
+    transform: translate3d(0, 0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .raffle-leave .raffle-cell,
+  .raffle-winner-caption.raffle-leave,
+  .raffle-enter .raffle-cell,
+  .raffle-winner-caption.raffle-enter {
+    animation: none;
+  }
+}
+
 /* Prize under the winner: rises in a beat after the caption. transform/opacity only. */
 .raffle-prize {
   animation: raffle-prize-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s both;
