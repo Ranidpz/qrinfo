@@ -12,6 +12,7 @@ import {
   participantLabel,
   prizeForRank,
   startSoundEnabled,
+  resolveStartSoundUrl,
   resolveWinSoundUrl,
   RAFFLE_SPIN_SOUND,
   RAFFLE_BUZZER_SOUND,
@@ -313,7 +314,9 @@ export default function RaffleDisplay({
     lastTsRef.current = performance.now();
     setPhaseBoth('spinning');
     measure();
-    if (startSoundEnabled(configRef.current)) playOnce(spinAudioRef.current); // spin sound, once
+    if (startSoundEnabled(configRef.current)) {
+      playOnce(spinAudioRef.current, resolveStartSoundUrl(configRef.current)); // start sound, once
+    }
     stopRaf();
     rafRef.current = requestAnimationFrame(frame);
   }, [hasPool, setPhaseBoth, measure, playOnce, stopRaf, frame]);

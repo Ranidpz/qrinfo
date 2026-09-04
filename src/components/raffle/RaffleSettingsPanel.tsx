@@ -31,14 +31,17 @@ import type {
   RaffleParticipant,
   RaffleWinner,
   RaffleWinSound,
+  RaffleStartSound,
 } from '@/lib/raffle/types';
 import {
   fullName,
   prizeForRank,
   nextDrawRank,
   startSoundEnabled,
+  resolveStartSoundUrl,
   resolveWinSoundUrl,
   RAFFLE_WIN_SOUND_PRESETS,
+  RAFFLE_SPIN_SOUND,
   CODE_LOCK_MS_MIN,
   CODE_LOCK_MS_MAX,
   CODE_LOCK_MS_DEFAULT,
@@ -62,7 +65,7 @@ interface RaffleSettingsPanelProps {
   onResetAll: () => void | Promise<void>;
   // Production: upload an asset to the owner's R2 folder and return its URL.
   // Demo: omitted → falls back to a local object URL.
-  uploadAsset?: (file: File, kind: 'image' | 'video') => Promise<string>;
+  uploadAsset?: (file: File, kind: 'image' | 'video' | 'audio') => Promise<string>;
   // Editor mode: hide the demo loader, show the shareable big-screen link.
   hideDemo?: boolean;
   bigScreenUrl?: string;
@@ -115,6 +118,8 @@ export default function RaffleSettingsPanel({
     onConfigChange({ prizes: next });
   };
   const soundFileRef = useRef<HTMLInputElement | null>(null);
+  const startSoundFileRef = useRef<HTMLInputElement | null>(null);
+  const [soundUploading, setSoundUploading] = useState<'win' | 'start' | null>(null);
   const imageRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLAudioElement | null>(null);
@@ -151,10 +156,21 @@ export default function RaffleSettingsPanel({
     a.play().catch(() => {});
   };
 
-  const handleSoundFile = (file: File) => {
-    const url = URL.createObjectURL(file);
-    onConfigChange({ winSound: 'custom', customWinSoundUrl: url });
-    playPreview(url);
+  // Custom sounds MUST be uploaded (R2) in the editor — a blob: URL only lives
+  // in this tab and would never play on the big screen. The demo keeps the
+  // local object URL.
+  const handleSoundFile = async (file: File, target: 'win' | 'start' = 'win') => {
+    setSoundUploading(target);
+    try {
+      const url = uploadAsset ? await uploadAsset(file, 'audio') : URL.createObjectURL(file);
+      if (target === 'start') onConfigChange({ startSoundKind: 'custom', customStartSoundUrl: url });
+      else onConfigChange({ winSound: 'custom', customWinSoundUrl: url });
+      playPreview(url);
+    } catch {
+      /* upload failed — keep the previous sound */
+    } finally {
+      setSoundUploading(null);
+    }
   };
 
   // Upload (or locally stage) a background asset, then apply it.
@@ -687,6 +703,72 @@ export default function RaffleSettingsPanel({
               checked={startSoundEnabled(config)}
               onChange={(v) => onConfigChange({ startSound: v })}
             />
+            {startSoundEnabled(config) && (
+              <div className="space-y-2 pt-1">
+                <div className="text-xs text-white/40">צליל התחלה</div>
+                {(
+                  [
+                    { key: 'spin', label: 'סיבוב', url: RAFFLE_SPIN_SOUND },
+                    { key: 'win', label: 'זכייה', url: RAFFLE_WIN_SOUND_PRESETS.win },
+                    { key: 'buzzer', label: 'באזר', url: RAFFLE_WIN_SOUND_PRESETS.buzzer },
+                  ] as { key: RaffleStartSound; label: string; url: string }[]
+                ).map((opt) => (
+                  <div key={opt.key} className="flex items-center gap-2">
+                    <button
+                      onClick={() => onConfigChange({ startSoundKind: opt.key })}
+                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        (config.startSoundKind ?? 'spin') === opt.key
+                          ? 'bg-amber-400 text-black'
+                          : 'bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                    <button
+                      onClick={() => playPreview(opt.url)}
+                      aria-label={`השמע ${opt.label}`}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-white/70 hover:bg-white/10"
+                    >
+                      <Play size={14} />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => startSoundFileRef.current?.click()}
+                    disabled={soundUploading === 'start'}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${
+                      config.startSoundKind === 'custom'
+                        ? 'bg-amber-400 text-black'
+                        : 'bg-white/5 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    {soundUploading === 'start' ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {soundUploading === 'start' ? 'מעלה…' : 'העלו צליל משלכם'}
+                  </button>
+                  {config.startSoundKind === 'custom' && config.customStartSoundUrl && (
+                    <button
+                      onClick={() => playPreview(resolveStartSoundUrl(config))}
+                      aria-label="השמע צליל שהועלה"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-white/70 hover:bg-white/10"
+                    >
+                      <Play size={14} />
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={startSoundFileRef}
+                  type="file"
+                  accept="audio/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleSoundFile(f, 'start');
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            )}
 
             {(config.animationStyle ?? 'wheel') === 'codeReveal' && (
               <>
@@ -737,13 +819,15 @@ export default function RaffleSettingsPanel({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => soundFileRef.current?.click()}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  disabled={soundUploading === 'win'}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${
                     config.winSound === 'custom'
                       ? 'bg-amber-400 text-black'
                       : 'bg-white/5 text-white/70 hover:bg-white/10'
                   }`}
                 >
-                  <Upload size={14} /> העלה צליל
+                  {soundUploading === 'win' ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {soundUploading === 'win' ? 'מעלה…' : 'העלו צליל משלכם'}
                 </button>
                 {config.winSound === 'custom' && config.customWinSoundUrl && (
                   <button
@@ -762,7 +846,7 @@ export default function RaffleSettingsPanel({
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) handleSoundFile(f);
+                  if (f) handleSoundFile(f, 'win');
                   e.target.value = '';
                 }}
               />

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.7';
+export const APP_VERSION = '1.19.8';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,24 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.19.7',
+    version: '1.19.8',
     date: '2026-09-04',
     isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: צליל ההתחלה דלוק כברירת מחדל בשני הסגנונות, ואפשר לבחור לו סיבוב / זכייה / באזר עם השמעה מקדימה, או להעלות צליל משלכם',
+        'הגרלה: תוקן — צליל מותאם (זכייה או התחלה) נשמר עד עכשיו ככתובת זמנית של הדפדפן ולא הועלה לשרת, ולכן לא התנגן על המסך הגדול. עכשיו הוא מועלה לאחסון ומתנגן בכל מקום',
+      ],
+      en: [
+        'Raffle: the start sound is on by default for both styles, with a choice of spin / win / buzzer (with preview) or your own uploaded file',
+        'Raffle: fixed — a custom sound (win or start) was saved as a temporary browser URL and never uploaded, so it did not play on the big screen. It is now uploaded to storage and plays everywhere',
+      ],
+    },
+  },
+  {
+    version: '1.19.7',
+    date: '2026-09-04',
+    isNew: false,
     highlights: {
       he: ['הגרלה: כשמוגדר פרס, שמו מחליף את המילה ״זוכה״ מתחת לקוד במקום להופיע מתחתיה'],
       en: ['Raffle: when a prize is set, its name replaces the word "winner" under the code instead of appearing beneath it'],

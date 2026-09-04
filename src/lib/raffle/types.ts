@@ -14,6 +14,9 @@ export type RaffleAnimationStyle = 'wheel' | 'codeReveal';
 export type RaffleListType = 'people' | 'codes';
 // 'buzzer' / 'win' are the bundled presets; 'custom' uses customWinSoundUrl.
 export type RaffleWinSound = 'buzzer' | 'win' | 'custom';
+// Start-of-draw sound: the bundled spin whoosh (default), either end sound, or
+// an uploaded file.
+export type RaffleStartSound = 'spin' | 'win' | 'buzzer' | 'custom';
 
 // NOTE: filenames are case-sensitive on Vercel/Linux — keep exact casing.
 export const RAFFLE_SPIN_SOUND = '/sounds/raffle/spin.mp3';
@@ -84,10 +87,11 @@ export interface RaffleConfig {
   // missing entry shows nothing. Resetting the winners restarts the ranks, so
   // the labels line up again for the live run after a rehearsal.
   prizes?: string[];
-  // Sound on the press that starts a draw. Absent keeps today's behaviour:
-  // the wheel plays its spin whoosh, the code reveal starts silent (ticking
-  // only). Explicit true/false overrides for either style.
+  // Sound on the press that starts a draw. Absent = on (both styles).
   startSound?: boolean;
+  // Which sound that is. Absent = the bundled spin whoosh.
+  startSoundKind?: RaffleStartSound;
+  customStartSoundUrl?: string;
 }
 
 export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
@@ -123,8 +127,19 @@ export function resolveWinSoundUrl(config: RaffleConfig): string {
 }
 
 // Whether the start-of-draw sound plays for this config (see `startSound`).
-export function startSoundEnabled(config: Pick<RaffleConfig, 'startSound' | 'animationStyle'>): boolean {
-  return config.startSound ?? config.animationStyle !== 'codeReveal';
+export function startSoundEnabled(config: Pick<RaffleConfig, 'startSound'>): boolean {
+  return config.startSound ?? true;
+}
+
+// URL of the configured start sound (falls back to the spin whoosh).
+export function resolveStartSoundUrl(
+  config: Pick<RaffleConfig, 'startSoundKind' | 'customStartSoundUrl'>
+): string {
+  const kind = config.startSoundKind ?? 'spin';
+  if (kind === 'custom' && config.customStartSoundUrl) return config.customStartSoundUrl;
+  if (kind === 'win') return RAFFLE_WIN_SOUND_PRESETS.win;
+  if (kind === 'buzzer') return RAFFLE_WIN_SOUND_PRESETS.buzzer;
+  return RAFFLE_SPIN_SOUND;
 }
 
 // Rank the NEXT draw will get, from the winners recorded so far. Ranks are

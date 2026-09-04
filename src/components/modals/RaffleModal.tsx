@@ -191,7 +191,7 @@ export default function RaffleModal({
 
   // Upload bg image/video / custom sound to R2 (owner-only route).
   const uploadAsset = useCallback(
-    async (file: File, kind: 'image' | 'video'): Promise<string> => {
+    async (file: File, kind: 'image' | 'video' | 'audio'): Promise<string> => {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('codeId', codeId);

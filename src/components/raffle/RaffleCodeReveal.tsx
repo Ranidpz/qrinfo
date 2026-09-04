@@ -12,6 +12,7 @@ import {
   participantLabel,
   prizeForRank,
   startSoundEnabled,
+  resolveStartSoundUrl,
   resolveWinSoundUrl,
   RAFFLE_BUZZER_SOUND,
   RAFFLE_SPIN_SOUND,
@@ -340,7 +341,9 @@ export default function RaffleCodeReveal({
     setPhaseBoth('scrambling');
 
     if (configRef.current.soundsEnabled) audioRef.current?.unlock();
-    if (startSoundEnabled(configRef.current)) playFile(spinAudioRef.current);
+    if (startSoundEnabled(configRef.current)) {
+      playFile(spinAudioRef.current, resolveStartSoundUrl(configRef.current));
+    }
 
     // Fire the draw NOW, in parallel with the animation.
     if (!drawPendingRef.current) {
