@@ -11,6 +11,7 @@ import type {
 import {
   participantLabel,
   prizeForRank,
+  startSoundEnabled,
   resolveWinSoundUrl,
   RAFFLE_SPIN_SOUND,
   RAFFLE_BUZZER_SOUND,
@@ -312,7 +313,7 @@ export default function RaffleDisplay({
     lastTsRef.current = performance.now();
     setPhaseBoth('spinning');
     measure();
-    playOnce(spinAudioRef.current); // spin sound, once
+    if (startSoundEnabled(configRef.current)) playOnce(spinAudioRef.current); // spin sound, once
     stopRaf();
     rafRef.current = requestAnimationFrame(frame);
   }, [hasPool, setPhaseBoth, measure, playOnce, stopRaf, frame]);
@@ -502,7 +503,15 @@ export default function RaffleDisplay({
             <div>זוכה</div>
             {/* optional prize for this draw (by rank) — nothing else changes */}
             {prizeForRank(config, winner.rank) && (
-              <div style={{ fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)', fontWeight: 800, marginTop: '0.25em' }}>
+              <div
+                className="raffle-prize"
+                style={{
+                  fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)',
+                  fontWeight: 800,
+                  marginTop: '0.25em',
+                  textShadow: `0 0 30px ${config.winnerColor}66`,
+                }}
+              >
                 {prizeForRank(config, winner.rank)}
               </div>
             )}

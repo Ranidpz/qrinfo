@@ -11,8 +11,10 @@ import type {
 import {
   participantLabel,
   prizeForRank,
+  startSoundEnabled,
   resolveWinSoundUrl,
   RAFFLE_BUZZER_SOUND,
+  RAFFLE_SPIN_SOUND,
   CODE_LOCK_MS_DEFAULT,
   CODE_LOCK_MS_MIN,
   CODE_LOCK_MS_MAX,
@@ -158,6 +160,7 @@ export default function RaffleCodeReveal({
   const audioRef = useRef<CodeRevealAudio | null>(null);
   const winAudioRef = useRef<HTMLAudioElement | null>(null);
   const buzzerAudioRef = useRef<HTMLAudioElement | null>(null);
+  const spinAudioRef = useRef<HTMLAudioElement | null>(null); // optional start sound
 
   const setPhaseBoth = useCallback((p: Phase) => {
     phaseRef.current = p;
@@ -170,10 +173,14 @@ export default function RaffleCodeReveal({
     const buzz = new Audio(RAFFLE_BUZZER_SOUND);
     buzz.preload = 'auto';
     buzzerAudioRef.current = buzz;
+    const spin = new Audio(RAFFLE_SPIN_SOUND);
+    spin.preload = 'auto';
+    spinAudioRef.current = spin;
     winAudioRef.current = new Audio();
     return () => {
       audioRef.current?.close();
       buzz.pause();
+      spin.pause();
       winAudioRef.current?.pause();
     };
   }, []);
@@ -333,6 +340,7 @@ export default function RaffleCodeReveal({
     setPhaseBoth('scrambling');
 
     if (configRef.current.soundsEnabled) audioRef.current?.unlock();
+    if (startSoundEnabled(configRef.current)) playFile(spinAudioRef.current);
 
     // Fire the draw NOW, in parallel with the animation.
     if (!drawPendingRef.current) {
@@ -365,7 +373,7 @@ export default function RaffleCodeReveal({
 
     stopRaf();
     rafRef.current = requestAnimationFrame(frame);
-  }, [hasPool, labels, mode, onRequestDraw, setPhaseBoth, stopRaf, frame, resetToIdle]);
+  }, [hasPool, labels, mode, onRequestDraw, setPhaseBoth, stopRaf, frame, resetToIdle, playFile]);
 
   const toggle = useCallback(() => {
     const p = phaseRef.current;
@@ -528,7 +536,15 @@ export default function RaffleCodeReveal({
           >
             <div>זוכה</div>
             {prize && (
-              <div style={{ fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)', fontWeight: 800, marginTop: '0.25em' }}>
+              <div
+                className="raffle-prize"
+                style={{
+                  fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)',
+                  fontWeight: 800,
+                  marginTop: '0.25em',
+                  textShadow: `0 0 30px ${config.winnerColor}66`,
+                }}
+              >
                 {prize}
               </div>
             )}

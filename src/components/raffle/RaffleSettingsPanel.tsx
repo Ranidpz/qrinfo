@@ -35,6 +35,8 @@ import type {
 import {
   fullName,
   prizeForRank,
+  nextDrawRank,
+  startSoundEnabled,
   resolveWinSoundUrl,
   RAFFLE_WIN_SOUND_PRESETS,
   CODE_LOCK_MS_MIN,
@@ -653,6 +655,25 @@ export default function RaffleSettingsPanel({
             >
               <Plus size={16} /> הוסיפו פרס
             </button>
+            {/* What the NEXT press will actually show. Ranks keep counting across
+                imports, so after a rehearsal this is the line that catches
+                "why is there no prize" before it happens on stage. */}
+            {(() => {
+              const next = nextDrawRank(winners);
+              const label = prizeForRank(config, next);
+              const hasAny = prizeRows.some((v) => v.trim());
+              const warn = hasAny && !label;
+              return (
+                <div
+                  className={`rounded-lg px-4 py-2 text-sm ${
+                    warn ? 'border border-amber-400/40 bg-amber-400/10 text-amber-200' : 'bg-white/5 text-white/60'
+                  }`}
+                >
+                  ההגרלה הבאה: מס׳ {next}
+                  {label ? ` — ${label}` : hasAny ? ' — ללא פרס. אפסו את הזוכים כדי להתחיל מהפרס הראשון.' : ''}
+                </div>
+              );
+            })()}
           </Section>
 
           <Section icon={<Volume2 size={15} />} title="צלילים">
@@ -660,6 +681,11 @@ export default function RaffleSettingsPanel({
               label="הפעל צלילים"
               checked={config.soundsEnabled}
               onChange={(v) => onConfigChange({ soundsEnabled: v })}
+            />
+            <CheckRow
+              label="צליל התחלה (בלחיצה על אנטר)"
+              checked={startSoundEnabled(config)}
+              onChange={(v) => onConfigChange({ startSound: v })}
             />
 
             {(config.animationStyle ?? 'wheel') === 'codeReveal' && (

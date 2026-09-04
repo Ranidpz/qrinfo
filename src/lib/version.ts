@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.5';
+export const APP_VERSION = '1.19.6';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,26 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.19.5',
+    version: '1.19.6',
     date: '2026-09-04',
     isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: מחוון ״ההגרלה הבאה: מס׳ X — פרס״ בהגדרות ובתפריט המסך הגדול, עם אזהרה כשאין פרס לדרגה הבאה — כדי שלא תופתעו על הבמה אחרי חזרה',
+        'הגרלה: אפשרות ״צליל התחלה (בלחיצה על אנטר)״ — לגלגל דלוק כברירת מחדל, לחשיפת קוד כבוי, ואפשר לשנות',
+        'הגרלה: שם הפרס עולה מתחת לזוכה עם הברקה קלה',
+      ],
+      en: [
+        'Raffle: a "next draw: #X — prize" indicator in the settings and the big-screen menu, with a warning when the next rank has no prize — so a rehearsal never surprises you on stage',
+        'Raffle: a "start sound (on Enter)" option — on by default for the wheel, off for the code reveal, either way switchable',
+        'Raffle: the prize name rises in under the winner with a soft glow',
+      ],
+    },
+  },
+  {
+    version: '1.19.5',
+    date: '2026-09-04',
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: תוקנה תקלה חמורה — פתיחת ההגדרות מכפתור סרגל הכלים איפסה את כל ההגדרות לברירת המחדל (סגנון אנימציה, סוג רשימה, צבעים) ושמרה אותן',

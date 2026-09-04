@@ -5,7 +5,7 @@ import { Menu, X, RotateCcw, Trophy, Eye, Volume2, Palette, ChevronDown } from '
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import RaffleStage from '@/components/raffle/RaffleStage';
 import type { RaffleConfig, RaffleParticipant, RaffleWinner } from '@/lib/raffle/types';
-import { fullName, prizeForRank } from '@/lib/raffle/types';
+import { fullName, prizeForRank, nextDrawRank } from '@/lib/raffle/types';
 
 interface RaffleClientProps {
   config: RaffleConfig;
@@ -233,6 +233,22 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
             open={winnersOpen}
             onToggle={() => setWinnersOpen((v) => !v)}
           >
+            {(() => {
+              const next = nextDrawRank(sessionWinners);
+              const label = prizeForRank(display, next);
+              const hasAny = Array.isArray(display.prizes) && display.prizes.some((v) => String(v).trim());
+              const warn = hasAny && !label;
+              return (
+                <div
+                  className={`rounded-lg px-3 py-2 text-sm ${
+                    warn ? 'border border-amber-400/40 bg-amber-400/10 text-amber-200' : 'bg-white/5 text-white/70'
+                  }`}
+                >
+                  ההגרלה הבאה: מס׳ {next}
+                  {label ? ` — ${label}` : hasAny ? ' — ללא פרס. אפסו כדי להתחיל מהפרס הראשון.' : ''}
+                </div>
+              );
+            })()}
             <button
               onClick={onReset}
               disabled={resetting}

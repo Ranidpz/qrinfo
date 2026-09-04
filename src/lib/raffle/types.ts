@@ -84,6 +84,10 @@ export interface RaffleConfig {
   // missing entry shows nothing. Resetting the winners restarts the ranks, so
   // the labels line up again for the live run after a rehearsal.
   prizes?: string[];
+  // Sound on the press that starts a draw. Absent keeps today's behaviour:
+  // the wheel plays its spin whoosh, the code reveal starts silent (ticking
+  // only). Explicit true/false overrides for either style.
+  startSound?: boolean;
 }
 
 export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
@@ -116,6 +120,17 @@ export function resolveWinSoundUrl(config: RaffleConfig): string {
   }
   if (config.winSound === 'buzzer') return RAFFLE_WIN_SOUND_PRESETS.buzzer;
   return RAFFLE_WIN_SOUND_PRESETS.win;
+}
+
+// Whether the start-of-draw sound plays for this config (see `startSound`).
+export function startSoundEnabled(config: Pick<RaffleConfig, 'startSound' | 'animationStyle'>): boolean {
+  return config.startSound ?? config.animationStyle !== 'codeReveal';
+}
+
+// Rank the NEXT draw will get, from the winners recorded so far. Ranks are
+// assigned server-side as count + 1, so this mirrors what the server will do.
+export function nextDrawRank(winners: { rank: number }[]): number {
+  return winners.reduce((m, w) => Math.max(m, w.rank), 0) + 1;
 }
 
 // Prize label for a winner of the given rank (1-based), or '' when none is set.
