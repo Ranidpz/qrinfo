@@ -15,9 +15,12 @@ import {
   resolveStartSoundUrl,
   resolveWinSoundUrl,
   raffleBackgroundStyle,
+  confettiPalette,
+  confettiForRank,
   RAFFLE_SPIN_SOUND,
   RAFFLE_BUZZER_SOUND,
 } from '@/lib/raffle/types';
+import RaffleConfetti from './RaffleConfetti';
 
 type Phase = 'idle' | 'spinning' | 'stopping' | 'won';
 
@@ -467,6 +470,14 @@ export default function RaffleDisplay({
           reel left it, so the border-shine + glow appear instantly with no
           jump or scale. The caption is absolutely placed below the name so it
           never pushes the name up. */}
+      {phase === 'won' && winner && confettiForRank(config, winner.rank) && (
+        <RaffleConfetti
+          key={`${winner.id}-${winner.rank}`}
+          colors={confettiPalette(config)}
+          glow={config.winnerColor}
+        />
+      )}
+
       {phase === 'won' && winner && (
         <div className="pointer-events-none absolute inset-0 z-20">
           <div
@@ -511,9 +522,10 @@ export default function RaffleDisplay({
               <div
                 className="raffle-prize"
                 style={{
-                  fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)',
+                  fontSize: 'clamp(2rem, 6.5vw, 5.4rem)',
                   fontWeight: 800,
-                  textShadow: `0 0 30px ${config.winnerColor}66`,
+                  lineHeight: 1.15,
+                  textShadow: `0 0 34px ${config.winnerColor}80`,
                 }}
               >
                 {prizeForRank(config, winner.rank)}

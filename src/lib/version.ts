@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.9';
+export const APP_VERSION = '1.20.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,24 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.19.9',
+    version: '1.20.0',
     date: '2026-09-04',
     isNew: true,
+    highlights: {
+      he: [
+        'הגרלה: קונפטי בזכייה — מתפרץ מאחורי הזוכה החוצה ונופל. ארבעה מצבים: כבוי, בצבעי העיצוב (זהב, לבן וגוון בהיר של הרקע), צבעוני, או שני צבעים משלכם. אפשר להגביל להגרלה האחרונה בלבד',
+        'הגרלה: שם הפרס מופיע מתחת לקוד כבר מהרגע שהתווים מתחילים לרוץ, וגדול יותר — מתחזק בזוהר ברגע הזכייה',
+      ],
+      en: [
+        'Raffle: win confetti — bursts out from behind the winner and falls. Four modes: off, design colours (gold, white and a light tint of the backdrop), colourful, or two colours of your own. Can be limited to the last draw only',
+        'Raffle: the prize name now shows under the code from the moment the characters start running, and larger — brightening with a glow at the win',
+      ],
+    },
+  },
+  {
+    version: '1.19.9',
+    date: '2026-09-04',
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: רקע גרדיאנט — שני צבעים, רדיאלי (מהמרכז) או ליניארי (מלמעלה), עם תצוגה מקדימה. ברירת המחדל: כחול-כהה של רקע במה',

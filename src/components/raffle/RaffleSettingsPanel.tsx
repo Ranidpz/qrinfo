@@ -32,6 +32,7 @@ import type {
   RaffleWinner,
   RaffleWinSound,
   RaffleStartSound,
+  RaffleConfetti,
 } from '@/lib/raffle/types';
 import {
   fullName,
@@ -45,6 +46,7 @@ import {
   DEFAULT_GRADIENT_FROM,
   DEFAULT_GRADIENT_TO,
   raffleBackgroundStyle,
+  confettiPalette,
   CODE_LOCK_MS_MIN,
   CODE_LOCK_MS_MAX,
   CODE_LOCK_MS_DEFAULT,
@@ -580,6 +582,64 @@ export default function RaffleSettingsPanel({
               {(config.animationStyle ?? 'wheel') === 'codeReveal'
                 ? 'בחשיפת קוד: הקוד בצבע הטקסט; צבע הזוכה צובע את הזוהר סביבו ואת שם הפרס.'
                 : 'בגלגל: השמות בצבע הטקסט; השם הזוכה ושם הפרס בצבע הזוכה.'}
+            </p>
+          </Section>
+
+          <Section icon={<Sparkles size={15} />} title="קונפטי בזכייה">
+            <div className="grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  { key: 'off', label: 'כבוי' },
+                  { key: 'theme', label: 'בצבעי העיצוב' },
+                  { key: 'colorful', label: 'צבעוני' },
+                  { key: 'custom', label: 'צבעים שלי' },
+                ] as { key: RaffleConfetti; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => onConfigChange({ confetti: opt.key })}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    (config.confetti ?? 'off') === opt.key
+                      ? 'bg-amber-400 text-black'
+                      : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {config.confetti === 'custom' && (
+              <>
+                <ColorRow
+                  label="צבע ראשון"
+                  value={config.confettiColors?.[0] ?? '#0A84FF'}
+                  onChange={(v) => onConfigChange({ confettiColors: [v, config.confettiColors?.[1] ?? '#ffffff'] })}
+                />
+                <ColorRow
+                  label="צבע שני"
+                  value={config.confettiColors?.[1] ?? '#ffffff'}
+                  onChange={(v) => onConfigChange({ confettiColors: [config.confettiColors?.[0] ?? '#0A84FF', v] })}
+                />
+              </>
+            )}
+            {(config.confetti ?? 'off') !== 'off' && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  {confettiPalette(config).map((c, i) => (
+                    <span key={i} className="h-5 w-5 rounded-full border border-white/15" style={{ background: c }} />
+                  ))}
+                </div>
+                <CheckRow
+                  label="רק בהגרלה האחרונה (הפרס הגדול)"
+                  checked={!!config.confettiOnlyLast}
+                  onChange={(v) => onConfigChange({ confettiOnlyLast: v })}
+                />
+              </>
+            )}
+            <p className="text-xs leading-relaxed text-white/40">
+              {(config.confetti ?? 'off') === 'theme'
+                ? 'זהב (צבע הזוכה), לבן וגוון בהיר של הרקע — מתאים את עצמו לעיצוב.'
+                : 'מתפרץ מאחורי הזוכה החוצה ונופל, כ-3 שניות, בלי להסתיר את הקוד.'}
             </p>
           </Section>
 

@@ -15,6 +15,8 @@ import {
   resolveStartSoundUrl,
   resolveWinSoundUrl,
   raffleBackgroundStyle,
+  confettiPalette,
+  confettiForRank,
   RAFFLE_BUZZER_SOUND,
   RAFFLE_SPIN_SOUND,
   CODE_LOCK_MS_DEFAULT,
@@ -22,6 +24,7 @@ import {
   CODE_LOCK_MS_MAX,
 } from '@/lib/raffle/types';
 import { CodeRevealAudio } from '@/lib/raffle/codeAudio';
+import RaffleConfetti from './RaffleConfetti';
 
 // "Code reveal" raffle animation — an alternative to the spinning wheel, built
 // for codes rather than names: every character scrambles, then locks one by one
@@ -87,14 +90,20 @@ export default function RaffleCodeReveal({
   onRequestDraw,
   canShowPhones = true,
   loading = false,
+  nextRank,
 }: {
   participants: RaffleParticipant[];
   config: RaffleConfig;
   onRequestDraw: () => RaffleWinner | null | Promise<RaffleWinner | null>;
   canShowPhones?: boolean;
   loading?: boolean;
+  // Rank the next draw will get (winners so far + 1) — lets the prize show the
+  // moment the characters start running, before the server has answered.
+  nextRank?: number;
 }) {
   const [phase, setPhase] = useState<Phase>('idle');
+  // Re-render once the winner lands so the prize can switch to the REAL rank.
+  const [wonRankState, setWonRankState] = useState(0);
   const [fontPx, setFontPx] = useState(120);
 
   const mode: RaffleDisplayMode =
@@ -334,6 +343,7 @@ export default function RaffleCodeReveal({
     winnerRef.current = null;
     codeRef.current = '';
     rushRef.current = false;
+    setWonRankState(0);
     poolsRef.current = buildPools(labels, Math.max(widthRef.current, MAX_CELLS));
 
     const now = performance.now();
@@ -363,6 +373,7 @@ export default function RaffleCodeReveal({
           const code = label || IDLE_CHAR;
           winnerRef.current = w;
           codeRef.current = code;
+          setWonRankState(w.rank);
           const n = Math.max(1, Math.min(MAX_CELLS, code.length));
           if (n !== widthRef.current) {
             widthRef.current = n;
@@ -452,9 +463,15 @@ export default function RaffleCodeReveal({
   );
 
   const showRow = hasPool && !loading;
-  // Optional prize under the winner — resolved from the winner's rank, so a
-  // rehearsal + reset + live run line up again from the first prize.
-  const prize = phase === 'won' && winnerRef.current ? prizeForRank(config, winnerRef.current.rank) : '';
+  // The prize is on screen from the FIRST frame of the run (the client wants
+  // the audience to know what's at stake while the characters run): before the
+  // server answers it uses the expected rank, then the winner's real rank.
+  const running = phase === 'scrambling' || phase === 'locking' || phase === 'won';
+  const prizeRank = wonRankState || nextRank || 0;
+  const prize = running && prizeRank > 0 ? prizeForRank(config, prizeRank) : '';
+  const wonRank = phase === 'won' ? wonRankState : 0;
+  const burst = wonRank > 0 && confettiForRank(config, wonRank);
+  const confettiColors = useMemo(() => confettiPalette(config), [config]);
 
   return (
     <div
@@ -527,8 +544,14 @@ export default function RaffleCodeReveal({
           </div>
         )}
 
-        {/* Absolutely placed so the code itself never shifts on the reveal. */}
-        {phase === 'won' && (
+        {burst && (
+          <RaffleConfetti key={`${winnerRef.current?.id}-${wonRank}`} colors={confettiColors} glow={config.winnerColor} />
+        )}
+
+        {/* Absolutely placed so the code itself never shifts. The prize sits
+            here from the start of the run; "זוכה" only appears at the win when
+            no prize is set. */}
+        {(prize || phase === 'won') && (
           <div
             className="raffle-winner-caption font-bold tracking-wide"
             style={{
@@ -540,16 +563,20 @@ export default function RaffleCodeReveal({
               fontSize: 'clamp(1.2rem, 3vw, 2.2rem)',
               textAlign: 'center',
               whiteSpace: 'nowrap',
+              maxWidth: '96vw',
             }}
           >
-            {/* The prize REPLACES the word "זוכה" — it is the caption when set. */}
             {prize ? (
               <div
                 className="raffle-prize"
                 style={{
-                  fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)',
+                  fontSize: 'clamp(2rem, 6.5vw, 5.4rem)',
                   fontWeight: 800,
-                  textShadow: `0 0 30px ${config.winnerColor}66`,
+                  lineHeight: 1.15,
+                  // dim while running, full glow on the win
+                  opacity: phase === 'won' ? 1 : 0.85,
+                  textShadow: phase === 'won' ? `0 0 34px ${config.winnerColor}80` : 'none',
+                  transition: 'opacity 300ms, text-shadow 300ms',
                 }}
               >
                 {prize}

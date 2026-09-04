@@ -184,6 +184,7 @@ function RaffleDemo() {
         config={config}
         onRequestDraw={onRequestDraw}
         canShowPhones
+        nextRank={winners.length + 1}
       />
 
       {/* ?panel=off hands out a bare screen — no settings, no participant

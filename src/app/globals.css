@@ -897,6 +897,38 @@ body {
   animation: raffle-caption-in 0.3s ease-out both;
 }
 
+/* Win confetti: burst out from the centre, then fall. transform/opacity only. */
+.raffle-confetti-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  will-change: transform, opacity;
+  animation: raffle-confetti var(--dur, 3.2s) cubic-bezier(0.18, 0.75, 0.32, 1) var(--delay, 0s) both;
+}
+@keyframes raffle-confetti {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.5);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  34% {
+    transform: translate3d(var(--x1), var(--y1), 0) rotate(var(--r1)) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--x2), 112vh, 0) rotate(var(--r2)) scale(0.85);
+    opacity: 0.85;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .raffle-confetti-piece {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* Prize under the winner: rises in a beat after the caption. transform/opacity only. */
 .raffle-prize {
   animation: raffle-prize-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s both;

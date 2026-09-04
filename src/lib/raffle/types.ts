@@ -5,6 +5,10 @@
 export type RaffleDisplayMode = 'names' | 'phones';
 export type RaffleBackgroundType = 'color' | 'image' | 'video' | 'gradient';
 export type RaffleGradientShape = 'radial' | 'linear';
+// Win confetti. 'theme' = winner colour + white + a light tint of the
+// background's centre colour (matches whatever the design is); 'custom' = two
+// chosen colours; 'colorful' = the classic multi-colour burst.
+export type RaffleConfetti = 'off' | 'colorful' | 'theme' | 'custom';
 // 'wheel' = the classic spinning reel. 'codeReveal' = the code is revealed one
 // character at a time, left→right, out of a scramble of the real loaded codes.
 export type RaffleAnimationStyle = 'wheel' | 'codeReveal';
@@ -98,6 +102,12 @@ export interface RaffleConfig {
   // Which sound that is. Absent = the bundled spin whoosh.
   startSoundKind?: RaffleStartSound;
   customStartSoundUrl?: string;
+  // Confetti burst on the win. Absent = off, so existing raffles are untouched.
+  confetti?: RaffleConfetti;
+  confettiColors?: [string, string]; // 'custom' only
+  // Fire only on the last prize draw (rank === prizes.length). Ignored when
+  // no prizes are set.
+  confettiOnlyLast?: boolean;
 }
 
 export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
@@ -115,6 +125,7 @@ export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
   animationStyle: 'wheel',
   codeLockMs: 1600,
   codeTickSounds: true,
+  confetti: 'theme',
 };
 
 // codeReveal pace bounds (ms per character) — kept here so the settings panel
@@ -163,6 +174,53 @@ export function raffleBackgroundStyle(
     };
   }
   return { backgroundColor: config.backgroundColor };
+}
+
+// Mix a hex colour toward white (0..1). Tolerates 3/6-digit hex; other
+// formats come back unchanged.
+export function lightenHex(hex: string, amount: number): string {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  let h = m[1];
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const n = parseInt(h, 16);
+  const ch = (v: number) => Math.round(v + (255 - v) * amount);
+  const r = ch((n >> 16) & 255);
+  const g = ch((n >> 8) & 255);
+  const b = ch(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+export const CONFETTI_COLORFUL = ['#FFD60A', '#FF3B30', '#34C759', '#0A84FF', '#FF9F0A', '#BF5AF2', '#ffffff'];
+
+// The confetti palette for a config, or [] when confetti is off.
+export function confettiPalette(
+  config: Pick<
+    RaffleConfig,
+    'confetti' | 'confettiColors' | 'winnerColor' | 'backgroundType' | 'gradientFrom' | 'backgroundColor'
+  >
+): string[] {
+  const mode = config.confetti ?? 'off';
+  if (mode === 'off') return [];
+  if (mode === 'colorful') return CONFETTI_COLORFUL;
+  if (mode === 'custom') {
+    const [a, b] = config.confettiColors ?? ['#0A84FF', '#ffffff'];
+    return [a, b, lightenHex(a, 0.45), lightenHex(b, 0.45)];
+  }
+  // theme: winner colour, white, and a light tint of the backdrop's centre
+  const base =
+    config.backgroundType === 'gradient'
+      ? config.gradientFrom || DEFAULT_GRADIENT_FROM
+      : config.backgroundColor || '#000000';
+  return [config.winnerColor, '#ffffff', lightenHex(base, 0.55), lightenHex(config.winnerColor, 0.35)];
+}
+
+// Should confetti fire for this winner? Honours 'only on the last prize'.
+export function confettiForRank(config: Pick<RaffleConfig, 'confetti' | 'confettiOnlyLast' | 'prizes'>, rank: number): boolean {
+  if ((config.confetti ?? 'off') === 'off') return false;
+  const n = Array.isArray(config.prizes) ? config.prizes.filter((p) => String(p).trim()).length : 0;
+  if (config.confettiOnlyLast && n > 0) return rank === n;
+  return true;
 }
 
 // Whether the start-of-draw sound plays for this config (see `startSound`).

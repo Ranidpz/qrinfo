@@ -186,6 +186,7 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
         onRequestDraw={onRequestDraw}
         canShowPhones={false}
         loading={loadingNames}
+        nextRank={nextDrawRank(sessionWinners)}
       />
 
       {/* Top hover strip — reveals the control hamburger only when the mouse is
