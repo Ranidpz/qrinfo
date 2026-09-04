@@ -500,20 +500,20 @@ export default function RaffleDisplay({
               whiteSpace: 'nowrap',
             }}
           >
-            <div>זוכה</div>
-            {/* optional prize for this draw (by rank) — nothing else changes */}
-            {prizeForRank(config, winner.rank) && (
+            {/* The prize for this draw (by rank) REPLACES the word "זוכה". */}
+            {prizeForRank(config, winner.rank) ? (
               <div
                 className="raffle-prize"
                 style={{
                   fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)',
                   fontWeight: 800,
-                  marginTop: '0.25em',
                   textShadow: `0 0 30px ${config.winnerColor}66`,
                 }}
               >
                 {prizeForRank(config, winner.rank)}
               </div>
+            ) : (
+              <div>זוכה</div>
             )}
           </div>
         </div>

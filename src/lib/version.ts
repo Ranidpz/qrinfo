@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.6';
+export const APP_VERSION = '1.19.7';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -14,9 +14,18 @@ export interface VersionUpdate {
 
 export const CHANGELOG: VersionUpdate[] = [
   {
-    version: '1.19.6',
+    version: '1.19.7',
     date: '2026-09-04',
     isNew: true,
+    highlights: {
+      he: ['הגרלה: כשמוגדר פרס, שמו מחליף את המילה ״זוכה״ מתחת לקוד במקום להופיע מתחתיה'],
+      en: ['Raffle: when a prize is set, its name replaces the word "winner" under the code instead of appearing beneath it'],
+    },
+  },
+  {
+    version: '1.19.6',
+    date: '2026-09-04',
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: מחוון ״ההגרלה הבאה: מס׳ X — פרס״ בהגדרות ובתפריט המסך הגדול, עם אזהרה כשאין פרס לדרגה הבאה — כדי שלא תופתעו על הבמה אחרי חזרה',

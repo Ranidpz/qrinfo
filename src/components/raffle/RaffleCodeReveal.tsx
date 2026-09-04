@@ -534,19 +534,20 @@ export default function RaffleCodeReveal({
               whiteSpace: 'nowrap',
             }}
           >
-            <div>זוכה</div>
-            {prize && (
+            {/* The prize REPLACES the word "זוכה" — it is the caption when set. */}
+            {prize ? (
               <div
                 className="raffle-prize"
                 style={{
                   fontSize: 'clamp(1.6rem, 4.5vw, 3.4rem)',
                   fontWeight: 800,
-                  marginTop: '0.25em',
                   textShadow: `0 0 30px ${config.winnerColor}66`,
                 }}
               >
                 {prize}
               </div>
+            ) : (
+              <div>זוכה</div>
             )}
           </div>
         )}
