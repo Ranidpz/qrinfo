@@ -272,9 +272,9 @@ server-side operational email on changes (login required, failure, no files,
 recovery). Repeated unchanged states remain quiet. Offline/shut-down Macs cannot
 report their own absence. With explicit customer authorization, `sendGroupReports` sends a concise received/updated/missing summary to the paired business group. Followups at 12:00 and 14:00 stay quiet when nothing new arrived. An outbox records sends before pressing Enter and requires a WhatsApp acknowledgment. `/health` exposes only scoped target-existence/ownership booleans and project consistency, never credentials.
 
-Build the source-only transfer archive with `node tools/whatsapp-intake/src/package.mjs`.
-Its explicit allowlist excludes session data, credentials, downloaded PDFs, and
-node_modules. Pair separately on Michal's Mac. Run only one scheduled instance
+Build the native Mac transfer archive with `node tools/whatsapp-intake/src/package-native.mjs`.
+Its explicit allowlist includes the app, collector source and pinned Playwright packages,
+but excludes session data, credentials and downloaded PDFs. Pair separately on Michal's Mac. Run only one scheduled instance
 per integration. New customers need a server-scoped credential and target mapping,
 not just a different owner email in local configuration.
 
@@ -285,7 +285,7 @@ not just a different owner email in local configuration.
 
 All Fattal endpoints and the single PDF endpoint validate these keys and resolve the owner from the stored key scope. Request parameters cannot change that owner. This release scopes keys to all explicitly mapped Fattal booklets for the selected owner, not arbitrary customer QR codes.
 
-Public downloads contain only the reviewed source installer. `TheQ-connection.json` is generated in-browser on explicit download and contains the one-time secret; it must never enter Git or a shared software archive. The installer imports it for new installations, preserves existing credentials, and offers ImportConnection / EnableUpdates / DisableSchedule launchers. Installation and imports leave scheduled writes disabled.
+Public downloads contain the native Mac application and reviewed collector payload. `TheQ-connection.json` is generated in-browser on explicit download and contains the one-time secret; it must never enter Git or a shared software archive. The native application selects this file through a standard file picker. Fresh installation and key imports leave scheduled writes disabled; upgrades preserve existing activation and credentials. Legacy command launchers remain for maintenance only.
 
 On September 20 the user identified the correct owner as `biduratias@gmail.com` (בידור). Production `FATTAL_BOOKLETS_OWNER_EMAIL` was configured accordingly. Verify scoped health before running a live replacement. Vercel production project is `qrinfo`; the obsolete `qr` project was disconnected from Git at the user's request. It had no successful deployments and no custom domain.
 
@@ -298,7 +298,7 @@ Configuration should distinguish the customer's folder and selected QR destinati
 
 Future generalization must remain server-enforced; current access is restricted to super admins (September 20 decision). The acting admin selects the customer owner and is recorded in the audit. Each key is limited to the connection's selected destinations. Folder membership changes must not silently broaden an existing key. Fattal hotel-name inference belongs to the Fattal workflow and must not affect other customers.
 
-Keep each connection's credentials, download ledger, pending runs, schedules and report outbox isolated. Preserve separately paired business sessions, and allow only one active scheduler for a given connection when transferring between computers. Reuse the same source-only Mac package with per-installation configuration; never distribute a customer's key or logged-in WhatsApp profile in the package.
+Keep each connection's credentials, download ledger, pending runs, schedules and report outbox isolated. Preserve separately paired business sessions, and allow only one active scheduler for a given connection when transferring between computers. Reuse the same Mac package with per-installation configuration; never distribute a customer's key or logged-in WhatsApp profile in the package.
 
 
 ## Auditable email rows (v1.20.7)
@@ -328,3 +328,13 @@ Fresh Mac installs generate a random `mac-<UUID>` config id; upgrades preserve t
 Super-admin-only `/computers` PATCH transaction pauses/reallows the agent and its matching key. Disabled scoped keys fail authentication across intake endpoints. A revoked key cannot be reenabled through computer controls. Registration cannot clear disabled status; acknowledgment rechecks both records and the schedule revision in the transaction. Legacy pilot key disconnection is enforced by the upgraded runner's config preflight (schedule and manual update/resume/report commands); it does not globally revoke the historical legacy key. Already running work may complete. Disconnection preserves the local app/profile; polls resume only if reallowed and locally enabled. Machines with an older app must upgrade for roster controls.
 
 Michal handoff: create a separate key, install the new package and pair her dedicated business-browser session, preview mapping, disable/disconnect Rani before enabling her schedule, verify one real update/report and keep only one machine active for that group. Never transfer Rani's profile or key. Michal's physical install is not yet verified.
+
+## Native Mac setup and local files (1.20.10 / runner 0.6.0)
+
+`macos/` is a SwiftUI application for macOS 14+, built as a universal arm64/x86_64 executable. The normal flow is Prepare, select the connection JSON, connect business WhatsApp, confirm and preview the experience/file mapping, then explicitly enable updates. The user does not run terminal commands or install Node manually. Prepare downloads pinned Node 24.21.0 from nodejs.org with architecture-specific SHA-256 verification, installs the bundled pinned Playwright dependencies and dedicated browser, then verifies the installed runner version. Native bridge entry guards canonicalize symlinks (`/var` vs `/private/var`) to avoid silent no-op installs. Setup holds installation and runner locks; upgrades preserve the profile/key/config and reload an enabled LaunchAgent with the private runtime.
+
+The application and each dashboard computer card show `~/Library/Application Support/TheQContentIntake/<agent-id>/downloads`; PDFs live below message-hash subdirectories with their original filenames. The native Open Folder button opens the actual absolute path. Files remain after upload; automatic cleanup and a user-selectable download directory are not implemented. Credentials and the paired browser stay in the same per-agent directory, outside the distributed app. Closing the application does not stop enabled scheduled checks. The Mac must remain logged in, powered and awake; the UI links to energy settings without changing system power policy.
+
+Packaging: `node tools/whatsapp-intake/src/package-native.mjs` emits `TheQ-WhatsApp-Agent-0.6.0.zip` and SHA-256. The current build is ad-hoc signed, **not** Developer ID signed or notarized. No signing identity is installed on the development Mac. Complete Apple Developer ID signing and notarization before broad customer distribution; do not disable Gatekeeper or strip quarantine as a workaround.
+
+Verification: both architectures compiled and code-signature integrity checked; native preparation executed on Rani's Apple Silicon Mac, installed 0.6.0 and preserved the active schedule/profile. Intel execution and Michal's physical installation remain unverified. Native UI visually checked; 36 server/collector regressions cover scoped writes, mapping, scheduling, browser downloads and bridge status/entry behavior. This setup release did not intentionally run another live PDF replacement or group report.

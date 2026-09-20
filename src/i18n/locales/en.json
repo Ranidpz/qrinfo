@@ -21,9 +21,9 @@
     "copied": "Copied",
     "saved": "Saved — hide key",
     "downloadTitle": "2. Mac software",
-    "downloadDescription": "A standalone collector with its own browser. No ChatGPT account, Codex installation or OpenAI credits required.",
-    "downloadMac": "Download for Mac · 0.5.0",
-    "requirements": "Requires macOS and Node.js 20 or later. Script installer, not Apple signed. Internet required for installation.",
+    "downloadDescription": "A Mac app with guided setup: system connection, WhatsApp pairing, booklet preview and activation, without commands. No Codex or ChatGPT account required.",
+    "downloadMac": "Download Mac app · 0.6.0",
+    "requirements": "macOS 14 or later, Apple Silicon and Intel. Runtime and browser download automatically on first setup. No manual Node.js installation.",
     "checksum": "Download file checksum (SHA-256)",
     "instructions": "3. Install and connect",
     "step1": "Download and extract the software. Save TheQ-connection.json in the folder containing Install.command.",
@@ -111,7 +111,14 @@
     "reconnectComputerWarning": "The computer will be allowed to reconnect. If its local schedule remains enabled, it can resume at the next check. Ensure no other computer updates the same booklets.",
     "confirmDisconnectComputer": "Yes, disconnect computer",
     "confirmReconnectComputer": "Yes, allow connection",
-    "connectionPaused": "Paused: computer disconnected"
+    "connectionPaused": "Paused: computer disconnected",
+    "nativeStep1": "Download and extract the app, drag The Q WhatsApp Agent to Applications and open it. Click Prepare agent; required components install automatically.",
+    "nativeStep2": "Create a computer key here and download its connection file. In the app, choose Select connection file and select the downloaded file.",
+    "nativeStep3": "Click Connect WhatsApp and scan using the business account on your phone. Confirm the correct account and group, review each experience and filename, then enable updates.",
+    "nativePower": "After activation you may close the agent window. Keep the Mac powered on, online and awake; the display may sleep. When transferring to Michal, stop or disconnect the previous Mac before enabling hers.",
+    "nativeSigning": "This build does not yet have Apple Developer ID signing and notarization. First launch may require approval in System Settings > Privacy & Security. Signing must be completed before broad customer distribution.",
+    "downloadFolder": "Download folder on this computer",
+    "downloadRetention": "PDFs remain in subfolders after upload; there is no automatic deletion. Use Open folder in the Mac app to view them."
   },
   "common": {
     "save": "Save",

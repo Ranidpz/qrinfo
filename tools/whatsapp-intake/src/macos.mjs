@@ -1,6 +1,7 @@
 import { mkdir, writeFile, cp, chmod } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { realpathSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -26,7 +27,7 @@ export function buildLaunchAgent({ nodePath, appDir, dataDir, configPath, browse
 <key>StandardErrorPath</key><string>${xml(path.join(dataDir, 'scheduler-error.log'))}</string>
 </dict></plist>\n`;
 }
-export async function install({ activate = false, configFile } = {}) {
+export async function install({ activate = false, configFile, bundledDependencies = false, openCommands = true } = {}) {
   if (process.platform !== 'darwin') throw new Error('macOS required');
   const dataDir = path.join(homedir(), 'Library/Application Support/TheQContentIntake');
   const appDir = path.join(dataDir, 'app');
@@ -51,7 +52,9 @@ export async function install({ activate = false, configFile } = {}) {
   if (!(await readJson(credentials, null))) await writeJson(credentials, { contentIntakeApiKey: '' });
   const env = { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browserPath };
   console.log('Installing pinned dependencies and dedicated browser...');
-  await exec('npm', ['ci', '--omit=dev', '--ignore-scripts'], { cwd: appDir, env, maxBuffer: 5e6 });
+  if (bundledDependencies) {
+    if (root !== appDir) await cp(path.join(root, 'node_modules'), path.join(appDir, 'node_modules'), { recursive: true });
+  } else await exec('npm', ['ci', '--omit=dev', '--ignore-scripts'], { cwd: appDir, env, maxBuffer: 5e6 });
   await exec(process.execPath, [path.join(appDir, 'node_modules/playwright/cli.js'), 'install', 'chromium'], { cwd: appDir, env, maxBuffer: 5e6 });
   const label = `app.theq.whatsapp-intake.${config.id}`;
   const agents = path.join(homedir(), 'Library/LaunchAgents');
@@ -86,7 +89,7 @@ export async function install({ activate = false, configFile } = {}) {
     await exec('/bin/launchctl', ['bootout', `gui/${process.getuid()}`, plist]).catch(() => {});
     await exec('/bin/launchctl', ['bootstrap', `gui/${process.getuid()}`, plist]);
   }
-  await exec('/usr/bin/open', [launcherDir]);
+  if (openCommands) await exec('/usr/bin/open', [launcherDir]);
   console.log(JSON.stringify({ installed: true, scheduled: activate, configPath, credentials, launcherDir, plist, mode: config.autoCommit ? 'commit' : 'preview' }, null, 2));
 }
 export async function disableSchedule() {
@@ -118,6 +121,8 @@ export async function importConnection(file) {
   config.schedule.enabled = false;
   await writeJson(configPath, config);
   await writeJson(path.join(dataDir, config.id, 'credentials.json'), { contentIntakeApiKey: connection.contentIntakeApiKey });
+  // A preview made with the previous owner/key must never enable the new connection.
+  await writeJson(path.join(dataDir, config.id, 'status.json'), { state: 'connection_imported', at: new Date().toISOString() });
   console.log('Connection imported. Run Preview before enabling updates.');
   } finally { await release(); }
 }
@@ -142,6 +147,6 @@ export async function enableUpdates() {
   catch (error) { stored.schedule.enabled = false; await writeJson(file, stored); throw error; }
   console.log('Automatic updates and group reports enabled.');
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   (process.argv.includes('--disable') ? disableSchedule() : process.argv.includes('--import-connection') ? importConnection() : process.argv.includes('--enable-updates') ? enableUpdates() : install({ activate: process.argv.includes('--activate') })).catch((error) => { console.error(error.message); process.exitCode = 1; });
 }

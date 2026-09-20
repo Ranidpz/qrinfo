@@ -109,9 +109,9 @@ function ContentIntake() {
       <section className={panel} aria-labelledby="download-title">
         <h2 id="download-title" className="mb-4 flex items-center gap-2 text-lg font-semibold"><Download size={20} />{t('downloadTitle')}</h2>
         <p className="mb-5 text-text-secondary">{t('downloadDescription')}</p>
-        <a className={button} href="/downloads/TheQ-WhatsApp-Intake-0.5.0.zip" download>{t('downloadMac')}</a>
+        <a className={button} href="/downloads/TheQ-WhatsApp-Agent-0.6.0.zip" download>{t('downloadMac')}</a>
         <p className="mt-3 text-xs text-text-secondary">{t('requirements')}</p>
-        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Intake-0.5.0.zip.sha256" download>{t('checksum')}</a>
+        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Agent-0.6.0.zip.sha256" download>{t('checksum')}</a>
       </section>
     </div>
     {ownerId && <ScheduleEditor key={ownerId} ownerId={ownerId} agents={data.agents} />}
@@ -123,8 +123,9 @@ function ContentIntake() {
     </section>
     <section className={panel}><h2 className="mb-3 text-lg font-semibold">{t('filenameTitle')}</h2><p className="text-text-secondary">{t('filenameStandard')}</p><p className="my-3 break-words rounded-lg bg-bg-primary p-3">{t('filenameExample')}</p><p className="text-sm text-text-secondary">{t('filenameCompatibility')}</p></section>
     <section className={panel}><h2 className="mb-4 text-lg font-semibold">{t('instructions')}</h2>
-      <ol className="list-decimal space-y-4 ps-5 text-text-secondary">{['step1','step2','step3','step4','step5','step6'].map(k => <li key={k}>{t(k)}</li>)}</ol>
-      <p className="mt-5 rounded-lg bg-accent/10 p-4 text-sm">{t('schedule')}</p>
+      <ol className="list-decimal space-y-4 ps-5 text-text-secondary">{['nativeStep1','nativeStep2','nativeStep3'].map(k => <li key={k}>{t(k)}</li>)}</ol>
+      <p className="mt-5 rounded-lg bg-accent/10 p-4 text-sm">{t('nativePower')}</p>
+      <p className="mt-3 text-sm text-text-secondary">{t('nativeSigning')}</p>
     </section>
 
   </div>;

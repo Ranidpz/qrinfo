@@ -32,7 +32,7 @@ export async function syncSchedule(config) {
     if (JSON.stringify(stored) !== JSON.stringify(next)) await writeJson(config.configFile, next);
     config.schedule = next.schedule;
     config.timeZone = remote.timeZone;
-    const ack = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify({ agentId: config.id, revision: remote.revision, computerName: hostname().slice(0, 80), runnerVersion: '0.5.0', scheduleEnabled: config.schedule.enabled === true, autoCommit: config.autoCommit === true }), redirect: 'error', signal: AbortSignal.timeout(20000) });
+    const ack = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify({ agentId: config.id, revision: remote.revision, computerName: hostname().slice(0, 80), runnerVersion: '0.6.0', scheduleEnabled: config.schedule.enabled === true, autoCommit: config.autoCommit === true }), redirect: 'error', signal: AbortSignal.timeout(20000) });
     if (!ack.ok) throw new Error(`SCHEDULE_ACK_HTTP_${ack.status}`);
     await writeJson(syncPath, { state: 'synced', revision: remote.revision, checks: remote.checks, at: new Date().toISOString() });
     return remote;

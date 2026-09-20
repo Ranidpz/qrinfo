@@ -79,3 +79,7 @@ outputs/
 
 # One-time computer connection secrets
 TheQ-connection*.json
+
+# Native SwiftPM build artifacts
+/tools/whatsapp-intake/macos/.build/
+/tools/whatsapp-intake/macos/.swiftpm/

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.10] - 2026-09-20
+
+- Native universal Mac WhatsApp Agent 0.6.0 with guided connection, mapping preview, activation/pause and Open Downloads.
+- Automatically install a private checksum-verified Node runtime and dedicated browser; preserve existing profiles and schedules on upgrade.
+- Replace command-based website setup with three GUI steps and show each computer’s download path and retention behavior.
+- Current archive is ad-hoc signed; Apple Developer ID signing and notarization remain required for broad distribution.
+
 ## [1.20.9] - 2026-09-20
 
 - Rename booklet automation to WhatsApp Agent and replace repeated select rows with a full-width weekly calendar and shared times, preserving distinct schedules.
