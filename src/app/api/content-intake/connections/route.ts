@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
       db.collection('contentIntakeConnections').where('ownerId', '==', selected).get(),
       db.collection('contentIntakeAgents').where('ownerId', '==', selected).get(),
     ]);
-    return reply({ owners, connections: connections.docs.map(d => ({ id: d.id, name: d.data().name, revoked: !!d.data().revokedAt, createdAt: d.data().createdAt?.toDate().toISOString() || null })),
-      agents: agents.docs.map(d => ({ id: d.data().agentId, state: d.data().state, updatedAt: d.data().updatedAt?.toDate().toISOString() || null, scheduleRevision: d.data().scheduleRevision || null, scheduleSyncedAt: d.data().scheduleSyncedAt?.toDate().toISOString() || null })) });
+    return reply({ owners, connections: connections.docs.map(d => ({ id: d.id, name: d.data().name, disabled: !!d.data().disabledAt, revoked: !!d.data().revokedAt, createdAt: d.data().createdAt?.toDate().toISOString() || null })),
+      agents: agents.docs.map(d => ({ recordId: d.id, computerName: d.data().computerName || d.data().agentId, runnerVersion: d.data().runnerVersion || null, lastSeenAt: d.data().lastSeenAt?.toDate().toISOString() || null, scheduleEnabled: d.data().scheduleEnabled === true, autoCommit: d.data().autoCommit === true, disabled: !!d.data().disabledAt, remoteControl: d.data().remoteControl === true, id: d.data().agentId, state: d.data().state, updatedAt: d.data().updatedAt?.toDate().toISOString() || null, scheduleRevision: d.data().scheduleRevision || null, scheduleSyncedAt: d.data().scheduleSyncedAt?.toDate().toISOString() || null })) });
   } catch { return reply({ error: 'Unable to load connections' }, 500); }
 }
 export async function POST(request: NextRequest) {

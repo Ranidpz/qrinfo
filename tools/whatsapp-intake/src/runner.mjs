@@ -18,7 +18,7 @@ export async function runCommand(command, config, options) {
   const pendingPath = path.join(config.runtimeDir, 'pending.json');
   const checkpointPath = path.join(config.runtimeDir, 'checkpoint.json');
   const history = await readJson(historyPath, { completed: [] });
-  if (command === 'sync-config' || command === 'schedule') {
+  if (['sync-config', 'schedule', 'run', 'resume', 'report-group'].includes(command)) {
     await syncSchedule(config);
     if (command === 'sync-config') { console.log('Schedule synchronized.'); return; }
   }

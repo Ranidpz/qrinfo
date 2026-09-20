@@ -1,6 +1,7 @@
 import { mkdir, writeFile, cp, chmod } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -38,6 +39,7 @@ export async function install({ activate = false, configFile } = {}) {
   const configPath = path.join(dataDir, 'config.json');
   if (!(await readJson(configPath, null))) {
     const value = await readJson(configFile || path.join(root, 'config/fattal.example.json'));
+    value.id = `mac-${randomUUID()}`;
     value.autoCommit = false;
     value.schedule.enabled = false;
     await writeJson(configPath, value);

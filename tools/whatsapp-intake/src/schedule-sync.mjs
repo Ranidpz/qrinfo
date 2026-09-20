@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { hostname } from 'node:os';
 import { readJson, writeJson } from './storage.mjs';
 
 export function validateRemoteSchedule(value) {
@@ -22,7 +23,7 @@ export async function syncSchedule(config) {
     if (!key) throw new Error('API_KEY_REQUIRED');
     const endpoint = `${config.apiBaseUrl}${config.workflowPath}/config`;
     const headers = { 'x-content-intake-key': key, 'content-type': 'application/json' };
-    const response = await fetch(endpoint, { headers, redirect: 'error', signal: AbortSignal.timeout(20000) });
+    const response = await fetch(`${endpoint}?agentId=${encodeURIComponent(config.id)}`, { headers, redirect: 'error', signal: AbortSignal.timeout(20000) });
     if (!response.ok) throw new Error(`SCHEDULE_SYNC_HTTP_${response.status}`);
     const remote = validateRemoteSchedule(await response.json());
     // Only schedule fields are remotely writable. Activation, account, key and paths remain local.
@@ -31,7 +32,7 @@ export async function syncSchedule(config) {
     if (JSON.stringify(stored) !== JSON.stringify(next)) await writeJson(config.configFile, next);
     config.schedule = next.schedule;
     config.timeZone = remote.timeZone;
-    const ack = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify({ agentId: config.id, revision: remote.revision }), redirect: 'error', signal: AbortSignal.timeout(20000) });
+    const ack = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify({ agentId: config.id, revision: remote.revision, computerName: hostname().slice(0, 80), runnerVersion: '0.5.0', scheduleEnabled: config.schedule.enabled === true, autoCommit: config.autoCommit === true }), redirect: 'error', signal: AbortSignal.timeout(20000) });
     if (!ack.ok) throw new Error(`SCHEDULE_ACK_HTTP_${ack.status}`);
     await writeJson(syncPath, { state: 'synced', revision: remote.revision, checks: remote.checks, at: new Date().toISOString() });
     return remote;

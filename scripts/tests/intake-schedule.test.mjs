@@ -45,3 +45,36 @@ test('settings requires super admin and prevents lost updates; runner key can on
   assert.equal([...agents.values()][0].scheduleRevision,changed.revision);
   delete globalThis.__scheduleDb;
 });
+
+test('computer registration binds a key once; disconnect stops sync and cannot undo a revoked key', async () => {
+  const store = new Map([['contentIntakeConnections/connection-a',{ownerId:'owner-a',name:'Michal Mac'}]]);
+  const db = {collection(name){return{doc(id){return{key:`${name}/${id}`,get:async()=>({data:()=>store.get(`${name}/${id}`)})};}}},runTransaction:async fn=>fn({get:ref=>ref.get(),set:(ref,v)=>store.set(ref.key,{...store.get(ref.key),...v})})};
+  globalThis.__computerDb=db;
+  const deps={'next/server':responseStub,'firebase-admin/firestore':firestoreStub,'@/lib/firebase-admin':stub('export const getAdminDb=()=>globalThis.__computerDb;')};
+  const runner=await loadTs('../../src/app/api/content-intake/fattal/config/route.ts',{
+    ...deps,'@/lib/content-intake/schedule':scheduleUrl,
+    '@/lib/content-intake/fattal-server':stub('export const authenticateIntakeKey=async()=>({ownerId:"owner-a",connectionId:"connection-a"}); export const resolveFattalOwnerId=async()=>"owner-a";'),
+  });
+  const control=await loadTs('../../src/app/api/content-intake/computers/route.ts',{
+    ...deps,'@/lib/auth':stub('export const requireSuperAdmin=async r=>r.headers.get("authorization")==="admin"?{uid:"admin-a"}:{response:new Response("Forbidden",{status:403})};export const isAuthError=a=>!!a.response;'),
+  });
+  const body={agentId:'mac-michal',revision:'default-v1',computerName:'Mac-mini',runnerVersion:'0.5.0',scheduleEnabled:true,autoCommit:true};
+  const req=(body,auth='admin')=>new Request('https://example.com/config',{method:'POST',headers:{authorization:auth},body:JSON.stringify(body)});
+  assert.equal((await runner.POST(req(body))).status,200);
+  const [key,agent]=[...store].find(([key])=>key.startsWith('contentIntakeAgents/'));
+  assert.equal(agent.computerName,'Michal Mac');assert.equal(agent.remoteControl,true);assert.equal(agent.lastSeenAt,123);
+  assert.equal(store.get('contentIntakeConnections/connection-a').agentId,'mac-michal');
+  assert.equal((await runner.POST(req({...body,agentId:'mac-other'}))).status,403);
+  assert.equal((await runner.GET(new Request('https://example.com/config?agentId=mac-other'))).status,409);
+  const command={id:key.split('/')[1],action:'disconnect'};
+  assert.equal((await control.PATCH(req(command,'producer'))).status,403);
+  assert.equal((await control.PATCH(req(command))).status,200);
+  assert.equal(store.get('contentIntakeConnections/connection-a').disabledAt,123);
+  assert.equal((await runner.GET(new Request('https://example.com/config?agentId=mac-michal'))).status,403);
+  assert.equal((await runner.POST(req(body))).status,403);
+  assert.equal((await control.PATCH(req({...command,action:'reconnect'}))).status,200);
+  assert.equal((await runner.POST(req(body))).status,200);
+  store.get('contentIntakeConnections/connection-a').revokedAt=123;
+  assert.equal((await control.PATCH(req({...command,action:'reconnect'}))).status,409);
+  delete globalThis.__computerDb;
+});

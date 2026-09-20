@@ -1,16 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
-import { Download, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { ChevronDown, Download, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 import ScheduleEditor from './ScheduleEditor';
+import ComputerList, { type IntakeComputer } from './ComputerList';
 
 type Owner = { id: string; name: string; email: string; targets: { shortId: string; title: string }[] };
-type Connection = { id: string; name: string; revoked: boolean };
-type Agent = { scheduleRevision?: string | null; scheduleSyncedAt?: string | null; id: string; state: string; updatedAt: string | null };
+type Connection = { id: string; name: string; disabled?: boolean; revoked: boolean };
+type Agent = IntakeComputer;
 type Data = { owners: Owner[]; connections: Connection[]; agents: Agent[] };
 const endpoint = '/api/content-intake/connections';
 const panel = 'rounded-2xl border border-border bg-bg-secondary p-5 sm:p-6';
@@ -27,7 +28,6 @@ export default function ContentIntakePage() {
 function ContentIntake() {
   const { user } = useAuth();
   const t = useTranslations('contentIntake');
-  const locale = useLocale();
   const [data, setData] = useState<Data>({ owners: [], connections: [], agents: [] });
   const [ownerId, setOwnerId] = useState('');
   const [name, setName] = useState('');
@@ -90,9 +90,9 @@ function ContentIntake() {
         <h2 id="connection-title" className="mb-4 flex items-center gap-2 text-lg font-semibold"><KeyRound size={20} />{t('connectionTitle')}</h2>
         {loading ? <p role="status">{t('loading')}</p> : data.owners.length === 0 ? <p>{t('noOwners')}</p> : <>
           <label className="block text-sm" htmlFor="intake-owner">{t('owner')}</label>
-          <select id="intake-owner" value={ownerId} disabled={busy || !!secret} onChange={e => setOwnerId(e.target.value)} className="mt-2 w-full rounded-lg border border-border bg-bg-primary p-3">
+          <div className="relative mt-2"><select id="intake-owner" value={ownerId} disabled={busy || !!secret} onChange={e => setOwnerId(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-bg-primary py-3 ps-3 pe-10">
             {data.owners.map(o => <option key={o.id} value={o.id}>{o.name} — {o.email}</option>)}
-          </select>
+          </select><ChevronDown aria-hidden="true" size={16} className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-text-secondary" /></div>
           <details className="my-4 text-sm text-text-secondary"><summary className="cursor-pointer">{t('scope', { count: owner?.targets.length || 0 })}</summary><ul className="mt-2 space-y-1">{owner?.targets.map(v => <li key={v.shortId}>{v.title}</li>)}</ul></details>
           <label htmlFor="intake-name" className="block text-sm">{t('computerName')}</label>
           <input id="intake-name" maxLength={80} value={name} disabled={busy || !!secret} onChange={e => setName(e.target.value)} placeholder={t('computerPlaceholder')} className="mt-2 mb-4 w-full rounded-lg border border-border bg-bg-primary p-3" />
@@ -109,23 +109,23 @@ function ContentIntake() {
       <section className={panel} aria-labelledby="download-title">
         <h2 id="download-title" className="mb-4 flex items-center gap-2 text-lg font-semibold"><Download size={20} />{t('downloadTitle')}</h2>
         <p className="mb-5 text-text-secondary">{t('downloadDescription')}</p>
-        <a className={button} href="/downloads/TheQ-WhatsApp-Intake-0.4.0.zip" download>{t('downloadMac')}</a>
+        <a className={button} href="/downloads/TheQ-WhatsApp-Intake-0.5.0.zip" download>{t('downloadMac')}</a>
         <p className="mt-3 text-xs text-text-secondary">{t('requirements')}</p>
-        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Intake-0.4.0.zip.sha256" download>{t('checksum')}</a>
+        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Intake-0.5.0.zip.sha256" download>{t('checksum')}</a>
       </section>
     </div>
     {ownerId && <ScheduleEditor key={ownerId} ownerId={ownerId} agents={data.agents} />}
+    <section className={panel}>
+      <div className="mb-4 flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-lg font-semibold"><ShieldCheck size={20} />{t('statusTitle')}</h2><button disabled={busy || loading} className="inline-flex items-center gap-2 text-accent" onClick={() => { setError(false); refresh().catch(() => setError(true)); }}><RefreshCw size={16} />{t('refresh')}</button></div>
+      <p className="mb-4 text-sm text-text-secondary">{t('statusHint')}</p>
+      <ComputerList computers={data.agents} refresh={refresh} />
+      <ul className="mt-4 divide-y divide-border">{data.connections.map(c => <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><span>{c.name} · {c.revoked ? t('revoked') : c.disabled ? t('connectionPaused') : t('active')}</span>{!c.revoked && (revoking === c.id ? <div className="flex flex-wrap items-center gap-3 text-sm"><span>{t('revokeWarning')}</span><button disabled={busy} className="text-red-500" onClick={() => revoke(c.id)}>{t('confirmRevoke')}</button><button disabled={busy} onClick={() => setRevoking(null)}>{t('cancel')}</button></div> : <button disabled={busy} className="text-sm text-red-500" onClick={() => setRevoking(c.id)}>{t('revoke')}</button>)}</li>)}</ul>
+    </section>
     <section className={panel}><h2 className="mb-3 text-lg font-semibold">{t('filenameTitle')}</h2><p className="text-text-secondary">{t('filenameStandard')}</p><p className="my-3 break-words rounded-lg bg-bg-primary p-3">{t('filenameExample')}</p><p className="text-sm text-text-secondary">{t('filenameCompatibility')}</p></section>
     <section className={panel}><h2 className="mb-4 text-lg font-semibold">{t('instructions')}</h2>
       <ol className="list-decimal space-y-4 ps-5 text-text-secondary">{['step1','step2','step3','step4','step5','step6'].map(k => <li key={k}>{t(k)}</li>)}</ol>
       <p className="mt-5 rounded-lg bg-accent/10 p-4 text-sm">{t('schedule')}</p>
     </section>
-    <section className={panel}>
-      <div className="mb-4 flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-lg font-semibold"><ShieldCheck size={20} />{t('statusTitle')}</h2><button disabled={busy || loading} className="inline-flex items-center gap-2 text-accent" onClick={() => { setError(false); refresh().catch(() => setError(true)); }}><RefreshCw size={16} />{t('refresh')}</button></div>
-      <p className="mb-4 text-sm text-text-secondary">{t('statusHint')}</p>
-      {!data.agents.length && <p className="text-text-secondary">{t('noAgent')}</p>}
-      {data.agents.map(a => <p key={a.id} className="mb-3 break-words text-sm"><bdi>{a.id}</bdi> · {t(['ready','no_files','run_failed','login_required'].includes(a.state) ? `state_${a.state}` : 'state_unknown')} · {a.updatedAt ? new Date(a.updatedAt).toLocaleString(locale === 'he' ? 'he-IL' : 'en-US', { timeZone: 'Asia/Jerusalem' }) : '—'}</p>)}
-      <ul className="mt-4 divide-y divide-border">{data.connections.map(c => <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><span>{c.name} · {c.revoked ? t('revoked') : t('active')}</span>{!c.revoked && (revoking === c.id ? <div className="flex flex-wrap items-center gap-3 text-sm"><span>{t('revokeWarning')}</span><button disabled={busy} className="text-red-500" onClick={() => revoke(c.id)}>{t('confirmRevoke')}</button><button disabled={busy} onClick={() => setRevoking(null)}>{t('cancel')}</button></div> : <button disabled={busy} className="text-sm text-red-500" onClick={() => setRevoking(c.id)}>{t('revoke')}</button>)}</li>)}</ul>
-    </section>
+
   </div>;
 }

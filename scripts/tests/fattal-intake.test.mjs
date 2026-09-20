@@ -324,6 +324,10 @@ test('per-computer key is hashed, revocable and cannot override its owner', asyn
   assert.equal(await resolveFattalOwnerId({ integrationAuth: scope, ownerId: 'owner-b' }), null);
   assert.equal(await resolveFattalOwnerId({ integrationAuth: scope, ownerEmail: 'b@example.com' }), null);
   assert.equal(await authenticateIntakeKey(request(key.slice(0,-1)+'c')), false);
+  globalThis.__intakeKeyRecord.disabledAt = new Date();
+  assert.equal(await authenticateIntakeKey(request(key)), false);
+  globalThis.__intakeKeyRecord.disabledAt = null;
+  assert.ok(await authenticateIntakeKey(request(key)));
   globalThis.__intakeKeyRecord.revokedAt = new Date();
   assert.equal(await authenticateIntakeKey(request(key)), false);
   delete globalThis.__intakeKeyRecord;

@@ -317,3 +317,14 @@ The Mac polls `/fattal/config` before calculating any scheduled slot, every five
 Recommended sender filename: `שם המלון - עיר או אזור - DD.MM.YYYY.pdf` with the program start date, e.g. `לאונרדו פלאזה - ים המלח - 20.09.2026.pdf`. The original name remains in the audit. Existing recognized aliases remain valid. Explicit area overrides approved Eilat defaults; ambiguous, conflicting, duplicate or stale candidates stop for review. All 12 target names with full dates have regression coverage.
 
 September 20 verification: all 10 published PDFs and QR pointers were rechecked against local SHA-256. Text extraction confirmed hotel names in eight PDFs; both Herods PDFs show the brand but do not explicitly name the city in their content. Their city mapping remains based on the sender filename and the user-approved unqualified-Herods=Eilat rule, not independent textual proof of city. Missing U Splash Eilat and Leonardo Club Tiberias were not replaced.
+
+
+## WhatsApp Agent computers and calendar UI (1.20.9 / runner 0.5.0)
+
+The page/sidebar is named WhatsApp Agent. The full-width weekly day picker applies a shared set of editable times to selected days. Different existing schedules are grouped only when their times match exactly; additional day groups preserve distinct timing. Changes remain drafts until Save, using the existing server checks schema and concurrency revision.
+
+Fresh Mac installs generate a random `mac-<UUID>` config id; upgrades preserve the existing id/profile. Version 0.5.0 registers hostname (or the server key's computer name), version, local activation/commit flags and server heartbeat time in `contentIntakeAgents`. Each dashboard key binds to one agent id at first registration; another id is rejected. UI shows last contact and flags from the report, with stale status after ten minutes, never an unconditional online claim.
+
+Super-admin-only `/computers` PATCH transaction pauses/reallows the agent and its matching key. Disabled scoped keys fail authentication across intake endpoints. A revoked key cannot be reenabled through computer controls. Registration cannot clear disabled status; acknowledgment rechecks both records and the schedule revision in the transaction. Legacy pilot key disconnection is enforced by the upgraded runner's config preflight (schedule and manual update/resume/report commands); it does not globally revoke the historical legacy key. Already running work may complete. Disconnection preserves the local app/profile; polls resume only if reallowed and locally enabled. Machines with an older app must upgrade for roster controls.
+
+Michal handoff: create a separate key, install the new package and pair her dedicated business-browser session, preview mapping, disable/disconnect Rani before enabling her schedule, verify one real update/report and keep only one machine active for that group. Never transfer Rani's profile or key. Michal's physical install is not yet verified.

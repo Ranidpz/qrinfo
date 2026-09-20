@@ -118,7 +118,7 @@ export async function authenticateIntakeKey(request: NextRequest): Promise<boole
     const match = /^tq_ci_([a-f0-9]{32})\.([a-f0-9]{64})$/.exec(key);
     if (!match) return false;
     const record = (await getAdminDb().collection('contentIntakeConnections').doc(match[1]).get()).data();
-    if (!record || record.revokedAt || record.workflow !== 'fattal-booklets' || !record.ownerId || !record.ownerEmail) return false;
+    if (!record || record.revokedAt || record.disabledAt || record.workflow !== 'fattal-booklets' || !record.ownerId || !record.ownerEmail) return false;
     const hash = createHash('sha256').update(key).digest('hex');
     if (typeof record.keyHash !== 'string' || record.keyHash.length !== hash.length || !timingSafeEqual(Buffer.from(hash), Buffer.from(record.keyHash))) return false;
     return { ownerId: record.ownerId, ownerEmail: record.ownerEmail, connectionId: match[1] };

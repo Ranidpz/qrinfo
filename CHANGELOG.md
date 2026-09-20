@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.20.9] - 2026-09-20
+
+- Rename booklet automation to WhatsApp Agent and replace repeated select rows with a full-width weekly calendar and shared times, preserving distinct schedules.
+- Show computer names, reported activation, version and last contact, with confirmed disconnect/reconnection for super admins.
+- Mac collector 0.5.0 registers unique installations, binds each scoped key to one computer and respects remote disconnection before work.
+
 ## [1.20.8] - 2026-09-20
 
 - Super-admin-only booklet management with owner-scoped weekly check editor and filename guidance.
