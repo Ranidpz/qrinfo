@@ -9,6 +9,8 @@ import { acquireLock, safeFilename } from '../src/storage.mjs';
 import { readVisibleMessages, downloadPdf } from '../src/collector.mjs';
 import { assertGroup } from '../src/browser.mjs';
 import { buildLaunchAgent } from '../src/macos.mjs';
+import { cycleDay, hasNewFiles, buildGroupUpdate } from '../src/group-report.mjs';
+import { findSentMessage } from '../src/group-sender.mjs';
 
 const config = { groupName: 'חוברות QR פתאל', timeZone: 'Asia/Jerusalem', dateOrder: 'MDY', schedule: { weekdays: [0, 4], times: ['10:05', '14:05'] } };
 test('message receipt dates respect Israel time, midnight and DST', () => {
@@ -26,6 +28,24 @@ test('wake catchup uses latest slot once and never replays older slot', () => {
   assert.equal(slotDue(config, now, []), '2026-09-20/14:05');
   assert.equal(slotDue(config, now, ['2026-09-20/14:05']), null);
   assert.equal(slotDue(config, new Date('2026-09-21T12:00:00Z'), []), null);
+});
+test('followups stay quiet unless a new message arrives, including after an empty morning', () => {
+  const day = cycleDay(new Date('2026-09-20T10:00:00Z'), config.timeZone);
+  assert.equal(hasNewFiles([{ key: 'a' }], { day, fileKeys: ['a'] }, day), false);
+  assert.equal(hasNewFiles([{ key: 'a' }, { key: 'b' }], { day, fileKeys: ['a'] }, day), true);
+  assert.equal(hasNewFiles([], { day, fileKeys: [] }, day), false);
+  assert.equal(hasNewFiles([], { day: '2026-09-17', fileKeys: [] }, day), true);
+  const schedule = { ...config, schedule: { ...config.schedule, times: ['10:05', '12:00', '14:00'] } };
+  assert.equal(slotDue(schedule, new Date('2026-09-20T09:00:00Z'), ['2026-09-20/10:05']), '2026-09-20/12:00');
+  assert.equal(slotDue(schedule, new Date('2026-09-20T11:00:00Z'), ['2026-09-20/12:00']), '2026-09-20/14:00');
+});
+test('group summary distinguishes received, updated and missing and refuses unconfirmed writes', () => {
+  const report = { results: [{ status: 'updated', title: 'הרודס אילת' }, { status: 'skipped_duplicate', title: 'יו קורל' }], preview: { missingTargets: [{ target: { title: 'קלאב טבריה' } }] } };
+  const text = buildGroupUpdate(report, { first: true, now: new Date('2026-09-20T08:00:00Z'), timeZone: config.timeZone });
+  assert.match(text, /התקבלו 2 חוברות; 1 הועלו/);
+  assert.match(text, /חסרות: קלאב טבריה/);
+  assert.match(text, /1 כבר היו מעודכנות/);
+  assert.throws(() => buildGroupUpdate({ ...report, results: [{ status: 'failed' }] }, { first: true, timeZone: config.timeZone }), /UNCONFIRMED/);
 });
 test('local lock excludes concurrent runs and PDF validation rejects HTML', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'theq-lock-'));
@@ -61,5 +81,13 @@ test('real browser reads attachment date dividers, checks group, saves PDF from 
     assert.equal(file.name, 'book.pdf');
     assertPdf(await readFile(file.path));
     assert.equal(await page.locator('[data-testid="media-viewer-modal"]').count(), 0);
+    await page.setContent('<div id="main"><div data-id="out1"><div data-pre-plain-text="stamp"><span class="selectable-text">our report</span></div><span data-icon="msg-time"></span></div></div>');
+    assert.equal(await findSentMessage(page, 'our report'), null);
+    await page.locator('[data-icon]').evaluate(node => node.setAttribute('data-icon', 'msg-check'));
+    assert.equal(await findSentMessage(page, 'our report'), 'out1');
+    assert.equal(await findSentMessage(page, 'different report'), null);
+    await page.locator('[data-icon]').evaluate(node => node.remove());
+    await page.locator('[data-id]').evaluate(node => node.insertAdjacentHTML('beforeend', '<div data-testid="msg-meta"><svg><title>wds-ic-read</title></svg></div>'));
+    assert.equal(await findSentMessage(page, 'our report'), 'out1');
   } finally { await browser.close(); await rm(dir, { recursive: true, force: true }); }
 });

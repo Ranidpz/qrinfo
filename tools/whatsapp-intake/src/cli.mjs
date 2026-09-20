@@ -22,7 +22,7 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
 } });
 const command = positionals[0] || 'help';
 if (values.help || command === 'help') {
-  console.log('The Q WhatsApp Intake\nCommands: connect, confirm, credentials, collect, run, schedule, doctor, status, resume, unlock\nOptions: --config <file> --data <directory> --headed --commit --since <ISO>\nConfirm requires --confirm-business. Credentials requires --key-stdin. Default run is preview only.');
+  console.log('The Q WhatsApp Intake\nCommands: connect, confirm, credentials, collect, run, schedule, doctor, status, resume, report-group, unlock\nOptions: --config <file> --data <directory> --headed --commit --since <ISO>\nConfirm requires --confirm-business. Credentials requires --key-stdin. Default run is preview only.');
 } else {
   main().catch((error) => { console.error(error.message); process.exitCode = 1; });
 }

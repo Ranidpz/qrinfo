@@ -126,4 +126,3 @@ export function localFileId(file) {
     .slice(0, 16);
   return `local:${digest}`;
 }
-

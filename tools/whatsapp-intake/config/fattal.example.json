@@ -14,5 +14,6 @@
   "workflowPath": "/api/content-intake/fattal",
   "ownerEmail": "playzonest1@gmail.com",
   "autoCommit": false,
-  "schedule": { "enabled": false, "weekdays": [0, 4], "times": ["10:05", "14:05"] }
+  "sendGroupReports": false,
+  "schedule": { "enabled": false, "weekdays": [0, 4], "times": ["10:05", "12:00", "14:00"] }
 }

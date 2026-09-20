@@ -270,7 +270,7 @@ matching server deployment, real replacement and report before enabling automati
 `POST /api/content-intake/fattal/agent-status` records scoped runner state and sends
 server-side operational email on changes (login required, failure, no files,
 recovery). Repeated unchanged states remain quiet. Offline/shut-down Macs cannot
-report their own absence. The collector does not send WhatsApp messages.
+report their own absence. With explicit customer authorization, `sendGroupReports` sends a concise received/updated/missing summary to the paired business group. Followups at 12:00 and 14:00 stay quiet when nothing new arrived. An outbox records sends before pressing Enter and requires a WhatsApp acknowledgment. `/health` exposes only scoped target-existence/ownership booleans and project consistency, never credentials.
 
 Build the source-only transfer archive with `node tools/whatsapp-intake/src/package.mjs`.
 Its explicit allowlist excludes session data, credentials, downloaded PDFs, and

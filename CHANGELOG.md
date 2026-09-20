@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.20.4] - 2026-09-20
+
+- Authorized WhatsApp group reports with persistent send acknowledgments and quiet followups at 12:00 and 14:00.
+- Scoped intake health diagnostics without exposing production credentials.
+
 ## [1.20.3] - 2026-09-20
 
 - Standalone macOS WhatsApp booklet collector with persistent business profile, verified PDF downloads, configurable scheduling and safe recovery.

@@ -242,4 +242,3 @@ export function hasCommitIssues(
   return preview.summary.missingTargets > 0
     || results.some((result) => result.status === 'failed' || result.status === 'skipped');
 }
-

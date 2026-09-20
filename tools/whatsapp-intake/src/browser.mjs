@@ -15,7 +15,8 @@ export async function openWhatsApp(config, { headed = false, debugPort } = {}) {
   });
   const page = context.pages()[0] || await context.newPage();
   page.setDefaultTimeout(15000);
-  await page.goto('https://web.whatsapp.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  try { await page.goto('https://web.whatsapp.com/', { waitUntil: 'domcontentloaded', timeout: 60000 }); }
+  catch (error) { await context.close(); throw error; }
   return { context, page };
 }
 export async function isLoggedIn(page) {
