@@ -361,3 +361,64 @@ test('connection management refuses anonymous/cross-owner writes and returns a s
   assert.equal(globalThis.__createdConnection.revokedAt,123);
   delete globalThis.__connectionDb; delete globalThis.__createdConnection;
 });
+
+test('report pairs the experience title with the exact filename and original Israel update time', async () => {
+  const { buildFattalReportEmail, buildCommitSummary } = await loadTs('../../src/lib/content-intake/report.ts', {
+    '@/lib/resend': stub('export const isResendConfigured=()=>false; export const sendEmail=()=>{throw Error("Must not send mail")};'),
+  });
+  const results = [
+    { status: 'updated', title: 'חוויה <אילת>', filename: 'קובץ אחר & חדש.pdf', shortId: 'abc123', codeId: 'code-a', updatedAt: '2026-09-20T12:09:42.000Z', url: 'https://media.example.com/file.pdf' },
+    { status: 'skipped_duplicate', title: 'ים המלח', filename: 'מקור.pdf', updatedAt: '2026-01-01T08:01:02.000Z' },
+    { status: 'failed', title: 'טבריה', filename: 'לא עלה.pdf', url: 'javascript:alert(1)', error: 'Upload failed' },
+  ];
+  const all = preview([candidate('הרודס אילת.pdf')]);
+  const report = buildFattalReportEmail({ runId: 'audit-run', preview: all, status: 'completed_with_issues', results, summary: buildCommitSummary(all, results), suggestedReplyAfterCommitHe: 'summary' });
+  assert.match(report.text, /שם החוויה במערכת: חוויה <אילת>[\s\S]*שם הקובץ שהועלה: קובץ אחר & חדש.pdf/);
+  assert.match(report.text, /מועד העדכון \(שעון ישראל\): 20\.09\.2026,? 15:09:42/);
+  assert.match(report.text, /מועד העדכון המקורי \(שעון ישראל\): 01\.01\.2026,? 10:01:02/);
+  assert.match(report.text, /שם הקובץ שהתקבל: לא עלה.pdf/);
+  assert.match(report.text, /מזהה ריצה: audit-run/);
+  assert.match(report.html, /חוויה &lt;אילת&gt;/);
+  assert.match(report.html, /קובץ אחר &amp; חדש.pdf/);
+  assert.match(report.html, /href="https:\/\/qr.playzones.app\/v\/abc123"/);
+  assert.doesNotMatch(report.html, /javascript:|<אילת>/);
+  const legacy = buildFattalReportEmail({runId:'old',preview:all,status:'completed',results:[{status:'updated',filename:'legacy.pdf'}],summary:buildCommitSummary(all,[]),suggestedReplyAfterCommitHe:''});
+  assert.match(legacy.text, /מועד העדכון \(שעון ישראל\): לא תועד/);
+});
+
+test('file audit persists both names, hash and replacement time; duplicates preserve the recorded time', async () => {
+  let record;
+  globalThis.__auditDb = { collection: () => ({doc: () => ({ set: async data => { record=data; }, get: async () => ({exists:!!record,data:()=>record}) })}) };
+  try {
+    const { recordSuccessfulFileUpdate, getSuccessfulFileUpdate } = await loadTs('../../src/lib/content-intake/runs.ts', {
+      '@/lib/firebase-admin': stub('export const getAdminDb=()=>globalThis.__auditDb;'),
+      'firebase-admin/firestore': stub('export const FieldValue={serverTimestamp:()=>({toDate:()=>new Date("2026-09-20T12:10:00Z")})};'),
+    });
+    await recordSuccessfulFileUpdate({dedupeId:'hash',runId:'run',ownerId:'owner',codeId:'code',shortId:'abc',filename:'uploaded.pdf',title:'Different experience name',replacedAt:'2026-09-20T12:09:42.000Z',fileHash:'sha256',url:'https://media.example.com/file.pdf',size:123});
+    assert.equal(record.title,'Different experience name'); assert.equal(record.filename,'uploaded.pdf'); assert.equal(record.fileHash,'sha256');
+    assert.equal((await getSuccessfulFileUpdate('hash')).updatedAt,'2026-09-20T12:09:42.000Z');
+    delete record.replacedAt;
+    assert.equal((await getSuccessfulFileUpdate('hash')).updatedAt,'2026-09-20T12:10:00.000Z');
+    record.status='failed';assert.equal(await getSuccessfulFileUpdate('hash'),null);
+  } finally { delete globalThis.__auditDb; }
+});
+
+test('replacement result uses the title and timestamp persisted in the successful code transaction', async () => {
+  const time='2026-09-20T12:09:42.000Z';let written;
+  globalThis.__replacementAuditDb = {
+    collection:name=>({doc:id=>({name,id,get:async()=>({exists:true,data:()=>({ownerId:'owner',title:'Actual QR title'})})})}),
+    runTransaction:async fn=>fn({get:async ref=>({exists:true,data:()=>ref.name==='codes'?{ownerId:'owner',title:'Actual QR title',media:[]}:{storageUsed:0,storageLimit:10000}}),update:(ref,value)=>{if(ref.name==='codes')written=value;}}),
+  };
+  try {
+    const {replaceCodePdfWithBuffer}=await loadTs('../../src/lib/content-intake/pdf-replacement.ts',{
+      'firebase-admin/firestore':stub(`export const FieldValue={serverTimestamp:()=>"server-time",increment:n=>n}; export class Timestamp {static now(){return new Timestamp()} toDate(){return new Date('${time}')}}`),
+      '@/lib/firebase-admin':stub('export const getAdminDb=()=>globalThis.__replacementAuditDb;'),
+      '@/lib/server-storage':stub('export const deleteStoredObjectByUrl=async()=>{};'),
+      '@/lib/r2-storage':stub('export const buildStorageKey=()=>"key"; export const buildUniqueFilename=()=>"name.pdf"; export const R2_STORAGE_PROVIDER="cloudflare-r2"; export const uploadBufferToR2=async()=>({url:"https://storage.test/new.pdf",size:10,key:"key",bucket:"bucket",provider:"cloudflare-r2",contentType:"application/pdf"});'),
+      'pdfjs-dist/legacy/build/pdf.mjs':stub('export const getDocument=()=>({promise:Promise.resolve({numPages:1,destroy:async()=>{}})});'),
+    });
+    const result=await replaceCodePdfWithBuffer('code',{buffer:Buffer.from('%PDF-1.7\nfixture'),filename:'Different file.pdf',contentType:'application/pdf'},{expectedOwnerId:'owner'});
+    assert.equal(result.codeTitle,'Actual QR title');assert.equal(result.updatedAt,time);
+    assert.equal(written.media[0].filename,'Different file.pdf');assert.equal(written.media[0].contentIntake.updatedAt.toDate().toISOString(),time);
+  } finally {delete globalThis.__replacementAuditDb;}
+});

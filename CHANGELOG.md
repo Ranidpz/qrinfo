@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.20.7] - 2026-09-20
+
+- Pair each experience title with its exact uploaded filename, Israel replacement timestamp and PDF/QR links in HTML and plain-text reports.
+- Persist the transaction title and replacement timestamp in file and run audits; preserve original timestamps for already-uploaded files.
+
 ## [1.20.6] - 2026-09-20
 
 - Verify WhatsApp message text including image-based emoji; reconcile the delivered report without duplicate sends.

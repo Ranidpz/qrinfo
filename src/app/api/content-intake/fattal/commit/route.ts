@@ -10,7 +10,7 @@ import { fetchPdfBuffer, replaceCodePdfWithBuffer } from '@/lib/content-intake/p
 import {
   createContentIntakeRun,
   loadFattalPreviewRun,
-  hasSuccessfulFileUpdate,
+  getSuccessfulFileUpdate,
   recordSuccessfulFileUpdate,
   updateContentIntakeRun,
 } from '@/lib/content-intake/runs';
@@ -347,15 +347,19 @@ async function commitMatchedFiles(params: {
       shortId: match.target.shortId,
       title: match.target.title,
       dedupeId,
+      fileHash,
       detectedDate: match.detectedDate.value,
     };
 
     try {
-      if (await hasSuccessfulFileUpdate(dedupeId)
-        || (legacyDedupeId !== dedupeId && await hasSuccessfulFileUpdate(legacyDedupeId))) {
+      const previous = await getSuccessfulFileUpdate(dedupeId)
+        || (legacyDedupeId !== dedupeId ? await getSuccessfulFileUpdate(legacyDedupeId) : null);
+      if (previous) {
         results.push({
           ...resultBase,
           status: 'skipped_duplicate',
+          updatedAt: previous.updatedAt,
+          url: previous.url,
           reason: 'This exact file was already committed for this QR target',
         });
         continue;
@@ -384,6 +388,8 @@ async function commitMatchedFiles(params: {
         codeId: match.target.codeId,
         shortId: match.target.shortId,
         filename,
+        title: updated.codeTitle || match.target.title,
+        replacedAt: updated.updatedAt,
         fileHash,
         source: file.source || 'manual',
         sourceFileId: file.sourceFileId,
@@ -396,6 +402,8 @@ async function commitMatchedFiles(params: {
       results.push({
         ...resultBase,
         status: 'updated',
+        title: updated.codeTitle || match.target.title,
+        updatedAt: updated.updatedAt,
         url: updated.url,
         size: updated.size,
         storageDelta: updated.storageDelta,

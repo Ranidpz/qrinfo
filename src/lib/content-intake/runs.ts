@@ -101,10 +101,18 @@ export async function loadFattalPreviewRun(runId: string, ownerId: string) {
   return run as { ownerId: string; status: ContentIntakeRunStatus; preview: ContentIntakePreview; receivedAt?: string };
 }
 
+export async function getSuccessfulFileUpdate(dedupeId: string): Promise<{ updatedAt?: string; url?: string } | null> {
+  const doc = await getAdminDb().collection(CONTENT_INTAKE_FILE_UPDATES_COLLECTION).doc(dedupeId).get();
+  const data = doc.data();
+  if (!doc.exists || data?.status !== 'updated') return null;
+  return {
+    updatedAt: typeof data.replacedAt === 'string' ? data.replacedAt : data.updatedAt?.toDate?.().toISOString(),
+    url: typeof data.url === 'string' ? data.url : undefined,
+  };
+}
+
 export async function hasSuccessfulFileUpdate(dedupeId: string): Promise<boolean> {
-  const db = getAdminDb();
-  const doc = await db.collection(CONTENT_INTAKE_FILE_UPDATES_COLLECTION).doc(dedupeId).get();
-  return doc.exists && doc.data()?.status === 'updated';
+  return !!(await getSuccessfulFileUpdate(dedupeId));
 }
 
 export async function recordSuccessfulFileUpdate(params: {
@@ -114,6 +122,8 @@ export async function recordSuccessfulFileUpdate(params: {
   codeId: string;
   shortId?: string;
   filename: string;
+  title: string;
+  replacedAt: string;
   fileHash: string;
   source?: string;
   sourceFileId?: string;
@@ -131,6 +141,8 @@ export async function recordSuccessfulFileUpdate(params: {
     codeId: params.codeId,
     shortId: params.shortId,
     filename: params.filename,
+    title: params.title,
+    replacedAt: params.replacedAt,
     fileHash: params.fileHash,
     source: params.source,
     sourceFileId: params.sourceFileId,

@@ -85,6 +85,9 @@ export interface ContentIntakeCommitResult {
   shortId?: string;
   title?: string;
   dedupeId?: string;
+  /** Server-recorded replacement time; duplicates retain the original time. */
+  updatedAt?: string;
+  fileHash?: string;
   detectedDate?: string;
   url?: string;
   size?: number;

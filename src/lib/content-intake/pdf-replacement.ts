@@ -27,6 +27,8 @@ export interface PdfReplacementInput {
 
 export interface PdfReplacementResult {
   codeId: string;
+  codeTitle: string;
+  updatedAt: string;
   media: Record<string, unknown> | null;
   url: string;
   key: string;
@@ -101,6 +103,8 @@ export async function replaceCodePdfWithBuffer(
     }),
   });
 
+  let codeTitle = '';
+  let updatedAt = '';
   let oldUrl: string | undefined;
   let storageDelta = uploaded.size;
   let updatedMediaForResponse: Record<string, unknown> | null = null;
@@ -148,6 +152,8 @@ export async function replaceCodePdfWithBuffer(
       }
 
       const now = Timestamp.now();
+      updatedAt = now.toDate().toISOString();
+      codeTitle = String(freshCodeData.title || '');
       const newMedia = compactRecord({
         ...(oldMedia || {}),
         id: oldMedia?.id || `media_${Date.now()}`,
@@ -215,6 +221,8 @@ export async function replaceCodePdfWithBuffer(
 
   return {
     codeId,
+    codeTitle,
+    updatedAt,
     media: updatedMediaForResponse,
     url: uploaded.url,
     key: uploaded.key,

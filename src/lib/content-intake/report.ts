@@ -36,7 +36,7 @@ export async function sendFattalCommitReportEmail(params: {
 
 type ContentIntakeRunStatusForReport = 'completed' | 'completed_with_issues';
 
-function buildFattalReportEmail(params: {
+export function buildFattalReportEmail(params: {
   runId: string;
   status: ContentIntakeRunStatusForReport;
   preview: ContentIntakePreview;
@@ -45,7 +45,7 @@ function buildFattalReportEmail(params: {
   suggestedReplyAfterCommitHe: string;
   receivedAt?: string;
 }) {
-  const dateLabel = formatHebrewDate(params.receivedAt || params.preview.generatedAt);
+  const dateLabel = formatHebrewDate(params.preview.generatedAt);
   const reportSlotLabel = getFattalReportSlotLabel(params.receivedAt || params.preview.generatedAt);
   const statusLabel = params.status === 'completed' ? 'הושלם' : 'הושלם עם חוסרים / בדיקה';
   const updated = params.results.filter((result) => result.status === 'updated');
@@ -58,6 +58,7 @@ function buildFattalReportEmail(params: {
     `דוח עדכון חוברות פתאל - ${dateLabel}`,
     '',
     'הבוט של פלייזון סיים עדכון חוברות פתאל.',
+    `מועד הבדיקה: ${dateLabel} (שעון ישראל)`,
     `פעימת דיווח: ${reportSlotLabel}`,
     `סטטוס: ${statusLabel}`,
     `מזהה ריצה: ${params.runId}`,
@@ -70,20 +71,20 @@ function buildFattalReportEmail(params: {
     `נכשלו: ${params.summary.failed}`,
     `חסרים: ${params.summary.missingTargets}`,
     '',
-    sectionText('עודכנו', updated.map((result) => result.title || result.filename)),
+    sectionText('עודכנו', updated.map(fileDetailsText)),
     '',
-    sectionText('כבר היו מעודכנים', skippedDuplicates.map((result) => result.title || result.filename)),
+    sectionText('כבר היו מעודכנים', skippedDuplicates.map(fileDetailsText)),
     '',
     sectionText('חסרים', missing),
     '',
     sectionText(
       'דורשים בדיקה ידנית',
-      skipped.map((result) => `${result.filename}${result.reason ? ` - ${result.reason}` : ''}`)
+      skipped.map(fileDetailsText)
     ),
     '',
     sectionText(
       'שגיאות',
-      failed.map((result) => `${result.filename}${result.error ? ` - ${result.error}` : ''}`)
+      failed.map(fileDetailsText)
     ),
     '',
     'הודעה מוצעת לוואטסאפ:',
@@ -96,7 +97,7 @@ function buildFattalReportEmail(params: {
       <p style="margin: 0 0 16px;">הבוט של פלייזון סיים עדכון חוברות פתאל.</p>
 
       <table style="border-collapse: collapse; width: 100%; margin: 0 0 20px; background: #f9fafb; border: 1px solid #e5e7eb;">
-        ${summaryRow('תאריך', dateLabel)}
+        ${summaryRow('מועד הבדיקה (שעון ישראל)', dateLabel)}
         ${summaryRow('פעימת דיווח', reportSlotLabel)}
         ${summaryRow('סטטוס', statusLabel)}
         ${summaryRow('מזהה ריצה', params.runId)}
@@ -109,17 +110,11 @@ function buildFattalReportEmail(params: {
         ${summaryRow('חסרים', String(params.summary.missingTargets))}
       </table>
 
-      ${sectionHtml('עודכנו', updated.map((result) => result.title || result.filename))}
-      ${sectionHtml('כבר היו מעודכנים', skippedDuplicates.map((result) => result.title || result.filename))}
+      ${fileSectionHtml('עודכנו', updated)}
+      ${fileSectionHtml('כבר היו מעודכנים', skippedDuplicates)}
       ${sectionHtml('חסרים', missing)}
-      ${sectionHtml(
-        'דורשים בדיקה ידנית',
-        skipped.map((result) => `${result.filename}${result.reason ? ` - ${result.reason}` : ''}`)
-      )}
-      ${sectionHtml(
-        'שגיאות',
-        failed.map((result) => `${result.filename}${result.error ? ` - ${result.error}` : ''}`)
-      )}
+      ${fileSectionHtml('דורשים בדיקה ידנית', skipped)}
+      ${fileSectionHtml('שגיאות', failed)}
 
       <h3 style="margin: 20px 0 8px; font-size: 16px;">הודעה מוצעת לוואטסאפ</h3>
       <pre style="white-space: pre-wrap; direction: rtl; text-align: right; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; font-family: Arial, sans-serif;">${escapeHtml(params.suggestedReplyAfterCommitHe)}</pre>
@@ -135,6 +130,46 @@ function buildFattalReportEmail(params: {
     html,
     text,
   };
+}
+
+function fileDetails(result: ContentIntakeCommitResult): [string, string][] {
+  const statuses = { updated: 'עודכן בהצלחה', skipped_duplicate: 'כבר עודכן — לא הועלה שוב', skipped: 'לא עודכן — נדרשת בדיקה', failed: 'לא התקבל אישור לעדכון' };
+  const rows: [string, string][] = [
+    ['שם החוויה במערכת', result.title || 'לא זוהתה חוויה'],
+    [result.status === 'updated' || result.status === 'skipped_duplicate' ? 'שם הקובץ שהועלה' : 'שם הקובץ שהתקבל', result.filename],
+    ['סטטוס', statuses[result.status]],
+  ];
+  if (result.shortId || result.codeId) rows.push(['מזהה חוויה', result.shortId || result.codeId!]);
+  if (result.status === 'updated' || result.status === 'skipped_duplicate') {
+    rows.push([result.status === 'skipped_duplicate' ? 'מועד העדכון המקורי (שעון ישראל)' : 'מועד העדכון (שעון ישראל)', formatHebrewDate(result.updatedAt)]);
+  }
+  if (result.reason) rows.push(['פירוט', result.reason]);
+  if (result.error) rows.push(['שגיאה', result.error]);
+  if (result.warning) rows.push(['הערה', result.warning]);
+  return rows;
+}
+
+function safePdfUrl(url?: string): string | null {
+  try { const parsed = new URL(url || ''); return parsed.protocol === 'https:' && !parsed.username && !parsed.password ? parsed.href : null; }
+  catch { return null; }
+}
+function fileDetailsText(result: ContentIntakeCommitResult): string {
+  const rows = fileDetails(result).map(([label, value]) => `${label}: ${value}`);
+  const pdf = safePdfUrl(result.url);
+  if (pdf) rows.push(`הקובץ שעלה: ${pdf}`);
+  if (result.shortId) rows.push(`החוויה: https://qr.playzones.app/v/${encodeURIComponent(result.shortId)}`);
+  return rows.join('\n   ');
+}
+function fileSectionHtml(title: string, results: ContentIntakeCommitResult[]): string {
+  if (!results.length) return sectionHtml(title, []);
+  return `<h3 style="margin:18px 0 8px;font-size:16px">${escapeHtml(title)}</h3>` + results.map(result => {
+    const pdf = safePdfUrl(result.url);
+    const links = [
+      ...(pdf ? [`<a href="${escapeHtml(pdf)}">פתיחת הקובץ שעלה</a>`] : []),
+      ...(result.shortId ? [`<a href="https://qr.playzones.app/v/${encodeURIComponent(result.shortId)}">פתיחת החוויה</a>`] : []),
+    ];
+    return `<table dir="rtl" style="border-collapse:collapse;width:100%;table-layout:fixed;border:1px solid #e5e7eb;margin-bottom:14px">${fileDetails(result).map(([label, value]) => summaryRow(label, value)).join('')}${links.length ? `<tr><td colspan="2" style="padding:10px 12px">${links.join(' · ')}</td></tr>` : ''}</table>`;
+  }).join('');
 }
 
 function sectionText(title: string, items: string[]): string {
@@ -158,8 +193,8 @@ function sectionHtml(title: string, items: string[]): string {
 function summaryRow(label: string, value: string): string {
   return `
     <tr>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: bold; width: 190px;">${escapeHtml(label)}</td>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${escapeHtml(value)}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-weight: bold; width: 38%; vertical-align: top;">${escapeHtml(label)}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; overflow-wrap: anywhere; word-break: break-word;"><bdi>${escapeHtml(value)}</bdi></td>
     </tr>
   `;
 }
@@ -174,14 +209,16 @@ function getFattalReportSlotLabel(value?: string): string {
     hour12: false,
   }).format(date));
 
-  if (hourInIsrael < 12) return 'פעימה 1 - 10:00';
-  if (hourInIsrael < 15) return 'פעימה 2 - 12:00/14:00';
+  if (hourInIsrael < 12) return 'חלון בוקר — בדיקה מתוזמנת ב־10:05';
+  if (hourInIsrael < 14) return 'חלון בדיקת המשך — 12:00';
+  if (hourInIsrael < 15) return 'חלון בדיקת המשך — 14:00';
   return 'ריצה ידנית / השלמה מאוחרת';
 }
 
 function formatHebrewDate(value?: string): string {
-  const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return new Date().toLocaleDateString('he-IL');
+  if (!value) return 'לא תועד';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'לא תועד';
 
   return new Intl.DateTimeFormat('he-IL', {
     timeZone: 'Asia/Jerusalem',
@@ -190,6 +227,8 @@ function formatHebrewDate(value?: string): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
   }).format(date);
 }
 

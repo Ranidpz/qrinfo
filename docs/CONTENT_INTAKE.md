@@ -258,9 +258,9 @@ from Saturday/Sunday headlessly. Repeated successfully from the installed app
 without another QR scan. Checked PDF signatures/hashes and reached a dated
 history boundary. Owner-confirmed rules now match all 10 files: unqualified Herods, Leonardo Plaza
 and Royal map to their explicit Eilat QR targets; any named area takes precedence.
-This offline check does not prove live target ownership or API compatibility.
+The initial offline check did not prove live target ownership or API compatibility. Later on September 20, live health verified all 12 targets for the confirmed Bidur owner; 10 PDFs were replaced and their public hashes and QR pointers verified. The email report and one WhatsApp summary were confirmed. The pilot schedule was then enabled on Rani's Mac, and a followup correctly made no changes.
 
-The installed configuration keeps `schedule.enabled=false` and `autoCommit=false`.
+New installations still default to `schedule.enabled=false` and `autoCommit=false`.
 The Mac's AC power sleep setting was already 0; no global power preference changed.
 Intake keys stored as sensitive secrets cannot be retrieved later. Generate a
 cryptographically random replacement only with owner authorization, update only
@@ -288,3 +288,21 @@ All Fattal endpoints and the single PDF endpoint validate these keys and resolve
 Public downloads contain only the reviewed source installer. `TheQ-connection.json` is generated in-browser on explicit download and contains the one-time secret; it must never enter Git or a shared software archive. The installer imports it for new installations, preserves existing credentials, and offers ImportConnection / EnableUpdates / DisableSchedule launchers. Installation and imports leave scheduled writes disabled.
 
 On September 20 the user identified the correct owner as `biduratias@gmail.com` (בידור). Production `FATTAL_BOOKLETS_OWNER_EMAIL` was configured accordingly. Verify scoped health before running a live replacement. Vercel production project is `qrinfo`; the obsolete `qr` project was disconnected from Git at the user's request. It had no successful deployments and no custom domain.
+
+
+## Planned expansion: user-configured customer automations
+
+User direction, September 20, 2026: Fattal entertainment booklets are the first customer workflow. In a later phase, every user should be able to configure an automation for their own customer and folder; a super admin should also be able to set it up on behalf of other users. This is a future requirement, not functionality shipped by the current Fattal-specific workflow.
+
+Configuration should distinguish the customer's folder and selected QR destinations in The Q from the local Mac download directory. Each connection should include the owner account, customer label, source WhatsApp group, explicit file-to-QR mapping, download location, timezone/schedule and reporting preferences. Local retention/cleanup also needs a defined policy; the current collector retains downloaded PDFs.
+
+Authorization must remain server-enforced: ordinary users configure only their own destinations; a super admin selects the actual customer owner, with the acting admin recorded in the audit. Each key is limited to the connection's selected destinations. Folder membership changes must not silently broaden an existing key. Fattal hotel-name inference belongs to the Fattal workflow and must not affect other customers.
+
+Keep each connection's credentials, download ledger, pending runs, schedules and report outbox isolated. Preserve separately paired business sessions, and allow only one active scheduler for a given connection when transferring between computers. Reuse the same source-only Mac package with per-installation configuration; never distribute a customer's key or logged-in WhatsApp profile in the package.
+
+
+## Auditable email rows (v1.20.7)
+
+Each updated booklet is reported with separate experience title and exact uploaded filename, QR identifier, status, the server-recorded replacement timestamp (Israel time including seconds), and links to the PDF and current QR experience. A duplicate retains its original update time; missing historical timestamps are explicitly marked unavailable. Failed/skipped inputs are labeled received rather than uploaded.
+
+The PDF transaction returns the actual code title and the same timestamp written into `media.contentIntake.updatedAt`. These are copied into `contentIntakeRuns.commitResults` and `contentIntakeFileUpdates` (`title`, `filename`, `replacedAt`, hash, owner/code/run identifiers and URL). The file audit's `updatedAt` remains a Firestore server timestamp. Batched reports preserve the per-file values from committed chunks. Already-sent reports are not automatically resent.
