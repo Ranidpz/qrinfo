@@ -62,7 +62,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', icon: Home, labelKey: 'dashboard' },
   { href: '/analytics', icon: BarChart3, labelKey: 'analytics' },
-  { href: '/content-intake', icon: FileDown, labelKey: 'contentIntake', roles: ['super_admin', 'producer', 'free'] },
+  { href: '/content-intake', icon: FileDown, labelKey: 'contentIntake', roles: ['super_admin'] },
   { href: '/guide', icon: HelpCircle, labelKey: 'guide' },
   { href: '/marketing', icon: QrCode, labelKey: 'whatIsQ', dividerBefore: true },
   { href: '/costume-competition', icon: Drama, labelKey: 'costumeCompetition' },

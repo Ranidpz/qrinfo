@@ -329,15 +329,15 @@ test('per-computer key is hashed, revocable and cannot override its owner', asyn
   delete globalThis.__intakeKeyRecord;
 });
 
-test('connection management refuses anonymous/cross-owner writes and returns a secret only at creation', async () => {
+test('connection management refuses non-admin access and returns a secret only at creation', async () => {
   const { createHash } = await import('node:crypto');
   const db = { collection(name) { return { doc(id) { return {
-    get: async () => ({ data: () => name === 'users' ? { email: 'owner@example.com', role: 'producer' } : globalThis.__createdConnection }),
+    get: async () => ({ data: () => name === 'users' ? { email: 'owner@example.com', role: globalThis.__connectionRole || 'producer' } : globalThis.__createdConnection }),
     create: async data => { globalThis.__createdConnection = data; },
     update: async data => { Object.assign(globalThis.__createdConnection, data); },
   }; } }; } };
   globalThis.__connectionDb = db;
-  const { POST, DELETE } = await loadTs('../../src/app/api/content-intake/connections/route.ts', {
+  const { GET, POST, DELETE } = await loadTs('../../src/app/api/content-intake/connections/route.ts', {
     'next/server': stub('export const NextResponse={json:(value,init)=>new Response(JSON.stringify(value),init)};'),
     'firebase-admin/firestore': stub('export const FieldValue={serverTimestamp:()=>123};'),
     '@/lib/auth': stub('export const verifyAuthToken=async r=>r.headers.get("authorization")?{uid:"owner-a"}:{error:new Response("Unauthorized",{status:401})};'),
@@ -348,6 +348,10 @@ test('connection management refuses anonymous/cross-owner writes and returns a s
   const req = (body, auth = true) => new Request('https://example.com/api/content-intake/connections', { method:'POST', headers: auth ? {authorization:'Bearer fixture'} : {}, body:JSON.stringify(body) });
   assert.equal((await POST(req({ownerId:'owner-a',name:'Mac'},false))).status,401);
   assert.equal((await POST(req({ownerId:'owner-b',name:'Mac'}))).status,403);
+  assert.equal((await POST(req({ownerId:'owner-a',name:'Mac'}))).status,403);
+  assert.equal((await GET(req({}))).status,403);
+  assert.equal((await DELETE(req({id:'a'.repeat(32)}))).status,403);
+  globalThis.__connectionRole = 'super_admin';
   const response = await POST(req({ownerId:'owner-a',name:'Mac'}));
   assert.equal(response.status,200);
   const created = await response.json();
@@ -355,11 +359,13 @@ test('connection management refuses anonymous/cross-owner writes and returns a s
   assert.equal(globalThis.__createdConnection.keyHash,createHash('sha256').update(created.key).digest('hex'));
   assert.ok(!JSON.stringify(globalThis.__createdConnection).includes(created.key));
   globalThis.__createdConnection.ownerId='owner-b';
+  globalThis.__connectionRole = 'free';
   assert.equal((await DELETE(req({id:created.id}))).status,403);
+  globalThis.__connectionRole = 'super_admin';
   globalThis.__createdConnection.ownerId='owner-a';
   assert.equal((await DELETE(req({id:created.id}))).status,200);
   assert.equal(globalThis.__createdConnection.revokedAt,123);
-  delete globalThis.__connectionDb; delete globalThis.__createdConnection;
+  delete globalThis.__connectionDb; delete globalThis.__createdConnection; delete globalThis.__connectionRole;
 });
 
 test('report pairs the experience title with the exact filename and original Israel update time', async () => {
@@ -421,4 +427,13 @@ test('replacement result uses the title and timestamp persisted in the successfu
     assert.equal(result.codeTitle,'Actual QR title');assert.equal(result.updatedAt,time);
     assert.equal(written.media[0].filename,'Different file.pdf');assert.equal(written.media[0].contentIntake.updatedAt.toDate().toISOString(),time);
   } finally {delete globalThis.__replacementAuditDb;}
+});
+
+
+test('the documented full hotel, area and full-date standard matches every explicit target', () => {
+  for (const target of targets) {
+    const match = preview([candidate(`${target.title} - 20.09.2026.pdf`)]).matches[0];
+    assert.equal(match.status, 'matched', target.title);
+    assert.equal(match.target.shortId, target.shortId, target.title);
+  }
 });

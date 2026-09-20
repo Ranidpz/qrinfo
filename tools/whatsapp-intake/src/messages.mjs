@@ -68,10 +68,11 @@ export function assertPdf(buffer) {
 export function slotDue(config, now, completedSlots) {
   const p = dateParts(now, config.timeZone);
   const weekday = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay();
-  if (!config.schedule.weekdays.includes(weekday)) return null;
+  const times = config.schedule.checks ? config.schedule.checks.filter(c => c.weekday === weekday).map(c => c.time) : config.schedule.weekdays.includes(weekday) ? config.schedule.times : [];
   const day = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
   // On wake, catch up only the latest due slot on the current scheduled day.
-  const latest = config.schedule.times.filter((time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) <= p.hour * 60 + p.minute).sort().at(-1);
+  const latest = times.filter((time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) <= p.hour * 60 + p.minute).sort().at(-1);
+  if (latest && config.schedule.effectiveAfter && wallTimeToDate({ ...p, hour: Number(latest.slice(0, 2)), minute: Number(latest.slice(3)) }, config.timeZone).getTime() <= Date.parse(config.schedule.effectiveAfter)) return null;
   const key = latest && `${day}/${latest}`;
   return key && !completedSlots.includes(key) ? key : null;
 }

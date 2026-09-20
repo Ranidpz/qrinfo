@@ -6,9 +6,11 @@ import { Download, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
+import ScheduleEditor from './ScheduleEditor';
+
 type Owner = { id: string; name: string; email: string; targets: { shortId: string; title: string }[] };
 type Connection = { id: string; name: string; revoked: boolean };
-type Agent = { id: string; state: string; updatedAt: string | null };
+type Agent = { scheduleRevision?: string | null; scheduleSyncedAt?: string | null; id: string; state: string; updatedAt: string | null };
 type Data = { owners: Owner[]; connections: Connection[]; agents: Agent[] };
 const endpoint = '/api/content-intake/connections';
 const panel = 'rounded-2xl border border-border bg-bg-secondary p-5 sm:p-6';
@@ -16,6 +18,14 @@ const button = 'inline-flex items-center justify-center gap-2 rounded-lg bg-acce
 
 export default function ContentIntakePage() {
   const { user, loading: authLoading } = useAuth();
+  const t = useTranslations('contentIntake');
+  if (authLoading) return <p role="status">{t('loading')}</p>;
+  if (!user) return <p>{t('signIn')}</p>;
+  if (user.role !== 'super_admin') return <p role="alert">{t('adminOnly')}</p>;
+  return <ContentIntake key={user.id} />;
+}
+function ContentIntake() {
+  const { user } = useAuth();
   const t = useTranslations('contentIntake');
   const locale = useLocale();
   const [data, setData] = useState<Data>({ owners: [], connections: [], agents: [] });
@@ -69,8 +79,6 @@ export default function ContentIntakePage() {
     const link = document.createElement('a'); link.href = url; link.download = 'TheQ-connection.json'; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  if (authLoading) return <p role="status">{t('loading')}</p>;
-  if (!user) return <p>{t('signIn')}</p>;
   return <div className="mx-auto max-w-5xl space-y-6 text-text-primary">
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-2xl font-bold">{t('title')}</h1><p className="mt-2 max-w-2xl text-text-secondary">{t('intro')}</p></div>
@@ -101,11 +109,13 @@ export default function ContentIntakePage() {
       <section className={panel} aria-labelledby="download-title">
         <h2 id="download-title" className="mb-4 flex items-center gap-2 text-lg font-semibold"><Download size={20} />{t('downloadTitle')}</h2>
         <p className="mb-5 text-text-secondary">{t('downloadDescription')}</p>
-        <a className={button} href="/downloads/TheQ-WhatsApp-Intake-0.3.1.zip" download>{t('downloadMac')}</a>
+        <a className={button} href="/downloads/TheQ-WhatsApp-Intake-0.4.0.zip" download>{t('downloadMac')}</a>
         <p className="mt-3 text-xs text-text-secondary">{t('requirements')}</p>
-        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Intake-0.3.1.zip.sha256" download>{t('checksum')}</a>
+        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Intake-0.4.0.zip.sha256" download>{t('checksum')}</a>
       </section>
     </div>
+    {ownerId && <ScheduleEditor key={ownerId} ownerId={ownerId} agents={data.agents} />}
+    <section className={panel}><h2 className="mb-3 text-lg font-semibold">{t('filenameTitle')}</h2><p className="text-text-secondary">{t('filenameStandard')}</p><p className="my-3 break-words rounded-lg bg-bg-primary p-3">{t('filenameExample')}</p><p className="text-sm text-text-secondary">{t('filenameCompatibility')}</p></section>
     <section className={panel}><h2 className="mb-4 text-lg font-semibold">{t('instructions')}</h2>
       <ol className="list-decimal space-y-4 ps-5 text-text-secondary">{['step1','step2','step3','step4','step5','step6'].map(k => <li key={k}>{t(k)}</li>)}</ol>
       <p className="mt-5 rounded-lg bg-accent/10 p-4 text-sm">{t('schedule')}</p>

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { validateRemoteSchedule } from './schedule-sync.mjs';
 import { readJson } from './storage.mjs';
 
 export async function loadConfig(file, dataDir) {
@@ -15,5 +16,6 @@ export async function loadConfig(file, dataDir) {
   if (!(config.maxScrolls > 0 && config.maxScrolls <= 500)) throw new Error('INVALID_SCROLL_LIMIT');
   if (!Array.isArray(config.schedule?.weekdays) || config.schedule.weekdays.some((n) => !Number.isInteger(n) || n < 0 || n > 6)) throw new Error('INVALID_SCHEDULE');
   if (!Array.isArray(config.schedule.times) || !config.schedule.times.length || config.schedule.times.some((v) => !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v))) throw new Error('INVALID_SCHEDULE');
-  return { ...config, apiBaseUrl: url.origin, dataDir: path.resolve(dataDir), profileDir: path.resolve(dataDir, config.id, 'browser'), runtimeDir: path.resolve(dataDir, config.id) };
+  if (config.schedule.checks) validateRemoteSchedule({ ...config.schedule, timeZone: config.timeZone });
+  return { ...config, configFile: path.resolve(file), apiBaseUrl: url.origin, dataDir: path.resolve(dataDir), profileDir: path.resolve(dataDir, config.id, 'browser'), runtimeDir: path.resolve(dataDir, config.id) };
 }

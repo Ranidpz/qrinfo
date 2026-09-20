@@ -9,6 +9,8 @@ import { previewBatch, commitWithPayloadFallback, finalizeBatch, intakeHealth } 
 import { cycleDay, hasNewFiles, buildGroupUpdate } from './group-report.mjs';
 import { sendGroupUpdate } from './group-sender.mjs';
 
+import { syncSchedule } from './schedule-sync.mjs';
+
 const exec = promisify(execFile);
 export async function runCommand(command, config, options) {
   const statusPath = path.join(config.runtimeDir, 'status.json');
@@ -16,6 +18,10 @@ export async function runCommand(command, config, options) {
   const pendingPath = path.join(config.runtimeDir, 'pending.json');
   const checkpointPath = path.join(config.runtimeDir, 'checkpoint.json');
   const history = await readJson(historyPath, { completed: [] });
+  if (command === 'sync-config' || command === 'schedule') {
+    await syncSchedule(config);
+    if (command === 'sync-config') { console.log('Schedule synchronized.'); return; }
+  }
   const now = new Date();
   const day = cycleDay(now, config.timeZone);
   const checkpoint = await readJson(checkpointPath, null);
@@ -31,7 +37,7 @@ export async function runCommand(command, config, options) {
     const credentials = await readJson(path.join(config.runtimeDir, 'credentials.json'), {});
     const key = process.env.CONTENT_INTAKE_API_KEY || credentials.contentIntakeApiKey;
     const api = key ? await intakeHealth({ baseUrl: config.apiBaseUrl, workflowPath: config.workflowPath, apiKey: key }).catch(() => ({ ready: false, error: 'API unavailable or unauthorized' })) : { ready: false, error: 'API key missing' };
-    console.log(JSON.stringify({ node: process.version, profileConfirmed: !!account, runtime: config.runtimeDir, pending: !!(await readJson(pendingPath, null)), lock: await readJson(path.join(config.runtimeDir, 'runner.lock'), null), schedule: config.schedule, autoCommit: config.autoCommit, api, powerSettings: stdout }, null, 2));
+    console.log(JSON.stringify({ node: process.version, profileConfirmed: !!account, runtime: config.runtimeDir, pending: !!(await readJson(pendingPath, null)), lock: await readJson(path.join(config.runtimeDir, 'runner.lock'), null), scheduleSync: await readJson(path.join(config.runtimeDir, 'schedule-sync.json'), null), schedule: config.schedule, autoCommit: config.autoCommit, api, powerSettings: stdout }, null, 2));
     return;
   }
   if (!['collect', 'run', 'schedule', 'resume', 'report-group'].includes(command)) throw new Error('UNKNOWN_COMMAND');

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.20.8] - 2026-09-20
+
+- Super-admin-only booklet management with owner-scoped weekly check editor and filename guidance.
+- Mac collector 0.4.0 polls and acknowledges schedule revisions; preserves local activation, applies future slots only and stops on sync failure.
+- Verify all 12 standardized hotel names, scheduling/DST, scope, non-admin rejection and desktop/mobile controls.
+
 ## [1.20.7] - 2026-09-20
 
 - Pair each experience title with its exact uploaded filename, Israel replacement timestamp and PDF/QR links in HTML and plain-text reports.

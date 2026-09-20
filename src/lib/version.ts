@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.7';
+export const APP_VERSION = '1.20.8';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.20.8', date: '2026-09-20', isNew: true, highlights: {
+    he: ['תזמון בדיקות חוברות מהדשבורד וסנכרון למק; גישה למנהלי־על בלבד'],
+    en: ['Dashboard booklet schedules synced to the Mac; super-admin-only access'],
+  } },
   { version: '1.20.7', date: '2026-09-20', isNew: true, highlights: {
     he: ['דוח חוברות מפורט: שם החוויה, שם הקובץ ושעת העדכון לכל חוברת'],
     en: ['Booklet email audit: experience title, uploaded filename and per-file update time'],

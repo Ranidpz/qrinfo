@@ -281,7 +281,7 @@ not just a different owner email in local configuration.
 
 ## Dashboard and per-computer keys (v1.20.5)
 
-`/[locale]/content-intake` manages Fattal connections. `/api/content-intake/connections` requires Firebase Bearer authentication. Regular users can discover/manage their own mapped booklets; super admins can select owners of the explicit Fattal targets. Creation returns a random key once; Firestore `contentIntakeConnections` stores only SHA-256 hashes. Revocation blocks subsequent API requests. The existing Firestore rules default-deny unmatched collections; no client access is granted to connections.
+`/[locale]/content-intake` manages Fattal connections. `/api/content-intake/connections` requires Firebase Bearer authentication. Management is super-admin-only, including GET/POST/DELETE and the page/sidebar. Super admins can select owners of the explicit Fattal targets. Creation returns a random key once; Firestore `contentIntakeConnections` stores only SHA-256 hashes. Revocation blocks subsequent API requests. The existing Firestore rules default-deny unmatched collections; no client access is granted to connections.
 
 All Fattal endpoints and the single PDF endpoint validate these keys and resolve the owner from the stored key scope. Request parameters cannot change that owner. This release scopes keys to all explicitly mapped Fattal booklets for the selected owner, not arbitrary customer QR codes.
 
@@ -296,7 +296,7 @@ User direction, September 20, 2026: Fattal entertainment booklets are the first 
 
 Configuration should distinguish the customer's folder and selected QR destinations in The Q from the local Mac download directory. Each connection should include the owner account, customer label, source WhatsApp group, explicit file-to-QR mapping, download location, timezone/schedule and reporting preferences. Local retention/cleanup also needs a defined policy; the current collector retains downloaded PDFs.
 
-Authorization must remain server-enforced: ordinary users configure only their own destinations; a super admin selects the actual customer owner, with the acting admin recorded in the audit. Each key is limited to the connection's selected destinations. Folder membership changes must not silently broaden an existing key. Fattal hotel-name inference belongs to the Fattal workflow and must not affect other customers.
+Future generalization must remain server-enforced; current access is restricted to super admins (September 20 decision). The acting admin selects the customer owner and is recorded in the audit. Each key is limited to the connection's selected destinations. Folder membership changes must not silently broaden an existing key. Fattal hotel-name inference belongs to the Fattal workflow and must not affect other customers.
 
 Keep each connection's credentials, download ledger, pending runs, schedules and report outbox isolated. Preserve separately paired business sessions, and allow only one active scheduler for a given connection when transferring between computers. Reuse the same source-only Mac package with per-installation configuration; never distribute a customer's key or logged-in WhatsApp profile in the package.
 
@@ -306,3 +306,14 @@ Keep each connection's credentials, download ledger, pending runs, schedules and
 Each updated booklet is reported with separate experience title and exact uploaded filename, QR identifier, status, the server-recorded replacement timestamp (Israel time including seconds), and links to the PDF and current QR experience. A duplicate retains its original update time; missing historical timestamps are explicitly marked unavailable. Failed/skipped inputs are labeled received rather than uploaded.
 
 The PDF transaction returns the actual code title and the same timestamp written into `media.contentIntake.updatedAt`. These are copied into `contentIntakeRuns.commitResults` and `contentIntakeFileUpdates` (`title`, `filename`, `replacedAt`, hash, owner/code/run identifiers and URL). The file audit's `updatedAt` remains a Firestore server timestamp. Batched reports preserve the per-file values from committed chunks. Already-sent reports are not automatically resent.
+
+
+## Weekly schedule and filename contract (1.20.8 / runner 0.4.0)
+
+Super admins edit independent weekday/time pairs in the dashboard (1–28 unique checks, Israel timezone). Settings are owner/workflow-scoped, shared by installations for that owner; only one active installation per workflow is supported. `contentIntakeSettings/fattal-<ownerId>` stores checks, revision, effectiveAfter, updatedBy and server updatedAt. PATCH requires the revision last read (409 on concurrent edit). Newly saved schedules apply only to future slots, preventing accidental immediate catchup of newly added past times.
+
+The Mac polls `/fattal/config` before calculating any scheduled slot, every five minutes while its LaunchAgent is enabled. Its authenticated key derives the owner; it cannot choose another owner. The config endpoint only returns schedule fields. Sync preserves local activation, autoCommit, reporting, credentials, paths and account confirmation. `/fattal/config` POST acknowledges the applied revision in `contentIntakeAgents`; dashboard refresh shows applied/pending plus the last sync timestamp. `sync-config` provides a no-collection/no-upload synchronization check. Network/auth/validation/ack failures prevent a run using stale settings, recorded in local `schedule-sync.json` (also shown by doctor). Offline Macs cannot deliver heartbeat warnings remotely. `DisableSchedule.command` stops polling as well as updates.
+
+Recommended sender filename: `שם המלון - עיר או אזור - DD.MM.YYYY.pdf` with the program start date, e.g. `לאונרדו פלאזה - ים המלח - 20.09.2026.pdf`. The original name remains in the audit. Existing recognized aliases remain valid. Explicit area overrides approved Eilat defaults; ambiguous, conflicting, duplicate or stale candidates stop for review. All 12 target names with full dates have regression coverage.
+
+September 20 verification: all 10 published PDFs and QR pointers were rechecked against local SHA-256. Text extraction confirmed hotel names in eight PDFs; both Herods PDFs show the brand but do not explicitly name the city in their content. Their city mapping remains based on the sender filename and the user-approved unqualified-Herods=Eilat rule, not independent textual proof of city. Missing U Splash Eilat and Leonardo Club Tiberias were not replaced.
