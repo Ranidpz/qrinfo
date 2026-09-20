@@ -338,3 +338,7 @@ The application and each dashboard computer card show `~/Library/Application Sup
 Packaging: `node tools/whatsapp-intake/src/package-native.mjs` emits `TheQ-WhatsApp-Agent-0.6.0.zip` and SHA-256. The current build is ad-hoc signed, **not** Developer ID signed or notarized. No signing identity is installed on the development Mac. Complete Apple Developer ID signing and notarization before broad customer distribution; do not disable Gatekeeper or strip quarantine as a workaround.
 
 Verification: both architectures compiled and code-signature integrity checked; native preparation executed on Rani's Apple Silicon Mac, installed 0.6.0 and preserved the active schedule/profile. Intel execution and Michal's physical installation remain unverified. Native UI visually checked; 36 server/collector regressions cover scoped writes, mapping, scheduling, browser downloads and bridge status/entry behavior. This setup release did not intentionally run another live PDF replacement or group report.
+
+## Workflow overview (1.20.11)
+
+The page introduces a general WhatsApp-to-experience workflow with group submission, explicit file matching, weekly checks and completion/missing reports. Keep Fattal out of the product header, but disclose the currently supported Fattal PDF scope in connection setup. This copy change does not implement self-service customer/group mapping or arbitrary file types. Requirements include a logged-in awake Mac, internet, a paired WhatsApp account in the group and one active computer per connection.

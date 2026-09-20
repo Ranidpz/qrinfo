@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.20.11] - 2026-09-20
+
+- Explain the WhatsApp Agent workflow from a shared group through explicit experience matching, scheduled updates and confirmation reports.
+- Remove Fattal branding from the page header; keep current PDF/Fattal scope and super-admin access explicit in connection setup.
+
 ## [1.20.10] - 2026-09-20
 
 - Native universal Mac WhatsApp Agent 0.6.0 with guided connection, mapping preview, activation/pause and Open Downloads.

@@ -80,14 +80,25 @@ function ContentIntake() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return <div className="mx-auto max-w-5xl space-y-6 text-text-primary">
-    <header className="flex flex-wrap items-start justify-between gap-4">
-      <div><h1 className="text-2xl font-bold">{t('title')}</h1><p className="mt-2 max-w-2xl text-text-secondary">{t('intro')}</p></div>
-      <span className="rounded-full bg-accent/10 px-3 py-1 text-sm text-accent">{t('workflow')}</span>
+    <header>
+      <h1 className="text-2xl font-bold">{t('title')}</h1><p className="mt-2 text-text-secondary">{t('intro')}</p>
     </header>
+    <section className={panel} aria-labelledby="workflow-title">
+      <h2 id="workflow-title" className="mb-4 text-lg font-semibold">{t('flowTitle')}</h2>
+      <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {['Group', 'Mapping', 'Schedule', 'Report'].map((step, index) => <li key={step} className="rounded-xl border border-border bg-bg-primary p-4">
+          <span aria-hidden="true" className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 font-semibold text-accent">{index + 1}</span>
+          <h3 className="mb-2 font-semibold">{t(`flow${step}Title`)}</h3><p className="text-sm leading-relaxed text-text-secondary">{t(`flow${step}Text`)}</p>
+        </li>)}
+      </ol>
+      <p className="mt-4 text-sm leading-relaxed text-text-secondary">{t('flowRequirements')}</p>
+      <p className="mt-3 rounded-lg bg-accent/10 p-3 text-sm leading-relaxed">{t('flowFollowups')}</p>
+    </section>
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-4 text-red-500">{t('error')}</p>}
     <div className="grid gap-6 lg:grid-cols-2">
       <section className={panel} aria-labelledby="connection-title">
         <h2 id="connection-title" className="mb-4 flex items-center gap-2 text-lg font-semibold"><KeyRound size={20} />{t('connectionTitle')}</h2>
+        <p className="mb-4 text-sm leading-relaxed text-text-secondary">{t('currentAvailability')}</p>
         {loading ? <p role="status">{t('loading')}</p> : data.owners.length === 0 ? <p>{t('noOwners')}</p> : <>
           <label className="block text-sm" htmlFor="intake-owner">{t('owner')}</label>
           <div className="relative mt-2"><select id="intake-owner" value={ownerId} disabled={busy || !!secret} onChange={e => setOwnerId(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-bg-primary py-3 ps-3 pe-10">
