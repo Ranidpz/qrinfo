@@ -89,5 +89,8 @@ test('real browser reads attachment date dividers, checks group, saves PDF from 
     await page.locator('[data-icon]').evaluate(node => node.remove());
     await page.locator('[data-id]').evaluate(node => node.insertAdjacentHTML('beforeend', '<div data-testid="msg-meta"><svg><title>wds-ic-read</title></svg></div>'));
     assert.equal(await findSentMessage(page, 'our report'), 'out1');
+    await page.locator('.selectable-text').evaluate(node => { node.innerHTML = '<span>our report <img data-plain-text="✅" alt="✅"></span><br><span>done</span>'; });
+    assert.equal(await findSentMessage(page, 'our report ✅\ndone'), 'out1');
+    assert.equal(await findSentMessage(page, 'our report ❌\ndone'), null);
   } finally { await browser.close(); await rm(dir, { recursive: true, force: true }); }
 });

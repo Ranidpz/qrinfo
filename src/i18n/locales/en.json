@@ -22,7 +22,7 @@
     "saved": "Saved — hide key",
     "downloadTitle": "2. Mac software",
     "downloadDescription": "A standalone collector with its own browser. No ChatGPT account, Codex installation or OpenAI credits required.",
-    "downloadMac": "Download for Mac · 0.3.0",
+    "downloadMac": "Download for Mac · 0.3.1",
     "requirements": "Requires macOS and Node.js 20 or later. Script installer, not Apple signed. Internet required for installation.",
     "checksum": "Download file checksum (SHA-256)",
     "instructions": "3. Install and connect",

@@ -50,7 +50,13 @@ export async function findSentMessage(page, text) {
     const normalize = (value) => value.replace(/[\u200e\u200f]/g, '').replace(/\s+/g, ' ').trim();
     for (const row of rows) {
       const body = row.querySelector('[data-pre-plain-text] [data-testid="selectable-text"], [data-pre-plain-text] .selectable-text');
-      if (!body || normalize(body.innerText) !== normalize(expected)) continue;
+      if (!body) continue;
+      // WhatsApp renders emoji as images; innerText omits them. Compare their
+      // plain-text representation so an acknowledged message is not retried.
+      const content = body.cloneNode(true);
+      for (const img of content.querySelectorAll('img')) img.replaceWith(document.createTextNode(img.getAttribute('data-plain-text') || img.getAttribute('alt') || ''));
+      for (const br of content.querySelectorAll('br')) br.replaceWith(document.createTextNode('\n'));
+      if (normalize(content.textContent || '') !== normalize(expected)) continue;
       // A checkmark is an outgoing send acknowledgment; a clock alone is not.
       const legacy = row.querySelector('[data-icon="msg-check"], [data-icon="msg-dblcheck"], [data-testid="msg-check"], [data-testid="msg-dblcheck"]');
       const modern = [...row.querySelectorAll('[data-testid="msg-meta"] svg title')].some(icon => icon.textContent === 'wds-ic-read');

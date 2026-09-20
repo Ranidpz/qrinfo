@@ -75,6 +75,8 @@ export async function runCommand(command, config, options) {
       if (report.summary.failed || report.summary.skipped || !report.reportEmail?.sent) throw new Error('BATCH_NEEDS_REVIEW: inspect last-report.json before explicitly resolving pending state');
       await deliver(report, pending.fileIds);
       await rm(pendingPath);
+      await writeJson(statusPath, { state: 'completed', summary: report.summary, runId: report.runId, at: new Date().toISOString() });
+      await notifyStatus(config, params, 'ready');
       console.log(JSON.stringify(report.summary));
       return;
     }

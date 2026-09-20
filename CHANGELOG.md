@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.20.6] - 2026-09-20
+
+- Verify WhatsApp message text including image-based emoji; reconcile the delivered report without duplicate sends.
+- Mark resumed completed batches as healthy; Mac download updated to 0.3.1.
+
 ## [1.20.5] - 2026-09-20
 
 - Booklet updates dashboard with owner selection, one-time scoped keys, revocation, Mac download and bilingual setup instructions.

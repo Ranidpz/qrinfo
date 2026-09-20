@@ -22,7 +22,7 @@
     "saved": "שמרתי, סגירת המפתח",
     "downloadTitle": "2. התוכנה למק",
     "downloadDescription": "תוכנת איסוף עצמאית עם דפדפן ייעודי. אין צורך בחשבון ChatGPT, בקודקס או בקרדיטים של OpenAI.",
-    "downloadMac": "הורדה למק · 0.3.0",
+    "downloadMac": "הורדה למק · 0.3.1",
     "requirements": "נדרש macOS ו־Node.js 20 ומעלה. חבילת התקנה בסקריפט, ללא חתימת Apple. ההתקנה דורשת אינטרנט.",
     "checksum": "הורדת קוד אימות הקובץ (SHA-256)",
     "instructions": "3. התקנה וחיבור",

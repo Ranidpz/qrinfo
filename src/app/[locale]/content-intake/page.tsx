@@ -101,9 +101,9 @@ export default function ContentIntakePage() {
       <section className={panel} aria-labelledby="download-title">
         <h2 id="download-title" className="mb-4 flex items-center gap-2 text-lg font-semibold"><Download size={20} />{t('downloadTitle')}</h2>
         <p className="mb-5 text-text-secondary">{t('downloadDescription')}</p>
-        <a className={button} href="/downloads/TheQ-WhatsApp-Intake-0.3.0.zip" download>{t('downloadMac')}</a>
+        <a className={button} href="/downloads/TheQ-WhatsApp-Intake-0.3.1.zip" download>{t('downloadMac')}</a>
         <p className="mt-3 text-xs text-text-secondary">{t('requirements')}</p>
-        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Intake-0.3.0.zip.sha256" download>{t('checksum')}</a>
+        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Intake-0.3.1.zip.sha256" download>{t('checksum')}</a>
       </section>
     </div>
     <section className={panel}><h2 className="mb-4 text-lg font-semibold">{t('instructions')}</h2>

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.5';
+export const APP_VERSION = '1.20.6';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.20.6', date: '2026-09-20', isNew: true, highlights: {
+    he: ['אימות הודעת הסיכום בוואטסאפ גם כשאימוג׳י מוצג כתמונה'],
+    en: ['Recognize delivered WhatsApp summaries when emoji render as images'],
+  } },
   { version: '1.20.5', date: '2026-09-20', isNew: true, highlights: {
     he: ['דף עדכון חוברות: מפתחות חיבור למחשב, הורדת התוכנה למק והוראות התקנה'],
     en: ['Booklet updates dashboard: scoped computer keys, Mac download and setup instructions'],
