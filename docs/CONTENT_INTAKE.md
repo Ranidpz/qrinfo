@@ -277,3 +277,14 @@ Its explicit allowlist excludes session data, credentials, downloaded PDFs, and
 node_modules. Pair separately on Michal's Mac. Run only one scheduled instance
 per integration. New customers need a server-scoped credential and target mapping,
 not just a different owner email in local configuration.
+
+
+## Dashboard and per-computer keys (v1.20.5)
+
+`/[locale]/content-intake` manages Fattal connections. `/api/content-intake/connections` requires Firebase Bearer authentication. Regular users can discover/manage their own mapped booklets; super admins can select owners of the explicit Fattal targets. Creation returns a random key once; Firestore `contentIntakeConnections` stores only SHA-256 hashes. Revocation blocks subsequent API requests. The existing Firestore rules default-deny unmatched collections; no client access is granted to connections.
+
+All Fattal endpoints and the single PDF endpoint validate these keys and resolve the owner from the stored key scope. Request parameters cannot change that owner. This release scopes keys to all explicitly mapped Fattal booklets for the selected owner, not arbitrary customer QR codes.
+
+Public downloads contain only the reviewed source installer. `TheQ-connection.json` is generated in-browser on explicit download and contains the one-time secret; it must never enter Git or a shared software archive. The installer imports it for new installations, preserves existing credentials, and offers ImportConnection / EnableUpdates / DisableSchedule launchers. Installation and imports leave scheduled writes disabled.
+
+On September 20 the user identified the correct owner as `biduratias@gmail.com` (בידור). Production `FATTAL_BOOKLETS_OWNER_EMAIL` was configured accordingly. Verify scoped health before running a live replacement. Vercel production project is `qrinfo`; the obsolete `qr` project was disconnected from Git at the user's request. It had no successful deployments and no custom domain.

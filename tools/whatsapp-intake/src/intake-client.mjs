@@ -1,6 +1,13 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
+export async function intakeHealth({ baseUrl, apiKey, workflowPath = '/api/content-intake/fattal' }) {
+  const response = await fetch(`${baseUrl}${workflowPath}/health`, {
+    headers: { 'x-content-intake-key': apiKey }, signal: AbortSignal.timeout(15000), redirect: 'error',
+  });
+  return parseJsonResponse(response);
+}
+
 export async function previewBatch({ baseUrl, apiKey, ownerEmail, receivedAt, files, saveRun = false, workflowPath = "/api/content-intake/fattal", source = "manual" }) {
   const response = await fetch(`${baseUrl}${workflowPath}/preview`, {
     method: 'POST',

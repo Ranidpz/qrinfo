@@ -76,3 +76,6 @@ outputs/
 /tools/whatsapp-intake/node_modules/
 /tools/whatsapp-intake/.runtime/
 /tools/whatsapp-intake/dist/
+
+# One-time computer connection secrets
+TheQ-connection*.json

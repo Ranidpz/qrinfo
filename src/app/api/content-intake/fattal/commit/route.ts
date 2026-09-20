@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { selectBatchMatches } from '@/lib/content-intake/batch-preview';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
-import { hasValidServerApiKey } from '@/lib/server-api-key';
+import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
 import { buildCommitReply, buildCommitSummary, hasCommitIssues, sendFattalCommitReportEmail } from '@/lib/content-intake/report';
 import { buildFattalPreview } from '@/lib/content-intake/fattal';
 import { loadMappedFattalTargets, resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
@@ -47,7 +47,6 @@ interface CommitJsonBody {
   deleteOld?: unknown;
 }
 
-const CONTENT_INTAKE_HEADERS = ['x-content-intake-key', 'x-integration-key'];
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -56,11 +55,7 @@ export async function POST(request: NextRequest) {
   let runId: string | undefined;
 
   try {
-    const isIntegrationAuth = hasValidServerApiKey(
-      request,
-      'CONTENT_INTAKE_API_KEY',
-      CONTENT_INTAKE_HEADERS
-    );
+    const isIntegrationAuth = await authenticateIntakeKey(request);
 
     let createdBy: string | undefined;
     if (!isIntegrationAuth) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { hasValidServerApiKey } from '@/lib/server-api-key';
+import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
 import { getFattalTargetConfig, resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
 import { fetchPdfBuffer, replaceCodePdfWithBuffer, type PdfReplacementInput } from '@/lib/content-intake/pdf-replacement';
 
@@ -20,10 +20,7 @@ export async function POST(
       return NextResponse.json({ error: 'codeId is required' }, { status: 400 });
     }
 
-    const integrationAuth = hasValidServerApiKey(request, 'CONTENT_INTAKE_API_KEY', [
-      'x-content-intake-key',
-      'x-integration-key',
-    ]);
+    const integrationAuth = await authenticateIntakeKey(request);
 
     if (!integrationAuth) {
       const auth = await requireCodeOwner(request, codeId);
@@ -43,7 +40,7 @@ export async function POST(
     }
 
     if (integrationAuth) {
-      const allowed = await resolveFattalOwnerId({ ownerId, integrationAuth: true });
+      const allowed = await resolveFattalOwnerId({ ownerId, integrationAuth });
       if (!allowed || !getFattalTargetConfig(String(codeData.shortId || '')) || codeData.parentCodeShortId) {
         return NextResponse.json(
           { error: 'Integration key is not allowed to update this QR target' },

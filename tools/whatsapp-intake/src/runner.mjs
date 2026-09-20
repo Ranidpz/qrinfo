@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { collect } from './collector.mjs';
 import { readJson, writeJson } from './storage.mjs';
 import { slotDue } from './messages.mjs';
-import { previewBatch, commitWithPayloadFallback, finalizeBatch } from './intake-client.mjs';
+import { previewBatch, commitWithPayloadFallback, finalizeBatch, intakeHealth } from './intake-client.mjs';
 import { cycleDay, hasNewFiles, buildGroupUpdate } from './group-report.mjs';
 import { sendGroupUpdate } from './group-sender.mjs';
 
@@ -28,7 +28,10 @@ export async function runCommand(command, config, options) {
   if (command === 'doctor') {
     const { stdout } = await exec('/usr/bin/pmset', ['-g', 'custom']);
     const account = await readJson(path.join(config.runtimeDir, 'account.json'), null);
-    console.log(JSON.stringify({ node: process.version, profileConfirmed: !!account, runtime: config.runtimeDir, pending: !!(await readJson(pendingPath, null)), lock: await readJson(path.join(config.runtimeDir, 'runner.lock'), null), powerSettings: stdout }, null, 2));
+    const credentials = await readJson(path.join(config.runtimeDir, 'credentials.json'), {});
+    const key = process.env.CONTENT_INTAKE_API_KEY || credentials.contentIntakeApiKey;
+    const api = key ? await intakeHealth({ baseUrl: config.apiBaseUrl, workflowPath: config.workflowPath, apiKey: key }).catch(() => ({ ready: false, error: 'API unavailable or unauthorized' })) : { ready: false, error: 'API key missing' };
+    console.log(JSON.stringify({ node: process.version, profileConfirmed: !!account, runtime: config.runtimeDir, pending: !!(await readJson(pendingPath, null)), lock: await readJson(path.join(config.runtimeDir, 'runner.lock'), null), schedule: config.schedule, autoCommit: config.autoCommit, api, powerSettings: stdout }, null, 2));
     return;
   }
   if (!['collect', 'run', 'schedule', 'resume', 'report-group'].includes(command)) throw new Error('UNKNOWN_COMMAND');
@@ -42,15 +45,17 @@ export async function runCommand(command, config, options) {
   }
   try {
     const deliver = async (report, keys) => {
-      const first = checkpoint?.day !== day || !checkpoint?.initialNoticeSent;
+      const reportTime = new Date(report.preview.generatedAt);
+      const reportDay = cycleDay(reportTime, config.timeZone);
+      const first = checkpoint?.day !== reportDay || !checkpoint?.initialNoticeSent;
       let message = await readJson(path.join(config.runtimeDir, 'group-report.json'), null);
       if (!message || message.id !== report.runId) {
-        message = { id: report.runId, text: buildGroupUpdate(report, { first, now, timeZone: config.timeZone }) };
+        message = { id: report.runId, text: buildGroupUpdate(report, { first, now: reportTime, timeZone: config.timeZone }) };
         await writeJson(path.join(config.runtimeDir, 'group-report.json'), message);
       }
       const shouldSend = first || report.summary.updated > 0;
       if (shouldSend) await sendGroupUpdate(config, { ...message, headed: options.headed });
-      await writeJson(checkpointPath, { day, fileKeys: keys, runId: report.runId,
+      await writeJson(checkpointPath, { day: reportDay, fileKeys: keys, runId: report.runId,
         initialNoticeSent: config.sendGroupReports === true && (shouldSend || checkpoint?.initialNoticeSent), at: new Date().toISOString() });
     };
     if (command === 'report-group') {

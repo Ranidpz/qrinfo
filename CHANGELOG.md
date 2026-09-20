@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.20.5] - 2026-09-20
+
+- Booklet updates dashboard with owner selection, one-time scoped keys, revocation, Mac download and bilingual setup instructions.
+- Mac installer connection import and explicit scheduling controls; production Fattal owner corrected from user confirmation.
+
 ## [1.20.4] - 2026-09-20
 
 - Authorized WhatsApp group reports with persistent send acknowledgments and quiet followups at 12:00 and 14:00.

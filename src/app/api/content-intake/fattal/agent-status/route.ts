@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { hasValidServerApiKey } from '@/lib/server-api-key';
+import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
@@ -16,7 +16,7 @@ const labels: Record<string, string> = {
 export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
-    const integrationAuth = hasValidServerApiKey(request, 'CONTENT_INTAKE_API_KEY', ['x-content-intake-key']);
+    const integrationAuth = await authenticateIntakeKey(request);
     if (!integrationAuth) {
       const auth = await requireSuperAdmin(request);
       if (isAuthError(auth)) return auth.response;

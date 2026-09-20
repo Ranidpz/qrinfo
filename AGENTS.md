@@ -11,6 +11,7 @@ Dynamic QR code platform. Next.js 15 + Firebase + Vercel Pro.
 
 - Both Firebase projects should mirror each other (indexes, rules, structure)
 - **"push to main"** = production release → bump version in `src/lib/version.ts` + `package.json`, add changelog entry
+- Vercel production is `qrinfo`; duplicate `qr` was disconnected from Git on 2026-09-20 (no successful deployments).
 - **"push to dev"** / **"deploy to dev"** = testing only, no version bump needed
 - Firestore indexes/rules: deploy to both projects. CLI: `firebase deploy --only firestore:indexes --project <id>`
 
@@ -66,7 +67,6 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Media uploads: route writes/deletes through `src/lib/media-storage.ts`; only that adapter imports `@vercel/blob`. `MEDIA_STORAGE_PROVIDER=cloudflare-r2` sends new uploads to R2 while legacy Blob read/delete stays supported. Preserve `storageProvider/storageKey/storageBucket/contentType` metadata and user quota sizes.
 - Firestore: `serverTimestamp()` for doc create, `Timestamp.now()` for nested objects
 - i18n: `useTranslations()` from next-intl. Both `en.json` and `he.json` must be updated together.
-
 ## Gotchas
 - `node_modules 2` dir appears randomly - delete it, causes build failures
 - Firebase CLI `deploy --only firestore:indexes` silently skips indexes - always verify in Console
@@ -74,8 +74,8 @@ Always `normalizePhoneNumber()` → `+972...` before storage. Mask with `maskPho
 - Q.Tag WhatsApp templates: `src/lib/qtag-whatsapp.ts` sends QR links via INFORU after registration/verification
 
 ## Lessons Learned
-- Fattal intake: explicit targets only (`src/lib/content-intake/fattal.ts`) for `playzonest1@gmail.com`; R2 PDF updates and server-side Resend reports. Runner requires `--dir`, reads `.env.fattal` or explicit `--env-file`, and checks `batchProtocolVersion` before committing. Split uploads share a saved preview; `/fattal/report` finalizes one server-derived report. Never retry uncertain writes automatically.
-- Fattal WhatsApp: `tools/whatsapp-intake` uses a separate business Chromium profile on both Macs; never reuse personal/native sessions. Installed pilot lives under `~/Library/Application Support/TheQContentIntake`, browser cache outside Documents. Owner confirmed unqualified Herods, Leonardo Plaza and Royal mean Eilat; explicit areas always override. Sep 20 pilot collected 10 PDFs headlessly twice; enable scheduling only after live commit/report verification. Use headless shell with compatible UA (full Chromium headless PDF save crashed); verify UI date order (current MDY), group header and history boundary. Transfer only packaged source, never profiles/keys.
+- Fattal intake: explicit targets only (`src/lib/content-intake/fattal.ts`) for the configured owner (`biduratias@gmail.com` confirmed Sep 20); R2 PDF updates and server-side Resend reports. Runner requires `--dir`, reads `.env.fattal` or explicit `--env-file`, and checks `batchProtocolVersion` before committing. Split uploads share a saved preview; `/fattal/report` finalizes one server-derived report. Never retry uncertain writes automatically.
+- Fattal WhatsApp: `tools/whatsapp-intake` uses a separate business Chromium profile on both Macs; never reuse personal/native sessions. Installed pilot lives under `~/Library/Application Support/TheQContentIntake`, browser cache outside Documents. Owner confirmed unqualified Herods, Leonardo Plaza and Royal mean Eilat; explicit areas always override. Sep 20 pilot collected 10 PDFs headlessly twice; explicit group reporting uses a durable outbox, with quiet followups at 12:00/14:00; enable scheduling only after live commit/report verification. Owner clarified as biduratias@gmail.com; verify live health before writes. Dashboard /content-intake issues hashed, revocable owner-scoped keys; never bundle connection files. Use headless shell with compatible UA (full Chromium headless PDF save crashed); verify UI date order (current MDY), group header and history boundary. Transfer only packaged source, never profiles/keys.
 - Excel export: ALWAYS generate xlsx **client-side** (`XLSX.writeFile()` in browser), NEVER server-side in API routes. The `xlsx` package is unreliable on Vercel serverless even with `serverExternalPackages`. Pattern: build rows from state → `XLSX.utils.json_to_sheet()` → `XLSX.writeFile()`. See `QVoteVotersModal.tsx` and `QTagGuestsModal.tsx` for reference.
 - Quick-add modal must use `fixed` positioning (not `absolute`) to work across scanner/list view modes
 - Scanner PIN gate: check `pinUnlocked` before initializing camera to avoid wasted camera starts

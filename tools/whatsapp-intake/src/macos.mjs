@@ -4,7 +4,8 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { readJson, writeJson } from './storage.mjs';
+import { loadConfig } from './config.mjs';
+import { acquireLock, readJson, writeJson } from './storage.mjs';
 const exec = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xml = (text) => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -65,12 +66,25 @@ export async function install({ activate = false, configFile } = {}) {
     await writeFile(filename, `#!/bin/zsh\nexport PLAYWRIGHT_BROWSERS_PATH=${quote(browserPath)}\n${prompt}${keyRead}${quote(process.execPath)} ${quote(path.join(appDir, 'src/cli.mjs'))} ${command} --config ${quote(configPath)} --data ${quote(dataDir)} ${extra}\nresult=$?\nunset intake_key\nprint "Exit status: $result"\nread '?Press Enter to close...'\nexit $result\n`, { mode: 0o700 });
     await chmod(filename, 0o700);
   }
+  const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+  for (const [name, flag] of [['ImportConnection', '--import-connection'], ['EnableUpdates', '--enable-updates'], ['DisableSchedule', '--disable']]) {
+    const prompt = flag === '--enable-updates' ? "read 'reply?Enable automatic PDF replacement and WhatsApp group reports (yes/no): '\n[[ \"$reply\" == yes ]] || exit 1\n" : '';
+    await writeFile(path.join(launcherDir, `${name}.command`), `#!/bin/zsh\n${prompt}${quote(process.execPath)} ${quote(path.join(appDir, 'src/macos.mjs'))} ${flag}\nresult=$?\nread '?Press Enter to close...'\nexit $result\n`, { mode: 0o700 });
+  }
+  const connectionFile = path.join(root, 'TheQ-connection.json');
+  if (await readJson(connectionFile, null)) {
+    const existing = await readJson(credentials, null);
+    if (!existing?.contentIntakeApiKey) await importConnection(connectionFile);
+    else console.log('Existing key preserved. Use ImportConnection.command to change it.');
+  }
   if (activate) {
-    config.schedule.enabled = true;
-    await writeJson(configPath, config);
+    const current = await readJson(configPath);
+    current.schedule.enabled = true;
+    await writeJson(configPath, current);
     await exec('/bin/launchctl', ['bootout', `gui/${process.getuid()}`, plist]).catch(() => {});
     await exec('/bin/launchctl', ['bootstrap', `gui/${process.getuid()}`, plist]);
   }
+  await exec('/usr/bin/open', [launcherDir]);
   console.log(JSON.stringify({ installed: true, scheduled: activate, configPath, credentials, launcherDir, plist, mode: config.autoCommit ? 'commit' : 'preview' }, null, 2));
 }
 export async function disableSchedule() {
@@ -82,6 +96,50 @@ export async function disableSchedule() {
   await exec('/bin/launchctl', ['bootout', `gui/${process.getuid()}/app.theq.whatsapp-intake.${config.id}`]).catch(() => {});
   console.log('Schedule disabled. Saved business login preserved.');
 }
+export async function importConnection(file) {
+  const dataDir = path.join(homedir(), 'Library/Application Support/TheQContentIntake');
+  if (!file) {
+    const result = await exec('/usr/bin/osascript', ['-e', 'POSIX path of (choose file with prompt "Select TheQ-connection.json")']);
+    file = result.stdout.trim();
+  }
+  const connection = await readJson(file);
+  if (connection.schemaVersion !== 1 || !/^tq_ci_[a-f0-9]{32}\.[a-f0-9]{64}$/.test(connection.contentIntakeApiKey || '') || typeof connection.ownerEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(connection.ownerEmail)) throw new Error('INVALID_CONNECTION_FILE');
+  const configPath = path.join(dataDir, 'config.json');
+  const config = await readJson(configPath);
+  const release = await acquireLock(path.join(dataDir, config.id));
+  try {
+  if (await readJson(path.join(dataDir, config.id, 'pending.json'), null)) throw new Error('RESOLVE_PENDING_BATCH_FIRST');
+  // Stop scheduling before changing the owner/key; preserve the dedicated login.
+  await disableSchedule();
+  config.ownerEmail = connection.ownerEmail;
+  config.autoCommit = false;
+  config.schedule.enabled = false;
+  await writeJson(configPath, config);
+  await writeJson(path.join(dataDir, config.id, 'credentials.json'), { contentIntakeApiKey: connection.contentIntakeApiKey });
+  console.log('Connection imported. Run Preview before enabling updates.');
+  } finally { await release(); }
+}
+export async function enableUpdates() {
+  const dataDir = path.join(homedir(), 'Library/Application Support/TheQContentIntake');
+  const file = path.join(dataDir, 'config.json');
+  const config = await loadConfig(file, dataDir);
+  const { requirePairedProfile } = await import('./browser.mjs');
+  await requirePairedProfile(config);
+  const credentials = await readJson(path.join(config.runtimeDir, 'credentials.json'));
+  if (!credentials.contentIntakeApiKey) throw new Error('API_KEY_REQUIRED');
+  const response = await fetch(`${config.apiBaseUrl}${config.workflowPath}/health`, { headers: { 'x-content-intake-key': credentials.contentIntakeApiKey }, redirect: 'error', signal: AbortSignal.timeout(30000) });
+  if (!response.ok || !(await response.json()).ready) throw new Error('API_HEALTH_CHECK_FAILED');
+  const stored = await readJson(file);
+  stored.autoCommit = true;
+  stored.sendGroupReports = true;
+  stored.schedule.enabled = true;
+  await writeJson(file, stored);
+  const plist = path.join(homedir(), 'Library/LaunchAgents', `app.theq.whatsapp-intake.${config.id}.plist`);
+  await exec('/bin/launchctl', ['bootout', `gui/${process.getuid()}`, plist]).catch(() => {});
+  try { await exec('/bin/launchctl', ['bootstrap', `gui/${process.getuid()}`, plist]); }
+  catch (error) { stored.schedule.enabled = false; await writeJson(file, stored); throw error; }
+  console.log('Automatic updates and group reports enabled.');
+}
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  (process.argv.includes('--disable') ? disableSchedule() : install({ activate: process.argv.includes('--activate') })).catch((error) => { console.error(error.message); process.exitCode = 1; });
+  (process.argv.includes('--disable') ? disableSchedule() : process.argv.includes('--import-connection') ? importConnection() : process.argv.includes('--enable-updates') ? enableUpdates() : install({ activate: process.argv.includes('--activate') })).catch((error) => { console.error(error.message); process.exitCode = 1; });
 }

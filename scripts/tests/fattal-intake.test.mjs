@@ -87,6 +87,7 @@ test('integration key cannot choose another owner when ID env is absent', async 
   delete process.env.FATTAL_BOOKLETS_OWNER_EMAIL;
   try {
     const { resolveFattalOwnerId } = await loadTs('../../src/lib/content-intake/fattal-server.ts', {
+      '@/lib/server-api-key': stub('export const hasValidServerApiKey=()=>false;'),
       './fattal': stub('export const FATTAL_DEFAULT_OWNER_EMAIL="playzonest1@gmail.com"; export const FATTAL_BOOKLET_TARGETS=[];'),
       '@/lib/firebase-admin': stub('export const getAdminDb=()=>({collection:()=>({where:()=>({limit:()=>({get:async()=>({empty:false,docs:[{id:"fattal-owner"}]})})})})});'),
     });
@@ -252,7 +253,7 @@ test('batch audit locks active commits, closes after completion and sends one st
       '@/lib/firebase-admin': dbStub,
       '@/lib/auth': stub('export const requireSuperAdmin=async()=>({response:new Response("unauthorized",{status:401})}); export const isAuthError=(v)=>!!v.response;'),
       '@/lib/server-api-key': stub('export const hasValidServerApiKey=(r)=>r.headers.get("x-content-intake-key")==="test";'),
-      '@/lib/content-intake/fattal-server': stub('export const resolveFattalOwnerId=async()=>"fattal-owner";'),
+      '@/lib/content-intake/fattal-server': stub('export const authenticateIntakeKey=(r)=>r.headers.get("x-content-intake-key")==="test"; export const resolveFattalOwnerId=async()=>"fattal-owner";'),
       '@/lib/content-intake/runs': stub('export const CONTENT_INTAKE_RUNS_COLLECTION="contentIntakeRuns"; export const updateContentIntakeRun=(...a)=>globalThis.fattalTestFns.updateContentIntakeRun(...a);'),
       '@/lib/content-intake/batch-results': exportsStub(['collectBatchResults']),
       '@/lib/content-intake/report': exportsStub(['buildCommitReply', 'buildCommitSummary', 'hasCommitIssues', 'sendFattalCommitReportEmail']),
@@ -306,4 +307,57 @@ test('owner transfer or concurrent edit rolls back newly uploaded PDF', async ()
     assert.equal(state.writes, 0);
     assert.deepEqual(state.deleted, ['https://storage.test/new.pdf', 'https://storage.test/new.pdf']);
   } finally { delete globalThis.fattalPdfTest; }
+});
+
+test('per-computer key is hashed, revocable and cannot override its owner', async () => {
+  const { createHash } = await import('node:crypto');
+  const key = `tq_ci_${'a'.repeat(32)}.${'b'.repeat(64)}`;
+  globalThis.__intakeKeyRecord = { ownerId: 'owner-a', ownerEmail: 'a@example.com', workflow: 'fattal-booklets', keyHash: createHash('sha256').update(key).digest('hex') };
+  const { authenticateIntakeKey, resolveFattalOwnerId } = await loadTs('../../src/lib/content-intake/fattal-server.ts', {
+    '@/lib/server-api-key': stub('export const hasValidServerApiKey=()=>false;'),
+    './fattal': stub('export const FATTAL_DEFAULT_OWNER_EMAIL="legacy@example.com"; export const FATTAL_BOOKLET_TARGETS=[];'),
+    '@/lib/firebase-admin': stub('export const getAdminDb=()=>({collection:()=>({doc:()=>({get:async()=>({data:()=>globalThis.__intakeKeyRecord})})})});'),
+  });
+  const request = (value) => ({ headers: new Headers({ 'x-content-intake-key': value }) });
+  const scope = await authenticateIntakeKey(request(key));
+  assert.equal(await resolveFattalOwnerId({ integrationAuth: scope }), 'owner-a');
+  assert.equal(await resolveFattalOwnerId({ integrationAuth: scope, ownerId: 'owner-b' }), null);
+  assert.equal(await resolveFattalOwnerId({ integrationAuth: scope, ownerEmail: 'b@example.com' }), null);
+  assert.equal(await authenticateIntakeKey(request(key.slice(0,-1)+'c')), false);
+  globalThis.__intakeKeyRecord.revokedAt = new Date();
+  assert.equal(await authenticateIntakeKey(request(key)), false);
+  delete globalThis.__intakeKeyRecord;
+});
+
+test('connection management refuses anonymous/cross-owner writes and returns a secret only at creation', async () => {
+  const { createHash } = await import('node:crypto');
+  const db = { collection(name) { return { doc(id) { return {
+    get: async () => ({ data: () => name === 'users' ? { email: 'owner@example.com', role: 'producer' } : globalThis.__createdConnection }),
+    create: async data => { globalThis.__createdConnection = data; },
+    update: async data => { Object.assign(globalThis.__createdConnection, data); },
+  }; } }; } };
+  globalThis.__connectionDb = db;
+  const { POST, DELETE } = await loadTs('../../src/app/api/content-intake/connections/route.ts', {
+    'next/server': stub('export const NextResponse={json:(value,init)=>new Response(JSON.stringify(value),init)};'),
+    'firebase-admin/firestore': stub('export const FieldValue={serverTimestamp:()=>123};'),
+    '@/lib/auth': stub('export const verifyAuthToken=async r=>r.headers.get("authorization")?{uid:"owner-a"}:{error:new Response("Unauthorized",{status:401})};'),
+    '@/lib/firebase-admin': stub('export const getAdminDb=()=>globalThis.__connectionDb;'),
+    '@/lib/content-intake/fattal': stub('export const FATTAL_BOOKLET_TARGETS=[];'),
+    '@/lib/content-intake/fattal-server': stub('export const loadMappedFattalTargets=async()=>[{codeId:"mapped"}];'),
+  });
+  const req = (body, auth = true) => new Request('https://example.com/api/content-intake/connections', { method:'POST', headers: auth ? {authorization:'Bearer fixture'} : {}, body:JSON.stringify(body) });
+  assert.equal((await POST(req({ownerId:'owner-a',name:'Mac'},false))).status,401);
+  assert.equal((await POST(req({ownerId:'owner-b',name:'Mac'}))).status,403);
+  const response = await POST(req({ownerId:'owner-a',name:'Mac'}));
+  assert.equal(response.status,200);
+  const created = await response.json();
+  assert.match(created.key,/^tq_ci_[a-f0-9]{32}\.[a-f0-9]{64}$/);
+  assert.equal(globalThis.__createdConnection.keyHash,createHash('sha256').update(created.key).digest('hex'));
+  assert.ok(!JSON.stringify(globalThis.__createdConnection).includes(created.key));
+  globalThis.__createdConnection.ownerId='owner-b';
+  assert.equal((await DELETE(req({id:created.id}))).status,403);
+  globalThis.__createdConnection.ownerId='owner-a';
+  assert.equal((await DELETE(req({id:created.id}))).status,200);
+  assert.equal(globalThis.__createdConnection.revokedAt,123);
+  delete globalThis.__connectionDb; delete globalThis.__createdConnection;
 });

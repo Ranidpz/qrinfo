@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hasValidServerApiKey } from '@/lib/server-api-key';
+import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
 import { getAdminApp, getAdminDb } from '@/lib/firebase-admin';
 import { resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 // Diagnostics for this integration only: no credentials or other-owner records.
 export async function GET(request: NextRequest) {
   try {
-    const integrationAuth = hasValidServerApiKey(request, 'CONTENT_INTAKE_API_KEY', ['x-content-intake-key']);
+    const integrationAuth = await authenticateIntakeKey(request);
     if (!integrationAuth) {
       const auth = await requireSuperAdmin(request);
       if (isAuthError(auth)) return auth.response;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { hasValidServerApiKey } from '@/lib/server-api-key';
+import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
 import { resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
 import { CONTENT_INTAKE_RUNS_COLLECTION, updateContentIntakeRun } from '@/lib/content-intake/runs';
 import { collectBatchResults } from '@/lib/content-intake/batch-results';
@@ -15,7 +15,7 @@ export const maxDuration = 60;
 // Only persisted, owner-checked server results may contribute to a report.
 export async function POST(request: NextRequest) {
   try {
-    const integrationAuth = hasValidServerApiKey(request, 'CONTENT_INTAKE_API_KEY', ['x-content-intake-key', 'x-integration-key']);
+    const integrationAuth = await authenticateIntakeKey(request);
     if (!integrationAuth) {
       const auth = await requireSuperAdmin(request);
       if (isAuthError(auth)) return auth.response;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
-import { hasValidServerApiKey } from '@/lib/server-api-key';
+import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
 import { buildFattalPreview } from '@/lib/content-intake/fattal';
 import { loadMappedFattalTargets, resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
 import { createContentIntakeRun } from '@/lib/content-intake/runs';
@@ -17,10 +17,7 @@ interface PreviewRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const isIntegrationAuth = hasValidServerApiKey(request, 'CONTENT_INTAKE_API_KEY', [
-      'x-content-intake-key',
-      'x-integration-key',
-    ]);
+    const isIntegrationAuth = await authenticateIntakeKey(request);
 
     let createdBy: string | undefined;
     if (!isIntegrationAuth) {
