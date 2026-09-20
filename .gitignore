@@ -70,3 +70,9 @@ stress-test/results/
 
 # Local non-project assets (presentations, exports)
 outputs/
+
+# Local WhatsApp business sessions, PDFs, credentials and release packages
+/.local/
+/tools/whatsapp-intake/node_modules/
+/tools/whatsapp-intake/.runtime/
+/tools/whatsapp-intake/dist/

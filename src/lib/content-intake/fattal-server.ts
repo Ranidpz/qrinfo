@@ -21,16 +21,20 @@ interface CodeMediaSnapshot {
 export async function resolveFattalOwnerId(params: ResolveFattalOwnerParams = {}): Promise<string | null> {
   const requestedOwnerId = typeof params.ownerId === 'string' ? params.ownerId.trim() : '';
   const envOwnerId = process.env.FATTAL_BOOKLETS_OWNER_ID?.trim() || '';
+  const requestedOwnerEmail = typeof params.ownerEmail === 'string' ? params.ownerEmail.trim() : '';
+  const envOwnerEmail = process.env.FATTAL_BOOKLETS_OWNER_EMAIL?.trim() || FATTAL_DEFAULT_OWNER_EMAIL;
 
-  if (params.integrationAuth && envOwnerId && requestedOwnerId && requestedOwnerId !== envOwnerId) {
-    return null;
+  // A shared integration key is scoped by server configuration, never by request input.
+  if (params.integrationAuth) {
+    if (requestedOwnerEmail && requestedOwnerEmail.toLowerCase() !== envOwnerEmail.toLowerCase()) return null;
+    const allowedOwnerId = envOwnerId || await resolveFattalOwnerId({ ownerEmail: envOwnerEmail });
+    if (!allowedOwnerId || (requestedOwnerId && requestedOwnerId !== allowedOwnerId)) return null;
+    return allowedOwnerId;
   }
 
   if (requestedOwnerId) return requestedOwnerId;
   if (envOwnerId) return envOwnerId;
 
-  const requestedOwnerEmail = typeof params.ownerEmail === 'string' ? params.ownerEmail.trim() : '';
-  const envOwnerEmail = process.env.FATTAL_BOOKLETS_OWNER_EMAIL?.trim() || '';
   const ownerEmail = requestedOwnerEmail || envOwnerEmail || FATTAL_DEFAULT_OWNER_EMAIL;
 
   const db = getAdminDb();

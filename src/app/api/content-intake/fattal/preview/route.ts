@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(preview);
+    return NextResponse.json({ ...preview, batchProtocolVersion: 1 });
   } catch (error) {
     console.error('[Content Intake Fattal Preview] Error:', error);
     return NextResponse.json(

@@ -115,6 +115,12 @@ export async function replaceCodePdfWithBuffer(
       if (!userDoc.exists) throw new Error('Owner user not found');
 
       const freshCodeData = freshCodeDoc.data() || {};
+      if (freshCodeData.ownerId !== ownerId) {
+        throw new Error('Code owner does not match Fattal owner');
+      }
+      if (codeDoc.updateTime && freshCodeDoc.updateTime && !codeDoc.updateTime.isEqual(freshCodeDoc.updateTime)) {
+        throw new Error('Code changed during upload; preview again before retrying');
+      }
       const media = Array.isArray(freshCodeData.media)
         ? ([...freshCodeData.media] as CodeMedia[])
         : [];
@@ -223,21 +229,44 @@ export async function replaceCodePdfWithBuffer(
 
 export async function fetchPdfBuffer(sourceUrl: string, filename?: string): Promise<Pick<PdfReplacementInput, 'buffer' | 'filename' | 'contentType'>> {
   const parsed = new URL(sourceUrl);
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new Error('sourceUrl must be http or https');
+  const allowedHosts = (process.env.CONTENT_INTAKE_SOURCE_HOSTS || '').split(',').map((host) => host.trim().toLowerCase()).filter(Boolean);
+  const publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
+  if (publicUrl) allowedHosts.push(new URL(publicUrl).hostname);
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password
+    || (parsed.port && parsed.port !== '443') || !allowedHosts.includes(parsed.hostname)) {
+    throw new Error('sourceUrl must use an approved HTTPS storage host');
   }
 
-  const response = await fetch(parsed.toString());
+  const response = await fetch(parsed.toString(), { redirect: 'error', signal: AbortSignal.timeout(20000) });
   if (!response.ok) {
     throw new Error(`Failed to fetch sourceUrl: ${response.status}`);
   }
 
   const contentLength = Number(response.headers.get('content-length') || 0);
   if (contentLength > MAX_PDF_REPLACEMENT_BYTES) {
+    await response.body?.cancel();
     throw new Error('PDF exceeds 25MB limit');
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
+  if (!response.body) throw new Error('Empty PDF response');
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > MAX_PDF_REPLACEMENT_BYTES) {
+        await reader.cancel();
+        throw new Error('PDF exceeds 25MB limit');
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const buffer = Buffer.concat(chunks, length);
   const contentType = response.headers.get('content-type')?.split(';')[0] || 'application/pdf';
   const resolvedFilename = filename || decodeURIComponent(parsed.pathname.split('/').pop() || 'booklet.pdf');
 

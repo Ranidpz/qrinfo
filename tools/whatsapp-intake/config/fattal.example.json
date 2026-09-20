@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "fattal-playzone",
+  "label": "חוברות פתאל — פלייזון",
+  "groupName": "חוברות QR פתאל",
+  "accountLabel": "Playzone Business",
+  "timeZone": "Asia/Jerusalem",
+  "locale": "he-IL",
+  "dateOrder": "MDY",
+  "scanLookbackHours": 96,
+  "scanWindowHours": 36,
+  "maxScrolls": 150,
+  "apiBaseUrl": "https://qr.playzones.app",
+  "workflowPath": "/api/content-intake/fattal",
+  "ownerEmail": "playzonest1@gmail.com",
+  "autoCommit": false,
+  "schedule": { "enabled": false, "weekdays": [0, 4], "times": ["10:05", "14:05"] }
+}

@@ -236,7 +236,7 @@ export function buildFattalPreview(params: FattalPreviewParams): ContentIntakePr
 
   const associatedTargetIds = new Set(
     matches
-      .filter((match) => match.target)
+      .filter((match) => match.status === 'matched' && match.target)
       .map((match) => match.target?.codeId)
       .filter(Boolean) as string[]
   );
@@ -305,7 +305,7 @@ function matchFattalFile(
   }
 
   const confidenceGap = best.score - (second?.score || 0);
-  const isConfident = best.score >= 78 && confidenceGap >= 12;
+  const isConfident = best.score >= 78 && confidenceGap >= 12 && warnings.length === 0 && best.warnings.length === 0;
 
   return {
     file,
@@ -326,6 +326,14 @@ function scoreTarget(file: IntakeFileCandidate, target: ContentIntakeTarget): Sc
   const reasons: string[] = [];
   const warnings: string[] = [];
   let score = 0;
+
+  // Owner-confirmed Fattal naming convention (2026-09-20). Apply only to the
+  // explicit Eilat QR targets, and never when the filename names another area.
+  const defaultEilatShortId = !fileArea ? inferUnqualifiedEilatHotel(fileText) : undefined;
+  if (defaultEilatShortId && target.shortId === defaultEilatShortId) {
+    score = 94;
+    reasons.push('Owner-confirmed naming rule: hotel without an area means Eilat');
+  }
 
   for (const alias of aliases) {
     if (alias.length >= 3 && fileText.includes(alias)) {
@@ -371,6 +379,17 @@ function scoreTarget(file: IntakeFileCandidate, target: ContentIntakeTarget): Sc
   };
 }
 
+function inferUnqualifiedEilatHotel(text: string): string | undefined {
+  const rules = [
+    { shortId: 'tnhKzx', names: ['הרודס', 'herods'] },
+    { shortId: 'FYvDZF', names: ['לאונרדו פלאזה', 'לאונרדו פלזה', 'leonardo plaza'] },
+    { shortId: 'tDet2R', names: ['רויאל', 'royal'] },
+  ];
+  const matches = rules.filter((rule) => rule.names.some((name) =>
+    ` ${text} `.includes(` ${normalizeText(name)} `)));
+  return matches.length === 1 ? matches[0].shortId : undefined;
+}
+
 function markDuplicateMatches(matches: IntakeFileMatch[]): IntakeFileMatch[] {
   const targetCounts = new Map<string, number>();
   for (const match of matches) {
@@ -392,7 +411,7 @@ function markDuplicateMatches(matches: IntakeFileMatch[]): IntakeFileMatch[] {
 }
 
 function getTargetAliases(target: ContentIntakeTarget): string[] {
-  const baseAliases = [target.title, target.folderName, ...(target.aliases || [])]
+  const baseAliases = [target.title, ...(target.aliases || [])]
     .filter(Boolean) as string[];
   if (target.aliases && target.aliases.length > 0) return baseAliases;
 
@@ -465,7 +484,9 @@ function dateFromParts(dayRaw: string, monthRaw: string, yearRaw: string): strin
 
 function dateKeyFromString(value: string): string | undefined {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString().slice(0, 10);
+  return Number.isNaN(date.getTime()) ? undefined : new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date);
 }
 
 function daysBetween(a: string, b: string): number {

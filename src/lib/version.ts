@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.2';
+export const APP_VERSION = '1.20.3';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,13 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  {
+    version: '1.20.3', date: '2026-09-20', isNew: true,
+    highlights: {
+      he: ['איסוף חוברות פתאל אוטומטי מוואטסאפ, זיהוי מלונות משופר ודוח עדכון מאוחד'],
+      en: ['Automated Fattal WhatsApp booklet intake, improved hotel matching and consolidated update reports'],
+    },
+  },
   {
     version: '1.20.2',
     date: '2026-09-04',

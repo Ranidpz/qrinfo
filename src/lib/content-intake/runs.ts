@@ -10,6 +10,7 @@ export const CONTENT_INTAKE_RUNS_COLLECTION = 'contentIntakeRuns';
 export const CONTENT_INTAKE_FILE_UPDATES_COLLECTION = 'contentIntakeFileUpdates';
 
 interface CreateRunParams {
+  batchPreviewRunId?: string;
   ownerId: string;
   ownerEmail?: string;
   source?: string;
@@ -20,6 +21,7 @@ interface CreateRunParams {
 }
 
 interface UpdateRunParams {
+  reportEmail?: { sent: boolean; skipped?: boolean; deferred?: boolean; error?: string };
   status?: ContentIntakeRunStatus;
   preview?: ContentIntakePreview;
   summary?: ContentIntakePreview['summary'];
@@ -32,6 +34,7 @@ export async function createContentIntakeRun(params: CreateRunParams): Promise<s
   const db = getAdminDb();
   const data = cleanFirestoreValue({
     workflow: params.preview.workflow,
+    batchPreviewRunId: params.batchPreviewRunId,
     ownerId: params.ownerId,
     ownerEmail: params.ownerEmail,
     source: params.source || 'manual',
@@ -46,7 +49,20 @@ export async function createContentIntakeRun(params: CreateRunParams): Promise<s
   data.createdAt = FieldValue.serverTimestamp();
   data.updatedAt = FieldValue.serverTimestamp();
 
-  const docRef = await db.collection(CONTENT_INTAKE_RUNS_COLLECTION).add(data);
+  const docRef = db.collection(CONTENT_INTAKE_RUNS_COLLECTION).doc();
+  if (params.batchPreviewRunId) {
+    const parentRef = db.collection(CONTENT_INTAKE_RUNS_COLLECTION).doc(params.batchPreviewRunId);
+    await db.runTransaction(async (transaction) => {
+      const parent = await transaction.get(parentRef);
+      if (parent.data()?.ownerId !== params.ownerId || parent.data()?.status !== 'previewed') {
+        throw new Error('Batch is closed or unavailable');
+      }
+      transaction.set(docRef, data);
+      transaction.update(parentRef, { activeCommits: FieldValue.increment(1) });
+    });
+  } else {
+    await docRef.set(data);
+  }
 
   return docRef.id;
 }
@@ -62,7 +78,27 @@ export async function updateContentIntakeRun(runId: string, updates: UpdateRunPa
     data.completedAt = FieldValue.serverTimestamp();
   }
 
-  await db.collection(CONTENT_INTAKE_RUNS_COLLECTION).doc(runId).set(data, { merge: true });
+  const ref = db.collection(CONTENT_INTAKE_RUNS_COLLECTION).doc(runId);
+  await db.runTransaction(async (transaction) => {
+    const current = await transaction.get(ref);
+    const run = current.data();
+    // Release a chunk exactly once, including failed commits, before finalizing a batch.
+    if (run?.batchPreviewRunId && run.status === 'committing'
+      && updates.status && updates.status !== 'committing') {
+      transaction.update(db.collection(CONTENT_INTAKE_RUNS_COLLECTION).doc(run.batchPreviewRunId), {
+        activeCommits: FieldValue.increment(-1),
+      });
+    }
+    transaction.set(ref, data, { merge: true });
+  });
+}
+
+export async function loadFattalPreviewRun(runId: string, ownerId: string) {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(runId)) return null;
+  const snapshot = await getAdminDb().collection(CONTENT_INTAKE_RUNS_COLLECTION).doc(runId).get();
+  const run = snapshot.data();
+  if (run?.ownerId !== ownerId || run.workflow !== 'fattal-booklets' || !run.preview) return null;
+  return run as { ownerId: string; status: ContentIntakeRunStatus; preview: ContentIntakePreview; receivedAt?: string };
 }
 
 export async function hasSuccessfulFileUpdate(dedupeId: string): Promise<boolean> {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.20.3] - 2026-09-20
+
+- Standalone macOS WhatsApp booklet collector with persistent business profile, verified PDF downloads, configurable scheduling and safe recovery.
+- Owner-approved Eilat default for unqualified Herods, Leonardo Plaza and Royal filenames; explicit areas take precedence.
+- Scoped intake authorization, full-batch matching across split uploads, consolidated server-side reports and operational notifications.
+
 All notable changes to this project will be documented in this file.
 
 ## [1.14.2] - 2026-05-31
