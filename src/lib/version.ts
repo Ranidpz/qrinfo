@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.11';
+export const APP_VERSION = '1.20.12';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.20.12', date: '2026-09-23', isNew: true, highlights: {
+    he: ['תיקון זיהוי חוברות: לאונרדו קלאב ללא אזור משויך לאילת לפי הכלל שאושר'],
+    en: ['Booklet matching: apply the approved Eilat default to unqualified Leonardo Club filenames'],
+  } },
   { version: '1.20.11', date: '2026-09-20', isNew: true, highlights: {
     he: ['סוכן וואטסאפ: הסבר ברור על תהליך העדכון, ההתאמה, התזמון והדיווח'],
     en: ['WhatsApp Agent: clear guidance on matching, scheduled updates and reports'],

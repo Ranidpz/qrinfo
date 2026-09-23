@@ -342,3 +342,7 @@ Verification: both architectures compiled and code-signature integrity checked; 
 ## Workflow overview (1.20.11)
 
 The page introduces a general WhatsApp-to-experience workflow with group submission, explicit file matching, weekly checks and completion/missing reports. Keep Fattal out of the product header, but disclose the currently supported Fattal PDF scope in connection setup. This copy change does not implement self-service customer/group mapping or arbitrary file types. Requirements include a logged-in awake Mac, internet, a paired WhatsApp account in the group and one active computer per connection.
+
+## Leonardo Club Eilat default (1.20.12)
+
+On September 23 the owner reconfirmed that an identified hotel without an explicit area means Eilat, including `לאונרדו קלאב אמצש 2209.pdf`. The server default now includes Leonardo Club (Hebrew/English), restricted to mapped target `jKptn6`; explicit Dead Sea/Tiberias filenames retain their own targets. Generic or unidentified hotel filenames do not acquire an Eilat target. Existing Mac 0.6.0 installations rerun Preview to obtain the server fix; no local package update is needed.

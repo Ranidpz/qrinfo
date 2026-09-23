@@ -327,7 +327,7 @@ function scoreTarget(file: IntakeFileCandidate, target: ContentIntakeTarget): Sc
   const warnings: string[] = [];
   let score = 0;
 
-  // Owner-confirmed Fattal naming convention (2026-09-20). Apply only to the
+  // Owner-confirmed Fattal naming convention (2026-09-23, including Club). Apply only to the
   // explicit Eilat QR targets, and never when the filename names another area.
   const defaultEilatShortId = !fileArea ? inferUnqualifiedEilatHotel(fileText) : undefined;
   if (defaultEilatShortId && target.shortId === defaultEilatShortId) {
@@ -383,6 +383,7 @@ function inferUnqualifiedEilatHotel(text: string): string | undefined {
   const rules = [
     { shortId: 'tnhKzx', names: ['הרודס', 'herods'] },
     { shortId: 'FYvDZF', names: ['לאונרדו פלאזה', 'לאונרדו פלזה', 'leonardo plaza'] },
+    { shortId: 'jKptn6', names: ['לאונרדו קלאב', 'leonardo club'] },
     { shortId: 'tDet2R', names: ['רויאל', 'royal'] },
   ];
   const matches = rules.filter((rule) => rule.names.some((name) =>

@@ -49,9 +49,10 @@ test('owner-confirmed unqualified hotel names use only the explicit Eilat target
     candidate('הרודס אמצש 20.9.pdf'),
     candidate('תוכניית בידור אמצאש לאונרדו פלאזה 20.9.pdf'),
     candidate('תכניית בידור רויאל אמצש 22.9.pdf'),
+    candidate('לאונרדו קלאב אמצש 2209.pdf'),
   ]);
   assert.deepEqual(result.matches.map(m => [m.status, m.target?.shortId]), [
-    ['matched', 'tnhKzx'], ['matched', 'FYvDZF'], ['matched', 'tDet2R'],
+    ['matched', 'tnhKzx'], ['matched', 'FYvDZF'], ['matched', 'tDet2R'], ['matched', 'jKptn6'],
   ]);
 });
 
@@ -62,6 +63,25 @@ test('explicit Dead Sea or Tiberias always prevents the Eilat default', () => {
   }
   assert.equal(preview([candidate('הרודס ים המלח.pdf')]).matches[0].target?.shortId, 'N8bPqx');
   assert.equal(preview([candidate('לאונרדו פלאזה ים המלח.pdf')]).matches[0].target?.shortId, '7KRYAj');
+});
+
+test('Leonardo Club defaults to the explicit Eilat target only without an area', () => {
+  for (const [name, shortId] of [
+    ['לאונרדו קלאב אמצש 2209.pdf', 'jKptn6'],
+    ['Leonardo Club 22.09.2026.pdf', 'jKptn6'],
+    ['לאונרדו קלאב ים המלח אמצש 2209.pdf', '4nVJXf'],
+    ['לאונרדו קלאב טבריה אמצש 2209.pdf', 'fjcVpn'],
+    ['Leonardo Club Dead Sea 22.09.2026.pdf', '4nVJXf'],
+    ['Leonardo Club Tiberias 22.09.2026.pdf', 'fjcVpn'],
+  ]) {
+    const match = preview([candidate(name)]).matches[0];
+    assert.equal(match.status, 'matched', name);
+    assert.equal(match.target.shortId, shortId, name);
+  }
+  const missingEilat = buildFattalPreview({ files: [candidate('לאונרדו קלאב אמצש 2209.pdf')], targets: targets.filter(t => t.shortId !== 'jKptn6') });
+  assert.notEqual(missingEilat.matches[0].status, 'matched');
+  const generic = preview([candidate('תוכניית בידור אמצש 2209.pdf')]);
+  assert.notEqual(generic.matches[0].status, 'matched');
 });
 
 test('a chunk cannot substitute file size, filename or an unknown ID', () => {

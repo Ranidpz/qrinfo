@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.20.12] - 2026-09-23
+
+- Apply the owner-confirmed Eilat default to Leonardo Club filenames without an area; explicit Dead Sea and Tiberias names keep their own targets.
+- Add Hebrew/English region regressions and retain review when the configured Eilat target is unavailable or the hotel is unidentified.
+- Matching is corrected server-side; existing Mac 0.6.0 installations only need to run Preview again.
+
 ## [1.20.11] - 2026-09-20
 
 - Explain the WhatsApp Agent workflow from a shared group through explicit experience matching, scheduled updates and confirmation reports.

@@ -65,7 +65,7 @@
     "filenameTitle": "File matching rules for the current connection",
     "filenameStandard": "Hotel name - city or region - program start date DD.MM.YYYY.pdf",
     "filenameExample": "לאונרדו פלאזה - ים המלח - 20.09.2026.pdf",
-    "filenameCompatibility": "Existing names and known aliases remain supported. An explicit region determines the target. The approved Fattal rule maps Herods, Plaza and Royal without a region to Eilat. Unrecognized files, conflicting matches and duplicates stop for review. Reports preserve the original filename alongside the experience title.",
+    "filenameCompatibility": "Existing names and known aliases remain supported. An explicit region determines the target. The approved Fattal rule maps Herods, Plaza, Leonardo Club and Royal without a region to Eilat. Unrecognized files, conflicting matches and duplicates stop for review. Reports preserve the original filename alongside the experience title.",
     "weekday0": "Sunday",
     "weekday1": "Monday",
     "weekday2": "Tuesday",
