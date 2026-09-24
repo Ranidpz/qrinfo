@@ -65,12 +65,39 @@ export async function POST(request: NextRequest) {
         receivedAt: parent.receivedAt as string | undefined,
         reportEmail: parent.reportEmail as { sent: boolean; skipped?: boolean; error?: string } | undefined };
     });
-    const reportEmail = report.reportEmail?.sent ? report.reportEmail : await sendFattalCommitReportEmail(report);
-    await updateContentIntakeRun(runId, { reportEmail });
-    return NextResponse.json({ ...report, reportEmail, success: report.status === 'completed' });
+    const reportEmail = report.reportEmail?.sent ? report.reportEmail : body.sendEmail === false ? { sent: false, deferred: true } : await sendFattalCommitReportEmail(report);
+    if (body.sendEmail !== false) await updateContentIntakeRun(runId, { reportEmail });
+    return NextResponse.json({ ...report, reportEmail, batchFinalized: true, recoveryProtocolVersion: 1, success: report.status === 'completed' });
   } catch (error) {
     console.error('[Fattal batch report]', error);
     const known = error instanceof Error && ['Batch unavailable', 'Batch still running'].includes(error.message);
     return NextResponse.json({ error: known ? error.message : 'Failed to finalize batch report' }, { status: known ? 409 : 500 });
+  }
+}
+
+// Read-only recovery probe. It neither closes a batch nor sends email.
+export async function GET(request: NextRequest) {
+  try {
+    const integrationAuth = await authenticateIntakeKey(request);
+    if (!integrationAuth) {
+      const auth = await requireSuperAdmin(request);
+      if (isAuthError(auth)) return auth.response;
+    }
+    const query = new URL(request.url).searchParams;
+    const runId = query.get('batchPreviewRunId') || '';
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(runId)) return NextResponse.json({error:'Invalid batch'}, {status:400});
+    const ownerId = await resolveFattalOwnerId({ownerEmail:query.get('ownerEmail') || undefined, integrationAuth});
+    if (!ownerId) return NextResponse.json({error:'Owner unavailable'}, {status:403});
+    const parent = (await getAdminDb().collection(CONTENT_INTAKE_RUNS_COLLECTION).doc(runId).get()).data();
+    if (!parent || parent.ownerId !== ownerId || parent.workflow !== 'fattal-booklets' || parent.batchPreviewRunId) {
+      return NextResponse.json({error:'Batch unavailable'}, {status:404});
+    }
+    return NextResponse.json({runId, recoveryProtocolVersion:1, batchFinalized:parent.batchFinalized === true,
+      activeCommits:parent.activeCommits || 0, status:parent.status,
+      ...(parent.batchFinalized ? {preview:parent.preview, results:parent.commitResults, summary:parent.summary, reportEmail:parent.reportEmail || {sent:false}} : {})},
+      {headers:{'Cache-Control':'no-store'}});
+  } catch (error) {
+    console.error('[Fattal batch status]', error);
+    return NextResponse.json({error:'Failed to read batch status'}, {status:500});
   }
 }

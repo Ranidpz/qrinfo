@@ -14,29 +14,20 @@ export function hasNewFiles(files, checkpoint, day) {
 
 export function buildGroupUpdate(report, { first, now = new Date(), timeZone }) {
   if (!isExpectedReview(report)) throw new Error('UNCONFIRMED_GROUP_REPORT');
-  const updated = report.results.filter((r) => r.status === 'updated');
-  const received = report.results.length;
-  const unresolved = report.results.filter(r => r.status === 'skipped' && r.reason !== 'manual_excluded');
-  const excluded = report.results.filter(r => r.reason === 'manual_excluded').length;
-  const duplicates = report.results.filter(r => r.status === 'skipped_duplicate').length;
-  const names = updated.map((r) => r.title || r.filename);
-  const missing = report.preview.missingTargets.map((r) => r.target.title);
-  const date = new Intl.DateTimeFormat('he-IL', { timeZone, day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now);
-  const lines = [`עדכון חוברות — ${date}`, first
-    ? `התקבלו ${received} חוברות; ${updated.length} הועלו${updated.length ? ' ✅' : '.'}`
-    : updated.length ? `בוצע ✅ הועלו ${updated.length} חוברות נוספות.` : 'לא הועלו קבצים חדשים.'];
-  if (names.length) lines.push(`הועלו: ${names.join(', ')}.`);
-  if (first && duplicates) lines.push(`${duplicates} כבר היו מעודכנות.`);
-  if (excluded) lines.push(`${excluded} קבצים נשארו ללא עדכון לפי בחירה ידנית.`);
-  if (unresolved.length) {
-    lines.push(`ממתינים לבדיקה (${unresolved.length}):`);
-    for (const item of unresolved) {
-      const match = report.preview.matches.find(m => m.file.id === item.fileId);
-      const time = match?.file.receivedAt ? new Intl.DateTimeFormat('he-IL', {timeZone, day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).format(new Date(match.file.receivedAt)) : '';
-      lines.push(`• ${item.filename} · ${time} · מזהה ${item.fileId?.slice(-6) || ''}${item.reason === 'duplicate' ? ' — יותר מקובץ אחד לאותה חוויה' : ''}`);
-    }
-    lines.push('לא זוהה שיוך חד־משמעי. נא להשיב לקובץ עם שם החוויה כפי שמופיע במערכת, או לשלוח אותו מחדש עם השם בשם הקובץ. אפשר גם לשייך בממשק הסוכן.');
+  const unique = values => [...new Set(values.filter(Boolean))];
+  const updated = unique(report.results.filter(r => r.status === 'updated').map(r => r.title || r.filename));
+  const held = report.results.filter(r => r.status === 'skipped');
+  const missing = unique(report.preview.missingTargets.map(r => r.target.title));
+  const stamp = new Intl.DateTimeFormat('he-IL', {timeZone, day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'}).format(now);
+  const lines = [`עדכון חוברות · ${stamp}`, updated.length ? `✅ עודכנו: ${updated.join(', ')}.` : 'לא עודכנו קבצים חדשים.'];
+  if (held.length) {
+    const groups = new Map();
+    for (const item of held) groups.set(item.filename, (groups.get(item.filename) || 0) + 1);
+    lines.push(`⚠️ לא עודכנו: ${[...groups].map(([name,count]) => `${count > 1 ? `${count} קבצים בשם ` : ''}״${name}״`).join(', ')}.`);
+    if (held.some(r => r.reason === 'duplicate')) lines.push('נא לשלוח גרסה אחת מאושרת לכל חוויה.');
+    if (held.some(r => r.reason !== 'duplicate')) lines.push('נא לשלוח מחדש עם שם החוויה והמיקום בשם הקובץ.');
   }
-  lines.push(missing.length ? `חסרות: ${missing.join(', ')}.` : unresolved.length ? 'הקבצים המפורטים לעיל עדיין ממתינים להבהרה.' : 'כל החוברות התקבלו ועודכנו.');
+  if (missing.length) lines.push(`חסרות: ${missing.join(', ')}.`);
+  if (!held.length && !missing.length && first) lines.push('כל החוברות מעודכנות.');
   return lines.join('\n');
 }

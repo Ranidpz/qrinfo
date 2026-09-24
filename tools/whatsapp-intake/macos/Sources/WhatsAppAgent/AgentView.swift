@@ -13,9 +13,39 @@ struct AgentView: View {
                     Label(agent.snapshot.enabled ? "התזמון מופעל" : "התזמון כבוי", systemImage: agent.snapshot.enabled ? "checkmark.circle.fill" : "pause.circle").foregroundStyle(agent.snapshot.enabled ? .green : .secondary)
                 }
                 if agent.snapshot.syncState == "failed" { Text("הסנכרון למערכת נכשל. בדקו את החיבור ואת הרשאת המחשב באתר לפני המשך העבודה.").foregroundStyle(.orange) }
+                if agent.snapshot.pending == true {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("פעולה קודמת ממתינה לאימות").font(.headline)
+                            Text("נבדוק מול המערכת מה כבר בוצע. הקבצים לא יועלו שוב במהלך הבדיקה.")
+                            Button("בדיקת הפעולה הקודמת") { agent.recover() }.disabled(agent.busy || agent.connecting)
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
+                    }
+                }
+                if agent.snapshot.enabled == false && agent.snapshot.activationReason == "upgrade" {
+                    Text("התזמון הושהה בעקבות עדכון התוכנה. לאחר בדיקה תקינה לחצו על הפעלת עדכונים כדי לחדש אותו.").foregroundStyle(.orange)
+                }
                 if agent.busy { ProgressView().progressViewStyle(.linear) }
                 Text(agent.message).foregroundStyle(.secondary).textSelection(.enabled)
                 if !agent.error.isEmpty { Label(agent.error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).textSelection(.enabled) }
+                if agent.error.isEmpty, let code = agent.snapshot.lastError, !code.isEmpty {
+                    Text(agent.friendly(code)).foregroundStyle(.red).textSelection(.enabled)
+                }
+                GroupBox("פעילות ועדכון מיידי") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("הבדיקה הבאה: \(agent.snapshot.nextCheck ?? "התזמון כבוי")")
+                        Text("בדיקה אחרונה: \(displayTime(agent.snapshot.lastCheckAt))")
+                        Text("עדכון שאושר במערכת: \(displayTime(agent.snapshot.lastUpdateAt))")
+                        if let outcome = agent.snapshot.lastOutcome { Text(outcome) }
+                        if (agent.snapshot.deliveryOutstanding ?? 0) > 0 {
+                            Text("הקבצים אושרו במערכת; קיימים דיווחים הממתינים לאישור מסירה. הם אינם חוסמים בדיקות חדשות.").foregroundStyle(.orange)
+                            Button("בדיקת אישור הדיווח") { agent.recover() }.disabled(agent.busy || agent.connecting)
+                        }
+                        Button("עדכון עכשיו") { agent.updateNow() }.buttonStyle(.borderedProminent)
+                            .disabled(!agent.snapshot.connected || !agent.snapshot.paired || agent.busy || agent.connecting || agent.snapshot.pending == true)
+                        Text("מבצע בדיקה והעלאה עכשיו, גם כשהתזמון כבוי. מועדי הבדיקות הבאים נשמרים.").font(.caption).foregroundStyle(.secondary)
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                }
                 GroupBox {
                     VStack(alignment: .leading, spacing: 18) {
                         step("1", "הכנת הסוכן", detail: "רכיבי ההפעלה והדפדפן יותקנו אוטומטית. נדרש אינטרנט בהכנה הראשונה.", done: agent.prepared) {
@@ -79,6 +109,13 @@ struct AgentView: View {
         }.frame(minWidth: 780, minHeight: 650)
         .environment(\.layoutDirection, .rightToLeft)
         .task { while !Task.isCancelled { await agent.refresh(); try? await Task.sleep(nanoseconds: 2_000_000_000) } }
+    }
+    private func displayTime(_ value: String?) -> String {
+        guard let value else { return "טרם נרשם" }
+        let parser = ISO8601DateFormatter(); parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = parser.date(from: value) ?? ISO8601DateFormatter().date(from: value) else { return value }
+        let formatter = DateFormatter(); formatter.timeZone = TimeZone(identifier: "Asia/Jerusalem"); formatter.dateFormat = "dd/MM/yyyy HH:mm"
+        return formatter.string(from: date) + " (שעון ישראל)"
     }
     private func step<Content: View>(_ number: String, _ title: String, detail: String, done: Bool, @ViewBuilder controls: () -> Content) -> some View {
         HStack(alignment: .top, spacing: 14) {

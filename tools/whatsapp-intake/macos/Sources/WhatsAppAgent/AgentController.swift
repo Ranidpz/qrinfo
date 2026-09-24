@@ -33,7 +33,7 @@ import UniformTypeIdentifiers
     }
     func verifyInstallation() async throws {
         let output = try await ProcessService.run(AgentPaths.node, [installedScript.path, "status"])
-        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.7.2" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
+        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.8.0" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
         snapshot = state; prepared = true
     }
     func prepare() {
@@ -88,6 +88,22 @@ import UniformTypeIdentifiers
             self.message = "הבדיקה הסתיימה. הקבצים לא הוחלפו במערכת."
         }
     }
+    func updateNow() {
+        let alert = NSAlert(); alert.messageText = "עדכון עכשיו"
+        alert.informativeText = "תתבצע סריקה חדשה והעלאת קבצים עם התאמה ודאית בלבד, ולאחריה הודעת סיכום לקבוצה. מועדי הבדיקות הבאים לא ישתנו."
+        alert.addButton(withTitle: "עדכון עכשיו"); alert.addButton(withTitle: "ביטול")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        perform("סורקים ומעדכנים עכשיו…") {
+            try await self.checked(self.cli, ["run", "--commit"] + self.configArguments)
+            self.message = "הבדיקה הסתיימה. תוצאות העדכון ומצב הדיווח מופיעים למטה."
+        }
+    }
+    func recover() {
+        perform("בודקים את הפעולה הקודמת מול המערכת, ללא העלאה חוזרת…") {
+            try await self.checked(self.cli, ["resume"] + self.configArguments)
+            self.message = "הפעולה הקודמת נבדקה. אפשר לבצע עדכון עכשיו; הפעלת התזמון היא פעולה נפרדת."
+        }
+    }
     func activate() {
         let alert = NSAlert(); alert.messageText = "הפעלת עדכונים אוטומטיים"
         alert.informativeText = "הסוכן יעדכן התאמות ודאיות בלבד. קבצים לא מזוהים או סותרים יישארו ללא עדכון ותישלח בקשת הבהרה לקבוצה במועדים שקבעתם. ודאו שרק מחשב אחד מעדכן את הקבוצה."
@@ -121,7 +137,10 @@ import UniformTypeIdentifiers
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         NSWorkspace.shared.open(folder)
     }
-    private func friendly(_ text: String) -> String {
+    func friendly(_ text: String) -> String {
+        if text.contains("BATCH_STILL_RUNNING") { return "המערכת עדיין מסמנת פעולה קודמת כפעילה. לא בוצעה העלאה חוזרת. יצאו דוח בדיקה לבירור." }
+        if text.contains("BATCH_NEEDS_REVIEW") || text.contains("UNCONFIRMED_BATCH") { return "תוצאת הפעולה הקודמת טרם אומתה. לחצו על בדיקת הפעולה הקודמת; אם החסימה נשארת, יצאו דוח בדיקה." }
+        if text.contains("RECOVERY_API_UPGRADE_REQUIRED") { return "יש לעדכן את המערכת באתר לפני בדיקת הפעולה הקודמת." }
         if text.contains("ASSIGNMENT_API_UPGRADE_REQUIRED") { return "יש לעדכן את המערכת באתר לפני הפעלת השיוך החדש." }
         if text.contains("MESSAGE_DATE_UNREADABLE") { return "לא ניתן לקרוא את תאריך ההודעה. המתינו לטעינת וואטסאפ ולחצו שוב על בדיקת התאמה." }
         if text.contains("RUN_LOCKED") { return "כבר מתבצעת בדיקה במחשב. המתינו לסיומה ונסו שוב." }

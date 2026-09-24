@@ -43,9 +43,10 @@ test('followups stay quiet unless a new message arrives, including after an empt
 test('group summary distinguishes received, updated and missing and refuses unconfirmed writes', () => {
   const report = { results: [{ status: 'updated', title: 'הרודס אילת' }, { status: 'skipped_duplicate', title: 'יו קורל' }], preview: { missingTargets: [{ target: { title: 'קלאב טבריה' } }] } };
   const text = buildGroupUpdate(report, { first: true, now: new Date('2026-09-20T08:00:00Z'), timeZone: config.timeZone });
-  assert.match(text, /התקבלו 2 חוברות; 1 הועלו/);
+  assert.match(text, /✅ עודכנו: הרודס אילת/);
   assert.match(text, /חסרות: קלאב טבריה/);
-  assert.match(text, /1 כבר היו מעודכנות/);
+  assert.doesNotMatch(text, /ממשק|מזהה|יו קורל/);
+  assert.ok(text.length < 200);
   assert.throws(() => buildGroupUpdate({ ...report, results: [{ status: 'failed' }] }, { first: true, timeZone: config.timeZone }), /UNCONFIRMED/);
 });
 test('local lock excludes concurrent runs and PDF validation rejects HTML', async () => {
@@ -113,4 +114,22 @@ test('unquoted sibling labels identify real PDFs, while quotes and text-only fil
   assert.equal(rows[2].filename,null);assert.equal(rows[2].text,'קלאב טבריה');
   assert.equal(rows[3].attachmentUnreadable,true);assert.equal(rows[4].filename,null);
  }finally{await browser.close();}
+});
+
+test('recovery acknowledges an existing outgoing report without sending Enter again', async () => {
+ const {sendGroupUpdate}=await import('../src/group-sender.mjs');
+ const {writeJson,readJson}=await import('../src/storage.mjs');
+ const {createHash}=await import('node:crypto');
+ const dir=await mkdtemp(path.join(tmpdir(),'theq-outbox-'));
+ const browser=await chromium.launch({headless:true});
+ try{
+  const context=await browser.newContext(),page=await context.newPage();
+  await page.setContent('<div id="main"><div style="height:250px;overflow-y:auto"><div style="height:800px"><div data-id="sent-report"><div data-pre-plain-text="stamp"><span class="selectable-text">legacy exact report</span></div><span data-icon="msg-check"></span></div></div></div><footer><div contenteditable="true" role="textbox"></div></footer></div><script>window.enters=0;document.addEventListener("keydown",e=>{if(e.key==="Enter")window.enters++})</script>');
+  const file=path.join(dir,'outbox',createHash('sha256').update('batch').digest('hex')+'.json');
+  await writeJson(file,{id:'batch',text:'legacy exact report',groupName:config.groupName,state:'sending'});
+  let enters;
+  const result=await sendGroupUpdate({...config,runtimeDir:dir,sendGroupReports:true},{id:'batch',text:'legacy exact report',reconcileOnly:true},{requirePairedProfile:async()=>{},openGroup:async()=>{},openWhatsApp:async()=>({page,context:{close:async()=>{enters=await page.evaluate(()=>window.enters);}}})});
+  assert.equal(result.sent,true);assert.equal(result.alreadySent,true);assert.equal(enters,0);
+  assert.equal((await readJson(file)).state,'sent');await context.close();
+ }finally{await browser.close();await rm(dir,{recursive:true,force:true});}
 });

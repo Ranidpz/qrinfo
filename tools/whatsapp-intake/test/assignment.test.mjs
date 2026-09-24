@@ -28,7 +28,7 @@ test('partial group report describes actual updates and generic correction, fail
  const preview={matches:[{file:{id:'b',receivedAt:'2026-09-24T01:00:00Z'},status:'unmatched'}],missingTargets:[]};
  const report={preview,results:[{status:'updated',title:'Experience'}, {status:'skipped',fileId:'b',filename:'book.pdf'}]};
  const text=buildGroupUpdate(report,{first:true,timeZone:'Asia/Jerusalem'});
- assert.match(text,/1 הועלו/);assert.match(text,/נא להשיב לקובץ עם שם החוויה/);assert.doesNotMatch(text,/מלון/);
+ assert.match(text,/עודכנו: Experience/);assert.match(text,/נא לשלוח מחדש עם שם החוויה והמיקום בשם הקובץ/);assert.doesNotMatch(text,/מלון|ממשק|מזהה/);
  assert.throws(()=>buildGroupUpdate({...report,results:[{status:'failed'}]},{first:true,timeZone:'Asia/Jerusalem'}));
  assert.throws(()=>buildGroupUpdate({...report,results:[{status:'skipped',fileId:'unknown'}]},{first:true,timeZone:'Asia/Jerusalem'}));
 });

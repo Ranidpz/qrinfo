@@ -70,15 +70,25 @@ export async function commitWithPayloadFallback(params) {
   return finalizeBatch({ ...params, batchPreviewRunId: preview.runId });
 }
 
-export async function finalizeBatch({ baseUrl, apiKey, ownerEmail, batchPreviewRunId, workflowPath = '/api/content-intake/fattal' }) {
+export async function finalizeBatch({ baseUrl, apiKey, ownerEmail, batchPreviewRunId, sendEmail = false, workflowPath = '/api/content-intake/fattal' }) {
   const response = await fetch(`${baseUrl}${workflowPath}/report`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-content-intake-key': apiKey },
-    body: JSON.stringify({ ownerEmail, batchPreviewRunId }),
+    body: JSON.stringify({ ownerEmail, batchPreviewRunId, sendEmail }),
     signal: AbortSignal.timeout(90000), redirect: 'error',
   });
   const report = await parseJsonResponse(response);
   if (!Array.isArray(report.results) || !report.summary) throw new Error('API returned an invalid report');
+  return report;
+}
+
+export async function getBatchStatus({baseUrl, apiKey, ownerEmail, batchPreviewRunId, workflowPath = '/api/content-intake/fattal'}) {
+  const query = new URLSearchParams({batchPreviewRunId, ...(ownerEmail ? {ownerEmail} : {})});
+  const response = await fetch(`${baseUrl}${workflowPath}/report?${query}`, {
+    headers:{'x-content-intake-key':apiKey}, redirect:'error', signal:AbortSignal.timeout(20000),
+  });
+  const report = await parseJsonResponse(response);
+  if (report.recoveryProtocolVersion !== 1) throw Error('RECOVERY_API_UPGRADE_REQUIRED');
   return report;
 }
 

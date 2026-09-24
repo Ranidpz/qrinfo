@@ -29,6 +29,6 @@ export function assignmentFingerprint(file) {
   return `${file.key}:${createHash('sha256').update(JSON.stringify(file.evidence || [])).digest('hex').slice(0, 16)}`;
 }
 export function isExpectedReview(report) {
-  return report.results.every(result => ['updated', 'skipped_duplicate'].includes(result.status)
+  return Array.isArray(report?.results) && report.results.every(result => ['updated', 'skipped_duplicate'].includes(result.status)
     || (result.status === 'skipped' && report.preview.matches.some(m => m.file.id === result.fileId && m.status !== 'matched')));
 }

@@ -278,22 +278,37 @@ test('batch audit locks active commits, closes after completion and sends one st
       '@/lib/content-intake/batch-results': exportsStub(['collectBatchResults']),
       '@/lib/content-intake/report': exportsStub(['buildCommitReply', 'buildCommitSummary', 'hasCommitIssues', 'sendFattalCommitReportEmail']),
     });
-    const request = (id = parentId, key = 'test') => new Request('https://example.test/report', {
+    const request = (id = parentId, key = 'test', sendEmail = true) => new Request('https://example.test/report', {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-content-intake-key': key },
-      body: JSON.stringify({ batchPreviewRunId: id }),
+      body: JSON.stringify({ batchPreviewRunId: id, sendEmail }),
     });
+    const probe = (id = parentId, key = 'test') => new Request(`https://example.test/report?batchPreviewRunId=${id}`, {headers:{'x-content-intake-key':key}});
+    assert.equal((await route.GET(probe(parentId, 'bad'))).status, 401);
+    assert.equal((await route.GET(probe(childId))).status, 404);
+    const activeProbe = await route.GET(probe());
+    assert.equal(activeProbe.headers.get('cache-control'),'no-store');
+    assert.equal((await activeProbe.json()).activeCommits,1);
+    assert.equal(records.get(parentId).status,'previewed');
     assert.equal((await route.POST(request(parentId, 'bad'))).status, 401);
     assert.equal((await route.POST(request())).status, 409);
     assert.equal(mailCount, 0);
     await runs.updateContentIntakeRun(childId, { status: 'completed', commitResults: [result] });
     await runs.updateContentIntakeRun(childId, { status: 'completed', commitResults: [result] });
     assert.equal(records.get(parentId).activeCommits, 0);
+    const deferred = await route.POST(request(parentId,'test',false));
+    assert.equal(deferred.status,200);assert.equal(mailCount,0);
+    assert.equal((await deferred.json()).reportEmail.deferred,true);
+    const confirmedProbe = await route.GET(probe());
+    const confirmed = await confirmedProbe.json();
+    assert.equal(confirmed.batchFinalized,true);assert.equal(confirmed.results[0].fileId,'one');
+    assert.equal(mailCount,0);
     assert.equal((await route.POST(request())).status, 200);
     assert.equal(mailCount, 1);
     assert.equal((await route.POST(request())).status, 200);
     assert.equal(mailCount, 1);
     await assert.rejects(runs.createContentIntakeRun({ ownerId: 'fattal-owner', status: 'committing', preview: all, batchPreviewRunId: parentId }), /closed/);
     const other = await runs.createContentIntakeRun({ ownerId: 'other-owner', status: 'previewed', preview: all });
+    assert.equal((await route.GET(probe(other))).status,404);
     assert.equal((await route.POST(request(other))).status, 409);
     assert.equal(mailCount, 1);
   } finally { delete globalThis.fattalTestDb; delete globalThis.fattalTestFns; }

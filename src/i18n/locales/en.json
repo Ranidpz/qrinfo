@@ -21,7 +21,7 @@
     "saved": "Saved — hide key",
     "downloadTitle": "2. Mac software",
     "downloadDescription": "A Mac app with guided setup: system connection, WhatsApp pairing, booklet preview and activation, without commands. No Codex or ChatGPT account required.",
-    "downloadMac": "Download Mac app · 0.7.2",
+    "downloadMac": "Download Mac app · 0.8.0",
     "requirements": "macOS 14 or later, Apple Silicon and Intel. Runtime and browser download automatically on first setup. No manual Node.js installation.",
     "checksum": "Download file checksum (SHA-256)",
     "instructions": "3. Install and connect",
@@ -65,7 +65,7 @@
     "filenameTitle": "File matching rules for the current connection",
     "filenameStandard": "Experience name - location (if needed to distinguish it) - date DD.MM.YYYY.pdf",
     "filenameExample": "לאונרדו פלאזה - ים המלח - 20.09.2026.pdf",
-    "filenameCompatibility": "Existing names and known aliases remain supported. An explicit region determines the target. The approved Fattal rule maps Herods, Plaza, Leonardo Club and Royal without a region to Eilat. Unrecognized files, conflicting matches and duplicates stop for review. Reports preserve the original filename alongside the experience title. In 0.7.2, confident files continue updating while exceptions are held. Identical copies are deduplicated; different versions for one experience need clarification. Replies are used only when their exact attachment link and sender can be verified.",
+    "filenameCompatibility": "Existing names and known aliases remain supported. An explicit region determines the target. The approved Fattal rule maps Herods, Plaza, Leonardo Club and Royal without a region to Eilat. Unrecognized files, conflicting matches and duplicates stop for review. Reports preserve the original filename alongside the experience title. In 0.8.0, confident files continue updating while exceptions are held. Identical copies are deduplicated; different versions for one experience need clarification. Replies are used only when their exact attachment link and sender can be verified.",
     "weekday0": "Sunday",
     "weekday1": "Monday",
     "weekday2": "Tuesday",
@@ -131,7 +131,7 @@
     "flowFollowups": "Schedule multiple checks on each selected day, in Israel time. Followup checks message the group only when files were updated. Missing booklets remain unchanged; files that cannot be matched confidently require review.",
     "currentAvailability": "An advanced feature for super admins only. The available connection currently handles Fattal PDF booklets. Another customer, group or content type requires extending the integration and defining additional matching rules; self-service setup for these connections is not yet available on this page.",
     "state_review_required": "Partially updated — files awaiting clarification",
-    "nativeUpgrade": "Upgrading an existing installation: replace the app, choose Update agent components, run Preview and enable updates again. Your connection and files are retained. Assign a specific file using Assign; confident files update even while other files await clarification."
+    "nativeUpgrade": "To upgrade: replace the app and click Update agent components. If a previous operation is pending, click Check previous operation. Run a matching preview, review it, then click Update Now. Finally re-enable updates and check the next scheduled time. The connection and files are preserved; pending report delivery does not block confirmed file updates."
   },
   "common": {
     "save": "Save",

@@ -31,6 +31,13 @@ import AppKit
                     agent.snapshot.downloadDirectory = "~/Library/Application Support/TheQContentIntake/mac-example/downloads"
                     agent.snapshot.targets = [AssignmentTarget(id: "one", title: "חוויה לדוגמה")]
                     agent.snapshot.rows = [PreviewRow(id: "local:one", filename: "לאונרדו פלאזה - ים המלח - 20.09.2026.pdf", title: "לאונרדו פלאזה ים המלח", status: "matched"), PreviewRow(id: "local:two", filename: "הרודס - אילת - 20.09.2026.pdf", title: "הרודס אילת", status: "matched"), PreviewRow(id: "local:three", filename: "תוכניית בידור סופש 240926.pdf", title: "לא זוהתה חוויה", status: "unmatched", receivedAt: "2026-09-24T01:24:00Z"), PreviewRow(id: "local:four", filename: "רויאל סופש 23.9.pdf", title: "רויאל ריזורט אילת", status: "duplicate", receivedAt: "2026-09-24T02:55:00Z")]
+                    agent.snapshot.nextCheck = "יום חמישי, 24.9, 12:00"
+                    agent.snapshot.enabled = true
+                    agent.snapshot.lastCheckAt = "2026-09-24T07:05:00.000Z"
+                    agent.snapshot.lastUpdateAt = "2026-09-24T07:07:00.000Z"
+                    agent.snapshot.lastOutcome = "העדכון הסתיים; חלק מהקבצים ממתינים לתיקון"
+                    agent.snapshot.deliveryOutstanding = 1
+                    agent.snapshot.pending = CommandLine.arguments.contains("--pending-fixture")
                     agent.message = "בדיקת ההתאמה הסתיימה. עיינו בתוצאה לפני הפעלת הסוכן."
                 }
                 if let index = CommandLine.arguments.firstIndex(of: "--snapshot"), CommandLine.arguments.count > index + 1 {

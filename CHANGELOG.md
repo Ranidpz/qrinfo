@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.16] - 2026-09-24
+
+- WhatsApp Agent 0.8.0 separates confirmed PDF updates from durable email/WhatsApp delivery, allowing later checks after a notification failure.
+- Add owner-scoped read-only batch status and native recovery without reuploading confirmed files; uncertain writes remain blocked for investigation.
+- Add Update Now, next check, last scan/outcome, upgrade-pause explanation and richer diagnostics; heartbeat uses the package version.
+- Shorten new group notices to confirmed updates, held files, corrections and missing targets. Preserve old uncertain messages for reconciliation without duplicate sending.
+- Keep existing keys, profiles and PDFs. Requires fresh validation on Michal's Mac; the release does not remotely recover her installation.
+
 ## [1.20.15] - 2026-09-24
 
 - WhatsApp Agent 0.7.2 waits for stable newest messages, uses their actual scroll ancestor and supports column-reverse history.

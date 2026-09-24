@@ -65,5 +65,7 @@ struct AgentSnapshot: Decodable {
     var targets: [AssignmentTarget]?
     var previewStale: Bool?
     var runnerVersion: String?, id: String?, groupName: String?, ownerEmail: String?, state: String?, syncState: String?, downloadDirectory: String?, configFile: String?
+    var nextCheck: String?, lastCheckAt: String?, lastUpdateAt: String?, lastOutcome: String?, lastError: String?, activationReason: String?
+    var deliveryOutstanding: Int?
     var pending: Bool?
 }
