@@ -21,7 +21,7 @@
     "saved": "Saved — hide key",
     "downloadTitle": "2. Mac software",
     "downloadDescription": "A Mac app with guided setup: system connection, WhatsApp pairing, booklet preview and activation, without commands. No Codex or ChatGPT account required.",
-    "downloadMac": "Download Mac app · 0.9.0",
+    "downloadMac": "Download Mac app · 0.9.1",
     "requirements": "macOS 14 or later, Apple Silicon and Intel. Runtime and browser download automatically on first setup. No manual Node.js installation.",
     "checksum": "Download file checksum (SHA-256)",
     "instructions": "3. Install and connect",
@@ -65,7 +65,7 @@
     "filenameTitle": "File matching rules for the current connection",
     "filenameStandard": "Experience name - location (if needed to distinguish it) - date DD.MM.YYYY.pdf",
     "filenameExample": "לאונרדו פלאזה - ים המלח - 20.09.2026.pdf",
-    "filenameCompatibility": "Existing names and known aliases remain supported. An explicit region determines the target. The approved Fattal rule maps Herods, Plaza, Leonardo Club and Royal without a region to Eilat. Unrecognized files, conflicting matches and duplicates stop for review. Reports preserve the original filename alongside the experience title. In 0.9.0, confident files continue updating while exceptions are held. Identical copies are deduplicated; different versions for one experience need clarification. Replies are used only when their exact attachment link and sender can be verified.",
+    "filenameCompatibility": "Existing names and known aliases remain supported. An explicit region determines the target. The approved Fattal rule maps Herods, Plaza, Leonardo Club and Royal without a region to Eilat. Unrecognized files, conflicting matches and duplicates stop for review. Reports preserve the original filename alongside the experience title. In 0.9.1, confident files continue updating while exceptions are held. Identical copies are deduplicated; different versions for one experience need clarification. Replies are used only when their exact attachment link and sender can be verified.",
     "weekday0": "Sunday",
     "weekday1": "Monday",
     "weekday2": "Tuesday",
@@ -114,7 +114,7 @@
     "nativeStep1": "Download and extract the app, move it to Applications and open it. Use the action at the bottom of the window to prepare the agent.",
     "nativeStep2": "Create a computer key here and download its connection file. The app will ask you to select it during connection setup.",
     "nativeStep3": "Follow the three app steps: connect and scan the QR code, review files, and activate automation. The next action stays at the bottom. Update Now is also available after review.",
-    "nativePower": "After activation you may close the agent window. Keep the Mac powered on, online and awake; the display may sleep. When transferring to Michal, stop or disconnect the previous Mac before enabling hers.",
+    "nativePower": "Enabling automation also starts and verifies idle sleep prevention. Check that the agent shows it as active. You may close the window and turn off or lock the display; keep the Mac powered on and online. Sign into the Mac account after a restart. Manual sleep and shutdown stop operation.",
     "nativeSigning": "This build does not yet have Apple Developer ID signing and notarization. First launch may require approval in System Settings > Privacy & Security. Signing must be completed before broad customer distribution.",
     "downloadFolder": "Download folder on this computer",
     "downloadRetention": "PDF files remain in subfolders after upload; there is no automatic deletion. Open the folder from Settings in the Mac app.",
@@ -131,7 +131,7 @@
     "flowFollowups": "Schedule multiple checks on each selected day, in Israel time. Followup checks message the group only when files were updated. Missing booklets remain unchanged; files that cannot be matched confidently require review.",
     "currentAvailability": "An advanced feature for super admins only. The available connection currently handles Fattal PDF booklets. Another customer, group or content type requires extending the integration and defining additional matching rules; self-service setup for these connections is not yet available on this page.",
     "state_review_required": "Partially updated — files awaiting clarification",
-    "nativeUpgrade": "To upgrade, close and replace the app. Open it and follow the action at the bottom. Recovery appears only when required; a successful review leads to activation. If a check fails, Export support report appears beside the explanation. Connections and files are preserved; maintenance tools are in Settings."
+    "nativeUpgrade": "To upgrade, close and replace the app, then follow the action at the bottom. If all current booklets were updated manually, choose Start a new cycle after manual completion in Settings and confirm. The agent checks only new messages without uploading, then allows future scheduled checks to be enabled. Connections, files and history are preserved."
   },
   "common": {
     "save": "Save",

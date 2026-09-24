@@ -1,3 +1,4 @@
+import {enableWake,disableWake} from './power.mjs';
 import { mkdir, writeFile, cp, chmod } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -99,6 +100,7 @@ export async function disableSchedule() {
   config.schedule.enabled = false;
   await writeJson(file, config);
   await exec('/bin/launchctl', ['bootout', `gui/${process.getuid()}/app.theq.whatsapp-intake.${config.id}`]).catch(() => {});
+  await disableWake(config.id);
   console.log('Schedule disabled. Saved business login preserved.');
 }
 export async function importConnection(file) {
@@ -137,14 +139,19 @@ export async function enableUpdates() {
   const response = await fetch(`${config.apiBaseUrl}${config.workflowPath}/health`, { headers: { 'x-content-intake-key': credentials.contentIntakeApiKey }, redirect: 'error', signal: AbortSignal.timeout(30000) });
   if (!response.ok || !(await response.json()).ready) throw new Error('API_HEALTH_CHECK_FAILED');
   const stored = await readJson(file);
+  await enableWake(config.id);
+  try {
   stored.autoCommit = true;
   stored.sendGroupReports = true;
   stored.schedule.enabled = true;
   await writeJson(file, stored);
   const plist = path.join(homedir(), 'Library/LaunchAgents', `app.theq.whatsapp-intake.${config.id}.plist`);
   await exec('/bin/launchctl', ['bootout', `gui/${process.getuid()}`, plist]).catch(() => {});
-  try { await exec('/bin/launchctl', ['bootstrap', `gui/${process.getuid()}`, plist]); }
-  catch (error) { stored.schedule.enabled = false; await writeJson(file, stored); throw error; }
+  await exec('/bin/launchctl', ['bootstrap', `gui/${process.getuid()}`, plist]);
+  } catch (error) {
+    await disableWake(config.id);
+    stored.schedule.enabled = false; await writeJson(file, stored); throw error;
+  }
   console.log('Automatic updates and group reports enabled.');
 }
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -105,12 +105,23 @@ import UniformTypeIdentifiers
             self.message = "הפעולה הקודמת נבדקה. אפשר לבצע עדכון עכשיו; הפעלת התזמון היא פעולה נפרדת."
         }
     }
+    func startNewCycle() {
+        let alert = NSAlert(); alert.messageText = "כל החוברות הנוכחיות עודכנו ידנית?"
+        alert.informativeText = "הסוכן יבדוק רק הודעות שיתקבלו מכאן והלאה. הודעות קודמות לא יועלו שוב, גם אם נמחקו או שונו. ההיסטוריה והקבצים יישמרו. כעת תתבצע בדיקה ללא העלאה; לאחריה תוכלו להפעיל את המועדים העתידיים."
+        alert.addButton(withTitle: "כן, הכול עודכן — התחלת מחזור חדש"); alert.addButton(withTitle: "ביטול")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        perform("פותחים מחזור חדש ובודקים את החיבור ללא העלאה…") {
+            try await self.checked(self.installedScript, ["new-cycle", "--manual-completion-confirmed"])
+            try await self.checked(self.cli, ["run"] + self.configArguments)
+            self.message = "המחזור החדש נבדק. אפשר להפעיל את האוטומציה למועדים העתידיים."
+        }
+    }
     func activate() {
         let alert = NSAlert(); alert.messageText = "הפעלת עדכונים אוטומטיים"
         alert.informativeText = "הסוכן יעדכן התאמות ודאיות בלבד. קבצים לא מזוהים או סותרים יישארו ללא עדכון ותישלח בקשת הבהרה לקבוצה במועדים שקבעתם. ודאו שרק מחשב אחד מעדכן את הקבוצה."
         alert.addButton(withTitle: "הפעלת הסוכן"); alert.addButton(withTitle: "ביטול")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        perform("מפעילים עדכונים אוטומטיים…") { try await self.checked(self.installedScript, ["enable"]); self.message = "הסוכן פעיל. אפשר לסגור את החלון; המחשב צריך להישאר דולק ומחובר." }
+        perform("מפעילים עדכונים אוטומטיים…") { try await self.checked(self.installedScript, ["enable"]); self.message = "הסוכן פעיל ומניעת שינה אוטומטית אומתה. אפשר לסגור את החלון ולכבות את המסך; השאירו את המק דולק ומחובר." }
     }
     func assign(_ row: PreviewRow, targetId: String) {
         perform("שומרים החלטה ובודקים מחדש ללא העלאה…") {
@@ -139,6 +150,9 @@ import UniformTypeIdentifiers
         NSWorkspace.shared.open(folder)
     }
     func friendly(_ text: String) -> String {
+        if text.contains("POWER_GUARD") { return "מניעת השינה לא אומתה ולכן האוטומציה לא הופעלה. בדקו שהפעילות ברקע מותרת למערכת ונסו להפעיל שוב." }
+        if text.contains("PAUSE_BEFORE_NEW_CYCLE") { return "יש לעצור את האוטומציה לפני פתיחת מחזור חדש." }
+        if text.contains("CYCLE_SCOPE_CHANGED") { return "פרטי החיבור השתנו מאז פתיחת המחזור. בדקו את החיבור ופתחו מחזור חדש לאחר אישור שהקבצים הקודמים טופלו." }
         if text.contains("HISTORY_KNOWN_MESSAGES_MISSING") { return "סריקת הקבוצה אינה מלאה: קובץ שנראה קודם לא נמצא גם בבדיקה חוזרת. לא בוצעה העלאה. יצאו דוח בדיקה כדי שנוכל לברר מה חסר." }
         if text.contains("HISTORY_GAP_DETECTED") || text.contains("LATEST_MESSAGES_CHANGED") || text.contains("HISTORY_BOUNDARY_NOT_VERIFIED") { return "לא הצלחנו לוודא שכל ההודעות נטענו. לא בוצעה העלאה. נסו בדיקה נוספת; אם התקלה חוזרת, יצאו דוח בדיקה." }
         if text.contains("WHATSAPP_SCROLL_CONTAINER") || text.contains("LATEST_MESSAGES_NOT_VERIFIED") { return "לא ניתן לזהות עדיין את אזור ההודעות בוואטסאפ. לא בוצעה העלאה. נסו שוב; אם התקלה חוזרת, יצאו דוח בדיקה." }

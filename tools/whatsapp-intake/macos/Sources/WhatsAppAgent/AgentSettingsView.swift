@@ -14,10 +14,17 @@ struct AgentSettingsView: View {
                     Button("החלפת קובץ חיבור") { agent.importKey() }.disabled(blocked || !agent.prepared)
                     Button("חיבור מחדש לוואטסאפ") { agent.connect() }.disabled(blocked || !agent.snapshot.connected)
                 }
+                Section("סיום עדכון ידני") {
+                    Text("אם כבר עדכנתם ידנית את כל החוברות, אפשר להתחיל מההודעות הבאות. זו הצהרה שלכם; היא אינה מאמתת שהקבצים הקיימים במערכת נכונים.").font(.callout)
+                    Button("התחלת מחזור חדש אחרי עדכון ידני") { agent.startNewCycle() }
+                        .disabled(blocked || !agent.snapshot.paired || agent.snapshot.enabled || agent.snapshot.pending == true || agent.snapshot.runnerVersion != agent.appVersion)
+                }
                 Section("פעילות ותזמון") {
                     Button("מועדי הבדיקות והמחשבים באתר") { NSWorkspace.shared.open(URL(string: "https://qr.playzones.app/he/content-intake")!) }
                     if agent.snapshot.enabled { Button("עצירת האוטומציה") { agent.pause() }.disabled(blocked) }
-                    Button("הגדרות שינה במק") { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.energysaver")!) }
+                    Text(agent.snapshot.power?.active == true ? "מניעת שינה אוטומטית פעילה ברקע." : (agent.snapshot.enabled ? "מניעת השינה לא אומתה. עצרו את האוטומציה והפעילו אותה מחדש כדי לבדוק שוב." : "מניעת שינה אוטומטית תופעל עם האוטומציה; אין צורך לשנות הגדרה ידנית.")).foregroundStyle(.secondary)
+                    Text("להגדרה ידנית במק מיני: הגדרות מערכת ← אנרגיה ← מניעת שינה אוטומטית כשהצג כבוי. אפשר לכבות ולנעול את המסך. לאחר אתחול יש להיכנס לחשבון המק; כיבוי ידני, שינה ידנית והפסקת חשמל עוצרים את הפעילות.").font(.callout)
+                    Button("פתיחת הגדרות האנרגיה") { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.energysaver")!) }
                     Text("השאירו את המק דולק, מחובר לאינטרנט ומשתמש מחובר. אפשר לסגור את חלון הסוכן.").font(.caption)
                 }
                 Section("קבצים ותמיכה") {

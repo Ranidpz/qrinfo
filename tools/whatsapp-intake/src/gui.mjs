@@ -1,3 +1,5 @@
+import {powerStatus} from './power.mjs';
+import {startManualCycle,loadCycle,cycleSchedule} from './cycle.mjs';
 import {runnerVersion} from './version.mjs';
 // Native application bridge. No local HTTP server, credentials in argv or shell interpolation.
 import {nextCheck, statusLabels} from './activity.mjs';
@@ -23,7 +25,12 @@ export async function guiStatus(dataDir = base) {
     readJson(path.join(runtime, 'status.json'), {}), readJson(path.join(runtime, 'last-preview.json'), null),
     readJson(path.join(runtime, 'pending.json'), null), readJson(path.join(runtime, 'schedule-sync.json'), null), readJson(path.join(runtime, 'last-collection.json'), null),
   ]);
-  const previewStale = ['collecting', 'no_files', 'attention_required', 'upgrade_needs_preview', 'connection_imported', 'assignment_changed'].includes(state.state)
+  let cycleError = null;
+  const cycle = await loadCycle({...config,runtimeDir:runtime}).catch(error=>{cycleError=error.message;return null;});
+  const emptyCycleReady = !!cycle && state.state === 'no_files' && collection?.complete === true
+    && collection.files?.length === 0 && Date.parse(collection.since) >= Date.parse(cycle.at)
+    && Date.parse(collection.scannedAt) >= Date.parse(cycle.at) && sync?.state === 'synced';
+  const previewStale = ['collecting', 'no_files', 'attention_required', 'upgrade_needs_preview', 'connection_imported', 'assignment_changed', 'cycle_needs_scan'].includes(state.state)
     || (collection?.scannedAt && (!preview?.generatedAt || Date.parse(collection.scannedAt) > Date.parse(preview.generatedAt)));
   const rows = (previewStale ? [] : preview?.matches || []).map(m => ({ id: m.file?.id || m.file?.name, filename: m.file?.name || m.filename || '', title: m.target?.title || 'לא זוהתה חוויה', status: m.status, receivedAt: m.file?.receivedAt || '', reason: m.file?.evidence?.length ? (m.reasons || []).filter(v => /[א-ת]/.test(v)).join('; ') : 'לפי שם הקובץ', warnings: m.warnings || [] }));
   const attempts = await readJson(path.join(runtime, 'attempts.json'), []);
@@ -37,11 +44,11 @@ export async function guiStatus(dataDir = base) {
   const fresh = Number.isFinite(Date.parse(state.at)) && Date.now() - Date.parse(state.at) < 12 * 3600000;
   return { installed: true, runnerVersion: (await readJson(path.join(dataDir, 'app/package.json'), {})).version || null, id: config.id, groupName: config.groupName, ownerEmail: config.ownerEmail,
     connected: !!credentials.contentIntakeApiKey, paired: !!account, enabled: config.schedule.enabled === true,
-    nextCheck: nextCheck(config, new Date(), history.completed), lastCheckAt:lastAttempt?.startedAt || lastCheck?.at, lastUpdateAt:lastUpdate?.at,
-    lastOutcome:lastAttempt ? statusLabels[lastAttempt.outcome] || lastAttempt.outcome : null, lastError:state.code || '',
+    power:config.schedule.enabled ? await powerStatus(config.id) : {active:false,reason:'schedule_disabled'}, cycleStartedAt:cycle?.at || null, emptyCycleReady, nextCheck: nextCheck(cycleSchedule(config,cycle), new Date(), history.completed), lastCheckAt:lastAttempt?.startedAt || lastCheck?.at, lastUpdateAt:lastUpdate?.at,
+    lastOutcome:lastAttempt ? statusLabels[lastAttempt.outcome] || lastAttempt.outcome : null, lastError:cycleError || state.code || '',
     missingMessages:state.code === 'HISTORY_KNOWN_MESSAGES_MISSING' ? scan.missingMessages || [] : [], deliveryOutstanding:delivery.outstanding || 0, activationReason:activation?.reason || null,
     state: state.state || '', previewStale: !!previewStale, syncState: sync?.state || '', pending: !!pending,
-    previewReady: fresh && !previewStale && ['preview_ready','completed','completed_with_issues','no_changes'].includes(state.state) && rows.length > 0 && rows.some(r => r.status === 'matched') && !pending,
+    previewReady: fresh && !pending && !cycleError && (emptyCycleReady || (!previewStale && ['preview_ready','completed','completed_with_issues','no_changes'].includes(state.state) && rows.some(r => r.status === 'matched'))),
     rows, targets: (previewStale ? [] : preview?.targets || []).map(t => ({id:t.codeId, title:t.title})), downloadDirectory: path.join(runtime, 'downloads'), configFile: path.join(dataDir, 'config.json') };
 }
 export async function saveAssignment(dataDir, fileId, targetCodeId) {
@@ -86,6 +93,8 @@ export async function exportReview(dataDir = base) {
     delivery:await readJson(path.join(runtime, 'delivery-queue.json'), null),
     activation:await readJson(path.join(runtime, 'activation.json'), null),
     scan:await readJson(path.join(runtime, 'last-scan.json'), null),
+    power:(await guiStatus(dataDir)).power,
+    cycle:await readJson(path.join(runtime, 'cycle-baseline.json'), null),
     scanRetry:await readJson(path.join(runtime, 'scan-retry.json'), null),
     collection:collection ? {scannedAt:collection.scannedAt, since:collection.since, complete:collection.complete,
       files:collection.files.map(f => ({id:localFileId(f), name:f.name, size:f.size, sha256:f.sha256, receivedAt:f.receivedAt, sourceMessageId:f.messageId}))} : null,
@@ -93,6 +102,7 @@ export async function exportReview(dataDir = base) {
 }
 async function main() {
   const action = process.argv[2];
+  if (action === 'new-cycle') { await startManualCycle(base,{confirmed:process.argv.includes('--manual-completion-confirmed')}); return; }
   if (action === 'assign') { await saveAssignment(base, process.argv[3], process.argv[4]); return; }
   if (action === 'export-review') {
     if (!process.argv[3]) throw Error('EXPORT_PATH_REQUIRED');

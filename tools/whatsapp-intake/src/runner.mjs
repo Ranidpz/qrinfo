@@ -1,3 +1,4 @@
+import {loadCycle,cycleSince,cycleSchedule} from './cycle.mjs';
 import {errorCode} from './errors.mjs';
 import { assignmentFingerprint, isExpectedReview } from './assignment.mjs';
 import path from 'node:path';
@@ -71,7 +72,8 @@ export async function runCommand(command, config, options = {}, services = {}) {
     if (['sync-config', 'schedule', 'run', 'resume', 'report-group'].includes(command)) await syncSchedule(config);
     if (command === 'sync-config') {attempt.outcome='synced';return;}
     if (command === 'schedule' && config.schedule.enabled !== true) {attempt.outcome='disabled';return;}
-    const slot = command === 'schedule' ? slotDue(config, now, history.completed) : null;
+    const cycle = await loadCycle(config);
+    const slot = command === 'schedule' ? slotDue(cycleSchedule(config,cycle), now, history.completed) : null;
     attempt.slot = slot;
     const doCommit = options.commit === true || (command === 'schedule' && config.autoCommit === true);
     const pending = await readJson(pendingPath, null);
@@ -98,7 +100,7 @@ export async function runCommand(command, config, options = {}, services = {}) {
       if (config.autoCommit) await deliverQueued(config, params, sendGroupUpdate, {now});
       attempt.outcome='not_due';return;
     }
-    const since = options.since || new Date(now.getTime() - config.scanWindowHours * 3600000).toISOString();
+    const since = cycleSince(options.since || new Date(now.getTime() - config.scanWindowHours * 3600000).toISOString(), cycle);
     if (Date.parse(since) < now.getTime() - config.scanLookbackHours * 3600000 || Date.parse(since) > now.getTime()) throw Error('SCAN_START_OUTSIDE_ALLOWED_WINDOW');
     await writeJson(statusPath, {state:'collecting', since, at:now.toISOString()});
     const collection = await collect(config, {since, headed:options.headed});

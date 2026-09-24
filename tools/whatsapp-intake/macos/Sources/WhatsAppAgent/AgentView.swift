@@ -3,7 +3,7 @@ import SwiftUI
 struct AgentView: View {
     @ObservedObject var agent: AgentController
     private var flow: AgentWorkflow { .resolve(agent.snapshot, prepared: agent.prepared, appVersion: agent.appVersion) }
-    private var problem: String { !agent.error.isEmpty ? agent.error : agent.friendly(agent.snapshot.lastError ?? "") }
+    private var problem: String { !agent.error.isEmpty ? agent.error : (flow == .prepare ? "" : agent.friendly(agent.snapshot.lastError ?? "")) }
     private var blocked: Bool { agent.busy || (agent.connecting && flow != .confirm) }
     var body: some View {
         VStack(spacing: 0) {
@@ -14,7 +14,7 @@ struct AgentView: View {
                     steps
                     VStack(alignment: .leading, spacing: 8) {
                         Text(flow == .active ? "הסוכן פעיל" : "שלב \(flow.step) מתוך 3").font(.title2.bold())
-                        Text(flow.detail).foregroundStyle(.secondary)
+                        Text(agent.snapshot.emptyCycleReady == true && flow == .activate ? "החיבור והסריקה נבדקו. עדיין אין קבצים במחזור החדש; אפשר להפעיל את הבדיקות העתידיות." : flow.detail).foregroundStyle(.secondary)
                         if agent.snapshot.enabled == false && agent.snapshot.activationReason == "upgrade" {
                             Text("לאחר עדכון גרסה נדרשת בדיקה והפעלה מחדש.").font(.callout).foregroundStyle(.secondary)
                         }

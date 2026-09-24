@@ -36,6 +36,8 @@ test('native bridge executes when its entry path is a symlink, rather than silen
   await writeFile(path.join(dir,'macos.mjs'),'export const install=()=>{};export const importConnection=()=>{};export const enableUpdates=()=>{};export const disableSchedule=()=>{};');
   await writeFile(path.join(dir,'storage.mjs'),'export const readJson=async()=>null;export const writeJson=async()=>{};export const acquireLock=async()=>()=>{};');
   await writeFile(path.join(dir,'intake-client.mjs'),'export const localFileId=()=>"test";');
+  await writeFile(path.join(dir,'power.mjs'),'export const powerStatus=async()=>({active:false});');
+  await writeFile(path.join(dir,'cycle.mjs'),'export const startManualCycle=()=>{};export const loadCycle=async()=>null;export const cycleSchedule=c=>c;');
   await writeFile(path.join(dir,'version.mjs'),'export const runnerVersion="test";');
   await writeFile(path.join(dir,'activity.mjs'),'export const nextCheck=()=>null;export const statusLabels={};');
   await symlink(path.join(dir,'gui.mjs'),path.join(dir,'gui-link.mjs'));

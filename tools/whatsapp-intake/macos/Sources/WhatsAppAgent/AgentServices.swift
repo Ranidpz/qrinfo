@@ -60,8 +60,12 @@ struct PreviewRow: Decodable, Identifiable {
 }
 struct AssignmentTarget: Decodable, Identifiable { let id: String; let title: String }
 struct MissingMessage: Decodable { var name: String?; var receivedAt: String? }
+struct PowerStatus: Decodable { var active: Bool; var reason: String? }
 struct AgentSnapshot: Decodable {
+    var power: PowerStatus?
     var missingMessages: [MissingMessage]?
+    var cycleStartedAt: String?
+    var emptyCycleReady: Bool?
     var installed = false, connected = false, paired = false, enabled = false, previewReady = false
     var rows: [PreviewRow] = []
     var targets: [AssignmentTarget]?
