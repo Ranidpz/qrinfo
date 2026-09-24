@@ -17,6 +17,7 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   'confirm-business': { type: 'boolean', default: false },
   'key-stdin': { type: 'boolean', default: false },
   commit: { type: 'boolean', default: false },
+  'report-confirmed': { type: 'boolean', default: false },
   since: { type: 'string' },
   help: { type: 'boolean', default: false },
 } });
@@ -28,6 +29,7 @@ if (values.help || command === 'help') {
 }
 async function main() {
   const config = await loadConfig(values.config, values.data);
+  if (command === 'run' && values.commit && values['report-confirmed']) config.sendGroupReports = true;
   if (command === 'credentials') {
     if (!values['key-stdin']) throw new Error('Use --key-stdin; never pass secrets in command arguments');
     let key = '';

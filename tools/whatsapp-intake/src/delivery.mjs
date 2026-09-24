@@ -14,7 +14,7 @@ export async function queueReport(config, report, { first, now = new Date() }) {
   // Never change the text of a message whose send might already have happened.
   const text = outbox?.text || (legacy?.id === report.runId ? legacy.text : buildGroupUpdate(report, {first, now:new Date(report.preview.generatedAt), timeZone:config.timeZone}));
   queue.items.push({ id: report.runId, text, createdAt: now.toISOString(), reportDay:cycleDay(new Date(report.preview.generatedAt), config.timeZone),
-    email:report.reportEmail?.sent ? 'sent' : 'pending', emailRetryUntil:new Date(Date.parse(report.preview.generatedAt) + 20*3600000).toISOString(), group:!send ? 'skipped' : outbox?.state === 'sent' ? 'sent' : 'pending', attempts:0 });
+    legacyReconcileOnly:!!outbox || legacy?.id === report.runId, email:report.reportEmail?.sent ? 'sent' : 'pending', emailRetryUntil:new Date(Date.parse(report.preview.generatedAt) + 20*3600000).toISOString(), group:!send ? 'skipped' : outbox?.state === 'sent' ? 'sent' : 'pending', attempts:0 });
   await writeJson(queuePath(config), queue);
 }
 export async function queueEmptyReport(config, now) {
@@ -47,7 +47,7 @@ export async function deliverQueued(config, params, sendGroupUpdate, { now = new
     }
     if (['pending', 'uncertain'].includes(item.group)) {
       // Late recovery must not announce yesterday's batch as a new update.
-      const onlyReconcile = reconcileOnly || item.reportDay !== cycleDay(now, config.timeZone);
+      const onlyReconcile = reconcileOnly || item.legacyReconcileOnly === true || item.reportDay !== cycleDay(now, config.timeZone);
       try {
         const result = await sendGroupUpdate(config, {id:item.id, text:item.text, headed, reconcileOnly:onlyReconcile});
         item.group = result.sent ? 'sent' : result.skipped ? 'skipped' : 'uncertain';

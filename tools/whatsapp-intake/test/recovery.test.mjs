@@ -75,6 +75,8 @@ test('lost finalization response recovers from server without reupload; preview 
  assert.equal(state.commits,1);assert.equal(state.finalizes,finalized);assert.equal(state.probes,1);
  assert.equal(await readJson(path.join(dir,'pending.json'),null),null);
  assert.equal(state.sends[0].text,'old exact report text');assert.equal(state.sends[0].reconcileOnly,true);
+ state.now=new Date('2026-09-24T09:00:00Z');await runCommand('schedule',config,{},services);
+ assert.equal(state.sends.at(-1).reconcileOnly,true);assert.equal(state.commits,1);
 }));
 
 test('active or incomplete batch stays blocked; recovery never clears uncertain file writes',()=>fixture(async({dir,config,state,services})=>{

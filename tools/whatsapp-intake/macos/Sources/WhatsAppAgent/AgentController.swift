@@ -33,7 +33,7 @@ import UniformTypeIdentifiers
     }
     func verifyInstallation() async throws {
         let output = try await ProcessService.run(AgentPaths.node, [installedScript.path, "status"])
-        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.8.0" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
+        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.8.1" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
         snapshot = state; prepared = true
     }
     func prepare() {
@@ -94,7 +94,7 @@ import UniformTypeIdentifiers
         alert.addButton(withTitle: "עדכון עכשיו"); alert.addButton(withTitle: "ביטול")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         perform("סורקים ומעדכנים עכשיו…") {
-            try await self.checked(self.cli, ["run", "--commit"] + self.configArguments)
+            try await self.checked(self.cli, ["run", "--commit", "--report-confirmed"] + self.configArguments)
             self.message = "הבדיקה הסתיימה. תוצאות העדכון ומצב הדיווח מופיעים למטה."
         }
     }

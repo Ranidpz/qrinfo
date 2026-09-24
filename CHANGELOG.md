@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.20.17] - 2026-09-24
+
+- WhatsApp Agent 0.8.1 keeps migrated legacy notices reconcile-only even if their outbox was merely prepared, ensuring old UI-heavy wording cannot be sent by a later delivery retry.
+- The explicit Update Now confirmation authorizes its group report even before scheduling is enabled; it does not change the saved schedule/reporting preference.
+
 ## [1.20.16] - 2026-09-24
 
 - WhatsApp Agent 0.8.0 separates confirmed PDF updates from durable email/WhatsApp delivery, allowing later checks after a notification failure.
