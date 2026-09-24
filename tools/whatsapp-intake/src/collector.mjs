@@ -1,3 +1,4 @@
+import { moveHistory, settleLatest, assertHistoryOverlap, assertKnownMessagesObserved } from './history.mjs';
 import { attachEvidence, senderFromMessageId } from './assignment.mjs';
 import { mkdir, readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
@@ -19,14 +20,18 @@ export async function collect(config, { since, headed = false } = {}) {
   let previousTop = '';
   let unchanged = 0;
   try {
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {startedAt:new Date().toISOString(), latestVerified:false, complete:false});
     await openGroup(page, config);
     await page.locator('#main [data-id]').first().waitFor({ state: 'attached', timeout: 60000 });
     // Start at latest messages, then walk virtualized history backwards.
-    await scrollHistory(page, true);
-    await sleep(800);
+    const latest = await settleLatest(page, () => readVisibleMessages(page, config));
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {startedAt:new Date().toISOString(), latestVerified:true, latestIds:latest.rows.map(r => r.id), position:latest.position, complete:false});
+    let previousRows = latest.rows;
     for (let scroll = 0; scroll < config.maxScrolls; scroll++) {
       await assertGroup(page, config);
       const rows = await readVisibleMessages(page, config);
+      assertHistoryOverlap(previousRows, rows);
+      previousRows = rows;
       for (const row of rows) observed.set(row.id, row);
       // Retain bounded extraction diagnostics even if a later download or scan fails.
       await writeJson(path.join(config.runtimeDir, 'last-message-evidence.json'), [...observed.values()]
@@ -60,10 +65,15 @@ export async function collect(config, { since, headed = false } = {}) {
       previousTop = top;
       // Do not claim a complete scan merely because network/history stopped loading.
       if (unchanged >= 30) throw new Error('HISTORY_BOUNDARY_NOT_VERIFIED: choose a later explicit start or inspect chat history');
-      await scrollHistory(page);
+      await moveHistory(page, 'older');
       await sleep(1000);
     }
     if (!complete) throw new Error('SCAN_LIMIT_REACHED: no upload was attempted');
+    // Revisit the newest boundary: late sync must not silently disappear from a completed scan.
+    const finalLatest = await settleLatest(page, () => readVisibleMessages(page, config));
+    if (finalLatest.rows.some(row => !observed.has(row.id))) throw Error('LATEST_MESSAGES_CHANGED: נטענו הודעות נוספות במהלך הסריקה; בצעו בדיקה נוספת.');
+    assertKnownMessagesObserved(state.files, observed, cutoff);
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), { finishedAt:new Date().toISOString(), latestVerified:true, latestIds:finalLatest.rows.map(r => r.id), position:finalLatest.position, observedCount:observed.size, complete:true});
     const decisions = await readJson(path.join(config.runtimeDir, 'assignments.json'), {});
     // Require a real attachment in this complete scan; old quoted/deleted rows must not re-enter the batch.
     const files = attachEvidence(Object.values(state.files).filter(file => Date.parse(file.receivedAt) >= cutoff && observed.get(file.messageId)?.filename)
@@ -72,6 +82,8 @@ export async function collect(config, { since, headed = false } = {}) {
     await writeJson(path.join(config.runtimeDir, 'last-collection.json'), result);
     return result;
   } catch (error) {
+    const scan = await readJson(path.join(config.runtimeDir, 'last-scan.json'), {});
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:error.message.split(':')[0], observedCount:observed.size});
     await page.screenshot({ path: path.join(config.runtimeDir, 'last-error.png') }).catch(() => {});
     throw error;
   } finally { await context.close(); }
@@ -121,15 +133,6 @@ export async function readVisibleMessages(page, config, now = new Date()) {
     });
   });
   return rows.map((row) => ({ ...row, senderId: senderFromMessageId(row.id), receivedAt: parseMessageDate(row.timestamp, config) || parseDividerDate(row.divider, row.time, config, now) }));
-}
-async function scrollHistory(page, bottom = false) {
-  await page.locator('#main').evaluate((main, bottom) => {
-    const candidates = [...main.querySelectorAll('*')].filter((node) => node.clientHeight > 150
-      && ['auto', 'scroll'].includes(getComputedStyle(node).overflowY));
-    const scroller = candidates.sort((a, b) => b.clientHeight - a.clientHeight)[0];
-    if (!scroller) throw new Error('WHATSAPP_SCROLL_CONTAINER_MISSING');
-    scroller.scrollTop = bottom ? scroller.scrollHeight : Math.max(0, scroller.scrollTop - scroller.clientHeight * 0.75);
-  }, bottom);
 }
 export async function downloadPdf(page, config, row, key) {
   const filename = safeFilename(row.filename);

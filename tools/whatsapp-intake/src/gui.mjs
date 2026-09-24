@@ -65,6 +65,7 @@ export async function exportReview(dataDir = base) {
     previewGeneratedAt:preview?.generatedAt, batchProtocolVersion:preview?.batchProtocolVersion,
     assignmentProtocolVersion:preview?.assignmentProtocolVersion, targetCount:preview?.targets?.length || 0,
     previewStale:(await guiStatus(dataDir)).previewStale,
+    scan:await readJson(path.join(runtime, 'last-scan.json'), null),
     collection:collection ? {scannedAt:collection.scannedAt, since:collection.since, complete:collection.complete,
       files:collection.files.map(f => ({id:localFileId(f), name:f.name, size:f.size, sha256:f.sha256, receivedAt:f.receivedAt, sourceMessageId:f.messageId}))} : null,
     matches:(preview?.matches || []).map(m => ({file:m.file,target:m.target ? {title:m.target.title,shortId:m.target.shortId}:null,status:m.status,reasons:m.reasons,warnings:m.warnings})), observations };
@@ -91,9 +92,9 @@ async function main() {
     const previousVersion = (await readJson(path.join(base, 'app/package.json'), {})).version;
     const unlock = before ? await acquireLock(path.join(base, before.id)) : () => {};
     try {
-      if (before && previousVersion !== '0.7.1') await disableSchedule();
+      if (before && previousVersion !== '0.7.2') await disableSchedule();
       await install({ bundledDependencies: true, openCommands: false });
-      if (before && previousVersion !== '0.7.1') await writeJson(path.join(base, before.id, 'status.json'), {state:'upgrade_needs_preview', at:new Date().toISOString()});
+      if (before && previousVersion !== '0.7.2') await writeJson(path.join(base, before.id, 'status.json'), {state:'upgrade_needs_preview', at:new Date().toISOString()});
     }
     finally { await unlock(); }
     const config = await readJson(path.join(base, 'config.json'));

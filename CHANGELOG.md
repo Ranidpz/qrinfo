@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.20.15] - 2026-09-24
+
+- WhatsApp Agent 0.7.2 waits for stable newest messages, uses their actual scroll ancestor and supports column-reverse history.
+- Require overlapping history windows, revisit the newest boundary, and reject scans that silently omit known in-window file messages. Explicitly observed deleted rows remain excluded.
+- Export scan boundary diagnostics. Screenshots confirmed Club Dead Sea and two Royal messages remained present despite their omission from the 0.7.1 preview; live validation of the repaired scan is pending.
+
 ## [1.20.14] - 2026-09-24
 
 - WhatsApp Agent 0.7.1 reads unquoted PDF labels next to image-only thumbnails, including nested filename spans. Unreadable attachment labels require review.
