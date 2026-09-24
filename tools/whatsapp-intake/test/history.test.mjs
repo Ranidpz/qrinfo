@@ -45,3 +45,43 @@ test('known files cannot silently disappear; explicitly observed deleted rows an
  assert.throws(()=>assertHistoryOverlap([{id:'one'}],[{id:'three'}]),/HISTORY_GAP_DETECTED/);
  assert.doesNotThrow(()=>assertHistoryOverlap([{id:'one'},{id:'two'}],[{id:'two'},{id:'three'}]));
 });
+
+test('header and hidden identifiers do not hide real history, including short and hidden-overflow chats',async()=>{
+ const {inspectHistory}=await import('../src/history.mjs');
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();
+  for(const [overflow,height,expected] of [['auto',1000,750],['auto',30,0],['hidden',1000,750]]){
+   await page.setContent(`<div id="main"><header><div data-id="header">group</div></header><div data-id="hidden" style="display:none">hidden</div><div style="height:250px;overflow:${overflow}"><div data-id="real" style="height:${height}px">message</div></div><footer><div data-id="draft">draft</div></footer></div>`);
+   const result=await settleLatest(page,async()=>[{id:'real'}],{wait:async()=>{}});
+   assert.equal(result.position.top,expected);assert.equal(result.position.atLatest,true);
+   const layout=await inspectHistory(page);assert.equal(layout.anchorCount,1);assert.equal(layout.candidates[0].overflow,overflow);
+   assert.ok(!JSON.stringify(layout).includes('group'));assert.ok(!JSON.stringify(layout).includes('draft'));
+  }
+ }finally{await browser.close();}
+});
+test('history discovery waits for delayed message layout instead of failing at the first empty frame',async()=>{
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();await page.setContent('<div id="main"><header data-id="header">Group</header><div id="history"></div></div>');
+  let polls=0;
+  const result=await settleLatest(page,()=>page.locator('#history [data-id]').evaluateAll(nodes=>nodes.map(n=>({id:n.dataset.id}))),{wait:async()=>{
+   if(++polls===3)await page.locator('#history').evaluate(n=>{n.style.cssText='height:250px;overflow:auto';n.innerHTML='<div data-id="one" style="height:1000px">message</div>';});
+  }});
+  assert.ok(polls>=7);assert.equal(result.rows[0].id,'one');assert.equal(result.position.atLatest,true);
+ }finally{await browser.close();}
+});
+test('unrelated scroll areas and equally plausible disjoint message containers fail closed',async()=>{
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();
+  await page.setContent('<div style="height:250px;overflow:auto"><div data-id="sidebar" style="height:1000px">unrelated</div></div><div id="main"><header data-id="header">group</header><div>Loading</div></div>');
+  await assert.rejects(settleLatest(page,async()=>[],{wait:async()=>{},attempts:3}),/WHATSAPP_SCROLL_CONTAINER_MISSING/);
+  await page.setContent('<div id="main">'+[1,2].map(i=>`<div style="height:200px;overflow:auto"><div data-id="m${i}" style="height:700px">message</div></div>`).join('')+'</div>');
+  await assert.rejects(moveHistory(page,'latest'),/WHATSAPP_SCROLL_CONTAINER_AMBIGUOUS/);
+ }finally{await browser.close();}
+});
+test('Playwright wrapper errors retain the actionable code for diagnostics',async()=>{
+ const {errorCode}=await import('../src/errors.mjs');
+ assert.equal(errorCode(Error('locator.evaluate: Error: WHATSAPP_SCROLL_CONTAINER_MISSING\n at eval (private stack)')),'WHATSAPP_SCROLL_CONTAINER_MISSING');
+});

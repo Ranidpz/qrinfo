@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.18] - 2026-09-24
+
+- WhatsApp Agent 0.8.2 inspects all visible message ancestors, excludes header/quote anchors and waits for delayed history layout. Ambiguous containers still block uploads.
+- Show the app version in the window and flag installed runtime mismatches; highlight pending-operation recovery before a new scan.
+- Preserve application error codes through Playwright wrappers and export bounded layout metrics without message text.
+- Local browser regression checks and universal Mac build passed; the actual Michal DOM and pending batch still require live validation.
+
 ## [1.20.17] - 2026-09-24
 
 - WhatsApp Agent 0.8.1 keeps migrated legacy notices reconcile-only even if their outbox was merely prepared, ensuring old UI-heavy wording cannot be sent by a later delivery retry.

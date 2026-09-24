@@ -8,17 +8,20 @@ struct AgentView: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(spacing: 12) {
                     Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 34)).foregroundStyle(.blue)
-                    VStack(alignment: .leading, spacing: 4) { Text("סוכן וואטסאפ").font(.largeTitle.bold()); Text("The Q · חוברות מעודכנות, מאותו קוד QR").foregroundStyle(.secondary) }
+                    VStack(alignment: .leading, spacing: 4) { Text("סוכן וואטסאפ").font(.largeTitle.bold()); Text("גרסת יישום \(agent.appVersion)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled); Text("The Q · חוברות מעודכנות, מאותו קוד QR").foregroundStyle(.secondary) }
                     Spacer()
                     Label(agent.snapshot.enabled ? "התזמון מופעל" : "התזמון כבוי", systemImage: agent.snapshot.enabled ? "checkmark.circle.fill" : "pause.circle").foregroundStyle(agent.snapshot.enabled ? .green : .secondary)
+                }
+                if agent.prepared && agent.snapshot.runnerVersion != agent.appVersion {
+                    Text("רכיבי הסוכן: \(agent.snapshot.runnerVersion ?? "לא ידוע"). לעדכון לגרסת היישום לחצו על ״עדכון רכיבי הסוכן״.").foregroundStyle(.orange)
                 }
                 if agent.snapshot.syncState == "failed" { Text("הסנכרון למערכת נכשל. בדקו את החיבור ואת הרשאת המחשב באתר לפני המשך העבודה.").foregroundStyle(.orange) }
                 if agent.snapshot.pending == true {
                     GroupBox {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("פעולה קודמת ממתינה לאימות").font(.headline)
-                            Text("נבדוק מול המערכת מה כבר בוצע. הקבצים לא יועלו שוב במהלך הבדיקה.")
-                            Button("בדיקת הפעולה הקודמת") { agent.recover() }.disabled(agent.busy || agent.connecting)
+                            Text("תחילה לחצו על בדיקת הפעולה הקודמת. נוודא מול המערכת מה כבר בוצע, ללא העלאה חוזרת. בדיקת התאמה לבדה אינה מסירה חסימה זו.")
+                            Button("בדיקת הפעולה הקודמת") { agent.recover() }.buttonStyle(.borderedProminent).disabled(agent.busy || agent.connecting)
                         }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
                     }
                 }

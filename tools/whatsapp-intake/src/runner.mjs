@@ -1,3 +1,4 @@
+import {errorCode} from './errors.mjs';
 import { assignmentFingerprint, isExpectedReview } from './assignment.mjs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -144,7 +145,7 @@ export async function runCommand(command, config, options = {}, services = {}) {
     await notifyStatus(config, params, report.summary.skipped ? 'review_required' : 'ready');
     attempt.outcome = state;
   } catch (error) {
-    const code = error.message.split(':')[0].slice(0,100);
+    const code = errorCode(error);
     attempt.outcome='failed';attempt.errorCode=code;
     await writeJson(statusPath, {state:'attention_required', code, at:now.toISOString()});
     await notifyStatus(config, params, code.includes('LOGIN') ? 'login_required' : 'run_failed');

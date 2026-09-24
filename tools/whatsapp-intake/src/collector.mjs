@@ -1,4 +1,5 @@
-import { moveHistory, settleLatest, assertHistoryOverlap, assertKnownMessagesObserved } from './history.mjs';
+import {errorCode} from './errors.mjs';
+import { moveHistory, settleLatest, inspectHistory, assertHistoryOverlap, assertKnownMessagesObserved } from './history.mjs';
 import { attachEvidence, senderFromMessageId } from './assignment.mjs';
 import { mkdir, readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
@@ -83,7 +84,7 @@ export async function collect(config, { since, headed = false } = {}) {
     return result;
   } catch (error) {
     const scan = await readJson(path.join(config.runtimeDir, 'last-scan.json'), {});
-    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:error.message.split(':')[0], observedCount:observed.size});
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size});
     await page.screenshot({ path: path.join(config.runtimeDir, 'last-error.png') }).catch(() => {});
     throw error;
   } finally { await context.close(); }

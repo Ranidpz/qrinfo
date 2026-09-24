@@ -1,3 +1,4 @@
+import {runnerVersion} from './version.mjs';
 // Native application bridge. No local HTTP server, credentials in argv or shell interpolation.
 import {nextCheck, statusLabels} from './activity.mjs';
 import path from 'node:path';
@@ -114,12 +115,12 @@ async function main() {
     const previousVersion = (await readJson(path.join(base, 'app/package.json'), {})).version;
     const unlock = before ? await acquireLock(path.join(base, before.id)) : () => {};
     try {
-      if (before && previousVersion !== '0.8.1') {
+      if (before && previousVersion !== runnerVersion) {
         await writeJson(path.join(base,before.id,'activation.json'), {reason:'upgrade', wasEnabled:before.schedule.enabled === true, at:new Date().toISOString()});
         await disableSchedule();
       }
       await install({ bundledDependencies: true, openCommands: false });
-      if (before && previousVersion !== '0.8.1') await writeJson(path.join(base, before.id, 'status.json'), {state:'upgrade_needs_preview', at:new Date().toISOString()});
+      if (before && previousVersion !== runnerVersion) await writeJson(path.join(base, before.id, 'status.json'), {state:'upgrade_needs_preview', at:new Date().toISOString()});
     }
     finally { await unlock(); }
     const config = await readJson(path.join(base, 'config.json'));

@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
     @Published var message = "ברוכים הבאים. ההקמה מתבצעת כאן, ללא פקודות."
     @Published var error = ""
     private var browserProcess: Process?
+    var appVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "פיתוח" }
     var testFixture = false
     var rootScript: URL { AgentPaths.payload.appendingPathComponent("src/gui.mjs") }
     var installedScript: URL { AgentPaths.base.appendingPathComponent("app/src/gui.mjs") }
@@ -33,7 +34,7 @@ import UniformTypeIdentifiers
     }
     func verifyInstallation() async throws {
         let output = try await ProcessService.run(AgentPaths.node, [installedScript.path, "status"])
-        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.8.1" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
+        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == self.appVersion else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
         snapshot = state; prepared = true
     }
     func prepare() {
@@ -138,6 +139,7 @@ import UniformTypeIdentifiers
         NSWorkspace.shared.open(folder)
     }
     func friendly(_ text: String) -> String {
+        if text.contains("WHATSAPP_SCROLL_CONTAINER") || text.contains("LATEST_MESSAGES_NOT_VERIFIED") { return "לא ניתן לזהות עדיין את אזור ההודעות בוואטסאפ. לא בוצעה העלאה. נסו שוב; אם התקלה חוזרת, יצאו דוח בדיקה." }
         if text.contains("BATCH_STILL_RUNNING") { return "המערכת עדיין מסמנת פעולה קודמת כפעילה. לא בוצעה העלאה חוזרת. יצאו דוח בדיקה לבירור." }
         if text.contains("BATCH_NEEDS_REVIEW") || text.contains("UNCONFIRMED_BATCH") { return "תוצאת הפעולה הקודמת טרם אומתה. לחצו על בדיקת הפעולה הקודמת; אם החסימה נשארת, יצאו דוח בדיקה." }
         if text.contains("RECOVERY_API_UPGRADE_REQUIRED") { return "יש לעדכן את המערכת באתר לפני בדיקת הפעולה הקודמת." }
