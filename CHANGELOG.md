@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.13] - 2026-09-24
+
+- WhatsApp Agent 0.7.0 updates confident matches while retaining unresolved files in a complete server-derived report.
+- Compare per-target SHA-256 hashes; identical retransmissions dedupe, conflicting versions require clarification. Pin saved manifests to source identity and bytes.
+- Ignore quoted document thumbnails; accept short caption/reply aliases only with explicit message identity and matching sender. Unsupported quote DOM remains unresolved; Michal live verification is pending.
+- Add per-file manual assignment/exclusion and bounded diagnostic export in the Mac app. Upgrades pause scheduling for a new preview.
+- Preserve original filenames, assignment provenance and update timestamps; use generic experience-name clarification messages and re-evaluate changed evidence without repeating unchanged reports.
+
 ## [1.20.12] - 2026-09-23
 
 - Apply the owner-confirmed Eilat default to Leonardo Club filenames without an area; explicit Dead Sea and Tiberias names keep their own targets.

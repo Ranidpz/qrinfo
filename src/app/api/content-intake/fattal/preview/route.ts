@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
 import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
+import { parseEvidence } from '@/lib/content-intake/evidence';
 import { buildFattalPreview } from '@/lib/content-intake/fattal';
 import { loadMappedFattalTargets, resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
 import { createContentIntakeRun } from '@/lib/content-intake/runs';
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ ...preview, batchProtocolVersion: 1 });
+    return NextResponse.json({ ...preview, batchProtocolVersion: 1, assignmentProtocolVersion: 1, targets });
   } catch (error) {
     console.error('[Content Intake Fattal Preview] Error:', error);
     return NextResponse.json(
@@ -96,6 +97,8 @@ function parseFiles(value: unknown): IntakeFileCandidate[] {
     files.push({
       id: typeof raw.id === 'string' ? raw.id : undefined,
       name: raw.name.trim(),
+      sha256: typeof raw.sha256 === 'string' && /^[a-f0-9]{64}$/.test(raw.sha256) ? raw.sha256 : undefined,
+      evidence: parseEvidence(raw.evidence),
       size: typeof raw.size === 'number' ? raw.size : undefined,
       contentType: typeof raw.contentType === 'string' ? raw.contentType : undefined,
       receivedAt: typeof raw.receivedAt === 'string' ? raw.receivedAt : undefined,

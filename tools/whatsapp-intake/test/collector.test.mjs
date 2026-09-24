@@ -9,6 +9,7 @@ import { acquireLock, safeFilename } from '../src/storage.mjs';
 import { readVisibleMessages, downloadPdf } from '../src/collector.mjs';
 import { assertGroup } from '../src/browser.mjs';
 import { buildLaunchAgent } from '../src/macos.mjs';
+import { assignmentFingerprint } from '../src/assignment.mjs';
 import { cycleDay, hasNewFiles, buildGroupUpdate } from '../src/group-report.mjs';
 import { findSentMessage } from '../src/group-sender.mjs';
 
@@ -31,8 +32,8 @@ test('wake catchup uses latest slot once and never replays older slot', () => {
 });
 test('followups stay quiet unless a new message arrives, including after an empty morning', () => {
   const day = cycleDay(new Date('2026-09-20T10:00:00Z'), config.timeZone);
-  assert.equal(hasNewFiles([{ key: 'a' }], { day, fileKeys: ['a'] }, day), false);
-  assert.equal(hasNewFiles([{ key: 'a' }, { key: 'b' }], { day, fileKeys: ['a'] }, day), true);
+  assert.equal(hasNewFiles([{ key: 'a' }], { day, fileKeys: [assignmentFingerprint({key:'a'})] }, day), false);
+  assert.equal(hasNewFiles([{ key: 'a' }, { key: 'b' }], { day, fileKeys: [assignmentFingerprint({key:'a'})] }, day), true);
   assert.equal(hasNewFiles([], { day, fileKeys: [] }, day), false);
   assert.equal(hasNewFiles([], { day: '2026-09-17', fileKeys: [] }, day), true);
   const schedule = { ...config, schedule: { ...config.schedule, times: ['10:05', '12:00', '14:00'] } };

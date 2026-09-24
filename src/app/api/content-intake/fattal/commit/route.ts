@@ -342,6 +342,8 @@ async function commitMatchedFiles(params: {
     const legacyDedupeId = file.sourceMessageId ? buildDedupeId(match.target.codeId, fileHash, file.sourceMessageId) : dedupeId;
     const resultBase = {
       fileId: match.file.id,
+      assignmentReason: match.file.evidence?.length ? match.reasons.join('; ') : 'לפי שם הקובץ',
+      sourceMessageId: match.file.sourceMessageId,
       filename,
       codeId: match.target.codeId,
       shortId: match.target.shortId,
@@ -437,6 +439,7 @@ function toCandidate(file: CommitFilePayload): IntakeFileCandidate {
     source: file.source,
     sourceMessageId: file.sourceMessageId,
     senderName: file.senderName,
+    sha256: createHash('sha256').update(file.buffer).digest('hex'),
   };
 }
 

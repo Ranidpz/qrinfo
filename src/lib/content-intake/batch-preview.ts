@@ -7,11 +7,13 @@ export function selectBatchMatches(preview: ContentIntakePreview, files: IntakeF
   const matches = files.map((file) => {
     const match = preview.matches.find((candidate) => candidate.file.id === file.id);
     if (!file.id || selected.has(file.id) || !match
-      || match.file.name !== file.name || match.file.size !== file.size) {
+      || match.file.name !== file.name || match.file.size !== file.size
+      || (match.file.sha256 && match.file.sha256 !== file.sha256)
+      || (match.file.sourceMessageId && match.file.sourceMessageId !== file.sourceMessageId)) {
       throw new Error('Uploaded files do not match the saved batch preview');
     }
     selected.add(file.id);
-    return { ...match, file };
+    return { ...match, file: { ...file, evidence: match.file.evidence } };
   });
   return { ...preview, matches };
 }

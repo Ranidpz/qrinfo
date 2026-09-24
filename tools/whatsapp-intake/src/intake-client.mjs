@@ -24,6 +24,8 @@ export async function previewBatch({ baseUrl, apiKey, ownerEmail, receivedAt, fi
       files: files.map((file) => ({
         id: localFileId(file),
         name: file.name,
+        sha256: file.sha256,
+        evidence: file.evidence,
         size: file.size,
         contentType: 'application/pdf',
         receivedAt: file.receivedAt || receivedAt,
@@ -35,6 +37,7 @@ export async function previewBatch({ baseUrl, apiKey, ownerEmail, receivedAt, fi
 
   const preview = await parseJsonResponse(response);
   if (preview.batchProtocolVersion !== 1) throw new Error('יש לפרוס את ה-API המעודכן לפני שימוש בסקריפט החדש');
+  if (files.some(file => file.evidence?.length) && preview.assignmentProtocolVersion !== 1) throw new Error('ASSIGNMENT_API_UPGRADE_REQUIRED');
   return preview;
 }
 
@@ -43,13 +46,16 @@ export async function commitWithPayloadFallback(params) {
   if (!preview.runId || !Array.isArray(preview.matches)) throw new Error('API did not return a saved batch preview');
   console.log(`מזהה חבילה למעקב: ${preview.runId}`);
   await params.onBatchStarted?.(preview.runId);
-  const batchParams = { ...params, batchPreviewRunId: preview.runId };
+  // Save the complete manifest, but upload only confident items. Server reports include unresolved entries.
+  const matched = new Set(preview.matches.filter(m => m.status === 'matched').map(m => m.file.id));
+  const files = params.files.filter(f => matched.has(localFileId(f)));
+  const batchParams = { ...params, files, batchPreviewRunId: preview.runId };
   try {
-    await commitBatch(batchParams);
+    if (files.length) await commitBatch(batchParams);
   } catch (error) {
     if (!isPayloadTooLargeError(error)) throw error;
     console.warn('הבקשה גדולה מדי; מעדכן לפי המיפוי המלא ושולח דוח מאוחד בסיום.');
-    for (const file of params.files) {
+    for (const file of files) {
       const match = preview.matches.find((item) => item.file.id === localFileId(file));
       if (match?.status !== 'matched') continue;
       try {

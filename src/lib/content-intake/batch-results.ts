@@ -7,13 +7,15 @@ export function collectBatchResults(
   return preview.matches.map((match) => {
     const base = {
       fileId: match.file.id,
+      assignmentReason: match.file.evidence?.length ? match.reasons.join('; ') : 'לפי שם הקובץ',
+      sourceMessageId: match.file.sourceMessageId,
       filename: match.file.name,
       codeId: match.target?.codeId,
       shortId: match.target?.shortId,
       title: match.target?.title,
     };
     if (match.status !== 'matched') {
-      return { ...base, status: 'skipped', reason: match.status };
+      return { ...base, status: 'skipped', reason: match.file.evidence?.some(e => e.kind === 'manual' && e.exclude) ? 'manual_excluded' : match.status };
     }
     const attempts = completedResults.filter((result) => result.fileId === match.file.id
       && result.filename === match.file.name && result.codeId === match.target?.codeId);

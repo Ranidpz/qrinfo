@@ -17,7 +17,7 @@ test('native status exposes the download folder and mappings, never secrets; act
   await writeJson(path.join(run,'last-preview.json'),{matches:[{file:{name:'original.pdf'},target:{title:'Experience name'},status:'matched'}]});
   let status=await guiStatus(base);
   assert.equal(status.downloadDirectory,path.join(run,'downloads'));assert.equal(status.previewReady,true);
-  assert.deepEqual(status.rows,[{filename:'original.pdf',title:'Experience name',status:'matched'}]);
+  assert.equal(status.rows[0].filename,'original.pdf'); assert.equal(status.rows[0].title,'Experience name');
   assert.ok(!JSON.stringify(status).includes('never-expose'));
   await writeJson(path.join(run,'status.json'),{state:'connection_imported',at:new Date().toISOString()});
   assert.equal((await guiStatus(base)).previewReady,false);
@@ -34,9 +34,38 @@ test('native bridge executes when its entry path is a symlink, rather than silen
  try {
   await writeFile(path.join(dir,'gui.mjs'),await readFile(new URL('../src/gui.mjs',import.meta.url)));
   await writeFile(path.join(dir,'macos.mjs'),'export const install=()=>{};export const importConnection=()=>{};export const enableUpdates=()=>{};export const disableSchedule=()=>{};');
-  await writeFile(path.join(dir,'storage.mjs'),'export const readJson=async()=>null;export const acquireLock=async()=>()=>{};');
+  await writeFile(path.join(dir,'storage.mjs'),'export const readJson=async()=>null;export const writeJson=async()=>{};export const acquireLock=async()=>()=>{};');
+  await writeFile(path.join(dir,'intake-client.mjs'),'export const localFileId=()=>"test";');
   await symlink(path.join(dir,'gui.mjs'),path.join(dir,'gui-link.mjs'));
   const {stdout}=await promisify(execFile)(process.execPath,[path.join(dir,'gui-link.mjs'),'status']);
   assert.equal(JSON.parse(stdout).installed,false);
  } finally {await rm(dir,{recursive:true,force:true});}
+});
+
+test('manual choice is hash-bound, target-scoped, refuses pending writes and needs fresh preview',async()=>{
+ const { saveAssignment }=await import('../src/gui.mjs');
+ const { localFileId }=await import('../src/intake-client.mjs');
+ const { readJson }=await import('../src/storage.mjs');
+ const { writeFile }=await import('node:fs/promises');
+ const { createHash }=await import('node:crypto');
+ const base=await mkdtemp(path.join(os.tmpdir(),'theq-choice-'));
+ try {
+  await writeJson(path.join(base,'config.json'),{id:'mac-test',schedule:{enabled:false}});
+  const run=path.join(base,'mac-test'),filePath=path.join(base,'fixture.pdf'),bytes=Buffer.from('%PDF-1.7\nfixture');await writeFile(filePath,bytes);
+  const file={path:filePath,key:'messagekey',messageId:'source',name:'original.pdf',sha256:createHash('sha256').update(bytes).digest('hex')};
+  const id=localFileId(file);
+  await writeJson(path.join(run,'last-collection.json'),{files:[file]});
+  await writeJson(path.join(run,'last-preview.json'),{matches:[{file:{id,name:file.name},status:'unmatched'}],targets:[{codeId:'allowed',title:'Experience'}]});
+  await assert.rejects(saveAssignment(base,id,'outside'),/TARGET_NOT_ALLOWED/);
+  await saveAssignment(base,id,'allowed');
+  assert.equal((await readJson(path.join(run,'assignments.json'))).messagekey.sha256,file.sha256);
+  assert.equal((await readJson(path.join(run,'status.json'))).state,'assignment_changed');
+  assert.equal((await guiStatus(base)).previewReady,false);
+  await saveAssignment(base,id,'exclude');assert.equal((await readJson(path.join(run,'assignments.json'))).messagekey.exclude,true);
+  await saveAssignment(base,id,'clear');assert.deepEqual(await readJson(path.join(run,'assignments.json')),{});
+  await writeJson(path.join(run,'pending.json'),{id:'uncertain'});
+  await assert.rejects(saveAssignment(base,id,'allowed'),/UNCONFIRMED_BATCH/);
+  await rm(path.join(run,'pending.json'));await writeFile(filePath,'changed');
+  await assert.rejects(saveAssignment(base,id,'allowed'),/FILE_CHANGED/);
+ }finally{await rm(base,{recursive:true,force:true});}
 });

@@ -1,6 +1,20 @@
 export type ContentIntakeSource = 'whatsapp' | 'email' | 'drive' | 'manual' | 'api';
 
+export interface IntakeAssignmentEvidence {
+  kind: 'caption' | 'reply' | 'manual';
+  text: string;
+  targetMessageId: string;
+  messageId: string;
+  senderId: string;
+  attachmentSenderId: string;
+  at: string;
+  targetCodeId?: string;
+  exclude?: boolean;
+}
+
 export interface IntakeFileCandidate {
+  sha256?: string;
+  evidence?: IntakeAssignmentEvidence[];
   id?: string;
   name: string;
   size?: number;
@@ -79,6 +93,8 @@ export type ContentIntakeCommitItemStatus =
 
 export interface ContentIntakeCommitResult {
   fileId?: string;
+  assignmentReason?: string;
+  sourceMessageId?: string;
   filename: string;
   status: ContentIntakeCommitItemStatus;
   codeId?: string;

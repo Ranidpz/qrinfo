@@ -346,3 +346,43 @@ The page introduces a general WhatsApp-to-experience workflow with group submiss
 ## Leonardo Club Eilat default (1.20.12)
 
 On September 23 the owner reconfirmed that an identified hotel without an explicit area means Eilat, including `לאונרדו קלאב אמצש 2209.pdf`. The server default now includes Leonardo Club (Hebrew/English), restricted to mapped target `jKptn6`; explicit Dead Sea/Tiberias filenames retain their own targets. Generic or unidentified hotel filenames do not acquire an Eilat target. Existing Mac 0.6.0 installations rerun Preview to obtain the server fix; no local package update is needed.
+
+## 0.7.0 — partial updates and file assignment (2026-09-24)
+
+Michal's installed runner is not changed by a server/code update.
+Deploy the compatible preview API before distributing the runner. Test on Michal's Mac in Preview
+before enabling the new runner. An upgrade from 0.6.0 pauses scheduling, keeps the business
+profile/key/PDFs, and requires a new Preview and explicit Enable Updates.
+
+- Preserve the full batch in the saved server preview/report; upload only `matched` files.
+  Unmatched, conflicting or manually excluded files produce deliberate `skipped` results, not
+  failed uploads. Unexpected skips, missing receipts, HTTP timeouts, upload failures and failed
+  email still leave a pending batch requiring reconciliation; no blind retry is introduced.
+- Compare SHA-256 **per mapped target**. Identical bytes can pass together; server deduplication
+  updates once. Different bytes for one target block those files only; do not infer "latest wins".
+  Saved previews pin source message ID, size, name and SHA-256, including transport splitting.
+- Only real document thumbnails count as attachments. Quoted document previews are excluded.
+  Each completed scan uses observed attachments, excluding cached quote-only/deleted entries.
+- A caption or exact same-sender reply can supply a short, exact configured experience alias.
+  A reply needs an explicit full source-message identity exposed in the DOM. Filename equality,
+  display name, proximity, screenshots and file sizes do not establish a reply relationship.
+  **Actual quote-ID availability on Michal's WhatsApp remains to be verified.** Current tests
+  exercise fixtures with/without these attributes; unsupported replies remain unresolved.
+  Conflicting hints/areas, negative/free-form text, stale dates and unknown targets stay blocked.
+- The Mac "שיוך…" dialog assigns or excludes one message+hash, with a timestamp. It never adds
+  a global filename rule. The target must remain in this owner's configured allowlist.
+  Keeping one of two different versions requires explicitly excluding the other.
+- Original filenames are retained on disk, in storage and in the email, alongside experience,
+  source message ID, assignment reason and the server-recorded update time.
+- Checkpoints include evidence fingerprints. A new clarification/manual choice or a removed
+  conflicting attachment is re-evaluated at the next slot; an unchanged batch stays quiet.
+- A single group report lists updated, already-updated, missing and unresolved items. Correction
+  wording is generic: reply with the experience name as shown in the system, or resend with that
+  name in the filename. There is no automatic DM or tagging a particular person.
+- "יצוא דוח בדיקה" exports bounded attachment/reply metadata and preview matches for inspection,
+  without keys, credentials, browser profile or unrelated chat messages.
+
+Validation: server matching/manifest regressions, browser DOM fixtures, mixed-batch runner tests,
+manual-choice integrity tests, TypeScript/ESLint, SwiftPM build. Production PDF writes and group
+messages are not part of automated tests. A real preview, then a controlled scheduled update and
+report/PDF verification on the destination Mac are still required for rollout acceptance.

@@ -8,6 +8,7 @@ import { resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
 import { isResendConfigured, sendEmail } from '@/lib/resend';
 
 const labels: Record<string, string> = {
+  review_required: 'ההתאמות הוודאיות טופלו. חלק מהקבצים ממתינים להבהרה או לשיוך; פרטים בדוח העדכון.',
   login_required: 'חיבור WhatsApp נותק. יש לפתוח את תוכנת האיסוף ולחבר שוב את החשבון העסקי.',
   run_failed: 'איסוף או עדכון החוברות דורש בדיקה. פרטי התקלה מופיעים בדוח המקומי של תוכנת האיסוף.',
   no_files: 'לא נמצאו חוברות בחלון הזמן שנבדק. לא בוצעה החלפה במערכת.',

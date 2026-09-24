@@ -1,18 +1,22 @@
+import { assignmentFingerprint, isExpectedReview } from './assignment.mjs';
 import path from 'node:path';
 import { rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { collect } from './collector.mjs';
+import { collect as collectMessages } from './collector.mjs';
 import { readJson, writeJson } from './storage.mjs';
 import { slotDue } from './messages.mjs';
 import { previewBatch, commitWithPayloadFallback, finalizeBatch, intakeHealth } from './intake-client.mjs';
 import { cycleDay, hasNewFiles, buildGroupUpdate } from './group-report.mjs';
-import { sendGroupUpdate } from './group-sender.mjs';
+import { sendGroupUpdate as sendGroupMessage } from './group-sender.mjs';
 
-import { syncSchedule } from './schedule-sync.mjs';
+import { syncSchedule as synchronizeSchedule } from './schedule-sync.mjs';
 
 const exec = promisify(execFile);
-export async function runCommand(command, config, options) {
+export async function runCommand(command, config, options, services = {}) {
+  const collect = services.collect || collectMessages;
+  const sendGroupUpdate = services.sendGroupUpdate || sendGroupMessage;
+  const syncSchedule = services.syncSchedule || synchronizeSchedule;
   const statusPath = path.join(config.runtimeDir, 'status.json');
   const historyPath = path.join(config.runtimeDir, 'schedule.json');
   const pendingPath = path.join(config.runtimeDir, 'pending.json');
@@ -59,7 +63,7 @@ export async function runCommand(command, config, options) {
         message = { id: report.runId, text: buildGroupUpdate(report, { first, now: reportTime, timeZone: config.timeZone }) };
         await writeJson(path.join(config.runtimeDir, 'group-report.json'), message);
       }
-      const shouldSend = first || report.summary.updated > 0;
+      const shouldSend = first || report.summary.updated > 0 || report.summary.skipped > 0;
       if (shouldSend) await sendGroupUpdate(config, { ...message, headed: options.headed });
       await writeJson(checkpointPath, { day: reportDay, fileKeys: keys, runId: report.runId,
         initialNoticeSent: config.sendGroupReports === true && (shouldSend || checkpoint?.initialNoticeSent), at: new Date().toISOString() });
@@ -67,9 +71,9 @@ export async function runCommand(command, config, options) {
     if (command === 'report-group') {
       const report = await readJson(path.join(config.runtimeDir, 'last-report.json'));
       if (cycleDay(new Date(report.preview.generatedAt), config.timeZone) !== day) throw new Error('STALE_GROUP_REPORT');
-      if (report.summary.failed || report.summary.skipped) throw new Error('BATCH_NEEDS_REVIEW');
+      if (!isExpectedReview(report)) throw new Error('BATCH_NEEDS_REVIEW');
       const collection = await readJson(path.join(config.runtimeDir, 'last-collection.json'));
-      await deliver(report, collection.files.map(file => file.key));
+      await deliver(report, collection.files.map(assignmentFingerprint));
       console.log('Group report reconciled.'); return;
     }
     const pending = await readJson(pendingPath, null);
@@ -78,11 +82,11 @@ export async function runCommand(command, config, options) {
       if (!params.apiKey) throw new Error('API_KEY_REQUIRED');
       const report = await finalizeBatch({ ...params, batchPreviewRunId: pending.batchPreviewRunId });
       await writeJson(path.join(config.runtimeDir, 'last-report.json'), report);
-      if (report.summary.failed || report.summary.skipped || !report.reportEmail?.sent) throw new Error('BATCH_NEEDS_REVIEW: inspect last-report.json before explicitly resolving pending state');
+      if (!isExpectedReview(report) || !report.reportEmail?.sent) throw new Error('BATCH_NEEDS_REVIEW: inspect last-report.json before explicitly resolving pending state');
       await deliver(report, pending.fileIds);
       await rm(pendingPath);
-      await writeJson(statusPath, { state: 'completed', summary: report.summary, runId: report.runId, at: new Date().toISOString() });
-      await notifyStatus(config, params, 'ready');
+      await writeJson(statusPath, { state: report.summary.skipped ? 'completed_with_issues' : 'completed', summary: report.summary, runId: report.runId, at: new Date().toISOString() });
+      await notifyStatus(config, params, report.summary.skipped ? 'review_required' : 'ready');
       console.log(JSON.stringify(report.summary));
       return;
     }
@@ -103,7 +107,7 @@ export async function runCommand(command, config, options) {
       // Reconcile any unconfirmed group notice before treating the run as quiet.
       if (config.sendGroupReports && !checkpoint.initialNoticeSent && checkpoint.runId) {
         const report = await readJson(path.join(config.runtimeDir, 'last-report.json'));
-        await deliver(report, files.map(file => file.key));
+        await deliver(report, files.map(assignmentFingerprint));
       }
       await writeJson(statusPath, { state: 'no_changes', fileCount: files.length, at: now.toISOString() });
       await finishSlot(); console.log('No new booklets; no update or repeated message.'); return;
@@ -128,19 +132,16 @@ export async function runCommand(command, config, options) {
       if (slot) { history.completed.push(slot); await writeJson(historyPath, history); }
       return;
     }
-    if (preview.matches.some((match) => ['needs_review', 'duplicate', 'unmatched'].includes(match.status))) {
-      throw new Error('FILES_NEED_REVIEW: inspect last-preview.json; no replacement attempted');
-    }
     const report = await commitWithPayloadFallback({ ...params, files, receivedAt: now.toISOString(),
-      onBatchStarted: async (batchPreviewRunId) => writeJson(pendingPath, { batchPreviewRunId, startedAt: now.toISOString(), fileIds: files.map((file) => file.key) }),
+      onBatchStarted: async (batchPreviewRunId) => writeJson(pendingPath, { batchPreviewRunId, startedAt: now.toISOString(), fileIds: files.map(assignmentFingerprint) }),
     });
     await writeJson(path.join(config.runtimeDir, 'last-report.json'), report);
-    if (report.summary.failed || report.summary.skipped || !report.reportEmail?.sent) throw new Error('BATCH_NEEDS_REVIEW');
-    await deliver(report, files.map(file => file.key));
+    if (!isExpectedReview(report) || !report.reportEmail?.sent) throw new Error('BATCH_NEEDS_REVIEW');
+    await deliver(report, files.map(assignmentFingerprint));
     await rm(pendingPath, { force: true });
-    await writeJson(statusPath, { state: 'completed', summary: report.summary, runId: report.runId, at: new Date().toISOString() });
+    await writeJson(statusPath, { state: report.summary.skipped ? 'completed_with_issues' : 'completed', summary: report.summary, runId: report.runId, at: new Date().toISOString() });
     if (slot) { history.completed.push(slot); await writeJson(historyPath, { completed: history.completed.slice(-60) }); }
-    await notifyStatus(config, params, 'ready');
+    await notifyStatus(config, params, report.summary.skipped ? 'review_required' : 'ready');
     console.log(JSON.stringify(report.summary, null, 2));
   } catch (error) {
     const code = error.message.split(':')[0].slice(0, 100);

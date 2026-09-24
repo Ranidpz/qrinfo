@@ -42,11 +42,7 @@ struct AgentView: View {
                     GroupBox("התאמת החוברות — הבדיקה האחרונה") {
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(agent.snapshot.rows) { row in
-                                HStack(alignment: .top, spacing: 12) {
-                                    Image(systemName: row.status == "matched" ? "checkmark.circle.fill" : "exclamationmark.circle.fill").foregroundStyle(row.status == "matched" ? .green : .orange)
-                                    VStack(alignment: .leading, spacing: 3) { Text(row.title).fontWeight(.medium); Text(row.filename).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
-                                    Spacer()
-                                }
+                                AssignmentRowView(row: row, targets: agent.snapshot.targets ?? [], disabled: agent.busy || agent.connecting || agent.snapshot.pending == true) { target in agent.assign(row, targetId: target) }
                             }
                         }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
                     }
@@ -70,6 +66,7 @@ struct AgentView: View {
                     }.padding(10)
                 }
                 HStack {
+                    Button("יצוא דוח בדיקה") { agent.exportReview() }.disabled(agent.busy || !agent.prepared)
                     Button("פתיחת הניהול באתר") { NSWorkspace.shared.open(URL(string: "https://qr.playzones.app/he/content-intake")!) }
                     Button("הגדרות שינה במק") { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.energysaver")!) }
                     Spacer()

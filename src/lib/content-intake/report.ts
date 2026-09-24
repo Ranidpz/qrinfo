@@ -143,6 +143,8 @@ function fileDetails(result: ContentIntakeCommitResult): [string, string][] {
   if (result.status === 'updated' || result.status === 'skipped_duplicate') {
     rows.push([result.status === 'skipped_duplicate' ? 'מועד העדכון המקורי (שעון ישראל)' : 'מועד העדכון (שעון ישראל)', formatHebrewDate(result.updatedAt)]);
   }
+  if (result.assignmentReason) rows.push(['מקור השיוך', result.assignmentReason]);
+  if (result.sourceMessageId) rows.push(['מזהה הודעת המקור', result.sourceMessageId]);
   if (result.reason) rows.push(['פירוט', result.reason]);
   if (result.error) rows.push(['שגיאה', result.error]);
   if (result.warning) rows.push(['הערה', result.warning]);

@@ -29,7 +29,8 @@ import AppKit
                     agent.snapshot.installed = true; agent.snapshot.connected = true; agent.snapshot.paired = true
                     agent.snapshot.ownerEmail = "biduratias@gmail.com"; agent.snapshot.previewReady = true
                     agent.snapshot.downloadDirectory = "~/Library/Application Support/TheQContentIntake/mac-example/downloads"
-                    agent.snapshot.rows = [PreviewRow(filename: "לאונרדו פלאזה - ים המלח - 20.09.2026.pdf", title: "לאונרדו פלאזה ים המלח", status: "matched"), PreviewRow(filename: "הרודס - אילת - 20.09.2026.pdf", title: "הרודס אילת", status: "matched")]
+                    agent.snapshot.targets = [AssignmentTarget(id: "one", title: "חוויה לדוגמה")]
+                    agent.snapshot.rows = [PreviewRow(id: "local:one", filename: "לאונרדו פלאזה - ים המלח - 20.09.2026.pdf", title: "לאונרדו פלאזה ים המלח", status: "matched"), PreviewRow(id: "local:two", filename: "הרודס - אילת - 20.09.2026.pdf", title: "הרודס אילת", status: "matched"), PreviewRow(id: "local:three", filename: "תוכניית בידור סופש 240926.pdf", title: "לא זוהתה חוויה", status: "unmatched", receivedAt: "2026-09-24T01:24:00Z"), PreviewRow(id: "local:four", filename: "רויאל סופש 23.9.pdf", title: "רויאל ריזורט אילת", status: "duplicate", receivedAt: "2026-09-24T02:55:00Z")]
                     agent.message = "בדיקת ההתאמה הסתיימה. עיינו בתוצאה לפני הפעלת הסוכן."
                 }
                 if let index = CommandLine.arguments.firstIndex(of: "--snapshot"), CommandLine.arguments.count > index + 1 {

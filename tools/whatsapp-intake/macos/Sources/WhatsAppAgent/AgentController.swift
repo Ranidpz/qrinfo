@@ -33,7 +33,7 @@ import UniformTypeIdentifiers
     }
     func verifyInstallation() async throws {
         let output = try await ProcessService.run(AgentPaths.node, [installedScript.path, "status"])
-        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.6.0" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
+        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.7.0" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
         snapshot = state; prepared = true
     }
     func prepare() {
@@ -41,7 +41,7 @@ import UniformTypeIdentifiers
             _ = try await AgentPaths.runtime()
             try await self.checked(self.rootScript, ["install"])
             try await self.verifyInstallation()
-            self.message = "הסוכן מוכן. בחרו את קובץ החיבור שהורדתם מהאתר."
+            self.message = "הסוכן מוכן. בחיבור קיים בצעו בדיקת התאמה והפעילו עדכונים מחדש; בחיבור חדש בחרו את קובץ החיבור מהאתר."
         }
     }
     func importKey() {
@@ -90,10 +90,26 @@ import UniformTypeIdentifiers
     }
     func activate() {
         let alert = NSAlert(); alert.messageText = "הפעלת עדכונים אוטומטיים"
-        alert.informativeText = "הסוכן יחליף חוברות וישלח סיכום לקבוצה לפי התזמון באתר. ודאו שמחשב אחר אינו מעדכן את אותה קבוצה."
+        alert.informativeText = "הסוכן יעדכן התאמות ודאיות בלבד. קבצים לא מזוהים או סותרים יישארו ללא עדכון ותישלח בקשת הבהרה לקבוצה במועדים שקבעתם. ודאו שרק מחשב אחד מעדכן את הקבוצה."
         alert.addButton(withTitle: "הפעלת הסוכן"); alert.addButton(withTitle: "ביטול")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         perform("מפעילים עדכונים אוטומטיים…") { try await self.checked(self.installedScript, ["enable"]); self.message = "הסוכן פעיל. אפשר לסגור את החלון; המחשב צריך להישאר דולק ומחובר." }
+    }
+    func assign(_ row: PreviewRow, targetId: String) {
+        perform("שומרים החלטה ובודקים מחדש ללא העלאה…") {
+            try await self.checked(self.installedScript, ["assign", row.id, targetId])
+            try await self.checked(self.cli, ["run"] + self.configArguments)
+            self.message = "השיוך נשמר ונבדק. רק התאמות ודאיות יעודכנו במועד הבא."
+        }
+    }
+    func exportReview() {
+        let panel = NSSavePanel(); panel.allowedContentTypes = [.json]; panel.nameFieldStringValue = "TheQ-review.json"
+        panel.message = "הדוח כולל שמות קבצים ופרטי הודעות הדרושים לבדיקת השיוך. הוא אינו כולל מפתחות או חיבור לוואטסאפ."
+        guard panel.runModal() == .OK, let file = panel.url else { return }
+        perform("מייצאים דוח בדיקה…") {
+            try await self.checked(self.installedScript, ["export-review", file.path])
+            self.message = "דוח הבדיקה נשמר במיקום שבחרתם."
+        }
     }
     func pause() {
         perform("עוצרים את התזמון…") { try await self.checked(self.installedScript, ["disable"]); self.message = "התזמון נעצר. חיבור הוואטסאפ והקבצים נשמרו." }
@@ -106,6 +122,8 @@ import UniformTypeIdentifiers
         NSWorkspace.shared.open(folder)
     }
     private func friendly(_ text: String) -> String {
+        if text.contains("ASSIGNMENT_API_UPGRADE_REQUIRED") { return "יש לעדכן את המערכת באתר לפני הפעלת השיוך החדש." }
+        if text.contains("MESSAGE_DATE_UNREADABLE") { return "לא ניתן לקרוא את תאריך ההודעה. המתינו לטעינת וואטסאפ ולחצו שוב על בדיקת התאמה." }
         if text.contains("RUN_LOCKED") { return "כבר מתבצעת בדיקה במחשב. המתינו לסיומה ונסו שוב." }
         if text.contains("LOGIN") { return "נדרש חיבור לוואטסאפ. לחצו על חיבור וואטסאפ וסרקו שוב." }
         if text.contains("HTTP_401") || text.contains("HTTP_403") { return "החיבור למערכת חסום או שהמפתח בוטל. בדקו את המחשב בדף סוכן וואטסאפ באתר." }

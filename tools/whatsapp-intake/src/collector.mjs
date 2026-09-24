@@ -1,3 +1,4 @@
+import { attachEvidence, senderFromMessageId } from './assignment.mjs';
 import { mkdir, readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -13,6 +14,7 @@ export async function collect(config, { since, headed = false } = {}) {
   const statePath = path.join(config.runtimeDir, 'messages.json');
   const state = await readJson(statePath, { schemaVersion: 1, files: {} });
   const { context, page } = await openWhatsApp(config, { headed });
+  const observed = new Map();
   let complete = false;
   let previousTop = '';
   let unchanged = 0;
@@ -25,6 +27,7 @@ export async function collect(config, { since, headed = false } = {}) {
     for (let scroll = 0; scroll < config.maxScrolls; scroll++) {
       await assertGroup(page, config);
       const rows = await readVisibleMessages(page, config);
+      for (const row of rows) observed.set(row.id, row);
       const dates = rows.map((row) => row.receivedAt).filter(Boolean);
       for (const row of rows) {
         if (row.ambiguousPdf) throw new Error('AMBIGUOUS_PDF_ATTACHMENT');
@@ -54,8 +57,11 @@ export async function collect(config, { since, headed = false } = {}) {
       await sleep(1000);
     }
     if (!complete) throw new Error('SCAN_LIMIT_REACHED: no upload was attempted');
-    const files = Object.values(state.files).filter((file) => Date.parse(file.receivedAt) >= cutoff)
-      .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt) || a.key.localeCompare(b.key));
+    const decisions = await readJson(path.join(config.runtimeDir, 'assignments.json'), {});
+    // Require a real attachment in this complete scan; old quoted/deleted rows must not re-enter the batch.
+    const files = attachEvidence(Object.values(state.files).filter(file => Date.parse(file.receivedAt) >= cutoff && observed.get(file.messageId)?.filename)
+      .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt) || a.key.localeCompare(b.key)), [...observed.values()], decisions);
+    await writeJson(path.join(config.runtimeDir, 'last-message-evidence.json'), [...observed.values()].filter(r => r.filename || r.quoteDetected).map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt}) => ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt})));
     const result = { schemaVersion: 1, integrationId: config.id, groupName: config.groupName, since, scannedAt: new Date().toISOString(), complete, files };
     await writeJson(path.join(config.runtimeDir, 'last-collection.json'), result);
     return result;
@@ -82,13 +88,24 @@ export async function readVisibleMessages(page, config, now = new Date()) {
         }
       }
       const time = element.querySelector('[data-testid="msg-meta"]')?.textContent.trim() || '';
-      const titles = [...element.querySelectorAll('[title]')].map((node) => node.getAttribute('title'));
-      const lines = (element.innerText || '').split('\n').map((line) => line.trim());
-      const names = [...new Set([...titles, ...lines].filter((value) => value && /\.pdf$/i.test(value)))];
-      return [{ id, timestamp, divider, time, filename: names.length === 1 ? names[0] : null, ambiguousPdf: names.length > 1 }];
+      const quotedSelector = '[data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]';
+      const quote = element.querySelector(quotedSelector);
+      // Only an explicit full source-message identity is accepted. Never infer from filename, order, or time.
+      const quoteId = quote?.getAttribute('data-quoted-message-id') || quote?.getAttribute('data-message-id') || quote?.getAttribute('data-id') || null;
+      const copy = element.cloneNode(true);
+      for (const node of copy.querySelectorAll(quotedSelector)) node.remove();
+      const thumbs = [...copy.querySelectorAll('[data-testid="document-thumb"]')];
+      const names = [...new Set(thumbs.flatMap(thumb => [thumb.getAttribute('title'), ...[...thumb.querySelectorAll('[title]')].map(n => n.getAttribute('title')), ...(thumb.textContent || '').split('\n')]).filter(v => v && /\.pdf$/i.test(v.trim())).map(v => v.trim()))];
+      // Some versions put the document label beside its thumbnail, within the attachment bubble.
+      if (thumbs.length === 1 && names.length === 0) for (const n of copy.querySelectorAll('[title]')) {
+        const value = n.getAttribute('title'); if (/\.pdf$/i.test(value || '') && !names.includes(value)) names.push(value);
+      }
+      for (const thumb of copy.querySelectorAll('[data-testid="document-thumb"], [data-testid="msg-meta"]')) thumb.remove();
+      const text = [...copy.querySelectorAll('[data-testid="selectable-text"], .selectable-text')].filter(n => !n.parentElement?.closest('.selectable-text, [data-testid="selectable-text"]')).map(n => n.textContent).join(' ').trim().slice(0, 500);
+      return [{ id, timestamp, divider, time, quoteDetected: !!quote, quoteId, text, filename: thumbs.length && names.length === 1 ? names[0] : null, ambiguousPdf: thumbs.length > 1 || names.length > 1 }];
     });
   });
-  return rows.map((row) => ({ ...row, receivedAt: parseMessageDate(row.timestamp, config) || parseDividerDate(row.divider, row.time, config, now) }));
+  return rows.map((row) => ({ ...row, senderId: senderFromMessageId(row.id), receivedAt: parseMessageDate(row.timestamp, config) || parseDividerDate(row.divider, row.time, config, now) }));
 }
 async function scrollHistory(page, bottom = false) {
   await page.locator('#main').evaluate((main, bottom) => {

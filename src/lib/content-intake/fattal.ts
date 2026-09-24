@@ -128,7 +128,7 @@ export const FATTAL_BOOKLET_TARGETS: FattalBookletTargetConfig[] = [
     area: 'tiberias',
     title: 'לאונרדו קלאב טבריה',
     shortId: 'fjcVpn',
-    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה'],
+    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה', 'קלאב טבריה'],
   },
 ];
 
@@ -196,7 +196,7 @@ const FATTAL_ALIAS_SETS: FattalAliasSet[] = [
   {
     key: 'leonardo-club-tiberias',
     area: 'tiberias',
-    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה'],
+    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה', 'קלאב טבריה'],
   },
   {
     key: 'u-boutique-kinneret',
@@ -229,7 +229,7 @@ export function buildFattalPreview(params: FattalPreviewParams): ContentIntakePr
   }));
 
   let matches = params.files.map((file) =>
-    matchFattalFile(file, normalizedTargets, params.receivedAt)
+    matchWithEvidence(file, normalizedTargets, params.receivedAt)
   );
 
   matches = markDuplicateMatches(matches);
@@ -274,6 +274,47 @@ export function buildFattalPreview(params: FattalPreviewParams): ContentIntakePr
     missingTargets,
     suggestedReplyAfterCommitHe: buildSuggestedReply(matches, missingTargets),
   };
+}
+
+// Never turn nearby chat text or a repeated filename into an attachment identity.
+function matchWithEvidence(file: IntakeFileCandidate, targets: ContentIntakeTarget[], receivedAt?: string): IntakeFileMatch {
+  const original = matchFattalFile(file, targets, receivedAt);
+  if (!file.evidence?.length) return original;
+  const hold = (reason: string): IntakeFileMatch => ({ ...original, status: 'needs_review', warnings: [...original.warnings, reason] });
+  if (!file.sha256 || !file.sourceMessageId) return hold('Assignment requires attachment identity and SHA-256');
+  if (file.evidence.some(e => e.targetMessageId !== file.sourceMessageId)) return hold('Assignment refers to another message');
+  const manual = file.evidence.filter(e => e.kind === 'manual');
+  if (manual.length) {
+    if (manual.length !== 1) return hold('Conflicting manual decisions');
+    const decision = manual[0];
+    if (decision.exclude) return { ...original, status: 'needs_review', target: undefined, reasons: [`הושאר ללא עדכון באישור ידני: ${decision.text}`] };
+    const target = targets.find(t => t.codeId === decision.targetCodeId);
+    if (!target) return hold('Manual target is outside this connection');
+    // A human can choose a target, but cannot bypass invalid dates or PDF checks.
+    return { ...original, target, status: original.warnings.length ? 'needs_review' : 'matched', confidence: 100,
+      reasons: [`שיוך ידני: ${target.title} · ${decision.at}`] };
+  }
+  const candidates: IntakeFileMatch[] = [];
+  for (const evidence of file.evidence) {
+    if (!evidence.senderId || evidence.senderId !== evidence.attachmentSenderId
+      || (evidence.kind === 'reply' && evidence.messageId === file.sourceMessageId)
+      || (evidence.kind === 'caption' && evidence.messageId !== file.sourceMessageId)) return hold('Unverified attachment sender or reply');
+    if (evidence.kind === 'reply' && (!file.receivedAt || Date.parse(evidence.at) < Date.parse(file.receivedAt))) return hold('Reply predates attachment');
+    const hint = matchFattalFile({ ...file, name: evidence.text, evidence: undefined }, targets, receivedAt);
+    // Short, exact aliases only. Free-form instructions/negative sentences are not interpreted.
+    const label = normalizeText(evidence.text);
+    const exact = targets.filter(t => getTargetAliases(t).some(a => normalizeText(a) === label));
+    if (exact.length !== 1 || hint.status !== 'matched' || hint.target?.codeId !== exact[0].codeId) return hold('Clarification is not an unambiguous experience name');
+    candidates.push({ ...hint, reasons: [`${evidence.kind === 'reply' ? 'לפי תשובת השולח' : 'לפי הכיתוב המצורף'}: ${evidence.text} · ${evidence.at}`] });
+  }
+  const ids = new Set(candidates.map(c => c.target?.codeId));
+  if (ids.size !== 1) return hold('Conflicting clarifications');
+  const selected = candidates[0];
+  // An identified hotel or explicit area in the original filename cannot be silently contradicted.
+  if ((original.target && original.confidence >= 78 && original.target.codeId !== selected.target?.codeId)
+    || (detectArea(normalizeText(file.name)) && detectArea(normalizeText(file.name)) !== detectArea(normalizeText(selected.target!.title)))) return hold('Filename conflicts with clarification');
+  return { ...original, target: selected.target, confidence: selected.confidence,
+    status: original.warnings.length ? 'needs_review' : 'matched', reasons: selected.reasons };
 }
 
 function matchFattalFile(
@@ -402,6 +443,9 @@ function markDuplicateMatches(matches: IntakeFileMatch[]): IntakeFileMatch[] {
   return matches.map((match) => {
     if (!match.target || match.status !== 'matched') return match;
     if ((targetCounts.get(match.target.codeId) || 0) <= 1) return match;
+    const sameTarget = matches.filter(m => m.status === 'matched' && m.target?.codeId === match.target!.codeId);
+    // Byte-identical retransmissions are safe; commit deduplication updates only once.
+    if (match.file.sha256 && /^[a-f0-9]{64}$/.test(match.file.sha256) && sameTarget.every(m => m.file.sha256 === match.file.sha256)) return match;
 
     return {
       ...match,

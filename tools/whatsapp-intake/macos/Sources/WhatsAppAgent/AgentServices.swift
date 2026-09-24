@@ -55,11 +55,14 @@ enum AgentPaths {
     }
 }
 struct PreviewRow: Decodable, Identifiable {
-    var id: String { filename + title }; let filename: String; let title: String; let status: String
+    let id: String; let filename: String; let title: String; let status: String
+    var receivedAt: String?; var reason: String?; var warnings: [String]?
 }
+struct AssignmentTarget: Decodable, Identifiable { let id: String; let title: String }
 struct AgentSnapshot: Decodable {
     var installed = false, connected = false, paired = false, enabled = false, previewReady = false
     var rows: [PreviewRow] = []
+    var targets: [AssignmentTarget]?
     var runnerVersion: String?, id: String?, groupName: String?, ownerEmail: String?, state: String?, syncState: String?, downloadDirectory: String?, configFile: String?
     var pending: Bool?
 }

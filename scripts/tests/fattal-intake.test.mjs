@@ -124,7 +124,7 @@ test('413 fallback uploads only confident files and requests one server report',
   const dir = await mkdtemp(path.join(tmpdir(), 'fattal-test-'));
   const originalFetch = globalThis.fetch;
   try {
-    for (const name of ['הרודס אילת.pdf', 'יו קורל אילת.pdf', 'יו קורל אילת תיקון.pdf']) await writeFile(path.join(dir, name), '%PDF-1.7\nfixture');
+    for (const name of ['הרודס אילת.pdf', 'יו קורל אילת.pdf', 'יו קורל אילת תיקון.pdf']) await writeFile(path.join(dir, name), '%PDF-1.7\nfixture ' + name);
     const files = await collectPdfFiles(dir);
     let commits = 0; let reports = 0;
     globalThis.fetch = async (url, options) => {
