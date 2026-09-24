@@ -16,18 +16,20 @@ export async function guiStatus(dataDir = base) {
   const config = await readJson(path.join(dataDir, 'config.json'), null);
   if (!config) return { installed: false, connected: false, paired: false, enabled: false, previewReady: false, rows: [], downloadDirectory: null };
   const runtime = path.join(dataDir, config.id);
-  const [credentials, account, state, preview, pending, sync] = await Promise.all([
+  const [credentials, account, state, preview, pending, sync, collection] = await Promise.all([
     readJson(path.join(runtime, 'credentials.json'), {}), readJson(path.join(runtime, 'account.json'), null),
     readJson(path.join(runtime, 'status.json'), {}), readJson(path.join(runtime, 'last-preview.json'), null),
-    readJson(path.join(runtime, 'pending.json'), null), readJson(path.join(runtime, 'schedule-sync.json'), null),
+    readJson(path.join(runtime, 'pending.json'), null), readJson(path.join(runtime, 'schedule-sync.json'), null), readJson(path.join(runtime, 'last-collection.json'), null),
   ]);
-  const rows = (preview?.matches || []).map(m => ({ id: m.file?.id || m.file?.name, filename: m.file?.name || m.filename || '', title: m.target?.title || 'לא זוהתה חוויה', status: m.status, receivedAt: m.file?.receivedAt || '', reason: m.file?.evidence?.length ? (m.reasons || []).filter(v => /[א-ת]/.test(v)).join('; ') : 'לפי שם הקובץ', warnings: m.warnings || [] }));
+  const previewStale = ['collecting', 'no_files', 'attention_required', 'upgrade_needs_preview', 'connection_imported', 'assignment_changed'].includes(state.state)
+    || (collection?.scannedAt && (!preview?.generatedAt || Date.parse(collection.scannedAt) > Date.parse(preview.generatedAt)));
+  const rows = (previewStale ? [] : preview?.matches || []).map(m => ({ id: m.file?.id || m.file?.name, filename: m.file?.name || m.filename || '', title: m.target?.title || 'לא זוהתה חוויה', status: m.status, receivedAt: m.file?.receivedAt || '', reason: m.file?.evidence?.length ? (m.reasons || []).filter(v => /[א-ת]/.test(v)).join('; ') : 'לפי שם הקובץ', warnings: m.warnings || [] }));
   const fresh = Number.isFinite(Date.parse(state.at)) && Date.now() - Date.parse(state.at) < 12 * 3600000;
   return { installed: true, runnerVersion: (await readJson(path.join(dataDir, 'app/package.json'), {})).version || null, id: config.id, groupName: config.groupName, ownerEmail: config.ownerEmail,
     connected: !!credentials.contentIntakeApiKey, paired: !!account, enabled: config.schedule.enabled === true,
-    state: state.state || '', syncState: sync?.state || '', pending: !!pending,
-    previewReady: fresh && state.state === 'preview_ready' && rows.length > 0 && rows.some(r => r.status === 'matched') && !pending,
-    rows, targets: (preview?.targets || []).map(t => ({id:t.codeId, title:t.title})), downloadDirectory: path.join(runtime, 'downloads'), configFile: path.join(dataDir, 'config.json') };
+    state: state.state || '', previewStale: !!previewStale, syncState: sync?.state || '', pending: !!pending,
+    previewReady: fresh && !previewStale && state.state === 'preview_ready' && rows.length > 0 && rows.some(r => r.status === 'matched') && !pending,
+    rows, targets: (previewStale ? [] : preview?.targets || []).map(t => ({id:t.codeId, title:t.title})), downloadDirectory: path.join(runtime, 'downloads'), configFile: path.join(dataDir, 'config.json') };
 }
 export async function saveAssignment(dataDir, fileId, targetCodeId) {
   const config = await readJson(path.join(dataDir, 'config.json'));
@@ -50,17 +52,29 @@ export async function saveAssignment(dataDir, fileId, targetCodeId) {
     await writeJson(path.join(runtime, 'status.json'), {state:'assignment_changed', at:new Date().toISOString()});
   } finally { await unlock(); }
 }
+export async function exportReview(dataDir = base) {
+  const config = await readJson(path.join(dataDir, 'config.json'));
+  const runtime = path.join(dataDir, config.id);
+  const [preview, observations, collection, status, pending, installed] = await Promise.all([
+    readJson(path.join(runtime, 'last-preview.json'), null), readJson(path.join(runtime, 'last-message-evidence.json'), []),
+    readJson(path.join(runtime, 'last-collection.json'), null), readJson(path.join(runtime, 'status.json'), {}),
+    readJson(path.join(runtime, 'pending.json'), null), readJson(path.join(dataDir, 'app/package.json'), {}),
+  ]);
+  return { exportedAt:new Date().toISOString(), runnerVersion:installed.version || null,
+    state:status.state, stateAt:status.at, errorCode:status.code, pending:!!pending,
+    previewGeneratedAt:preview?.generatedAt, batchProtocolVersion:preview?.batchProtocolVersion,
+    assignmentProtocolVersion:preview?.assignmentProtocolVersion, targetCount:preview?.targets?.length || 0,
+    previewStale:(await guiStatus(dataDir)).previewStale,
+    collection:collection ? {scannedAt:collection.scannedAt, since:collection.since, complete:collection.complete,
+      files:collection.files.map(f => ({id:localFileId(f), name:f.name, size:f.size, sha256:f.sha256, receivedAt:f.receivedAt, sourceMessageId:f.messageId}))} : null,
+    matches:(preview?.matches || []).map(m => ({file:m.file,target:m.target ? {title:m.target.title,shortId:m.target.shortId}:null,status:m.status,reasons:m.reasons,warnings:m.warnings})), observations };
+}
 async function main() {
   const action = process.argv[2];
   if (action === 'assign') { await saveAssignment(base, process.argv[3], process.argv[4]); return; }
   if (action === 'export-review') {
     if (!process.argv[3]) throw Error('EXPORT_PATH_REQUIRED');
-    const config = await readJson(path.join(base, 'config.json'));
-    const runtime = path.join(base, config.id);
-    const preview = await readJson(path.join(runtime, 'last-preview.json'), null);
-    const observations = await readJson(path.join(runtime, 'last-message-evidence.json'), []);
-    await writeJson(process.argv[3], { exportedAt:new Date().toISOString(), runnerVersion:'0.7.0',
-      matches:(preview?.matches || []).map(m => ({file:m.file,target:m.target ? {title:m.target.title,shortId:m.target.shortId}:null,status:m.status,reasons:m.reasons,warnings:m.warnings})), observations });
+    await writeJson(process.argv[3], await exportReview(base));
     return;
   }
   if (action === 'status') { console.log(JSON.stringify(await guiStatus())); return; }
@@ -77,9 +91,9 @@ async function main() {
     const previousVersion = (await readJson(path.join(base, 'app/package.json'), {})).version;
     const unlock = before ? await acquireLock(path.join(base, before.id)) : () => {};
     try {
-      if (before && previousVersion !== '0.7.0') await disableSchedule();
+      if (before && previousVersion !== '0.7.1') await disableSchedule();
       await install({ bundledDependencies: true, openCommands: false });
-      if (before && previousVersion !== '0.7.0') await writeJson(path.join(base, before.id, 'status.json'), {state:'upgrade_needs_preview', at:new Date().toISOString()});
+      if (before && previousVersion !== '0.7.1') await writeJson(path.join(base, before.id, 'status.json'), {state:'upgrade_needs_preview', at:new Date().toISOString()});
     }
     finally { await unlock(); }
     const config = await readJson(path.join(base, 'config.json'));

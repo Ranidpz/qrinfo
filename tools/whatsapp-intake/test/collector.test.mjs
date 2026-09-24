@@ -95,3 +95,22 @@ test('real browser reads attachment date dividers, checks group, saves PDF from 
     assert.equal(await findSentMessage(page, 'our report ❌\ndone'), null);
   } finally { await browser.close(); await rm(dir, { recursive: true, force: true }); }
 });
+
+test('unquoted sibling labels identify real PDFs, while quotes and text-only filenames do not', async () => {
+ const browser=await chromium.launch({headless:true});
+ try {
+  const page=await browser.newPage();
+  await page.setContent(`<div id="main">
+   <div data-id="one"><button data-testid="document-thumb"><img></button><div><span>תוכנית בידור </span><span>240926.pdf</span></div><div data-testid="msg-meta">01:24</div></div>
+   <div data-id="two"><div data-testid="quoted-message"><button data-testid="document-thumb" title="quoted.pdf"></button></div><button data-testid="document-thumb"></button><div>actual.pdf</div><span class="selectable-text">קלאב טבריה</span></div>
+   <div data-id="three"><div data-testid="quoted-message"><button data-testid="document-thumb" title="quoted.pdf"></button></div><span class="selectable-text">קלאב טבריה</span></div>
+   <div data-id="four"><button data-testid="document-thumb"><img></button></div>
+   <div data-id="five"><span class="selectable-text">please rename.pdf</span></div>
+  </div>`);
+  const rows=await readVisibleMessages(page,config);
+  assert.equal(rows[0].filename,'תוכנית בידור 240926.pdf');
+  assert.equal(rows[1].filename,'actual.pdf');assert.equal(rows[1].ambiguousPdf,false);
+  assert.equal(rows[2].filename,null);assert.equal(rows[2].text,'קלאב טבריה');
+  assert.equal(rows[3].attachmentUnreadable,true);assert.equal(rows[4].filename,null);
+ }finally{await browser.close();}
+});

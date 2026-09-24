@@ -69,3 +69,25 @@ test('manual choice is hash-bound, target-scoped, refuses pending writes and nee
   await assert.rejects(saveAssignment(base,id,'allowed'),/FILE_CHANGED/);
  }finally{await rm(base,{recursive:true,force:true});}
 });
+
+test('a newer empty scan hides cached matches; review export includes freshness without credentials',async()=>{
+ const {exportReview}=await import('../src/gui.mjs');
+ const base=await mkdtemp(path.join(os.tmpdir(),'theq-stale-'));
+ try{
+  await writeJson(path.join(base,'config.json'),{id:'test',schedule:{enabled:false}});
+  const run=path.join(base,'test');
+  await writeJson(path.join(base,'app/package.json'),{version:'0.7.1'});
+  await writeJson(path.join(run,'credentials.json'),{contentIntakeApiKey:'never-export-secret'});
+  await writeJson(path.join(run,'last-preview.json'),{generatedAt:'2026-09-23T00:00:00Z',matches:[{file:{id:'old',name:'old.pdf'},target:{title:'Old'},status:'matched'}],targets:[{codeId:'old',title:'Old'}]});
+  await writeJson(path.join(run,'last-collection.json'),{scannedAt:new Date().toISOString(),complete:true,files:[]});
+  await writeJson(path.join(run,'status.json'),{state:'no_files',at:new Date().toISOString()});
+  const status=await guiStatus(base);
+  assert.equal(status.previewReady,false);assert.equal(status.previewStale,true);
+  assert.deepEqual(status.rows,[]);assert.deepEqual(status.targets,[]);
+  const report=await exportReview(base);
+  assert.equal(report.runnerVersion,'0.7.1');assert.equal(report.state,'no_files');
+  assert.equal(report.previewStale,true);assert.equal(report.collection.files.length,0);
+  assert.equal(report.matches.length,1);assert.equal(report.pending,false);
+  assert.ok(!JSON.stringify(report).includes('never-export-secret'));
+ }finally{await rm(base,{recursive:true,force:true});}
+});

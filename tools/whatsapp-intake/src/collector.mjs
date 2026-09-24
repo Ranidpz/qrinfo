@@ -28,8 +28,15 @@ export async function collect(config, { since, headed = false } = {}) {
       await assertGroup(page, config);
       const rows = await readVisibleMessages(page, config);
       for (const row of rows) observed.set(row.id, row);
+      // Retain bounded extraction diagnostics even if a later download or scan fails.
+      await writeJson(path.join(config.runtimeDir, 'last-message-evidence.json'), [...observed.values()]
+        .filter(r => r.filename || r.quoteDetected || r.attachmentUnreadable)
+        .map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable}) =>
+          ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable})));
+
       const dates = rows.map((row) => row.receivedAt).filter(Boolean);
       for (const row of rows) {
+        if (row.attachmentUnreadable && (!row.receivedAt || Date.parse(row.receivedAt) >= cutoff)) throw new Error('ATTACHMENT_LABEL_UNREADABLE: לא ניתן לקרוא את פרטי הקובץ בוואטסאפ. יצאו דוח בדיקה.');
         if (row.ambiguousPdf) throw new Error('AMBIGUOUS_PDF_ATTACHMENT');
         if (!row.filename) continue;
         const receivedAt = row.receivedAt;
@@ -61,7 +68,6 @@ export async function collect(config, { since, headed = false } = {}) {
     // Require a real attachment in this complete scan; old quoted/deleted rows must not re-enter the batch.
     const files = attachEvidence(Object.values(state.files).filter(file => Date.parse(file.receivedAt) >= cutoff && observed.get(file.messageId)?.filename)
       .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt) || a.key.localeCompare(b.key)), [...observed.values()], decisions);
-    await writeJson(path.join(config.runtimeDir, 'last-message-evidence.json'), [...observed.values()].filter(r => r.filename || r.quoteDetected).map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt}) => ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt})));
     const result = { schemaVersion: 1, integrationId: config.id, groupName: config.groupName, since, scannedAt: new Date().toISOString(), complete, files };
     await writeJson(path.join(config.runtimeDir, 'last-collection.json'), result);
     return result;
@@ -95,14 +101,23 @@ export async function readVisibleMessages(page, config, now = new Date()) {
       const copy = element.cloneNode(true);
       for (const node of copy.querySelectorAll(quotedSelector)) node.remove();
       const thumbs = [...copy.querySelectorAll('[data-testid="document-thumb"]')];
-      const names = [...new Set(thumbs.flatMap(thumb => [thumb.getAttribute('title'), ...[...thumb.querySelectorAll('[title]')].map(n => n.getAttribute('title')), ...(thumb.textContent || '').split('\n')]).filter(v => v && /\.pdf$/i.test(v.trim())).map(v => v.trim()))];
-      // Some versions put the document label beside its thumbnail, within the attachment bubble.
-      if (thumbs.length === 1 && names.length === 0) for (const n of copy.querySelectorAll('[title]')) {
-        const value = n.getAttribute('title'); if (/\.pdf$/i.test(value || '') && !names.includes(value)) names.push(value);
-      }
+      // Preserve inline filename spans, but keep block labels separate from size/time metadata.
+      // Quoted documents have already been removed from this detached copy.
+      const pdfName = value => typeof value === 'string' && /\.pdf$/i.test(value.trim());
+      const labelText = node => {
+        if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+        if (node.nodeType !== Node.ELEMENT_NODE) return '';
+        const block = /^(DIV|P|BUTTON|BR|LI|SECTION)$/.test(node.tagName);
+        const value = [...node.childNodes].map(labelText).join('');
+        return block ? `\n${value}\n` : value;
+      };
+      const labels = labelText(copy).split('\n');
+      const names = [...new Set([...copy.querySelectorAll('[title]')].map(node => node.getAttribute('title'))
+        .concat(labels).filter(pdfName).map(value => value.trim()))];
+      const attachmentUnreadable = thumbs.length > 0 && names.length === 0;
       for (const thumb of copy.querySelectorAll('[data-testid="document-thumb"], [data-testid="msg-meta"]')) thumb.remove();
       const text = [...copy.querySelectorAll('[data-testid="selectable-text"], .selectable-text')].filter(n => !n.parentElement?.closest('.selectable-text, [data-testid="selectable-text"]')).map(n => n.textContent).join(' ').trim().slice(0, 500);
-      return [{ id, timestamp, divider, time, quoteDetected: !!quote, quoteId, text, filename: thumbs.length && names.length === 1 ? names[0] : null, ambiguousPdf: thumbs.length > 1 || names.length > 1 }];
+      return [{ id, timestamp, divider, time, quoteDetected: !!quote, quoteId, text, filename: thumbs.length && names.length === 1 ? names[0] : null, attachmentUnreadable, thumbnailCount: thumbs.length, ambiguousPdf: thumbs.length > 1 || (thumbs.length > 0 && names.length > 1) }];
     });
   });
   return rows.map((row) => ({ ...row, senderId: senderFromMessageId(row.id), receivedAt: parseMessageDate(row.timestamp, config) || parseDividerDate(row.divider, row.time, config, now) }));

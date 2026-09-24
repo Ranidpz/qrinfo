@@ -63,6 +63,7 @@ struct AgentSnapshot: Decodable {
     var installed = false, connected = false, paired = false, enabled = false, previewReady = false
     var rows: [PreviewRow] = []
     var targets: [AssignmentTarget]?
+    var previewStale: Bool?
     var runnerVersion: String?, id: String?, groupName: String?, ownerEmail: String?, state: String?, syncState: String?, downloadDirectory: String?, configFile: String?
     var pending: Bool?
 }

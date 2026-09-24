@@ -33,7 +33,7 @@ import UniformTypeIdentifiers
     }
     func verifyInstallation() async throws {
         let output = try await ProcessService.run(AgentPaths.node, [installedScript.path, "status"])
-        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.7.0" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
+        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == "0.7.1" else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
         snapshot = state; prepared = true
     }
     func prepare() {

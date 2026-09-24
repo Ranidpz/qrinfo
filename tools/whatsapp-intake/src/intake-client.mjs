@@ -37,7 +37,7 @@ export async function previewBatch({ baseUrl, apiKey, ownerEmail, receivedAt, fi
 
   const preview = await parseJsonResponse(response);
   if (preview.batchProtocolVersion !== 1) throw new Error('יש לפרוס את ה-API המעודכן לפני שימוש בסקריפט החדש');
-  if (files.some(file => file.evidence?.length) && preview.assignmentProtocolVersion !== 1) throw new Error('ASSIGNMENT_API_UPGRADE_REQUIRED');
+  if (preview.assignmentProtocolVersion !== 1) throw new Error('ASSIGNMENT_API_UPGRADE_REQUIRED');
   return preview;
 }
 

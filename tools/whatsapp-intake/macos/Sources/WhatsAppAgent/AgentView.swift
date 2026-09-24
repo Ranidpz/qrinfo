@@ -38,6 +38,9 @@ struct AgentView: View {
                         }
                     }.padding(12)
                 }
+                if agent.snapshot.previewStale == true {
+                    Text(agent.snapshot.state == "no_files" ? "הבדיקה האחרונה לא מצאה קובצי PDF בטווח שנבדק. תוצאות קודמות הוסתרו. אם יש קבצים בקבוצה, יצאו דוח בדיקה." : "אין כרגע תוצאת התאמה עדכנית להפעלה. בצעו בדיקת התאמה; אם אינה מסתיימת, יצאו דוח בדיקה.").foregroundStyle(.orange)
+                }
                 if !agent.snapshot.rows.isEmpty {
                     GroupBox("התאמת החוברות — הבדיקה האחרונה") {
                         VStack(alignment: .leading, spacing: 10) {

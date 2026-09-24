@@ -386,3 +386,9 @@ Validation: server matching/manifest regressions, browser DOM fixtures, mixed-ba
 manual-choice integrity tests, TypeScript/ESLint, SwiftPM build. Production PDF writes and group
 messages are not part of automated tests. A real preview, then a controlled scheduled update and
 report/PDF verification on the destination Mac are still required for rollout acceptance.
+
+## 0.7.1 — scan and diagnostic reliability (2026-09-24)
+
+Michal's 07:59 diagnostic export reported runner 0.7.0 but had hashless preview rows and only two reply observations. That export omitted scan/state timestamps, so stale preview is a supported hypothesis, not a confirmed live diagnosis. The two Royal files have equal sizes, which does not prove byte equality. Neither quoted reply includes an explicit source-message reference or sender identity; leave it unresolved.
+
+The collector now accepts unquoted sibling filename labels without title attributes and nested inline spans; quote-only messages still cannot become files. An attachment thumbnail without a readable name stops with an explicit extraction error. The UI hides stale matches after failed/empty/newer scans. Exports include actual installed version, scan/preview timestamps, protocol versions, pending state and collection hashes; no credentials or browser profile. Fractional ISO timestamps render in Israel time. Upgrade components, run a fresh preview, and inspect the new report before re-enabling scheduling. Live Michal verification remains pending.

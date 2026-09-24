@@ -132,7 +132,7 @@ test('413 fallback uploads only confident files and requests one server report',
       if (url.endsWith('/preview')) {
         const body = JSON.parse(options.body);
         const result = preview(body.files);
-        return Response.json({ ...result, runId: 'parent-run', batchProtocolVersion: 1 });
+        return Response.json({ ...result, runId: 'parent-run', batchProtocolVersion: 1, assignmentProtocolVersion: 1 });
       }
       if (url.endsWith('/commit')) {
         commits++;
@@ -169,7 +169,7 @@ test('preview mode requests no run writes', async () => {
   try {
     globalThis.fetch = async (_url, options) => {
       assert.equal(JSON.parse(options.body).saveRun, false);
-      return Response.json({ batchProtocolVersion: 1 });
+      return Response.json({ batchProtocolVersion: 1, assignmentProtocolVersion: 1 });
     };
     await previewBatch({ files: [], baseUrl: 'https://example.test', apiKey: 'test' });
   } finally { globalThis.fetch = originalFetch; }
@@ -218,7 +218,7 @@ test('changing a PDF after preview prevents upload and finalization', async () =
     globalThis.fetch = async (url, options) => {
       if (url.endsWith('/preview')) {
         await writeFile(filePath, '%PDF-1.7\nother');
-        return Response.json({ ...preview(JSON.parse(options.body).files), runId: 'parent', batchProtocolVersion: 1 });
+        return Response.json({ ...preview(JSON.parse(options.body).files), runId: 'parent', batchProtocolVersion: 1, assignmentProtocolVersion: 1 });
       }
       writes++; throw Error('Unexpected write');
     };
@@ -460,4 +460,13 @@ test('the documented full hotel, area and full-date standard matches every expli
     assert.equal(match.status, 'matched', target.title);
     assert.equal(match.target.shortId, target.shortId, target.title);
   }
+});
+
+test('filename-only batches also reject an API without assignment/hash protocol before writes',async()=>{
+ const original=globalThis.fetch;const paths=[];
+ try{
+  globalThis.fetch=async url=>{paths.push(url);return Response.json({batchProtocolVersion:1,matches:[],runId:'legacy'});};
+  await assert.rejects(commitWithPayloadFallback({files:[{name:'book.pdf',sha256:'a'.repeat(64)}],baseUrl:'https://example.test',apiKey:'test'}),/ASSIGNMENT_API_UPGRADE_REQUIRED/);
+  assert.equal(paths.length,1);assert.ok(paths[0].endsWith('/preview'));
+ }finally{globalThis.fetch=original;}
 });

@@ -12,8 +12,15 @@ struct AssignmentRowView: View {
     let save: (String) -> Void
     @StateObject private var form = AssignmentForm()
     private var receipt: String {
-        guard let raw = row.receivedAt, let date = ISO8601DateFormatter().date(from: raw) else { return row.receivedAt ?? "" }
-        return date.formatted(date: .numeric, time: .shortened)
+        guard let raw = row.receivedAt else { return "" }
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = parser.date(from: raw) ?? ISO8601DateFormatter().date(from: raw) else { return raw }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "he_IL")
+        formatter.timeZone = TimeZone(identifier: "Asia/Jerusalem")
+        formatter.dateFormat = "dd/MM/yyyy HH:mm"
+        return formatter.string(from: date) + " (שעון ישראל)"
     }
     var body: some View {
         HStack(alignment: .top, spacing: 12) {

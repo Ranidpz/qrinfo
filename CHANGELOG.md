@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.14] - 2026-09-24
+
+- WhatsApp Agent 0.7.1 reads unquoted PDF labels next to image-only thumbnails, including nested filename spans. Unreadable attachment labels require review.
+- Hide cached preview rows after a failed or newer empty scan; export installed version, scan time, preview protocol, pending state and file hashes for diagnosis. Require the assignment-capable API even for filename-only batches.
+- Display receipt times with fractional ISO seconds correctly in Israel time.
+- Local regression and packaging checks do not replace a fresh preview on Michal's Mac; live DOM/byte equality still need that verification.
+
 ## [1.20.13] - 2026-09-24
 
 - WhatsApp Agent 0.7.0 updates confident matches while retaining unresolved files in a complete server-derived report.
