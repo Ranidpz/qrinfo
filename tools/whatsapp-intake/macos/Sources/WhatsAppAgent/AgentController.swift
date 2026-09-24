@@ -139,6 +139,8 @@ import UniformTypeIdentifiers
         NSWorkspace.shared.open(folder)
     }
     func friendly(_ text: String) -> String {
+        if text.contains("HISTORY_KNOWN_MESSAGES_MISSING") { return "סריקת הקבוצה אינה מלאה: קובץ שנראה קודם לא נמצא גם בבדיקה חוזרת. לא בוצעה העלאה. יצאו דוח בדיקה כדי שנוכל לברר מה חסר." }
+        if text.contains("HISTORY_GAP_DETECTED") || text.contains("LATEST_MESSAGES_CHANGED") || text.contains("HISTORY_BOUNDARY_NOT_VERIFIED") { return "לא הצלחנו לוודא שכל ההודעות נטענו. לא בוצעה העלאה. נסו בדיקה נוספת; אם התקלה חוזרת, יצאו דוח בדיקה." }
         if text.contains("WHATSAPP_SCROLL_CONTAINER") || text.contains("LATEST_MESSAGES_NOT_VERIFIED") { return "לא ניתן לזהות עדיין את אזור ההודעות בוואטסאפ. לא בוצעה העלאה. נסו שוב; אם התקלה חוזרת, יצאו דוח בדיקה." }
         if text.contains("BATCH_STILL_RUNNING") { return "המערכת עדיין מסמנת פעולה קודמת כפעילה. לא בוצעה העלאה חוזרת. יצאו דוח בדיקה לבירור." }
         if text.contains("BATCH_NEEDS_REVIEW") || text.contains("UNCONFIRMED_BATCH") { return "תוצאת הפעולה הקודמת טרם אומתה. לחצו על בדיקת הפעולה הקודמת; אם החסימה נשארת, יצאו דוח בדיקה." }

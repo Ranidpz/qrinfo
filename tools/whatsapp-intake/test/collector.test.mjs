@@ -133,3 +133,27 @@ test('recovery acknowledges an existing outgoing report without sending Enter ag
   assert.equal((await readJson(file)).state,'sent');await context.close();
  }finally{await browser.close();await rm(dir,{recursive:true,force:true});}
 });
+
+test('quoted message IDs and header IDs cannot become attachments or old boundary dates', async()=>{
+ const browser=await chromium.launch({headless:true});
+ try {
+  const page=await browser.newPage();
+  await page.setContent(`<div id="main"><header><div data-id="header">group</div></header><div data-id="reply" data-pre-plain-text="[10:00, 9/24/2026] sender:"><div data-testid="quoted-message"><div data-id="old-file" data-pre-plain-text="[10:00, 9/1/2026] sender:"><button data-testid="document-thumb" title="old.pdf">old.pdf</button></div></div><span class="selectable-text">reply</span></div></div>`);
+  const rows=await readVisibleMessages(page,config);
+  assert.equal(rows.length,1);assert.equal(rows[0].id,'reply');assert.equal(rows[0].filename,null);assert.equal(rows[0].receivedAt,'2026-09-24T07:00:00.000Z');
+ }finally{await browser.close();}
+});
+test('incomplete scan retries once in a fresh scan; permanent missing history still blocks and never reuses results',async()=>{
+ const {collect}=await import('../src/collector.mjs');const {readJson}=await import('../src/storage.mjs');
+ const dir=await mkdtemp(path.join(tmpdir(),'theq-retry-'));
+ try {
+  let calls=0;
+  const result=await collect({runtimeDir:dir},{since:'2026-09-23'},{wait:async()=>{},scan:async(c,o)=>{
+   calls++;if(calls===1){const e=Error('HISTORY_KNOWN_MESSAGES_MISSING');e.missingMessages=[{name:'missing.pdf',messageId:'one'}];throw e;}
+   assert.equal(o.retry,true);return {files:[{name:'fresh.pdf'}]};
+  }});
+  assert.equal(calls,2);assert.equal(result.files[0].name,'fresh.pdf');assert.equal((await readJson(path.join(dir,'scan-retry.json'))).missingMessages[0].name,'missing.pdf');
+  calls=0;await assert.rejects(collect({runtimeDir:dir},{},{wait:async()=>{},scan:async()=>{calls++;throw Error('HISTORY_KNOWN_MESSAGES_MISSING');}}),/HISTORY_KNOWN/);assert.equal(calls,2);
+  calls=0;await assert.rejects(collect({runtimeDir:dir},{},{wait:async()=>{},scan:async()=>{calls++;throw Error('WRONG_GROUP');}}),/WRONG_GROUP/);assert.equal(calls,1);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});

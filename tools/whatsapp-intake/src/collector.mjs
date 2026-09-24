@@ -9,7 +9,19 @@ import { openWhatsApp, openGroup, assertGroup, requirePairedProfile } from './br
 import { readJson, writeJson, safeFilename } from './storage.mjs';
 import { parseMessageDate, parseDividerDate, messageKey, assertPdf } from './messages.mjs';
 
-export async function collect(config, { since, headed = false } = {}) {
+// Retry only a failed read/scan, never commit, report delivery or an uncertain write.
+export async function collect(config, options = {}, services = {}) {
+  const scan = services.scan || collectOnce;
+  try { return await scan(config, options); }
+  catch (error) {
+    if (!['HISTORY_KNOWN_MESSAGES_MISSING','HISTORY_GAP_DETECTED','LATEST_MESSAGES_CHANGED'].includes(errorCode(error))) throw error;
+    await writeJson(path.join(config.runtimeDir, 'scan-retry.json'), {at:new Date().toISOString(), reason:errorCode(error), missingMessages:error.missingMessages || []});
+    await (services.wait || sleep)(1500);
+    // Fresh browser context and observed set; the cache cannot stand in for unseen messages.
+    return await scan(config, {...options, retry: true});
+  }
+}
+async function collectOnce(config, { since, headed = false, retry = false } = {}) {
   await requirePairedProfile(config);
   if (!since || Number.isNaN(Date.parse(since))) throw new Error('EXPLICIT_SCAN_START_REQUIRED');
   const cutoff = Date.parse(since);
@@ -21,7 +33,7 @@ export async function collect(config, { since, headed = false } = {}) {
   let previousTop = '';
   let unchanged = 0;
   try {
-    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {startedAt:new Date().toISOString(), latestVerified:false, complete:false});
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {startedAt:new Date().toISOString(), latestVerified:false, complete:false, retry});
     await openGroup(page, config);
     await page.locator('#main [data-id]').first().waitFor({ state: 'attached', timeout: 60000 });
     // Start at latest messages, then walk virtualized history backwards.
@@ -84,7 +96,7 @@ export async function collect(config, { since, headed = false } = {}) {
     return result;
   } catch (error) {
     const scan = await readJson(path.join(config.runtimeDir, 'last-scan.json'), {});
-    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size});
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size, missingMessages:error.missingMessages || []});
     await page.screenshot({ path: path.join(config.runtimeDir, 'last-error.png') }).catch(() => {});
     throw error;
   } finally { await context.close(); }
@@ -93,6 +105,8 @@ export async function readVisibleMessages(page, config, now = new Date()) {
   const rows = await page.locator('#main [data-id]').evaluateAll((elements) => {
     const seen = new Set();
     return elements.flatMap((element) => {
+      // Quoted IDs are references, never independent timeline messages or boundary dates.
+      if (element.closest('header, footer, [role="dialog"], [data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]')) return [];
       const id = element.getAttribute('data-id');
       if (!id || seen.has(id)) return [];
       seen.add(id);

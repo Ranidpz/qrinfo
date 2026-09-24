@@ -25,8 +25,9 @@ import AppKit
                     }
                 }
                 if CommandLine.arguments.contains("--fixture") {
+                    NSApp.appearance = NSAppearance(named: .aqua)
                     agent.testFixture = true; agent.prepared = true
-                    agent.snapshot.installed = true; agent.snapshot.connected = true; agent.snapshot.paired = true
+                    agent.snapshot.runnerVersion = agent.appVersion; agent.snapshot.installed = true; agent.snapshot.connected = true; agent.snapshot.paired = true
                     agent.snapshot.ownerEmail = "biduratias@gmail.com"; agent.snapshot.previewReady = true
                     agent.snapshot.downloadDirectory = "~/Library/Application Support/TheQContentIntake/mac-example/downloads"
                     agent.snapshot.targets = [AssignmentTarget(id: "one", title: "חוויה לדוגמה")]
@@ -38,6 +39,11 @@ import AppKit
                     agent.snapshot.lastOutcome = "העדכון הסתיים; חלק מהקבצים ממתינים לתיקון"
                     agent.snapshot.deliveryOutstanding = 1
                     agent.snapshot.pending = CommandLine.arguments.contains("--pending-fixture")
+                    if CommandLine.arguments.contains("--error-fixture") {
+                        agent.snapshot.enabled = false; agent.snapshot.previewReady = false; agent.snapshot.rows = []
+                        agent.snapshot.lastError = "HISTORY_KNOWN_MESSAGES_MISSING"
+                        agent.snapshot.missingMessages = [MissingMessage(name: "תוכניית בידור סופש 240926.pdf", receivedAt: nil)]
+                    }
                     agent.message = "בדיקת ההתאמה הסתיימה. עיינו בתוצאה לפני הפעלת הסוכן."
                 }
                 if let index = CommandLine.arguments.firstIndex(of: "--snapshot"), CommandLine.arguments.count > index + 1 {
@@ -47,10 +53,12 @@ import AppKit
                               let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
                         view.cacheDisplay(in: view.bounds, to: bitmap)
                         if let data = bitmap.representation(using: .png, properties: [:]) { try? data.write(to: URL(fileURLWithPath: output)) }
+                        if CommandLine.arguments.contains("--quit-after-snapshot") { NSApp.terminate(nil) }
                     }
                 }
             }
-        }.defaultSize(width: 880, height: 950)
+        }.defaultSize(width: 880, height: 780)
         .commands { CommandGroup(replacing: .newItem) {} }
+        Settings { AgentSettingsView(agent: agent) }
     }
 }

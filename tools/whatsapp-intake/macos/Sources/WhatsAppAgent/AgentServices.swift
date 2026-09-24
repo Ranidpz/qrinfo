@@ -59,7 +59,9 @@ struct PreviewRow: Decodable, Identifiable {
     var receivedAt: String?; var reason: String?; var warnings: [String]?
 }
 struct AssignmentTarget: Decodable, Identifiable { let id: String; let title: String }
+struct MissingMessage: Decodable { var name: String?; var receivedAt: String? }
 struct AgentSnapshot: Decodable {
+    var missingMessages: [MissingMessage]?
     var installed = false, connected = false, paired = false, enabled = false, previewReady = false
     var rows: [PreviewRow] = []
     var targets: [AssignmentTarget]?

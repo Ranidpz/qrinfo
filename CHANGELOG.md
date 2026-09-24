@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.19] - 2026-09-24
+
+- WhatsApp Agent 0.9.0 separates connection, file review and activation into a guided native workflow with fixed header/footer and a dedicated Settings scene.
+- Hide completed recovery controls; show the next required action and support export beside an actionable error. Keep Update Now available after review or while enabled.
+- Exclude quoted/header message IDs from timeline extraction. Retry incomplete read-only scans once with a fresh browser context, retaining fail-closed checks for missing history.
+- Export and display missing cached-file names and record failed scan attempt times. Do not restore unseen cached files or automatically retry writes.
+- The screenshots show the earlier batch was verified; the exact missing-message cause still requires a fresh diagnostic from Michal.
+
 ## [1.20.18] - 2026-09-24
 
 - WhatsApp Agent 0.8.2 inspects all visible message ancestors, excludes header/quote anchors and waits for delayed history layout. Ambiguous containers still block uploads.

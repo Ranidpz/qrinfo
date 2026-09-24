@@ -5,7 +5,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 async function historyPosition(page, direction) {
   return page.locator('#main').evaluate((main, direction) => {
     const visible = node => { const r=node.getBoundingClientRect();return r.height>0 && r.width>0 && getComputedStyle(node).visibility !== 'hidden'; };
-    const excluded = 'header, footer, [role="dialog"], [data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-quoted-message-id]';
+    const excluded = 'header, footer, [role="dialog"], [data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]';
     const anchors = [...main.querySelectorAll('[data-id]')].filter(n => visible(n) && !n.closest(excluded));
     const candidates = new Map();
     for (const anchor of anchors) {
@@ -85,5 +85,9 @@ export function assertHistoryOverlap(previous, current) {
 
 export function assertKnownMessagesObserved(files, observed, cutoff) {
   const missing = Object.values(files).filter(file => Date.parse(file.receivedAt) >= cutoff && !observed.has(file.messageId));
-  if (missing.length) throw Error(`HISTORY_KNOWN_MESSAGES_MISSING: ${missing.length} הודעות קובץ מסריקה קודמת לא נראו בסריקה הנוכחית; לא בוצעה העלאה.`);
+  if (missing.length) {
+    const error = Error(`HISTORY_KNOWN_MESSAGES_MISSING: ${missing.length} הודעות קובץ מסריקה קודמת לא נראו בסריקה הנוכחית; לא בוצעה העלאה.`);
+    error.missingMessages = missing.map(({messageId,name,receivedAt,sha256}) => ({messageId,name,receivedAt,sha256}));
+    throw error;
+  }
 }

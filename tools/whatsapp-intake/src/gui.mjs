@@ -33,12 +33,13 @@ export async function guiStatus(dataDir = base) {
   const lastUpdate = await readJson(path.join(runtime, 'last-update.json'), null);
   const history = await readJson(path.join(runtime, 'schedule.json'), {completed:[]});
   const activation = await readJson(path.join(runtime, 'activation.json'), null);
+  const scan = await readJson(path.join(runtime, 'last-scan.json'), {});
   const fresh = Number.isFinite(Date.parse(state.at)) && Date.now() - Date.parse(state.at) < 12 * 3600000;
   return { installed: true, runnerVersion: (await readJson(path.join(dataDir, 'app/package.json'), {})).version || null, id: config.id, groupName: config.groupName, ownerEmail: config.ownerEmail,
     connected: !!credentials.contentIntakeApiKey, paired: !!account, enabled: config.schedule.enabled === true,
-    nextCheck: nextCheck(config, new Date(), history.completed), lastCheckAt:lastCheck?.at, lastUpdateAt:lastUpdate?.at,
+    nextCheck: nextCheck(config, new Date(), history.completed), lastCheckAt:lastAttempt?.startedAt || lastCheck?.at, lastUpdateAt:lastUpdate?.at,
     lastOutcome:lastAttempt ? statusLabels[lastAttempt.outcome] || lastAttempt.outcome : null, lastError:state.code || '',
-    deliveryOutstanding:delivery.outstanding || 0, activationReason:activation?.reason || null,
+    missingMessages:state.code === 'HISTORY_KNOWN_MESSAGES_MISSING' ? scan.missingMessages || [] : [], deliveryOutstanding:delivery.outstanding || 0, activationReason:activation?.reason || null,
     state: state.state || '', previewStale: !!previewStale, syncState: sync?.state || '', pending: !!pending,
     previewReady: fresh && !previewStale && ['preview_ready','completed','completed_with_issues','no_changes'].includes(state.state) && rows.length > 0 && rows.some(r => r.status === 'matched') && !pending,
     rows, targets: (previewStale ? [] : preview?.targets || []).map(t => ({id:t.codeId, title:t.title})), downloadDirectory: path.join(runtime, 'downloads'), configFile: path.join(dataDir, 'config.json') };
@@ -85,6 +86,7 @@ export async function exportReview(dataDir = base) {
     delivery:await readJson(path.join(runtime, 'delivery-queue.json'), null),
     activation:await readJson(path.join(runtime, 'activation.json'), null),
     scan:await readJson(path.join(runtime, 'last-scan.json'), null),
+    scanRetry:await readJson(path.join(runtime, 'scan-retry.json'), null),
     collection:collection ? {scannedAt:collection.scannedAt, since:collection.since, complete:collection.complete,
       files:collection.files.map(f => ({id:localFileId(f), name:f.name, size:f.size, sha256:f.sha256, receivedAt:f.receivedAt, sourceMessageId:f.messageId}))} : null,
     matches:(preview?.matches || []).map(m => ({file:m.file,target:m.target ? {title:m.target.title,shortId:m.target.shortId}:null,status:m.status,reasons:m.reasons,warnings:m.warnings})), observations };
