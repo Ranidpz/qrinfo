@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
         });
       }
       return { runId, status, preview, results, summary, suggestedReplyAfterCommitHe,
+        computerName: typeof parent.computerName === 'string' ? parent.computerName : undefined,
         receivedAt: parent.receivedAt as string | undefined,
         reportEmail: parent.reportEmail as { sent: boolean; skipped?: boolean; error?: string } | undefined };
     });

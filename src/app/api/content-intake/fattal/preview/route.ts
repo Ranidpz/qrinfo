@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
-import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
+import { authenticateIntakeKey, resolveIntakeComputerName } from '@/lib/content-intake/fattal-server';
 import { parseEvidence } from '@/lib/content-intake/evidence';
 import { buildFattalPreview } from '@/lib/content-intake/fattal';
 import { loadMappedFattalTargets, resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     if (body.saveRun !== false) {
       preview.runId = await createContentIntakeRun({
         ownerId,
+        computerName: await resolveIntakeComputerName(ownerId, isIntegrationAuth),
         ownerEmail: typeof body.ownerEmail === 'string' ? body.ownerEmail : undefined,
         source: typeof body.source === 'string' ? body.source : 'manual',
         receivedAt: typeof body.receivedAt === 'string' ? body.receivedAt : undefined,

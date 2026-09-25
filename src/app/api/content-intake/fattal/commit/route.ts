@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { selectBatchMatches } from '@/lib/content-intake/batch-preview';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
-import { authenticateIntakeKey } from '@/lib/content-intake/fattal-server';
+import { authenticateIntakeKey, resolveIntakeComputerName } from '@/lib/content-intake/fattal-server';
 import { buildCommitReply, buildCommitSummary, hasCommitIssues, sendFattalCommitReportEmail } from '@/lib/content-intake/report';
 import { buildFattalPreview } from '@/lib/content-intake/fattal';
 import { loadMappedFattalTargets, resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
@@ -117,9 +117,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const computerName = await resolveIntakeComputerName(ownerId, isIntegrationAuth);
     // Client supplied run IDs must never overwrite another run's audit log.
     runId = await createContentIntakeRun({
       ownerId,
+      computerName,
       ownerEmail: typeof payload.ownerEmail === 'string' ? payload.ownerEmail : undefined,
       source: payload.source || 'manual',
       receivedAt: payload.receivedAt,
@@ -156,6 +158,7 @@ export async function POST(request: NextRequest) {
       ? { sent: false, deferred: true }
       : await sendFattalCommitReportEmail({
       runId,
+      computerName,
       status: finalStatus,
       preview,
       summary,
@@ -169,6 +172,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: finalStatus === 'completed',
       runId,
+      computerName,
       status: finalStatus,
       preview,
       summary,

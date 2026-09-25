@@ -125,3 +125,17 @@ export async function authenticateIntakeKey(request: NextRequest): Promise<boole
   }
   return hasValidServerApiKey(request, 'CONTENT_INTAKE_API_KEY', ['x-content-intake-key', 'x-integration-key']);
 }
+
+// Snapshot the authenticated connection's display name; never infer a machine from another owner's latest heartbeat.
+export async function resolveIntakeComputerName(ownerId: string, auth: boolean | IntakeKeyScope): Promise<string | undefined> {
+  if (!auth || typeof auth !== 'object' || auth.ownerId !== ownerId) return undefined;
+  const db = getAdminDb();
+  const record = (await db.collection('contentIntakeConnections').doc(auth.connectionId).get()).data();
+  if (!record || record.ownerId !== ownerId || record.workflow !== 'fattal-booklets') return undefined;
+  if (typeof record.name === 'string' && record.name.trim()) return record.name.trim().slice(0,80);
+  if (typeof record.agentId !== 'string') return undefined;
+  const key = createHash('sha256').update(`${ownerId}:${record.agentId}`).digest('hex');
+  const agent = (await db.collection('contentIntakeAgents').doc(key).get()).data();
+  return agent?.ownerId === ownerId && agent.connectionId === auth.connectionId && typeof agent.computerName === 'string'
+    ? agent.computerName.trim().slice(0,80) || undefined : undefined;
+}

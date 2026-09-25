@@ -10,6 +10,7 @@ export const CONTENT_INTAKE_RUNS_COLLECTION = 'contentIntakeRuns';
 export const CONTENT_INTAKE_FILE_UPDATES_COLLECTION = 'contentIntakeFileUpdates';
 
 interface CreateRunParams {
+  computerName?: string;
   batchPreviewRunId?: string;
   ownerId: string;
   ownerEmail?: string;
@@ -37,6 +38,7 @@ export async function createContentIntakeRun(params: CreateRunParams): Promise<s
     batchPreviewRunId: params.batchPreviewRunId,
     ownerId: params.ownerId,
     ownerEmail: params.ownerEmail,
+    computerName: params.computerName,
     source: params.source || 'manual',
     receivedAt: params.receivedAt,
     createdBy: params.createdBy,

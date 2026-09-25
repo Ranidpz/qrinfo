@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.20';
+export const APP_VERSION = '1.20.21';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.20.21', date: '2026-09-25', isNew: true, highlights: {
+    he: ['מיילים מסוכן וואטסאפ: שם המחשב, סיכום קצר והנחיה ברורה, עם שמות הקבצים ומועדי העדכון'],
+    en: ['WhatsApp Agent emails: named computer, concise outcome and next steps, with filenames and update times'],
+  } },
   { version: '1.20.20', date: '2026-09-24', isNew: true, highlights: {
     he: ['סוכן וואטסאפ 0.9.1: מניעת שינה מאומתת ופתיחת מחזור חדש אחרי עדכון ידני'],
     en: ['WhatsApp Agent 0.9.1: verified idle sleep prevention and a new cycle after manual completion'],

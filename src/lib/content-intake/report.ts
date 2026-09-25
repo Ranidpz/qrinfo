@@ -5,6 +5,7 @@ const FATTAL_REPORT_EMAIL_TO = process.env.FATTAL_REPORT_EMAIL_TO || 'info@playz
 
 export async function sendFattalCommitReportEmail(params: {
   runId: string;
+  computerName?: string;
   status: ContentIntakeRunStatusForReport;
   preview: ContentIntakePreview;
   summary: ReturnType<typeof buildCommitSummary>;
@@ -38,6 +39,7 @@ type ContentIntakeRunStatusForReport = 'completed' | 'completed_with_issues';
 
 export function buildFattalReportEmail(params: {
   runId: string;
+  computerName?: string;
   status: ContentIntakeRunStatusForReport;
   preview: ContentIntakePreview;
   summary: ReturnType<typeof buildCommitSummary>;
@@ -45,91 +47,35 @@ export function buildFattalReportEmail(params: {
   suggestedReplyAfterCommitHe: string;
   receivedAt?: string;
 }) {
-  const dateLabel = formatHebrewDate(params.preview.generatedAt);
-  const reportSlotLabel = getFattalReportSlotLabel(params.receivedAt || params.preview.generatedAt);
-  const statusLabel = params.status === 'completed' ? 'הושלם' : 'הושלם עם חוסרים / בדיקה';
-  const updated = params.results.filter((result) => result.status === 'updated');
-  const skippedDuplicates = params.results.filter((result) => result.status === 'skipped_duplicate');
-  const skipped = params.results.filter((result) => result.status === 'skipped');
-  const failed = params.results.filter((result) => result.status === 'failed');
-  const missing = params.preview.missingTargets.map((item) => item.target.title);
-
+  const dateLabel = formatHebrewDate(params.receivedAt || params.preview.generatedAt);
+  const computer = params.computerName?.trim() || 'שם המחשב לא תועד';
+  const updated = params.results.filter(result => result.status === 'updated');
+  const duplicates = params.results.filter(result => result.status === 'skipped_duplicate');
+  const skipped = params.results.filter(result => result.status === 'skipped');
+  const failed = params.results.filter(result => result.status === 'failed');
+  const missing = params.preview.missingTargets.map(item => item.target.title);
+  const summary = `עודכנו: ${updated.length} · כבר היו מעודכנים: ${duplicates.length} · לא עודכנו: ${skipped.length + failed.length}`;
+  const actions = [
+    ...(skipped.length ? ['בקשו בקבוצה קובץ עם שם החוויה או המיקום, והבהרה איזו גרסה נכונה אם נשלחו כמה.'] : []),
+    ...(failed.length ? ['לא התקבל אישור לחלק מהעדכונים. פתחו את הסוכן במחשב המצוין ובדקו את ההודעה לפני ניסיון נוסף.'] : []),
+    ...(missing.length ? ['בדקו אם נדרשת חוברת חדשה ליעדים שברשימת החוסרים.'] : []),
+  ].join(' ') || 'אין צורך בפעולה.';
+  const groups: [string, ContentIntakeCommitResult[]][] = [['עודכנו',updated],['כבר היו מעודכנים',duplicates],['לא עודכנו — דרושה הבהרה',skipped],['לא התקבל אישור לעדכון',failed]];
+  const subject = `סוכן וואטסאפ | ${computer} | עודכנו ${updated.length} חוברות${skipped.length + failed.length ? ' — נדרשת בדיקה' : ''}`;
   const text = [
-    `דוח עדכון חוברות פתאל - ${dateLabel}`,
-    '',
-    'הבוט של פלייזון סיים עדכון חוברות פתאל.',
-    `מועד הבדיקה: ${dateLabel} (שעון ישראל)`,
-    `פעימת דיווח: ${reportSlotLabel}`,
-    `סטטוס: ${statusLabel}`,
-    `מזהה ריצה: ${params.runId}`,
-    '',
-    `סה"כ קבצים: ${params.summary.totalFiles}`,
-    `הותאמו: ${params.summary.matched}`,
-    `עודכנו בפועל: ${params.summary.updated}`,
-    `כבר היו מעודכנים: ${params.summary.skippedDuplicate}`,
-    `דורשים בדיקה ידנית: ${params.summary.skipped}`,
-    `נכשלו: ${params.summary.failed}`,
-    `חסרים: ${params.summary.missingTargets}`,
-    '',
-    sectionText('עודכנו', updated.map(fileDetailsText)),
-    '',
-    sectionText('כבר היו מעודכנים', skippedDuplicates.map(fileDetailsText)),
-    '',
-    sectionText('חסרים', missing),
-    '',
-    sectionText(
-      'דורשים בדיקה ידנית',
-      skipped.map(fileDetailsText)
-    ),
-    '',
-    sectionText(
-      'שגיאות',
-      failed.map(fileDetailsText)
-    ),
-    '',
-    'הודעה מוצעת לוואטסאפ:',
-    params.suggestedReplyAfterCommitHe,
+    'סיכום עדכון חוברות פתאל דרך וואטסאפ', `מחשב: ${computer}`, `מועד הבדיקה: ${dateLabel} (שעון ישראל)`, '',
+    summary, `מה צריך לעשות: ${actions}`,
+    ...groups.filter(([,items]) => items.length).map(([title,items]) => '\n'+sectionText(title,items.map(fileDetailsText))),
+    ...(missing.length ? ['\nלא התקבל קובץ מתאים בבדיקה הזו: '+missing.join(', '), 'החוברות הקיימות ביעדים האלה לא שונו; הרשימה אינה מעידה שהן אינן מעודכנות.'] : []),
   ].join('\n');
-
-  const html = `
-    <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 680px; margin: 0 auto; color: #111827; line-height: 1.55;">
-      <h2 style="margin: 0 0 12px; color: #111827;">דוח עדכון חוברות פתאל</h2>
-      <p style="margin: 0 0 16px;">הבוט של פלייזון סיים עדכון חוברות פתאל.</p>
-
-      <table style="border-collapse: collapse; width: 100%; margin: 0 0 20px; background: #f9fafb; border: 1px solid #e5e7eb;">
-        ${summaryRow('מועד הבדיקה (שעון ישראל)', dateLabel)}
-        ${summaryRow('פעימת דיווח', reportSlotLabel)}
-        ${summaryRow('סטטוס', statusLabel)}
-        ${summaryRow('מזהה ריצה', params.runId)}
-        ${summaryRow('סה"כ קבצים', String(params.summary.totalFiles))}
-        ${summaryRow('הותאמו', String(params.summary.matched))}
-        ${summaryRow('עודכנו בפועל', String(params.summary.updated))}
-        ${summaryRow('כבר היו מעודכנים', String(params.summary.skippedDuplicate))}
-        ${summaryRow('דורשים בדיקה ידנית', String(params.summary.skipped))}
-        ${summaryRow('נכשלו', String(params.summary.failed))}
-        ${summaryRow('חסרים', String(params.summary.missingTargets))}
-      </table>
-
-      ${fileSectionHtml('עודכנו', updated)}
-      ${fileSectionHtml('כבר היו מעודכנים', skippedDuplicates)}
-      ${sectionHtml('חסרים', missing)}
-      ${fileSectionHtml('דורשים בדיקה ידנית', skipped)}
-      ${fileSectionHtml('שגיאות', failed)}
-
-      <h3 style="margin: 20px 0 8px; font-size: 16px;">הודעה מוצעת לוואטסאפ</h3>
-      <pre style="white-space: pre-wrap; direction: rtl; text-align: right; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; font-family: Arial, sans-serif;">${escapeHtml(params.suggestedReplyAfterCommitHe)}</pre>
-
-      <p style="color: #6b7280; font-size: 12px; margin-top: 24px;">
-        הודעה אוטומטית ממערכת The Q
-      </p>
-    </div>
-  `;
-
-  return {
-    subject: `דוח עדכון חוברות פתאל - ${dateLabel}`,
-    html,
-    text,
-  };
+  const html = `<div dir="rtl" lang="he" style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#111827;font-size:16px;line-height:1.55">
+    <h2 style="font-size:20px;margin:0 0 12px">סיכום עדכון חוברות פתאל דרך וואטסאפ</h2>
+    <p>מחשב: <b>${escapeHtml(computer)}</b><br>מועד הבדיקה: ${escapeHtml(dateLabel)} (שעון ישראל)</p>
+    <p><b>${escapeHtml(summary)}</b></p><p>מה צריך לעשות: ${escapeHtml(actions)}</p>
+    ${groups.filter(([,items])=>items.length).map(([title,items])=>fileSectionHtml(title,items)).join('')}
+    ${missing.length ? sectionHtml('לא התקבל קובץ מתאים בבדיקה הזו',missing)+'<p>החוברות הקיימות ביעדים האלה לא שונו; הרשימה אינה מעידה שהן אינן מעודכנות.</p>' : ''}
+    <p style="font-size:12px;color:#6b7280">הודעה אוטומטית ממערכת The Q</p></div>`;
+  return {subject,text,html};
 }
 
 function fileDetails(result: ContentIntakeCommitResult): [string, string][] {
@@ -139,15 +85,19 @@ function fileDetails(result: ContentIntakeCommitResult): [string, string][] {
     [result.status === 'updated' || result.status === 'skipped_duplicate' ? 'שם הקובץ שהועלה' : 'שם הקובץ שהתקבל', result.filename],
     ['סטטוס', statuses[result.status]],
   ];
-  if (result.shortId || result.codeId) rows.push(['מזהה חוויה', result.shortId || result.codeId!]);
   if (result.status === 'updated' || result.status === 'skipped_duplicate') {
     rows.push([result.status === 'skipped_duplicate' ? 'מועד העדכון המקורי (שעון ישראל)' : 'מועד העדכון (שעון ישראל)', formatHebrewDate(result.updatedAt)]);
+  } else if (result.status === 'skipped') {
+    const reasons: Record<string,string> = {
+      duplicate:'התקבלו כמה גרסאות לאותה חוויה. יש להבהיר איזו גרסה נכונה.',
+      unmatched:'לא זוהה יעד לקובץ. יש להוסיף את שם החוויה או המיקום.',
+      needs_review:'השיוך או התאריך דורשים הבהרה לפני העדכון.',
+      manual_excluded:'הקובץ הוחרג מהעדכון בבדיקה ידנית.',
+    };
+    rows.push(['מה נדרש',reasons[result.reason || ''] || 'יש לבדוק את שיוך הקובץ ואת הגרסה לפני עדכון.']);
+  } else {
+    rows.push(['מה נדרש','בדקו בסוכן מה בוצע לפני ניסיון נוסף.']);
   }
-  if (result.assignmentReason) rows.push(['מקור השיוך', result.assignmentReason]);
-  if (result.sourceMessageId) rows.push(['מזהה הודעת המקור', result.sourceMessageId]);
-  if (result.reason) rows.push(['פירוט', result.reason]);
-  if (result.error) rows.push(['שגיאה', result.error]);
-  if (result.warning) rows.push(['הערה', result.warning]);
   return rows;
 }
 
@@ -157,7 +107,7 @@ function safePdfUrl(url?: string): string | null {
 }
 function fileDetailsText(result: ContentIntakeCommitResult): string {
   const rows = fileDetails(result).map(([label, value]) => `${label}: ${value}`);
-  const pdf = safePdfUrl(result.url);
+  const pdf = ['updated','skipped_duplicate'].includes(result.status) ? safePdfUrl(result.url) : null;
   if (pdf) rows.push(`הקובץ שעלה: ${pdf}`);
   if (result.shortId) rows.push(`החוויה: https://qr.playzones.app/v/${encodeURIComponent(result.shortId)}`);
   return rows.join('\n   ');
@@ -165,7 +115,7 @@ function fileDetailsText(result: ContentIntakeCommitResult): string {
 function fileSectionHtml(title: string, results: ContentIntakeCommitResult[]): string {
   if (!results.length) return sectionHtml(title, []);
   return `<h3 style="margin:18px 0 8px;font-size:16px">${escapeHtml(title)}</h3>` + results.map(result => {
-    const pdf = safePdfUrl(result.url);
+    const pdf = ['updated','skipped_duplicate'].includes(result.status) ? safePdfUrl(result.url) : null;
     const links = [
       ...(pdf ? [`<a href="${escapeHtml(pdf)}">פתיחת הקובץ שעלה</a>`] : []),
       ...(result.shortId ? [`<a href="https://qr.playzones.app/v/${encodeURIComponent(result.shortId)}">פתיחת החוויה</a>`] : []),
@@ -199,22 +149,6 @@ function summaryRow(label: string, value: string): string {
       <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; overflow-wrap: anywhere; word-break: break-word;"><bdi>${escapeHtml(value)}</bdi></td>
     </tr>
   `;
-}
-
-function getFattalReportSlotLabel(value?: string): string {
-  const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return 'ריצה ידנית';
-
-  const hourInIsrael = Number(new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Jerusalem',
-    hour: '2-digit',
-    hour12: false,
-  }).format(date));
-
-  if (hourInIsrael < 12) return 'חלון בוקר — בדיקה מתוזמנת ב־10:05';
-  if (hourInIsrael < 14) return 'חלון בדיקת המשך — 12:00';
-  if (hourInIsrael < 15) return 'חלון בדיקת המשך — 14:00';
-  return 'ריצה ידנית / השלמה מאוחרת';
 }
 
 function formatHebrewDate(value?: string): string {

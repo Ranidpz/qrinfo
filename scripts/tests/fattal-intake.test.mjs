@@ -254,7 +254,8 @@ test('batch audit locks active commits, closes after completion and sends one st
   });
   const file = candidate('הרודס אילת.pdf', 'one');
   const all = preview([file]);
-  const parentId = await runs.createContentIntakeRun({ ownerId: 'fattal-owner', status: 'previewed', preview: all });
+  const parentId = await runs.createContentIntakeRun({ ownerId: 'fattal-owner', status: 'previewed', preview: all, computerName:'המק של מיכל' });
+  assert.equal(records.get(parentId).computerName,'המק של מיכל');
   const childId = await runs.createContentIntakeRun({ ownerId: 'fattal-owner', status: 'committing', preview: all, batchPreviewRunId: parentId });
   assert.equal(records.get(parentId).activeCommits, 1);
   const result = { fileId: 'one', filename: file.name, codeId: 'herods-eilat', status: 'updated' };
@@ -263,7 +264,7 @@ test('batch audit locks active commits, closes after completion and sends one st
     buildCommitReply,
     buildCommitSummary: (_p, results) => ({ updated: results.filter((r) => r.status === 'updated').length }),
     hasCommitIssues: () => true,
-    sendFattalCommitReportEmail: async () => { mailCount++; return { sent: true }; },
+    sendFattalCommitReportEmail: async (report) => { assert.equal(report.computerName,'המק של מיכל'); mailCount++; return { sent: true }; },
   };
   const exportsStub = (names) => stub(names.map((name) => `export const ${name}=(...args)=>globalThis.fattalTestFns.${name}(...args);`).join('\n'));
   try {
@@ -417,12 +418,13 @@ test('report pairs the experience title with the exact filename and original Isr
     { status: 'failed', title: 'טבריה', filename: 'לא עלה.pdf', url: 'javascript:alert(1)', error: 'Upload failed' },
   ];
   const all = preview([candidate('הרודס אילת.pdf')]);
-  const report = buildFattalReportEmail({ runId: 'audit-run', preview: all, status: 'completed_with_issues', results, summary: buildCommitSummary(all, results), suggestedReplyAfterCommitHe: 'summary' });
+  const report = buildFattalReportEmail({ runId: 'audit-run', computerName: 'המק של מיכל', preview: all, status: 'completed_with_issues', results, summary: buildCommitSummary(all, results), suggestedReplyAfterCommitHe: 'summary' });
   assert.match(report.text, /שם החוויה במערכת: חוויה <אילת>[\s\S]*שם הקובץ שהועלה: קובץ אחר & חדש.pdf/);
   assert.match(report.text, /מועד העדכון \(שעון ישראל\): 20\.09\.2026,? 15:09:42/);
   assert.match(report.text, /מועד העדכון המקורי \(שעון ישראל\): 01\.01\.2026,? 10:01:02/);
   assert.match(report.text, /שם הקובץ שהתקבל: לא עלה.pdf/);
-  assert.match(report.text, /מזהה ריצה: audit-run/);
+  assert.match(report.text, /מחשב: המק של מיכל/);
+  assert.doesNotMatch(report.text, /audit-run|פעימת דיווח|Upload failed|הודעה מוצעת/);
   assert.match(report.html, /חוויה &lt;אילת&gt;/);
   assert.match(report.html, /קובץ אחר &amp; חדש.pdf/);
   assert.match(report.html, /href="https:\/\/qr.playzones.app\/v\/abc123"/);
