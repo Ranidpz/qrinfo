@@ -21,7 +21,7 @@
     "saved": "Saved — hide key",
     "downloadTitle": "2. Mac software",
     "downloadDescription": "A Mac app with guided setup: system connection, WhatsApp pairing, booklet preview and activation, without commands. No Codex or ChatGPT account required.",
-    "downloadMac": "Download Mac app · 0.9.2",
+    "downloadMac": "Download Mac app · 0.9.3",
     "requirements": "macOS 14 or later, Apple Silicon and Intel. Runtime and browser download automatically on first setup. No manual Node.js installation.",
     "checksum": "Download file checksum (SHA-256)",
     "instructions": "3. Install and connect",

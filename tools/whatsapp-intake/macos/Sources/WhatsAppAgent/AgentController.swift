@@ -83,6 +83,18 @@ import UniformTypeIdentifiers
             self.message = "הבדיקה הסתיימה. עיינו בשם החוויה ובשם הקובץ לפני ההפעלה."
         }
     }
+    func reconfirmConnection() {
+        let alert = NSAlert(); alert.messageText = "זה אותו חשבון וואטסאפ ואותה קבוצה?"
+        alert.informativeText = "אשרו רק אם התחברתם מחדש לאותו חשבון עסקי ששימש קודם, בקבוצה ״\(snapshot.groupName ?? "חוברות QR פתאל")״, עבור \(snapshot.ownerEmail ?? "החשבון המחובר"). נשמור את מועד תחילת המחזור ואת היסטוריית הקבצים. זו אינה הצהרה שהחוברות כבר עודכנו. אם זה חשבון אחר, לחצו ביטול."
+        alert.addButton(withTitle: "כן, אותו חשבון והמשך"); alert.addButton(withTitle: "ביטול")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        perform("מאשרים את החיבור מחדש ובודקים את הקבצים ללא העלאה…") {
+            await self.stopBrowser()
+            try await self.checked(self.installedScript, ["reconfirm-cycle", "--confirm-same-account"])
+            try await self.checked(self.cli, ["run"] + self.configArguments)
+            self.message = "החיבור אושר והבדיקה הסתיימה. עיינו בהתאמות לפני הפעלת האוטומציה."
+        }
+    }
     func preview() {
         perform("בודקים התאמות ללא העלאה…") {
             try await self.checked(self.cli, ["run"] + self.configArguments)
@@ -153,7 +165,7 @@ import UniformTypeIdentifiers
         if text.contains("WRONG_ATTACHMENT_PREVIEW") || text.contains("WRONG_ATTACHMENT_DOWNLOAD") { return "לא ניתן לאמת שהקובץ שנפתח בוואטסאפ הוא הקובץ שנבחר. לא בוצעה העלאה בבדיקה הזו. לחצו על בדיקה ללא העלאה; אם התקלה חוזרת, יצאו דוח לתמיכה." }
         if text.contains("POWER_GUARD") { return "מניעת השינה לא אומתה ולכן האוטומציה לא הופעלה. בדקו שהפעילות ברקע מותרת למערכת ונסו להפעיל שוב." }
         if text.contains("PAUSE_BEFORE_NEW_CYCLE") { return "יש לעצור את האוטומציה לפני פתיחת מחזור חדש." }
-        if text.contains("CYCLE_SCOPE_CHANGED") { return "פרטי החיבור השתנו מאז פתיחת המחזור. בדקו את החיבור ופתחו מחזור חדש לאחר אישור שהקבצים הקודמים טופלו." }
+        if text.contains("CYCLE_SCOPE_CHANGED") { return "פרטי החיבור השתנו מאז פתיחת המחזור. אם התחברתם לאותו חשבון, לחצו על אישור אותו חשבון והמשך. אם השתנו בעל החשבון או הקבוצה, נדרש בירור החיבור." }
         if text.contains("HISTORY_KNOWN_MESSAGES_MISSING") { return "סריקת הקבוצה אינה מלאה: קובץ שנראה קודם לא נמצא גם בבדיקה חוזרת. לא בוצעה העלאה. יצאו דוח בדיקה כדי שנוכל לברר מה חסר." }
         if text.contains("HISTORY_GAP_DETECTED") || text.contains("LATEST_MESSAGES_CHANGED") || text.contains("HISTORY_BOUNDARY_NOT_VERIFIED") { return "לא הצלחנו לוודא שכל ההודעות נטענו. לא בוצעה העלאה. נסו בדיקה נוספת; אם התקלה חוזרת, יצאו דוח בדיקה." }
         if text.contains("WHATSAPP_SCROLL_CONTAINER") || text.contains("LATEST_MESSAGES_NOT_VERIFIED") { return "לא ניתן לזהות עדיין את אזור ההודעות בוואטסאפ. לא בוצעה העלאה. נסו שוב; אם התקלה חוזרת, יצאו דוח בדיקה." }

@@ -64,6 +64,7 @@ struct PowerStatus: Decodable { var active: Bool; var reason: String? }
 struct AgentSnapshot: Decodable {
     var power: PowerStatus?
     var missingMessages: [MissingMessage]?
+    var cycleReconnectRequired: Bool?
     var cycleStartedAt: String?
     var emptyCycleReady: Bool?
     var installed = false, connected = false, paired = false, enabled = false, previewReady = false

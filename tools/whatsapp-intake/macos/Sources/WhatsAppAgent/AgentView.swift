@@ -4,7 +4,7 @@ struct AgentView: View {
     @ObservedObject var agent: AgentController
     private var flow: AgentWorkflow { .resolve(agent.snapshot, prepared: agent.prepared, appVersion: agent.appVersion) }
     private var problem: String { !agent.error.isEmpty ? agent.error : (flow == .prepare ? "" : agent.friendly(agent.snapshot.lastError ?? "")) }
-    private var blocked: Bool { agent.busy || (agent.connecting && flow != .confirm) }
+    private var blocked: Bool { agent.busy || (agent.connecting && flow != .confirm && flow != .reconfirm) }
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -85,7 +85,7 @@ struct AgentView: View {
     private var footer: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(agent.busy ? "הפעולה מתבצעת…" : agent.connecting && flow != .confirm ? "ממתינים לחיבור בחלון וואטסאפ…" : flow.button).font(.headline)
+                Text(agent.busy ? "הפעולה מתבצעת…" : agent.connecting && flow != .confirm && flow != .reconfirm ? "ממתינים לחיבור בחלון וואטסאפ…" : flow.button).font(.headline)
                 Text(agent.snapshot.enabled ? "המק צריך להישאר דולק, מחובר ולא ישן." : "הפעולה הבאה זמינה כאן תמיד.").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -104,6 +104,7 @@ struct AgentView: View {
         case .importKey: agent.importKey()
         case .connect: agent.connect()
         case .confirm: agent.confirmAndPreview()
+        case .reconfirm: agent.reconfirmConnection()
         case .recover: agent.recover()
         case .preview: agent.preview()
         case .activate: agent.activate()

@@ -18,7 +18,11 @@ func XCTAssertEqual<T: Equatable>(_ a: T, _ b: T) { precondition(a == b, "Unexpe
         var s = AgentSnapshot(); s.runnerVersion = "new"; s.connected = true; s.paired = true
         s.pending = true; s.previewReady = true
         XCTAssertEqual(AgentWorkflow.resolve(s, prepared: true, appVersion: "new"), .recover)
-        s.pending = false; s.previewReady = false; s.lastError = "HISTORY_KNOWN_MESSAGES_MISSING"
+        s.cycleReconnectRequired = true
+        XCTAssertEqual(AgentWorkflow.resolve(s, prepared: true, appVersion: "new"), .recover)
+        s.pending = false
+        XCTAssertEqual(AgentWorkflow.resolve(s, prepared: true, appVersion: "new"), .reconfirm)
+        s.cycleReconnectRequired = false; s.previewReady = false; s.lastError = "HISTORY_KNOWN_MESSAGES_MISSING"
         XCTAssertEqual(AgentWorkflow.resolve(s, prepared: true, appVersion: "new"), .preview)
         s.previewReady = true
         XCTAssertEqual(AgentWorkflow.resolve(s, prepared: true, appVersion: "new"), .activate)

@@ -1,5 +1,5 @@
 import {powerStatus} from './power.mjs';
-import {startManualCycle,loadCycle,cycleSchedule} from './cycle.mjs';
+import {startManualCycle,loadCycle,cycleSchedule,canReconfirmCycle,reconfirmCycle} from './cycle.mjs';
 import {runnerVersion} from './version.mjs';
 // Native application bridge. No local HTTP server, credentials in argv or shell interpolation.
 import {nextCheck, statusLabels} from './activity.mjs';
@@ -27,6 +27,8 @@ export async function guiStatus(dataDir = base) {
   ]);
   let cycleError = null;
   const cycle = await loadCycle({...config,runtimeDir:runtime}).catch(error=>{cycleError=error.message;return null;});
+  const savedCycle = await readJson(path.join(runtime, 'cycle-baseline.json'), null);
+  const cycleReconnectRequired = cycleError === 'CYCLE_SCOPE_CHANGED' && canReconfirmCycle(config, savedCycle, account);
   const emptyCycleReady = !!cycle && state.state === 'no_files' && collection?.complete === true
     && collection.files?.length === 0 && Date.parse(collection.since) >= Date.parse(cycle.at)
     && Date.parse(collection.scannedAt) >= Date.parse(cycle.at) && sync?.state === 'synced';
@@ -47,7 +49,7 @@ export async function guiStatus(dataDir = base) {
     power:config.schedule.enabled ? await powerStatus(config.id) : {active:false,reason:'schedule_disabled'}, cycleStartedAt:cycle?.at || null, emptyCycleReady, nextCheck: nextCheck(cycleSchedule(config,cycle), new Date(), history.completed), lastCheckAt:lastAttempt?.startedAt || lastCheck?.at, lastUpdateAt:lastUpdate?.at,
     lastOutcome:lastAttempt ? statusLabels[lastAttempt.outcome] || lastAttempt.outcome : null, lastError:cycleError || state.code || '',
     missingMessages:state.code === 'HISTORY_KNOWN_MESSAGES_MISSING' ? scan.missingMessages || [] : [], deliveryOutstanding:delivery.outstanding || 0, activationReason:activation?.reason || null,
-    state: state.state || '', previewStale: !!previewStale, syncState: sync?.state || '', pending: !!pending,
+    cycleReconnectRequired, state: state.state || '', previewStale: !!previewStale, syncState: sync?.state || '', pending: !!pending,
     previewReady: fresh && !pending && !cycleError && (emptyCycleReady || (!previewStale && ['preview_ready','completed','completed_with_issues','no_changes'].includes(state.state) && rows.some(r => r.status === 'matched'))),
     rows, targets: (previewStale ? [] : preview?.targets || []).map(t => ({id:t.codeId, title:t.title})), downloadDirectory: path.join(runtime, 'downloads'), configFile: path.join(dataDir, 'config.json') };
 }
@@ -80,6 +82,7 @@ export async function exportReview(dataDir = base) {
     readJson(path.join(runtime, 'last-collection.json'), null), readJson(path.join(runtime, 'status.json'), {}),
     readJson(path.join(runtime, 'pending.json'), null), readJson(path.join(dataDir, 'app/package.json'), {}),
   ]);
+  const approval = await readJson(path.join(runtime, 'account.json'), null);
   return { exportedAt:new Date().toISOString(), runnerVersion:installed.version || null,
     state:status.state, stateAt:status.at, errorCode:status.code, pending:!!pending,
     previewGeneratedAt:preview?.generatedAt, batchProtocolVersion:preview?.batchProtocolVersion,
@@ -95,6 +98,8 @@ export async function exportReview(dataDir = base) {
     scan:await readJson(path.join(runtime, 'last-scan.json'), null),
     power:(await guiStatus(dataDir)).power,
     cycle:await readJson(path.join(runtime, 'cycle-baseline.json'), null),
+    cycleReconnectRequired:(await guiStatus(dataDir)).cycleReconnectRequired,
+    cycleScope:{integrationId:config.id,ownerEmail:config.ownerEmail,groupName:config.groupName,accountLabel:config.accountLabel,account:approval ? {integrationId:approval.integrationId,groupName:approval.groupName,accountLabel:approval.accountLabel,confirmedAt:approval.confirmedAt} : null},
     scanRetry:await readJson(path.join(runtime, 'scan-retry.json'), null),
     collection:collection ? {scannedAt:collection.scannedAt, since:collection.since, complete:collection.complete,
       files:collection.files.map(f => ({id:localFileId(f), name:f.name, size:f.size, sha256:f.sha256, receivedAt:f.receivedAt, sourceMessageId:f.messageId}))} : null,
@@ -102,6 +107,7 @@ export async function exportReview(dataDir = base) {
 }
 async function main() {
   const action = process.argv[2];
+  if (action === 'reconfirm-cycle') { await reconfirmCycle(base,{confirmedSameAccount:process.argv.includes('--confirm-same-account')}); return; }
   if (action === 'new-cycle') { await startManualCycle(base,{confirmed:process.argv.includes('--manual-completion-confirmed')}); return; }
   if (action === 'assign') { await saveAssignment(base, process.argv[3], process.argv[4]); return; }
   if (action === 'export-review') {

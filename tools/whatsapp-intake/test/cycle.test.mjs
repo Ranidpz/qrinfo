@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {startManualCycle,loadCycle,cycleSince,cycleSchedule} from '../src/cycle.mjs';
+import {startManualCycle,loadCycle,cycleSince,cycleSchedule,reconfirmCycle,canReconfirmCycle} from '../src/cycle.mjs';
 import {writeJson,readJson} from '../src/storage.mjs';
 import {guiStatus} from '../src/gui.mjs';
 import {slotDue} from '../src/messages.mjs';
@@ -71,4 +71,50 @@ test('runner uses the explicit cutoff for read-only scan and does not replay an 
   assert.equal(scans,1);assert.equal((await readJson(path.join(runtime,'attempts.json'))).at(-1).outcome,'not_due');
   assert.ok(requests.length>0);
  }finally{globalThis.fetch=originalFetch;await rm(base,{recursive:true,force:true});}
+});
+
+test('same-account reconnection retains the original cutoff and evidence, requires explicit confirmation and refuses scope changes', async()=>{
+ const base=await mkdtemp(path.join(os.tmpdir(),'theq-reconnect-')), runtime=path.join(base,'machine');
+ const originalAt='2026-09-25T03:51:34.514Z', oldAt='2026-09-24T16:38:35.074Z', newAt='2026-09-30T07:04:00.000Z';
+ const config={id:'machine',ownerEmail:'owner@example.com',groupName:'Test',accountLabel:'Business',runtimeDir:runtime,schedule:{enabled:false,checks:[{weekday:4,time:'10:05'}]}};
+ const original={id:'original-cycle',at:originalAt,reason:'operator_confirmed_manual_completion',integrationId:config.id,ownerEmail:config.ownerEmail,groupName:config.groupName,accountConfirmedAt:oldAt};
+ const account={integrationId:config.id,groupName:config.groupName,accountLabel:config.accountLabel,confirmedAt:newAt};
+ try {
+  await writeJson(path.join(base,'config.json'),config);
+  await writeJson(path.join(runtime,'cycle-baseline.json'),original);
+  await writeJson(path.join(runtime,'account.json'),account);
+  await writeJson(path.join(runtime,'credentials.json'),{contentIntakeApiKey:'test-only'});
+  await writeJson(path.join(base,'app/package.json'),{version:'test'});
+  const unchanged=['messages.json','assignments.json','schedule.json','last-report.json','cycles/original-cycle.json'];
+  for (const f of unchanged) await writeJson(path.join(runtime,f),{evidence:f,at:originalAt});
+  const bytes=await Promise.all(unchanged.map(f=>readFile(path.join(runtime,f),'utf8')));
+  assert.equal(canReconfirmCycle(config,original,account),true);
+  assert.equal((await guiStatus(base)).cycleReconnectRequired,true);
+  await assert.rejects(loadCycle(config),/CYCLE_SCOPE_CHANGED/);
+  await assert.rejects(reconfirmCycle(base),/SAME_ACCOUNT_CONFIRMATION_REQUIRED/);
+  await writeJson(path.join(runtime,'pending.json'),{uncertain:true});
+  await assert.rejects(reconfirmCycle(base,{confirmedSameAccount:true}),/UNCONFIRMED_BATCH/);
+  await rm(path.join(runtime,'pending.json'));
+  await writeJson(path.join(base,'config.json'),{...config,schedule:{...config.schedule,enabled:true}});
+  await assert.rejects(reconfirmCycle(base,{confirmedSameAccount:true}),/PAUSE_BEFORE_RECONFIRM/);
+  await writeJson(path.join(base,'config.json'),config);
+  for(const field of ['ownerEmail','groupName','id']) {
+   const changed={...config,[field]:'different'};
+   assert.equal(canReconfirmCycle(changed,original,account),false);
+  }
+  await writeJson(path.join(runtime,'account.json'),{...account,accountLabel:'Different account'});
+  await assert.rejects(reconfirmCycle(base,{confirmedSameAccount:true}),/CYCLE_SCOPE_CHANGED/);
+  await writeJson(path.join(runtime,'account.json'),account);
+  const audit=await reconfirmCycle(base,{confirmedSameAccount:true,now:new Date(newAt)});
+  const cycle=await loadCycle(config);
+  assert.equal(cycle.id,original.id); assert.equal(cycle.at,originalAt);
+  assert.equal(cycle.accountConfirmedAt,newAt);
+  assert.equal(audit.previousConfirmedAt,oldAt); assert.equal(audit.cycleStartedAt,originalAt);
+  assert.deepEqual(await readJson(path.join(runtime,'cycle-reconnections',audit.id+'.json')),audit);
+  assert.equal((await guiStatus(base)).cycleReconnectRequired,false);
+  assert.equal((await guiStatus(base)).previewReady,false);
+  assert.deepEqual(await Promise.all(unchanged.map(f=>readFile(path.join(runtime,f),'utf8'))),bytes);
+  assert.deepEqual(await readJson(path.join(base,'config.json')),config);
+  assert.throws(()=>assertKnownMessagesObserved({a:{messageId:'unseen',receivedAt:newAt}},new Map(),Date.parse(cycle.at)),/HISTORY_KNOWN/);
+ } finally { await rm(base,{recursive:true,force:true}); }
 });

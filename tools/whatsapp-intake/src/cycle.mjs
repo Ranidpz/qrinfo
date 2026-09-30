@@ -41,3 +41,35 @@ export function cycleSchedule(config,cycle) {
   const effectiveAfter=cycleSince(config.schedule.effectiveAfter || '1970-01-01T00:00:00.000Z',cycle);
   return {...config,schedule:{...config.schedule,effectiveAfter}};
 }
+
+// Reconfirmation is an explicit same-account declaration, not a new manual-completion cutoff.
+export function canReconfirmCycle(config, cycle, account) {
+  return !!cycle && cycle.reason === 'operator_confirmed_manual_completion'
+    && Number.isFinite(Date.parse(cycle.at)) && cycle.integrationId === config.id
+    && cycle.ownerEmail === config.ownerEmail && cycle.groupName === config.groupName
+    && account?.integrationId === config.id && account.groupName === config.groupName
+    && account.accountLabel === config.accountLabel && Number.isFinite(Date.parse(account.confirmedAt))
+    && cycle.accountConfirmedAt !== account.confirmedAt;
+}
+export async function reconfirmCycle(dataDir, {confirmedSameAccount = false, now = new Date()} = {}) {
+  if (!confirmedSameAccount) throw Error('SAME_ACCOUNT_CONFIRMATION_REQUIRED');
+  const before = await readJson(path.join(dataDir, 'config.json'));
+  const runtime = path.join(dataDir, before.id), release = await acquireLock(runtime);
+  try {
+    const config = await readJson(path.join(dataDir, 'config.json'));
+    if (config.id !== before.id) throw Error('CYCLE_SCOPE_CHANGED');
+    if (config.schedule.enabled) throw Error('PAUSE_BEFORE_RECONFIRM');
+    if (await readJson(path.join(runtime, 'pending.json'), null)) throw Error('UNCONFIRMED_BATCH');
+    const cycle = await readJson(path.join(runtime, 'cycle-baseline.json'), null);
+    const account = await readJson(path.join(runtime, 'account.json'), null);
+    if (!canReconfirmCycle(config, cycle, account)) throw Error('CYCLE_SCOPE_CHANGED');
+    const audit = {id:randomUUID(), at:now.toISOString(), reason:'operator_confirmed_same_account_reconnection',
+      cycleId:cycle.id, cycleStartedAt:cycle.at, integrationId:config.id, ownerEmail:config.ownerEmail,
+      groupName:config.groupName, previousConfirmedAt:cycle.accountConfirmedAt, confirmedAt:account.confirmedAt};
+    await writeJson(path.join(runtime, 'cycle-reconnections', audit.id + '.json'), audit);
+    await writeJson(path.join(runtime, 'cycle-baseline.json'), {...cycle, accountConfirmedAt:account.confirmedAt,
+      reconnection:{id:audit.id, at:audit.at, reason:audit.reason}});
+    await writeJson(path.join(runtime, 'status.json'), {state:'cycle_needs_scan', at:audit.at});
+    return audit;
+  } finally { await release(); }
+}

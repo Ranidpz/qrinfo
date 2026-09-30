@@ -44,6 +44,12 @@ import AppKit
                         agent.snapshot.lastError = "HISTORY_KNOWN_MESSAGES_MISSING"
                         agent.snapshot.missingMessages = [MissingMessage(name: "תוכניית בידור סופש 240926.pdf", receivedAt: nil)]
                     }
+                    if CommandLine.arguments.contains("--reconnect-fixture") {
+                        agent.snapshot.enabled = false; agent.snapshot.previewReady = false; agent.snapshot.rows = []
+                        agent.snapshot.groupName = "חוברות QR פתאל"
+                        agent.snapshot.cycleReconnectRequired = true
+                        agent.snapshot.lastError = "CYCLE_SCOPE_CHANGED"
+                    }
                     agent.message = "בדיקת ההתאמה הסתיימה. עיינו בתוצאה לפני הפעלת הסוכן."
                 }
                 if let index = CommandLine.arguments.firstIndex(of: "--snapshot"), CommandLine.arguments.count > index + 1 {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.23] - 2026-09-30
+
+- WhatsApp Agent 0.9.3 adds a guided same-account reconnection confirmation followed by a read-only file scan. A refreshed approval timestamp no longer forces a new manual-completion cutoff.
+- Preserve original cycle identity/start, cache, assignments, receipts and scheduled slots. Record an explicit same-account declaration in a separate audit event.
+- Only allow reconfirmation while paused, without uncertain writes, and with matching integration, owner, group and account label. Changed scope remains blocked.
+- Export bounded configured/approved scope fields for support; fresh preview remains required before enabling updates.
+
 ## [1.20.22] - 2026-09-30
 
 - WhatsApp Agent 0.9.2 compares complete PDF names after whitespace, bidi and Unicode presentation normalization, with a bounded wait for preview labels.
