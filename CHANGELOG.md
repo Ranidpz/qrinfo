@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.22] - 2026-09-30
+
+- WhatsApp Agent 0.9.2 compares complete PDF names after whitespace, bidi and Unicode presentation normalization, with a bounded wait for preview labels.
+- Exclude quoted message IDs and thumbnails from download selection; verify the browser-suggested download filename before saving and hashing bytes.
+- Export expected, visible and downloaded filenames for failed attachment verification; close previews on both success and failure.
+- 44 local runner/browser tests passed. The supplied report confirms active sleep prevention and synced scheduling, but does not prove recent uploads; validation on Michal’s Mac remains required.
+
 ## [1.20.19] - 2026-09-24
 
 - WhatsApp Agent 0.9.0 separates connection, file review and activation into a guided native workflow with fixed header/footer and a dedicated Settings scene.

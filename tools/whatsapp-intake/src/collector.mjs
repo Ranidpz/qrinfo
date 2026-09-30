@@ -15,7 +15,7 @@ export async function collect(config, options = {}, services = {}) {
   try { return await scan(config, options); }
   catch (error) {
     if (!['HISTORY_KNOWN_MESSAGES_MISSING','HISTORY_GAP_DETECTED','LATEST_MESSAGES_CHANGED'].includes(errorCode(error))) throw error;
-    await writeJson(path.join(config.runtimeDir, 'scan-retry.json'), {at:new Date().toISOString(), reason:errorCode(error), missingMessages:error.missingMessages || []});
+    await writeJson(path.join(config.runtimeDir, 'scan-retry.json'), {at:new Date().toISOString(), reason:errorCode(error), missingMessages:error.missingMessages || [], attachment:error.attachment || null});
     await (services.wait || sleep)(1500);
     // Fresh browser context and observed set; the cache cannot stand in for unseen messages.
     return await scan(config, {...options, retry: true});
@@ -96,7 +96,7 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
     return result;
   } catch (error) {
     const scan = await readJson(path.join(config.runtimeDir, 'last-scan.json'), {});
-    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size, missingMessages:error.missingMessages || []});
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size, missingMessages:error.missingMessages || [], attachment:error.attachment || null});
     await page.screenshot({ path: path.join(config.runtimeDir, 'last-error.png') }).catch(() => {});
     throw error;
   } finally { await context.close(); }
@@ -149,39 +149,76 @@ export async function readVisibleMessages(page, config, now = new Date()) {
   });
   return rows.map((row) => ({ ...row, senderId: senderFromMessageId(row.id), receivedAt: parseMessageDate(row.timestamp, config) || parseDividerDate(row.divider, row.time, config, now) }));
 }
-export async function downloadPdf(page, config, row, key) {
+// Compare complete filenames; only presentation whitespace and bidi marks may differ.
+export function normalizeAttachmentName(value) {
+  return String(value).normalize('NFC').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu, '').replace(/\s+/gu, ' ').trim().replace(/\.pdf$/iu, '.pdf');
+}
+async function previewNames(viewer) {
+  return viewer.evaluate(root => {
+    const values = root.innerText.split('\n');
+    for (const node of [root, ...root.querySelectorAll('*')]) {
+      for (const child of node.childNodes) if (child.nodeType === Node.TEXT_NODE) values.push(child.textContent);
+      for (const attr of ['title', 'aria-label']) if (node.hasAttribute(attr)) values.push(node.getAttribute(attr));
+      if (node.textContent.length <= 300) values.push(node.textContent);
+    }
+    return [...new Set(values.filter(value => value && value.length <= 300 && /\.pdf[\s\u200e\u200f\u202a-\u202e\u2066-\u2069]*$/iu.test(value)).map(value => value.trim()))].slice(0, 30);
+  });
+}
+export async function downloadPdf(page, config, row, key, { previewTimeoutMs = 8000 } = {}) {
   const filename = safeFilename(row.filename);
   const dir = path.join(config.runtimeDir, 'downloads', key);
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const destination = path.join(dir, filename);
   const temporary = path.join(dir, 'download.part');
-  // Attribute comparison avoids interpolating message IDs into selectors.
+  const quoted = 'header, footer, [role="dialog"], [data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]';
+  // Quoted message IDs and thumbnails are references, never downloadable sources.
   const candidates = await page.locator('#main [data-id]').all();
   let container;
-  for (const item of candidates) if (await item.getAttribute('data-id') === row.id) { container = item; break; }
+  for (const item of candidates) {
+    if (await item.getAttribute('data-id') === row.id && await item.evaluate((el, selector) => !el.closest(selector), quoted)) { container = item; break; }
+  }
   if (!container) throw new Error('MESSAGE_DISAPPEARED');
   await assertGroup(page, config);
-  const thumb = container.locator('[data-testid="document-thumb"]');
-  await thumb.click();
+  const thumbs = [];
+  for (const item of await container.locator('[data-testid="document-thumb"]').all()) {
+    if (await item.evaluate((el, selector) => !el.closest(selector), quoted)) thumbs.push(item);
+  }
+  if (thumbs.length !== 1) throw new Error('ATTACHMENT_AMBIGUOUS');
+  const attachment = { messageId:row.id, expectedName:row.filename, receivedAt:row.receivedAt, visibleNames:[] };
   const viewer = page.locator('[data-testid="media-viewer-modal"]');
-  await viewer.waitFor({ state: 'visible', timeout: 45000 });
-  if (!(await viewer.innerText()).includes(row.filename)) throw new Error('WRONG_ATTACHMENT_PREVIEW');
-  const downloadPromise = page.waitForEvent('download', { timeout: 45000 });
-  // Attach rejection immediately; UI click errors must not leave an unhandled timer.
-  downloadPromise.catch(() => {});
+  let downloadPromise;
   try {
-    await viewer.getByRole('button', { name: /^(Download|הורדה)$/ }).click();
+    await thumbs[0].click();
+    await viewer.waitFor({ state:'visible', timeout:45000 });
+    const until = Date.now() + previewTimeoutMs;
+    let verified = false;
+    do {
+      attachment.visibleNames = await previewNames(viewer);
+      verified = attachment.visibleNames.some(name => normalizeAttachmentName(name) === normalizeAttachmentName(row.filename));
+      if (verified || Date.now() >= until) break;
+      await page.waitForTimeout(100);
+    } while (true);
+    if (!verified) throw new Error('WRONG_ATTACHMENT_PREVIEW');
+    downloadPromise = page.waitForEvent('download', { timeout:45000 });
+    downloadPromise.catch(() => {});
+    await viewer.getByRole('button', { name:/^(Download|הורדה)$/ }).click();
     const download = await downloadPromise;
+    attachment.downloadName = download.suggestedFilename();
+    if (normalizeAttachmentName(attachment.downloadName) !== normalizeAttachmentName(row.filename)) {
+      await download.cancel();
+      throw new Error('WRONG_ATTACHMENT_DOWNLOAD');
+    }
     await download.saveAs(temporary);
     const buffer = await readFile(temporary);
     assertPdf(buffer);
     await rename(temporary, destination);
-    return { path: destination, name: row.filename, size: buffer.length, sha256: createHash('sha256').update(buffer).digest('hex') };
+    return { path:destination, name:row.filename, size:buffer.length, sha256:createHash('sha256').update(buffer).digest('hex') };
   } catch (error) {
-    await downloadPromise.catch(() => {});
-    await rm(temporary, { force: true });
+    error.attachment = attachment;
+    if (downloadPromise) await downloadPromise.catch(() => {});
+    await rm(temporary, { force:true });
     throw error;
   } finally {
-    if (!page.isClosed()) await viewer.getByRole('button', { name: /^(Close|סגירה)$/ }).click().catch(() => {});
+    if (!page.isClosed() && await viewer.isVisible().catch(() => false)) await viewer.getByRole('button', { name:/^(Close|סגירה)$/ }).click().catch(() => {});
   }
 }

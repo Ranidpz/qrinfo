@@ -150,6 +150,7 @@ import UniformTypeIdentifiers
         NSWorkspace.shared.open(folder)
     }
     func friendly(_ text: String) -> String {
+        if text.contains("WRONG_ATTACHMENT_PREVIEW") || text.contains("WRONG_ATTACHMENT_DOWNLOAD") { return "לא ניתן לאמת שהקובץ שנפתח בוואטסאפ הוא הקובץ שנבחר. לא בוצעה העלאה בבדיקה הזו. לחצו על בדיקה ללא העלאה; אם התקלה חוזרת, יצאו דוח לתמיכה." }
         if text.contains("POWER_GUARD") { return "מניעת השינה לא אומתה ולכן האוטומציה לא הופעלה. בדקו שהפעילות ברקע מותרת למערכת ונסו להפעיל שוב." }
         if text.contains("PAUSE_BEFORE_NEW_CYCLE") { return "יש לעצור את האוטומציה לפני פתיחת מחזור חדש." }
         if text.contains("CYCLE_SCOPE_CHANGED") { return "פרטי החיבור השתנו מאז פתיחת המחזור. בדקו את החיבור ופתחו מחזור חדש לאחר אישור שהקבצים הקודמים טופלו." }

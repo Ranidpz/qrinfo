@@ -157,3 +157,55 @@ test('incomplete scan retries once in a fresh scan; permanent missing history st
   calls=0;await assert.rejects(collect({runtimeDir:dir},{},{wait:async()=>{},scan:async()=>{calls++;throw Error('WRONG_GROUP');}}),/WRONG_GROUP/);assert.equal(calls,1);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test('attachment identity handles whitespace, delayed labels and quoted sources but rejects another PDF', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'theq-preview-'));
+  const browser = await chromium.launch({ headless:true });
+  const expected = 'תוכניית בידור אמצש לאונרדו קלאב טבריה  210926.pdf';
+  const shown = '\u200fתוכניית בידור אמצש לאונרדו קלאב טבריה 210926.pdf\u200e';
+  try {
+    const page = await browser.newPage({ acceptDownloads:true });
+    async function fixture({ preview = shown, download = expected, delayed = false } = {}) {
+      await page.setContent(`<div id="main"><header><span data-testid="conversation-info-header-chat-title">חוברות QR פתאל</span></header>
+        <div data-testid="quoted-message"><div data-id="source"><button data-testid="document-thumb" id="quoted">wrong.pdf</button></div></div>
+        <div data-id="source"><div data-testid="quoted-document"><button data-testid="document-thumb" id="nested">wrong.pdf</button></div><button data-testid="document-thumb" id="actual">PDF</button></div></div>`);
+      await page.evaluate(({preview,download,delayed}) => {
+        window.wrongClicks = 0; window.downloadClicks = 0;
+        for (const id of ['quoted','nested']) document.getElementById(id).onclick = () => { window.wrongClicks++; };
+        document.getElementById('actual').onclick = () => {
+          const v = document.createElement('div'); v.dataset.testid = 'media-viewer-modal';
+          const label = document.createElement('span'); v.append(label);
+          if (delayed) setTimeout(() => { label.textContent = preview; }, 300); else label.textContent = preview;
+          const dl = document.createElement('button'); dl.setAttribute('aria-label','Download'); dl.textContent = 'download'; v.append(dl);
+          dl.onclick = () => { window.downloadClicks++; const a = document.createElement('a'); a.download = download; a.href = URL.createObjectURL(new Blob(['%PDF-1.7\nverified source\n%%EOF'])); a.click(); };
+          const close = document.createElement('button'); close.setAttribute('aria-label','Close'); close.textContent = 'close'; close.onclick = () => v.remove(); v.append(close);
+          document.body.append(v);
+        };
+      }, {preview,download,delayed});
+    }
+    const row = {id:'source',filename:expected,receivedAt:'2026-09-26T20:48:00.000Z'};
+    await fixture({delayed:true});
+    const file = await downloadPdf(page, {...config,runtimeDir:dir}, row, 'verified', {previewTimeoutMs:1500});
+    assert.equal(file.name, expected);
+    assert.match((await readFile(file.path)).toString(), /verified source/);
+    assert.equal(await page.evaluate(() => window.wrongClicks), 0);
+    assert.equal(await page.locator('[data-testid="media-viewer-modal"]').count(), 0);
+    await fixture({preview:'other-' + expected});
+    await assert.rejects(downloadPdf(page, {...config,runtimeDir:dir}, row, 'wrong-preview', {previewTimeoutMs:50}), error => {
+      assert.equal(error.message, 'WRONG_ATTACHMENT_PREVIEW');
+      assert.equal(error.attachment.expectedName, expected);
+      assert.ok(error.attachment.visibleNames.includes('other-' + expected));
+      return true;
+    });
+    assert.equal(await page.evaluate(() => window.downloadClicks), 0);
+    assert.equal(await page.locator('[data-testid="media-viewer-modal"]').count(), 0);
+    await fixture({download:'wrong.pdf'});
+    await assert.rejects(downloadPdf(page, {...config,runtimeDir:dir}, row, 'wrong-download', {previewTimeoutMs:50}), error => {
+      assert.equal(error.message, 'WRONG_ATTACHMENT_DOWNLOAD');
+      assert.equal(error.attachment.downloadName, 'wrong.pdf');
+      return true;
+    });
+    await assert.rejects(readFile(path.join(dir,'downloads','wrong-download','download.part')), /ENOENT/);
+    assert.equal(await page.locator('[data-testid="media-viewer-modal"]').count(), 0);
+  } finally { await browser.close(); await rm(dir,{recursive:true,force:true}); }
+});
