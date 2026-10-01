@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.20.25] - 2026-10-01
+
+- Fix the stale 0.9.3 download-button label: both locales, the ZIP URL and checksum URL now derive from the agent package version. The already published 0.9.4 installer is unchanged.
+
 ## [1.20.24] - 2026-10-01
 
 - WhatsApp Agent 0.9.4 reads semantic document buttons with a PDF label and document icon, while excluding quoted cards and plain-text filenames. Full preview/download identity verification remains mandatory.

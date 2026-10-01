@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { ChevronDown, Download, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
+import { AGENT_VERSION, AGENT_DOWNLOAD_URL } from '@/lib/content-intake/agent-release';
 
 import ScheduleEditor from './ScheduleEditor';
 import ComputerList, { type IntakeComputer } from './ComputerList';
@@ -120,9 +121,9 @@ function ContentIntake() {
       <section className={panel} aria-labelledby="download-title">
         <h2 id="download-title" className="mb-4 flex items-center gap-2 text-lg font-semibold"><Download size={20} />{t('downloadTitle')}</h2>
         <p className="mb-5 text-text-secondary">{t('downloadDescription')}</p>
-        <a className={button} href="/downloads/TheQ-WhatsApp-Agent-0.9.4.zip" download>{t('downloadMac')}</a>
+        <a className={button} href={AGENT_DOWNLOAD_URL} download>{t('downloadMac', { version: AGENT_VERSION })}</a>
         <p className="mt-3 text-xs text-text-secondary">{t('requirements')}</p>
-        <a className="mt-3 block text-sm text-accent underline" href="/downloads/TheQ-WhatsApp-Agent-0.9.4.zip.sha256" download>{t('checksum')}</a>
+        <a className="mt-3 block text-sm text-accent underline" href={`${AGENT_DOWNLOAD_URL}.sha256`} download>{t('checksum')}</a>
       </section>
     </div>
     {ownerId && <ScheduleEditor key={ownerId} ownerId={ownerId} agents={data.agents} />}
