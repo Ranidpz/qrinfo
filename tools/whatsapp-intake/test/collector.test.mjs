@@ -257,3 +257,39 @@ test('held target is not also reported as absent', () => {
   const text=buildGroupUpdate(report,{first:true,timeZone:config.timeZone});
   assert.match(text,/לא עודכנו:.*one.pdf/);assert.match(text,/לא נקלטה חוברת מתאימה: פלאזה/);assert.doesNotMatch(text,/כל החוברות מעודכנות|לא נקלטה חוברת מתאימה: קלאב/);
 });
+
+test('complete scan downloads every live PDF through virtualized history without reviving shells', async () => {
+ const {collect} = await import('../src/collector.mjs');
+ const dir=await mkdtemp(path.join(tmpdir(),'theq-virtual-'));
+ const browser=await chromium.launch({headless:true});
+ try {
+  const context=await browser.newContext({acceptDownloads:true}), page=await context.newPage();
+  await page.setContent(`<div id="main"><header><span data-testid="conversation-info-header-chat-title">חוברות QR פתאל</span></header><div id="history" style="height:300px;overflow:auto">${Array.from({length:12},(_,i)=>`<div data-id="m${i}" style="height:130px"></div>`).join('')}</div></div>`);
+  await page.evaluate(()=>{
+   const history=document.querySelector('#history');
+   function render() {
+    const bounds=history.getBoundingClientRect();
+    for(const node of history.children) {
+     const i=Number(node.dataset.id.slice(1)),rect=node.getBoundingClientRect();
+     if(rect.bottom<=bounds.top||rect.top>=bounds.bottom){node.innerHTML='';continue;}
+     node.innerHTML=`<div data-pre-plain-text="[10:00, ${i===0?'9/24':'10/1'}/2026] sender:">${[4,7,10].includes(i)?`<button data-testid="document-thumb" title="book-${i}.pdf">book-${i}.pdf</button>`:`<span class="selectable-text">message ${i}</span>`}</div>`;
+     const button=node.querySelector('button');
+     if(button) button.onclick=()=>{
+      const viewer=document.createElement('div');viewer.dataset.testid='media-viewer-modal';viewer.style.cssText='position:fixed;inset:0;background:white';
+      viewer.innerHTML=`<span>book-${i}.pdf</span><button aria-label="Download">Download</button><button aria-label="Close">Close</button>`;
+      viewer.querySelector('[aria-label="Download"]').onclick=()=>{const a=document.createElement('a');a.download=`book-${i}.pdf`;a.href=URL.createObjectURL(new Blob([`%PDF-1.7\nfixture ${i}\n%%EOF`]));a.click();};
+      viewer.querySelector('[aria-label="Close"]').onclick=()=>viewer.remove();document.body.append(viewer);
+     };
+    }
+   }
+   history.addEventListener('scroll',render);render();
+  });
+  const result=await collect({...config,runtimeDir:dir,maxScrolls:30},{since:'2026-09-25T00:00:00.000Z'},{requirePairedProfile:async()=>{},openGroup:async()=>{},openWhatsApp:async()=>({page,context})});
+  assert.equal(result.complete,true);assert.deepEqual(result.files.map(file=>file.name).sort(),['book-10.pdf','book-4.pdf','book-7.pdf']);
+  for(const file of result.files) assertPdf(await readFile(file.path));
+  const scan=JSON.parse(await readFile(path.join(dir,'last-scan.json'),'utf8'));
+  assert.equal(scan.complete,true);assert.equal(scan.observedCount,12);
+  const evidence=JSON.parse(await readFile(path.join(dir,'last-message-evidence.json'),'utf8'));
+  assert.equal(evidence.filter(row=>row.filename).length,3);assert.ok(evidence.every(row=>row.materialized));
+ } finally {await browser.close();await rm(dir,{recursive:true,force:true});}
+});

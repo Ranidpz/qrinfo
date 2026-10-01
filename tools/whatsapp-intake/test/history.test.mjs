@@ -96,3 +96,49 @@ test('latest boundary waits for changing attachment content even when message ID
   assert.ok(polls>=8);assert.equal(result.rows[0].filename,'loaded.pdf');
  }finally{await browser.close();}
 });
+
+test('virtualized shells cannot erase scanned documents or provide a false date boundary', async () => {
+ const {readVisibleMessages} = await import('../src/collector.mjs');
+ const {messageFingerprint} = await import('../src/history.mjs');
+ const browser=await chromium.launch({headless:true});
+ try {
+  const page=await browser.newPage();
+  await page.setContent(`<div id="main"><div id="history" style="height:250px;overflow:auto">${Array.from({length:12},(_,i)=>`<div data-id="m${i}" style="height:100px">loading</div>`).join('')}</div></div>`);
+  const render = () => page.evaluate(() => {
+   const history=document.querySelector('#history'), bounds=history.getBoundingClientRect();
+   for(const node of history.children) {
+    const i=Number(node.dataset.id.slice(1)), r=node.getBoundingClientRect();
+    node.innerHTML=r.bottom>bounds.top&&r.top<bounds.bottom
+     ? `<div data-pre-plain-text="[10:00, ${i===0?'9/24':'10/1'}/2026] sender:"><button data-testid="document-thumb" title="book-${i}.pdf">book-${i}.pdf</button></div>` : '';
+   }
+  });
+  const read=()=>readVisibleMessages(page,{timeZone:'Asia/Jerusalem',dateOrder:'MDY'});
+  const first=await settleLatest(page,read,{wait:render});
+  assert.ok(first.rows.length<12,'offscreen shells must not be read as messages');
+  const observed=new Map();let previous=first.rows,reachedBoundary=false;
+  for(let step=0;step<15;step++) {
+   await render();const rows=await read();assertHistoryOverlap(previous,rows);previous=rows;
+   for(const row of rows)observed.set(row.id,row);
+   if(rows.some(row=>row.receivedAt<'2026-09-25')){reachedBoundary=true;break;}
+   await moveHistory(page,'older');
+  }
+  assert.equal(reachedBoundary,true);assert.equal(observed.size,12);
+  const final=await settleLatest(page,read,{wait:render});
+  for(const row of final.rows)assert.equal(messageFingerprint(row),messageFingerprint(observed.get(row.id)));
+  assert.equal([...observed.values()].filter(row=>row.filename).length,12);
+ } finally {await browser.close();}
+});
+
+test('visible empty shells wait for hydration and never count as deleted messages', async () => {
+ const {settleViewport,assertLatestUnchanged} = await import('../src/history.mjs');
+ let polls=0;
+ const rows=await settleViewport(async()=>[{id:'same',materialized:polls>=3,filename:polls>=3?'ready.pdf':null}],{wait:async()=>{polls++;}});
+ assert.equal(rows[0].filename,'ready.pdf');assert.ok(polls>=5);
+ await assert.rejects(settleViewport(async()=>[{id:'empty',materialized:false}],{attempts:5,wait:async()=>{}}),/LATEST_MESSAGES_NOT_VERIFIED/);
+ const initial=[{id:'one',filename:'one.pdf'},{id:'two',filename:'two.pdf'}];
+ const observed=new Map(initial.map(row=>[row.id,row]));
+ assert.doesNotThrow(()=>assertLatestUnchanged(initial,initial,observed));
+ for(const final of [[initial[0]],[...initial,{id:'new'}],[initial[0],{id:'two',filename:'edited.pdf'}]]) {
+  assert.throws(()=>assertLatestUnchanged(initial,final,observed),error=>error.message.startsWith('LATEST_MESSAGES_CHANGED')&&error.boundaryChanges.length>0);
+ }
+});

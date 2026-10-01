@@ -1,6 +1,6 @@
 import {errorCode} from './errors.mjs';
 import { inspectDocumentCard } from './document-card.mjs';
-import { moveHistory, settleLatest, inspectHistory, assertHistoryOverlap, assertKnownMessagesObserved, messageFingerprint } from './history.mjs';
+import { moveHistory, settleLatest, inspectHistory, assertHistoryOverlap, assertKnownMessagesObserved, assertLatestUnchanged, settleViewport } from './history.mjs';
 import { attachEvidence, senderFromMessageId } from './assignment.mjs';
 import { mkdir, readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
@@ -13,29 +13,29 @@ import { parseMessageDate, parseDividerDate, messageKey, assertPdf } from './mes
 // Retry only a failed read/scan, never commit, report delivery or an uncertain write.
 export async function collect(config, options = {}, services = {}) {
   const scan = services.scan || collectOnce;
-  try { return await scan(config, options); }
+  try { return await scan(config, options, services); }
   catch (error) {
     if (!['HISTORY_KNOWN_MESSAGES_MISSING','HISTORY_GAP_DETECTED','LATEST_MESSAGES_CHANGED'].includes(errorCode(error))) throw error;
     await writeJson(path.join(config.runtimeDir, 'scan-retry.json'), {at:new Date().toISOString(), reason:errorCode(error), missingMessages:error.missingMessages || [], attachment:error.attachment || null});
     await (services.wait || sleep)(1500);
     // Fresh browser context and observed set; the cache cannot stand in for unseen messages.
-    return await scan(config, {...options, retry: true});
+    return await scan(config, {...options, retry: true}, services);
   }
 }
-async function collectOnce(config, { since, headed = false, retry = false } = {}) {
-  await requirePairedProfile(config);
+async function collectOnce(config, { since, headed = false, retry = false } = {}, services = {}) {
+  await (services.requirePairedProfile || requirePairedProfile)(config);
   if (!since || Number.isNaN(Date.parse(since))) throw new Error('EXPLICIT_SCAN_START_REQUIRED');
   const cutoff = Date.parse(since);
   const statePath = path.join(config.runtimeDir, 'messages.json');
   const state = await readJson(statePath, { schemaVersion: 1, files: {} });
-  const { context, page } = await openWhatsApp(config, { headed });
+  const { context, page } = await (services.openWhatsApp || openWhatsApp)(config, { headed });
   const observed = new Map();
   let complete = false;
   let previousTop = '';
   let unchanged = 0;
   try {
     await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {startedAt:new Date().toISOString(), latestVerified:false, complete:false, retry});
-    await openGroup(page, config);
+    await (services.openGroup || openGroup)(page, config);
     await page.locator('#main [data-id]').first().waitFor({ state: 'attached', timeout: 60000 });
     // Start at latest messages, then walk virtualized history backwards.
     const latest = await settleLatest(page, () => readVisibleMessages(page, config));
@@ -43,14 +43,14 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
     let previousRows = latest.rows;
     for (let scroll = 0; scroll < config.maxScrolls; scroll++) {
       await assertGroup(page, config);
-      const rows = await readVisibleMessages(page, config);
+      const rows = await settleViewport(() => readVisibleMessages(page, config));
       assertHistoryOverlap(previousRows, rows);
       previousRows = rows;
       for (const row of rows) observed.set(row.id, row);
       // Retain bounded extraction diagnostics even if a later download or scan fails.
       await writeJson(path.join(config.runtimeDir, 'last-message-evidence.json'), [...observed.values()].slice(-500)
-        .map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification}) =>
-          ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification})));
+        .map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification, materialized}) =>
+          ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification, materialized})));
 
       const dates = rows.map((row) => row.receivedAt).filter(Boolean);
       for (const row of rows) {
@@ -84,7 +84,7 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
     if (!complete) throw new Error('SCAN_LIMIT_REACHED: no upload was attempted');
     // Revisit the newest boundary: late sync must not silently disappear from a completed scan.
     const finalLatest = await settleLatest(page, () => readVisibleMessages(page, config));
-    if (finalLatest.rows.some(row => !observed.has(row.id) || messageFingerprint(row) !== messageFingerprint(observed.get(row.id)))) throw Error('LATEST_MESSAGES_CHANGED: נטענו הודעות נוספות במהלך הסריקה; בצעו בדיקה נוספת.');
+    assertLatestUnchanged(latest.rows, finalLatest.rows, observed);
     assertKnownMessagesObserved(state.files, observed, cutoff);
     await writeJson(path.join(config.runtimeDir, 'last-scan.json'), { finishedAt:new Date().toISOString(), latestVerified:true, latestIds:finalLatest.rows.map(r => r.id), position:finalLatest.position, observedCount:observed.size, complete:true});
     const decisions = await readJson(path.join(config.runtimeDir, 'assignments.json'), {});
@@ -96,7 +96,7 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
     return result;
   } catch (error) {
     const scan = await readJson(path.join(config.runtimeDir, 'last-scan.json'), {});
-    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size, missingMessages:error.missingMessages || [], attachment:error.attachment || null});
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size, missingMessages:error.missingMessages || [], attachment:error.attachment || null, boundaryChanges:error.boundaryChanges || []});
     await page.screenshot({ path: path.join(config.runtimeDir, 'last-error.png') }).catch(() => {});
     throw error;
   } finally { await context.close(); }
@@ -109,10 +109,23 @@ export async function readVisibleMessages(page, config, now = new Date()) {
       return elements.flatMap((element, index) => {
         // Quoted IDs are references, never independent timeline messages or boundary dates.
         if (element.closest('header, footer, [role="dialog"], [data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]')) return [];
+        // WhatsApp retains data-id shells while unloading offscreen contents.
+        // Only the actual viewport can prove a message or a history boundary.
+        const rect = element.getBoundingClientRect();
+        if (!element.isConnected || rect.width <= 0 || rect.height <= 0 || getComputedStyle(element).visibility === 'hidden') return [];
+        let top = Math.max(0, rect.top), bottom = Math.min(innerHeight, rect.bottom);
+        for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+          if (['auto', 'scroll', 'hidden', 'clip'].includes(getComputedStyle(ancestor).overflowY)) {
+            const clip = ancestor.getBoundingClientRect();
+            top = Math.max(top, clip.top + ancestor.clientTop);
+            bottom = Math.min(bottom, clip.top + ancestor.clientTop + ancestor.clientHeight);
+          }
+        }
+        if (bottom <= top) return [];
         const id = element.getAttribute('data-id');
         if (!id || seen.has(id)) return [];
         seen.add(id);
-        const timestamp = element.getAttribute('data-pre-plain-text') || element.querySelector('[data-pre-plain-text]')?.getAttribute('data-pre-plain-text') || '';
+        const timestamp = element.getAttribute('data-pre-plain-text') || [...element.querySelectorAll('[data-pre-plain-text]')].find(node => !node.closest('[data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]'))?.getAttribute('data-pre-plain-text') || '';
         const timeline = element.closest('[data-tab="8"]');
         let block = element;
         while (timeline && block.parentElement !== timeline) block = block.parentElement;
@@ -129,9 +142,10 @@ export async function readVisibleMessages(page, config, now = new Date()) {
         const quoteId = quote?.getAttribute('data-quoted-message-id') || quote?.getAttribute('data-message-id') || quote?.getAttribute('data-id') || null;
         const copy = element.cloneNode(true);
         for (const node of copy.querySelectorAll(quotedSelector)) node.remove();
+        const materialized = !!(copy.textContent.trim() || copy.querySelector('img, video, audio, [data-testid="document-thumb"], [data-icon="document"], [data-icon="document-pdf"], [data-icon="recalled"], [data-icon="revoked"]'));
         for (const thumb of copy.querySelectorAll('[data-testid="document-thumb"], [data-testid="msg-meta"]')) thumb.remove();
         const text = [...copy.querySelectorAll('[data-testid="selectable-text"], .selectable-text')].filter(n => !n.parentElement?.closest('.selectable-text, [data-testid="selectable-text"]')).map(n => n.textContent).join(' ').trim().slice(0, 500);
-        return [{ index, id, timestamp, divider, time, quoteDetected: !!quote, quoteId, text }];
+        return [{ index, id, timestamp, divider, time, quoteDetected: !!quote, quoteId, text, materialized }];
       });
     }, handles);
     return await Promise.all(rows.map(async ({ index, ...row }) => ({ ...row,

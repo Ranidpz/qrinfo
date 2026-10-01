@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.20.26] - 2026-10-01
+
+- Agent 0.9.5 reads only messages intersecting the chat viewport, waits for visible content to settle, and keeps offscreen empty shells from overwriting verified observations or proving an old date boundary.
+- Preserve strict PDF preview/download identity, history overlap and missing-message checks. Real latest-boundary edits, additions and removals still require a fresh read; export bounded differences for support.
+- 51 isolated runner/browser tests passed, including a complete virtualized-history scan downloading three fixture PDFs and tests for unhydrated shells and real message changes. No live WhatsApp send or production PDF update was performed; acceptance on Michal's Mac is still required.
+
 ## [1.20.25] - 2026-10-01
 
 - Fix the stale 0.9.3 download-button label: both locales, the ZIP URL and checksum URL now derive from the agent package version. The already published 0.9.4 installer is unchanged.

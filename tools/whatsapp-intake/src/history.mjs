@@ -73,7 +73,7 @@ export async function settleLatest(page, readRows, { wait = sleep, attempts = 30
     }
     const rows = await readRows();
     const fingerprint = JSON.stringify([position.top, position.height, rows.map(messageFingerprint)]);
-    stable = position.atLatest && rows.length && fingerprint === previous ? stable + 1 : 0;
+    stable = position.atLatest && rows.length && rows.every(row => row.materialized !== false) && fingerprint === previous ? stable + 1 : 0;
     previous = fingerprint;
     // Allow initial sync/anchor restoration to finish; one scroll plus 800ms is insufficient.
     if (i >= 4 && stable >= 3) return {rows, position, attempts:i + 1};
@@ -93,6 +93,35 @@ export function assertKnownMessagesObserved(files, observed, cutoff) {
   if (missing.length) {
     const error = Error(`HISTORY_KNOWN_MESSAGES_MISSING: ${missing.length} הודעות קובץ מסריקה קודמת לא נראו בסריקה הנוכחית; לא בוצעה העלאה.`);
     error.missingMessages = missing.map(({messageId,name,receivedAt,sha256}) => ({messageId,name,receivedAt,sha256}));
+    throw error;
+  }
+}
+
+// Wait for visible shells to hydrate. Never record an empty shell as a deleted
+// message, overwrite previously read content with it, or cross a date boundary.
+export async function settleViewport(readRows, {wait = sleep, attempts = 20, delay = 250} = {}) {
+  let previous = '', stable = 0;
+  for (let i = 0; i < attempts; i++) {
+    const rows = await readRows();
+    const fingerprint = JSON.stringify(rows.map(messageFingerprint));
+    stable = rows.length && rows.every(row => row.materialized !== false) && fingerprint === previous ? stable + 1 : 0;
+    if (stable >= 2) return rows;
+    previous = fingerprint;
+    await wait(delay);
+  }
+  throw Error('LATEST_MESSAGES_NOT_VERIFIED: תוכן ההודעות עדיין נטען; לא בוצעה העלאה.');
+}
+
+export function assertLatestUnchanged(initial, final, observed) {
+  const changes = final.filter(row => !observed.has(row.id) || messageFingerprint(row) !== messageFingerprint(observed.get(row.id)))
+    .map(row => ({id:row.id, reason:observed.has(row.id) ? 'content_changed' : 'new_message',
+      before:observed.has(row.id) ? messageFingerprint(observed.get(row.id)) : null, after:messageFingerprint(row)}));
+  // A removed newest message must not pass just because all remaining IDs were seen.
+  // The full boundary is stable before both snapshots; changes require a fresh read.
+  for (const row of initial) if (!final.some(item => item.id === row.id)) changes.push({id:row.id, reason:'left_latest_boundary'});
+  if (changes.length) {
+    const error = Error('LATEST_MESSAGES_CHANGED: ההודעות האחרונות השתנו במהלך הסריקה; נדרשת בדיקה נוספת.');
+    error.boundaryChanges = changes.slice(0, 30);
     throw error;
   }
 }
