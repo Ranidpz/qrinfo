@@ -114,7 +114,7 @@ export default function DashboardPage() {
   const [views24h, setViews24h] = useState<Record<string, number>>({});
   const [totalViews, setTotalViews] = useState<Record<string, number>>({});
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [currentFolderId, updateCurrentFolderId] = useState<string | null>(searchParams.get('folder'));
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingCodeId, setDraggingCodeId] = useState<string | null>(null);
   const [replaceStatus, setReplaceStatus] = useState<{ codeId: string; status: 'success' | 'error' } | null>(null);
@@ -172,15 +172,37 @@ export default function DashboardPage() {
     setViewMode(isMobile ? 'list' : 'grid');
   }, []);
 
-  // Handle folder param from URL (when returning from code edit)
+  // Keep folder navigation in the URL so browser Back and reload retain it.
+  const setCurrentFolderId = (folderId: string | null) => {
+    updateCurrentFolderId(folderId);
+    const url = new URL(window.location.href);
+    if (folderId) url.searchParams.set('folder', folderId);
+    else url.searchParams.delete('folder');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search);
+  };
+
   useEffect(() => {
-    const folderParam = searchParams.get('folder');
-    if (folderParam) {
-      setCurrentFolderId(folderParam);
-      // Clean URL without causing navigation
-      window.history.replaceState({}, '', '/dashboard');
-    }
+    updateCurrentFolderId(searchParams.get('folder'));
   }, [searchParams]);
+
+  useEffect(() => {
+    try {
+      setHeroHidden(localStorage.getItem('dashboard_heroHidden') === 'true');
+      const savedFilter = sessionStorage.getItem(`dashboard_filter:${user?.id ?? 'guest'}`);
+      setFilter(savedFilter === 'all' || savedFilter === 'shared' ? savedFilter : 'mine');
+    } catch {
+      // Storage may be disabled; navigation should still work.
+    }
+  }, [user?.id]);
+
+  const selectFilter = (value: FilterOption) => {
+    setFilter(value);
+    try {
+      sessionStorage.setItem(`dashboard_filter:${user?.id ?? 'guest'}`, value);
+    } catch {
+      // Keep the current selection even when storage is unavailable.
+    }
+  };
 
   // Handle ?create=qtag param from Q.Tag marketing page
   useEffect(() => {
@@ -1976,6 +1998,11 @@ export default function DashboardPage() {
         <button
           onClick={() => {
             setHeroHidden(true);
+            try {
+              localStorage.setItem('dashboard_heroHidden', 'true');
+            } catch {
+              // Dismiss for this visit even if storage is unavailable.
+            }
           }}
           className="absolute top-2 start-2 p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-secondary/50 transition-colors z-20"
           title={t('hideHero')}
@@ -2297,7 +2324,7 @@ export default function DashboardPage() {
         {user && (
           <div className="flex bg-bg-secondary rounded-lg p-1 order-1 sm:order-2">
             <button
-              onClick={() => setFilter('all')}
+              onClick={() => selectFilter('all')}
               className={clsx(
                 'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
                 filter === 'all' ? 'bg-bg-card text-text-primary' : 'text-text-secondary'
@@ -2306,7 +2333,7 @@ export default function DashboardPage() {
               {tCommon('all')}
             </button>
             <button
-              onClick={() => setFilter('mine')}
+              onClick={() => selectFilter('mine')}
               className={clsx(
                 'flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-colors',
                 filter === 'mine' ? 'bg-accent text-white' : 'text-text-secondary'

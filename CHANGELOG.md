@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.20.28] - 2026-10-01
+
+- Return from experience editing to its folder, including customer-owned folders for super admins.
+- Keep folder navigation in the locale-preserving URL for browser Back and reload. Retain the user-scoped dashboard filter for the browser session.
+- Persist dashboard hero dismissal in localStorage.
+
 ## [1.20.27] - 2026-10-01
 
 - Agent 0.9.6 waits for missing message dates and can recover a previously read receipt date only for the same live message ID, group-derived key and exact normalized filename, after a fresh strict-identity PDF download matches the saved SHA-256. Verification downloads cannot overwrite the original cache.
