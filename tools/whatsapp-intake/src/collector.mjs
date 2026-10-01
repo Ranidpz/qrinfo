@@ -30,6 +30,14 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
   const state = await readJson(statePath, { schemaVersion: 1, files: {} });
   const { context, page } = await (services.openWhatsApp || openWhatsApp)(config, { headed });
   const observed = new Map();
+  const datesReadThisScan = new Map();
+  const readRows = async () => (await readVisibleMessages(page, config)).map(row => {
+    const known = datesReadThisScan.get(row.id);
+    if (!row.receivedAt && row.materialized && known && normalizeAttachmentName(row.filename || '') === normalizeAttachmentName(known.filename || '')) {
+      return {...row, receivedAt:known.receivedAt, dateSource:known.dateSource === 'verified_same_message_pdf' ? known.dateSource : 'same_scan_message'};
+    }
+    return row;
+  });
   let complete = false;
   let previousTop = '';
   let unchanged = 0;
@@ -38,19 +46,32 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
     await (services.openGroup || openGroup)(page, config);
     await page.locator('#main [data-id]').first().waitFor({ state: 'attached', timeout: 60000 });
     // Start at latest messages, then walk virtualized history backwards.
-    const latest = await settleLatest(page, () => readVisibleMessages(page, config));
+    const latest = await settleLatest(page, readRows);
     await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {startedAt:new Date().toISOString(), latestVerified:true, latestIds:latest.rows.map(r => r.id), position:latest.position, complete:false});
     let previousRows = latest.rows;
     for (let scroll = 0; scroll < config.maxScrolls; scroll++) {
       await assertGroup(page, config);
-      const rows = await settleViewport(() => readVisibleMessages(page, config));
+      const rows = await settleViewport(readRows);
       assertHistoryOverlap(previousRows, rows);
       previousRows = rows;
-      for (const row of rows) observed.set(row.id, row);
+      for (let index = 0; index < rows.length; index++) {
+        let row = rows[index];
+        if (row.filename && !row.receivedAt) {
+          try {
+            row = await recoverMessageDate(page, config, row, state.files[messageKey(config.groupName, row.id)]);
+            rows[index] = row;
+          } catch (error) {
+            error.dateFailure = dateEvidence(row);
+            throw error;
+          }
+        }
+        if (row.receivedAt) datesReadThisScan.set(row.id, row);
+        observed.set(row.id, row);
+      }
       // Retain bounded extraction diagnostics even if a later download or scan fails.
       await writeJson(path.join(config.runtimeDir, 'last-message-evidence.json'), [...observed.values()].slice(-500)
-        .map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification, materialized}) =>
-          ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification, materialized})));
+        .map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification, materialized, dateSource, timestamp, divider, time}) =>
+          ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification, materialized, dateSource, dateInputs:dateEvidence({timestamp, divider, time})})));
 
       const dates = rows.map((row) => row.receivedAt).filter(Boolean);
       for (const row of rows) {
@@ -83,7 +104,7 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
     }
     if (!complete) throw new Error('SCAN_LIMIT_REACHED: no upload was attempted');
     // Revisit the newest boundary: late sync must not silently disappear from a completed scan.
-    const finalLatest = await settleLatest(page, () => readVisibleMessages(page, config));
+    const finalLatest = await settleLatest(page, readRows);
     assertLatestUnchanged(latest.rows, finalLatest.rows, observed);
     assertKnownMessagesObserved(state.files, observed, cutoff);
     await writeJson(path.join(config.runtimeDir, 'last-scan.json'), { finishedAt:new Date().toISOString(), latestVerified:true, latestIds:finalLatest.rows.map(r => r.id), position:finalLatest.position, observedCount:observed.size, complete:true});
@@ -96,7 +117,7 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
     return result;
   } catch (error) {
     const scan = await readJson(path.join(config.runtimeDir, 'last-scan.json'), {});
-    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size, missingMessages:error.missingMessages || [], attachment:error.attachment || null, boundaryChanges:error.boundaryChanges || []});
+    await writeJson(path.join(config.runtimeDir, 'last-scan.json'), {...scan, complete:false, failedAt:new Date().toISOString(), errorCode:errorCode(error), historyLayout:await inspectHistory(page).catch(()=>null), observedCount:observed.size, missingMessages:error.missingMessages || [], attachment:error.attachment || null, boundaryChanges:error.boundaryChanges || [], dateFailure:error.dateFailure || null});
     await page.screenshot({ path: path.join(config.runtimeDir, 'last-error.png') }).catch(() => {});
     throw error;
   } finally { await context.close(); }
@@ -148,10 +169,47 @@ export async function readVisibleMessages(page, config, now = new Date()) {
         return [{ index, id, timestamp, divider, time, quoteDetected: !!quote, quoteId, text, materialized }];
       });
     }, handles);
-    return await Promise.all(rows.map(async ({ index, ...row }) => ({ ...row,
-      ...await handles[index].evaluate(inspectDocumentCard),
-      senderId: senderFromMessageId(row.id), receivedAt: parseMessageDate(row.timestamp, config) || parseDividerDate(row.divider, row.time, config, now) })));
+    return await Promise.all(rows.map(async ({ index, ...row }) => {
+      const timestampDate = parseMessageDate(row.timestamp, config);
+      const dividerDate = timestampDate ? null : parseDividerDate(row.divider, row.time, config, now);
+      return {...row, ...await handles[index].evaluate(inspectDocumentCard), senderId:senderFromMessageId(row.id),
+        receivedAt:timestampDate || dividerDate, dateSource:timestampDate ? 'message_timestamp' : dividerDate ? 'date_divider' : null};
+    }));
   } finally { await Promise.all(handles.map(handle => handle.dispose())); }
+}
+// A receipt date belongs to the original WhatsApp message, never its filename.
+// If WhatsApp omits it, accept a saved date only after re-downloading that exact
+// live message and proving byte identity. Unknown or changed PDFs stay blocked.
+function dateEvidence(row) {
+  return {messageId:row.id || null, filename:row.filename || null,
+    timestamp:String(row.timestamp || '').split(']')[0].slice(0, 100),
+    divider:String(row.divider || '').slice(0, 100), time:String(row.time || '').slice(0, 40)};
+}
+export async function recoverMessageDate(page, config, row, existing, {download = downloadPdf, wait = sleep, readRows = () => readVisibleMessages(page, config)} = {}) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await wait(250);
+    const refreshed = (await readRows()).find(item => item.id === row.id && item.materialized
+      && item.documentCardCount === 1 && !item.ambiguousPdf && item.filename
+      && normalizeAttachmentName(item.filename) === normalizeAttachmentName(row.filename));
+    if (refreshed?.receivedAt) return refreshed;
+  }
+  const key = messageKey(config.groupName, row.id);
+  if (!row.materialized || row.documentCardCount !== 1 || row.ambiguousPdf || !existing
+    || existing.key !== key || existing.messageId !== row.id
+    || normalizeAttachmentName(existing.name) !== normalizeAttachmentName(row.filename)
+    || !Number.isFinite(Date.parse(existing.receivedAt)) || Date.parse(existing.receivedAt) > Date.now() + 300000
+    || !/^[a-f0-9]{64}$/.test(existing.sha256 || '')) throw Error(`MESSAGE_DATE_UNREADABLE: ${row.filename}`);
+  const localBytes = await readFile(existing.path);
+  if (createHash('sha256').update(localBytes).digest('hex') !== existing.sha256) throw Error('LOCAL_PDF_CHANGED');
+  const verificationKey = `${key}-date-verification`;
+  try {
+    const fresh = await download(page, config, row, verificationKey);
+    if (fresh.sha256 !== existing.sha256) throw Error(`MESSAGE_DATE_UNREADABLE: ${row.filename}`);
+    return {...row, receivedAt:existing.receivedAt, dateSource:'verified_same_message_pdf'};
+  } finally {
+    // A verification download must never overwrite the original cache entry.
+    await rm(path.join(config.runtimeDir, 'downloads', verificationKey), {recursive:true, force:true});
+  }
 }
 // Compare complete filenames; only presentation whitespace and bidi marks may differ.
 export function normalizeAttachmentName(value) {

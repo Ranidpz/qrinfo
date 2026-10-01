@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -258,7 +258,7 @@ test('held target is not also reported as absent', () => {
   assert.match(text,/לא עודכנו:.*one.pdf/);assert.match(text,/לא נקלטה חוברת מתאימה: פלאזה/);assert.doesNotMatch(text,/כל החוברות מעודכנות|לא נקלטה חוברת מתאימה: קלאב/);
 });
 
-test('complete scan downloads every live PDF through virtualized history without reviving shells', async () => {
+test('complete scan verifies an undated known PDF and downloads new PDFs through virtualized history', async () => {
  const {collect} = await import('../src/collector.mjs');
  const dir=await mkdtemp(path.join(tmpdir(),'theq-virtual-'));
  const browser=await chromium.launch({headless:true});
@@ -284,6 +284,21 @@ test('complete scan downloads every live PDF through virtualized history without
    }
    history.addEventListener('scroll',render);render();
   });
+  // Reproduce the Oct 1 report: a live known file loses its date in the DOM.
+  // Its original receipt is available, but only a fresh matching download can recover it.
+  await page.evaluate(()=>{
+   const observer=new MutationObserver(()=>{
+    const stamp=document.querySelector('[data-id="m4"] [data-pre-plain-text]');
+    if(stamp)stamp.removeAttribute('data-pre-plain-text');
+   });
+   observer.observe(document.querySelector('#history'),{childList:true,subtree:true});
+  });
+  const {messageKey}=await import('../src/messages.mjs');
+  const {createHash}=await import('node:crypto');
+  const key=messageKey(config.groupName,'m4'), bytes=Buffer.from('%PDF-1.7\nfixture 4\n%%EOF');
+  const cachedPath=path.join(dir,'known-book-4.pdf');await writeFile(cachedPath,bytes);
+  const receipt={key,messageId:'m4',name:'book-4.pdf',receivedAt:'2026-09-30T19:42:00.000Z',path:cachedPath,size:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};
+  await writeFile(path.join(dir,'messages.json'),JSON.stringify({schemaVersion:1,files:{[key]:receipt}}));
   const result=await collect({...config,runtimeDir:dir,maxScrolls:30},{since:'2026-09-25T00:00:00.000Z'},{requirePairedProfile:async()=>{},openGroup:async()=>{},openWhatsApp:async()=>({page,context})});
   assert.equal(result.complete,true);assert.deepEqual(result.files.map(file=>file.name).sort(),['book-10.pdf','book-4.pdf','book-7.pdf']);
   for(const file of result.files) assertPdf(await readFile(file.path));
@@ -291,5 +306,38 @@ test('complete scan downloads every live PDF through virtualized history without
   assert.equal(scan.complete,true);assert.equal(scan.observedCount,12);
   const evidence=JSON.parse(await readFile(path.join(dir,'last-message-evidence.json'),'utf8'));
   assert.equal(evidence.filter(row=>row.filename).length,3);assert.ok(evidence.every(row=>row.materialized));
+  assert.equal(evidence.find(row=>row.id==='m4').dateSource,'verified_same_message_pdf');
+  assert.equal(result.files.find(file=>file.messageId==='m4').receivedAt,receipt.receivedAt);
+  assert.deepEqual(await readFile(cachedPath),bytes);
  } finally {await browser.close();await rm(dir,{recursive:true,force:true});}
+});
+
+
+test('date recovery requires the same live message, exact name and freshly verified bytes', async () => {
+ const {recoverMessageDate}=await import('../src/collector.mjs');
+ const {messageKey}=await import('../src/messages.mjs');
+ const {createHash}=await import('node:crypto');
+ const dir=await mkdtemp(path.join(tmpdir(),'theq-date-proof-'));
+ try {
+  const bytes=Buffer.from('%PDF-1.7\nknown PDF'),filePath=path.join(dir,'known.pdf');await writeFile(filePath,bytes);
+  const row={id:'known',filename:'known.pdf',materialized:true,documentCardCount:1,receivedAt:null};
+  const receipt={key:messageKey(config.groupName,row.id),messageId:row.id,name:row.filename,path:filePath,receivedAt:'2026-09-30T19:42:00.000Z',sha256:createHash('sha256').update(bytes).digest('hex')};
+  let downloads=0;
+  const services={wait:async()=>{},readRows:async()=>[row],download:async()=>{downloads++;return {sha256:receipt.sha256};}};
+  const recovered=await recoverMessageDate(null,{...config,runtimeDir:dir},row,receipt,services);
+  assert.equal(recovered.receivedAt,receipt.receivedAt);assert.equal(recovered.dateSource,'verified_same_message_pdf');assert.equal(downloads,1);
+  for(const invalid of [null,{...receipt,messageId:'another'},{...receipt,key:'wrong-group-key'},{...receipt,name:'other.pdf'},{...receipt,receivedAt:'invalid'}]) {
+   await assert.rejects(recoverMessageDate(null,{...config,runtimeDir:dir},row,invalid,services),/MESSAGE_DATE_UNREADABLE/);
+  }
+  assert.equal(downloads,1);
+  await assert.rejects(recoverMessageDate(null,{...config,runtimeDir:dir},row,receipt,{...services,download:async()=>({sha256:'0'.repeat(64)})}),/MESSAGE_DATE_UNREADABLE/);
+  assert.deepEqual(await readFile(filePath),bytes);
+  const dated={...row,receivedAt:'2026-10-01T10:33:00.000Z',dateSource:'message_timestamp'};
+  let reads=0;
+  assert.equal((await recoverMessageDate(null,{...config,runtimeDir:dir},row,null,{...services,readRows:async()=>++reads>=3?[dated]:[row]})).receivedAt,dated.receivedAt);
+  assert.equal(downloads,1);
+  // Neither a quoted card nor an empty shell can authorize saved-date recovery.
+  for(const invalid of [{...row,materialized:false},{...row,documentCardCount:0},{...row,ambiguousPdf:true}])
+   await assert.rejects(recoverMessageDate(null,{...config,runtimeDir:dir},invalid,receipt,services),/MESSAGE_DATE_UNREADABLE/);
+ } finally {await rm(dir,{recursive:true,force:true});}
 });

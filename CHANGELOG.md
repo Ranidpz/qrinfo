@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.20.27] - 2026-10-01
+
+- Agent 0.9.6 waits for missing message dates and can recover a previously read receipt date only for the same live message ID, group-derived key and exact normalized filename, after a fresh strict-identity PDF download matches the saved SHA-256. Verification downloads cannot overwrite the original cache.
+- Reuse dates already read in the current scan only for the same materialized message/name. Never infer receipt dates from filenames, neighboring messages or the current day; unknown or changed undated PDFs remain blocked.
+- Export bounded date inputs, date provenance and the specific failing message. 52 local runner/browser tests passed, including full virtualized-history collection with an undated known PDF, fresh PDF downloads and rejection of changed bytes or identities. Live acceptance on Michal's Mac remains pending.
+
 ## [1.20.26] - 2026-10-01
 
 - Agent 0.9.5 reads only messages intersecting the chat viewport, waits for visible content to settle, and keeps offscreen empty shells from overwriting verified observations or proving an old date boundary.
