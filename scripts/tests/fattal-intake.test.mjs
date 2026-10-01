@@ -487,3 +487,11 @@ test('filename-only batches also reject an API without assignment/hash protocol 
   assert.equal(paths.length,1);assert.ok(paths[0].endsWith('/preview'));
  }finally{globalThis.fetch=original;}
 });
+
+test('Oct 1 shortened Plaza filename follows the Eilat rule without crossing explicit regions or Palace', () => {
+  const names=['תוכניית בידור פלאזה סופש 1.10-3.10.pdf','תוכניית בידור פלזה סופש.pdf','פלאזה ים המלח סופש 011026.pdf','פלאזה טבריה סופש 011026.pdf','תוכניית בידור פאלאס סופש 11026.pdf'];
+  const rows=names.map(name=>buildFattalPreview({files:[candidate(name)],targets,receivedAt:'2026-10-01T07:00:00Z'}).matches[0]);
+  assert.deepEqual(rows.slice(0,3).map(m=>[m.status,m.target?.shortId]),[['matched','FYvDZF'],['matched','FYvDZF'],['matched','7KRYAj']]);
+  assert.notEqual(rows[3].status,'matched');
+  assert.equal(rows[4].target?.shortId,'mfRe6t');assert.equal(rows[4].status,'matched');
+});

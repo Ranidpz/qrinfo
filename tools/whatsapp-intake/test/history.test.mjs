@@ -85,3 +85,14 @@ test('Playwright wrapper errors retain the actionable code for diagnostics',asyn
  const {errorCode}=await import('../src/errors.mjs');
  assert.equal(errorCode(Error('locator.evaluate: Error: WHATSAPP_SCROLL_CONTAINER_MISSING\n at eval (private stack)')),'WHATSAPP_SCROLL_CONTAINER_MISSING');
 });
+
+test('latest boundary waits for changing attachment content even when message IDs and layout stay fixed', async () => {
+ const browser=await chromium.launch({headless:true});
+ try {
+  const page=await browser.newPage();
+  await page.setContent('<div id="main"><div style="height:200px;overflow:auto"><div data-id="same" style="height:300px">message</div></div></div>');
+  let polls=0;
+  const result=await settleLatest(page,async()=>[{id:'same',filename:polls>=5?'loaded.pdf':null,documentCardCount:polls>=5?1:0}],{wait:async()=>{polls++;}});
+  assert.ok(polls>=8);assert.equal(result.rows[0].filename,'loaded.pdf');
+ }finally{await browser.close();}
+});

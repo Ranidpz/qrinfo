@@ -423,7 +423,7 @@ function scoreTarget(file: IntakeFileCandidate, target: ContentIntakeTarget): Sc
 function inferUnqualifiedEilatHotel(text: string): string | undefined {
   const rules = [
     { shortId: 'tnhKzx', names: ['הרודס', 'herods'] },
-    { shortId: 'FYvDZF', names: ['לאונרדו פלאזה', 'לאונרדו פלזה', 'leonardo plaza'] },
+    { shortId: 'FYvDZF', names: ['לאונרדו פלאזה', 'לאונרדו פלזה', 'leonardo plaza', 'פלאזה', 'פלזה'] },
     { shortId: 'jKptn6', names: ['לאונרדו קלאב', 'leonardo club'] },
     { shortId: 'tDet2R', names: ['רויאל', 'royal'] },
   ];

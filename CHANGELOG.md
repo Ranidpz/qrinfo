@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.20.24] - 2026-10-01
+
+- WhatsApp Agent 0.9.4 reads semantic document buttons with a PDF label and document icon, while excluding quoted cards and plain-text filenames. Full preview/download identity verification remains mandatory.
+- Wait for attachment content to stabilize, not only message IDs; retry a read-only scan if the same latest message changes during collection.
+- Export bounded diagnostics for all observed message types, including ignored rows and unsupported document indicators.
+- Group reports say a suitable booklet was not collected, and avoid also listing held targets as absent. Legacy uncertain reports remain reconciliation-only.
+- Recognize shortened Hebrew Plaza names under the existing owner-approved Eilat rule; explicit areas override it.
+- AI, verified reply-sender extraction and reconciliation against manual website updates are not added in this release. Live acceptance on Michal's Mac remains required.
+
 ## [1.20.23] - 2026-09-30
 
 - WhatsApp Agent 0.9.3 adds a guided same-account reconnection confirmation followed by a read-only file scan. A refreshed approval timestamp no longer forces a new manual-completion cutoff.

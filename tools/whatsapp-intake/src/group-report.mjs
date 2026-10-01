@@ -17,7 +17,8 @@ export function buildGroupUpdate(report, { first, now = new Date(), timeZone }) 
   const unique = values => [...new Set(values.filter(Boolean))];
   const updated = unique(report.results.filter(r => r.status === 'updated').map(r => r.title || r.filename));
   const held = report.results.filter(r => r.status === 'skipped');
-  const missing = unique(report.preview.missingTargets.map(r => r.target.title));
+  const heldTargets = new Set(held.map(r => r.codeId).filter(Boolean));
+  const missing = unique(report.preview.missingTargets.filter(r => !heldTargets.has(r.target.codeId)).map(r => r.target.title));
   const stamp = new Intl.DateTimeFormat('he-IL', {timeZone, day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'}).format(now);
   const lines = [`עדכון חוברות · ${stamp}`, updated.length ? `✅ עודכנו: ${updated.join(', ')}.` : 'לא עודכנו קבצים חדשים.'];
   if (held.length) {
@@ -27,7 +28,7 @@ export function buildGroupUpdate(report, { first, now = new Date(), timeZone }) 
     if (held.some(r => r.reason === 'duplicate')) lines.push('נא לשלוח גרסה אחת מאושרת לכל חוויה.');
     if (held.some(r => r.reason !== 'duplicate')) lines.push('נא לשלוח מחדש עם שם החוויה והמיקום בשם הקובץ.');
   }
-  if (missing.length) lines.push(`חסרות: ${missing.join(', ')}.`);
+  if (missing.length) lines.push(`לא נקלטה חוברת מתאימה: ${missing.join(', ')}.`);
   if (!held.length && !missing.length && first) lines.push('כל החוברות מעודכנות.');
   return lines.join('\n');
 }

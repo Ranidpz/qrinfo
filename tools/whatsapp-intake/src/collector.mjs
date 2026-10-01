@@ -1,5 +1,6 @@
 import {errorCode} from './errors.mjs';
-import { moveHistory, settleLatest, inspectHistory, assertHistoryOverlap, assertKnownMessagesObserved } from './history.mjs';
+import { inspectDocumentCard } from './document-card.mjs';
+import { moveHistory, settleLatest, inspectHistory, assertHistoryOverlap, assertKnownMessagesObserved, messageFingerprint } from './history.mjs';
 import { attachEvidence, senderFromMessageId } from './assignment.mjs';
 import { mkdir, readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
@@ -47,10 +48,9 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
       previousRows = rows;
       for (const row of rows) observed.set(row.id, row);
       // Retain bounded extraction diagnostics even if a later download or scan fails.
-      await writeJson(path.join(config.runtimeDir, 'last-message-evidence.json'), [...observed.values()]
-        .filter(r => r.filename || r.quoteDetected || r.attachmentUnreadable)
-        .map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable}) =>
-          ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable})));
+      await writeJson(path.join(config.runtimeDir, 'last-message-evidence.json'), [...observed.values()].slice(-500)
+        .map(({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification}) =>
+          ({id, filename, quoteDetected, quoteId, text, senderId, receivedAt, thumbnailCount, attachmentUnreadable, documentCardCount, documentIconCount, pdfLabelCandidates, attachmentKind, classification})));
 
       const dates = rows.map((row) => row.receivedAt).filter(Boolean);
       for (const row of rows) {
@@ -84,7 +84,7 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
     if (!complete) throw new Error('SCAN_LIMIT_REACHED: no upload was attempted');
     // Revisit the newest boundary: late sync must not silently disappear from a completed scan.
     const finalLatest = await settleLatest(page, () => readVisibleMessages(page, config));
-    if (finalLatest.rows.some(row => !observed.has(row.id))) throw Error('LATEST_MESSAGES_CHANGED: נטענו הודעות נוספות במהלך הסריקה; בצעו בדיקה נוספת.');
+    if (finalLatest.rows.some(row => !observed.has(row.id) || messageFingerprint(row) !== messageFingerprint(observed.get(row.id)))) throw Error('LATEST_MESSAGES_CHANGED: נטענו הודעות נוספות במהלך הסריקה; בצעו בדיקה נוספת.');
     assertKnownMessagesObserved(state.files, observed, cutoff);
     await writeJson(path.join(config.runtimeDir, 'last-scan.json'), { finishedAt:new Date().toISOString(), latestVerified:true, latestIds:finalLatest.rows.map(r => r.id), position:finalLatest.position, observedCount:observed.size, complete:true});
     const decisions = await readJson(path.join(config.runtimeDir, 'assignments.json'), {});
@@ -102,52 +102,42 @@ async function collectOnce(config, { since, headed = false, retry = false } = {}
   } finally { await context.close(); }
 }
 export async function readVisibleMessages(page, config, now = new Date()) {
-  const rows = await page.locator('#main [data-id]').evaluateAll((elements) => {
-    const seen = new Set();
-    return elements.flatMap((element) => {
-      // Quoted IDs are references, never independent timeline messages or boundary dates.
-      if (element.closest('header, footer, [role="dialog"], [data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]')) return [];
-      const id = element.getAttribute('data-id');
-      if (!id || seen.has(id)) return [];
-      seen.add(id);
-      const timestamp = element.getAttribute('data-pre-plain-text') || element.querySelector('[data-pre-plain-text]')?.getAttribute('data-pre-plain-text') || '';
-      const timeline = element.closest('[data-tab="8"]');
-      let block = element;
-      while (timeline && block.parentElement !== timeline) block = block.parentElement;
-      let divider = '';
-      if (timeline) {
-        for (let sibling = block.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
-          if (!sibling.querySelector('[data-id]') && sibling.textContent.trim()) { divider = sibling.textContent.trim(); break; }
+  const handles = await page.locator('#main [data-id]').elementHandles();
+  try {
+    const rows = await page.evaluate((elements) => {
+      const seen = new Set();
+      return elements.flatMap((element, index) => {
+        // Quoted IDs are references, never independent timeline messages or boundary dates.
+        if (element.closest('header, footer, [role="dialog"], [data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]')) return [];
+        const id = element.getAttribute('data-id');
+        if (!id || seen.has(id)) return [];
+        seen.add(id);
+        const timestamp = element.getAttribute('data-pre-plain-text') || element.querySelector('[data-pre-plain-text]')?.getAttribute('data-pre-plain-text') || '';
+        const timeline = element.closest('[data-tab="8"]');
+        let block = element;
+        while (timeline && block.parentElement !== timeline) block = block.parentElement;
+        let divider = '';
+        if (timeline) {
+          for (let sibling = block.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
+            if (!sibling.querySelector('[data-id]') && sibling.textContent.trim()) { divider = sibling.textContent.trim(); break; }
+          }
         }
-      }
-      const time = element.querySelector('[data-testid="msg-meta"]')?.textContent.trim() || '';
-      const quotedSelector = '[data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]';
-      const quote = element.querySelector(quotedSelector);
-      // Only an explicit full source-message identity is accepted. Never infer from filename, order, or time.
-      const quoteId = quote?.getAttribute('data-quoted-message-id') || quote?.getAttribute('data-message-id') || quote?.getAttribute('data-id') || null;
-      const copy = element.cloneNode(true);
-      for (const node of copy.querySelectorAll(quotedSelector)) node.remove();
-      const thumbs = [...copy.querySelectorAll('[data-testid="document-thumb"]')];
-      // Preserve inline filename spans, but keep block labels separate from size/time metadata.
-      // Quoted documents have already been removed from this detached copy.
-      const pdfName = value => typeof value === 'string' && /\.pdf$/i.test(value.trim());
-      const labelText = node => {
-        if (node.nodeType === Node.TEXT_NODE) return node.textContent;
-        if (node.nodeType !== Node.ELEMENT_NODE) return '';
-        const block = /^(DIV|P|BUTTON|BR|LI|SECTION)$/.test(node.tagName);
-        const value = [...node.childNodes].map(labelText).join('');
-        return block ? `\n${value}\n` : value;
-      };
-      const labels = labelText(copy).split('\n');
-      const names = [...new Set([...copy.querySelectorAll('[title]')].map(node => node.getAttribute('title'))
-        .concat(labels).filter(pdfName).map(value => value.trim()))];
-      const attachmentUnreadable = thumbs.length > 0 && names.length === 0;
-      for (const thumb of copy.querySelectorAll('[data-testid="document-thumb"], [data-testid="msg-meta"]')) thumb.remove();
-      const text = [...copy.querySelectorAll('[data-testid="selectable-text"], .selectable-text')].filter(n => !n.parentElement?.closest('.selectable-text, [data-testid="selectable-text"]')).map(n => n.textContent).join(' ').trim().slice(0, 500);
-      return [{ id, timestamp, divider, time, quoteDetected: !!quote, quoteId, text, filename: thumbs.length && names.length === 1 ? names[0] : null, attachmentUnreadable, thumbnailCount: thumbs.length, ambiguousPdf: thumbs.length > 1 || (thumbs.length > 0 && names.length > 1) }];
-    });
-  });
-  return rows.map((row) => ({ ...row, senderId: senderFromMessageId(row.id), receivedAt: parseMessageDate(row.timestamp, config) || parseDividerDate(row.divider, row.time, config, now) }));
+        const time = element.querySelector('[data-testid="msg-meta"]')?.textContent.trim() || '';
+        const quotedSelector = '[data-testid="quoted-message"], [data-testid="quoted"], [data-testid="quoted-message-container"], [data-testid="quoted-document"], [data-quoted-message-id]';
+        const quote = element.querySelector(quotedSelector);
+        // Only an explicit full source-message identity is accepted. Never infer from filename, order, or time.
+        const quoteId = quote?.getAttribute('data-quoted-message-id') || quote?.getAttribute('data-message-id') || quote?.getAttribute('data-id') || null;
+        const copy = element.cloneNode(true);
+        for (const node of copy.querySelectorAll(quotedSelector)) node.remove();
+        for (const thumb of copy.querySelectorAll('[data-testid="document-thumb"], [data-testid="msg-meta"]')) thumb.remove();
+        const text = [...copy.querySelectorAll('[data-testid="selectable-text"], .selectable-text')].filter(n => !n.parentElement?.closest('.selectable-text, [data-testid="selectable-text"]')).map(n => n.textContent).join(' ').trim().slice(0, 500);
+        return [{ index, id, timestamp, divider, time, quoteDetected: !!quote, quoteId, text }];
+      });
+    }, handles);
+    return await Promise.all(rows.map(async ({ index, ...row }) => ({ ...row,
+      ...await handles[index].evaluate(inspectDocumentCard),
+      senderId: senderFromMessageId(row.id), receivedAt: parseMessageDate(row.timestamp, config) || parseDividerDate(row.divider, row.time, config, now) })));
+  } finally { await Promise.all(handles.map(handle => handle.dispose())); }
 }
 // Compare complete filenames; only presentation whitespace and bidi marks may differ.
 export function normalizeAttachmentName(value) {
@@ -165,7 +155,7 @@ async function previewNames(viewer) {
   });
 }
 export async function downloadPdf(page, config, row, key, { previewTimeoutMs = 8000 } = {}) {
-  const filename = safeFilename(row.filename);
+  const filename = safeFilename(normalizeAttachmentName(row.filename));
   const dir = path.join(config.runtimeDir, 'downloads', key);
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const destination = path.join(dir, filename);
@@ -179,16 +169,17 @@ export async function downloadPdf(page, config, row, key, { previewTimeoutMs = 8
   }
   if (!container) throw new Error('MESSAGE_DISAPPEARED');
   await assertGroup(page, config);
-  const thumbs = [];
-  for (const item of await container.locator('[data-testid="document-thumb"]').all()) {
-    if (await item.evaluate((el, selector) => !el.closest(selector), quoted)) thumbs.push(item);
-  }
-  if (thumbs.length !== 1) throw new Error('ATTACHMENT_AMBIGUOUS');
+  const cardInfo = await container.evaluate(inspectDocumentCard);
+  if (cardInfo.documentCardCount !== 1 || cardInfo.ambiguousPdf) throw new Error('ATTACHMENT_AMBIGUOUS');
+  if (cardInfo.filename && normalizeAttachmentName(cardInfo.filename) !== normalizeAttachmentName(row.filename)) throw new Error('WRONG_ATTACHMENT_PREVIEW');
+  const cardHandle = await container.evaluateHandle(inspectDocumentCard, { select:true });
+  const card = cardHandle.asElement();
+  if (!card) { await cardHandle.dispose(); throw new Error('ATTACHMENT_AMBIGUOUS'); }
   const attachment = { messageId:row.id, expectedName:row.filename, receivedAt:row.receivedAt, visibleNames:[] };
   const viewer = page.locator('[data-testid="media-viewer-modal"]');
   let downloadPromise;
   try {
-    await thumbs[0].click();
+    await card.click();
     await viewer.waitFor({ state:'visible', timeout:45000 });
     const until = Date.now() + previewTimeoutMs;
     let verified = false;
@@ -219,6 +210,7 @@ export async function downloadPdf(page, config, row, key, { previewTimeoutMs = 8
     await rm(temporary, { force:true });
     throw error;
   } finally {
+    await cardHandle.dispose();
     if (!page.isClosed() && await viewer.isVisible().catch(() => false)) await viewer.getByRole('button', { name:/^(Close|סגירה)$/ }).click().catch(() => {});
   }
 }

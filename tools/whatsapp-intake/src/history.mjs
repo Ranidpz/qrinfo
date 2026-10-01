@@ -53,6 +53,11 @@ export async function moveHistory(page,direction) {
   return result;
 }
 
+export function messageFingerprint(row) {
+  return JSON.stringify([row.id, row.filename || null, row.receivedAt || null, row.quoteId || null,
+    row.text || '', row.documentCardCount ?? row.thumbnailCount ?? 0, !!row.attachmentUnreadable, !!row.ambiguousPdf]);
+}
+
 export async function settleLatest(page, readRows, { wait = sleep, attempts = 30, delay = 500 } = {}) {
   let previous = '', stable = 0, lastMissing = false;
   for (let i = 0; i < attempts; i++) {
@@ -67,7 +72,7 @@ export async function settleLatest(page, readRows, { wait = sleep, attempts = 30
       lastMissing=true;stable=0;previous='';await wait(delay);continue;
     }
     const rows = await readRows();
-    const fingerprint = JSON.stringify([position.top, position.height, rows.map(r => r.id)]);
+    const fingerprint = JSON.stringify([position.top, position.height, rows.map(messageFingerprint)]);
     stable = position.atLatest && rows.length && fingerprint === previous ? stable + 1 : 0;
     previous = fingerprint;
     // Allow initial sync/anchor restoration to finish; one scroll plus 800ms is insufficient.

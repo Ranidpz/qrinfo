@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.23';
+export const APP_VERSION = '1.20.24';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.20.24', date: '2026-10-01', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.9.4: קריאת תצוגות מסמך נוספות, בדיקת טעינת פרטי הקבצים ודיווח מדויק יותר'],
+    en: ['WhatsApp Agent 0.9.4: read additional document cards, verify loaded attachment details and clarify collection reports'],
+  } },
   { version: '1.20.23', date: '2026-09-30', isNew: true, highlights: {
     he: ['סוכן וואטסאפ 0.9.3: אישור חיבור מחדש לאותו חשבון, עם שמירת המחזור והיסטוריית הקבצים'],
     en: ['WhatsApp Agent 0.9.3: explicitly reconfirm the same WhatsApp account without resetting the cycle or file history'],

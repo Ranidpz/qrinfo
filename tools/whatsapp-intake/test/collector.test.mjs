@@ -44,7 +44,7 @@ test('group summary distinguishes received, updated and missing and refuses unco
   const report = { results: [{ status: 'updated', title: 'הרודס אילת' }, { status: 'skipped_duplicate', title: 'יו קורל' }], preview: { missingTargets: [{ target: { title: 'קלאב טבריה' } }] } };
   const text = buildGroupUpdate(report, { first: true, now: new Date('2026-09-20T08:00:00Z'), timeZone: config.timeZone });
   assert.match(text, /✅ עודכנו: הרודס אילת/);
-  assert.match(text, /חסרות: קלאב טבריה/);
+  assert.match(text, /לא נקלטה חוברת מתאימה: קלאב טבריה/);
   assert.doesNotMatch(text, /ממשק|מזהה|יו קורל/);
   assert.ok(text.length < 200);
   assert.throws(() => buildGroupUpdate({ ...report, results: [{ status: 'failed' }] }, { first: true, timeZone: config.timeZone }), /UNCONFIRMED/);
@@ -208,4 +208,52 @@ test('attachment identity handles whitespace, delayed labels and quoted sources 
     await assert.rejects(readFile(path.join(dir,'downloads','wrong-download','download.part')), /ENOENT/);
     assert.equal(await page.locator('[data-testid="media-viewer-modal"]').count(), 0);
   } finally { await browser.close(); await rm(dir,{recursive:true,force:true}); }
+});
+
+test('semantic document buttons are collected and downloaded with strict identity; quotes and text stay excluded', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'theq-card-'));
+  const browser = await chromium.launch({headless:true});
+  try {
+    const page = await browser.newPage({acceptDownloads:true});
+    await page.setContent(`<div id="main"><header><span data-testid="conversation-info-header-chat-title">חוברות QR פתאל</span></header>
+      <div data-id="real" data-pre-plain-text="[02:03, 10/1/2026] sender:"><div role="button" id="card"><span data-icon="document"></span><div>\u200fקלאב טבריה 011026.PDF\u200e</div><div>2 pages · 871 KB</div></div></div>
+      <div data-id="quote"><div data-testid="quoted-message"><div role="button"><span data-icon="document"></span><div>quoted.pdf</div></div></div><span class="selectable-text">אילת</span></div>
+      <div data-id="plain"><span class="selectable-text">please rename.pdf</span><button>OK</button></div>
+      <div data-id="icon-only"><span data-icon="document"></span><div>unknown.pdf</div></div>
+      <div data-id="two"><button data-testid="document-thumb" title="one.pdf"></button><div role="button"><span data-icon="document-pdf"></span><div>two.pdf</div></div></div>
+      <div data-id="nested"><div role="button"><div role="button"><span data-icon="document"></span><div>nested.pdf</div></div></div></div>
+      <div data-id="text"><span class="selectable-text">ספלאש אין</span></div>
+    </div>`);
+    const rows = await readVisibleMessages(page, config);
+    assert.equal(rows[0].filename,'\u200fקלאב טבריה 011026.PDF\u200e');
+    assert.equal(rows[0].attachmentKind,'document_button');
+    assert.equal(rows[0].receivedAt,'2026-09-30T23:03:00.000Z');
+    assert.equal(rows[1].filename,null); assert.equal(rows[1].documentCardCount,0);
+    assert.equal(rows[2].filename,null); assert.equal(rows[3].filename,null);
+    assert.equal(rows[3].documentIconCount,1); assert.deepEqual(rows[3].pdfLabelCandidates,['unknown.pdf']);
+    assert.equal(rows[4].ambiguousPdf,true); assert.equal(rows[5].documentCardCount,1);
+    assert.equal(rows[6].text,'ספלאש אין');
+    await page.evaluate(() => {
+      window.downloads = 0;
+      document.getElementById('card').onclick = () => {
+        const viewer = document.createElement('div'); viewer.dataset.testid='media-viewer-modal';
+        viewer.innerHTML='<div>קלאב טבריה 011026.pdf</div><button aria-label="Download">Download</button><button aria-label="Close">Close</button>';
+        viewer.querySelector('[aria-label="Download"]').onclick=()=>{window.downloads++;const a=document.createElement('a');a.download='קלאב טבריה 011026.pdf';a.href=URL.createObjectURL(new Blob(['%PDF-1.7\nfixture\n%%EOF']));a.click();};
+        viewer.querySelector('[aria-label="Close"]').onclick=()=>viewer.remove();document.body.append(viewer);
+      };
+    });
+    const file = await downloadPdf(page,{...config,runtimeDir:dir},rows[0],'semantic');
+    assertPdf(await readFile(file.path)); assert.equal(await page.evaluate(()=>window.downloads),1);
+    await assert.rejects(downloadPdf(page,{...config,runtimeDir:dir},{...rows[4],filename:'one.pdf'},'ambiguous'),/ATTACHMENT_AMBIGUOUS/);
+    // A changed card must be rejected before opening any preview or downloading.
+    await page.locator('#card div').first().evaluate(node=>node.textContent='other.pdf');
+    await assert.rejects(downloadPdf(page,{...config,runtimeDir:dir},rows[0],'changed'),/WRONG_ATTACHMENT_PREVIEW/);
+    assert.equal(await page.evaluate(()=>window.downloads),1);
+  } finally {await browser.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test('held target is not also reported as absent', () => {
+  const report={results:[{status:'skipped',fileId:'one',filename:'one.pdf',codeId:'club',reason:'duplicate'}],preview:{matches:[{file:{id:'one'},status:'duplicate'}],missingTargets:[{target:{codeId:'club',title:'קלאב טבריה'}},{target:{codeId:'other',title:'פלאזה'}}]}};
+  const text=buildGroupUpdate(report,{first:true,timeZone:config.timeZone});
+  assert.match(text,/לא עודכנו:.*one.pdf/);assert.match(text,/לא נקלטה חוברת מתאימה: פלאזה/);assert.doesNotMatch(text,/כל החוברות מעודכנות|לא נקלטה חוברת מתאימה: קלאב/);
 });
