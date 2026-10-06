@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.22.0';
+export const APP_VERSION = '1.22.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.22.1', date: '2026-10-06', isNew: true, highlights: {
+    he: ['Q.Treasure: אבטחה — כל רישום וסריקה עוברים דרך השרת, שינוי שלב מותר רק לבעלים, ותיקון גופנים במסכי המשחק'],
+    en: ['Q.Treasure: security — every registration and scan goes through the server, phase changes are owner-only, and fixed fonts on the game screens'],
+  } },
   { version: '1.22.0', date: '2026-10-06', isNew: true, highlights: {
     he: ['10 בול: מסך הגדרות — בחירת צלילים מספריית המערכת או העלאת צליל משלכם, גופן, צבע רקע, צבע טקסט ותמונת רקע, עם תצוגה מקדימה חיה'],
     en: ['10 Bool: settings screen — pick sounds from the system library or upload your own, font, background colour, text colour and background image, with a live preview'],

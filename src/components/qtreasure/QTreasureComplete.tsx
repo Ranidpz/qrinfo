@@ -468,7 +468,7 @@ export function QTreasureComplete({
         }
 
         .title {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 2.5rem;
           font-weight: 700;
           color: #d4af37;
@@ -533,7 +533,7 @@ export function QTreasureComplete({
         }
 
         .stat-value {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1.75rem;
           font-weight: 700;
           color: #d4af37;
@@ -559,7 +559,7 @@ export function QTreasureComplete({
         }
 
         .section-title {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1rem;
           color: #d4af37;
           margin: 0 0 1rem;
@@ -597,7 +597,7 @@ export function QTreasureComplete({
         }
 
         .station-time {
-          font-family: 'Cinzel', monospace;
+          font-family: var(--font-geist-mono), ui-monospace, monospace;
           font-size: 0.9rem;
           color: #d4af37;
         }
@@ -618,7 +618,7 @@ export function QTreasureComplete({
           border: 1px solid rgba(212, 175, 55, 0.2);
           border-radius: 12px;
           color: #d4af37;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1rem;
           cursor: pointer;
           transition: all 0.2s;
@@ -648,7 +648,7 @@ export function QTreasureComplete({
           flex: 1;
           max-width: 200px;
           padding: 1rem 2rem;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1rem;
           font-weight: 600;
           color: #0d1f17;

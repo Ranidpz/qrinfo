@@ -1,27 +1,21 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, query, getDocs } from 'firebase/firestore';
-import { QTreasureConfig, QTreasureStation } from '@/types/qtreasure';
-
-interface ResolveStationResult {
-  found: boolean;
-  mainCodeId?: string;
-  mainCodeShortId?: string;
-  stationId?: string;
-  stationOrder?: number;
-  totalStations?: number;
-  gameTitle?: string;
-}
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+import { resolveTreasureStation } from '@/lib/qtreasure/store';
 
 /**
- * Resolve a station shortId to find the parent Q.Treasure game
- * This is used when someone scans a station QR directly
+ * Resolve a station shortId → its parent Q.Treasure game.
+ * Used when someone scans a station QR directly. Backed by two indexed shortId
+ * lookups (see resolveTreasureStation) instead of a full `codes` collection scan.
  */
 export async function GET(request: Request) {
   try {
+    const ip = getClientIp(request);
+    if (!checkRateLimit(`qtreasure-resolve:${ip}`, RATE_LIMITS.CHECKIN).success) {
+      return NextResponse.json({ found: false, error: 'RATE_LIMITED' }, { status: 429 });
+    }
+
     const { searchParams } = new URL(request.url);
     const stationShortId = searchParams.get('stationShortId');
-
     if (!stationShortId) {
       return NextResponse.json(
         { found: false, error: 'Missing stationShortId parameter' },
@@ -29,45 +23,8 @@ export async function GET(request: Request) {
       );
     }
 
-    // Search all codes for a Q.Treasure with this station shortId
-    const codesRef = collection(db, 'codes');
-    const codesSnapshot = await getDocs(query(codesRef));
-
-    for (const codeDoc of codesSnapshot.docs) {
-      const codeData = codeDoc.data();
-
-      // Find qtreasure media item
-      const qtreasureMedia = codeData.media?.find(
-        (m: { type: string }) => m.type === 'qtreasure'
-      );
-
-      if (!qtreasureMedia?.qtreasureConfig) continue;
-
-      const config: QTreasureConfig = qtreasureMedia.qtreasureConfig;
-
-      // Check if any station has this shortId
-      const station = config.stations.find(
-        (s: QTreasureStation) => s.isActive && s.stationShortId === stationShortId
-      );
-
-      if (station) {
-        const activeStations = config.stations.filter((s: QTreasureStation) => s.isActive);
-
-        return NextResponse.json({
-          found: true,
-          mainCodeId: codeDoc.id,
-          mainCodeShortId: codeData.shortId,
-          stationId: station.id,
-          stationOrder: station.order,
-          totalStations: activeStations.length,
-          gameTitle: config.branding?.gameTitle || 'ציד אוצרות',
-        } as ResolveStationResult);
-      }
-    }
-
-    // Not found - this shortId is not a station
-    return NextResponse.json({ found: false } as ResolveStationResult);
-
+    const result = await resolveTreasureStation(stationShortId);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error resolving station:', error);
     return NextResponse.json(

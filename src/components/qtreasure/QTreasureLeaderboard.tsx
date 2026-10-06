@@ -185,7 +185,7 @@ export function QTreasureLeaderboard({
         }
 
         .title {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1.5rem;
           font-weight: 700;
           color: #d4af37;
@@ -328,7 +328,7 @@ export function QTreasureLeaderboard({
         }
 
         .rank-badge {
-          font-family: 'Cinzel', monospace;
+          font-family: var(--font-geist-mono), ui-monospace, monospace;
           font-size: 1rem;
           font-weight: 600;
           color: rgba(245, 245, 220, 0.8);
@@ -396,7 +396,7 @@ export function QTreasureLeaderboard({
         }
 
         .col-time {
-          font-family: 'Cinzel', monospace;
+          font-family: var(--font-geist-mono), ui-monospace, monospace;
           font-size: 0.875rem;
           color: #d4af37;
           text-align: ${isRTL ? 'right' : 'left'};
@@ -559,7 +559,7 @@ export function QTreasureLeaderboardMini({
         }
 
         .mini-time {
-          font-family: 'Cinzel', monospace;
+          font-family: var(--font-geist-mono), ui-monospace, monospace;
           font-size: 0.875rem;
           color: #d4af37;
         }

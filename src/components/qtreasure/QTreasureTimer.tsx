@@ -195,7 +195,7 @@ export function QTreasureTimer({
         }
 
         .timer-value {
-          font-family: 'Cinzel', monospace;
+          font-family: var(--font-geist-mono), ui-monospace, monospace;
           font-weight: 700;
           color: #d4af37;
           text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
@@ -324,7 +324,7 @@ export function QTreasureTimerInline({
         }
 
         .timer-value {
-          font-family: 'Cinzel', monospace;
+          font-family: var(--font-geist-mono), ui-monospace, monospace;
           font-weight: 600;
           color: #d4af37;
         }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1] - 2026-10-06
+
+- Q.Treasure security (phase 0 of the overhaul): player + scan writes go through the Admin SDK via `src/lib/qtreasure/store.ts`; `register`/`start`/`scan` add rate limiting + origin checks; `phase` is owner-only (was unauthenticated); `resolve-station` uses indexed `shortId` lookups instead of scanning all codes. `firestore.rules`: `qtreasure_players` / `qtreasure_scans` create+update → `if false` (deployed with this release, both projects).
+- Station order now resolves through `src/lib/qtreasure/route.ts` (per-player route support; `routeMode` absent = `fixed` = the old order). Players mid-game from the old code continue from `currentStationIndex`.
+- Fonts: treasure screens referenced Cinzel / Crimson Text, which were never loaded (fell back to Georgia). Now Assistant + Geist Mono for digits.
+- Not included: the Cliostro video tab and per-player route editor UI (still in progress).
+
 ## [1.22.0] - 2026-10-06
 
 - `tenbool` settings (`TenBoolModal`, opened from the thumbnail or the pencil on the code page). Stored as `media.tenboolConfig`; every field optional, so codes without it play exactly as before. Types, sound library and resolvers in `src/types/tenbool.ts`.

@@ -1,19 +1,26 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import {
-  QTreasureConfig,
-  QTreasurePlayer,
-} from '@/types/qtreasure';
 import { incrementTreasurePlayersPlaying } from '@/lib/qtreasure-realtime';
+import { checkRateLimit, getClientIp, validateOrigin, RATE_LIMITS } from '@/lib/rateLimit';
+import {
+  getTreasureCodeConfig,
+  getTreasurePlayer,
+  updateTreasurePlayer,
+} from '@/lib/qtreasure/store';
+import { resolvePlayerRoute, stationById } from '@/lib/qtreasure/route';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    if (!validateOrigin(request)) {
+      return NextResponse.json({ success: false, error: 'INVALID_ORIGIN' }, { status: 403 });
+    }
+    const ip = getClientIp(request);
+    if (!checkRateLimit(`qtreasure-start:${ip}`, RATE_LIMITS.CHECKIN).success) {
+      return NextResponse.json({ success: false, error: 'RATE_LIMITED' }, { status: 429 });
+    }
 
+    const body = await request.json();
     const { codeId, playerId } = body;
 
-    // Validate required fields
     if (!codeId || !playerId) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
@@ -21,84 +28,50 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if code exists and get config
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
-
-    if (!codeDoc.exists()) {
-      return NextResponse.json(
-        { success: false, error: 'Code not found' },
-        { status: 404 }
-      );
-    }
-
-    // Find QTreasure media item
-    const codeData = codeDoc.data();
-    const qtreasureMedia = codeData.media?.find(
-      (m: { type: string }) => m.type === 'qtreasure'
-    );
-
-    if (!qtreasureMedia?.qtreasureConfig) {
+    const codeConfig = await getTreasureCodeConfig(codeId);
+    if (!codeConfig) {
       return NextResponse.json(
         { success: false, error: 'QTreasure not configured' },
         { status: 400 }
       );
     }
-
-    const config: QTreasureConfig = qtreasureMedia.qtreasureConfig;
+    const { config } = codeConfig;
 
     // Check if game is in valid phase
     if (config.currentPhase === 'completed') {
-      return NextResponse.json(
-        { success: false, error: 'GAME_ENDED' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'GAME_ENDED' }, { status: 400 });
     }
 
-    // Get player
-    const playerRef = doc(db, 'codes', codeId, 'qtreasure_players', playerId);
-    const playerDoc = await getDoc(playerRef);
-
-    if (!playerDoc.exists()) {
-      return NextResponse.json(
-        { success: false, error: 'NOT_REGISTERED' },
-        { status: 400 }
-      );
+    const player = await getTreasurePlayer(codeId, playerId);
+    if (!player) {
+      return NextResponse.json({ success: false, error: 'NOT_REGISTERED' }, { status: 400 });
     }
 
-    const player = playerDoc.data() as QTreasurePlayer;
+    // Resolve this player's next target station on their personal route
+    const { routeSeq, routeIndex } = resolvePlayerRoute(player, config);
+    const targetStation = stationById(config, routeSeq[routeIndex]) || stationById(config, routeSeq[0]);
 
-    // Check if already started
+    // Already started → return the continuation station
     if (player.startedAt) {
-      // Get first station for continuing
-      const firstStation = config.stations.find(s => s.isActive && s.order === 1);
       return NextResponse.json({
         success: true,
         startedAt: player.startedAt,
-        firstStation,
+        firstStation: targetStation,
         alreadyStarted: true,
       });
     }
 
     // Start the hunt
     const startedAt = Date.now();
-    await updateDoc(playerRef, { startedAt });
+    await updateTreasurePlayer(codeId, playerId, { startedAt });
 
-    // Update Realtime DB stats
     try {
       await incrementTreasurePlayersPlaying(codeId);
     } catch (rtdbError) {
       console.error('Error updating Realtime DB:', rtdbError);
     }
 
-    // Get first station
-    const firstStation = config.stations.find(s => s.isActive && s.order === 1);
-
-    return NextResponse.json({
-      success: true,
-      startedAt,
-      firstStation,
-    });
+    return NextResponse.json({ success: true, startedAt, firstStation: targetStation });
   } catch (error) {
     console.error('Error starting hunt:', error);
     return NextResponse.json(
