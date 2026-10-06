@@ -19,6 +19,7 @@ import { QTreasurePlayerView, QTreasureDisplay } from '@/components/qtreasure';
 import QChallengeViewer from '@/components/viewer/QChallengeViewer';
 import QTagViewer from '@/components/viewer/QTagViewer';
 import QGamesViewer from '@/components/viewer/QGamesViewer';
+import TenBoolViewer from '@/components/viewer/TenBoolViewer';
 import QGamesDisplay from '@/components/qgames/QGamesDisplay';
 import QGamesDisplayWidescreen from '@/components/qgames/QGamesDisplayWidescreen';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
@@ -1160,6 +1161,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isQTag = media.length === 1 && currentMedia?.type === 'qtag';
   const isMinigames = media.length === 1 && currentMedia?.type === 'minigames';
   const isQBet = media.length === 1 && currentMedia?.type === 'qbet';
+  const isTenBool = media.length === 1 && currentMedia?.type === 'tenbool';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
@@ -1559,6 +1561,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} folderId={folderId} />
         ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+        ) : isTenBool ? (
+          <TenBoolViewer title={currentMedia.title} config={currentMedia.tenboolConfig} />
         ) : isQBet && currentMedia.qbetConfig ? (
           <QBetViewer config={currentMedia.qbetConfig} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isQVote && currentMedia.qvoteConfig ? (

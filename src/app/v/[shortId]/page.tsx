@@ -163,6 +163,7 @@ function getDescriptionByMediaType(mediaType: string): string {
     qtag: 'הזמנה לאירוע 🎉',
     minigames: 'מוזמנים לשחק! 🎮',
     qbet: 'מנחשים את תוצאת המשחק ⚽',
+    tenbool: 'עצרו את הטיימר בדיוק על 10.00 ⏱️',
   };
   return descriptions[mediaType] || 'תוכן QR דינמי';
 }

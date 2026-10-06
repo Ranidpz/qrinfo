@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2, Instagram, Facebook, Dices } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2, Instagram, Facebook, Dices, Timer } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -122,6 +122,7 @@ const EXPERIENCE_ICONS: Partial<
   qtag: { grad: 'from-teal-500 to-emerald-600', Icon: Tag },
   raffle: { grad: 'from-amber-400 to-yellow-600', Icon: Gift },
   qbet: { grad: 'from-blue-600 via-indigo-600 to-red-500', Icon: Dices },
+  tenbool: { grad: 'from-red-500 to-rose-700', Icon: Timer },
 };
 
 function ExperienceIcon({ type, big }: { type: MediaType; big?: boolean }) {
@@ -301,6 +302,7 @@ export default function CodeCard({
       case 'minigames': return 'Q.Games';
       case 'raffle': return 'הגרלה';
       case 'qbet': return 'ניחוש';
+      case 'tenbool': return '10 בול';
       default: return tMedia('image');
     }
   };

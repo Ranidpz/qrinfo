@@ -29,6 +29,7 @@ export const MEDIA_TYPE_INFO: Record<MediaType, {
   minigames: { icon: 'Gamepad2', labelHe: 'מיניגיימס', labelEn: 'Mini Games' },
   raffle: { icon: 'Gift', labelHe: 'הגרלה', labelEn: 'Raffle' },
   qbet: { icon: 'Dices', labelHe: 'ניחוש', labelEn: 'Match Prediction' },
+  tenbool: { icon: 'Timer', labelHe: '10 בול', labelEn: '10 Bool' },
 };
 
 /**

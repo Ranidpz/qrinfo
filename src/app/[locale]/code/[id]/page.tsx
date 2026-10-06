@@ -36,6 +36,7 @@ import {
   Vote,
   Gift,
   Dices,
+  Timer,
   CalendarDays,
   Smartphone,
   LayoutGrid,
@@ -99,6 +100,8 @@ import QVoteModal from '@/components/modals/QVoteModal';
 import RaffleModal from '@/components/modals/RaffleModal';
 import { DEFAULT_RAFFLE_CONFIG, type RaffleConfig } from '@/lib/raffle/types';
 import QBetModal from '@/components/modals/QBetModal';
+import TenBoolModal from '@/components/modals/TenBoolModal';
+import type { TenBoolConfig } from '@/types/tenbool';
 import type { QBetConfig } from '@/lib/qbet/types';
 import QStageModal from '@/components/modals/QStageModal';
 import WeeklyCalendarModal from '@/components/modals/WeeklyCalendarModal';
@@ -216,6 +219,7 @@ function getExperienceTypeLabel(
     case 'qchallenge': return 'Q.Challenge';
     case 'minigames': return 'Q.Games';
     case 'raffle': return he ? 'הגרלה' : 'Raffle';
+    case 'tenbool': return he ? '10 בול' : '10 Bool';
     default: return String(type).toUpperCase();
   }
 }
@@ -381,6 +385,8 @@ export default function CodeEditPage({ params }: PageProps) {
   const [editingRaffleId, setEditingRaffleId] = useState<string | null>(null);
   const [qbetModalOpen, setQbetModalOpen] = useState(false);
   const [editingQBetId, setEditingQBetId] = useState<string | null>(null);
+  const [tenboolModalOpen, setTenboolModalOpen] = useState(false);
+  const [editingTenBoolId, setEditingTenBoolId] = useState<string | null>(null);
   const [addingQVote, setAddingQVote] = useState(false);
 
   // Weekly Calendar modal state
@@ -1045,6 +1051,7 @@ export default function CodeEditPage({ params }: PageProps) {
           if (m.weeklycalConfig) mediaData.weeklycalConfig = m.weeklycalConfig;
           // Raffle: copy config but reset the live winners list on duplicate
           if (m.raffleConfig) mediaData.raffleConfig = removeUndefined({ ...m.raffleConfig });
+          if (m.tenboolConfig) mediaData.tenboolConfig = removeUndefined({ ...m.tenboolConfig });
           if (m.qtagConfig) mediaData.qtagConfig = removeUndefined({
             ...m.qtagConfig,
             branding: removeUndefined({ ...m.qtagConfig.branding, colors: { ...m.qtagConfig.branding.colors } }),
@@ -1951,6 +1958,20 @@ export default function CodeEditPage({ params }: PageProps) {
   // Handler for adding/editing the Raffle experience. The RaffleModal manages
   // its own R2 uploads + participant import; here we just persist the config
   // (and create the media item on first save, with a public-link token).
+  // "10 בול" settings. Targets the media being edited, else the code's existing tenbool media.
+  const handleSaveTenBool = async (config: TenBoolConfig): Promise<TenBoolConfig | void> => {
+    if (!code) return;
+    const targetId = editingTenBoolId || code.media.find((m) => m.type === 'tenbool')?.id;
+    if (!targetId) return;
+    const updatedMedia = code.media.map((m) => (m.id === targetId ? { ...m, tenboolConfig: config } : m));
+    const cleanedMedia = updatedMedia.map((m) =>
+      removeUndefined(m as unknown as Record<string, unknown>)
+    ) as unknown as MediaItem[];
+    await updateQRCode(code.id, { media: cleanedMedia }); // throws -> the modal shows the error
+    setCode((prev) => (prev ? { ...prev, media: updatedMedia } : null));
+    return config;
+  };
+
   const handleSaveRaffle = async (config: RaffleConfig): Promise<RaffleConfig | void> => {
     if (!code || !user) return;
     // Never create a second raffle on the same code. Target the media being
@@ -4073,6 +4094,9 @@ export default function CodeEditPage({ params }: PageProps) {
                       } else if (media.type === 'minigames') {
                         setEditingQGamesId(media.id);
                         setQgamesModalOpen(true);
+                      } else if (media.type === 'tenbool') {
+                        setEditingTenBoolId(media.id);
+                        setTenboolModalOpen(true);
                       } else {
                         window.open(media.url, '_blank');
                       }
@@ -4153,6 +4177,10 @@ export default function CodeEditPage({ params }: PageProps) {
                         className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-400 to-yellow-600"
                       >
                         <Gift className="w-6 h-6 text-white" />
+                      </div>
+                    ) : media.type === 'tenbool' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-500 to-rose-700">
+                        <Timer className="w-6 h-6 text-white" />
                       </div>
                     ) : media.type === 'qbet' ? (
                       media.qbetConfig?.backgroundImageUrl ? (
@@ -4317,6 +4345,21 @@ export default function CodeEditPage({ params }: PageProps) {
                         onClick={() => {
                           setEditingRaffleId(media.id);
                           setRaffleModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Edit button for 10 בול */}
+                  {media.type === 'tenbool' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => {
+                          setEditingTenBoolId(media.id);
+                          setTenboolModalOpen(true);
                         }}
                         className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
                       >
@@ -4523,7 +4566,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   )}
 
                   {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, qstage, qhunt, qtreasure, qchallenge, or minigames */}
-                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.type !== 'minigames' && (
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.type !== 'minigames' && media.type !== 'tenbool' && (
                     <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -4576,7 +4619,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   {/* External link */}
                   <Tooltip text={t('openInNewWindow')}>
                     <a
-                      href={media.url}
+                      href={media.type === 'tenbool' ? `/v/${code.shortId}` : media.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
@@ -4842,6 +4885,25 @@ export default function CodeEditPage({ params }: PageProps) {
 
       {/* QBet Modal — initialConfig falls back to the existing qbet media so
           opening via the toolbar button edits it instead of resetting it */}
+      <TenBoolModal
+        isOpen={tenboolModalOpen}
+        onClose={() => {
+          setTenboolModalOpen(false);
+          setEditingTenBoolId(null);
+        }}
+        onSave={handleSaveTenBool}
+        initialConfig={
+          (editingTenBoolId ? code?.media.find((m) => m.id === editingTenBoolId)?.tenboolConfig : undefined) ||
+          code?.media.find((m) => m.type === 'tenbool')?.tenboolConfig
+        }
+        codeId={code.id}
+        shortId={code.shortId}
+        title={
+          (editingTenBoolId ? code?.media.find((m) => m.id === editingTenBoolId)?.title : undefined) ||
+          code?.media.find((m) => m.type === 'tenbool')?.title
+        }
+      />
+
       <QBetModal
         isOpen={qbetModalOpen}
         onClose={() => {

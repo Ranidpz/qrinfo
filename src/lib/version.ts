@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.27';
+export const APP_VERSION = '1.22.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,34 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.22.1', date: '2026-10-06', isNew: true, highlights: {
+    he: ['Q.Treasure: אבטחה — כל רישום וסריקה עוברים דרך השרת, שינוי שלב מותר רק לבעלים, ותיקון גופנים במסכי המשחק'],
+    en: ['Q.Treasure: security — every registration and scan goes through the server, phase changes are owner-only, and fixed fonts on the game screens'],
+  } },
+  { version: '1.22.0', date: '2026-10-06', isNew: true, highlights: {
+    he: ['10 בול: מסך הגדרות — בחירת צלילים מספריית המערכת או העלאת צליל משלכם, גופן, צבע רקע, צבע טקסט ותמונת רקע, עם תצוגה מקדימה חיה'],
+    en: ['10 Bool: settings screen — pick sounds from the system library or upload your own, font, background colour, text colour and background image, with a live preview'],
+  } },
+  { version: '1.21.3', date: '2026-10-06', isNew: true, highlights: {
+    he: ['10 בול: בטעות הספרות נשארות במקום, רק הרקע מהבהב'],
+    en: ['10 Bool: on a miss the digits stay still, only the background flashes'],
+  } },
+  { version: '1.21.2', date: '2026-10-06', isNew: true, highlights: {
+    he: ['10 בול: הבהובים מהירים בקצב הצלילים, הבזק אדום בכל צפצוף, צליל הפתיחה נעצר בלחיצה, וכיתוב "תנו בבאזר"'],
+    en: ['10 Bool: fast strobes in sync with the sounds, a red flash on every beep, the start sound stops on press, and a "hit the buzzer" prompt'],
+  } },
+  { version: '1.21.1', date: '2026-10-06', isNew: true, highlights: {
+    he: ['10 בול: לחיצה על החוויה בעמוד העריכה פותחת עכשיו את המשחק'],
+    en: ['10 Bool: clicking the experience on the edit page now opens the game'],
+  } },
+  { version: '1.21.0', date: '2026-10-06', isNew: true, highlights: {
+    he: ['חוויה חדשה: 10 בול – עוצרים את הטיימר בדיוק על 10.00, עם Enter במסך גדול או בנגיעה בטלפון'],
+    en: ['New experience: 10 Bool – stop the timer at exactly 10.00, with Enter on a big screen or a tap on a phone'],
+  } },
+  { version: '1.20.28', date: '2026-10-01', isNew: true, highlights: {
+    he: ['חזרה מעריכת חוויה לתיקיית הלקוח ושמירת הבחירה בהכל', 'שמירת סגירת אזור הפתיחה בדשבורד'],
+    en: ['Return from editing to the customer folder and retain the All filter', 'Remember dashboard hero dismissal'],
+  } },
   { version: '1.20.27', date: '2026-10-01', isNew: true, highlights: {
     he: ['סוכן וואטסאפ 0.9.6: אימות חוזר של קובץ מוכר כשהתאריך אינו מוצג בוואטסאפ'],
     en: ['WhatsApp Agent 0.9.6: reverify known PDFs when WhatsApp omits the message date'],

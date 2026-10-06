@@ -76,8 +76,10 @@ outputs/
 /tools/whatsapp-intake/node_modules/
 /tools/whatsapp-intake/.runtime/
 /tools/whatsapp-intake/dist/
-/tools/whatsapp-intake/macos/.build/
-/tools/whatsapp-intake/macos/.swiftpm/
 
 # One-time computer connection secrets
 TheQ-connection*.json
+
+# Native SwiftPM build artifacts
+/tools/whatsapp-intake/macos/.build/
+/tools/whatsapp-intake/macos/.swiftpm/

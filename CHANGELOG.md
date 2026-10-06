@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.22.1] - 2026-10-06
+
+- Q.Treasure security (phase 0 of the overhaul): player + scan writes go through the Admin SDK via `src/lib/qtreasure/store.ts`; `register`/`start`/`scan` add rate limiting + origin checks; `phase` is owner-only (was unauthenticated); `resolve-station` uses indexed `shortId` lookups instead of scanning all codes. `firestore.rules`: `qtreasure_players` / `qtreasure_scans` create+update → `if false` (deployed with this release, both projects).
+- Station order now resolves through `src/lib/qtreasure/route.ts` (per-player route support; `routeMode` absent = `fixed` = the old order). Players mid-game from the old code continue from `currentStationIndex`.
+- Fonts: treasure screens referenced Cinzel / Crimson Text, which were never loaded (fell back to Georgia). Now Assistant + Geist Mono for digits.
+- Not included: the Cliostro video tab and per-player route editor UI (still in progress).
+
+## [1.22.0] - 2026-10-06
+
+- `tenbool` settings (`TenBoolModal`, opened from the thumbnail or the pencil on the code page). Stored as `media.tenboolConfig`; every field optional, so codes without it play exactly as before. Types, sound library and resolvers in `src/types/tenbool.ts`.
+- Sounds: each slot (start / beep / success / fail) picks any system sound (the four 10 בול sounds + the raffle buzzer, win and spin), an uploaded file, or silence. Uploads go to R2 through `/api/raffle/upload` with `feature=tenbool` (route now files them under `{uid}/{codeId}/tenbool/`; raffle uploads unchanged).
+- Look: six Hebrew Google Fonts (loaded on page load, so play stays offline-safe), background colour, text colour, background image. Live preview at the top of the modal.
+- `tenboolConfig` added to the `updateQRCode` media whitelist and to code duplication.
+
+## [1.21.3] - 2026-10-06
+
+- `TenBoolViewer`: removed the timer shake on a miss; only the red background strobe remains.
+
+## [1.21.2] - 2026-10-06
+
+- `TenBoolViewer`: a press stops any sound still playing (the 5.7s start sound used to run on under the result sound). Playing sources are tracked and cut on stop, reset and restart.
+- Result strobes are hard cuts timed to the sounds: lose = 12 red/black flashes over the 1.2s fail sound + timer shake; win = 10 green/yellow/blue cycles over the 3.45s success sound + timer pop + bouncing "בול!". A red flash on every warning beep (7-10s). Reduced-motion users get a single solid colour.
+- Idle prompt is now "תנו בבאזר או געו במסך כדי להתחיל" (the big screen runs on a physical buzzer mapped to Enter). Footer "Powered by Playzone" links to the main page in a new tab and doesn't count as a game tap.
+
+## [1.21.1] - 2026-10-06
+
+- `tenbool` on the code edit page: the thumbnail and the "open in new window" button opened the empty `media.url` (`about:blank`). Both now open the public game at `/v/{shortId}`.
+
+## [1.21.0] - 2026-10-06
+
+- New experience type `tenbool` ("10 בול"): start a timer and stop it at exactly 10.00. Enter on big screens (keyboard or a USB button mapped to Enter), a tap anywhere on phones. No settings; created in one click from the dashboard like the raffle.
+- `TenBoolViewer` decodes its four sounds into Web Audio buffers on mount, so play needs no network after the page loads. The press is judged on the event's own timestamp and truncated to hundredths, so the time shown is the time judged.
+
+## [1.20.28] - 2026-10-01
+
+- Return from experience editing to its folder, including customer-owned folders for super admins.
+- Keep folder navigation in the locale-preserving URL for browser Back and reload. Retain the user-scoped dashboard filter for the browser session.
+- Persist dashboard hero dismissal in localStorage.
+
 ## [1.20.27] - 2026-10-01
 
 - Agent 0.9.6 waits for missing message dates and can recover a previously read receipt date only for the same live message ID, group-derived key and exact normalized filename, after a fresh strict-identity PDF download matches the saved SHA-256. Verification downloads cannot overwrite the original cache.
