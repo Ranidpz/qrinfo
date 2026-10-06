@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.21.2] - 2026-10-06
+
+- `TenBoolViewer`: a press stops any sound still playing (the 5.7s start sound used to run on under the result sound). Playing sources are tracked and cut on stop, reset and restart.
+- Result strobes are hard cuts timed to the sounds: lose = 12 red/black flashes over the 1.2s fail sound + timer shake; win = 10 green/yellow/blue cycles over the 3.45s success sound + timer pop + bouncing "בול!". A red flash on every warning beep (7-10s). Reduced-motion users get a single solid colour.
+- Idle prompt is now "תנו בבאזר או געו במסך כדי להתחיל" (the big screen runs on a physical buzzer mapped to Enter). Footer "Powered by Playzone" links to the main page in a new tab and doesn't count as a game tap.
+
 ## [1.21.1] - 2026-10-06
 
 - `tenbool` on the code edit page: the thumbnail and the "open in new window" button opened the empty `media.url` (`about:blank`). Both now open the public game at `/v/{shortId}`.

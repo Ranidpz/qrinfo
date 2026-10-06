@@ -28,12 +28,28 @@ function format(ms: number) {
   return `${String(Math.floor(h / 100)).padStart(2, '0')}.${String(h % 100).padStart(2, '0')}`;
 }
 
+// Hard-cut strobes timed to the sounds: fail = 1.2s, success = 3.45s, beep = 0.18s.
+// steps() so colours snap like stage lights instead of fading.
 const TENBOOL_STYLE = `
-@keyframes tenbool-win { 0%,100% { background:#000 } 25%,75% { background:#00a83a } 50% { background:#0050ff } }
-@keyframes tenbool-lose { 0%,100% { background:#000 } 50% { background:#d00000 } }
-.tenbool-win { animation: tenbool-win 1s linear 2 }
-.tenbool-lose { animation: tenbool-lose 1s linear 2 }
-@media (prefers-reduced-motion: reduce) { .tenbool-win, .tenbool-lose { animation-duration: 2s; animation-iteration-count: 1 } }
+@keyframes tenbool-lose { 0% { background:#ff0000 } 50% { background:#000 } }
+@keyframes tenbool-win { 0% { background:#00c853 } 33% { background:#ffd400 } 66% { background:#0050ff } }
+@keyframes tenbool-shake { 0%,100% { transform:translateX(0) } 20% { transform:translateX(-4vw) } 40% { transform:translateX(3.5vw) } 60% { transform:translateX(-2.5vw) } 80% { transform:translateX(1.5vw) } }
+@keyframes tenbool-pop { 0% { transform:scale(.6) } 40% { transform:scale(1.25) } 70% { transform:scale(.95) } 100% { transform:scale(1) } }
+@keyframes tenbool-bounce { 0%,100% { transform:translateY(0) scale(1) } 50% { transform:translateY(-3vh) scale(1.08) } }
+@keyframes tenbool-breathe { 0%,100% { opacity:.45 } 50% { opacity:1 } }
+@keyframes tenbool-flash { 0% { opacity:.55 } 100% { opacity:0 } }
+.tenbool-lose { animation: tenbool-lose .1s steps(1) 12 }
+.tenbool-win { animation: tenbool-win .345s steps(1) 10 }
+.tenbool-lose .tenbool-timer { animation: tenbool-shake .4s ease-out 3 }
+.tenbool-win .tenbool-timer { animation: tenbool-pop .5s cubic-bezier(.2,1.6,.4,1) both; text-shadow: 0 .8vmin 0 rgba(0,0,0,.45), 0 0 4vmin rgba(255,255,255,.9) }
+.tenbool-win .tenbool-hint { text-shadow: 0 .6vmin 0 rgba(0,0,0,.45) }
+.tenbool-win .tenbool-hint { animation: tenbool-bounce .345s ease-in-out 10 }
+.tenbool-idle-hint { animation: tenbool-breathe 1.6s ease-in-out infinite }
+.tenbool-beep { animation: tenbool-flash .18s ease-out }
+@media (prefers-reduced-motion: reduce) {
+  .tenbool-lose, .tenbool-win, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep { animation: none !important }
+  .tenbool-lose { background:#a00000 } .tenbool-win { background:#00a83a }
+}
 `;
 
 export default function TenBoolViewer({ title }: { title?: string }) {
@@ -41,6 +57,7 @@ export default function TenBoolViewer({ title }: { title?: string }) {
   const [result, setResult] = useState<{ ms: number; diff: number } | null>(null);
 
   const timerRef = useRef<HTMLDivElement>(null);
+  const flashRef = useRef<HTMLDivElement>(null);
   const phaseRef = useRef<Phase>('idle');
   const startAtRef = useRef(0);
   const endedAtRef = useRef(0);
@@ -69,6 +86,20 @@ export default function TenBoolViewer({ title }: { title?: string }) {
     };
   }, []);
 
+  // Sounds still playing, so a press can cut them (the start sound is longer than a quick game)
+  const playingRef = useRef(new Set<AudioBufferSourceNode>());
+
+  const stopAll = useCallback(() => {
+    playingRef.current.forEach((src) => {
+      try {
+        src.stop();
+      } catch {
+        // already ended
+      }
+    });
+    playingRef.current.clear();
+  }, []);
+
   const play = useCallback((name: SoundName, rate = 1) => {
     const audio = audioRef.current;
     const buffer = audio?.buffers[name];
@@ -77,6 +108,8 @@ export default function TenBoolViewer({ title }: { title?: string }) {
     src.buffer = buffer;
     src.playbackRate.value = rate;
     src.connect(audio.ctx.destination);
+    playingRef.current.add(src);
+    src.onended = () => playingRef.current.delete(src);
     src.start();
   }, []);
 
@@ -95,11 +128,12 @@ export default function TenBoolViewer({ title }: { title?: string }) {
       const ms = Math.max(0, pressAt - startAtRef.current);
       const diff = hundredths(ms) - hundredths(TARGET_MS);
       setTimerText(ms, false);
+      stopAll();
       play(diff === 0 ? 'success' : 'fail');
       setResult({ ms, diff });
       setPhase('ended');
     },
-    [play]
+    [play, stopAll]
   );
 
   const tick = useCallback(
@@ -115,6 +149,13 @@ export default function TenBoolViewer({ title }: { title?: string }) {
       if (sec >= WARN_FROM_S && sec <= TARGET_MS / 1000 && sec > lastBeepRef.current) {
         lastBeepRef.current = sec;
         play('beep', sec * 1000 === TARGET_MS ? 1.6 : 1);
+        // A red flash on every beep - restart the CSS animation by re-adding the class
+        const flash = flashRef.current;
+        if (flash) {
+          flash.classList.remove('tenbool-beep');
+          void flash.offsetWidth;
+          flash.classList.add('tenbool-beep');
+        }
       }
       rafRef.current = requestAnimationFrame(tick);
     },
@@ -131,19 +172,21 @@ export default function TenBoolViewer({ title }: { title?: string }) {
         lastBeepRef.current = 0;
         setResult(null);
         setPhase('running');
+        stopAll();
         play('start');
         startAtRef.current = performance.now();
         rafRef.current = requestAnimationFrame(tick);
       } else if (current === 'running') {
         finish(pressAt);
       } else if (performance.now() - endedAtRef.current > RESET_LOCK_MS) {
+        stopAll();
         phaseRef.current = 'idle';
         setResult(null);
         setPhase('idle');
         setTimerText(0, false);
       }
     },
-    [finish, play, tick]
+    [finish, play, stopAll, tick]
   );
 
   useEffect(() => {
@@ -162,7 +205,7 @@ export default function TenBoolViewer({ title }: { title?: string }) {
   const win = result?.diff === 0;
   const hint =
     phase === 'idle'
-      ? 'לחצו Enter או געו במסך כדי להתחיל'
+      ? 'תנו בבאזר או געו במסך כדי להתחיל'
       : phase === 'running'
         ? ''
         : win
@@ -176,21 +219,39 @@ export default function TenBoolViewer({ title }: { title?: string }) {
         if (e.button !== 0) return;
         press(e.timeStamp);
       }}
-      className={`h-screen w-full flex flex-col items-center justify-center gap-[2vh] bg-black text-white select-none overflow-hidden cursor-pointer ${
+      className={`h-screen w-full relative flex flex-col items-center justify-center gap-[2vh] bg-black text-white select-none overflow-hidden cursor-pointer ${
         phase === 'ended' ? (win ? 'tenbool-win' : 'tenbool-lose') : ''
       }`}
       style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
     >
       <style>{TENBOOL_STYLE}</style>
+      <div ref={flashRef} className="pointer-events-none absolute inset-0 bg-red-600 opacity-0" />
       {title && phase === 'idle' && <div className="text-[5vmin] font-bold opacity-80">{title}</div>}
       <div
         ref={timerRef}
         dir="ltr"
-        className="font-bold leading-none tabular-nums text-[min(22vw,40vh)]"
+        className="tenbool-timer font-black leading-none tabular-nums text-[min(22vw,40vh)]"
       >
         00.00
       </div>
-      <div className="text-[4vmin] font-bold opacity-70 min-h-[1.2em] text-center px-4">{hint}</div>
+      <div
+        className={`tenbool-hint font-black min-h-[1.2em] text-center px-4 ${
+          phase === 'idle' ? 'tenbool-idle-hint text-[5vmin]' : phase === 'ended' ? (win ? 'text-[12vmin]' : 'text-[7vmin]') : ''
+        }`}
+      >
+        {hint}
+      </div>
+      {/* New tab, and kept off the game's tap target, so a stray touch never ends a round */}
+      <a
+        href="/"
+        target="_blank"
+        rel="noopener noreferrer"
+        dir="ltr"
+        onPointerDown={(e) => e.stopPropagation()}
+        className="absolute bottom-3 inset-x-0 mx-auto w-fit text-[12px] text-white/35 hover:text-white/70 transition-colors"
+      >
+        Powered by <span className="font-bold">Playzone</span>
+      </a>
     </div>
   );
 }
