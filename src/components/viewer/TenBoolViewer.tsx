@@ -33,14 +33,12 @@ function format(ms: number) {
 const TENBOOL_STYLE = `
 @keyframes tenbool-lose { 0% { background:#ff0000 } 50% { background:#000 } }
 @keyframes tenbool-win { 0% { background:#00c853 } 33% { background:#ffd400 } 66% { background:#0050ff } }
-@keyframes tenbool-shake { 0%,100% { transform:translateX(0) } 20% { transform:translateX(-4vw) } 40% { transform:translateX(3.5vw) } 60% { transform:translateX(-2.5vw) } 80% { transform:translateX(1.5vw) } }
 @keyframes tenbool-pop { 0% { transform:scale(.6) } 40% { transform:scale(1.25) } 70% { transform:scale(.95) } 100% { transform:scale(1) } }
 @keyframes tenbool-bounce { 0%,100% { transform:translateY(0) scale(1) } 50% { transform:translateY(-3vh) scale(1.08) } }
 @keyframes tenbool-breathe { 0%,100% { opacity:.45 } 50% { opacity:1 } }
 @keyframes tenbool-flash { 0% { opacity:.55 } 100% { opacity:0 } }
 .tenbool-lose { animation: tenbool-lose .1s steps(1) 12 }
 .tenbool-win { animation: tenbool-win .345s steps(1) 10 }
-.tenbool-lose .tenbool-timer { animation: tenbool-shake .4s ease-out 3 }
 .tenbool-win .tenbool-timer { animation: tenbool-pop .5s cubic-bezier(.2,1.6,.4,1) both; text-shadow: 0 .8vmin 0 rgba(0,0,0,.45), 0 0 4vmin rgba(255,255,255,.9) }
 .tenbool-win .tenbool-hint { text-shadow: 0 .6vmin 0 rgba(0,0,0,.45) }
 .tenbool-win .tenbool-hint { animation: tenbool-bounce .345s ease-in-out 10 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.21.3] - 2026-10-06
+
+- `TenBoolViewer`: removed the timer shake on a miss; only the red background strobe remains.
+
 ## [1.21.2] - 2026-10-06
 
 - `TenBoolViewer`: a press stops any sound still playing (the 5.7s start sound used to run on under the result sound). Playing sources are tracked and cut on stop, reset and restart.
