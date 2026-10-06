@@ -207,6 +207,7 @@ export interface MediaItem {
   qgamesConfig?: import('./qgames').QGamesConfig; // Configuration for minigames type (1v1 mini games)
   raffleConfig?: import('./raffle').RaffleConfig; // Configuration for raffle type (big-screen draw)
   qbetConfig?: import('./qbet').QBetConfig; // Configuration for qbet type (match score betting; entries live in the codes/{id}/qbetEntries Firestore subcollection)
+  tenboolConfig?: import('./tenbool').TenBoolConfig; // "10 בול" look + sounds; absent = built-in defaults
   createdAt: Date;
 }
 

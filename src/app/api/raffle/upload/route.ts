@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
     const codeId = form.get('codeId') as string | null;
     const kindRaw = (form.get('kind') as string | null) || 'image';
     const kind = ['image', 'video', 'audio'].includes(kindRaw) ? kindRaw : 'image';
+    // Shared by the experiences that store assets the same way; only the folder name differs
+    const feature = form.get('feature') === 'tenbool' ? 'tenbool' : 'raffle';
 
     if (!codeId) {
       return NextResponse.json({ error: 'codeId is required' }, { status: 400 });
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
     const rand = crypto.randomUUID().slice(0, 8);
     const key = buildMediaStorageKey(
-      [auth.uid, codeId, 'raffle'],
+      [auth.uid, codeId, feature],
       `${Date.now()}_${rand}.${ext}`
     );
 
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         ownerId: auth.uid,
         codeId,
-        feature: 'raffle',
+        feature,
         kind,
       },
     });

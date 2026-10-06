@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.0] - 2026-10-06
+
+- `tenbool` settings (`TenBoolModal`, opened from the thumbnail or the pencil on the code page). Stored as `media.tenboolConfig`; every field optional, so codes without it play exactly as before. Types, sound library and resolvers in `src/types/tenbool.ts`.
+- Sounds: each slot (start / beep / success / fail) picks any system sound (the four 10 בול sounds + the raffle buzzer, win and spin), an uploaded file, or silence. Uploads go to R2 through `/api/raffle/upload` with `feature=tenbool` (route now files them under `{uid}/{codeId}/tenbool/`; raffle uploads unchanged).
+- Look: six Hebrew Google Fonts (loaded on page load, so play stays offline-safe), background colour, text colour, background image. Live preview at the top of the modal.
+- `tenboolConfig` added to the `updateQRCode` media whitelist and to code duplication.
+
 ## [1.21.3] - 2026-10-06
 
 - `TenBoolViewer`: removed the timer shake on a miss; only the red background strobe remains.

@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  TENBOOL_DEFAULTS,
+  resolveTenBoolSoundUrl,
+  tenboolFont,
+  tenboolFontStylesheet,
+  type TenBoolConfig,
+  type TenBoolSoundSlot,
+} from '@/types/tenbool';
 
 // "10 בול": start the timer, then stop it at exactly 10.00.
 // Enter (keyboard / a USB button mapped to Enter) on a big screen, a tap anywhere on a phone.
@@ -11,13 +19,8 @@ const WARN_FROM_S = 7; // red digits + a beep every second from here
 const AUTO_STOP_MS = 20000; // nobody pressed - count it as a miss
 const RESET_LOCK_MS = 1200; // a double press right after the result must not reset it
 
-const SOUNDS = {
-  start: '/sounds/tenbool/start.mp3',
-  beep: '/sounds/tenbool/beep.mp3',
-  success: '/sounds/tenbool/success.mp3',
-  fail: '/sounds/tenbool/fail.mp3',
-} as const;
-type SoundName = keyof typeof SOUNDS;
+type SoundName = TenBoolSoundSlot;
+const SOUND_SLOTS: SoundName[] = ['start', 'beep', 'success', 'fail'];
 
 type Phase = 'idle' | 'running' | 'ended';
 
@@ -46,11 +49,11 @@ const TENBOOL_STYLE = `
 .tenbool-beep { animation: tenbool-flash .18s ease-out }
 @media (prefers-reduced-motion: reduce) {
   .tenbool-lose, .tenbool-win, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep { animation: none !important }
-  .tenbool-lose { background:#a00000 } .tenbool-win { background:#00a83a }
+  .tenbool-lose { background:#a00000 !important } .tenbool-win { background:#00a83a !important }
 }
 `;
 
-export default function TenBoolViewer({ title }: { title?: string }) {
+export default function TenBoolViewer({ title, config }: { title?: string; config?: TenBoolConfig }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<{ ms: number; diff: number } | null>(null);
 
@@ -65,15 +68,29 @@ export default function TenBoolViewer({ title }: { title?: string }) {
   // Web Audio: decoded once into memory - no network after load, and no <audio> start latency.
   const audioRef = useRef<{ ctx: AudioContext; buffers: Partial<Record<SoundName, AudioBuffer>> } | null>(null);
 
+  // Owner-chosen sounds (or silence). Joined into one string so the effect only re-runs when a url changes.
+  const soundUrls = useMemo(
+    () => SOUND_SLOTS.map((slot) => resolveTenBoolSoundUrl(config, slot) ?? ''),
+    [config]
+  );
+  const soundKey = soundUrls.join('|');
+
+  const font = tenboolFont(config);
+  const textColor = config?.textColor || TENBOOL_DEFAULTS.textColor;
+  const textColorRef = useRef(textColor);
+  textColorRef.current = textColor;
+
   useEffect(() => {
+    const urls = soundKey.split('|');
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
     const audio = { ctx, buffers: {} as Partial<Record<SoundName, AudioBuffer>> };
     audioRef.current = audio;
-    (Object.keys(SOUNDS) as SoundName[]).forEach(async (name) => {
+    SOUND_SLOTS.forEach(async (name, i) => {
+      if (!urls[i]) return; // silent slot
       try {
-        const res = await fetch(SOUNDS[name]);
+        const res = await fetch(urls[i]);
         audio.buffers[name] = await ctx.decodeAudioData(await res.arrayBuffer());
       } catch {
         // A missing sound must never break the game
@@ -82,7 +99,18 @@ export default function TenBoolViewer({ title }: { title?: string }) {
     return () => {
       ctx.close().catch(() => {});
     };
-  }, []);
+  }, [soundKey]);
+
+  // Assistant ships with the app; any other choice is fetched once with the page, so play stays offline-safe
+  useEffect(() => {
+    if (font.id === 'assistant') return;
+    const href = tenboolFontStylesheet(font.family);
+    if (document.querySelector(`link[href="${href}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  }, [font.id, font.family]);
 
   // Sounds still playing, so a press can cut them (the start sound is longer than a quick game)
   const playingRef = useRef(new Set<AudioBufferSourceNode>());
@@ -115,7 +143,7 @@ export default function TenBoolViewer({ title }: { title?: string }) {
     const el = timerRef.current;
     if (!el) return;
     el.textContent = format(ms);
-    el.style.color = warn ? '#ff2b2b' : '#fff';
+    el.style.color = warn ? '#ff2b2b' : textColorRef.current;
   };
 
   const finish = useCallback(
@@ -217,10 +245,17 @@ export default function TenBoolViewer({ title }: { title?: string }) {
         if (e.button !== 0) return;
         press(e.timeStamp);
       }}
-      className={`h-screen w-full relative flex flex-col items-center justify-center gap-[2vh] bg-black text-white select-none overflow-hidden cursor-pointer ${
+      className={`h-screen w-full relative flex flex-col items-center justify-center gap-[2vh] select-none overflow-hidden cursor-pointer ${
         phase === 'ended' ? (win ? 'tenbool-win' : 'tenbool-lose') : ''
       }`}
-      style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif', touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+      style={{
+        fontFamily: `'${font.family}', var(--font-assistant), system-ui, sans-serif`,
+        color: textColor,
+        backgroundColor: config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor,
+        backgroundImage: config?.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
     >
       <style>{TENBOOL_STYLE}</style>
       <div ref={flashRef} className="pointer-events-none absolute inset-0 bg-red-600 opacity-0" />
@@ -246,7 +281,7 @@ export default function TenBoolViewer({ title }: { title?: string }) {
         rel="noopener noreferrer"
         dir="ltr"
         onPointerDown={(e) => e.stopPropagation()}
-        className="absolute bottom-3 inset-x-0 mx-auto w-fit text-[12px] text-white/35 hover:text-white/70 transition-colors"
+        className="absolute bottom-3 inset-x-0 mx-auto w-fit text-[12px] opacity-40 hover:opacity-80 transition-opacity"
       >
         Powered by <span className="font-bold">Playzone</span>
       </a>

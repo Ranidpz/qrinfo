@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.21.3';
+export const APP_VERSION = '1.22.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.22.0', date: '2026-10-06', isNew: true, highlights: {
+    he: ['10 בול: מסך הגדרות — בחירת צלילים מספריית המערכת או העלאת צליל משלכם, גופן, צבע רקע, צבע טקסט ותמונת רקע, עם תצוגה מקדימה חיה'],
+    en: ['10 Bool: settings screen — pick sounds from the system library or upload your own, font, background colour, text colour and background image, with a live preview'],
+  } },
   { version: '1.21.3', date: '2026-10-06', isNew: true, highlights: {
     he: ['10 בול: בטעות הספרות נשארות במקום, רק הרקע מהבהב'],
     en: ['10 Bool: on a miss the digits stay still, only the background flashes'],
