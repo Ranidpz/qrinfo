@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.21.1] - 2026-10-06
+
+- `tenbool` on the code edit page: the thumbnail and the "open in new window" button opened the empty `media.url` (`about:blank`). Both now open the public game at `/v/{shortId}`.
+
 ## [1.21.0] - 2026-10-06
 
 - New experience type `tenbool` ("10 בול"): start a timer and stop it at exactly 10.00. Enter on big screens (keyboard or a USB button mapped to Enter), a tap anywhere on phones. No settings; created in one click from the dashboard like the raffle.

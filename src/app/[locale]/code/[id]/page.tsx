@@ -4075,6 +4075,9 @@ export default function CodeEditPage({ params }: PageProps) {
                       } else if (media.type === 'minigames') {
                         setEditingQGamesId(media.id);
                         setQgamesModalOpen(true);
+                      } else if (media.type === 'tenbool') {
+                        // No file and no settings - the game itself is the public page
+                        window.open(`/v/${code.shortId}`, '_blank');
                       } else {
                         window.open(media.url, '_blank');
                       }
@@ -4582,7 +4585,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   {/* External link */}
                   <Tooltip text={t('openInNewWindow')}>
                     <a
-                      href={media.url}
+                      href={media.type === 'tenbool' ? `/v/${code.shortId}` : media.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"

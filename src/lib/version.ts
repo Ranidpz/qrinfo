@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.21.0';
+export const APP_VERSION = '1.21.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.21.1', date: '2026-10-06', isNew: true, highlights: {
+    he: ['10 בול: לחיצה על החוויה בעמוד העריכה פותחת עכשיו את המשחק'],
+    en: ['10 Bool: clicking the experience on the edit page now opens the game'],
+  } },
   { version: '1.21.0', date: '2026-10-06', isNew: true, highlights: {
     he: ['חוויה חדשה: 10 בול – עוצרים את הטיימר בדיוק על 10.00, עם Enter במסך גדול או בנגיעה בטלפון'],
     en: ['New experience: 10 Bool – stop the timer at exactly 10.00, with Enter on a big screen or a tap on a phone'],
