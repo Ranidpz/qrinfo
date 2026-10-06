@@ -1,6 +1,20 @@
 export type ContentIntakeSource = 'whatsapp' | 'email' | 'drive' | 'manual' | 'api';
 
+export interface IntakeAssignmentEvidence {
+  kind: 'caption' | 'reply' | 'manual';
+  text: string;
+  targetMessageId: string;
+  messageId: string;
+  senderId: string;
+  attachmentSenderId: string;
+  at: string;
+  targetCodeId?: string;
+  exclude?: boolean;
+}
+
 export interface IntakeFileCandidate {
+  sha256?: string;
+  evidence?: IntakeAssignmentEvidence[];
   id?: string;
   name: string;
   size?: number;
@@ -20,6 +34,7 @@ export interface ContentIntakeTarget {
   folderName?: string;
   currentMediaType?: string;
   currentFilename?: string;
+  currentUrl?: string;
   aliases?: string[];
 }
 
@@ -39,6 +54,19 @@ export interface IntakeFileMatch {
   detectedDate: IntakeDetectedDate;
   reasons: string[];
   warnings: string[];
+  /** Server-proven baseline for a later correction; rechecked before replacement. */
+  replacesConfirmedUrl?: string;
+}
+
+export interface ConfirmedIntakeFileUpdate {
+  ownerId: string;
+  codeId: string;
+  fileHash: string;
+  filename: string;
+  sourceMessageId: string;
+  detectedDate: string;
+  updatedAt: string;
+  url: string;
 }
 
 export interface IntakeMissingTarget {
@@ -79,12 +107,17 @@ export type ContentIntakeCommitItemStatus =
 
 export interface ContentIntakeCommitResult {
   fileId?: string;
+  assignmentReason?: string;
+  sourceMessageId?: string;
   filename: string;
   status: ContentIntakeCommitItemStatus;
   codeId?: string;
   shortId?: string;
   title?: string;
   dedupeId?: string;
+  /** Server-recorded replacement time; duplicates retain the original time. */
+  updatedAt?: string;
+  fileHash?: string;
   detectedDate?: string;
   url?: string;
   size?: number;

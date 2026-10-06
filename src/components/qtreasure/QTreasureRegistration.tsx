@@ -367,7 +367,7 @@ export function QTreasureRegistration({
         }
 
         .title {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 2rem;
           font-weight: 700;
           color: #d4af37;
@@ -690,7 +690,7 @@ export function QTreasureRegistration({
           width: 100%;
           padding: 1.25rem 2rem;
           margin-top: 1rem;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1.25rem;
           font-weight: 700;
           color: #0d1f17;
@@ -737,7 +737,7 @@ export function QTreasureRegistration({
         }
 
         .ready-text {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 2.5rem;
           font-weight: 700;
           color: #d4af37;

@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getUserFolders, createQRCode, getSiblingCodes } from '@/lib/db';
+import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getAllFolders, getUserFolders, createQRCode, getSiblingCodes } from '@/lib/db';
 import { ICON_PATHS } from '@/lib/iconPaths';
 import { subscribeToCodeViews } from '@/lib/analytics';
 import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign, LandingPageConfig, StorageProvider } from '@/types';
@@ -514,9 +514,10 @@ export default function CodeEditPage({ params }: PageProps) {
         setCode(codeData);
         setTitle(codeData.title);
 
+        setFolder(null);
         // Load folder info if code is in a folder
         if (codeData.folderId && user) {
-          const userFolders = await getUserFolders(user.id);
+          const userFolders = await (user.role === 'super_admin' ? getAllFolders() : getUserFolders(user.id));
           const codeFolder = userFolders.find(f => f.id === codeData.folderId);
           if (codeFolder) {
             setFolder(codeFolder);
@@ -725,8 +726,8 @@ export default function CodeEditPage({ params }: PageProps) {
       }
 
       // Navigate back to folder or dashboard
-      if (folder) {
-        router.push(`/dashboard?folder=${folder.id}`);
+      if (code.folderId) {
+        router.push(`/dashboard?folder=${encodeURIComponent(code.folderId)}`);
       } else {
         router.push('/dashboard');
       }
@@ -3312,8 +3313,8 @@ export default function CodeEditPage({ params }: PageProps) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (folder) {
-                    router.push(`/dashboard?folder=${folder.id}`);
+                  if (code.folderId) {
+                    router.push(`/dashboard?folder=${encodeURIComponent(code.folderId)}`);
                   } else {
                     router.push('/dashboard');
                   }
@@ -4827,7 +4828,14 @@ export default function CodeEditPage({ params }: PageProps) {
           setEditingRaffleId(null);
         }}
         onSave={handleSaveRaffle}
-        initialConfig={editingRaffleId ? code?.media.find(m => m.id === editingRaffleId)?.raffleConfig : undefined}
+        // Fall back to the existing raffle media: the toolbar button clears
+        // editingRaffleId, and without this the modal opened on DEFAULTS and its
+        // first save overwrote the real config (style, list type, colours…).
+        initialConfig={
+          (editingRaffleId
+            ? code?.media.find(m => m.id === editingRaffleId)?.raffleConfig
+            : undefined) || code?.media.find(m => m.type === 'raffle')?.raffleConfig
+        }
         codeId={code.id}
         shortId={code.shortId}
       />
@@ -4960,6 +4968,7 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveQTreasure}
         loading={addingQTreasure}
         initialConfig={editingQTreasureId ? code?.media.find(m => m.id === editingQTreasureId)?.qtreasureConfig : undefined}
+        codeId={code.id}
         shortId={code.shortId}
         ownerId={user?.id}
         folderId={code.folderId}

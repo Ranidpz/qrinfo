@@ -1,0 +1,184 @@
+import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
+
+@MainActor final class AgentController: ObservableObject {
+    @Published var snapshot = AgentSnapshot()
+    @Published var prepared = false
+    @Published var busy = false
+    @Published var connecting = false
+    @Published var message = "ברוכים הבאים. ההקמה מתבצעת כאן, ללא פקודות."
+    @Published var error = ""
+    private var browserProcess: Process?
+    var appVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "פיתוח" }
+    var testFixture = false
+    var rootScript: URL { AgentPaths.payload.appendingPathComponent("src/gui.mjs") }
+    var installedScript: URL { AgentPaths.base.appendingPathComponent("app/src/gui.mjs") }
+    func refresh() async {
+        guard !testFixture, FileManager.default.isExecutableFile(atPath: AgentPaths.node.path), FileManager.default.fileExists(atPath: installedScript.path) else { return }
+        do {
+            let output = try await ProcessService.run(AgentPaths.node, [installedScript.path, "status"])
+            guard output.code == 0 else { return }
+            snapshot = try JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8))
+            prepared = snapshot.installed
+        } catch { /* Initial or interrupted install is recoverable through Prepare. */ }
+    }
+    func perform(_ label: String, work: @escaping () async throws -> Void) {
+        guard !busy, !testFixture else { return }
+        busy = true; message = label; error = ""
+        Task { do { try await work() } catch { self.error = self.friendly(error.localizedDescription) }; await refresh(); busy = false }
+    }
+    func checked(_ script: URL, _ args: [String]) async throws {
+        let output = try await ProcessService.run(AgentPaths.node, [script.path] + args)
+        guard output.code == 0 else { throw AgentFailure(message: output.text) }
+    }
+    func verifyInstallation() async throws {
+        let output = try await ProcessService.run(AgentPaths.node, [installedScript.path, "status"])
+        guard output.code == 0, let state = try? JSONDecoder().decode(AgentSnapshot.self, from: Data(output.text.utf8)), state.installed, state.runnerVersion == self.appVersion else { throw AgentFailure(message: "ההתקנה לא הושלמה. לחצו שוב על הכנת הסוכן.") }
+        snapshot = state; prepared = true
+    }
+    func prepare() {
+        perform("מכינים את הסוכן ומורידים דפדפן ייעודי. בפעם הראשונה זה עשוי לקחת כמה דקות…") {
+            _ = try await AgentPaths.runtime()
+            try await self.checked(self.rootScript, ["install"])
+            try await self.verifyInstallation()
+            self.message = "הסוכן מוכן. בחיבור קיים בצעו בדיקת התאמה והפעילו עדכונים מחדש; בחיבור חדש בחרו את קובץ החיבור מהאתר."
+        }
+    }
+    func importKey() {
+        let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
+        panel.message = "בחרו את TheQ-connection.json שהורדתם מדף סוכן וואטסאפ"; panel.prompt = "חיבור"
+        guard panel.runModal() == .OK, let file = panel.url else { return }
+        perform("מחברים את המחשב למערכת…") {
+            try await self.checked(self.installedScript, ["import", file.path])
+            self.message = "המפתח נקלט. כעת חברו את חשבון הוואטסאפ העסקי."
+        }
+    }
+    var cli: URL { AgentPaths.base.appendingPathComponent("app/src/cli.mjs") }
+    var configArguments: [String] { ["--config", AgentPaths.base.appendingPathComponent("config.json").path, "--data", AgentPaths.base.path] }
+    func connect() {
+        guard !connecting && !busy && !testFixture else { return }
+        error = ""; connecting = true; message = "סרקו את ה־QR בחלון שנפתח דרך וואטסאפ העסקי בטלפון. המתינו לפתיחת קבוצת החוברות."
+        let process = Process(); browserProcess = process
+        Task {
+            do { let output = try await ProcessService.run(AgentPaths.node, [cli.path, "connect"] + configArguments, process: process)
+                if output.code != 0 && output.code != 15 { error = friendly(output.text) }
+            } catch { self.error = friendly(error.localizedDescription) }
+            connecting = false; browserProcess = nil; await refresh()
+        }
+    }
+    func stopBrowser() async {
+        if let process = browserProcess, process.isRunning { process.terminate() }
+        while connecting { try? await Task.sleep(nanoseconds: 150_000_000) }
+    }
+    func confirmAndPreview() {
+        let alert = NSAlert(); alert.messageText = "זה החשבון העסקי הנכון?"
+        alert.informativeText = "ודאו שבחלון הוואטסאפ מופיע החשבון העסקי והקבוצה ״\(snapshot.groupName ?? "חוברות QR פתאל")״. הבדיקה הבאה תציג את התאמת החוברות ללא העלאה."
+        alert.addButton(withTitle: "כן, בדיקת חוברות"); alert.addButton(withTitle: "ביטול")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        perform("בודקים את החוברות ואת ההתאמה למערכת. לא מתבצעת העלאה…") {
+            await self.stopBrowser()
+            try await self.checked(self.cli, ["confirm", "--confirm-business"] + self.configArguments)
+            try await self.checked(self.cli, ["run"] + self.configArguments)
+            self.message = "הבדיקה הסתיימה. עיינו בשם החוויה ובשם הקובץ לפני ההפעלה."
+        }
+    }
+    func reconfirmConnection() {
+        let alert = NSAlert(); alert.messageText = "זה אותו חשבון וואטסאפ ואותה קבוצה?"
+        alert.informativeText = "אשרו רק אם התחברתם מחדש לאותו חשבון עסקי ששימש קודם, בקבוצה ״\(snapshot.groupName ?? "חוברות QR פתאל")״, עבור \(snapshot.ownerEmail ?? "החשבון המחובר"). נשמור את מועד תחילת המחזור ואת היסטוריית הקבצים. זו אינה הצהרה שהחוברות כבר עודכנו. אם זה חשבון אחר, לחצו ביטול."
+        alert.addButton(withTitle: "כן, אותו חשבון והמשך"); alert.addButton(withTitle: "ביטול")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        perform("מאשרים את החיבור מחדש ובודקים את הקבצים ללא העלאה…") {
+            await self.stopBrowser()
+            try await self.checked(self.installedScript, ["reconfirm-cycle", "--confirm-same-account"])
+            try await self.checked(self.cli, ["run"] + self.configArguments)
+            self.message = "החיבור אושר והבדיקה הסתיימה. עיינו בהתאמות לפני הפעלת האוטומציה."
+        }
+    }
+    func preview() {
+        perform("בודקים התאמות ללא העלאה…") {
+            try await self.checked(self.cli, ["run"] + self.configArguments)
+            self.message = "הבדיקה הסתיימה. הקבצים לא הוחלפו במערכת."
+        }
+    }
+    func updateNow() {
+        let alert = NSAlert(); alert.messageText = "עדכון עכשיו"
+        alert.informativeText = "תתבצע סריקה חדשה והעלאת קבצים עם התאמה ודאית בלבד, ולאחריה הודעת סיכום לקבוצה. מועדי הבדיקות הבאים לא ישתנו."
+        alert.addButton(withTitle: "עדכון עכשיו"); alert.addButton(withTitle: "ביטול")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        perform("סורקים ומעדכנים עכשיו…") {
+            try await self.checked(self.cli, ["run", "--commit", "--report-confirmed"] + self.configArguments)
+            self.message = "הבדיקה הסתיימה. תוצאות העדכון ומצב הדיווח מופיעים למטה."
+        }
+    }
+    func recover() {
+        perform("בודקים את הפעולה הקודמת מול המערכת, ללא העלאה חוזרת…") {
+            try await self.checked(self.cli, ["resume"] + self.configArguments)
+            self.message = "הפעולה הקודמת נבדקה. אפשר לבצע עדכון עכשיו; הפעלת התזמון היא פעולה נפרדת."
+        }
+    }
+    func startNewCycle() {
+        let alert = NSAlert(); alert.messageText = "כל החוברות הנוכחיות עודכנו ידנית?"
+        alert.informativeText = "הסוכן יבדוק רק הודעות שיתקבלו מכאן והלאה. הודעות קודמות לא יועלו שוב, גם אם נמחקו או שונו. ההיסטוריה והקבצים יישמרו. כעת תתבצע בדיקה ללא העלאה; לאחריה תוכלו להפעיל את המועדים העתידיים."
+        alert.addButton(withTitle: "כן, הכול עודכן — התחלת מחזור חדש"); alert.addButton(withTitle: "ביטול")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        perform("פותחים מחזור חדש ובודקים את החיבור ללא העלאה…") {
+            try await self.checked(self.installedScript, ["new-cycle", "--manual-completion-confirmed"])
+            try await self.checked(self.cli, ["run"] + self.configArguments)
+            self.message = "המחזור החדש נבדק. אפשר להפעיל את האוטומציה למועדים העתידיים."
+        }
+    }
+    func activate() {
+        let alert = NSAlert(); alert.messageText = "הפעלת עדכונים אוטומטיים"
+        alert.informativeText = "הסוכן יעדכן התאמות ודאיות בלבד. קבצים לא מזוהים או סותרים יישארו ללא עדכון ותישלח בקשת הבהרה לקבוצה במועדים שקבעתם. ודאו שרק מחשב אחד מעדכן את הקבוצה."
+        alert.addButton(withTitle: "הפעלת הסוכן"); alert.addButton(withTitle: "ביטול")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        perform("מפעילים עדכונים אוטומטיים…") { try await self.checked(self.installedScript, ["enable"]); self.message = "הסוכן פעיל ומניעת שינה אוטומטית אומתה. אפשר לסגור את החלון ולכבות את המסך; השאירו את המק דולק ומחובר." }
+    }
+    func assign(_ row: PreviewRow, targetId: String) {
+        perform("שומרים החלטה ובודקים מחדש ללא העלאה…") {
+            try await self.checked(self.installedScript, ["assign", row.id, targetId])
+            try await self.checked(self.cli, ["run"] + self.configArguments)
+            self.message = "השיוך נשמר ונבדק. רק התאמות ודאיות יעודכנו במועד הבא."
+        }
+    }
+    func exportReview() {
+        let panel = NSSavePanel(); panel.allowedContentTypes = [.json]; panel.nameFieldStringValue = "TheQ-review.json"
+        panel.message = "הדוח כולל שמות קבצים ופרטי הודעות הדרושים לבדיקת השיוך. הוא אינו כולל מפתחות או חיבור לוואטסאפ."
+        guard panel.runModal() == .OK, let file = panel.url else { return }
+        perform("מייצאים דוח בדיקה…") {
+            try await self.checked(self.installedScript, ["export-review", file.path])
+            self.message = "דוח הבדיקה נשמר במיקום שבחרתם."
+        }
+    }
+    func pause() {
+        perform("עוצרים את התזמון…") { try await self.checked(self.installedScript, ["disable"]); self.message = "התזמון נעצר. חיבור הוואטסאפ והקבצים נשמרו." }
+    }
+    func shutdown() { if let process = browserProcess, process.isRunning { process.terminate() } }
+    func openDownloads() {
+        guard let path = snapshot.downloadDirectory else { return }
+        let folder = URL(fileURLWithPath: path)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        NSWorkspace.shared.open(folder)
+    }
+    func friendly(_ text: String) -> String {
+        if text.contains("WRONG_ATTACHMENT_PREVIEW") || text.contains("WRONG_ATTACHMENT_DOWNLOAD") { return "לא ניתן לאמת שהקובץ שנפתח בוואטסאפ הוא הקובץ שנבחר. לא בוצעה העלאה בבדיקה הזו. לחצו על בדיקה ללא העלאה; אם התקלה חוזרת, יצאו דוח לתמיכה." }
+        if text.contains("POWER_GUARD") { return "מניעת השינה לא אומתה ולכן האוטומציה לא הופעלה. בדקו שהפעילות ברקע מותרת למערכת ונסו להפעיל שוב." }
+        if text.contains("PAUSE_BEFORE_NEW_CYCLE") { return "יש לעצור את האוטומציה לפני פתיחת מחזור חדש." }
+        if text.contains("CYCLE_SCOPE_CHANGED") { return "פרטי החיבור השתנו מאז פתיחת המחזור. אם התחברתם לאותו חשבון, לחצו על אישור אותו חשבון והמשך. אם השתנו בעל החשבון או הקבוצה, נדרש בירור החיבור." }
+        if text.contains("HISTORY_KNOWN_MESSAGES_MISSING") { return "סריקת הקבוצה אינה מלאה: קובץ שנראה קודם לא נמצא גם בבדיקה חוזרת. לא בוצעה העלאה. יצאו דוח בדיקה כדי שנוכל לברר מה חסר." }
+        if text.contains("HISTORY_GAP_DETECTED") || text.contains("LATEST_MESSAGES_CHANGED") || text.contains("HISTORY_BOUNDARY_NOT_VERIFIED") { return "לא הצלחנו לוודא שכל ההודעות נטענו. לא בוצעה העלאה. נסו בדיקה נוספת; אם התקלה חוזרת, יצאו דוח בדיקה." }
+        if text.contains("WHATSAPP_SCROLL_CONTAINER") || text.contains("LATEST_MESSAGES_NOT_VERIFIED") { return "לא ניתן לזהות עדיין את אזור ההודעות בוואטסאפ. לא בוצעה העלאה. נסו שוב; אם התקלה חוזרת, יצאו דוח בדיקה." }
+        if text.contains("BATCH_STILL_RUNNING") { return "המערכת עדיין מסמנת פעולה קודמת כפעילה. לא בוצעה העלאה חוזרת. יצאו דוח בדיקה לבירור." }
+        if text.contains("BATCH_NEEDS_REVIEW") || text.contains("UNCONFIRMED_BATCH") { return "תוצאת הפעולה הקודמת טרם אומתה. לחצו על בדיקת הפעולה הקודמת; אם החסימה נשארת, יצאו דוח בדיקה." }
+        if text.contains("RECOVERY_API_UPGRADE_REQUIRED") { return "יש לעדכן את המערכת באתר לפני בדיקת הפעולה הקודמת." }
+        if text.contains("ASSIGNMENT_API_UPGRADE_REQUIRED") { return "יש לעדכן את המערכת באתר לפני הפעלת השיוך החדש." }
+        if text.contains("MESSAGE_DATE_UNREADABLE") { return "לא ניתן לקרוא את תאריך ההודעה. המתינו לטעינת וואטסאפ ולחצו שוב על בדיקת התאמה." }
+        if text.contains("RUN_LOCKED") { return "כבר מתבצעת בדיקה במחשב. המתינו לסיומה ונסו שוב." }
+        if text.contains("LOGIN") { return "נדרש חיבור לוואטסאפ. לחצו על חיבור וואטסאפ וסרקו שוב." }
+        if text.contains("HTTP_401") || text.contains("HTTP_403") { return "החיבור למערכת חסום או שהמפתח בוטל. בדקו את המחשב בדף סוכן וואטסאפ באתר." }
+        if text.contains("PREVIEW_REQUIRED") { return "יש לבצע בדיקת התאמה עדכנית ותקינה לפני הפעלת עדכונים." }
+        if text.contains("CONNECTION") { return "לא ניתן לייבא את קובץ החיבור. בחרו את קובץ ה־JSON שהורד מהאתר." }
+        return String(text.suffix(1200))
+    }
+}

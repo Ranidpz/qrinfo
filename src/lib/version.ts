@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.19.3';
+export const APP_VERSION = '1.20.27';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,10 +13,244 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.20.27', date: '2026-10-01', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.9.6: אימות חוזר של קובץ מוכר כשהתאריך אינו מוצג בוואטסאפ'],
+    en: ['WhatsApp Agent 0.9.6: reverify known PDFs when WhatsApp omits the message date'],
+  } },
+  { version: '1.20.26', date: '2026-10-01', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.9.5: תיקון סריקת הודעות שהתוכן שלהן נטען בזמן הגלילה'],
+    en: ['WhatsApp Agent 0.9.5: fix history scanning when message content loads during scrolling'],
+  } },
+  { version: '1.20.25', date: '2026-10-01', isNew: true, highlights: {
+    he: ['מספר הגרסה בכפתור הורדת הסוכן מסונכרן עם גרסת חבילת ההתקנה'],
+    en: ['Agent download button version now comes from the installer package version'],
+  } },
+  { version: '1.20.24', date: '2026-10-01', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.9.4: קריאת תצוגות מסמך נוספות, בדיקת טעינת פרטי הקבצים ודיווח מדויק יותר'],
+    en: ['WhatsApp Agent 0.9.4: read additional document cards, verify loaded attachment details and clarify collection reports'],
+  } },
+  { version: '1.20.23', date: '2026-09-30', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.9.3: אישור חיבור מחדש לאותו חשבון, עם שמירת המחזור והיסטוריית הקבצים'],
+    en: ['WhatsApp Agent 0.9.3: explicitly reconfirm the same WhatsApp account without resetting the cycle or file history'],
+  } },
+  { version: '1.20.22', date: '2026-09-30', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.9.2: אימות קבצים עם רווחים ותצוגה משתנה, מניעת פתיחת קובץ מצוטט ודוח תקלה מפורט'],
+    en: ['WhatsApp Agent 0.9.2: verify filenames despite presentation differences, exclude quoted attachments and export failure evidence'],
+  } },
+  { version: '1.20.21', date: '2026-09-25', isNew: true, highlights: {
+    he: ['מיילים מסוכן וואטסאפ: שם המחשב, סיכום קצר והנחיה ברורה, עם שמות הקבצים ומועדי העדכון'],
+    en: ['WhatsApp Agent emails: named computer, concise outcome and next steps, with filenames and update times'],
+  } },
+  { version: '1.20.20', date: '2026-09-24', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.9.1: מניעת שינה מאומתת ופתיחת מחזור חדש אחרי עדכון ידני'],
+    en: ['WhatsApp Agent 0.9.1: verified idle sleep prevention and a new cycle after manual completion'],
+  } },
+  { version: '1.20.19', date: '2026-09-24', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.9.0: הקמה בשלושה שלבים, פעולה קבועה בתחתית והגדרות נפרדות'],
+    en: ['WhatsApp Agent 0.9.0: guided setup, persistent primary action and separate Settings'],
+  } },
+  { version: '1.20.18', date: '2026-09-24', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.8.2: איתור אזור ההודעות בזמן טעינה והצגת גרסת היישום והרכיבים'],
+    en: ['WhatsApp Agent 0.8.2: resilient history layout detection and visible app/runtime versions'],
+  } },
+  { version: '1.20.17', date: '2026-09-24', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.8.1: שחזור הודעות ישנות ללא שליחה חוזרת ועדכון מיידי עם דיווח מפורש'],
+    en: ['WhatsApp Agent 0.8.1: reconcile legacy notices without resending and explicitly confirmed manual reports'],
+  } },
+  { version: '1.20.16', date: '2026-09-24', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.8.0: עדכון עכשיו, שחזור פעולה קודמת ודיווחים קצרים שאינם חוסמים בדיקות המשך'],
+    en: ['WhatsApp Agent 0.8.0: Update Now, safe recovery and concise reports independent of future checks'],
+  } },
+  { version: '1.20.15', date: '2026-09-24', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.7.2: אימות טעינת ההודעות האחרונות וזיהוי מקטעים חסרים בסריקה'],
+    en: ['WhatsApp Agent 0.7.2: verify newest messages and detect incomplete history scans'],
+  } },
+  { version: '1.20.14', date: '2026-09-24', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.7.1: תיקון קריאת שמות קבצים, הסתרת בדיקות ישנות ודוח אבחון מפורט'],
+    en: ['WhatsApp Agent 0.7.1: attachment labels, stale preview protection and diagnostic provenance'],
+  } },
+  { version: '1.20.13', date: '2026-09-24', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ 0.7.0: עדכון התאמות ודאיות גם כשיש חריגים, השוואת קבצים ושיוך ידני מתועד'],
+    en: ['WhatsApp Agent 0.7.0: partial updates, byte comparison and audited manual file assignment'],
+  } },
+  { version: '1.20.12', date: '2026-09-23', isNew: true, highlights: {
+    he: ['תיקון זיהוי חוברות: לאונרדו קלאב ללא אזור משויך לאילת לפי הכלל שאושר'],
+    en: ['Booklet matching: apply the approved Eilat default to unqualified Leonardo Club filenames'],
+  } },
+  { version: '1.20.11', date: '2026-09-20', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ: הסבר ברור על תהליך העדכון, ההתאמה, התזמון והדיווח'],
+    en: ['WhatsApp Agent: clear guidance on matching, scheduled updates and reports'],
+  } },
+  { version: '1.20.10', date: '2026-09-20', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ למק: הקמה בחלון פשוט ללא פקודות, והצגת תיקיית הקבצים'],
+    en: ['Native Mac WhatsApp Agent setup without commands, with visible download folders'],
+  } },
+  { version: '1.20.9', date: '2026-09-20', isNew: true, highlights: {
+    he: ['סוכן וואטסאפ: בחירת ימים ושעות בתצוגה שבועית וניהול מחשבים מחוברים'],
+    en: ['WhatsApp Agent: weekly day/time picker and connected computer controls'],
+  } },
+  { version: '1.20.8', date: '2026-09-20', isNew: true, highlights: {
+    he: ['תזמון בדיקות חוברות מהדשבורד וסנכרון למק; גישה למנהלי־על בלבד'],
+    en: ['Dashboard booklet schedules synced to the Mac; super-admin-only access'],
+  } },
+  { version: '1.20.7', date: '2026-09-20', isNew: true, highlights: {
+    he: ['דוח חוברות מפורט: שם החוויה, שם הקובץ ושעת העדכון לכל חוברת'],
+    en: ['Booklet email audit: experience title, uploaded filename and per-file update time'],
+  } },
+  { version: '1.20.6', date: '2026-09-20', isNew: true, highlights: {
+    he: ['אימות הודעת הסיכום בוואטסאפ גם כשאימוג׳י מוצג כתמונה'],
+    en: ['Recognize delivered WhatsApp summaries when emoji render as images'],
+  } },
+  { version: '1.20.5', date: '2026-09-20', isNew: true, highlights: {
+    he: ['דף עדכון חוברות: מפתחות חיבור למחשב, הורדת התוכנה למק והוראות התקנה'],
+    en: ['Booklet updates dashboard: scoped computer keys, Mac download and setup instructions'],
+  } },
+  { version: '1.20.4', date: '2026-09-20', isNew: true, highlights: {
+    he: ['דיווח חוברות בקבוצת וואטסאפ ובדיקות המשך ב־12:00 וב־14:00, ללא הודעות כפולות'],
+    en: ['WhatsApp booklet summaries and quiet followup checks at noon and 14:00'],
+  } },
+  {
+    version: '1.20.3', date: '2026-09-20', isNew: true,
+    highlights: {
+      he: ['איסוף חוברות פתאל אוטומטי מוואטסאפ, זיהוי מלונות משופר ודוח עדכון מאוחד'],
+      en: ['Automated Fattal WhatsApp booklet intake, improved hotel matching and consolidated update reports'],
+    },
+  },
+  {
+    version: '1.20.2',
+    date: '2026-09-04',
+    isNew: true,
+    highlights: {
+      he: ['הגרלה (חשיפת קוד): המעבר בין הגרלות הוחלף — במקום נפילה רכה, כל תו מהבהב ונכבה בחיתוך חד אחד אחרי השני, והמקפים נדלקים בפתאומיות עם הבזק קצר. סגנון טרמינל, בלי ריכוכים'],
+      en: ['Raffle (code reveal): the between-draw transition was replaced — instead of a soft fall, each character flickers and cuts out one after the other, and the dashes snap on with a brief flash. Terminal style, no easing'],
+    },
+  },
+  {
+    version: '1.20.1',
+    date: '2026-09-04',
+    isNew: false,
+    highlights: {
+      he: [
+        'הגרלה (חשיפת קוד): מעבר בין הגרלות — לחיצה אחרי זכייה מפרקת את הקוד והפרס בנפילה מהירה, ולוח נקי עולה עם הפרס הבא וממתין ללחיצה הבאה. בלי קפיצה חתוכה ישר לערבוב',
+        'הגרלה (חשיפת קוד): הפרס של ההגרלה הבאה מוצג כבר על לוח ההמתנה, מעומעם, ומתחזק עם הריצה והזכייה',
+      ],
+      en: [
+        'Raffle (code reveal): a transition between draws — a press after a win breaks the code and prize apart in a quick fall, and a clean board rises with the next prize, waiting for the next press. No hard cut straight into the scramble',
+        'Raffle (code reveal): the next draw\'s prize is shown on the waiting board, dimmed, brightening through the run and the win',
+      ],
+    },
+  },
+  {
+    version: '1.20.0',
+    date: '2026-09-04',
+    isNew: false,
+    highlights: {
+      he: [
+        'הגרלה: קונפטי בזכייה — מתפרץ מאחורי הזוכה החוצה ונופל. ארבעה מצבים: כבוי, בצבעי העיצוב (זהב, לבן וגוון בהיר של הרקע), צבעוני, או שני צבעים משלכם. אפשר להגביל להגרלה האחרונה בלבד',
+        'הגרלה: שם הפרס מופיע מתחת לקוד כבר מהרגע שהתווים מתחילים לרוץ, וגדול יותר — מתחזק בזוהר ברגע הזכייה',
+      ],
+      en: [
+        'Raffle: win confetti — bursts out from behind the winner and falls. Four modes: off, design colours (gold, white and a light tint of the backdrop), colourful, or two colours of your own. Can be limited to the last draw only',
+        'Raffle: the prize name now shows under the code from the moment the characters start running, and larger — brightening with a glow at the win',
+      ],
+    },
+  },
+  {
+    version: '1.19.9',
+    date: '2026-09-04',
+    isNew: false,
+    highlights: {
+      he: [
+        'הגרלה: רקע גרדיאנט — שני צבעים, רדיאלי (מהמרכז) או ליניארי (מלמעלה), עם תצוגה מקדימה. ברירת המחדל: כחול-כהה של רקע במה',
+        'הגרלה: בחשיפת קוד הקוד נצבע עכשיו ב״צבע טקסט״ כמו השמות בגלגל; ״צבע זוכה״ צובע את הזוהר ואת שם הפרס',
+        'הגרלה: ״כותרת פתיחה״ מוסתרת בחשיפת קוד — שם מסך הפתיחה הוא שורת המקפים',
+      ],
+      en: [
+        'Raffle: gradient background — two colours, radial (from the centre) or linear (top down), with a preview. Default: deep stage navy',
+        'Raffle: in the code reveal the code is now painted in the "text colour", like names on the wheel; the "winner colour" paints the glow and the prize',
+        'Raffle: "opening title" is hidden for the code reveal — its idle screen is the dash row',
+      ],
+    },
+  },
+  {
+    version: '1.19.8',
+    date: '2026-09-04',
+    isNew: false,
+    highlights: {
+      he: [
+        'הגרלה: צליל ההתחלה דלוק כברירת מחדל בשני הסגנונות, ואפשר לבחור לו סיבוב / זכייה / באזר עם השמעה מקדימה, או להעלות צליל משלכם',
+        'הגרלה: תוקן — צליל מותאם (זכייה או התחלה) נשמר עד עכשיו ככתובת זמנית של הדפדפן ולא הועלה לשרת, ולכן לא התנגן על המסך הגדול. עכשיו הוא מועלה לאחסון ומתנגן בכל מקום',
+      ],
+      en: [
+        'Raffle: the start sound is on by default for both styles, with a choice of spin / win / buzzer (with preview) or your own uploaded file',
+        'Raffle: fixed — a custom sound (win or start) was saved as a temporary browser URL and never uploaded, so it did not play on the big screen. It is now uploaded to storage and plays everywhere',
+      ],
+    },
+  },
+  {
+    version: '1.19.7',
+    date: '2026-09-04',
+    isNew: false,
+    highlights: {
+      he: ['הגרלה: כשמוגדר פרס, שמו מחליף את המילה ״זוכה״ מתחת לקוד במקום להופיע מתחתיה'],
+      en: ['Raffle: when a prize is set, its name replaces the word "winner" under the code instead of appearing beneath it'],
+    },
+  },
+  {
+    version: '1.19.6',
+    date: '2026-09-04',
+    isNew: false,
+    highlights: {
+      he: [
+        'הגרלה: מחוון ״ההגרלה הבאה: מס׳ X — פרס״ בהגדרות ובתפריט המסך הגדול, עם אזהרה כשאין פרס לדרגה הבאה — כדי שלא תופתעו על הבמה אחרי חזרה',
+        'הגרלה: אפשרות ״צליל התחלה (בלחיצה על אנטר)״ — לגלגל דלוק כברירת מחדל, לחשיפת קוד כבוי, ואפשר לשנות',
+        'הגרלה: שם הפרס עולה מתחת לזוכה עם הברקה קלה',
+      ],
+      en: [
+        'Raffle: a "next draw: #X — prize" indicator in the settings and the big-screen menu, with a warning when the next rank has no prize — so a rehearsal never surprises you on stage',
+        'Raffle: a "start sound (on Enter)" option — on by default for the wheel, off for the code reveal, either way switchable',
+        'Raffle: the prize name rises in under the winner with a soft glow',
+      ],
+    },
+  },
+  {
+    version: '1.19.5',
+    date: '2026-09-04',
+    isNew: false,
+    highlights: {
+      he: [
+        'הגרלה: תוקנה תקלה חמורה — פתיחת ההגדרות מכפתור סרגל הכלים איפסה את כל ההגדרות לברירת המחדל (סגנון אנימציה, סוג רשימה, צבעים) ושמרה אותן',
+        'הגרלה: פרסים לפי סדר ההגרלות (רשות) — שם הפרס מוצג מתחת לזוכה על המסך הגדול, ברשימות הזוכים ובייצוא',
+        'הגרלה: אין יותר מגבלה מעשית על אורך הקוד — עד 40 תווים בתצוגה, והגופן מתאים את עצמו',
+      ],
+      en: [
+        'Raffle: fixed a serious bug — opening the settings from the toolbar button reset every setting to its default (animation style, list type, colours) and saved it',
+        'Raffle: optional prizes in draw order — the prize name is shown under the winner on the big screen, in the winners lists and in the export',
+        'Raffle: no practical limit on code length any more — up to 40 characters on screen, with the font scaling to fit',
+      ],
+    },
+  },
+  {
+    version: '1.19.4',
+    date: '2026-08-27',
+    isNew: false,
+    highlights: {
+      he: [
+        'הגרלה: במסך הדמו כל הטלפונים הוחלפו ב-000000000 — קודם נוצרו מספרים אקראיים שנראו כמו מספרים אמיתיים',
+        'הגרלה: מעבר לרשימת קודים בדמו עובר אוטומטית לאנימציית חשיפת הקוד, ומעבר לרשימת אנשים חוזר לגלגל',
+        'הגרלה: לדמו אפשר להגיע ישירות במצב מסוים דרך הכתובת — סוג רשימה, סגנון אנימציה, ואפשרות להסתיר את חלון ההגדרות',
+      ],
+      en: [
+        'Raffle: every phone in the demo screen is now 000000000 — the previous random numbers looked like real ones',
+        'Raffle: switching the demo to a code list now switches to the code-reveal animation, and back to the wheel for a people list',
+        'Raffle: the demo can be opened directly in a given state from the URL — list type, animation style, and an option to hide the settings dialog',
+      ],
+    },
+  },
   {
     version: '1.19.3',
     date: '2026-08-16',
-    isNew: true,
+    isNew: false,
     highlights: {
       he: [
         'הגרלה: חלון ההגדרות עוצב מחדש — אזור הגרירה הגדול הוחלף בשני כפתורים, ״בחרו קובץ״ ו״הדביקו רשימה״, כך שרשימת המשתתפים נראית מיד בלי לגלול',

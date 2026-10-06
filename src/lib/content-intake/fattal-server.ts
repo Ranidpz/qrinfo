@@ -1,3 +1,6 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
+import type { NextRequest } from 'next/server';
+import { hasValidServerApiKey } from '@/lib/server-api-key';
 import { getAdminDb } from '@/lib/firebase-admin';
 import {
   FATTAL_BOOKLET_TARGETS,
@@ -9,28 +12,40 @@ import type { ContentIntakeTarget } from './types';
 interface ResolveFattalOwnerParams {
   ownerId?: unknown;
   ownerEmail?: unknown;
-  integrationAuth?: boolean;
+  integrationAuth?: boolean | IntakeKeyScope;
 }
 
 interface CodeMediaSnapshot {
   type?: string;
   filename?: string;
   id?: string;
+  url?: string;
 }
 
 export async function resolveFattalOwnerId(params: ResolveFattalOwnerParams = {}): Promise<string | null> {
   const requestedOwnerId = typeof params.ownerId === 'string' ? params.ownerId.trim() : '';
   const envOwnerId = process.env.FATTAL_BOOKLETS_OWNER_ID?.trim() || '';
+  const requestedOwnerEmail = typeof params.ownerEmail === 'string' ? params.ownerEmail.trim() : '';
+  const envOwnerEmail = process.env.FATTAL_BOOKLETS_OWNER_EMAIL?.trim() || FATTAL_DEFAULT_OWNER_EMAIL;
 
-  if (params.integrationAuth && envOwnerId && requestedOwnerId && requestedOwnerId !== envOwnerId) {
-    return null;
+  if (params.integrationAuth && typeof params.integrationAuth === 'object') {
+    const scope = params.integrationAuth;
+    if (requestedOwnerId && requestedOwnerId !== scope.ownerId) return null;
+    if (requestedOwnerEmail && requestedOwnerEmail.toLowerCase() !== scope.ownerEmail.toLowerCase()) return null;
+    return scope.ownerId;
+  }
+
+  // A shared integration key is scoped by server configuration, never by request input.
+  if (params.integrationAuth) {
+    if (requestedOwnerEmail && requestedOwnerEmail.toLowerCase() !== envOwnerEmail.toLowerCase()) return null;
+    const allowedOwnerId = envOwnerId || await resolveFattalOwnerId({ ownerEmail: envOwnerEmail });
+    if (!allowedOwnerId || (requestedOwnerId && requestedOwnerId !== allowedOwnerId)) return null;
+    return allowedOwnerId;
   }
 
   if (requestedOwnerId) return requestedOwnerId;
   if (envOwnerId) return envOwnerId;
 
-  const requestedOwnerEmail = typeof params.ownerEmail === 'string' ? params.ownerEmail.trim() : '';
-  const envOwnerEmail = process.env.FATTAL_BOOKLETS_OWNER_EMAIL?.trim() || '';
   const ownerEmail = requestedOwnerEmail || envOwnerEmail || FATTAL_DEFAULT_OWNER_EMAIL;
 
   const db = getAdminDb();
@@ -83,6 +98,7 @@ export async function loadMappedFattalTargets(ownerId: string): Promise<ContentI
       folderName: folderId ? folderById.get(folderId) : undefined,
       currentMediaType: typeof firstMedia?.type === 'string' ? firstMedia.type : undefined,
       currentFilename: typeof firstMedia?.filename === 'string' ? firstMedia.filename : undefined,
+      currentUrl: typeof firstMedia?.url === 'string' ? firstMedia.url : undefined,
       aliases: [config.title, ...config.aliases],
     });
   }
@@ -95,4 +111,33 @@ export async function loadMappedFattalTargets(ownerId: string): Promise<ContentI
 function targetOrder(shortId: string): number {
   const index = FATTAL_BOOKLET_TARGETS.findIndex((target) => target.shortId === shortId);
   return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+export interface IntakeKeyScope { ownerId: string; ownerEmail: string; connectionId: string }
+export async function authenticateIntakeKey(request: NextRequest): Promise<boolean | IntakeKeyScope> {
+  const key = request.headers.get('x-content-intake-key') || request.headers.get('x-integration-key') || '';
+  if (key.startsWith('tq_ci_')) {
+    const match = /^tq_ci_([a-f0-9]{32})\.([a-f0-9]{64})$/.exec(key);
+    if (!match) return false;
+    const record = (await getAdminDb().collection('contentIntakeConnections').doc(match[1]).get()).data();
+    if (!record || record.revokedAt || record.disabledAt || record.workflow !== 'fattal-booklets' || !record.ownerId || !record.ownerEmail) return false;
+    const hash = createHash('sha256').update(key).digest('hex');
+    if (typeof record.keyHash !== 'string' || record.keyHash.length !== hash.length || !timingSafeEqual(Buffer.from(hash), Buffer.from(record.keyHash))) return false;
+    return { ownerId: record.ownerId, ownerEmail: record.ownerEmail, connectionId: match[1] };
+  }
+  return hasValidServerApiKey(request, 'CONTENT_INTAKE_API_KEY', ['x-content-intake-key', 'x-integration-key']);
+}
+
+// Snapshot the authenticated connection's display name; never infer a machine from another owner's latest heartbeat.
+export async function resolveIntakeComputerName(ownerId: string, auth: boolean | IntakeKeyScope): Promise<string | undefined> {
+  if (!auth || typeof auth !== 'object' || auth.ownerId !== ownerId) return undefined;
+  const db = getAdminDb();
+  const record = (await db.collection('contentIntakeConnections').doc(auth.connectionId).get()).data();
+  if (!record || record.ownerId !== ownerId || record.workflow !== 'fattal-booklets') return undefined;
+  if (typeof record.name === 'string' && record.name.trim()) return record.name.trim().slice(0,80);
+  if (typeof record.agentId !== 'string') return undefined;
+  const key = createHash('sha256').update(`${ownerId}:${record.agentId}`).digest('hex');
+  const agent = (await db.collection('contentIntakeAgents').doc(key).get()).data();
+  return agent?.ownerId === ownerId && agent.connectionId === auth.connectionId && typeof agent.computerName === 'string'
+    ? agent.computerName.trim().slice(0,80) || undefined : undefined;
 }

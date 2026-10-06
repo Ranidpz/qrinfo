@@ -96,9 +96,19 @@ export function QTreasurePlayerView({
       setIsRegistered(true);
       if (player.startedAt) {
         setHasStarted(true);
-        // Set current station based on progress
-        const nextStationOrder = player.currentStationIndex + 1;
-        const station = activeConfig.stations.find(s => s.isActive && s.order === nextStationOrder);
+        // Set current station from the player's PERSONAL route (matrix-aware).
+        // Legacy players without a routeSeq fall back to fixed station.order.
+        const routeSeq = player.routeSeq && player.routeSeq.length
+          ? player.routeSeq
+          : activeConfig.stations
+              .filter(s => s.isActive)
+              .sort((a, b) => a.order - b.order)
+              .map(s => s.id);
+        const idx = typeof player.routeIndex === 'number'
+          ? player.routeIndex
+          : player.currentStationIndex;
+        const nextStationId = routeSeq[idx];
+        const station = activeConfig.stations.find(s => s.isActive && s.id === nextStationId);
         setCurrentStation(station || null);
       }
     }
@@ -345,7 +355,7 @@ export function QTreasurePlayerView({
             gap: 1.5rem;
             background: linear-gradient(135deg, #0d1f17 0%, #1a2f23 50%, #0f2318 100%);
             color: #d4af37;
-            font-family: 'Crimson Text', Georgia, serif;
+            font-family: var(--font-assistant), system-ui, sans-serif;
           }
 
           .compass-loader {
@@ -444,7 +454,7 @@ export function QTreasurePlayerView({
           background: linear-gradient(135deg, var(--bg) 0%, #1a2f23 50%, #0f2318 100%);
           position: relative;
           overflow: hidden;
-          font-family: 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
         }
 
         .timer-overlay {

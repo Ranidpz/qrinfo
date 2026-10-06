@@ -30,6 +30,7 @@ import {
   QTreasureTimerConfig,
   QTreasureRegistrationConfig,
   QTreasureCompletionConfig,
+  QTreasureCliostroConfig,
   QTreasurePhase,
   DEFAULT_QTREASURE_CONFIG,
   DEFAULT_QTREASURE_EMOJI_PALETTE,
@@ -37,6 +38,7 @@ import {
 } from '@/types/qtreasure';
 import QRCode from 'qrcode';
 import MobilePreviewModal from './MobilePreviewModal';
+import { CliostroVideoSlot } from './CliostroVideoSlot';
 
 // Helper function to remove undefined/null values from objects (Firestore doesn't accept undefined)
 function cleanUndefinedValues<T extends object>(obj: T): T {
@@ -64,6 +66,7 @@ interface QTreasureModalProps {
   onSave: (config: QTreasureConfig) => Promise<void>;
   loading?: boolean;
   initialConfig?: QTreasureConfig;
+  codeId?: string;
   shortId?: string;
   existingStationQRs?: { shortId: string; title: string }[];
   // Required for auto-creating station QR codes
@@ -86,6 +89,7 @@ export default function QTreasureModal({
   onSave,
   loading = false,
   initialConfig,
+  codeId,
   shortId,
   existingStationQRs = [],
   ownerId,
@@ -97,7 +101,7 @@ export default function QTreasureModal({
   const isRTL = locale === 'he';
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'timer' | 'registration' | 'completion' | 'advanced'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'stations' | 'videos' | 'timer' | 'registration' | 'completion' | 'advanced'>('branding');
 
   // Preview modal
   const [showPreview, setShowPreview] = useState(false);
@@ -109,6 +113,11 @@ export default function QTreasureModal({
   const [branding, setBranding] = useState<QTreasureBranding>(DEFAULT_QTREASURE_CONFIG.branding);
   const [gameTitle, setGameTitle] = useState('');
   const [gameTitleEn, setGameTitleEn] = useState('');
+
+  // Cliostro videos state
+  const [cliostro, setCliostro] = useState<QTreasureCliostroConfig>(
+    DEFAULT_QTREASURE_CONFIG.cliostro || { enabled: true }
+  );
 
   // Stations state
   const [stations, setStations] = useState<QTreasureStation[]>([]);
@@ -133,6 +142,10 @@ export default function QTreasureModal({
   const [allowOutOfOrder, setAllowOutOfOrder] = useState(DEFAULT_QTREASURE_CONFIG.allowOutOfOrder);
   const [outOfOrderWarning, setOutOfOrderWarning] = useState(DEFAULT_QTREASURE_CONFIG.outOfOrderWarning);
   const [outOfOrderWarningEn, setOutOfOrderWarningEn] = useState(DEFAULT_QTREASURE_CONFIG.outOfOrderWarningEn);
+
+  // Route mode ("the matrix") + replay
+  const [routeMode, setRouteMode] = useState<'fixed' | 'perPlayer'>(DEFAULT_QTREASURE_CONFIG.routeMode || 'fixed');
+  const [allowReplay, setAllowReplay] = useState(DEFAULT_QTREASURE_CONFIG.allowReplay || false);
 
   // Language
   const [language, setLanguage] = useState<'he' | 'en' | 'auto'>(DEFAULT_QTREASURE_CONFIG.language);
@@ -375,6 +388,7 @@ export default function QTreasureModal({
       setOutOfOrderWarning(initialConfig.outOfOrderWarning);
       setOutOfOrderWarningEn(initialConfig.outOfOrderWarningEn);
       setLanguage(initialConfig.language);
+      setCliostro(initialConfig.cliostro || { enabled: true });
     } else {
       // Reset to defaults
       setCurrentPhase('registration');
@@ -393,6 +407,7 @@ export default function QTreasureModal({
       setOutOfOrderWarning(DEFAULT_QTREASURE_CONFIG.outOfOrderWarning);
       setOutOfOrderWarningEn(DEFAULT_QTREASURE_CONFIG.outOfOrderWarningEn);
       setLanguage(DEFAULT_QTREASURE_CONFIG.language);
+      setCliostro(DEFAULT_QTREASURE_CONFIG.cliostro || { enabled: true });
     }
   }, [initialConfig, isOpen]);
 
@@ -458,6 +473,7 @@ export default function QTreasureModal({
         ...(gameTitle ? { gameTitle } : {}),
         ...(gameTitleEn ? { gameTitleEn } : {}),
       },
+      cliostro,
       language,
       stats: initialConfig?.stats || {
         totalPlayers: 0,
@@ -481,6 +497,7 @@ export default function QTreasureModal({
   const tabs = [
     { id: 'branding' as const, label: isRTL ? 'מיתוג' : 'Branding', icon: Palette },
     { id: 'stations' as const, label: isRTL ? 'תחנות' : 'Stations', icon: Map },
+    { id: 'videos' as const, label: isRTL ? 'וידאו' : 'Videos', icon: Video },
     { id: 'timer' as const, label: isRTL ? 'טיימר' : 'Timer', icon: Timer },
     { id: 'registration' as const, label: isRTL ? 'הרשמה' : 'Registration', icon: UserPlus },
     { id: 'completion' as const, label: isRTL ? 'סיום' : 'Completion', icon: Trophy },
@@ -1377,6 +1394,74 @@ export default function QTreasureModal({
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Videos Tab (Cliostro character videos) */}
+            {activeTab === 'videos' && (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {isRTL ? 'סרטוני קליוסטרו' : 'Cliostro Videos'}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {isRTL
+                        ? 'סרטוני מסך-מלא של הדמות. אם לא מעלים סרטון — משתמשים בברירת המחדל הגלובלית.'
+                        : 'Full-screen character videos. If none is uploaded, the global default is used.'}
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={cliostro.enabled}
+                      onChange={(e) => setCliostro({ ...cliostro, enabled: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    {isRTL ? 'הצג סרטונים' : 'Show videos'}
+                  </label>
+                </div>
+
+                {!codeId && (
+                  <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3">
+                    {isRTL
+                      ? 'יש לשמור את המשחק לפני העלאת סרטונים.'
+                      : 'Save the game before uploading videos.'}
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <CliostroVideoSlot
+                    codeId={codeId}
+                    game="treasure"
+                    scenario="welcome"
+                    label={isRTL ? 'פתיח — ברוכים הבאים' : 'Welcome intro'}
+                    hint={isRTL ? 'לפני תחילת המשחק' : 'Before the game starts'}
+                    url={cliostro.welcomeUrl}
+                    onChange={(url) => setCliostro({ ...cliostro, welcomeUrl: url })}
+                    isRTL={isRTL}
+                  />
+                  <CliostroVideoSlot
+                    codeId={codeId}
+                    game="treasure"
+                    scenario="success"
+                    label={isRTL ? 'סגיר הצלחה' : 'Success closer'}
+                    hint={isRTL ? 'בסיום מוצלח' : 'On successful finish'}
+                    url={cliostro.successUrl}
+                    onChange={(url) => setCliostro({ ...cliostro, successUrl: url })}
+                    isRTL={isRTL}
+                  />
+                  <CliostroVideoSlot
+                    codeId={codeId}
+                    game="treasure"
+                    scenario="fail"
+                    label={isRTL ? 'סגיר כשלון' : 'Failure closer'}
+                    hint={isRTL ? 'בכשלון / נגמר הזמן' : 'On timeout / give-up'}
+                    url={cliostro.failUrl}
+                    onChange={(url) => setCliostro({ ...cliostro, failUrl: url })}
+                    isRTL={isRTL}
+                  />
+                </div>
               </div>
             )}
 

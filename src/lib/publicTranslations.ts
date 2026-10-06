@@ -170,6 +170,9 @@ export const uploadTranslations = {
     countryClear: 'נקה בחירה',
     photographerPickCountry: 'המדינה נשמרת לצילום הבא — שנו רק כשצריך',
     photographerUploadedCount: 'הועלו {count} תמונות',
+    // Photographer-link page: responsibility notice + live event total
+    photographerNotice: 'לינק צלמים פתוח — השתמשו בו בתבונה ובאחריות. כל תמונה שתעלו תופיע מיד על מסך האירוע.',
+    eventPhotosLabel: 'תמונות באירוע',
     showingRecent: 'מציג {shown} אחרונות מתוך {count} (השאר בבים ובעורך)',
     editPhotoTitle: 'עריכת תמונה',
     deletePhoto: 'מחיקה',
@@ -211,6 +214,9 @@ export const uploadTranslations = {
     countryClear: 'Clear selection',
     photographerPickCountry: 'Country is kept for the next shot — change only when needed',
     photographerUploadedCount: 'Uploaded {count} photos',
+    // Photographer-link page: responsibility notice + live event total
+    photographerNotice: 'Open photographer link — use it wisely and responsibly. Every photo you upload appears on the event screen instantly.',
+    eventPhotosLabel: 'photos at the event',
     showingRecent: 'Showing last {shown} of {count} (the rest are on the beam and in the editor)',
     editPhotoTitle: 'Edit photo',
     deletePhoto: 'Delete',

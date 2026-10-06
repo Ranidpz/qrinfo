@@ -10,6 +10,7 @@ interface RaffleStageProps {
   onRequestDraw: () => RaffleWinner | null | Promise<RaffleWinner | null>;
   canShowPhones?: boolean;
   loading?: boolean;
+  nextRank?: number;
 }
 
 // Picks the on-screen animation. Both implementations take the same props and

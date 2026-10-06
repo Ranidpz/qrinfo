@@ -20,6 +20,7 @@ import {
   Loader2,
   Sparkles,
   Users,
+  Plus,
   Link as LinkIcon,
   Copy,
   Check,
@@ -30,11 +31,22 @@ import type {
   RaffleParticipant,
   RaffleWinner,
   RaffleWinSound,
+  RaffleStartSound,
+  RaffleConfetti,
 } from '@/lib/raffle/types';
 import {
   fullName,
+  prizeForRank,
+  nextDrawRank,
+  startSoundEnabled,
+  resolveStartSoundUrl,
   resolveWinSoundUrl,
   RAFFLE_WIN_SOUND_PRESETS,
+  RAFFLE_SPIN_SOUND,
+  DEFAULT_GRADIENT_FROM,
+  DEFAULT_GRADIENT_TO,
+  raffleBackgroundStyle,
+  confettiPalette,
   CODE_LOCK_MS_MIN,
   CODE_LOCK_MS_MAX,
   CODE_LOCK_MS_DEFAULT,
@@ -58,7 +70,7 @@ interface RaffleSettingsPanelProps {
   onResetAll: () => void | Promise<void>;
   // Production: upload an asset to the owner's R2 folder and return its URL.
   // Demo: omitted → falls back to a local object URL.
-  uploadAsset?: (file: File, kind: 'image' | 'video') => Promise<string>;
+  uploadAsset?: (file: File, kind: 'image' | 'video' | 'audio') => Promise<string>;
   // Editor mode: hide the demo loader, show the shareable big-screen link.
   hideDemo?: boolean;
   bigScreenUrl?: string;
@@ -101,7 +113,18 @@ export default function RaffleSettingsPanel({
   const isModal = variant === 'modal';
   const listType = config.listType ?? 'people';
   const isCodes = listType === 'codes';
+  // Prize labels in draw order. Three empty rows by default so the operator
+  // sees where they go; blanks show nothing on screen.
+  const prizeRows: string[] =
+    Array.isArray(config.prizes) && config.prizes.length > 0 ? config.prizes : ['', '', ''];
+  const setPrize = (i: number, v: string) => {
+    const next = [...prizeRows];
+    next[i] = v;
+    onConfigChange({ prizes: next });
+  };
   const soundFileRef = useRef<HTMLInputElement | null>(null);
+  const startSoundFileRef = useRef<HTMLInputElement | null>(null);
+  const [soundUploading, setSoundUploading] = useState<'win' | 'start' | null>(null);
   const imageRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLAudioElement | null>(null);
@@ -138,10 +161,21 @@ export default function RaffleSettingsPanel({
     a.play().catch(() => {});
   };
 
-  const handleSoundFile = (file: File) => {
-    const url = URL.createObjectURL(file);
-    onConfigChange({ winSound: 'custom', customWinSoundUrl: url });
-    playPreview(url);
+  // Custom sounds MUST be uploaded (R2) in the editor — a blob: URL only lives
+  // in this tab and would never play on the big screen. The demo keeps the
+  // local object URL.
+  const handleSoundFile = async (file: File, target: 'win' | 'start' = 'win') => {
+    setSoundUploading(target);
+    try {
+      const url = uploadAsset ? await uploadAsset(file, 'audio') : URL.createObjectURL(file);
+      if (target === 'start') onConfigChange({ startSoundKind: 'custom', customStartSoundUrl: url });
+      else onConfigChange({ winSound: 'custom', customWinSoundUrl: url });
+      playPreview(url);
+    } catch {
+      /* upload failed — keep the previous sound */
+    } finally {
+      setSoundUploading(null);
+    }
   };
 
   // Upload (or locally stage) a background asset, then apply it.
@@ -182,10 +216,11 @@ export default function RaffleSettingsPanel({
   };
 
   const exportWinners = () => {
-    const head = ['מקום', 'שם פרטי', 'שם משפחה', 'טלפון', 'שעה'];
+    const head = ['מקום', 'פרס', 'שם פרטי', 'שם משפחה', 'טלפון', 'שעה'];
     const lines = winners.map((w) =>
       [
         w.rank,
+        prizeForRank(config, w.rank),
         w.firstName,
         w.lastName,
         w.phone,
@@ -413,8 +448,8 @@ export default function RaffleSettingsPanel({
 
           <div className={grpCls('design', 'grid')}>
           <Section icon={<Palette size={15} />} title="רקע">
-            <div className="grid grid-cols-3 gap-1.5">
-              {(['color', 'video', 'image'] as const).map((t) => (
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['color', 'gradient', 'video', 'image'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => onConfigChange({ backgroundType: t })}
@@ -424,7 +459,7 @@ export default function RaffleSettingsPanel({
                       : 'bg-white/5 text-white/70 hover:bg-white/10'
                   }`}
                 >
-                  {t === 'color' ? 'צבע' : t === 'video' ? 'וידאו' : 'תמונה'}
+                  {t === 'color' ? 'צבע' : t === 'gradient' ? 'גרדיאנט' : t === 'video' ? 'וידאו' : 'תמונה'}
                 </button>
               ))}
             </div>
@@ -435,6 +470,46 @@ export default function RaffleSettingsPanel({
                 value={config.backgroundColor}
                 onChange={(v) => onConfigChange({ backgroundColor: v })}
               />
+            )}
+
+            {config.backgroundType === 'gradient' && (
+              <>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      { key: 'radial', label: 'רדיאלי (מהמרכז)' },
+                      { key: 'linear', label: 'ליניארי (מלמעלה)' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => onConfigChange({ gradientShape: opt.key })}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        (config.gradientShape ?? 'radial') === opt.key
+                          ? 'bg-white/15 text-white'
+                          : 'bg-white/5 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <ColorRow
+                  label={(config.gradientShape ?? 'radial') === 'linear' ? 'צבע עליון' : 'צבע מרכז'}
+                  value={config.gradientFrom || DEFAULT_GRADIENT_FROM}
+                  onChange={(v) => onConfigChange({ gradientFrom: v })}
+                />
+                <ColorRow
+                  label={(config.gradientShape ?? 'radial') === 'linear' ? 'צבע תחתון' : 'צבע קצוות'}
+                  value={config.gradientTo || DEFAULT_GRADIENT_TO}
+                  onChange={(v) => onConfigChange({ gradientTo: v })}
+                />
+                <div
+                  className="h-16 rounded-lg border border-white/10"
+                  style={raffleBackgroundStyle(config)}
+                  aria-hidden
+                />
+              </>
             )}
 
             {config.backgroundType === 'image' && (
@@ -503,9 +578,73 @@ export default function RaffleSettingsPanel({
               value={config.winnerColor}
               onChange={(v) => onConfigChange({ winnerColor: v })}
             />
+            <p className="text-xs leading-relaxed text-white/40">
+              {(config.animationStyle ?? 'wheel') === 'codeReveal'
+                ? 'בחשיפת קוד: הקוד בצבע הטקסט; צבע הזוכה צובע את הזוהר סביבו ואת שם הפרס.'
+                : 'בגלגל: השמות בצבע הטקסט; השם הזוכה ושם הפרס בצבע הזוכה.'}
+            </p>
           </Section>
 
-          <Section icon={<Type size={15} />} title="כותרת פתיחה">
+          <Section icon={<Sparkles size={15} />} title="קונפטי בזכייה">
+            <div className="grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  { key: 'off', label: 'כבוי' },
+                  { key: 'theme', label: 'בצבעי העיצוב' },
+                  { key: 'colorful', label: 'צבעוני' },
+                  { key: 'custom', label: 'צבעים שלי' },
+                ] as { key: RaffleConfetti; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => onConfigChange({ confetti: opt.key })}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    (config.confetti ?? 'off') === opt.key
+                      ? 'bg-amber-400 text-black'
+                      : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {config.confetti === 'custom' && (
+              <>
+                <ColorRow
+                  label="צבע ראשון"
+                  value={config.confettiColors?.[0] ?? '#0A84FF'}
+                  onChange={(v) => onConfigChange({ confettiColors: [v, config.confettiColors?.[1] ?? '#ffffff'] })}
+                />
+                <ColorRow
+                  label="צבע שני"
+                  value={config.confettiColors?.[1] ?? '#ffffff'}
+                  onChange={(v) => onConfigChange({ confettiColors: [config.confettiColors?.[0] ?? '#0A84FF', v] })}
+                />
+              </>
+            )}
+            {(config.confetti ?? 'off') !== 'off' && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  {confettiPalette(config).map((c, i) => (
+                    <span key={i} className="h-5 w-5 rounded-full border border-white/15" style={{ background: c }} />
+                  ))}
+                </div>
+                <CheckRow
+                  label="רק בהגרלה האחרונה (הפרס הגדול)"
+                  checked={!!config.confettiOnlyLast}
+                  onChange={(v) => onConfigChange({ confettiOnlyLast: v })}
+                />
+              </>
+            )}
+            <p className="text-xs leading-relaxed text-white/40">
+              {(config.confetti ?? 'off') === 'theme'
+                ? 'זהב (צבע הזוכה), לבן וגוון בהיר של הרקע — מתאים את עצמו לעיצוב.'
+                : 'מתפרץ מאחורי הזוכה החוצה ונופל, כ-3 שניות, בלי להסתיר את הקוד.'}
+            </p>
+          </Section>
+
+          {/* Code reveal idles on the dash row, not a title — hide what has no effect. */}
+          <Section icon={<Type size={15} />} title="כותרת פתיחה" hidden={(config.animationStyle ?? 'wheel') === 'codeReveal'}>
             <input
               value={config.idleTitle ?? 'הגרלה'}
               onChange={(e) => onConfigChange({ idleTitle: e.target.value })}
@@ -609,12 +748,136 @@ export default function RaffleSettingsPanel({
             </p>
           </Section>
 
+          <Section icon={<Trophy size={15} />} title="פרסים (רשות)">
+            <p className="text-sm leading-relaxed text-white/45">
+              לפי סדר ההגרלות: הפרס בשורה הראשונה מוצג מתחת לזוכה בהגרלה הראשונה, וכן הלאה. שורה
+              ריקה — בלי פרס.
+            </p>
+            <div className="space-y-2">
+              {prizeRows.map((v, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="w-16 shrink-0 text-sm text-white/50">הגרלה {i + 1}</span>
+                  <input
+                    value={v}
+                    onChange={(e) => setPrize(i, e.target.value)}
+                    placeholder="שם הפרס"
+                    className="h-11 min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-amber-400/60"
+                  />
+                  <button
+                    onClick={() => onConfigChange({ prizes: prizeRows.filter((_, j) => j !== i) })}
+                    disabled={prizeRows.length <= 1}
+                    aria-label="הסירו פרס"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/40 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-30"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => onConfigChange({ prizes: [...prizeRows, ''] })}
+              className="flex items-center gap-2 text-sm text-white/45 transition hover:text-white/80"
+            >
+              <Plus size={16} /> הוסיפו פרס
+            </button>
+            {/* What the NEXT press will actually show. Ranks keep counting across
+                imports, so after a rehearsal this is the line that catches
+                "why is there no prize" before it happens on stage. */}
+            {(() => {
+              const next = nextDrawRank(winners);
+              const label = prizeForRank(config, next);
+              const hasAny = prizeRows.some((v) => v.trim());
+              const warn = hasAny && !label;
+              return (
+                <div
+                  className={`rounded-lg px-4 py-2 text-sm ${
+                    warn ? 'border border-amber-400/40 bg-amber-400/10 text-amber-200' : 'bg-white/5 text-white/60'
+                  }`}
+                >
+                  ההגרלה הבאה: מס׳ {next}
+                  {label ? ` — ${label}` : hasAny ? ' — ללא פרס. אפסו את הזוכים כדי להתחיל מהפרס הראשון.' : ''}
+                </div>
+              );
+            })()}
+          </Section>
+
           <Section icon={<Volume2 size={15} />} title="צלילים">
             <CheckRow
               label="הפעל צלילים"
               checked={config.soundsEnabled}
               onChange={(v) => onConfigChange({ soundsEnabled: v })}
             />
+            <CheckRow
+              label="צליל התחלה (בלחיצה על אנטר)"
+              checked={startSoundEnabled(config)}
+              onChange={(v) => onConfigChange({ startSound: v })}
+            />
+            {startSoundEnabled(config) && (
+              <div className="space-y-2 pt-1">
+                <div className="text-xs text-white/40">צליל התחלה</div>
+                {(
+                  [
+                    { key: 'spin', label: 'סיבוב', url: RAFFLE_SPIN_SOUND },
+                    { key: 'win', label: 'זכייה', url: RAFFLE_WIN_SOUND_PRESETS.win },
+                    { key: 'buzzer', label: 'באזר', url: RAFFLE_WIN_SOUND_PRESETS.buzzer },
+                  ] as { key: RaffleStartSound; label: string; url: string }[]
+                ).map((opt) => (
+                  <div key={opt.key} className="flex items-center gap-2">
+                    <button
+                      onClick={() => onConfigChange({ startSoundKind: opt.key })}
+                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        (config.startSoundKind ?? 'spin') === opt.key
+                          ? 'bg-amber-400 text-black'
+                          : 'bg-white/5 text-white/70 hover:bg-white/10'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                    <button
+                      onClick={() => playPreview(opt.url)}
+                      aria-label={`השמע ${opt.label}`}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-white/70 hover:bg-white/10"
+                    >
+                      <Play size={14} />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => startSoundFileRef.current?.click()}
+                    disabled={soundUploading === 'start'}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${
+                      config.startSoundKind === 'custom'
+                        ? 'bg-amber-400 text-black'
+                        : 'bg-white/5 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    {soundUploading === 'start' ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {soundUploading === 'start' ? 'מעלה…' : 'העלו צליל משלכם'}
+                  </button>
+                  {config.startSoundKind === 'custom' && config.customStartSoundUrl && (
+                    <button
+                      onClick={() => playPreview(resolveStartSoundUrl(config))}
+                      aria-label="השמע צליל שהועלה"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-white/70 hover:bg-white/10"
+                    >
+                      <Play size={14} />
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={startSoundFileRef}
+                  type="file"
+                  accept="audio/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleSoundFile(f, 'start');
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            )}
 
             {(config.animationStyle ?? 'wheel') === 'codeReveal' && (
               <>
@@ -665,13 +928,15 @@ export default function RaffleSettingsPanel({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => soundFileRef.current?.click()}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  disabled={soundUploading === 'win'}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50 ${
                     config.winSound === 'custom'
                       ? 'bg-amber-400 text-black'
                       : 'bg-white/5 text-white/70 hover:bg-white/10'
                   }`}
                 >
-                  <Upload size={14} /> העלה צליל
+                  {soundUploading === 'win' ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {soundUploading === 'win' ? 'מעלה…' : 'העלו צליל משלכם'}
                 </button>
                 {config.winSound === 'custom' && config.customWinSoundUrl && (
                   <button
@@ -690,7 +955,7 @@ export default function RaffleSettingsPanel({
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) handleSoundFile(f);
+                  if (f) handleSoundFile(f, 'win');
                   e.target.value = '';
                 }}
               />
@@ -743,6 +1008,9 @@ export default function RaffleSettingsPanel({
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{fullName(w)}</div>
+                        {prizeForRank(config, w.rank) && (
+                          <div className="truncate text-xs text-amber-300/80">{prizeForRank(config, w.rank)}</div>
+                        )}
                         <div className="truncate text-xs text-white/40" dir="ltr">{w.phone}</div>
                       </div>
                       {w.phone && (

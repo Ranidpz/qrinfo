@@ -1,12 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
-import {
-  QTreasureConfig,
-  QTreasurePlayer,
-  QTreasureScan,
-  QTreasureScanResult,
-} from '@/types/qtreasure';
+import { QTreasureScan, QTreasureScanResult } from '@/types/qtreasure';
 import {
   updateTreasureLeaderboardEntry,
   incrementTreasurePlayersFinished,
@@ -14,22 +7,39 @@ import {
   addRecentCompletion,
   trimRecentCompletions,
 } from '@/lib/qtreasure-realtime';
+import { checkRateLimit, getClientIp, validateOrigin, RATE_LIMITS } from '@/lib/rateLimit';
+import {
+  getTreasureCodeConfig,
+  getTreasurePlayer,
+  updateTreasurePlayer,
+  hasScannedStation,
+  createTreasureScan,
+} from '@/lib/qtreasure/store';
+import { resolvePlayerRoute, stationById } from '@/lib/qtreasure/route';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    if (!validateOrigin(request)) {
+      return NextResponse.json(
+        { success: false, error: 'INVALID_ORIGIN' } as QTreasureScanResult,
+        { status: 403 }
+      );
+    }
+    const ip = getClientIp(request);
+    if (!checkRateLimit(`qtreasure-scan:${ip}`, RATE_LIMITS.CHECKIN).success) {
+      return NextResponse.json(
+        { success: false, error: 'RATE_LIMITED' } as QTreasureScanResult,
+        { status: 429 }
+      );
+    }
 
+    const body = await request.json();
     const {
       codeId,
       playerId,
       stationShortId,
-    }: {
-      codeId: string;
-      playerId: string;
-      stationShortId: string;
-    } = body;
+    }: { codeId: string; playerId: string; stationShortId: string } = body;
 
-    // Validate required fields
     if (!codeId || !playerId || !stationShortId) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' } as QTreasureScanResult,
@@ -37,31 +47,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if code exists and get config
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
-
-    if (!codeDoc.exists()) {
+    // Load code + Q.Treasure config
+    const codeConfig = await getTreasureCodeConfig(codeId);
+    if (!codeConfig) {
       return NextResponse.json(
         { success: false, error: 'CODE_NOT_FOUND' } as QTreasureScanResult,
         { status: 404 }
       );
     }
-
-    // Find QTreasure media item
-    const codeData = codeDoc.data();
-    const qtreasureMedia = codeData.media?.find(
-      (m: { type: string }) => m.type === 'qtreasure'
-    );
-
-    if (!qtreasureMedia?.qtreasureConfig) {
-      return NextResponse.json(
-        { success: false, error: 'QTreasure not configured' },
-        { status: 400 }
-      );
-    }
-
-    const config: QTreasureConfig = qtreasureMedia.qtreasureConfig;
+    const { config } = codeConfig;
 
     // Check if game is active
     if (config.currentPhase === 'completed') {
@@ -72,19 +66,15 @@ export async function POST(request: Request) {
     }
 
     // Get player
-    const playerRef = doc(db, 'codes', codeId, 'qtreasure_players', playerId);
-    const playerDoc = await getDoc(playerRef);
-
-    if (!playerDoc.exists()) {
+    const player = await getTreasurePlayer(codeId, playerId);
+    if (!player) {
       return NextResponse.json(
         { success: false, error: 'notRegistered' } as QTreasureScanResult,
         { status: 400 }
       );
     }
 
-    const player = playerDoc.data() as QTreasurePlayer;
-
-    // Check if player has started
+    // Must have started
     if (!player.startedAt) {
       return NextResponse.json(
         { success: false, error: 'notRegistered' } as QTreasureScanResult,
@@ -92,7 +82,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if player already completed
+    // Already completed
     if (player.completedAt) {
       return NextResponse.json(
         { success: false, error: 'alreadyCompleted' } as QTreasureScanResult,
@@ -100,16 +90,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check timer if time-limited game
+    // Timer check for time-limited games
     if (config.timer.maxTimeSeconds > 0) {
       const elapsed = Date.now() - player.startedAt;
       if (elapsed > config.timer.maxTimeSeconds * 1000) {
-        // Mark player as timed out
-        await updateDoc(playerRef, {
+        await updateTreasurePlayer(codeId, playerId, {
           completedAt: player.startedAt + config.timer.maxTimeSeconds * 1000,
           totalTimeMs: config.timer.maxTimeSeconds * 1000,
         });
-
         return NextResponse.json(
           { success: false, error: 'TIME_EXPIRED' } as QTreasureScanResult,
           { status: 400 }
@@ -119,9 +107,8 @@ export async function POST(request: Request) {
 
     // Find the scanned station in config
     const station = config.stations.find(
-      s => s.isActive && s.stationShortId === stationShortId
+      (s) => s.isActive && s.stationShortId === stationShortId
     );
-
     if (!station) {
       return NextResponse.json(
         { success: false, error: 'stationNotFound' } as QTreasureScanResult,
@@ -129,54 +116,46 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if already scanned this station
-    const scansRef = collection(db, 'codes', codeId, 'qtreasure_scans');
-    const existingScanQuery = query(
-      scansRef,
-      where('playerId', '==', playerId),
-      where('stationId', '==', station.id),
-      limit(1)
-    );
-    const existingScanSnapshot = await getDocs(existingScanQuery);
-
-    if (!existingScanSnapshot.empty) {
+    // Dedupe: already scanned this station?
+    if (await hasScannedStation(codeId, playerId, station.id)) {
       return NextResponse.json(
         { success: false, error: 'alreadyCompleted' } as QTreasureScanResult,
         { status: 400 }
       );
     }
 
-    // Check order
-    const expectedOrder = player.currentStationIndex + 1;
-    const isInOrder = station.order === expectedOrder;
+    // Order check — against this player's PERSONAL route ("the matrix").
+    const perPlayer = config.routeMode === 'perPlayer';
+    const { routeSeq, routeIndex } = resolvePlayerRoute(player, config);
+    const expectedStationId = routeSeq[routeIndex];
+    const isInOrder = station.id === expectedStationId;
     let outOfOrderMessage: string | undefined;
     let outOfOrderCount = player.outOfOrderScans;
 
-    if (!isInOrder && !config.allowOutOfOrder) {
+    // perPlayer mode is always strict; fixed mode honours allowOutOfOrder.
+    if (!isInOrder && (perPlayer || !config.allowOutOfOrder)) {
+      const target = stationById(config, expectedStationId);
       return NextResponse.json({
         success: false,
         error: 'outOfOrder',
-        expectedStationOrder: expectedOrder,
+        expectedStationOrder: routeIndex + 1,
+        nextStation: target, // let the client re-show the correct next-station hint
       } as QTreasureScanResult);
     }
 
     if (!isInOrder) {
-      outOfOrderMessage = config.language === 'en'
-        ? config.outOfOrderWarningEn
-        : config.outOfOrderWarning;
+      outOfOrderMessage =
+        config.language === 'en' ? config.outOfOrderWarningEn : config.outOfOrderWarning;
       outOfOrderCount += 1;
     }
 
-    // Calculate time from previous station
+    // Time from previous station
     const now = Date.now();
     let timeFromPrevious: number | undefined;
-
     if (player.completedStations.length > 0) {
       const lastStationId = player.completedStations[player.completedStations.length - 1];
       const lastStationTime = player.stationTimes[lastStationId];
-      if (lastStationTime) {
-        timeFromPrevious = now - lastStationTime;
-      }
+      if (lastStationTime) timeFromPrevious = now - lastStationTime;
     } else if (player.startedAt) {
       timeFromPrevious = now - player.startedAt;
     }
@@ -184,7 +163,6 @@ export async function POST(request: Request) {
     // Create scan record
     const scanId = `${playerId}_${station.id}_${now}`;
     const xpEarned = station.xpReward || config.xpPerStation;
-
     const scan: QTreasureScan = {
       id: scanId,
       playerId,
@@ -195,18 +173,14 @@ export async function POST(request: Request) {
       scannedAt: now,
       timeFromPrevious,
     };
-
-    // Save scan
-    const scanRef = doc(db, 'codes', codeId, 'qtreasure_scans', scanId);
-    await setDoc(scanRef, scan);
+    await createTreasureScan(codeId, scan);
 
     // Update player progress
     const completedStations = [...player.completedStations, station.id];
     const stationTimes = { ...player.stationTimes, [station.id]: now };
     const totalXP = player.totalXP + xpEarned;
 
-    // Check if hunt is complete
-    const activeStations = config.stations.filter(s => s.isActive);
+    const activeStations = config.stations.filter((s) => s.isActive);
     const isComplete = completedStations.length >= activeStations.length;
 
     let totalTimeMs: number | undefined;
@@ -219,20 +193,24 @@ export async function POST(request: Request) {
       finalXP = totalXP + config.completionBonusXP;
     }
 
-    // Update player
-    await updateDoc(playerRef, {
-      currentStationIndex: isInOrder ? station.order : player.currentStationIndex,
+    // Advance the player's position along their route on an in-order scan.
+    const newRouteIndex = isInOrder ? routeIndex + 1 : routeIndex;
+
+    await updateTreasurePlayer(codeId, playerId, {
+      routeIndex: newRouteIndex,
+      currentStationIndex: newRouteIndex, // mirror for legacy UI / leaderboard
       completedStations,
       stationTimes,
       totalXP: finalXP,
       outOfOrderScans: outOfOrderCount,
+      // Persist the derived route once for legacy players (idempotent for new ones)
+      ...(player.routeSeq && player.routeSeq.length ? {} : { routeSeq }),
       ...(isComplete ? { completedAt, totalTimeMs } : {}),
     });
 
-    // Update Realtime DB
+    // Update Realtime DB on completion
     try {
       if (isComplete) {
-        // Add to leaderboard
         await updateTreasureLeaderboardEntry(codeId, {
           playerId: player.id,
           playerName: player.nickname,
@@ -244,11 +222,8 @@ export async function POST(request: Request) {
           completedAt: completedAt!,
           rank: 0,
         });
-
         await incrementTreasurePlayersFinished(codeId, totalTimeMs!);
         await recalculateTreasureRanks(codeId);
-
-        // Add to recent completions feed
         await addRecentCompletion(codeId, {
           id: `completion_${now}`,
           playerId: player.id,
@@ -264,11 +239,10 @@ export async function POST(request: Request) {
       console.error('Error updating Realtime DB:', rtdbError);
     }
 
-    // Get next station hint (if not complete)
+    // Next station on the player's route (if not complete)
     let nextStation: typeof station | undefined;
     if (!isComplete) {
-      const nextOrder = isInOrder ? station.order + 1 : expectedOrder;
-      nextStation = config.stations.find(s => s.isActive && s.order === nextOrder);
+      nextStation = stationById(config, routeSeq[newRouteIndex]);
     }
 
     return NextResponse.json({
@@ -278,7 +252,7 @@ export async function POST(request: Request) {
       isInOrder,
       isComplete,
       outOfOrderMessage,
-      expectedStationOrder: isInOrder ? undefined : expectedOrder,
+      expectedStationOrder: isInOrder ? undefined : routeIndex + 1,
       timeFromPrevious,
       totalTimeMs,
       nextStation,

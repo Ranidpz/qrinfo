@@ -112,6 +112,19 @@ export interface QHuntBranding {
 }
 
 // =============================================================
+// Cliostro Character Videos (full-screen moments)
+// Per-event overrides; when a URL is empty the global default is used
+// (see src/lib/cliostro/videos.ts). Videos live on Cloudflare R2.
+// =============================================================
+export interface QHuntCliostroConfig {
+  enabled: boolean;                 // Master toggle for showing Cliostro videos
+  welcomeUrl?: string;              // Intro — shown on the ready screen before start
+  hintUrl?: string;                 // Hint — shown when a hint is revealed
+  successUrl?: string;              // Success closer — shown when the player finishes
+  failUrl?: string;                 // Failure closer — shown on time-up / give-up
+}
+
+// =============================================================
 // Sound Configuration
 // =============================================================
 export interface QHuntSoundConfig {
@@ -151,6 +164,9 @@ export interface QHuntConfig {
 
   // Branding
   branding: QHuntBranding;
+
+  // Cliostro character videos (optional; per-event overrides of global defaults)
+  cliostro?: QHuntCliostroConfig;
 
   // Sound
   sound: QHuntSoundConfig;
@@ -357,6 +373,9 @@ Each gnome has their own color.
 💡 Tip: If you're stuck, tap "End Game"
 
 Good luck! 🚀`,
+  },
+  cliostro: {
+    enabled: true,
   },
   sound: {
     enabled: true,

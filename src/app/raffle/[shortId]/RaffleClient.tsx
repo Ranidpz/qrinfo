@@ -5,7 +5,7 @@ import { Menu, X, RotateCcw, Trophy, Eye, Volume2, Palette, ChevronDown } from '
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import RaffleStage from '@/components/raffle/RaffleStage';
 import type { RaffleConfig, RaffleParticipant, RaffleWinner } from '@/lib/raffle/types';
-import { fullName } from '@/lib/raffle/types';
+import { fullName, prizeForRank, nextDrawRank } from '@/lib/raffle/types';
 
 interface RaffleClientProps {
   config: RaffleConfig;
@@ -186,6 +186,7 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
         onRequestDraw={onRequestDraw}
         canShowPhones={false}
         loading={loadingNames}
+        nextRank={nextDrawRank(sessionWinners)}
       />
 
       {/* Top hover strip — reveals the control hamburger only when the mouse is
@@ -233,6 +234,22 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
             open={winnersOpen}
             onToggle={() => setWinnersOpen((v) => !v)}
           >
+            {(() => {
+              const next = nextDrawRank(sessionWinners);
+              const label = prizeForRank(display, next);
+              const hasAny = Array.isArray(display.prizes) && display.prizes.some((v) => String(v).trim());
+              const warn = hasAny && !label;
+              return (
+                <div
+                  className={`rounded-lg px-3 py-2 text-sm ${
+                    warn ? 'border border-amber-400/40 bg-amber-400/10 text-amber-200' : 'bg-white/5 text-white/70'
+                  }`}
+                >
+                  ההגרלה הבאה: מס׳ {next}
+                  {label ? ` — ${label}` : hasAny ? ' — ללא פרס. אפסו כדי להתחיל מהפרס הראשון.' : ''}
+                </div>
+              );
+            })()}
             <button
               onClick={onReset}
               disabled={resetting}
@@ -251,7 +268,12 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400 text-sm font-bold text-black">
                         {w.rank}
                       </span>
-                      <div className="min-w-0 flex-1 truncate text-sm font-medium">{fullName(w)}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{fullName(w)}</div>
+                        {prizeForRank(display, w.rank) && (
+                          <div className="truncate text-xs text-amber-300/80">{prizeForRank(display, w.rank)}</div>
+                        )}
+                      </div>
                       <span className="shrink-0 text-xs text-white/40">
                         {new Date(w.wonAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                       </span>

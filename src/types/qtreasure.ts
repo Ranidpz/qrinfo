@@ -29,10 +29,17 @@ export interface QTreasureStation {
   answer?: string;                  // Correct answer (Hebrew)
   answerEn?: string;                // Correct answer (English)
 
-  // Hint to next station
+  // Hint to next station (legacy / fixed-order mode — describes the NEXT station)
   hintText?: string;                // Text hint for next location
   hintTextEn?: string;
   hintImageUrl?: string;            // Image showing next location
+
+  // Location hint (per-player / matrix mode — describes THIS station's own location,
+  // so it is reusable no matter what order a player reaches it in). Shown to a
+  // player as the clue for the next station on their personal route.
+  locationHint?: string;
+  locationHintEn?: string;
+  locationHintImageUrl?: string;
 
   // XP/Points
   xpReward: number;                 // XP earned for reaching this station
@@ -64,6 +71,13 @@ export interface QTreasurePlayer {
 
   // Out-of-order tracking
   outOfOrderScans: number;          // Count of out-of-order scans
+
+  // Per-player route (matrix mode). routeSeq is this player's personal ordering
+  // of station IDs; routeIndex is their 0-based position within it. Absent on
+  // legacy players → engine derives a fixed order from station.order.
+  routeSeq?: string[];
+  routeIndex?: number;
+  playCount?: number;               // How many times this player has played (replays)
 }
 
 // =============================================================
@@ -126,6 +140,18 @@ export interface QTreasureBranding {
 }
 
 // =============================================================
+// Cliostro Character Videos (full-screen moments)
+// Per-event overrides; when a URL is empty the global default is used
+// (see src/lib/cliostro/videos.ts). Videos live on Cloudflare R2.
+// =============================================================
+export interface QTreasureCliostroConfig {
+  enabled: boolean;                 // Master toggle for showing Cliostro videos
+  welcomeUrl?: string;              // Intro — shown on the ready screen before start
+  successUrl?: string;              // Success closer — shown on completion (won)
+  failUrl?: string;                 // Failure closer — shown on timeout / give-up
+}
+
+// =============================================================
 // Statistics
 // =============================================================
 export interface QTreasureStats {
@@ -158,16 +184,25 @@ export interface QTreasureConfig {
   completionBonusXP: number;        // Bonus for completing all stations
   routeId?: string;                 // Link to folder/route for XP system
 
-  // Out-of-order handling
+  // Out-of-order handling (fixed mode only; perPlayer mode is always strict)
   allowOutOfOrder: boolean;         // Allow scanning in any order
   outOfOrderWarning: string;        // Warning message (Hebrew)
   outOfOrderWarningEn: string;      // Warning message (English)
+
+  // Route mode — 'fixed' = every player follows station.order (default, backward
+  // compatible). 'perPlayer' = each player gets a crypto-shuffled personal order
+  // (the "matrix"); scanning anything but your next station is not credited.
+  routeMode?: 'fixed' | 'perPlayer';
+  allowReplay?: boolean;            // Offer "play again" with a fresh route on completion
 
   // Completion
   completion: QTreasureCompletionConfig;
 
   // Branding
   branding: QTreasureBranding;
+
+  // Cliostro character videos (optional; per-event overrides of global defaults)
+  cliostro?: QTreasureCliostroConfig;
 
   // Language
   language: 'he' | 'en' | 'auto';
@@ -297,6 +332,8 @@ export const DEFAULT_QTREASURE_CONFIG: QTreasureConfig = {
   allowOutOfOrder: true,
   outOfOrderWarning: 'זו לא התחנה הבאה! חפשו את התחנה הנכונה.',
   outOfOrderWarningEn: 'This is not the next station! Look for the correct one.',
+  routeMode: 'fixed',
+  allowReplay: false,
   completion: {
     showTotalTime: true,
     showStationTimes: true,
@@ -309,6 +346,9 @@ export const DEFAULT_QTREASURE_CONFIG: QTreasureConfig = {
     accentColor: '#ff00aa',
     successColor: '#00ff88',
     warningColor: '#ffaa00',
+  },
+  cliostro: {
+    enabled: true,
   },
   language: 'auto',
   stats: {

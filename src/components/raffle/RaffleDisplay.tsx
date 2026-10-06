@@ -10,10 +10,17 @@ import type {
 } from '@/lib/raffle/types';
 import {
   participantLabel,
+  prizeForRank,
+  startSoundEnabled,
+  resolveStartSoundUrl,
   resolveWinSoundUrl,
+  raffleBackgroundStyle,
+  confettiPalette,
+  confettiForRank,
   RAFFLE_SPIN_SOUND,
   RAFFLE_BUZZER_SOUND,
 } from '@/lib/raffle/types';
+import RaffleConfetti from './RaffleConfetti';
 
 type Phase = 'idle' | 'spinning' | 'stopping' | 'won';
 
@@ -311,7 +318,9 @@ export default function RaffleDisplay({
     lastTsRef.current = performance.now();
     setPhaseBoth('spinning');
     measure();
-    playOnce(spinAudioRef.current); // spin sound, once
+    if (startSoundEnabled(configRef.current)) {
+      playOnce(spinAudioRef.current, resolveStartSoundUrl(configRef.current)); // start sound, once
+    }
     stopRaf();
     rafRef.current = requestAnimationFrame(frame);
   }, [hasPool, setPhaseBoth, measure, playOnce, stopRaf, frame]);
@@ -349,16 +358,18 @@ export default function RaffleDisplay({
 
   useEffect(() => () => stopRaf(), [stopRaf]);
 
-  const background = useMemo(() => {
-    if (config.backgroundType === 'image' && config.backgroundImageUrl) {
-      return {
-        backgroundImage: `url(${config.backgroundImageUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      } as const;
-    }
-    return { backgroundColor: config.backgroundColor } as const;
-  }, [config.backgroundType, config.backgroundColor, config.backgroundImageUrl]);
+  const background = useMemo(
+    () => raffleBackgroundStyle(config),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      config.backgroundType,
+      config.backgroundColor,
+      config.backgroundImageUrl,
+      config.gradientFrom,
+      config.gradientTo,
+      config.gradientShape,
+    ]
+  );
 
   const showReel = phase === 'spinning' || phase === 'stopping';
 
@@ -459,6 +470,14 @@ export default function RaffleDisplay({
           reel left it, so the border-shine + glow appear instantly with no
           jump or scale. The caption is absolutely placed below the name so it
           never pushes the name up. */}
+      {phase === 'won' && winner && confettiForRank(config, winner.rank) && (
+        <RaffleConfetti
+          key={`${winner.id}-${winner.rank}`}
+          colors={confettiPalette(config)}
+          glow={config.winnerColor}
+        />
+      )}
+
       {phase === 'won' && winner && (
         <div className="pointer-events-none absolute inset-0 z-20">
           <div
@@ -494,9 +513,26 @@ export default function RaffleDisplay({
               transform: 'translateX(-50%)',
               color: config.winnerColor,
               fontSize: 'clamp(1.4rem, 4vw, 2.6rem)',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
             }}
           >
-            זוכה
+            {/* The prize for this draw (by rank) REPLACES the word "זוכה". */}
+            {prizeForRank(config, winner.rank) ? (
+              <div
+                className="raffle-prize"
+                style={{
+                  fontSize: 'clamp(2rem, 6.5vw, 5.4rem)',
+                  fontWeight: 800,
+                  lineHeight: 1.15,
+                  textShadow: `0 0 34px ${config.winnerColor}80`,
+                }}
+              >
+                {prizeForRank(config, winner.rank)}
+              </div>
+            ) : (
+              <div>זוכה</div>
+            )}
           </div>
         </div>
       )}

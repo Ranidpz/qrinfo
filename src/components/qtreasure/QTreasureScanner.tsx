@@ -512,7 +512,7 @@ export function QTreasureScanner({
 
         .action-btn {
           padding: 0.875rem 2rem;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1rem;
           font-weight: 600;
           color: #0d1f17;

@@ -3,29 +3,32 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { readdir, readFile, stat } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { readdir, readFile, stat, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { parse as parseDotenv } from 'dotenv';
 
-const DEFAULT_PORT = 4174;
-const DEFAULT_DIR = path.join(homedir(), 'Desktop', 'פתאל 28');
-const DEFAULT_OWNER_EMAIL = 'playzonest1@gmail.com';
-const DEFAULT_TEMP_ENV_FILE = '/private/tmp/qr-vercel-production.env';
+import { previewBatch, commitWithPayloadFallback } from '../tools/whatsapp-intake/src/intake-client.mjs';
+export { previewBatch, commitWithPayloadFallback } from '../tools/whatsapp-intake/src/intake-client.mjs';
 
-main().catch((error) => {
+const DEFAULT_PORT = 4174;
+const DEFAULT_OWNER_EMAIL = 'playzonest1@gmail.com';
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) main().catch((error) => {
   console.error(`\nשגיאה: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  loadEnvFiles(['.env.local'], { override: false });
-  loadEnvFiles([DEFAULT_TEMP_ENV_FILE, ...options.envFiles], { override: true });
+  loadEnvFiles(options.startServer ? ['.env.local', '.env.fattal'] : ['.env.fattal'], { override: false });
+  loadEnvFiles(options.envFiles, { override: true });
   normalizeFirebaseServiceAccountEnv();
 
-  const dir = path.resolve(options.dir || DEFAULT_DIR);
+  if (!options.dir) throw new Error('יש לבחור תיקיית PDF במפורש עם --dir');
+  const dir = path.resolve(options.dir);
   const files = await collectPdfFiles(dir);
   if (files.length === 0) {
     throw new Error(`לא נמצאו קבצי PDF בתיקייה: ${dir}`);
@@ -44,9 +47,18 @@ async function main() {
 
   const ownerEmail = options.ownerEmail || process.env.FATTAL_BOOKLETS_OWNER_EMAIL || DEFAULT_OWNER_EMAIL;
   const receivedAt = options.receivedAt || new Date().toISOString();
+  if (Number.isNaN(Date.parse(receivedAt))) throw new Error('תאריך קבלה לא תקין');
   const port = options.port || DEFAULT_PORT;
   const baseUrl = options.baseUrl || `http://localhost:${port}`;
 
+  const endpoint = new URL(baseUrl);
+  if (endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname))) {
+    throw new Error('API requires HTTPS, except for localhost');
+  }
+  const lock = path.join(tmpdir(), `fattal-intake-${createHash('sha256').update(`${baseUrl}:${ownerEmail}`).digest('hex').slice(0, 20)}.lock`);
+  if (options.commit) {
+    try { await mkdir(lock); } catch { throw new Error(`קיימת נעילת ריצה: ${lock}. יש לוודא שהריצה הקודמת הסתיימה לפני הסרת הנעילה.`); }
+  }
   let server;
   try {
     if (options.startServer) {
@@ -56,6 +68,9 @@ async function main() {
     const result = options.commit
       ? await commitWithPayloadFallback({ baseUrl, apiKey, ownerEmail, receivedAt, files })
       : await previewBatch({ baseUrl, apiKey, ownerEmail, receivedAt, files });
+
+    if (options.reportFile) await writeFile(path.resolve(options.reportFile), JSON.stringify(result, null, 2), { mode: 0o600 });
+    if (options.commit && (result.summary?.failed > 0 || result.summary?.skipped > 0 || result.reportEmail?.sent !== true)) process.exitCode = 2;
 
     printResult({
       mode: options.commit ? 'commit' : 'preview',
@@ -68,6 +83,7 @@ async function main() {
     if (server) {
       server.kill('SIGTERM');
     }
+    if (options.commit) await rm(lock, { recursive: true, force: true });
   }
 }
 
@@ -89,6 +105,7 @@ function parseArgs(args) {
     if (arg === '--commit') options.commit = true;
     else if (arg === '--preview') options.commit = false;
     else if (arg === '--start-server') options.startServer = true;
+    else if (arg === '--report-file') options.reportFile = next();
     else if (arg === '--dir') options.dir = next();
     else if (arg === '--base-url') options.baseUrl = next();
     else if (arg === '--owner-email') options.ownerEmail = next();
@@ -110,11 +127,11 @@ function parseArgs(args) {
 function printHelp() {
   console.log(`
 שימוש:
-  npm run fattal:intake -- --start-server
-  npm run fattal:intake -- --start-server --commit
+  npm run fattal:intake -- --dir "/path/to/today-pdfs" --start-server
+  npm run fattal:intake -- --dir "/path/to/today-pdfs" --start-server --commit
 
 ברירת מחדל:
-  --dir "${DEFAULT_DIR}"
+  --dir <תיקיית PDF>      חובה; אין תיקיית תאריך ישנה כברירת מחדל
   --owner-email ${DEFAULT_OWNER_EMAIL}
   --base-url http://localhost:${DEFAULT_PORT}
 
@@ -165,7 +182,7 @@ function normalizeFirebaseServiceAccountEnv() {
   process.env.FIREBASE_SERVICE_ACCOUNT_KEY = normalized;
 }
 
-async function collectPdfFiles(dir) {
+export async function collectPdfFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
   const files = [];
 
@@ -173,7 +190,11 @@ async function collectPdfFiles(dir) {
     if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.pdf')) continue;
     const filePath = path.join(dir, entry.name);
     const fileStat = await stat(filePath);
+    if (fileStat.size > 25 * 1024 * 1024) throw new Error(`PDF exceeds 25MB: ${entry.name}`);
+    const buffer = await readFile(filePath);
+    if (!buffer.subarray(0, 1024).includes(Buffer.from('%PDF-'))) throw new Error(`Invalid PDF: ${entry.name}`);
     files.push({
+      sha256: createHash('sha256').update(buffer).digest('hex'),
       path: filePath,
       name: entry.name,
       size: fileStat.size,
@@ -237,208 +258,6 @@ async function waitForServer(url, child) {
   throw new Error('שרת הפיתוח לא עלה בזמן');
 }
 
-async function previewBatch({ baseUrl, apiKey, ownerEmail, receivedAt, files, saveRun = true }) {
-  const response = await fetch(`${baseUrl}/api/content-intake/fattal/preview`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-content-intake-key': apiKey,
-    },
-    body: JSON.stringify({
-      ownerEmail,
-      receivedAt,
-      saveRun,
-      source: 'manual',
-      files: files.map((file) => ({
-        id: localFileId(file),
-        name: file.name,
-        size: file.size,
-        contentType: 'application/pdf',
-        receivedAt,
-        source: 'manual',
-      })),
-    }),
-  });
-
-  return parseJsonResponse(response);
-}
-
-async function commitWithPayloadFallback(params) {
-  try {
-    return await commitBatch(params);
-  } catch (error) {
-    if (!isPayloadTooLargeError(error)) throw error;
-
-    console.warn('\nהבקשה גדולה מדי לשליחה אחת. עובר לעדכון קובץ-קובץ...');
-    return commitFilesIndividually(params);
-  }
-}
-
-async function commitBatch({ baseUrl, apiKey, ownerEmail, receivedAt, files }) {
-  const formData = new FormData();
-  formData.set('ownerEmail', ownerEmail);
-  formData.set('receivedAt', receivedAt);
-  formData.set('source', 'manual');
-
-  for (const file of files) {
-    const buffer = await readFile(file.path);
-    formData.append(
-      'files',
-      new Blob([buffer], { type: 'application/pdf' }),
-      file.name
-    );
-    formData.append(`sourceFileId:${file.name}`, localFileId(file));
-  }
-
-  const response = await fetch(`${baseUrl}/api/content-intake/fattal/commit`, {
-    method: 'POST',
-    headers: {
-      'x-content-intake-key': apiKey,
-    },
-    body: formData,
-  });
-
-  return parseJsonResponse(response);
-}
-
-async function commitFilesIndividually({ baseUrl, apiKey, ownerEmail, receivedAt, files }) {
-  const preview = await previewBatch({
-    baseUrl,
-    apiKey,
-    ownerEmail,
-    receivedAt,
-    files,
-    saveRun: false,
-  });
-
-  const results = [];
-  for (const [index, file] of files.entries()) {
-    console.log(`מעדכן ${index + 1}/${files.length}: ${file.name}`);
-    try {
-      const singleResult = await commitBatch({
-        baseUrl,
-        apiKey,
-        ownerEmail,
-        receivedAt,
-        files: [file],
-      });
-
-      if (Array.isArray(singleResult.results)) {
-        results.push(...singleResult.results);
-      } else {
-        results.push({
-          fileId: localFileId(file),
-          filename: file.name,
-          status: 'failed',
-          error: 'Update returned no result',
-        });
-      }
-    } catch (error) {
-      results.push({
-        fileId: localFileId(file),
-        filename: file.name,
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Update failed',
-      });
-    }
-  }
-
-  const suggestedReplyAfterCommitHe = buildCommitReply(preview, results);
-
-  return {
-    success: !hasCommitIssues(preview, results),
-    status: hasCommitIssues(preview, results) ? 'completed_with_issues' : 'completed',
-    preview,
-    summary: {
-      totalFiles: preview.summary?.totalFiles || files.length,
-      matched: preview.summary?.matched || 0,
-      updated: results.filter((result) => result.status === 'updated').length,
-      skipped: results.filter((result) => result.status === 'skipped').length,
-      skippedDuplicate: results.filter((result) => result.status === 'skipped_duplicate').length,
-      failed: results.filter((result) => result.status === 'failed').length,
-      missingTargets: preview.summary?.missingTargets || 0,
-    },
-    results,
-    suggestedReplyAfterCommitHe,
-  };
-}
-
-async function parseJsonResponse(response) {
-  const body = await response.text();
-  let parsed;
-  try {
-    parsed = body ? JSON.parse(body) : {};
-  } catch {
-    parsed = { raw: body };
-  }
-
-  if (!response.ok) {
-    const error = new Error(`${response.status} ${response.statusText}: ${JSON.stringify(parsed)}`);
-    error.status = response.status;
-    error.parsed = parsed;
-    throw error;
-  }
-
-  return parsed;
-}
-
-function isPayloadTooLargeError(error) {
-  return error && typeof error === 'object' && error.status === 413;
-}
-
-function buildCommitReply(preview, results) {
-  const updated = results.filter((result) => result.status === 'updated');
-  const skippedDuplicates = results.filter((result) => result.status === 'skipped_duplicate');
-  const skipped = results.filter((result) => result.status === 'skipped');
-  const failed = results.filter((result) => result.status === 'failed');
-  const missingTitles = Array.isArray(preview.missingTargets)
-    ? preview.missingTargets.map((missing) => missing.target?.title).filter(Boolean)
-    : [];
-  const updatedTitles = updated.map((result) => result.title).filter(Boolean);
-
-  if (skipped.length === 0 && failed.length === 0 && missingTitles.length === 0) {
-    const lines = ['תודה, בוצע ✅'];
-    if (updated.length > 0) {
-      lines.push(`עודכנו ${updated.length} חוברות${updatedTitles.length ? `: ${updatedTitles.join(', ')}` : ''}`);
-    }
-    if (skippedDuplicates.length > 0) {
-      lines.push(`קבצים שכבר היו מעודכנים דולגו: ${skippedDuplicates.length}`);
-    }
-    return lines.join('\n');
-  }
-
-  const lines = ['תודה, עדכנתי את מה שהתקבל ✅'];
-  if (updated.length > 0) {
-    lines.push(`עודכנו ${updated.length} חוברות${updatedTitles.length ? `: ${updatedTitles.join(', ')}` : ''}`);
-  }
-  if (skippedDuplicates.length > 0) {
-    lines.push(`קבצים שכבר היו מעודכנים דולגו: ${skippedDuplicates.length}`);
-  }
-  if (skipped.length > 0) {
-    lines.push(`דורשים בדיקה ידנית: ${skipped.length} קבצים`);
-  }
-  if (failed.length > 0) {
-    lines.push(`לא הצלחתי לעדכן: ${failed.length} קבצים`);
-  }
-  if (missingTitles.length > 0) {
-    lines.push(`חסרים לי קבצים עבור: ${missingTitles.join(', ')}`);
-  }
-  return lines.join('\n');
-}
-
-function hasCommitIssues(preview, results) {
-  return (preview.summary?.missingTargets || 0) > 0
-    || results.some((result) => result.status === 'failed' || result.status === 'skipped');
-}
-
-function localFileId(file) {
-  const digest = createHash('sha256')
-    .update(`${file.name}:${file.size}:${Math.round(file.mtimeMs)}`)
-    .digest('hex')
-    .slice(0, 16);
-  return `local:${digest}`;
-}
-
 function printResult({ mode, dir, ownerEmail, receivedAt, result }) {
   console.log('\n==============================');
   console.log(mode === 'commit' ? 'פתאל - עדכון בפועל' : 'פתאל - בדיקה לפני עדכון');
@@ -448,6 +267,7 @@ function printResult({ mode, dir, ownerEmail, receivedAt, result }) {
   console.log(`תאריך קבלה: ${receivedAt}`);
   if (result.runId) console.log(`runId: ${result.runId}`);
 
+  if (result.reportEmail) console.log(`דוח מייל: ${result.reportEmail.sent ? 'נשלח' : 'לא נשלח — נדרשת בדיקה'}`);
   const summary = result.summary || {};
   console.log('\nסיכום:');
   for (const [key, value] of Object.entries(summary)) {

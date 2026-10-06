@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin, isAuthError } from '@/lib/auth';
-import { hasValidServerApiKey } from '@/lib/server-api-key';
-import { buildFattalPreview } from '@/lib/content-intake/fattal';
+import { authenticateIntakeKey, resolveIntakeComputerName } from '@/lib/content-intake/fattal-server';
+import { parseEvidence } from '@/lib/content-intake/evidence';
+import { buildVerifiedFattalPreview } from '@/lib/content-intake/verified-preview';
 import { loadMappedFattalTargets, resolveFattalOwnerId } from '@/lib/content-intake/fattal-server';
 import { createContentIntakeRun } from '@/lib/content-intake/runs';
 import type { IntakeFileCandidate } from '@/lib/content-intake/types';
@@ -17,10 +18,7 @@ interface PreviewRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const isIntegrationAuth = hasValidServerApiKey(request, 'CONTENT_INTAKE_API_KEY', [
-      'x-content-intake-key',
-      'x-integration-key',
-    ]);
+    const isIntegrationAuth = await authenticateIntakeKey(request);
 
     let createdBy: string | undefined;
     if (!isIntegrationAuth) {
@@ -58,7 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const preview = buildFattalPreview({
+    const preview = await buildVerifiedFattalPreview({
       files,
       targets,
       receivedAt: typeof body.receivedAt === 'string' ? body.receivedAt : undefined,
@@ -67,6 +65,7 @@ export async function POST(request: NextRequest) {
     if (body.saveRun !== false) {
       preview.runId = await createContentIntakeRun({
         ownerId,
+        computerName: await resolveIntakeComputerName(ownerId, isIntegrationAuth),
         ownerEmail: typeof body.ownerEmail === 'string' ? body.ownerEmail : undefined,
         source: typeof body.source === 'string' ? body.source : 'manual',
         receivedAt: typeof body.receivedAt === 'string' ? body.receivedAt : undefined,
@@ -76,7 +75,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(preview);
+    return NextResponse.json({ ...preview, batchProtocolVersion: 1, assignmentProtocolVersion: 1, targets });
   } catch (error) {
     console.error('[Content Intake Fattal Preview] Error:', error);
     return NextResponse.json(
@@ -99,6 +98,8 @@ function parseFiles(value: unknown): IntakeFileCandidate[] {
     files.push({
       id: typeof raw.id === 'string' ? raw.id : undefined,
       name: raw.name.trim(),
+      sha256: typeof raw.sha256 === 'string' && /^[a-f0-9]{64}$/.test(raw.sha256) ? raw.sha256 : undefined,
+      evidence: parseEvidence(raw.evidence),
       size: typeof raw.size === 'number' ? raw.size : undefined,
       contentType: typeof raw.contentType === 'string' ? raw.contentType : undefined,
       receivedAt: typeof raw.receivedAt === 'string' ? raw.receivedAt : undefined,

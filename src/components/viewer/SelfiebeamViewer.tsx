@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { SelfiebeamContent, UserGalleryImage } from '@/types';
-import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Pencil, RefreshCw, ExternalLink, Copy, CheckCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Pencil, RefreshCw, ExternalLink, Copy, CheckCheck, ShieldAlert } from 'lucide-react';
 import { onSnapshot, doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
@@ -126,6 +126,66 @@ function extractYoutubeId(url: string): string | null {
     if (match) return match[1];
   }
   return null;
+}
+
+/**
+ * Game-style animated number: counts up from the previously shown value (0 on first mount)
+ * with an ease-out roll, and pops green with a glow whenever the value INCREASES — so a
+ * photographer instantly "feels" every new photo landing in the event. Decreases (deletes)
+ * settle down quietly with no celebration. Respects prefers-reduced-motion.
+ */
+function AnimatedCounter({ value }: { value: number }) {
+  const [display, setDisplay] = useState(0);
+  const [pop, setPop] = useState(false);
+  const displayRef = useRef(0); // current shown value — animation always starts from here
+  const rafRef = useRef(0);
+  const popTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const from = displayRef.current;
+    const to = value;
+    if (from === to) return;
+
+    // Reduced motion: jump straight to the final value, no roll, no pop.
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      displayRef.current = to;
+      setDisplay(to);
+      return;
+    }
+
+    if (to > from) {
+      setPop(true);
+      if (popTimerRef.current) clearTimeout(popTimerRef.current);
+      popTimerRef.current = setTimeout(() => setPop(false), 900);
+    }
+
+    // Longer roll for big jumps (initial 0→N), snappy for a single +1.
+    const duration = Math.min(1200, 350 + Math.abs(to - from) * 90);
+    const start = performance.now();
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const next = Math.round(from + (to - from) * eased);
+      displayRef.current = next;
+      setDisplay(next);
+      if (p < 1) rafRef.current = requestAnimationFrame(step);
+    };
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value]);
+
+  // Clear the pop timer on unmount.
+  useEffect(() => () => { if (popTimerRef.current) clearTimeout(popTimerRef.current); }, []);
+
+  return (
+    <span
+      className="inline-block transition-all duration-300 tabular-nums"
+      style={pop ? { color: '#4ade80', transform: 'scale(1.35)', textShadow: '0 0 12px rgba(74,222,128,0.7)' } : undefined}
+    >
+      {display}
+    </span>
+  );
 }
 
 export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: SelfiebeamViewerProps) {
@@ -470,6 +530,9 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   const canUpload = galleryEnabled && (!content.photographerOnly || photographerMode);
   const maxImages = Math.max(1, Math.min(3, content.maxUploadsPerUser ?? MAX_USER_IMAGES));
   const canUploadMore = photographerMode || myUploadedImages.length < maxImages;
+  // Split the "uploaded N photos" template around {count} so the number itself can be an
+  // AnimatedCounter element (string .replace can't hold a React element).
+  const photographerCountParts = t.photographerUploadedCount.split('{count}');
 
   const openLightbox = (index: number) => {
     setCurrentImageIndex(index);
@@ -742,6 +805,33 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 pb-24 overflow-y-auto">
         <div className="w-full max-w-2xl mx-auto space-y-6">
+          {/* ===== Photographer-link branding header: Q mark → main site ===== */}
+          {photographerMode && (
+            <a
+              href="https://qr.playzones.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 opacity-70 hover:opacity-100 active:opacity-100 transition-opacity"
+              style={{ color: content.textColor }}
+            >
+              <img src="/theQ.png" alt="The Q" className="w-7 h-7 rounded-lg object-contain" />
+              <span className="text-xs font-semibold tracking-widest uppercase">The Q · Playzone</span>
+            </a>
+          )}
+
+          {/* Photographer responsibility notice — this is an open staff link */}
+          {photographerMode && (
+            <div
+              dir={locale === 'he' ? 'rtl' : 'ltr'}
+              className="w-full max-w-md mx-auto flex items-start gap-2.5 rounded-2xl px-4 py-3 bg-white/10 border border-white/15 backdrop-blur-sm"
+            >
+              <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0 text-amber-300" />
+              <p className="text-xs leading-relaxed text-start opacity-90" style={{ color: content.textColor }}>
+                {t.photographerNotice}
+              </p>
+            </div>
+          )}
+
           {/* Title */}
           <h1
             className="text-2xl sm:text-3xl md:text-4xl font-bold text-center"
@@ -790,15 +880,38 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
                 </span>
               </button>
 
-              {/* Counter */}
+              {/* Counter — photographer mode gets a game-style animated number */}
               <p className="text-sm font-medium opacity-90" style={{ color: content.textColor }}>
-                {photographerMode
-                  ? t.photographerUploadedCount.replace('{count}', String(myUploadedImages.length))
-                  : t.uploadedOf
-                      // Clamp so a lowered cap never shows a confusing "3 of 1".
-                      .replace('{count}', String(Math.min(myUploadedImages.length, maxImages)))
-                      .replace('{max}', String(maxImages))}
+                {photographerMode ? (
+                  <>
+                    {photographerCountParts[0]}
+                    <AnimatedCounter value={myUploadedImages.length} />
+                    {photographerCountParts[1]}
+                  </>
+                ) : (
+                  t.uploadedOf
+                    // Clamp so a lowered cap never shows a confusing "3 of 1".
+                    .replace('{count}', String(Math.min(myUploadedImages.length, maxImages)))
+                    .replace('{max}', String(maxImages))
+                )}
               </p>
+
+              {/* Live event total (photographer only): every photo landing in the system —
+                  from ANY photographer or participant — rolls the number with a green pop. */}
+              {photographerMode && (
+                <div
+                  dir={locale === 'he' ? 'rtl' : 'ltr'}
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-50" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
+                  </span>
+                  <span className="text-sm font-semibold" style={{ color: content.textColor }}>
+                    <AnimatedCounter value={allGalleryImages.length} /> {t.eventPhotosLabel}
+                  </span>
+                </div>
+              )}
 
               {/* My uploaded selfies — tap one to edit its flag, replace, or delete it.
                   (Photographer mode can pile up hundreds — only show the last few.) */}
@@ -922,6 +1035,21 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
           )}
         </div>
       </div>
+
+      {/* ===== Powered-by footer (photographer link only) ===== */}
+      {photographerMode && (
+        <a
+          href="https://qr.playzones.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          dir="ltr"
+          className="pb-6 flex items-center justify-center gap-1.5 opacity-50 hover:opacity-90 active:opacity-90 transition-opacity"
+          style={{ color: content.textColor }}
+        >
+          <span className="text-[11px] tracking-wide">Powered by</span>
+          <span className="text-[11px] font-bold tracking-[0.2em] uppercase">PLAYZONE</span>
+        </a>
+      )}
 
       {/* Lightbox */}
       {lightboxImage && (

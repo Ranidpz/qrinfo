@@ -1,25 +1,30 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import {
-  QTreasureConfig,
   QTreasurePlayer,
   QTreasureRegistrationResult,
 } from '@/types/qtreasure';
 import { initTreasureSession, treasureSessionExists } from '@/lib/qtreasure-realtime';
+import { checkRateLimit, getClientIp, validateOrigin, RATE_LIMITS } from '@/lib/rateLimit';
+import {
+  getTreasureCodeConfig,
+  getTreasurePlayer,
+  createTreasurePlayer,
+} from '@/lib/qtreasure/store';
+import { buildRouteSeq, resolvePlayerRoute, stationById } from '@/lib/qtreasure/route';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    // CSRF / origin + rate limiting (venue crowds share one public IP → generous cap)
+    if (!validateOrigin(request)) {
+      return NextResponse.json({ success: false, error: 'INVALID_ORIGIN' }, { status: 403 });
+    }
+    const ip = getClientIp(request);
+    if (!checkRateLimit(`qtreasure-register:${ip}`, RATE_LIMITS.CHECKIN).success) {
+      return NextResponse.json({ success: false, error: 'RATE_LIMITED' }, { status: 429 });
+    }
 
-    const {
-      codeId,
-      playerId,
-      nickname,
-      avatarType,
-      avatarValue,
-      consent,
-    } = body;
+    const body = await request.json();
+    const { codeId, playerId, nickname, avatarType, avatarValue, consent } = body;
 
     // Validate required fields
     if (!codeId || !playerId || !nickname || !avatarType || !avatarValue) {
@@ -30,38 +35,22 @@ export async function POST(request: Request) {
     }
 
     // Validate nickname length
-    if (nickname.length < 2 || nickname.length > 20) {
+    if (typeof nickname !== 'string' || nickname.length < 2 || nickname.length > 20) {
       return NextResponse.json(
         { success: false, error: 'NICKNAME_INVALID' },
         { status: 400 }
       );
     }
 
-    // Check if code exists and get config
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
-
-    if (!codeDoc.exists()) {
-      return NextResponse.json(
-        { success: false, error: 'Code not found' },
-        { status: 404 }
-      );
-    }
-
-    // Find QTreasure media item
-    const codeData = codeDoc.data();
-    const qtreasureMedia = codeData.media?.find(
-      (m: { type: string }) => m.type === 'qtreasure'
-    );
-
-    if (!qtreasureMedia?.qtreasureConfig) {
+    // Load code + Q.Treasure config
+    const codeConfig = await getTreasureCodeConfig(codeId);
+    if (!codeConfig) {
       return NextResponse.json(
         { success: false, error: 'QTreasure not configured' },
         { status: 400 }
       );
     }
-
-    const config: QTreasureConfig = qtreasureMedia.qtreasureConfig;
+    const { config } = codeConfig;
 
     // Check if registration is open
     if (config.currentPhase !== 'registration' && config.currentPhase !== 'playing') {
@@ -71,20 +60,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if player already registered
-    const playerRef = doc(db, 'codes', codeId, 'qtreasure_players', playerId);
-    const existingPlayer = await getDoc(playerRef);
-
-    if (existingPlayer.exists()) {
-      // Return existing player data with first station
-      const player = existingPlayer.data() as QTreasurePlayer;
-      const firstStation = config.stations.find(s => s.isActive && s.order === 1);
+    // Idempotent: return existing player if already registered
+    const existingPlayer = await getTreasurePlayer(codeId, playerId);
+    if (existingPlayer) {
+      const { routeSeq } = resolvePlayerRoute(existingPlayer, config);
+      const firstStation = stationById(config, routeSeq[0]);
       return NextResponse.json({
         success: true,
-        player,
+        player: existingPlayer,
         firstStation,
       } as QTreasureRegistrationResult);
     }
+
+    // Build this player's personal route (shuffled in perPlayer / "matrix" mode)
+    const routeSeq = buildRouteSeq(config);
 
     // Create new player
     const newPlayer: QTreasurePlayer = {
@@ -99,9 +88,12 @@ export async function POST(request: Request) {
       stationTimes: {},
       totalXP: 0,
       outOfOrderScans: 0,
+      routeSeq,
+      routeIndex: 0,
+      playCount: 1,
     };
 
-    await setDoc(playerRef, newPlayer);
+    await createTreasurePlayer(codeId, newPlayer);
 
     // Initialize Realtime DB session if needed
     try {
@@ -113,8 +105,7 @@ export async function POST(request: Request) {
       console.error('Error checking/initializing RTDB session:', rtdbError);
     }
 
-    // Get first station
-    const firstStation = config.stations.find(s => s.isActive && s.order === 1);
+    const firstStation = stationById(config, routeSeq[0]);
 
     return NextResponse.json({
       success: true,

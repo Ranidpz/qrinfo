@@ -496,7 +496,7 @@ export function QTreasureStationView({
         }
 
         .station-title {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1.5rem;
           font-weight: 700;
           color: #f5f5dc;
@@ -600,7 +600,7 @@ export function QTreasureStationView({
         }
 
         .challenge-header h3 {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1.125rem;
           font-weight: 600;
           color: #d4af37;
@@ -642,7 +642,7 @@ export function QTreasureStationView({
           caret-color: #d4af37;
           outline: none;
           transition: all 0.2s;
-          font-family: 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           -webkit-appearance: none;
         }
 
@@ -700,7 +700,7 @@ export function QTreasureStationView({
 
         .success-overlay p {
           color: #00ff88;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1.25rem;
           font-weight: 700;
           margin: 0;
@@ -756,7 +756,7 @@ export function QTreasureStationView({
         }
 
         .hint-header h3 {
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1rem;
           font-weight: 600;
           color: #d4af37;
@@ -824,7 +824,7 @@ export function QTreasureStationView({
           align-items: center;
           gap: 1rem;
           padding: 1rem 2.5rem;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           font-size: 1.125rem;
           font-weight: 700;
           color: #0d1f17;

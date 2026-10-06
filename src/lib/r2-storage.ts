@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 
 export const R2_STORAGE_PROVIDER = 'cloudflare-r2' as const;
@@ -211,6 +212,74 @@ export async function uploadBufferToR2(params: {
     contentType: head.ContentType || params.contentType,
     etag: head.ETag,
   };
+}
+
+export interface PresignedUpload {
+  uploadUrl: string; // presigned PUT URL — the browser uploads the file here
+  publicUrl: string; // final public URL once the upload completes
+  key: string;
+  bucket: string;
+}
+
+/**
+ * Generate a presigned PUT URL so a browser can upload a large object DIRECTLY to
+ * R2, bypassing the Vercel serverless request-body cap (~4.5MB). Used for
+ * Q.Treasure / Q.Hunt character (Cliostro) videos.
+ *
+ * Two requirements for the browser PUT to succeed:
+ *  1. It must send the SAME Content-Type passed here (the value is signed).
+ *  2. The R2 bucket needs a CORS policy allowing PUT (and OPTIONS preflight)
+ *     from the app origin. Server-to-server PUTs (curl) don't need CORS.
+ */
+export async function getPresignedPutUrl(params: {
+  key: string;
+  contentType: string;
+  expiresInSeconds?: number;
+}): Promise<PresignedUpload> {
+  const config = getR2Config();
+  if (!config) {
+    throw new Error('Cloudflare R2 is not configured');
+  }
+
+  const client = getR2Client(config);
+  const command = new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: params.key,
+    ContentType: params.contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(client, command, {
+    expiresIn: params.expiresInSeconds ?? 600,
+  });
+
+  return {
+    uploadUrl,
+    publicUrl: getR2PublicUrl(params.key),
+    key: params.key,
+    bucket: config.bucket,
+  };
+}
+
+/**
+ * HEAD an R2 object by key and return its real byte size (null if it doesn't
+ * exist). Used to verify a presigned/direct upload landed and to account storage.
+ */
+export async function getR2ObjectSize(key: string): Promise<number | null> {
+  const config = getR2Config();
+  if (!config) {
+    throw new Error('Cloudflare R2 is not configured');
+  }
+
+  const client = getR2Client(config);
+  try {
+    const head = await client.send(new HeadObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+    }));
+    return head.ContentLength ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function deleteR2ObjectByUrl(url: string): Promise<void> {

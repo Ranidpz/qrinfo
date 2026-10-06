@@ -3,7 +3,12 @@
 // when participants/winners move to Supabase (server-side only).
 
 export type RaffleDisplayMode = 'names' | 'phones';
-export type RaffleBackgroundType = 'color' | 'image' | 'video';
+export type RaffleBackgroundType = 'color' | 'image' | 'video' | 'gradient';
+export type RaffleGradientShape = 'radial' | 'linear';
+// Win confetti. 'theme' = winner colour + white + a light tint of the
+// background's centre colour (matches whatever the design is); 'custom' = two
+// chosen colours; 'colorful' = the classic multi-colour burst.
+export type RaffleConfetti = 'off' | 'colorful' | 'theme' | 'custom';
 // 'wheel' = the classic spinning reel. 'codeReveal' = the code is revealed one
 // character at a time, left→right, out of a scramble of the real loaded codes.
 export type RaffleAnimationStyle = 'wheel' | 'codeReveal';
@@ -14,6 +19,9 @@ export type RaffleAnimationStyle = 'wheel' | 'codeReveal';
 export type RaffleListType = 'people' | 'codes';
 // 'buzzer' / 'win' are the bundled presets; 'custom' uses customWinSoundUrl.
 export type RaffleWinSound = 'buzzer' | 'win' | 'custom';
+// Start-of-draw sound: the bundled spin whoosh (default), either end sound, or
+// an uploaded file.
+export type RaffleStartSound = 'spin' | 'win' | 'buzzer' | 'custom';
 
 // NOTE: filenames are case-sensitive on Vercel/Linux — keep exact casing.
 export const RAFFLE_SPIN_SOUND = '/sounds/raffle/spin.mp3';
@@ -56,6 +64,11 @@ export interface RaffleConfig {
   backgroundColor: string;
   backgroundImageUrl?: string;
   backgroundVideoUrl?: string;
+  // backgroundType 'gradient': two colours. Radial = `gradientFrom` at the
+  // centre fading to `gradientTo` at the edges; linear = top → bottom.
+  gradientFrom?: string;
+  gradientTo?: string;
+  gradientShape?: RaffleGradientShape;
   // 'phones' is honored only for the authenticated owner; the public link is
   // always forced to 'names' so phone numbers never leave the server.
   displayMode: RaffleDisplayMode;
@@ -79,6 +92,22 @@ export interface RaffleConfig {
   // Shared secret for the public big-screen link (/raffle/{shortId}?token=).
   // Generated when the raffle is first created. Gates the names + draw APIs.
   token?: string;
+  // Optional prize label per draw, in DRAW ORDER: prizes[0] is shown under the
+  // first winner (rank 1), prizes[1] under the second, and so on. An empty or
+  // missing entry shows nothing. Resetting the winners restarts the ranks, so
+  // the labels line up again for the live run after a rehearsal.
+  prizes?: string[];
+  // Sound on the press that starts a draw. Absent = on (both styles).
+  startSound?: boolean;
+  // Which sound that is. Absent = the bundled spin whoosh.
+  startSoundKind?: RaffleStartSound;
+  customStartSoundUrl?: string;
+  // Confetti burst on the win. Absent = off, so existing raffles are untouched.
+  confetti?: RaffleConfetti;
+  confettiColors?: [string, string]; // 'custom' only
+  // Fire only on the last prize draw (rank === prizes.length). Ignored when
+  // no prizes are set.
+  confettiOnlyLast?: boolean;
 }
 
 export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
@@ -96,6 +125,7 @@ export const DEFAULT_RAFFLE_CONFIG: RaffleConfig = {
   animationStyle: 'wheel',
   codeLockMs: 1600,
   codeTickSounds: true,
+  confetti: 'theme',
 };
 
 // codeReveal pace bounds (ms per character) — kept here so the settings panel
@@ -111,6 +141,115 @@ export function resolveWinSoundUrl(config: RaffleConfig): string {
   }
   if (config.winSound === 'buzzer') return RAFFLE_WIN_SOUND_PRESETS.buzzer;
   return RAFFLE_WIN_SOUND_PRESETS.win;
+}
+
+// Defaults sampled from a typical stage backdrop (deep navy, slightly lighter
+// at the centre) so picking "gradient" looks right before touching a colour.
+export const DEFAULT_GRADIENT_FROM = '#232460';
+export const DEFAULT_GRADIENT_TO = '#111236';
+
+// CSS for the big-screen background — ONE place for both animations.
+export function raffleBackgroundStyle(
+  config: Pick<
+    RaffleConfig,
+    'backgroundType' | 'backgroundColor' | 'backgroundImageUrl' | 'gradientFrom' | 'gradientTo' | 'gradientShape'
+  >
+): Record<string, string> {
+  if (config.backgroundType === 'image' && config.backgroundImageUrl) {
+    return {
+      backgroundImage: `url(${config.backgroundImageUrl})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    };
+  }
+  if (config.backgroundType === 'gradient') {
+    const from = config.gradientFrom || DEFAULT_GRADIENT_FROM;
+    const to = config.gradientTo || DEFAULT_GRADIENT_TO;
+    return {
+      backgroundColor: to,
+      backgroundImage:
+        (config.gradientShape ?? 'radial') === 'linear'
+          ? `linear-gradient(180deg, ${from} 0%, ${to} 100%)`
+          : `radial-gradient(ellipse at center, ${from} 0%, ${to} 75%)`,
+    };
+  }
+  return { backgroundColor: config.backgroundColor };
+}
+
+// Mix a hex colour toward white (0..1). Tolerates 3/6-digit hex; other
+// formats come back unchanged.
+export function lightenHex(hex: string, amount: number): string {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  let h = m[1];
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const n = parseInt(h, 16);
+  const ch = (v: number) => Math.round(v + (255 - v) * amount);
+  const r = ch((n >> 16) & 255);
+  const g = ch((n >> 8) & 255);
+  const b = ch(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+export const CONFETTI_COLORFUL = ['#FFD60A', '#FF3B30', '#34C759', '#0A84FF', '#FF9F0A', '#BF5AF2', '#ffffff'];
+
+// The confetti palette for a config, or [] when confetti is off.
+export function confettiPalette(
+  config: Pick<
+    RaffleConfig,
+    'confetti' | 'confettiColors' | 'winnerColor' | 'backgroundType' | 'gradientFrom' | 'backgroundColor'
+  >
+): string[] {
+  const mode = config.confetti ?? 'off';
+  if (mode === 'off') return [];
+  if (mode === 'colorful') return CONFETTI_COLORFUL;
+  if (mode === 'custom') {
+    const [a, b] = config.confettiColors ?? ['#0A84FF', '#ffffff'];
+    return [a, b, lightenHex(a, 0.45), lightenHex(b, 0.45)];
+  }
+  // theme: winner colour, white, and a light tint of the backdrop's centre
+  const base =
+    config.backgroundType === 'gradient'
+      ? config.gradientFrom || DEFAULT_GRADIENT_FROM
+      : config.backgroundColor || '#000000';
+  return [config.winnerColor, '#ffffff', lightenHex(base, 0.55), lightenHex(config.winnerColor, 0.35)];
+}
+
+// Should confetti fire for this winner? Honours 'only on the last prize'.
+export function confettiForRank(config: Pick<RaffleConfig, 'confetti' | 'confettiOnlyLast' | 'prizes'>, rank: number): boolean {
+  if ((config.confetti ?? 'off') === 'off') return false;
+  const n = Array.isArray(config.prizes) ? config.prizes.filter((p) => String(p).trim()).length : 0;
+  if (config.confettiOnlyLast && n > 0) return rank === n;
+  return true;
+}
+
+// Whether the start-of-draw sound plays for this config (see `startSound`).
+export function startSoundEnabled(config: Pick<RaffleConfig, 'startSound'>): boolean {
+  return config.startSound ?? true;
+}
+
+// URL of the configured start sound (falls back to the spin whoosh).
+export function resolveStartSoundUrl(
+  config: Pick<RaffleConfig, 'startSoundKind' | 'customStartSoundUrl'>
+): string {
+  const kind = config.startSoundKind ?? 'spin';
+  if (kind === 'custom' && config.customStartSoundUrl) return config.customStartSoundUrl;
+  if (kind === 'win') return RAFFLE_WIN_SOUND_PRESETS.win;
+  if (kind === 'buzzer') return RAFFLE_WIN_SOUND_PRESETS.buzzer;
+  return RAFFLE_SPIN_SOUND;
+}
+
+// Rank the NEXT draw will get, from the winners recorded so far. Ranks are
+// assigned server-side as count + 1, so this mirrors what the server will do.
+export function nextDrawRank(winners: { rank: number }[]): number {
+  return winners.reduce((m, w) => Math.max(m, w.rank), 0) + 1;
+}
+
+// Prize label for a winner of the given rank (1-based), or '' when none is set.
+export function prizeForRank(config: Pick<RaffleConfig, 'prizes'>, rank: number): string {
+  const list = config.prizes;
+  if (!Array.isArray(list) || rank < 1) return '';
+  return String(list[rank - 1] ?? '').trim();
 }
 
 export function fullName(p: { firstName: string; lastName: string }): string {

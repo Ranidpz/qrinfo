@@ -1,0 +1,144 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+import { moveHistory, settleLatest, assertHistoryOverlap, assertKnownMessagesObserved } from '../src/history.mjs';
+
+test('latest boundary survives delayed new messages and scroll-anchor restoration, ignoring larger wrappers', async()=>{
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();
+  await page.setContent(`<div id="main"><div style="height:700px;overflow:auto"><div style="height:900px">unrelated</div></div><div id="history" style="height:250px;overflow:auto">${Array.from({length:10},(_,i)=>`<div data-id="m${i}" style="height:100px">${i}</div>`).join('')}</div></div>`);
+  let polls=0;
+  const readRows=()=>page.locator('#history [data-id]').evaluateAll(nodes=>nodes.filter(n=>{const r=n.getBoundingClientRect(),p=n.parentElement.getBoundingClientRect();return r.bottom>p.top&&r.top<p.bottom;}).map(n=>({id:n.dataset.id})));
+  const latest=await settleLatest(page,readRows,{wait:async()=>{
+   polls++;
+   if(polls===3)await page.evaluate(()=>{const history=document.querySelector('#history');history.insertAdjacentHTML('beforeend','<div data-id="club" style="height:100px">club</div><div data-id="royal1" style="height:100px">Royal</div><div data-id="royal2" style="height:100px">Royal</div>');history.scrollTop=350;});
+  }});
+  assert.ok(polls>=6);assert.equal(latest.rows.at(-1).id,'royal2');assert.equal(latest.position.atLatest,true);
+  const before=latest.position.top;assert.ok((await moveHistory(page,'older')).top<before);
+  assert.equal(await page.locator('#main > div').first().evaluate(n=>n.scrollTop),0);
+ }finally{await browser.close();}
+});
+test('column-reverse chat uses negative offsets for older history and zero for latest',async()=>{
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();
+  await page.setContent(`<div id="main"><div style="height:250px;overflow:auto;display:flex;flex-direction:column-reverse">${Array.from({length:10},(_,i)=>`<div data-id="m${i}" style="height:100px;flex-shrink:0">${i}</div>`).join('')}</div></div>`);
+  assert.equal((await moveHistory(page,'latest')).atLatest,true);
+  const older=await moveHistory(page,'older');assert.equal(older.reverse,true);assert.ok(older.top<0);
+  assert.equal((await moveHistory(page,'latest')).top,0);
+ }finally{await browser.close();}
+});
+test('unstable latest messages cannot be declared complete',async()=>{
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();await page.setContent('<div id="main"><div style="height:200px;overflow:auto"><div data-id="a" style="height:1000px">a</div></div></div>');
+  let i=0;
+  await assert.rejects(settleLatest(page,async()=>[{id:String(i++)}],{wait:async()=>{},attempts:6}),/LATEST_MESSAGES_NOT_VERIFIED/);
+ }finally{await browser.close();}
+});
+test('known files cannot silently disappear; explicitly observed deleted rows and expired files are allowed',()=>{
+ const files={club:{messageId:'club',receivedAt:'2026-09-24T01:25:00Z'},royal1:{messageId:'royal1',receivedAt:'2026-09-24T02:55:00Z'},royal2:{messageId:'royal2',receivedAt:'2026-09-24T02:55:00Z'}};
+ assert.throws(()=>assertKnownMessagesObserved(files,new Map(),Date.parse('2026-09-23')),/HISTORY_KNOWN_MESSAGES_MISSING: 3/);
+ assert.doesNotThrow(()=>assertKnownMessagesObserved(files,new Map(Object.keys(files).map(id=>[id,{id,filename:null}])),Date.parse('2026-09-23')));
+ assert.doesNotThrow(()=>assertKnownMessagesObserved(files,new Map(),Date.parse('2026-09-25')));
+ assert.throws(()=>assertHistoryOverlap([{id:'one'}],[{id:'three'}]),/HISTORY_GAP_DETECTED/);
+ assert.doesNotThrow(()=>assertHistoryOverlap([{id:'one'},{id:'two'}],[{id:'two'},{id:'three'}]));
+});
+
+test('header and hidden identifiers do not hide real history, including short and hidden-overflow chats',async()=>{
+ const {inspectHistory}=await import('../src/history.mjs');
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();
+  for(const [overflow,height,expected] of [['auto',1000,750],['auto',30,0],['hidden',1000,750]]){
+   await page.setContent(`<div id="main"><header><div data-id="header">group</div></header><div data-id="hidden" style="display:none">hidden</div><div style="height:250px;overflow:${overflow}"><div data-id="real" style="height:${height}px">message</div></div><footer><div data-id="draft">draft</div></footer></div>`);
+   const result=await settleLatest(page,async()=>[{id:'real'}],{wait:async()=>{}});
+   assert.equal(result.position.top,expected);assert.equal(result.position.atLatest,true);
+   const layout=await inspectHistory(page);assert.equal(layout.anchorCount,1);assert.equal(layout.candidates[0].overflow,overflow);
+   assert.ok(!JSON.stringify(layout).includes('group'));assert.ok(!JSON.stringify(layout).includes('draft'));
+  }
+ }finally{await browser.close();}
+});
+test('history discovery waits for delayed message layout instead of failing at the first empty frame',async()=>{
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();await page.setContent('<div id="main"><header data-id="header">Group</header><div id="history"></div></div>');
+  let polls=0;
+  const result=await settleLatest(page,()=>page.locator('#history [data-id]').evaluateAll(nodes=>nodes.map(n=>({id:n.dataset.id}))),{wait:async()=>{
+   if(++polls===3)await page.locator('#history').evaluate(n=>{n.style.cssText='height:250px;overflow:auto';n.innerHTML='<div data-id="one" style="height:1000px">message</div>';});
+  }});
+  assert.ok(polls>=7);assert.equal(result.rows[0].id,'one');assert.equal(result.position.atLatest,true);
+ }finally{await browser.close();}
+});
+test('unrelated scroll areas and equally plausible disjoint message containers fail closed',async()=>{
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage();
+  await page.setContent('<div style="height:250px;overflow:auto"><div data-id="sidebar" style="height:1000px">unrelated</div></div><div id="main"><header data-id="header">group</header><div>Loading</div></div>');
+  await assert.rejects(settleLatest(page,async()=>[],{wait:async()=>{},attempts:3}),/WHATSAPP_SCROLL_CONTAINER_MISSING/);
+  await page.setContent('<div id="main">'+[1,2].map(i=>`<div style="height:200px;overflow:auto"><div data-id="m${i}" style="height:700px">message</div></div>`).join('')+'</div>');
+  await assert.rejects(moveHistory(page,'latest'),/WHATSAPP_SCROLL_CONTAINER_AMBIGUOUS/);
+ }finally{await browser.close();}
+});
+test('Playwright wrapper errors retain the actionable code for diagnostics',async()=>{
+ const {errorCode}=await import('../src/errors.mjs');
+ assert.equal(errorCode(Error('locator.evaluate: Error: WHATSAPP_SCROLL_CONTAINER_MISSING\n at eval (private stack)')),'WHATSAPP_SCROLL_CONTAINER_MISSING');
+});
+
+test('latest boundary waits for changing attachment content even when message IDs and layout stay fixed', async () => {
+ const browser=await chromium.launch({headless:true});
+ try {
+  const page=await browser.newPage();
+  await page.setContent('<div id="main"><div style="height:200px;overflow:auto"><div data-id="same" style="height:300px">message</div></div></div>');
+  let polls=0;
+  const result=await settleLatest(page,async()=>[{id:'same',filename:polls>=5?'loaded.pdf':null,documentCardCount:polls>=5?1:0}],{wait:async()=>{polls++;}});
+  assert.ok(polls>=8);assert.equal(result.rows[0].filename,'loaded.pdf');
+ }finally{await browser.close();}
+});
+
+test('virtualized shells cannot erase scanned documents or provide a false date boundary', async () => {
+ const {readVisibleMessages} = await import('../src/collector.mjs');
+ const {messageFingerprint} = await import('../src/history.mjs');
+ const browser=await chromium.launch({headless:true});
+ try {
+  const page=await browser.newPage();
+  await page.setContent(`<div id="main"><div id="history" style="height:250px;overflow:auto">${Array.from({length:12},(_,i)=>`<div data-id="m${i}" style="height:100px">loading</div>`).join('')}</div></div>`);
+  const render = () => page.evaluate(() => {
+   const history=document.querySelector('#history'), bounds=history.getBoundingClientRect();
+   for(const node of history.children) {
+    const i=Number(node.dataset.id.slice(1)), r=node.getBoundingClientRect();
+    node.innerHTML=r.bottom>bounds.top&&r.top<bounds.bottom
+     ? `<div data-pre-plain-text="[10:00, ${i===0?'9/24':'10/1'}/2026] sender:"><button data-testid="document-thumb" title="book-${i}.pdf">book-${i}.pdf</button></div>` : '';
+   }
+  });
+  const read=()=>readVisibleMessages(page,{timeZone:'Asia/Jerusalem',dateOrder:'MDY'});
+  const first=await settleLatest(page,read,{wait:render});
+  assert.ok(first.rows.length<12,'offscreen shells must not be read as messages');
+  const observed=new Map();let previous=first.rows,reachedBoundary=false;
+  for(let step=0;step<15;step++) {
+   await render();const rows=await read();assertHistoryOverlap(previous,rows);previous=rows;
+   for(const row of rows)observed.set(row.id,row);
+   if(rows.some(row=>row.receivedAt<'2026-09-25')){reachedBoundary=true;break;}
+   await moveHistory(page,'older');
+  }
+  assert.equal(reachedBoundary,true);assert.equal(observed.size,12);
+  const final=await settleLatest(page,read,{wait:render});
+  for(const row of final.rows)assert.equal(messageFingerprint(row),messageFingerprint(observed.get(row.id)));
+  assert.equal([...observed.values()].filter(row=>row.filename).length,12);
+ } finally {await browser.close();}
+});
+
+test('visible empty shells wait for hydration and never count as deleted messages', async () => {
+ const {settleViewport,assertLatestUnchanged} = await import('../src/history.mjs');
+ let polls=0;
+ const rows=await settleViewport(async()=>[{id:'same',materialized:polls>=3,filename:polls>=3?'ready.pdf':null}],{wait:async()=>{polls++;}});
+ assert.equal(rows[0].filename,'ready.pdf');assert.ok(polls>=5);
+ await assert.rejects(settleViewport(async()=>[{id:'empty',materialized:false}],{attempts:5,wait:async()=>{}}),/LATEST_MESSAGES_NOT_VERIFIED/);
+ const initial=[{id:'one',filename:'one.pdf'},{id:'two',filename:'two.pdf'}];
+ const observed=new Map(initial.map(row=>[row.id,row]));
+ assert.doesNotThrow(()=>assertLatestUnchanged(initial,initial,observed));
+ for(const final of [[initial[0]],[...initial,{id:'new'}],[initial[0],{id:'two',filename:'edited.pdf'}]]) {
+  assert.throws(()=>assertLatestUnchanged(initial,final,observed),error=>error.message.startsWith('LATEST_MESSAGES_CHANGED')&&error.boundaryChanges.length>0);
+ }
+});

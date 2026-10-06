@@ -4,6 +4,7 @@ import type {
   IntakeDetectedDate,
   IntakeFileCandidate,
   IntakeFileMatch,
+  ConfirmedIntakeFileUpdate,
 } from './types';
 
 export type FattalAreaId = 'eilat' | 'dead-sea' | 'tiberias';
@@ -22,11 +23,13 @@ interface FattalAliasSet {
   aliases: string[];
 }
 
-interface FattalPreviewParams {
+export interface FattalPreviewParams {
   files: IntakeFileCandidate[];
   targets: ContentIntakeTarget[];
   receivedAt?: string;
   generatedAt?: Date;
+  /** Loaded from server receipts, never accepted from a preview request. */
+  confirmedUpdates?: ConfirmedIntakeFileUpdate[];
 }
 
 interface ScoredTarget {
@@ -128,7 +131,7 @@ export const FATTAL_BOOKLET_TARGETS: FattalBookletTargetConfig[] = [
     area: 'tiberias',
     title: 'לאונרדו קלאב טבריה',
     shortId: 'fjcVpn',
-    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה'],
+    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה', 'קלאב טבריה'],
   },
 ];
 
@@ -196,7 +199,7 @@ const FATTAL_ALIAS_SETS: FattalAliasSet[] = [
   {
     key: 'leonardo-club-tiberias',
     area: 'tiberias',
-    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה'],
+    aliases: ['leonardo club tiberias', 'לאונרדו קלאב טבריה', 'קלאב טבריה'],
   },
   {
     key: 'u-boutique-kinneret',
@@ -229,14 +232,14 @@ export function buildFattalPreview(params: FattalPreviewParams): ContentIntakePr
   }));
 
   let matches = params.files.map((file) =>
-    matchFattalFile(file, normalizedTargets, params.receivedAt)
+    matchWithEvidence(file, normalizedTargets, params.receivedAt)
   );
 
-  matches = markDuplicateMatches(matches);
+  matches = markDuplicateMatches(matches, params.confirmedUpdates || [], generatedAt);
 
   const associatedTargetIds = new Set(
     matches
-      .filter((match) => match.target)
+      .filter((match) => match.status === 'matched' && match.target)
       .map((match) => match.target?.codeId)
       .filter(Boolean) as string[]
   );
@@ -276,6 +279,47 @@ export function buildFattalPreview(params: FattalPreviewParams): ContentIntakePr
   };
 }
 
+// Never turn nearby chat text or a repeated filename into an attachment identity.
+function matchWithEvidence(file: IntakeFileCandidate, targets: ContentIntakeTarget[], receivedAt?: string): IntakeFileMatch {
+  const original = matchFattalFile(file, targets, receivedAt);
+  if (!file.evidence?.length) return original;
+  const hold = (reason: string): IntakeFileMatch => ({ ...original, status: 'needs_review', warnings: [...original.warnings, reason] });
+  if (!file.sha256 || !file.sourceMessageId) return hold('Assignment requires attachment identity and SHA-256');
+  if (file.evidence.some(e => e.targetMessageId !== file.sourceMessageId)) return hold('Assignment refers to another message');
+  const manual = file.evidence.filter(e => e.kind === 'manual');
+  if (manual.length) {
+    if (manual.length !== 1) return hold('Conflicting manual decisions');
+    const decision = manual[0];
+    if (decision.exclude) return { ...original, status: 'needs_review', target: undefined, reasons: [`הושאר ללא עדכון באישור ידני: ${decision.text}`] };
+    const target = targets.find(t => t.codeId === decision.targetCodeId);
+    if (!target) return hold('Manual target is outside this connection');
+    // A human can choose a target, but cannot bypass invalid dates or PDF checks.
+    return { ...original, target, status: original.warnings.length ? 'needs_review' : 'matched', confidence: 100,
+      reasons: [`שיוך ידני: ${target.title} · ${decision.at}`] };
+  }
+  const candidates: IntakeFileMatch[] = [];
+  for (const evidence of file.evidence) {
+    if (!evidence.senderId || evidence.senderId !== evidence.attachmentSenderId
+      || (evidence.kind === 'reply' && evidence.messageId === file.sourceMessageId)
+      || (evidence.kind === 'caption' && evidence.messageId !== file.sourceMessageId)) return hold('Unverified attachment sender or reply');
+    if (evidence.kind === 'reply' && (!file.receivedAt || Date.parse(evidence.at) < Date.parse(file.receivedAt))) return hold('Reply predates attachment');
+    const hint = matchFattalFile({ ...file, name: evidence.text, evidence: undefined }, targets, receivedAt);
+    // Short, exact aliases only. Free-form instructions/negative sentences are not interpreted.
+    const label = normalizeText(evidence.text);
+    const exact = targets.filter(t => getTargetAliases(t).some(a => normalizeText(a) === label));
+    if (exact.length !== 1 || hint.status !== 'matched' || hint.target?.codeId !== exact[0].codeId) return hold('Clarification is not an unambiguous experience name');
+    candidates.push({ ...hint, reasons: [`${evidence.kind === 'reply' ? 'לפי תשובת השולח' : 'לפי הכיתוב המצורף'}: ${evidence.text} · ${evidence.at}`] });
+  }
+  const ids = new Set(candidates.map(c => c.target?.codeId));
+  if (ids.size !== 1) return hold('Conflicting clarifications');
+  const selected = candidates[0];
+  // An identified hotel or explicit area in the original filename cannot be silently contradicted.
+  if ((original.target && original.confidence >= 78 && original.target.codeId !== selected.target?.codeId)
+    || (detectArea(normalizeText(file.name)) && detectArea(normalizeText(file.name)) !== detectArea(normalizeText(selected.target!.title)))) return hold('Filename conflicts with clarification');
+  return { ...original, target: selected.target, confidence: selected.confidence,
+    status: original.warnings.length ? 'needs_review' : 'matched', reasons: selected.reasons };
+}
+
 function matchFattalFile(
   file: IntakeFileCandidate,
   targets: ContentIntakeTarget[],
@@ -305,7 +349,7 @@ function matchFattalFile(
   }
 
   const confidenceGap = best.score - (second?.score || 0);
-  const isConfident = best.score >= 78 && confidenceGap >= 12;
+  const isConfident = best.score >= 78 && confidenceGap >= 12 && warnings.length === 0 && best.warnings.length === 0;
 
   return {
     file,
@@ -326,6 +370,14 @@ function scoreTarget(file: IntakeFileCandidate, target: ContentIntakeTarget): Sc
   const reasons: string[] = [];
   const warnings: string[] = [];
   let score = 0;
+
+  // Owner-confirmed Fattal naming convention (2026-09-23, including Club). Apply only to the
+  // explicit Eilat QR targets, and never when the filename names another area.
+  const defaultEilatShortId = !fileArea ? inferUnqualifiedEilatHotel(fileText) : undefined;
+  if (defaultEilatShortId && target.shortId === defaultEilatShortId) {
+    score = 94;
+    reasons.push('Owner-confirmed naming rule: hotel without an area means Eilat');
+  }
 
   for (const alias of aliases) {
     if (alias.length >= 3 && fileText.includes(alias)) {
@@ -371,7 +423,19 @@ function scoreTarget(file: IntakeFileCandidate, target: ContentIntakeTarget): Sc
   };
 }
 
-function markDuplicateMatches(matches: IntakeFileMatch[]): IntakeFileMatch[] {
+function inferUnqualifiedEilatHotel(text: string): string | undefined {
+  const rules = [
+    { shortId: 'tnhKzx', names: ['הרודס', 'herods'] },
+    { shortId: 'FYvDZF', names: ['לאונרדו פלאזה', 'לאונרדו פלזה', 'leonardo plaza', 'פלאזה', 'פלזה'] },
+    { shortId: 'jKptn6', names: ['לאונרדו קלאב', 'leonardo club'] },
+    { shortId: 'tDet2R', names: ['רויאל', 'royal'] },
+  ];
+  const matches = rules.filter((rule) => rule.names.some((name) =>
+    ` ${text} `.includes(` ${normalizeText(name)} `)));
+  return matches.length === 1 ? matches[0].shortId : undefined;
+}
+
+function markDuplicateMatches(matches: IntakeFileMatch[], confirmed: ConfirmedIntakeFileUpdate[], now: Date): IntakeFileMatch[] {
   const targetCounts = new Map<string, number>();
   for (const match of matches) {
     if (match.status === 'matched' && match.target) {
@@ -382,6 +446,18 @@ function markDuplicateMatches(matches: IntakeFileMatch[]): IntakeFileMatch[] {
   return matches.map((match) => {
     if (!match.target || match.status !== 'matched') return match;
     if ((targetCounts.get(match.target.codeId) || 0) <= 1) return match;
+    const sameTarget = matches.filter(m => m.status === 'matched' && m.target?.codeId === match.target!.codeId);
+    // Byte-identical retransmissions are safe; commit deduplication updates only once.
+    if (match.file.sha256 && /^[a-f0-9]{64}$/.test(match.file.sha256) && sameTarget.every(m => m.file.sha256 === match.file.sha256)) return match;
+
+    const correction = resolveConfirmedCorrection(sameTarget, confirmed, now);
+    if (correction) return {
+      ...match,
+      replacesConfirmedUrl: correction.newHashes.has(match.file.sha256!) ? correction.url : undefined,
+      reasons: [...match.reasons, correction.newHashes.has(match.file.sha256!)
+        ? 'גרסה חדשה שנשלחה לאחר עדכון מאומת של אותה חוברת'
+        : 'גרסה שכבר עודכנה ואומתה בשרת; לא תועלה שוב'],
+    };
 
     return {
       ...match,
@@ -391,8 +467,46 @@ function markDuplicateMatches(matches: IntakeFileMatch[]): IntakeFileMatch[] {
   });
 }
 
+// A newer timestamp alone is insufficient. Only one new revision of the same
+// dated booklet may replace a baseline still present on the server. Previously
+// committed files stay in the manifest and use the existing byte-dedupe path.
+function resolveConfirmedCorrection(matches: IntakeFileMatch[], confirmed: ConfirmedIntakeFileUpdate[], now: Date) {
+  const canonicalName = (name: string) => name.normalize('NFC').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').replace(/\s+/g, ' ').trim();
+  const first = matches[0];
+  const target = first.target!;
+  if (matches.some(m => m.file.source !== 'whatsapp' || !m.file.sourceMessageId
+    || !/^[a-f0-9]{64}$/.test(m.file.sha256 || '')
+    || !Number.isFinite(Date.parse(m.file.receivedAt || ''))
+    || Date.parse(m.file.receivedAt!) > now.getTime()
+    || m.detectedDate.source !== 'filename' || !m.detectedDate.value
+    || m.detectedDate.value !== first.detectedDate.value
+    || canonicalName(m.file.name) !== canonicalName(first.file.name))) return null;
+  if (new Set(matches.map(m => m.file.sourceMessageId)).size !== matches.length) return null;
+  const receiptFor = (m: IntakeFileMatch) => confirmed.find(r => r.ownerId === target.ownerId
+    && r.codeId === target.codeId && r.fileHash === m.file.sha256
+    && r.sourceMessageId === m.file.sourceMessageId
+    && canonicalName(r.filename) === canonicalName(m.file.name)
+    && r.detectedDate === m.detectedDate.value && r.url
+    && Number.isFinite(Date.parse(r.updatedAt))
+    && Date.parse(r.updatedAt) >= Date.parse(m.file.receivedAt!)
+    && Date.parse(r.updatedAt) <= now.getTime());
+  const known = matches.map(receiptFor).filter((r): r is ConfirmedIntakeFileUpdate => !!r);
+  if (!known.length) return null;
+  const newFiles = matches.filter(m => !receiptFor(m));
+  const newHashes = new Set(newFiles.map(m => m.file.sha256!));
+  // On chunk/recovery replay all versions can already have server receipts.
+  if (!newFiles.length) return { newHashes, url: '' };
+  if (newFiles.length !== 1 || newHashes.size !== 1) return null;
+  const baseline = known.find(r => r.url === target.currentUrl);
+  if (!baseline) return null;
+  const latestCommit = Math.max(...known.map(r => Date.parse(r.updatedAt)));
+  if (Date.parse(baseline.updatedAt) !== latestCommit
+    || newFiles.some(m => Date.parse(m.file.receivedAt!) <= latestCommit)) return null;
+  return { newHashes, url: baseline.url };
+}
+
 function getTargetAliases(target: ContentIntakeTarget): string[] {
-  const baseAliases = [target.title, target.folderName, ...(target.aliases || [])]
+  const baseAliases = [target.title, ...(target.aliases || [])]
     .filter(Boolean) as string[];
   if (target.aliases && target.aliases.length > 0) return baseAliases;
 
@@ -465,7 +579,9 @@ function dateFromParts(dayRaw: string, monthRaw: string, yearRaw: string): strin
 
 function dateKeyFromString(value: string): string | undefined {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString().slice(0, 10);
+  return Number.isNaN(date.getTime()) ? undefined : new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date);
 }
 
 function daysBetween(a: string, b: string): number {

@@ -1,4 +1,138 @@
 {
+  "contentIntake": {
+    "title": "WhatsApp Agent",
+    "intro": "Connect the system to update experiences through a WhatsApp group, on the days and times you choose.",
+    "loading": "Loading…",
+    "signIn": "Sign in to manage this connection.",
+    "error": "The action could not be completed. Check your connection and try again.",
+    "connectionTitle": "1. Computer connection key",
+    "noOwners": "No accounts with experiences configured for the currently available connection were found.",
+    "owner": "Experience owner",
+    "scope": "This key can update {count} configured experiences in this account. Show list",
+    "computerName": "Computer name",
+    "computerPlaceholder": "For example: Michal’s Mac",
+    "working": "Working…",
+    "create": "Create connection key",
+    "once": "This key is shown only once. Keep the connection file private: it allows replacing the booklets listed above.",
+    "key": "Connection key",
+    "downloadConnection": "Download connection file",
+    "copy": "Copy key",
+    "copied": "Copied",
+    "saved": "Saved — hide key",
+    "downloadTitle": "2. Mac software",
+    "downloadDescription": "A Mac app with guided setup: system connection, WhatsApp pairing, booklet preview and activation, without commands. No Codex or ChatGPT account required.",
+    "downloadMac": "Download Mac app · {version}",
+    "requirements": "macOS 14 or later, Apple Silicon and Intel. Runtime and browser download automatically on first setup. No manual Node.js installation.",
+    "checksum": "Download file checksum (SHA-256)",
+    "instructions": "3. Install and connect",
+    "step1": "Download and extract the software. Save TheQ-connection.json in the folder containing Install.command.",
+    "step2": "Open Install.command. If Node.js is missing, install it from the download page that opens and rerun the installer. If macOS blocks the trusted installer, allow it in System Settings › Privacy & Security.",
+    "step3": "The commands folder opens after installation. Run Connect.command and scan the QR code using business WhatsApp on your phone. This dedicated browser is separate from personal WhatsApp and the Mac app.",
+    "step4": "Check the account and group, then close the connection window. Run ConfirmBusinessAccount.command, then Preview.command to review matches without replacing files. For an existing installation, first use ImportConnection.command to import the connection file.",
+    "step5": "After reviewing the preview, Update.command performs one update. EnableUpdates.command enables automatic updates and group reports; DisableSchedule.command stops them. Status.command shows connection issues.",
+    "step6": "On Mac mini: System Settings › Energy › enable prevention of automatic sleep when the display is off. Keep the Mac powered on, connected to the Internet and the user signed in. The display can turn off.",
+    "schedule": "Default: Sunday and Thursday at 10:05, 12:00 and 14:00. Edit the schedule above. Group reports show received, updated and missing booklets; follow-up checks send a message when files or assignments changed. Checks pause if schedule synchronization fails, until connectivity recovers.",
+    "statusTitle": "Computers and connections",
+    "refresh": "Refresh",
+    "statusHint": "Computers report while the agent is active. Last contact is not a live connectivity guarantee. Run only one computer per booklet group.",
+    "noAgent": "No computers have reported yet. A computer appears after installation and a connection check.",
+    "active": "Key active",
+    "revoked": "Key revoked",
+    "revoke": "Revoke key",
+    "revokeWarning": "Revoking stops this computer’s API access.",
+    "confirmRevoke": "Yes, revoke",
+    "cancel": "Cancel",
+    "state_ready": "Last run succeeded",
+    "state_no_files": "No new booklets found",
+    "state_run_failed": "Attention required",
+    "state_login_required": "WhatsApp sign-in required",
+    "state_unknown": "Unknown state",
+    "adminOnly": "WhatsApp Agent is an advanced feature currently available to super admins only.",
+    "scheduleTitle": "Weekly check schedule",
+    "scheduleHint": "Each row is a separate check in Israel time. Settings apply to computers for the selected booklet owner. An active, connected Mac syncs about every five minutes. Saving applies to future slots only and does not activate an installation locally.",
+    "scheduleConflict": "The schedule changed elsewhere. Reload the page before saving again.",
+    "checkDay": "Day for check {number}",
+    "checkTime": "Time for check {number}",
+    "removeCheckNumber": "Remove check {number}",
+    "removeCheck": "Remove",
+    "addCheck": "Add check",
+    "saveSchedule": "Save schedule",
+    "invalidSchedule": "Choose a valid day and time for every check, without duplicates.",
+    "scheduleSaved": "Schedule saved. After synchronization, refresh connections below to see the Mac acknowledgment.",
+    "scheduleNoAck": "No computer has acknowledged the schedule yet.",
+    "scheduleApplied": "Schedule received by computer",
+    "schedulePending": "Waiting for the Mac to acknowledge the current schedule",
+    "filenameTitle": "File matching rules for the current connection",
+    "filenameStandard": "Experience name - location (if needed to distinguish it) - date DD.MM.YYYY.pdf",
+    "filenameExample": "לאונרדו פלאזה - ים המלח - 20.09.2026.pdf",
+    "filenameCompatibility": "Existing names and known aliases remain supported. An explicit region determines the target. The approved Fattal rule maps Herods, Plaza, Leonardo Club and Royal without a region to Eilat. Unrecognized files, conflicting matches and duplicates stop for review. Reports preserve the original filename alongside the experience title. In 0.9.1, confident files continue updating while exceptions are held. Identical copies are deduplicated; different versions for one experience need clarification. Replies are used only when their exact attachment link and sender can be verified.",
+    "weekday0": "Sunday",
+    "weekday1": "Monday",
+    "weekday2": "Tuesday",
+    "weekday3": "Wednesday",
+    "weekday4": "Thursday",
+    "weekday5": "Friday",
+    "weekday6": "Saturday",
+    "israelTime": "Israel time",
+    "scheduleIntro": "Choose the update days and add the check times.",
+    "chooseDays": "Check days",
+    "chooseTimes": "Check times",
+    "sameTimesForDays": "All chosen times apply to every selected day.",
+    "addTime": "Add time",
+    "addDayGroup": "Different times for other days",
+    "scheduleGroup": "Schedule {number}",
+    "removeScheduleGroup": "Remove schedule {number}",
+    "groupTime": "Time {number} in schedule {group}",
+    "removeTime": "Remove time {number} in schedule {group}",
+    "dayInOtherGroup": "This day is already in another schedule",
+    "invalidGroupedSchedule": "Choose at least one day and time for each schedule, without duplicate times and up to 28 weekly checks.",
+    "scheduleSyncHint": "Saving updates future checks on the selected experience owner’s active computers within about five minutes.",
+    "weekdayShort0": "Su",
+    "weekdayShort1": "Mo",
+    "weekdayShort2": "Tu",
+    "weekdayShort3": "We",
+    "weekdayShort4": "Th",
+    "weekdayShort5": "Fr",
+    "weekdayShort6": "Sa",
+    "computerDisconnected": "Disconnected from the system",
+    "computerStale": "No report in the last ten minutes",
+    "computerPaused": "Schedule off at last report",
+    "computerAutomatic": "Automatic updates enabled at last report",
+    "computerPreview": "Preview mode — no automatic uploads",
+    "disconnectComputer": "Disconnect computer",
+    "reconnectComputer": "Allow reconnection",
+    "computerUpgradeRequired": "Update the app to enable remote disconnection",
+    "computerLastContact": "Last contact · Israel time",
+    "computerVersion": "Agent version",
+    "computerLastRun": "Last activity report",
+    "computerControlError": "Unable to change this connection. Refresh and retry; a revoked key requires a new key.",
+    "disconnectComputerWarning": "Further activity will be blocked. The agent detects disconnection at its next check, within about five minutes while active. Work already started may finish. The app and WhatsApp profile remain on the Mac.",
+    "reconnectComputerWarning": "The computer will be allowed to reconnect. If its local schedule remains enabled, it can resume at the next check. Ensure no other computer updates the same booklets.",
+    "confirmDisconnectComputer": "Yes, disconnect computer",
+    "confirmReconnectComputer": "Yes, allow connection",
+    "connectionPaused": "Paused: computer disconnected",
+    "nativeStep1": "Download and extract the app, move it to Applications and open it. Use the action at the bottom of the window to prepare the agent.",
+    "nativeStep2": "Create a computer key here and download its connection file. The app will ask you to select it during connection setup.",
+    "nativeStep3": "Follow the three app steps: connect and scan the QR code, review files, and activate automation. The next action stays at the bottom. Update Now is also available after review.",
+    "nativePower": "Enabling automation also starts and verifies idle sleep prevention. Check that the agent shows it as active. You may close the window and turn off or lock the display; keep the Mac powered on and online. Sign into the Mac account after a restart. Manual sleep and shutdown stop operation.",
+    "nativeSigning": "This build does not yet have Apple Developer ID signing and notarization. First launch may require approval in System Settings > Privacy & Security. Signing must be completed before broad customer distribution.",
+    "downloadFolder": "Download folder on this computer",
+    "downloadRetention": "PDF files remain in subfolders after upload; there is no automatic deletion. Open the folder from Settings in the Mac app.",
+    "flowTitle": "How it works",
+    "flowGroupTitle": "Create a group and send files",
+    "flowGroupText": "Create or choose a shared WhatsApp group. Participants send the PDF files to be updated to that group.",
+    "flowMappingTitle": "Define what to update",
+    "flowMappingText": "Connection setup defines the target experiences and file matching rules. Review each experience title alongside its filename before activation.",
+    "flowScheduleTitle": "Choose days and times",
+    "flowScheduleText": "The agent checks the group at the scheduled times and updates files in the configured experiences. Existing QR codes stay the same.",
+    "flowReportTitle": "Receive confirmation and a summary",
+    "flowReportText": "The agent tells the group what arrived, what was updated and what is still missing. The email report includes each experience title, filename and update date and time.",
+    "flowRequirements": "Requires a Mac running macOS 14 or later, powered on and awake, with a logged-in user and internet access. Pair and confirm the WhatsApp account by scanning a QR code from your phone; the account must belong to the group. Enable only one computer per connection.",
+    "flowFollowups": "Schedule multiple checks on each selected day, in Israel time. Followup checks message the group only when files were updated. Missing booklets remain unchanged; files that cannot be matched confidently require review.",
+    "currentAvailability": "An advanced feature for super admins only. The available connection currently handles Fattal PDF booklets. Another customer, group or content type requires extending the integration and defining additional matching rules; self-service setup for these connections is not yet available on this page.",
+    "state_review_required": "Partially updated — files awaiting clarification",
+    "nativeUpgrade": "To upgrade, close and replace the app, then follow the action at the bottom. If all current booklets were updated manually, choose Start a new cycle after manual completion in Settings and confirm. The agent checks only new messages without uploading, then allows future scheduled checks to be enabled. Connections, files and history are preserved."
+  },
   "common": {
     "save": "Save",
     "saving": "Saving...",
@@ -40,6 +174,7 @@
     "signInModalDescription": "Sign in with your Google account to create and manage your own QR experiences"
   },
   "navigation": {
+    "contentIntake": "WhatsApp Agent",
     "dashboard": "Dashboard",
     "analytics": "Analytics",
     "guide": "User Guide",
@@ -91,7 +226,6 @@
       "shareCodeAnswer": "Click the share icon on the code card. You can copy the link, download the QR code as an image for printing, or open in a new window for preview.",
       "whatIsDynamic": "What is a \"dynamic code\"?",
       "whatIsDynamicAnswer": "A dynamic code is a QR code whose content can be changed anytime - without printing a new code! Print once, update content whenever you want through the Dashboard.",
-
       "imageVsGallery": "What's the difference between an image and a gallery?",
       "imageVsGalleryAnswer": "A single image displays only that image. If you upload multiple images to the same code, they appear as a swipeable gallery. You can also enable \"Selfie Gallery\" that allows viewers to upload their own photos.",
       "pdfAnimation": "How do I upload a PDF with animation?",
@@ -102,7 +236,6 @@
       "whatIsSelfiebeamAnswer": "A selfie wall for events! Like Riddle, but focused on photo uploads. You can add a company logo that will appear cyclically in the gallery between participant photos. Perfect for corporate events and parties.",
       "createWeeklyCal": "How do I create Q.Cal?",
       "createWeeklyCalAnswer": "Select \"Q.Cal\" from the create experience menu. You can define weeks, time slots, events with images and links, and even enable registration (RSVP) for activities. Perfect for hotels, camps, and activity venues.",
-
       "qrSignLogo": "How do I add a logo to the center of the QR code?",
       "qrSignLogoAnswer": "Click the \"QR Sign\" button on the code card. Select \"Logo\" and upload an image (PNG with transparent background works best). You can change size and background color. The logo will appear in the center of the code even when downloaded for printing.",
       "qrSignText": "How do I add text to the center of the QR code?",
@@ -113,7 +246,6 @@
       "qrColorsAnswer": "Currently the code itself stays black and white to ensure maximum scan reliability. However, you can customize the sign colors in the center of the code - both the symbol and background colors.",
       "printSafe": "Is the code safe for printing?",
       "printSafeAnswer": "Yes! Our codes are designed for printing. Click \"Download QR Code\" to get a high-quality image. Tip: Print at least 2x2 cm for easy scanning.",
-
       "whatsappWidget": "How do I add a WhatsApp button?",
       "whatsappWidgetAnswer": "Click \"Widgets\" then WhatsApp. Choose between \"Phone Number\" (for private chat) or \"Group\" (group link). You can add a pre-filled message that will appear automatically.",
       "whatsappGroup": "How do I connect to a WhatsApp group?",
@@ -126,7 +258,6 @@
       "navigationWidgetAnswer": "In the Widgets menu select \"Navigation\". Enter an address or place name, and choose an app (Waze or Google Maps). Scanners will be directed straight to navigation.",
       "smsWidget": "How do I add an SMS button?",
       "smsWidgetAnswer": "In the Widgets menu select \"SMS\". Enter a phone number and pre-filled message. Scanners can send a message with one tap.",
-
       "openVoting": "How do I open a Q.Vote voting?",
       "openVotingAnswer": "Create a new code and select \"Q.Vote\". Configure the voting phases, add candidates (manually or bulk upload), and customize the design. When ready, move to the \"Voting\" phase.",
       "votingPhases": "What are the different voting phases?",
@@ -139,7 +270,6 @@
       "limitVotesAnswer": "In settings you can set: minimum selections (e.g., must choose at least 2), maximum selections (up to 3), and how many times a vote can be changed.",
       "showResults": "How do I display results?",
       "showResultsAnswer": "Move to the \"Results\" phase. You can display as an animated flipbook (exciting countdown!) or regular view. You can also hide results from voters until you choose to reveal.",
-
       "whatIsQstage": "What is Q.Stage?",
       "whatIsQstageAnswer": "Q.Stage is a live audience voting system for talent shows, debates, and competitions. The audience votes in real-time (like/dislike), and a dramatic vertical bar displays the approval percentage - just like TV talent shows!",
       "startVotingSession": "How do I start a voting session?",
@@ -152,7 +282,6 @@
       "customizeDisplayAnswer": "In display settings you can set: background (color/image/video), bar position (left/right), voter grid visibility, sounds, and whether to show vote counts. Perfect for projecting at events.",
       "qstageThresholds": "What are thresholds?",
       "qstageThresholdsAnswer": "Thresholds define color changes as the bar fills up. Default: red at low, orange building up, yellow at halfway, green for success. You can customize colors and the success percentage (default 65%).",
-
       "whatIsQhunt": "What is Q.Hunt?",
       "whatIsQhuntAnswer": "Q.Hunt is a competitive QR code scanning race! Scatter multiple codes around a venue, and teams compete to scan as many as possible. Perfect for team building events, exhibitions, and corporate activities.",
       "createHuntCodes": "How do I create hunt codes?",
@@ -161,7 +290,6 @@
       "teamScoringAnswer": "When a team scans a code, they earn points. You can assign different point values to different codes. The team with the most points wins! Set time limits for extra excitement.",
       "huntLeaderboard": "Is there a live leaderboard?",
       "huntLeaderboardAnswer": "Yes! The hunt has a real-time leaderboard that updates as teams scan codes. Display it on a big screen at your event to boost the competitive spirit.",
-
       "whatIsQtreasure": "What is Q.Treasure?",
       "whatIsQtreasureAnswer": "Q.Treasure is a sequential treasure hunt experience! Participants follow a series of stations, each with clues leading to the next. Add videos, riddles, and challenges at each stop.",
       "createTreasureStations": "How do I create treasure hunt stations?",
@@ -170,14 +298,12 @@
       "addCluesAndVideosAnswer": "Absolutely! Each station can include: text clues, images, YouTube videos, riddles to solve, and more. Make it as simple or elaborate as you want.",
       "treasureProgress": "How do participants track progress?",
       "treasureProgressAnswer": "Participants see their progress through the hunt - how many stations they've completed and what's next. You can add a final celebration screen when they complete all stations.",
-
       "qvoteBranding": "How do I customize Q.Vote branding?",
       "qvoteBrandingAnswer": "In Q.Vote settings, go to the \"Branding\" tab. You can set: logo, background image/color, primary colors, custom titles, and button styles. Make the voting experience match your event's look.",
       "disableLandingPage": "How do I disable the landing page?",
       "disableLandingPageAnswer": "In Q.Vote settings, toggle off \"Show Landing Page\". Voters will go directly to the voting screen instead of seeing a welcome page first. Useful for quick voting scenarios.",
       "requireRegistration": "Can I require voter registration?",
       "requireRegistrationAnswer": "Yes! Enable \"Require Registration\" in settings. Voters will need to enter their name/details before voting. You can also require phone verification to prevent duplicate votes.",
-
       "changeColors": "How do I change experience colors?",
       "changeColorsAnswer": "In experience editing (Riddle, Q.Vote, Q.Cal) there are design options: background color, text color, button colors. Choose from ready colors or enter a custom color.",
       "setupLandingPage": "What is a landing page and how do I set it up?",
@@ -186,7 +312,6 @@
       "customButtonsAnswer": "In landing page settings you can choose style (solid, outline, glass), layout (list or grid), and colors. You can also give custom names to each button instead of default names.",
       "mediaLinkButton": "How do I add a link button on an image?",
       "mediaLinkButtonAnswer": "Click an image in the code and select \"Media Link\". Enter a URL and button name. When the viewer clicks the image, a button will appear leading to the link.",
-
       "createFolder": "How do I create a folder/library?",
       "createFolderAnswer": "Click \"New Library\" in the Dashboard. Name the library and drag codes into it. Libraries help organize codes by project, event, or client.",
       "moveToFolder": "How do I move a code to a folder?",
@@ -195,21 +320,18 @@
       "duplicateCodeAnswer": "Click the three dots on the code card and select \"Duplicate\". A new copy will be created with a new QR code, but with the same content. Useful for creating variations.",
       "transferOwnership": "How do I transfer code ownership?",
       "transferOwnershipAnswer": "Admins can click \"Transfer Ownership\" in the code menu, search for a user, and transfer. The code will completely move to the other user's account.",
-
       "scheduleMedia": "How do I schedule media to appear on specific dates?",
       "scheduleMediaAnswer": "Click the clock icon on the media card. Set start and end dates, and optionally - daily active hours. The media will only appear at the times you've set.",
       "autoReplace": "How do I do automatic media replacement?",
       "autoReplaceAnswer": "When replacing a file, choose \"Schedule Replacement\" instead of \"Replace Now\". Select a date and time - and the file will be replaced automatically at the time you set. Perfect for changing menus or scheduled messages.",
       "activitySchedule": "What is activity scheduling?",
       "activityScheduleAnswer": "In the weekly calendar and other experiences, you can set when each item appears. For example: breakfast from 7:00 to 10:00, lunch from 12:00 to 15:00.",
-
       "viewStats": "Where can I see how many views a code has?",
       "viewStatsAnswer": "Two options:\n1. In Dashboard - view count appears on each code card\n2. In Analytics - click \"Analytics\" in the menu for detailed statistics",
       "viewSource": "How do I know where views came from?",
       "viewSourceAnswer": "In the Analytics page you'll see breakdown by device type (mobile, desktop, tablet), views by hour of day, and views by date. Choose a date range for focused analysis.",
       "clickReport": "What is a click report?",
       "clickReportAnswer": "A click report shows how many times links in your content were clicked - links in images, PDF buttons, and widgets. Helps understand what interests viewers most.",
-
       "whatIsXP": "What is the XP system?",
       "whatIsXPAnswer": "A point system for gamification! Viewers earn XP for actions:\n• 10 XP - scanning a new code\n• 25 XP - uploading a photo to gallery\n• 50 XP - completing a route\nThe more XP earned, the higher the level and more prizes received.",
       "setupPrizes": "How do I set up prizes?",
@@ -218,7 +340,6 @@
       "whatIsRouteAnswer": "A route turns a regular library into a gamification experience. Viewers scan codes along the route, earn XP, and receive prizes. Perfect for museums, exhibitions, and puzzle trails.",
       "howLobbyWorks": "How does the lobby screen work?",
       "howLobbyWorksAnswer": "The lobby screen displays winners in real-time on a large screen. When someone wins a rare/epic/legendary prize, their name and prize appear on screen. Address: /lobby/[route-id]",
-
       "shareLink": "How do I share a code link?",
       "shareLinkAnswer": "Click the share icon on the code card. The link will be copied to clipboard. You can also click \"Open in new window\" for preview.",
       "downloadQR": "How do I download the QR code for printing?",
@@ -227,7 +348,6 @@
       "publicUrlsAnswer": "• /v/[short-code] - main code view\n• /gallery/[short-code] - photo gallery\n• /lobby/[route-id] - lobby screen for prizes\n• /packs/[route-id] - pack opening",
       "galleryUrl": "How do I get a link to only the photo gallery?",
       "galleryUrlAnswer": "The gallery is accessible at /gallery/[short-code]. Useful for display on a large screen at events. In the gallery you can hide the header by pressing and releasing Ctrl.",
-
       "keyboardShortcuts": "What keyboard shortcuts are available?",
       "keyboardShortcutsAnswer": "• Ctrl/Cmd + release in gallery - show/hide header (code owner only)\n• Escape - close popup windows\n• Drag and drop - move codes between folders",
       "mobilePreview": "How do I see a mobile preview?",
@@ -236,13 +356,10 @@
       "collaboratorsAnswer": "Currently a code belongs to one user. You can transfer ownership completely, or share login credentials (not recommended). Sharing feature in future development.",
       "globalCodes": "What is a \"global code\"?",
       "globalCodesAnswer": "A global code is visible to all users in the system (not just the owner). Only system admins can mark a code as global. Useful for examples and tutorials.",
-
       "imagePositioning": "How do I make sure images look good on all devices?",
       "imagePositioningAnswer": "When uploading images (landing image, candidates, categories), click the position button to adjust the image. The tool allows dragging and zooming to choose which part of the image will be displayed. You can switch between device previews (mobile, tablet, kiosk) to see how the image will look on each.",
-
       "imageSafeZone": "What is the \"safe zone\" in images?",
       "imageSafeZoneAnswer": "The safe zone is the central part of the image that is guaranteed to be visible on all devices. Important content like logos, text, or faces should be placed in this area. In the positioning tool, the safe zone is marked with a dashed green border, and areas that may be cropped are darkened.",
-
       "whatIsQtag": "What is Q.Tag?",
       "whatIsQtagAnswer": "Q.Tag is a smart registration and check-in system for events. Guests register through an online form, receive a personal QR code via WhatsApp, and at the event the scanner identifies them instantly. Includes real-time guest management, arrival statistics, and support for plus-ones (+1).",
       "setupQtagEvent": "How do I set up a Q.Tag event?",
@@ -1535,47 +1652,111 @@
         "name": "Free",
         "price": "Free",
         "description": "To get started",
-        "features": ["1 QR code", "25MB storage", "Links, images, PDF", "7-day analytics", "The Q watermark"]
+        "features": [
+          "1 QR code",
+          "25MB storage",
+          "Links, images, PDF",
+          "7-day analytics",
+          "The Q watermark"
+        ]
       },
       "business": {
         "name": "Business",
         "priceMonthly": "99",
         "priceYearly": "990",
         "description": "For small & medium businesses",
-        "features": ["10 active codes", "500MB storage", "Weekly schedule & galleries", "90-day analytics", "No watermark", "All widgets", "Email support"]
+        "features": [
+          "10 active codes",
+          "500MB storage",
+          "Weekly schedule & galleries",
+          "90-day analytics",
+          "No watermark",
+          "All widgets",
+          "Email support"
+        ]
       },
       "pro": {
         "name": "Pro",
         "priceMonthly": "299",
         "priceYearly": "2990",
         "description": "For production companies & hotels",
-        "features": ["30 active codes", "2GB storage", "Unlimited Selfiebeam", "Word Cloud", "Gamification & prizes", "Full branding", "Unlimited analytics", "Priority support"]
+        "features": [
+          "30 active codes",
+          "2GB storage",
+          "Unlimited Selfiebeam",
+          "Word Cloud",
+          "Gamification & prizes",
+          "Full branding",
+          "Unlimited analytics",
+          "Priority support"
+        ]
       },
       "enterprise": {
         "name": "Enterprise",
         "price": "Custom",
         "description": "For large organizations",
-        "features": ["Unlimited codes", "Custom storage", "API access", "SSO", "Dedicated account manager"]
+        "features": [
+          "Unlimited codes",
+          "Custom storage",
+          "API access",
+          "SSO",
+          "Dedicated account manager"
+        ]
       },
       "events": {
         "title": "One-Time Events",
         "subtitle": "Don't need a subscription? Buy a package for a single event",
         "qvote": {
           "title": "Q.Vote - Voting",
-          "basic": { "name": "Basic", "price": "499", "participants": "Up to 100", "features": "Simple voting, results" },
-          "pro": { "name": "Pro", "price": "999", "participants": "Up to 500", "features": "+ Registration, categories, Flipbook" },
-          "premium": { "name": "Premium", "price": "1,499", "participants": "Up to 2,000", "features": "+ Branding, phases, statistics" }
+          "basic": {
+            "name": "Basic",
+            "price": "499",
+            "participants": "Up to 100",
+            "features": "Simple voting, results"
+          },
+          "pro": {
+            "name": "Pro",
+            "price": "999",
+            "participants": "Up to 500",
+            "features": "+ Registration, categories, Flipbook"
+          },
+          "premium": {
+            "name": "Premium",
+            "price": "1,499",
+            "participants": "Up to 2,000",
+            "features": "+ Branding, phases, statistics"
+          }
         },
         "selfiebeam": {
           "title": "Selfiebeam - Photo Wall",
-          "basic": { "name": "Basic", "price": "299", "limit": "Up to 100 photos" },
-          "pro": { "name": "Pro", "price": "599", "limit": "Up to 500 + logo" },
-          "premium": { "name": "Premium", "price": "999", "limit": "Unlimited + branding" }
+          "basic": {
+            "name": "Basic",
+            "price": "299",
+            "limit": "Up to 100 photos"
+          },
+          "pro": {
+            "name": "Pro",
+            "price": "599",
+            "limit": "Up to 500 + logo"
+          },
+          "premium": {
+            "name": "Premium",
+            "price": "999",
+            "limit": "Unlimited + branding"
+          }
         },
         "bundle": {
           "title": "Bundle Packages",
-          "standard": { "name": "Standard", "price": "1,499", "includes": "Q.Vote Pro + Selfiebeam Basic" },
-          "full": { "name": "Full", "price": "2,499", "includes": "Q.Vote + Selfiebeam Premium + Gamification" }
+          "standard": {
+            "name": "Standard",
+            "price": "1,499",
+            "includes": "Q.Vote Pro + Selfiebeam Basic"
+          },
+          "full": {
+            "name": "Full",
+            "price": "2,499",
+            "includes": "Q.Vote + Selfiebeam Premium + Gamification"
+          }
         },
         "validity": "Valid: 14 days from activation"
       }
@@ -1781,12 +1962,30 @@
     "useCases": {
       "title": "Perfect for Any Event Type",
       "items": [
-        { "title": "Corporate Events", "description": "Employee costume competition" },
-        { "title": "Clubs & Bars", "description": "Purim night competition" },
-        { "title": "Day Camps & Kindergartens", "description": "Kids costume competition" },
-        { "title": "Festivals", "description": "Street competitions" },
-        { "title": "Schools", "description": "Purim activities" },
-        { "title": "Private Parties", "description": "Family Purim events" }
+        {
+          "title": "Corporate Events",
+          "description": "Employee costume competition"
+        },
+        {
+          "title": "Clubs & Bars",
+          "description": "Purim night competition"
+        },
+        {
+          "title": "Day Camps & Kindergartens",
+          "description": "Kids costume competition"
+        },
+        {
+          "title": "Festivals",
+          "description": "Street competitions"
+        },
+        {
+          "title": "Schools",
+          "description": "Purim activities"
+        },
+        {
+          "title": "Private Parties",
+          "description": "Family Purim events"
+        }
       ]
     },
     "faq": {

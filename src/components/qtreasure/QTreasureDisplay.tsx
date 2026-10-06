@@ -221,7 +221,7 @@ function AnimatedLeaderboard({
           .empty-text {
             font-size: 1.3rem;
             color: rgba(212, 175, 55, 0.6);
-            font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+            font-family: var(--font-assistant), system-ui, sans-serif;
           }
 
           @media (max-width: 768px) {
@@ -457,7 +457,7 @@ function AnimatedLeaderboard({
         .player-name {
           font-size: 1.4rem;
           font-weight: 600;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           color: #f5f5dc;
           white-space: nowrap;
           overflow: hidden;
@@ -489,7 +489,7 @@ function AnimatedLeaderboard({
           font-weight: 800;
           color: var(--rank-color);
           text-shadow: 0 0 20px var(--rank-color);
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
         }
 
         .score-details {
@@ -794,7 +794,7 @@ export function QTreasureDisplay({
           height: 100vh;
           height: 100dvh;
           background: var(--treasure-bg);
-          font-family: 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           color: #f5f5dc;
           position: relative;
           overflow: hidden;
@@ -933,7 +933,7 @@ export function QTreasureDisplay({
           font-size: 2.8rem;
           font-weight: 700;
           margin: 0;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           background: linear-gradient(135deg, #d4af37, #f5d670, #d4af37);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -1007,7 +1007,7 @@ export function QTreasureDisplay({
           font-size: 1.8rem;
           font-weight: 800;
           color: var(--treasure-primary);
-          font-family: 'Cinzel', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           line-height: 1;
         }
 
@@ -1050,7 +1050,7 @@ export function QTreasureDisplay({
         .section-title {
           font-size: 1.6rem;
           font-weight: 700;
-          font-family: 'Cinzel', 'Crimson Text', Georgia, serif;
+          font-family: var(--font-assistant), system-ui, sans-serif;
           color: rgba(212, 175, 55, 0.8);
           margin: 0;
           text-transform: uppercase;
