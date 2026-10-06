@@ -36,6 +36,7 @@ import {
   Vote,
   Gift,
   Dices,
+  Timer,
   CalendarDays,
   Smartphone,
   LayoutGrid,
@@ -216,6 +217,7 @@ function getExperienceTypeLabel(
     case 'qchallenge': return 'Q.Challenge';
     case 'minigames': return 'Q.Games';
     case 'raffle': return he ? 'הגרלה' : 'Raffle';
+    case 'tenbool': return he ? '10 בול' : '10 Bool';
     default: return String(type).toUpperCase();
   }
 }
@@ -4154,6 +4156,10 @@ export default function CodeEditPage({ params }: PageProps) {
                       >
                         <Gift className="w-6 h-6 text-white" />
                       </div>
+                    ) : media.type === 'tenbool' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-500 to-rose-700">
+                        <Timer className="w-6 h-6 text-white" />
+                      </div>
                     ) : media.type === 'qbet' ? (
                       media.qbetConfig?.backgroundImageUrl ? (
                         <img
@@ -4523,7 +4529,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   )}
 
                   {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, qstage, qhunt, qtreasure, qchallenge, or minigames */}
-                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.type !== 'minigames' && (
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.type !== 'minigames' && media.type !== 'tenbool' && (
                     <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (

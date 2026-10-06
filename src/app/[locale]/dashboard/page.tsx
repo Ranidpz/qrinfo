@@ -763,6 +763,35 @@ export default function DashboardPage() {
     }
   };
 
+  // Create a new code with a "10 בול" timer game. It has no settings, so the
+  // editor is only there for the QR + public link.
+  const handleCreateTenBool = async (name?: string) => {
+    if (!user) return;
+    try {
+      const tenboolTitle = name?.trim() || '10 בול';
+      const newCode = await createQRCode(
+        user.id,
+        tenboolTitle,
+        [
+          {
+            url: '',
+            type: 'tenbool',
+            size: 0,
+            order: 0,
+            uploadedBy: user.id,
+            title: tenboolTitle,
+          },
+        ],
+        currentFolderId
+      );
+      setCodes((prev) => [newCode, ...prev]);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating 10 bool:', error);
+      alert(tErrors('createCodeError'));
+    }
+  };
+
   const handleQStageCreate = async (config: QStageConfig) => {
     if (!user) return;
 
@@ -2118,6 +2147,7 @@ export default function DashboardPage() {
                   onQVoteCreate={(name) => { setPendingExperienceName(name); setQvoteModalOpen(true); }}
                   onRaffleCreate={handleCreateRaffle}
                   onQBetCreate={handleCreateQBet}
+                  onTenBoolCreate={handleCreateTenBool}
                   onQStageCreate={(name) => { setPendingExperienceName(name); setQstageModalOpen(true); }}
                   onWeeklyCalendarCreate={(name) => { setPendingExperienceName(name); setWeeklyCalModalOpen(true); }}
                   onQHuntCreate={(name) => { setPendingExperienceName(name); setQhuntModalOpen(true); }}

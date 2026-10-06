@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.21.0] - 2026-10-06
+
+- New experience type `tenbool` ("10 בול"): start a timer and stop it at exactly 10.00. Enter on big screens (keyboard or a USB button mapped to Enter), a tap anywhere on phones. No settings; created in one click from the dashboard like the raffle.
+- `TenBoolViewer` decodes its four sounds into Web Audio buffers on mount, so play needs no network after the page loads. The press is judged on the event's own timestamp and truncated to hundredths, so the time shown is the time judged.
+
 ## [1.20.28] - 2026-10-01
 
 - Return from experience editing to its folder, including customer-owned folders for super admins.

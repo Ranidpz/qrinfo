@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.20.28';
+export const APP_VERSION = '1.21.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.21.0', date: '2026-10-06', isNew: true, highlights: {
+    he: ['חוויה חדשה: 10 בול – עוצרים את הטיימר בדיוק על 10.00, עם Enter במסך גדול או בנגיעה בטלפון'],
+    en: ['New experience: 10 Bool – stop the timer at exactly 10.00, with Enter on a big screen or a tap on a phone'],
+  } },
   { version: '1.20.28', date: '2026-10-01', isNew: true, highlights: {
     he: ['חזרה מעריכת חוויה לתיקיית הלקוח ושמירת הבחירה בהכל', 'שמירת סגירת אזור הפתיחה בדשבורד'],
     en: ['Return from editing to the customer folder and retain the All filter', 'Remember dashboard hero dismissal'],

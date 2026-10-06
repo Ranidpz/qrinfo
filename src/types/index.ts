@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle' | 'qbet';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle' | 'qbet' | 'tenbool';
 export type StorageProvider = 'vercel-blob' | 'cloudflare-r2';
 
 // Riddle content structure

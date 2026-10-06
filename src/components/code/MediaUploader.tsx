@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift, Instagram, Facebook, Dices } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift, Instagram, Facebook, Dices, Timer } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -42,6 +42,7 @@ interface MediaUploaderProps {
   onQVoteCreate?: (name: string) => void;
   onRaffleCreate?: (name: string) => void;
   onQBetCreate?: (name: string) => void;
+  onTenBoolCreate?: (name: string) => void;
   onQStageCreate?: (name: string) => void;
   onWeeklyCalendarCreate?: (name: string) => void;
   onQHuntCreate?: (name: string) => void;
@@ -63,6 +64,7 @@ export default function MediaUploader({
   onQVoteCreate,
   onRaffleCreate,
   onQBetCreate,
+  onTenBoolCreate,
   onQStageCreate,
   onWeeklyCalendarCreate,
   onQHuntCreate,
@@ -74,7 +76,7 @@ export default function MediaUploader({
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qbet' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qbet' | 'tenbool' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames'>('upload');
   // Required name given to every experience before it can be created
   const [experienceName, setExperienceName] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -515,6 +517,7 @@ export default function MediaUploader({
           {onQVoteCreate && <TabButton tab="qvote" label="Q.Vote" icon={Vote} tooltip={t('tooltipQVote') || 'Create a voting experience'} />}
           {onRaffleCreate && <TabButton tab="raffle" label="הגרלה" icon={Gift} tooltip="הגרלת שמות על מסך ענק" />}
           {onQBetCreate && <TabButton tab="qbet" label="ניחוש" icon={Dices} tooltip="ניחוש תוצאת משחק עם אימות וואטסאפ" />}
+          {onTenBoolCreate && <TabButton tab="tenbool" label="10 בול" icon={Timer} tooltip="עצרו את הטיימר בדיוק על 10.00" />}
           {onQStageCreate && <TabButton tab="qstage" label="Q.Stage" icon={Sparkles} tooltip={t('tooltipQStage') || 'Live voting display for events'} />}
           {onQHuntCreate && <TabButton tab="qhunt" label="Q.Hunt" icon={Crosshair} tooltip={t('tooltipQHunt') || 'Real-time code hunting game'} />}
           {onQTreasureCreate && <TabButton tab="qtreasure" label="מטמון" icon={Map} tooltip={t('tooltipQTreasure') || 'Treasure hunt with stations'} />}
@@ -1112,6 +1115,28 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             צור ניחוש
+          </button>
+        </div>
+      ) : activeTab === 'tenbool' ? (
+        /* 10 Bool (stop the timer at exactly 10.00) creation */
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-rose-700 flex items-center justify-center flex-shrink-0">
+              <Timer className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-start">
+              <h3 className="font-medium text-text-primary mb-1">10 בול</h3>
+              <p className="text-xs text-text-secondary">
+                עצרו את הטיימר בדיוק על 10.00 — Enter או כפתור במסך גדול, נגיעה במסך בטלפון. עובד גם בלי אינטרנט אחרי הטעינה.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleExperienceCreate(onTenBoolCreate)}
+            disabled={disabled || nameMissing}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            צור 10 בול
           </button>
         </div>
       ) : activeTab === 'qstage' ? (
