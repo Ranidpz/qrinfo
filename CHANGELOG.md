@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.25.3] - 2026-10-08
+
+- The secret corner win shows a 2-second "זה צ'יט!" toast. The screen and share card show an exact 10.00 + "בול!".
+
 ## [1.25.2] - 2026-10-08
 
 - Secret test win (kept out of the in-app changelog): 4 taps within 1.5s on the top-left corner of the opening screen (max(80px, 15% of the short side)) = an instant exact 10.00 through the normal `finish()` path. The corner is inert on the opening screen; mid-round it still stops the timer. Buzzer / keyboard can't trigger it.

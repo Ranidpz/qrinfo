@@ -616,6 +616,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     startAtRef.current = now - TARGET_MS;
     phaseRef.current = 'running';
     finish(now);
+    showToast("זה צ'יט!", 2000); // a quiet wink, gone before anyone looks twice
   };
 
   const touchStartRef = useRef<{ x: number; y: number; id: number; touch: boolean; dragging: boolean } | null>(null);
