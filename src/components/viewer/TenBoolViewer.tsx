@@ -404,6 +404,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
           : ''
       }`}
       style={{
+        top: 'var(--pwa-banner-h, 0px)', // start below the install banner while it shows
+        transition: 'top .25s ease',
         fontFamily: `'${font.family}', var(--font-assistant), system-ui, sans-serif`,
         color: textColor,
         backgroundColor: config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor,

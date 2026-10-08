@@ -153,6 +153,22 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
     sessionStorage.setItem(`pwa_dismissed_${shortId}`, 'true');
   }, [shortId]);
 
+  // Publish the banner's height as --pwa-banner-h while it is on screen, so a full-screen
+  // viewer (10 בול) can start below it instead of hiding under it. 0 again once it closes.
+  const [barEl, setBarEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!barEl) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty('--pwa-banner-h', `${barEl.offsetHeight}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(barEl);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty('--pwa-banner-h');
+    };
+  }, [barEl]);
+
   // Don't render if disabled or not showing
   if (!enabled || !showBanner) {
     return null;
@@ -162,6 +178,7 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
     <>
       {/* Main Banner */}
       <div
+        ref={setBarEl}
         className="fixed top-0 left-0 right-0 z-50 animate-slide-down"
         dir={isRTL ? 'rtl' : 'ltr'}
       >

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.24.1] - 2026-10-08
+
+- PWA install banner restored on 10 בול. `PWAInstallBanner` publishes its height as `--pwa-banner-h` on `<html>` (ResizeObserver, removed when it closes); `TenBoolViewer` sets `top: var(--pwa-banner-h, 0px)` so the scoreboard sits below the banner instead of under it.
+
 ## [1.24.0] - 2026-10-08
 
 - `tenboolConfig.board`: `wins` (default, the green dots), `counter` (top-left misses-since-last-hit number with a floating +1; after a hit it spins down to 0 once the strobe ends), `lives` (N rings top-left, a miss drops one, a hit adds a gold dot top-right; a hit or running out ends the turn and the row rebuilds itself + returns to idle with presses ignored meanwhile), `off`. `lives` 1-9, default 3.

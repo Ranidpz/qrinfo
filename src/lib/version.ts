@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.24.0';
+export const APP_VERSION = '1.24.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.24.1', date: '2026-10-08', isNew: true, highlights: {
+    he: ['10 בול: הצעת ההתקנה כאפליקציה חזרה — המשחק מתחיל מתחתיה ועולה למעלה כשסוגרים אותה'],
+    en: ['10 Bool: the install-as-app banner is back — the game starts below it and moves up once it closes'],
+  } },
   { version: '1.24.0', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: מצבי לוח — נקודות הצלחה, מונה ניסיונות שמתאפס בבול, וחיים לכל שחקן שנבנים מחדש לבד; פס קרבה; החלקה במסך או חצים להחלפת מצב בין סיבובים'],
     en: ['10 Bool: board modes — hit dots, a misses counter that resets on a hit, and per-player lives that rebuild themselves; a closeness bar; swipe or arrow keys to switch modes between rounds'],
