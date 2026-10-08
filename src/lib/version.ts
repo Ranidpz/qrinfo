@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.24.1';
+export const APP_VERSION = '1.24.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.24.2', date: '2026-10-08', isNew: true, highlights: {
+    he: ['10 בול: במצב חיים הנקודה נעלמת באמת בכל פסילה, עם -1 אדום; ה-+1 במונה גדול וברור יותר, ומופיע גם באייפון עם "הפחתת תנועה"'],
+    en: ['10 Bool: in lives mode a lost life now really disappears, with a red -1; the counter +1 is bigger and also shows on iPhones with Reduce Motion'],
+  } },
   { version: '1.24.1', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: הצעת ההתקנה כאפליקציה חזרה — המשחק מתחיל מתחתיה ועולה למעלה כשסוגרים אותה'],
     en: ['10 Bool: the install-as-app banner is back — the game starts below it and moves up once it closes'],

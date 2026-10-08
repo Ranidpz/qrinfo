@@ -63,22 +63,30 @@ const TENBOOL_STYLE = `
 /* Lives: a ring per life; the dot inside falls out on a miss and the whole row rebuilds for the next player */
 .tenbool-slot { position:relative; width:max(10px,2.4vmin); height:max(10px,2.4vmin); border-radius:9999px; box-shadow:inset 0 0 0 max(1.5px,.3vmin) rgba(255,255,255,.35) }
 .tenbool-life { position:absolute; inset:0; border-radius:9999px; background:#22c55e }
-@keyframes tenbool-fall { 0% { transform:none; opacity:1 } 100% { transform:translateY(5vmin) scale(.4); opacity:0 } }
-.tenbool-fall { animation: tenbool-fall .7s cubic-bezier(.5,0,.9,.4) .25s both }
+/* A lost life flashes red, swells, then drops out - its own class (never combined with -in,
+   or the later-declared -in animation wins and the dot never leaves) */
+@keyframes tenbool-fall { 0% { transform:none; opacity:1; background:#22c55e } 25% { transform:scale(1.35); background:#ff2b2b } 100% { transform:translateY(5vmin) scale(.3); opacity:0; background:#ff2b2b } }
+.tenbool-life-lost { animation: tenbool-fall .75s cubic-bezier(.5,0,.9,.4) .15s both }
+@keyframes tenbool-minus { 0% { transform:translate(-50%,0) scale(.6); opacity:0 } 15% { transform:translate(-50%,.6vmin) scale(1.15); opacity:1 } 100% { transform:translate(-50%,5vmin); opacity:0 } }
+.tenbool-minus { position:absolute; left:50%; top:100%; margin-top:.2em; color:#ff2b2b; font-weight:900; line-height:1; white-space:nowrap; font-size:max(16px,3vmin); text-shadow:0 1px 3px rgba(0,0,0,.6); animation: tenbool-minus 1.3s ease-out both }
+@keyframes tenbool-fade-out { 0% { opacity:1 } 100% { opacity:0 } }
 @keyframes tenbool-out { 0%,100% { box-shadow:inset 0 0 0 max(1.5px,.3vmin) rgba(255,255,255,.35) } 50% { box-shadow:inset 0 0 0 max(2px,.45vmin) #ff2b2b } }
 .tenbool-out .tenbool-slot { animation: tenbool-out .3s steps(1) 3 }
 .tenbool-life-in { animation: tenbool-dot-in .55s cubic-bezier(.2,1.4,.4,1) both }
 /* Counter: the number pops on every change; a "+1" floats up off it on a miss */
 @keyframes tenbool-count-pop { 0% { transform:scale(1.6) } 100% { transform:scale(1) } }
 .tenbool-count { display:inline-block; animation: tenbool-count-pop .25s ease-out }
-@keyframes tenbool-plus { 0% { transform:translateY(0); opacity:0 } 15% { opacity:1 } 100% { transform:translateY(-5vmin); opacity:0 } }
-.tenbool-plus { position:absolute; left:100%; top:0; margin-left:.35em; font-size:.75em; animation: tenbool-plus .9s ease-out both }
+@keyframes tenbool-plus { 0% { transform:translateY(.5vmin) scale(.6); opacity:0 } 15% { transform:translateY(0) scale(1.2); opacity:1 } 100% { transform:translateY(-6vmin) scale(1); opacity:0 } }
+.tenbool-plus { position:absolute; left:100%; top:0; margin-left:.3em; white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,.6); animation: tenbool-plus 1.3s ease-out both }
 /* Closeness bar: where this stop landed relative to 10.00 */
 @keyframes tenbool-land { 0% { transform:translate(-50%,-4vmin); opacity:0 } 60% { transform:translate(-50%,.4vmin); opacity:1 } 100% { transform:translate(-50%,0); opacity:1 } }
 .tenbool-land { animation: tenbool-land .45s cubic-bezier(.3,1.3,.5,1) both }
 @media (prefers-reduced-motion: reduce) {
   .tenbool-lose-bg, .tenbool-win-bg, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep, .tenbool-dot-new, .tenbool-slot, .tenbool-life-in, .tenbool-count, .tenbool-land { animation: none !important }
-  .tenbool-fall { animation: none !important; opacity:0 } .tenbool-plus { display:none }
+  /* Reduce Motion (common on iPhones): no movement, but the +1 / -1 / lost life still read as a fade */
+  .tenbool-plus { animation: tenbool-fade-out 1.3s ease-out both !important }
+  .tenbool-minus { animation: tenbool-fade-out 1.3s ease-out both !important; transform:translateX(-50%) }
+  .tenbool-life-lost { animation: tenbool-fade-out .4s both !important }
   .tenbool-lose-bg { background:var(--tb-lose) !important } .tenbool-win-bg { background:#00a83a !important }
 }
 `;
@@ -460,9 +468,15 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
             <span key={i} className="tenbool-slot">
               {/* Lives are lost from the right end of the row */}
               <span
-                className={`tenbool-life tenbool-life-in ${i >= livesLeft ? 'tenbool-fall' : ''}`}
+                className={`tenbool-life ${i >= livesLeft ? 'tenbool-life-lost' : 'tenbool-life-in'}`}
                 style={i >= livesLeft ? undefined : { animationDelay: `${i * 120}ms` }}
               />
+              {/* A red -1 drops from the life that was just lost */}
+              {i === livesLeft && (
+                <span key={`m${livesLeft}`} className="tenbool-minus">
+                  -1
+                </span>
+              )}
             </span>
           ))}
         </div>

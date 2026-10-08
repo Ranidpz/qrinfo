@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.24.2] - 2026-10-08
+
+- Lives never disappeared: the lost dot had both `.tenbool-life-in` and `.tenbool-fall`, and the later-declared `-in` animation overrode the fall. A lost life now uses only `.tenbool-life-lost` (flashes red, swells, drops) plus a red `-1` that falls from it.
+- Counter `+1`: full size, 1.3s, shadowed. Under `prefers-reduced-motion` (common on iPhones) the `+1`, `-1` and lost life now fade instead of being hidden.
+
 ## [1.24.1] - 2026-10-08
 
 - PWA install banner restored on 10 בול. `PWAInstallBanner` publishes its height as `--pwa-banner-h` on `<html>` (ResizeObserver, removed when it closes); `TenBoolViewer` sets `top: var(--pwa-banner-h, 0px)` so the scoreboard sits below the banner instead of under it.
