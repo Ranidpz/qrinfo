@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.24.3] - 2026-10-08
+
+- `TenBoolViewer` toast (Assistant bold, top centre, fades out): on entry for 3s a swipe tip — "דפדפו בין המשחקים בחצים…" on desktop, "משכו את המסך…" when `(pointer: coarse)`; on each mode switch for 2.5s the mode name ("N פסילות למתמודד", "כמה פעמים עד 10 בול?", "משחק רגיל").
+- A lost life now just bounces out (scale up, then to 0). The red `-1` and the drop are gone.
+
 ## [1.24.2] - 2026-10-08
 
 - Lives never disappeared: the lost dot had both `.tenbool-life-in` and `.tenbool-fall`, and the later-declared `-in` animation overrode the fall. A lost life now uses only `.tenbool-life-lost` (flashes red, swells, drops) plus a red `-1` that falls from it.

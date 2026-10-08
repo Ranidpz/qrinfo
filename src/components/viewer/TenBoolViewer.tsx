@@ -63,12 +63,13 @@ const TENBOOL_STYLE = `
 /* Lives: a ring per life; the dot inside falls out on a miss and the whole row rebuilds for the next player */
 .tenbool-slot { position:relative; width:max(10px,2.4vmin); height:max(10px,2.4vmin); border-radius:9999px; box-shadow:inset 0 0 0 max(1.5px,.3vmin) rgba(255,255,255,.35) }
 .tenbool-life { position:absolute; inset:0; border-radius:9999px; background:#22c55e }
-/* A lost life flashes red, swells, then drops out - its own class (never combined with -in,
-   or the later-declared -in animation wins and the dot never leaves) */
-@keyframes tenbool-fall { 0% { transform:none; opacity:1; background:#22c55e } 25% { transform:scale(1.35); background:#ff2b2b } 100% { transform:translateY(5vmin) scale(.3); opacity:0; background:#ff2b2b } }
-.tenbool-life-lost { animation: tenbool-fall .75s cubic-bezier(.5,0,.9,.4) .15s both }
-@keyframes tenbool-minus { 0% { transform:translate(-50%,0) scale(.6); opacity:0 } 15% { transform:translate(-50%,.6vmin) scale(1.15); opacity:1 } 100% { transform:translate(-50%,5vmin); opacity:0 } }
-.tenbool-minus { position:absolute; left:50%; top:100%; margin-top:.2em; color:#ff2b2b; font-weight:900; line-height:1; white-space:nowrap; font-size:max(16px,3vmin); text-shadow:0 1px 3px rgba(0,0,0,.6); animation: tenbool-minus 1.3s ease-out both }
+/* A lost life bounces out. Its own class - never combined with -in, or the later-declared
+   -in animation wins and the dot never leaves */
+@keyframes tenbool-bounce-out { 0% { transform:scale(1); opacity:1 } 35% { transform:scale(1.35); opacity:1 } 100% { transform:scale(0); opacity:0 } }
+.tenbool-life-lost { animation: tenbool-bounce-out .45s cubic-bezier(.5,-.4,.7,.4) .15s both }
+/* Mode name / swipe tip: fades in at the top, holds, fades out */
+@keyframes tenbool-toast { 0% { opacity:0; transform:translate(-50%,-1vmin) } 10% { opacity:1; transform:translate(-50%,0) } 82% { opacity:1; transform:translate(-50%,0) } 100% { opacity:0; transform:translate(-50%,0) } }
+.tenbool-toast { position:absolute; left:50%; top:max(2.5rem,8vmin); max-width:min(90vw,900px); text-align:center; font-family:var(--font-assistant),system-ui,sans-serif; font-weight:700; font-size:max(16px,3.4vmin); line-height:1.25; text-shadow:0 1px 4px rgba(0,0,0,.55); pointer-events:none; animation-name:tenbool-toast; animation-timing-function:ease; animation-fill-mode:both }
 @keyframes tenbool-fade-out { 0% { opacity:1 } 100% { opacity:0 } }
 @keyframes tenbool-out { 0%,100% { box-shadow:inset 0 0 0 max(1.5px,.3vmin) rgba(255,255,255,.35) } 50% { box-shadow:inset 0 0 0 max(2px,.45vmin) #ff2b2b } }
 .tenbool-out .tenbool-slot { animation: tenbool-out .3s steps(1) 3 }
@@ -85,7 +86,6 @@ const TENBOOL_STYLE = `
   .tenbool-lose-bg, .tenbool-win-bg, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep, .tenbool-dot-new, .tenbool-slot, .tenbool-life-in, .tenbool-count, .tenbool-land { animation: none !important }
   /* Reduce Motion (common on iPhones): no movement, but the +1 / -1 / lost life still read as a fade */
   .tenbool-plus { animation: tenbool-fade-out 1.3s ease-out both !important }
-  .tenbool-minus { animation: tenbool-fade-out 1.3s ease-out both !important; transform:translateX(-50%) }
   .tenbool-life-lost { animation: tenbool-fade-out .4s both !important }
   .tenbool-lose-bg { background:var(--tb-lose) !important } .tenbool-win-bg { background:#00a83a !important }
 }
@@ -340,13 +340,39 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     [finish, play, stopAll, tick]
   );
 
+  // A short line at the top: the swipe tip once on entry, then the name of each mode switched to
+  const [toast, setToast] = useState<{ text: string; ms: number; id: number } | null>(null);
+  const showToast = useCallback(
+    (text: string, ms: number) => {
+      const id = Date.now();
+      setToast({ text, ms, id });
+      later(() => setToast((t) => (t?.id === id ? null : t)), ms);
+    },
+    [later]
+  );
+  useEffect(() => {
+    const touch = window.matchMedia('(pointer: coarse)').matches;
+    showToast(touch ? 'משכו את המסך ימינה ושמאלה למעבר בין המשחקים' : 'דפדפו בין המשחקים בחצים ימינה ושמאלה', 3000);
+  }, [showToast]);
+
   const cycleBoard = useCallback((step: 1 | -1) => {
     if (phaseRef.current !== 'idle' || turnOverRef.current) return;
     const i = SWIPE_MODES.indexOf(boardRef.current);
     const next = SWIPE_MODES[(Math.max(0, i) + step + SWIPE_MODES.length) % SWIPE_MODES.length];
     setBoardOverride(next);
     setMisses(0);
-  }, []);
+    const lives = livesTotalRef.current;
+    showToast(
+      next === 'lives'
+        ? lives === 1
+          ? 'פסילה אחת למתמודד'
+          : `${lives} פסילות למתמודד`
+        : next === 'counter'
+          ? 'כמה פעמים עד 10 בול?'
+          : 'משחק רגיל',
+      2500
+    );
+  }, [showToast]);
 
   // In idle a touch starts the round on release, so a swipe can change the mode instead.
   // A running round still stops on pointerdown - the stop is the timed moment.
@@ -471,14 +497,13 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
                 className={`tenbool-life ${i >= livesLeft ? 'tenbool-life-lost' : 'tenbool-life-in'}`}
                 style={i >= livesLeft ? undefined : { animationDelay: `${i * 120}ms` }}
               />
-              {/* A red -1 drops from the life that was just lost */}
-              {i === livesLeft && (
-                <span key={`m${livesLeft}`} className="tenbool-minus">
-                  -1
-                </span>
-              )}
             </span>
           ))}
+        </div>
+      )}
+      {toast && (
+        <div key={toast.id} dir="rtl" className="tenbool-toast" style={{ animationDuration: `${toast.ms}ms` }}>
+          {toast.text}
         </div>
       )}
       {config?.logoUrl && (
