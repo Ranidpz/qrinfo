@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.22.3] - 2026-10-08
+
+- `tenbool`: the game and the settings preview show `code.title` (the name edited at the top of the code page) instead of `media.title`, which is only set at creation — renaming had no effect on the game.
+
 ## [1.22.2] - 2026-10-08
 
 - `TenBoolViewer`: a green dot per exact 10.00, filling right to left at the top of the screen. The new dot waits out the 3.45s win strobe, then bounces in. In memory only — a refresh clears the board.

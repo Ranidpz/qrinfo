@@ -4898,10 +4898,7 @@ export default function CodeEditPage({ params }: PageProps) {
         }
         codeId={code.id}
         shortId={code.shortId}
-        title={
-          (editingTenBoolId ? code?.media.find((m) => m.id === editingTenBoolId)?.title : undefined) ||
-          code?.media.find((m) => m.type === 'tenbool')?.title
-        }
+        title={code.title}
       />
 
       <QBetModal

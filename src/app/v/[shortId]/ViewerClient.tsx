@@ -1562,7 +1562,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
         ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isTenBool ? (
-          <TenBoolViewer title={currentMedia.title} config={currentMedia.tenboolConfig} />
+          <TenBoolViewer title={title || currentMedia.title} config={currentMedia.tenboolConfig} />
         ) : isQBet && currentMedia.qbetConfig ? (
           <QBetViewer config={currentMedia.qbetConfig} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isQVote && currentMedia.qvoteConfig ? (

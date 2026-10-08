@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.22.2';
+export const APP_VERSION = '1.22.3';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.22.3', date: '2026-10-08', isNew: true, highlights: {
+    he: ['10 בול: הכותרת במשחק מתעדכנת לפי שם החוויה בעמוד העריכה'],
+    en: ['10 Bool: the in-game title follows the experience name from the edit page'],
+  } },
   { version: '1.22.2', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: נקודה ירוקה על כל הצלחה, צליל נפרד לצפצוף של 10 בהגדרות, ותיקון הכיתוב בתחתית שהוסתר באייפון'],
     en: ['10 Bool: a green dot for every success, a separate sound for the 10 beep in settings, and a fix for the footer hidden on iPhone'],
