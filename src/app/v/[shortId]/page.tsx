@@ -215,6 +215,8 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
       } else {
         ogImage = `${baseUrl}/api/og/qgames`;
       }
+    } else if (primaryMediaType === 'tenbool') {
+      ogImage = `${baseUrl}/api/og/tenbool`;
     } else {
       ogImage = `${baseUrl}/api/og`;
     }

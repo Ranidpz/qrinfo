@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.0] - 2026-10-08
+
+- Space now plays like Enter (buzzers map to either).
+- Phones (`pointer: coarse`), from the 2nd hit, between rounds: a "שתפו בוואטסאפ" button. A 1080px PNG score card (title, 10.00, gold coins, "N בולים ב-M ניסיונות" or "…עם N פסילות למתמודד") is drawn on canvas whenever the score changes, because iOS only allows `navigator.share` straight inside the tap. Shared with `navigator.share({ files, text })`; falls back to `wa.me` text.
+- `/api/og/tenbool`: link preview (stopwatch on 10.00 + gold coins, no Hebrew — Satori reverses RTL), bold digits from a Rubik 800 subset fetched at render time.
+- Phones, regular board: the swipe tip shows again once after the first round's strobe.
+
 ## [1.24.4] - 2026-10-08
 
 - Win dots are gold coins in every board mode (radial orange-gold, soft glow, a shine sweeping across every ~3.6s, staggered per dot via `--i`). Same size as a life. Green is now only ever a life. Shine is off under reduced motion.

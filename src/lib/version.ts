@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.24.4';
+export const APP_VERSION = '1.25.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.25.0', date: '2026-10-08', isNew: true, highlights: {
+    he: ['10 בול: שיתוף התוצאה בוואטסאפ עם תמונה (בטלפון, מהבול השני), תמונת תצוגה מקדימה חדשה לקישור, רווח מפעיל כמו Enter, וההסבר על הדפדוף חוזר בטלפון אחרי הסיבוב הראשון'],
+    en: ['10 Bool: share your score to WhatsApp with an image (phones, from the 2nd hit), a new link preview image, Space works like Enter, and the swipe tip returns on phones after the first round'],
+  } },
   { version: '1.24.4', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: כל בול מקבל נקודת זהב מנצנצת — זהב תמיד זכייה, ירוק תמיד חיים'],
     en: ['10 Bool: every hit earns a shining gold dot — gold always means a win, green always a life'],

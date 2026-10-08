@@ -26,6 +26,7 @@ const WIN_FX_MS = 3450; // length of the win strobe / success sound - board chan
 const LOSE_FX_MS = 1200; // length of the miss strobe / fail sound
 const SWIPE_MODES: TenBoolBoard[] = ['wins', 'counter', 'lives'];
 const SWIPE_MIN_PX = 60;
+const SWIPE_TIP_TOUCH = 'משכו את המסך ימינה ושמאלה למעבר בין המשחקים';
 
 type SoundName = TenBoolSoundSlot;
 const SOUND_SLOTS: SoundName[] = ['start', 'beep', 'ten', 'success', 'fail'];
@@ -97,6 +98,78 @@ const TENBOOL_STYLE = `
 }
 `;
 
+// ---------- WhatsApp share card (phones) ----------
+
+type ShareStats = { wins: number; attempts: number; board: TenBoolBoard; lives: number; title?: string; bg: string; fg: string };
+
+function shareLine(st: ShareStats) {
+  const hits = st.wins === 1 ? 'בול אחד' : `${st.wins} בולים`;
+  if (st.board === 'lives') return `${hits} עם ${st.lives === 1 ? 'פסילה אחת' : `${st.lives} פסילות`} למתמודד`;
+  return `${hits} ב-${st.attempts} ניסיונות`;
+}
+
+// Drawn ahead of time (iOS only lets navigator.share run straight inside the tap)
+async function drawShareCard(st: ShareStats): Promise<File | null> {
+  try {
+    await document.fonts.ready;
+    const size = 1080;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    const fam = getComputedStyle(document.documentElement).getPropertyValue('--font-assistant').trim() || 'system-ui, sans-serif';
+    ctx.fillStyle = st.bg;
+    ctx.fillRect(0, 0, size, size);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.direction = 'rtl';
+    const RLM = '\u200F'; // keeps "3 בולים" in Hebrew order even where canvas ignores direction
+    ctx.fillStyle = st.fg;
+    if (st.title) {
+      ctx.globalAlpha = 0.75;
+      ctx.font = `700 64px ${fam}`;
+      ctx.fillText(RLM + st.title, size / 2, 170, size - 120);
+      ctx.globalAlpha = 1;
+    }
+    ctx.font = `900 230px ${fam}`;
+    ctx.fillText('10.00', size / 2, 400);
+    // Gold coins, one per hit (up to 14, then the line below carries the count)
+    const n = Math.min(st.wins, 14);
+    const r = 34;
+    const gap = 22;
+    const perRow = 7;
+    for (let i = 0; i < n; i += 1) {
+      const row = Math.floor(i / perRow);
+      const inRow = Math.min(perRow, n - row * perRow);
+      const x = size / 2 + ((inRow - 1) / 2 - (i % perRow)) * (2 * r + gap);
+      const y = 640 + row * (2 * r + gap);
+      const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.4, 2, x, y, r);
+      g.addColorStop(0, '#fff4b8');
+      g.addColorStop(0.3, '#ffd43b');
+      g.addColorStop(0.68, '#f59e0b');
+      g.addColorStop(1, '#c2410c');
+      ctx.shadowColor = 'rgba(255,176,0,.6)';
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = st.fg;
+    ctx.font = `800 76px ${fam}`;
+    ctx.fillText(RLM + shareLine(st), size / 2, n > perRow ? 880 : 800, size - 100);
+    ctx.globalAlpha = 0.5;
+    ctx.font = `700 40px ${fam}`;
+    ctx.fillText('10 בול · The Q', size / 2, 1000);
+    const blob = await new Promise<Blob | null>((res) => c.toBlob(res, 'image/png'));
+    return blob ? new File([blob], '10-bool.png', { type: 'image/png' }) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function TenBoolViewer({ title, config }: { title?: string; config?: TenBoolConfig }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<{ ms: number; diff: number } | null>(null);
@@ -112,6 +185,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const [livesGen, setLivesGen] = useState(0);
   const [livesOut, setLivesOut] = useState(false);
   const [endedAt, setEndedAt] = useState(0);
+  const [attempts, setAttempts] = useState(0); // rounds played this session, for the share card
   const missesRef = useRef(0);
   missesRef.current = misses;
   const livesLeftRef = useRef(livesLeft);
@@ -244,6 +318,14 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       setResult({ ms, diff });
       setPhase('ended');
       setEndedAt(endedAtRef.current);
+      setAttempts((a) => a + 1);
+      // Phones, regular game: repeat the swipe tip once, after the first round's strobe
+      if (!firstRoundDoneRef.current) {
+        firstRoundDoneRef.current = true;
+        if (isTouchRef.current && boardRef.current === 'wins') {
+          later(() => showToastRef.current(SWIPE_TIP_TOUCH, 3000), diff === 0 ? WIN_FX_MS : LOSE_FX_MS);
+        }
+      }
       const win = diff === 0;
       if (win) setWins((w) => w + 1);
 
@@ -346,6 +428,35 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     [finish, play, stopAll, tick]
   );
 
+  const [isTouch, setIsTouch] = useState(false);
+  const isTouchRef = useRef(false);
+  const firstRoundDoneRef = useRef(false);
+  // Share (phones, from the 2nd hit): the card is rebuilt whenever the score changes
+  const shareFileRef = useRef<File | null>(null);
+  const bgColor = config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor;
+  const shareStats: ShareStats = { wins, attempts, board: fx.board, lives: fx.lives, title, bg: bgColor, fg: textColor };
+  const canShare = isTouch && wins >= 2;
+  const shareKey = JSON.stringify(shareStats);
+  useEffect(() => {
+    if (!canShare) return;
+    let alive = true;
+    drawShareCard(JSON.parse(shareKey) as ShareStats).then((f) => {
+      if (alive) shareFileRef.current = f;
+    });
+    return () => {
+      alive = false;
+    };
+  }, [canShare, shareKey]);
+  const share = () => {
+    const url = `${window.location.origin}${window.location.pathname}`;
+    const text = `${shareLine(shareStats)} ב-10 בול! מי עוצר בדיוק על 10.00? ${url}`;
+    const file = shareFileRef.current;
+    if (file && navigator.canShare?.({ files: [file] })) {
+      navigator.share({ files: [file], text }).catch(() => {});
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    }
+  };
   // A short line at the top: the swipe tip once on entry, then the name of each mode switched to
   const [toast, setToast] = useState<{ text: string; ms: number; id: number } | null>(null);
   const showToast = useCallback(
@@ -356,9 +467,13 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     },
     [later]
   );
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
   useEffect(() => {
     const touch = window.matchMedia('(pointer: coarse)').matches;
-    showToast(touch ? 'משכו את המסך ימינה ושמאלה למעבר בין המשחקים' : 'דפדפו בין המשחקים בחצים ימינה ושמאלה', 3000);
+    setIsTouch(touch);
+    isTouchRef.current = touch;
+    showToast(touch ? SWIPE_TIP_TOUCH : 'דפדפו בין המשחקים בחצים ימינה ושמאלה', 3000);
   }, [showToast]);
 
   const cycleBoard = useCallback((step: 1 | -1) => {
@@ -390,7 +505,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         cycleBoard(e.key === 'ArrowLeft' ? 1 : -1);
         return;
       }
-      if (e.key !== 'Enter' || e.repeat) return; // holding the key down does not count
+      // Enter or Space (buzzers map to either); holding the key down does not count
+      if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat) return;
       e.preventDefault();
       press(e.timeStamp);
     };
@@ -553,6 +669,20 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
             />
           )}
         </div>
+      )}
+      {canShare && phase !== 'running' && (
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onClick={share}
+          className="mt-[1vh] flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-[max(15px,2.4vmin)] font-bold text-white shadow-lg active:scale-95 transition-transform"
+          style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif' }}
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
+            <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z" />
+          </svg>
+          שתפו בוואטסאפ
+        </button>
       )}
       {/* New tab, and kept off the game's tap target, so a stray touch never ends a round */}
       <a
