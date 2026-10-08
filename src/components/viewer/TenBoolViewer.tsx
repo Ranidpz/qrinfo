@@ -27,10 +27,8 @@ const WIN_FX_MS = 3450; // length of the win strobe / success sound - board chan
 const LOSE_FX_MS = 1200; // length of the miss strobe / fail sound
 const SWIPE_MODES: TenBoolBoard[] = ['wins', 'counter', 'lives'];
 const SWIPE_MIN_PX = 60;
-// Secret: 4 quick taps on the top-left corner of the opening screen = an instant 10.00 (for demos /
-// testing). Corner-only so mashing the buzzer or random taps can never trigger it.
-const CHEAT_TAPS = 4;
-const CHEAT_WINDOW_MS = 1500;
+const CORNER_TAPS = 10;
+const CORNER_WINDOW_MS = 3000;
 const CONFETTI_COLORS = ['#ff2b2b', '#ffd43b', '#22c55e', '#3b82f6', '#a855f7', '#ff7ab6', '#ffffff', '#f59e0b'];
 const SWIPE_TIP_TOUCH = 'משכו את המסך ימינה ושמאלה למעבר בין המשחקים';
 
@@ -610,15 +608,15 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
 
   // In idle a touch starts the round on release, so a swipe can change the mode instead.
   // A running round still stops on pointerdown - the stop is the timed moment.
-  const cheatTapsRef = useRef<number[]>([]);
-  const cheatWin = () => {
+  const cornerTapsRef = useRef<number[]>([]);
+  const cornerWin = () => {
     if (phaseRef.current !== 'idle' || turnOverRef.current || slidingRef.current) return;
     audioRef.current?.ctx.resume().catch(() => {});
     const now = performance.now();
     startAtRef.current = now - TARGET_MS;
     phaseRef.current = 'running';
     finish(now);
-    showToast("זה צ'יט!", 2000); // a quiet wink, gone before anyone looks twice
+    showToast("זה צ'יט!", 2000);
   };
 
   const touchStartRef = useRef<{ x: number; y: number; id: number; touch: boolean; dragging: boolean } | null>(null);
@@ -690,13 +688,12 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
           const box = e.currentTarget.getBoundingClientRect();
           const corner = Math.max(80, Math.min(box.width, box.height) * 0.15);
           if (e.clientX - box.left < corner && e.clientY - box.top < corner) {
-            // The corner is inert on the opening screen; it only counts the secret taps
             const now = performance.now();
-            const taps = [...cheatTapsRef.current.filter((t) => now - t < CHEAT_WINDOW_MS), now];
-            cheatTapsRef.current = taps;
-            if (taps.length >= CHEAT_TAPS) {
-              cheatTapsRef.current = [];
-              cheatWin();
+            const taps = [...cornerTapsRef.current.filter((t) => now - t < CORNER_WINDOW_MS), now];
+            cornerTapsRef.current = taps;
+            if (taps.length >= CORNER_TAPS) {
+              cornerTapsRef.current = [];
+              cornerWin();
             }
             return;
           }
