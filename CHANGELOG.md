@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.25.6] - 2026-10-08
+
+- Share text: "הצלחתי {N בולים מתוך M ניסיונות | N בולים עם K פסילות למתמודד}!!! נסו אתם {url}". The card's summary line uses "מתוך" too.
+
 ## [1.25.5] - 2026-10-08
 
 - Small improvements.

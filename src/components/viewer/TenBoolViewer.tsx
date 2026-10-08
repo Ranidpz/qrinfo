@@ -125,7 +125,7 @@ type ShareStats = {
 function shareLine(st: ShareStats) {
   const hits = st.wins === 1 ? 'בול אחד' : `${st.wins} בולים`;
   if (st.board === 'lives') return `${hits} עם ${st.lives === 1 ? 'פסילה אחת' : `${st.lives} פסילות`} למתמודד`;
-  return `${hits} ב-${st.attempts} ניסיונות`;
+  return `${hits} מתוך ${st.attempts} ניסיונות`;
 }
 
 // Images only make it into the card if their host allows CORS; otherwise they're skipped (a tainted
@@ -560,7 +560,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   }, [canShare, shareKey]);
   const share = () => {
     const url = `${window.location.origin}${window.location.pathname}`;
-    const text = `${shareLine(shareStats)} ב-10 בול! מי עוצר בדיוק על 10.00? ${url}`;
+    const text = `הצלחתי ${shareLine(shareStats)}!!! נסו אתם ${url}`;
     const file = shareFileRef.current;
     if (file && navigator.canShare?.({ files: [file] })) {
       navigator.share({ files: [file], text }).catch(() => {});
