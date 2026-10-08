@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.23.0] - 2026-10-08
+
+- `tenboolConfig` gains `logoUrl` + `logoSize` (% of screen height), `warningCues`, `winFlash`, `loseFlash`, `loseColor`. All optional and read through `tenboolEffects()`; absent = the original behaviour.
+- Logo: drop an image anywhere on the settings window (or the upload button); uploaded as-is so PNG transparency is kept; size slider 8-50%.
+- `warningCues: false` silences the 7/8/9/10 beeps and skips the red digits and red flash. The miss strobe colour comes from `--tb-lose`.
+
 ## [1.22.3] - 2026-10-08
 
 - `tenbool`: the game and the settings preview show `code.title` (the name edited at the top of the code page) instead of `media.title`, which is only set at creation — renaming had no effect on the game.

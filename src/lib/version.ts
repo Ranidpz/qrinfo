@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.22.3';
+export const APP_VERSION = '1.23.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.23.0', date: '2026-10-08', isNew: true, highlights: {
+    he: ['10 בול: לוגו מעל הטיימר (גרירה לחלון ההגדרות + סליידר גודל), כיבוי הרמזים מהשנייה ה-7, ובחירת הבהוב בסוף — צבע לטעות או בלי הבהוב בכלל'],
+    en: ['10 Bool: logo above the timer (drop it on the settings window + size slider), turn off the 7-second hints, and choose the end flash — a miss colour or no flash at all'],
+  } },
   { version: '1.22.3', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: הכותרת במשחק מתעדכנת לפי שם החוויה בעמוד העריכה'],
     en: ['10 Bool: the in-game title follows the experience name from the edit page'],

@@ -53,13 +53,33 @@ export interface TenBoolConfig {
   backgroundColor?: string;
   textColor?: string;
   backgroundImageUrl?: string;
+  logoUrl?: string; // PNG (transparency kept), centred above the timer
+  logoSize?: number; // % of screen height
+  warningCues?: boolean; // 7-10s beeps, red digits and red flash; absent = on
+  winFlash?: boolean; // absent = on
+  loseFlash?: boolean; // absent = on
+  loseColor?: string;
 }
 
 export const TENBOOL_DEFAULTS = {
   backgroundColor: '#000000',
   textColor: '#ffffff',
   fontId: 'assistant' as TenBoolFontId,
+  logoSize: 22,
+  loseColor: '#ff0000',
 };
+export const TENBOOL_LOGO_SIZE = { min: 8, max: 50 };
+
+// End-of-round + countdown behaviour; every switch defaults to on (the original game).
+export function tenboolEffects(config: TenBoolConfig | undefined) {
+  return {
+    warningCues: config?.warningCues !== false,
+    winFlash: config?.winFlash !== false,
+    loseFlash: config?.loseFlash !== false,
+    loseColor: config?.loseColor || TENBOOL_DEFAULTS.loseColor,
+    logoSize: config?.logoSize ?? TENBOOL_DEFAULTS.logoSize,
+  };
+}
 
 // Out of the box every slot plays its own namesake sound ('ten' plays the beep).
 export function tenboolSoundSetting(config: TenBoolConfig | undefined, slot: TenBoolSoundSlot): TenBoolSoundSetting {

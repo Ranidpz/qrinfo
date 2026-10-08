@@ -6,10 +6,12 @@ import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import {
   TENBOOL_DEFAULTS,
   TENBOOL_FONTS,
+  TENBOOL_LOGO_SIZE,
   TENBOOL_SOUND_LIBRARY,
   resolveTenBoolSoundUrl,
   tenboolFont,
   tenboolFontStylesheet,
+  tenboolEffects,
   tenboolPlaybackRate,
   tenboolSoundSetting,
   type TenBoolConfig,
@@ -59,12 +61,15 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState<TenBoolSoundSlot | 'image' | null>(null);
+  const [uploading, setUploading] = useState<TenBoolSoundSlot | 'image' | 'logo' | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const dragDepth = useRef(0);
   const [playing, setPlaying] = useState<TenBoolSoundSlot | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const soundInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const uploadSlotRef = useRef<TenBoolSoundSlot>('start');
 
   // Re-seed only when the modal opens, so a save (new initialConfig ref) never resets what's on screen
@@ -156,6 +161,20 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
     }
   };
 
+  const handleLogoFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) return setError('גררו קובץ תמונה (PNG עם רקע שקוף מומלץ)');
+    setUploading('logo');
+    setError(null);
+    try {
+      // Uploaded as-is (no re-encoding), so a PNG keeps its transparency
+      update({ logoUrl: await upload(file, 'image') });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'ההעלאה נכשלה');
+    } finally {
+      setUploading(null);
+    }
+  };
+
   const pickSoundFile = (slot: TenBoolSoundSlot) => {
     uploadSlotRef.current = slot;
     soundInputRef.current?.click();
@@ -193,6 +212,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
   const bg = config.backgroundColor || TENBOOL_DEFAULTS.backgroundColor;
   const fg = config.textColor || TENBOOL_DEFAULTS.textColor;
   const isDefault = JSON.stringify(config) === '{}';
+  const fx = tenboolEffects(config);
 
   return (
     <div
@@ -204,8 +224,32 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
         role="dialog"
         aria-modal="true"
         aria-labelledby="tenbool-modal-title"
-        className="bg-bg-primary border border-border rounded-2xl w-full max-w-xl max-h-[94dvh] flex flex-col shadow-2xl overflow-hidden"
+        className="relative bg-bg-primary border border-border rounded-2xl w-full max-w-xl max-h-[94dvh] flex flex-col shadow-2xl overflow-hidden"
+        onDragEnter={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          dragDepth.current += 1;
+          setDragOver(true);
+        }}
+        onDragOver={(e) => e.dataTransfer.types.includes('Files') && e.preventDefault()}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDragOver(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          dragDepth.current = 0;
+          setDragOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f) void handleLogoFile(f);
+        }}
       >
+        {dragOver && (
+          <div className="pointer-events-none absolute inset-0 z-10 m-2 rounded-xl border-2 border-dashed border-accent bg-bg-primary/90 flex flex-col items-center justify-center gap-2 text-accent">
+            <ImagePlus className="w-8 h-8" />
+            <span className="font-semibold">שחררו כאן כדי להוסיף לוגו</span>
+          </div>
+        )}
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
@@ -251,6 +295,10 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             }}
             aria-label="תצוגה מקדימה של מסך המשחק"
           >
+            {config.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={config.logoUrl} alt="" className="object-contain max-w-[80%]" style={{ height: `${fx.logoSize}%` }} />
+            )}
             {title && <div className="text-base sm:text-lg font-bold opacity-80">{title}</div>}
             <div dir="ltr" className="text-6xl sm:text-7xl font-black leading-none tabular-nums">
               10.00
@@ -307,6 +355,72 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                 )}
               </div>
             </div>
+
+            <div className="rounded-xl bg-bg-secondary px-3 py-2.5 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-text-secondary">לוגו מעל הטיימר</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploading === 'logo'}
+                    className="btn btn-secondary !py-2 !px-3 text-sm"
+                  >
+                    {uploading === 'logo' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                    {config.logoUrl ? 'החליפו' : 'העלו לוגו'}
+                  </button>
+                  {config.logoUrl && (
+                    <button
+                      onClick={() => update({ logoUrl: undefined })}
+                      aria-label="הסירו את הלוגו"
+                      title="הסירו את הלוגו"
+                      className="p-2 rounded-lg text-text-secondary hover:bg-bg-hover hover:text-danger"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {config.logoUrl ? (
+                <label className="flex items-center gap-3">
+                  <span className="text-xs text-text-secondary whitespace-nowrap">גודל</span>
+                  <input
+                    type="range"
+                    min={TENBOOL_LOGO_SIZE.min}
+                    max={TENBOOL_LOGO_SIZE.max}
+                    step={1}
+                    value={fx.logoSize}
+                    onChange={(e) => update({ logoSize: Number(e.target.value) })}
+                    className="flex-1 accent-[var(--accent)]"
+                    aria-label="גודל הלוגו"
+                  />
+                </label>
+              ) : (
+                <p className="text-xs text-text-secondary">אפשר גם לגרור קובץ PNG לכל מקום בחלון</p>
+              )}
+            </div>
+          </section>
+
+          {/* End of round + countdown hints */}
+          <section className="space-y-2" aria-labelledby="tenbool-fx">
+            <h3 id="tenbool-fx" className="text-sm font-semibold text-text-primary">
+              רמזים וסוף סיבוב
+            </h3>
+            <SwitchRow
+              label="רמזים מהשנייה ה-7"
+              hint="צפצופים, ספרות אדומות והבזק"
+              checked={fx.warningCues}
+              onChange={(v) => update({ warningCues: v })}
+            />
+            <SwitchRow label="הבהוב בהצלחה" hint="ירוק, צהוב וכחול" checked={fx.winFlash} onChange={(v) => update({ winFlash: v })} />
+            <SwitchRow label="הבהוב בטעות" hint={fx.loseFlash ? "בצבע לבחירתכם" : "כבוי — הרקע נשאר כמו שהוא"} checked={fx.loseFlash} onChange={(v) => update({ loseFlash: v })}>
+              {fx.loseFlash && <input
+                type="color"
+                value={fx.loseColor}
+                onChange={(e) => update({ loseColor: e.target.value })}
+                aria-label="צבע ההבהוב בטעות"
+                className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
+              />}
+            </SwitchRow>
           </section>
 
           {/* Sounds */}
@@ -413,6 +527,17 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
           }}
         />
         <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/png,image/webp,image/gif,image/jpeg"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleLogoFile(f);
+            e.target.value = '';
+          }}
+        />
+        <input
           ref={imageInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
@@ -444,5 +569,40 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
         />
       </span>
     </label>
+  );
+}
+
+function SwitchRow({
+  label,
+  hint,
+  checked,
+  onChange,
+  children,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-bg-secondary px-3 py-2.5">
+      <div className="flex-1 min-w-0">
+        <span className="block text-sm font-medium text-text-primary">{label}</span>
+        <span className="block text-xs text-text-secondary truncate">{hint}</span>
+      </div>
+      {children}
+      <button
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? 'bg-accent' : 'bg-border'}`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? 'start-[1.375rem]' : 'start-0.5'}`}
+        />
+      </button>
+    </div>
   );
 }

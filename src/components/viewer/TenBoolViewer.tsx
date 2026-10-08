@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   TENBOOL_DEFAULTS,
   resolveTenBoolSoundUrl,
+  tenboolEffects,
   tenboolPlaybackRate,
   tenboolFont,
   tenboolFontStylesheet,
@@ -35,15 +36,15 @@ function format(ms: number) {
 // Hard-cut strobes timed to the sounds: fail = 1.2s, success = 3.45s, beep = 0.18s.
 // steps() so colours snap like stage lights instead of fading.
 const TENBOOL_STYLE = `
-@keyframes tenbool-lose { 0% { background:#ff0000 } 50% { background:#000 } }
+@keyframes tenbool-lose { 0% { background:var(--tb-lose) } 50% { background:#000 } }
 @keyframes tenbool-win { 0% { background:#00c853 } 33% { background:#ffd400 } 66% { background:#0050ff } }
 @keyframes tenbool-pop { 0% { transform:scale(.6) } 40% { transform:scale(1.25) } 70% { transform:scale(.95) } 100% { transform:scale(1) } }
 @keyframes tenbool-bounce { 0%,100% { transform:translateY(0) scale(1) } 50% { transform:translateY(-3vh) scale(1.08) } }
 @keyframes tenbool-breathe { 0%,100% { opacity:.45 } 50% { opacity:1 } }
 @keyframes tenbool-flash { 0% { opacity:.55 } 100% { opacity:0 } }
 @keyframes tenbool-dot-in { 0% { transform:scale(0) } 55% { transform:scale(1.6) } 75% { transform:scale(.85) } 100% { transform:scale(1) } }
-.tenbool-lose { animation: tenbool-lose .1s steps(1) 12 }
-.tenbool-win { animation: tenbool-win .345s steps(1) 10 }
+.tenbool-lose-bg { animation: tenbool-lose .1s steps(1) 12 }
+.tenbool-win-bg { animation: tenbool-win .345s steps(1) 10 }
 .tenbool-win .tenbool-timer { animation: tenbool-pop .5s cubic-bezier(.2,1.6,.4,1) both; text-shadow: 0 .8vmin 0 rgba(0,0,0,.45), 0 0 4vmin rgba(255,255,255,.9) }
 .tenbool-win .tenbool-hint { text-shadow: 0 .6vmin 0 rgba(0,0,0,.45) }
 .tenbool-win .tenbool-hint { animation: tenbool-bounce .345s ease-in-out 10 }
@@ -53,8 +54,8 @@ const TENBOOL_STYLE = `
 /* The new dot waits out the 3.45s win strobe, then bounces in */
 .tenbool-dot-new { animation: tenbool-dot-in .55s cubic-bezier(.2,1.4,.4,1) 3.45s both }
 @media (prefers-reduced-motion: reduce) {
-  .tenbool-lose, .tenbool-win, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep, .tenbool-dot-new { animation: none !important }
-  .tenbool-lose { background:#a00000 !important } .tenbool-win { background:#00a83a !important }
+  .tenbool-lose-bg, .tenbool-win-bg, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep, .tenbool-dot-new { animation: none !important }
+  .tenbool-lose-bg { background:var(--tb-lose) !important } .tenbool-win-bg { background:#00a83a !important }
 }
 `;
 
@@ -87,6 +88,9 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const textColor = config?.textColor || TENBOOL_DEFAULTS.textColor;
   const textColorRef = useRef(textColor);
   textColorRef.current = textColor;
+  const fx = tenboolEffects(config);
+  const warningRef = useRef(fx.warningCues);
+  warningRef.current = fx.warningCues;
   const tenRateRef = useRef(1);
   tenRateRef.current = tenboolPlaybackRate(config, 'ten');
 
@@ -181,9 +185,9 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         return;
       }
       const sec = Math.floor(ms / 1000);
-      setTimerText(ms, sec >= WARN_FROM_S);
-      // One beep per whole second: 7, 8, 9 and a higher one at 10
-      if (sec >= WARN_FROM_S && sec <= TARGET_MS / 1000 && sec > lastBeepRef.current) {
+      setTimerText(ms, warningRef.current && sec >= WARN_FROM_S);
+      // One beep per whole second: 7, 8, 9 and a higher one at 10 (owner can switch all hints off)
+      if (warningRef.current && sec >= WARN_FROM_S && sec <= TARGET_MS / 1000 && sec > lastBeepRef.current) {
         lastBeepRef.current = sec;
         if (sec * 1000 === TARGET_MS) play('ten', tenRateRef.current);
         else play('beep');
@@ -258,7 +262,13 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         press(e.timeStamp);
       }}
       className={`fixed inset-0 flex flex-col items-center justify-center gap-[2vh] select-none overflow-hidden cursor-pointer ${
-        phase === 'ended' ? (win ? 'tenbool-win' : 'tenbool-lose') : ''
+        phase === 'ended'
+          ? win
+            ? `tenbool-win ${fx.winFlash ? 'tenbool-win-bg' : ''}`
+            : fx.loseFlash
+              ? 'tenbool-lose-bg'
+              : ''
+          : ''
       }`}
       style={{
         fontFamily: `'${font.family}', var(--font-assistant), system-ui, sans-serif`,
@@ -267,6 +277,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         backgroundImage: config?.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        ['--tb-lose' as string]: fx.loseColor,
         touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
     >
       <style>{TENBOOL_STYLE}</style>
@@ -281,6 +292,16 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
             <span key={i} className="tenbool-dot tenbool-dot-new" />
           ))}
         </div>
+      )}
+      {config?.logoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={config.logoUrl}
+          alt=""
+          draggable={false}
+          className="pointer-events-none object-contain max-w-[80vw]"
+          style={{ height: `${fx.logoSize}vh` }}
+        />
       )}
       {title && phase === 'idle' && <div className="text-[5vmin] font-bold opacity-80">{title}</div>}
       <div
