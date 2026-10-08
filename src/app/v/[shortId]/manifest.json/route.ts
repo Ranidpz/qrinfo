@@ -19,6 +19,10 @@ export async function GET(
     const themeColor = qvoteMedia?.qvoteConfig?.branding?.colors?.buttonBackground || '#3b82f6';
     const backgroundColor = qvoteMedia?.qvoteConfig?.branding?.colors?.background || '#ffffff';
 
+    // Android / desktop install icon: 10 בול gets its stopwatch, everything else the Q
+    const isTenBool = code?.media?.[0]?.type === 'tenbool';
+    const icon = (px: number) => (isTenBool ? `/api/og/tenbool?icon=${px}` : `/icons/icon-${px}x${px}.png`);
+
     const manifest = {
       name: code?.title || 'QR Experience',
       short_name: code?.title?.slice(0, 12) || 'QR',
@@ -32,25 +36,25 @@ export async function GET(
       id: `/v/${shortId}${pkSuffix}`,
       icons: [
         {
-          src: '/icons/icon-192x192.png',
+          src: icon(192),
           sizes: '192x192',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: '/icons/icon-192x192.png',
+          src: icon(192),
           sizes: '192x192',
           type: 'image/png',
           purpose: 'maskable'
         },
         {
-          src: '/icons/icon-512x512.png',
+          src: icon(512),
           sizes: '512x512',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: '/icons/icon-512x512.png',
+          src: icon(512),
           sizes: '512x512',
           type: 'image/png',
           purpose: 'maskable'

@@ -234,7 +234,8 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
       },
       icons: {
         icon: '/favicon.svg',
-        apple: '/icons/apple-touch-icon.png',
+        // iPhone "Add to Home Screen" icon; 10 בול installs with its own stopwatch icon
+        apple: primaryMediaType === 'tenbool' ? '/api/og/tenbool?icon=180' : '/icons/apple-touch-icon.png',
       },
       openGraph: {
         title: ogTitle,

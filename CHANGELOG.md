@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.25.4] - 2026-10-08
+
+- `tenboolConfig.confetti` (absent = on): a 110-piece colourful burst (reuses `RaffleConfetti`) on every hit, on top of the win strobe, keyed per round.
+- Install icon: `/api/og/tenbool?icon=<px>` renders the stopwatch as a square app icon. Used as the iPhone `apple-touch-icon` (180) on 10 בול pages and as all four manifest icons (192/512, any + maskable) in `/v/{shortId}/manifest.json` when the code's first media is `tenbool`.
+
 ## [1.25.3] - 2026-10-08
 
 - The secret corner win shows a 2-second "זה צ'יט!" toast. The screen and share card show an exact 10.00 + "בול!".

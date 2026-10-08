@@ -19,8 +19,55 @@ async function loadDigitsFont(): Promise<ArrayBuffer | null> {
   }
 }
 
-export async function GET() {
+// ?icon=<px> = the home-screen / PWA app icon: the stopwatch alone, square, full-bleed dark
+// background (safe for maskable crops). Without it: the 633px link preview with gold coins.
+export async function GET(request: Request) {
   const digits = await loadDigitsFont();
+  const iconParam = new URL(request.url).searchParams.get('icon');
+  if (iconParam) {
+    const s = Math.min(1024, Math.max(64, parseInt(iconParam, 10) || 512));
+    const ring = Math.round(s * 0.62);
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'radial-gradient(circle at 50% 45%, #3a1a08 0%, #0b0b0b 70%)',
+          }}
+        >
+          <div style={{ display: 'flex', width: Math.round(s * 0.12), height: Math.round(s * 0.06), borderRadius: Math.round(s * 0.015), background: '#f59e0b', marginBottom: -Math.round(s * 0.01) }} />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: ring,
+              height: ring,
+              borderRadius: 9999,
+              border: `${Math.round(s * 0.035)}px solid #f59e0b`,
+              boxShadow: `0 0 ${Math.round(s * 0.08)}px rgba(245,158,11,.5)`,
+              background: '#111',
+            }}
+          >
+            <div style={{ display: 'flex', fontSize: Math.round(s * 0.17), fontWeight: 800, color: '#fff', letterSpacing: -1, fontFamily: digits ? 'Digits' : undefined }}>
+              10.00
+            </div>
+          </div>
+        </div>
+      ),
+      {
+        width: s,
+        height: s,
+        fonts: digits ? [{ name: 'Digits', data: digits, weight: 800, style: 'normal' }] : undefined,
+        headers: { 'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400' },
+      }
+    );
+  }
   const coin = {
     width: 46,
     height: 46,

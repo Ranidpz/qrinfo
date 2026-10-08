@@ -505,6 +505,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
               onChange={(v) => update({ warningCues: v })}
             />
             <SwitchRow label="הבהוב בהצלחה" hint="ירוק, צהוב וכחול" checked={fx.winFlash} onChange={(v) => update({ winFlash: v })} />
+            <SwitchRow label="קונפטי בבול" hint="פרץ צבעוני ומנצנץ יחד עם ההבהוב" checked={fx.confetti} onChange={(v) => update({ confetti: v })} />
             <SwitchRow label="הבהוב בטעות" hint={fx.loseFlash ? "בצבע לבחירתכם" : "כבוי — הרקע נשאר כמו שהוא"} checked={fx.loseFlash} onChange={(v) => update({ loseFlash: v })}>
               {fx.loseFlash && <input
                 type="color"

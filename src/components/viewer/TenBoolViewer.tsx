@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import RaffleConfetti from '@/components/raffle/RaffleConfetti';
 import {
   TENBOOL_DEFAULTS,
   resolveTenBoolSoundUrl,
@@ -30,6 +31,7 @@ const SWIPE_MIN_PX = 60;
 // testing). Corner-only so mashing the buzzer or random taps can never trigger it.
 const CHEAT_TAPS = 4;
 const CHEAT_WINDOW_MS = 1500;
+const CONFETTI_COLORS = ['#ff2b2b', '#ffd43b', '#22c55e', '#3b82f6', '#a855f7', '#ff7ab6', '#ffffff', '#f59e0b'];
 const SWIPE_TIP_TOUCH = 'משכו את המסך ימינה ושמאלה למעבר בין המשחקים';
 
 type SoundName = TenBoolSoundSlot;
@@ -750,6 +752,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     >
       <style>{TENBOOL_STYLE}</style>
       <div ref={flashRef} className="pointer-events-none absolute inset-0 bg-red-600 opacity-0" />
+      {/* Keyed per round so every hit replays the burst */}
+      {phase === 'ended' && win && fx.confetti && <RaffleConfetti key={endedAt} colors={CONFETTI_COLORS} glow="#ffffff" count={110} />}
       {fx.board !== 'off' && wins > 0 && (
         <div
           dir="rtl"

@@ -57,6 +57,7 @@ export interface TenBoolConfig {
   logoSize?: number; // % of screen height
   warningCues?: boolean; // 7-10s beeps, red digits and red flash; absent = on
   winFlash?: boolean; // absent = on
+  confetti?: boolean; // colourful confetti burst on a hit, on top of the flash; absent = on
   loseFlash?: boolean; // absent = on
   loseColor?: string;
   // Scoreboard in the top corners: 'wins' = a green dot per 10.00 (absent = this),
@@ -89,6 +90,7 @@ export function tenboolEffects(config: TenBoolConfig | undefined) {
   return {
     warningCues: config?.warningCues !== false,
     winFlash: config?.winFlash !== false,
+    confetti: config?.confetti !== false,
     loseFlash: config?.loseFlash !== false,
     loseColor: config?.loseColor || TENBOOL_DEFAULTS.loseColor,
     logoSize: config?.logoSize ?? TENBOOL_DEFAULTS.logoSize,
