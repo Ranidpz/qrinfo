@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.23.0';
+export const APP_VERSION = '1.24.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.24.0', date: '2026-10-08', isNew: true, highlights: {
+    he: ['10 בול: מצבי לוח — נקודות הצלחה, מונה ניסיונות שמתאפס בבול, וחיים לכל שחקן שנבנים מחדש לבד; פס קרבה; החלקה במסך או חצים להחלפת מצב בין סיבובים'],
+    en: ['10 Bool: board modes — hit dots, a misses counter that resets on a hit, and per-player lives that rebuild themselves; a closeness bar; swipe or arrow keys to switch modes between rounds'],
+  } },
   { version: '1.23.0', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: לוגו מעל הטיימר (גרירה לחלון ההגדרות + סליידר גודל), כיבוי הרמזים מהשנייה ה-7, ובחירת הבהוב בסוף — צבע לטעות או בלי הבהוב בכלל'],
     en: ['10 Bool: logo above the timer (drop it on the settings window + size slider), turn off the 7-second hints, and choose the end flash — a miss colour or no flash at all'],

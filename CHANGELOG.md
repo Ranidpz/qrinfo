@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.24.0] - 2026-10-08
+
+- `tenboolConfig.board`: `wins` (default, the green dots), `counter` (top-left misses-since-last-hit number with a floating +1; after a hit it spins down to 0 once the strobe ends), `lives` (N rings top-left, a miss drops one, a hit adds a gold dot top-right; a hit or running out ends the turn and the row rebuilds itself + returns to idle with presses ignored meanwhile), `off`. `lives` 1-9, default 3.
+- `closenessBar`: a line under the timer; each stop lands a dot at ±1.00s scale (clamped), green on 10.00.
+- Swipe left/right (touch) or ←/→ (keyboard) between rounds cycles wins → counter → lives on that screen only (not saved). In idle a touch now starts the round on release so a swipe can't start one; a running round still stops on pointerdown. Root uses `touch-action: none`.
+- The PWA install banner is no longer shown on 10 בול (it covered the scoreboard corners).
+
 ## [1.23.0] - 2026-10-08
 
 - `tenboolConfig` gains `logoUrl` + `logoSize` (% of screen height), `warningCues`, `winFlash`, `loseFlash`, `loseColor`. All optional and read through `tenboolEffects()`; absent = the original behaviour.

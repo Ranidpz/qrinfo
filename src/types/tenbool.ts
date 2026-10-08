@@ -59,7 +59,21 @@ export interface TenBoolConfig {
   winFlash?: boolean; // absent = on
   loseFlash?: boolean; // absent = on
   loseColor?: string;
+  // Scoreboard in the top corners: 'wins' = a green dot per 10.00 (absent = this),
+  // 'counter' = + a misses-since-last-hit number, 'lives' = N lives per player + a gold dot per hit.
+  board?: TenBoolBoard;
+  lives?: number;
+  closenessBar?: boolean; // a line under the timer showing how far off each stop was
 }
+
+export type TenBoolBoard = 'off' | 'wins' | 'counter' | 'lives';
+export const TENBOOL_BOARDS: { id: TenBoolBoard; label: string }[] = [
+  { id: 'wins', label: 'נקודות הצלחה' },
+  { id: 'counter', label: 'הצלחות ומונה ניסיונות' },
+  { id: 'lives', label: 'חיים' },
+  { id: 'off', label: 'כבוי' },
+];
+export const TENBOOL_LIVES = { min: 1, max: 9, default: 3 };
 
 export const TENBOOL_DEFAULTS = {
   backgroundColor: '#000000',
@@ -78,6 +92,9 @@ export function tenboolEffects(config: TenBoolConfig | undefined) {
     loseFlash: config?.loseFlash !== false,
     loseColor: config?.loseColor || TENBOOL_DEFAULTS.loseColor,
     logoSize: config?.logoSize ?? TENBOOL_DEFAULTS.logoSize,
+    board: config?.board ?? ('wins' as TenBoolBoard),
+    lives: Math.min(TENBOOL_LIVES.max, Math.max(TENBOOL_LIVES.min, config?.lives ?? TENBOOL_LIVES.default)),
+    closenessBar: config?.closenessBar === true,
   };
 }
 

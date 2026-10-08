@@ -1261,7 +1261,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   return (
     <div className="min-h-screen bg-black relative overflow-x-hidden overflow-y-auto animate-fadeIn">
       {/* PWA Install Banner */}
-      <PWAInstallBanner shortId={shortId} enabled={widgets?.pwaEncourage?.enabled !== false} />
+      {/* Not on 10 בול: it's a full-screen game and the banner covers the scoreboard corners */}
+      <PWAInstallBanner shortId={shortId} enabled={widgets?.pwaEncourage?.enabled !== false && !isTenBool} />
 
       <style jsx global>{`
         @keyframes fadeIn {

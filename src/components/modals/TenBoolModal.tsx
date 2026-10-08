@@ -5,7 +5,9 @@ import { Check, ExternalLink, ImagePlus, Loader2, Play, RotateCcw, Square, Timer
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import {
   TENBOOL_DEFAULTS,
+  TENBOOL_BOARDS,
   TENBOOL_FONTS,
+  TENBOOL_LIVES,
   TENBOOL_LOGO_SIZE,
   TENBOOL_SOUND_LIBRARY,
   resolveTenBoolSoundUrl,
@@ -14,6 +16,7 @@ import {
   tenboolEffects,
   tenboolPlaybackRate,
   tenboolSoundSetting,
+  type TenBoolBoard,
   type TenBoolConfig,
   type TenBoolFontId,
   type TenBoolSoundChoice,
@@ -295,6 +298,36 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             }}
             aria-label="תצוגה מקדימה של מסך המשחק"
           >
+            {fx.board !== 'off' && (
+              <div dir="rtl" className="absolute top-2 right-2 flex gap-1">
+                {[0, 1].map((i) => (
+                  <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ background: fx.board === 'lives' ? '#f5b301' : '#22c55e' }} />
+                ))}
+              </div>
+            )}
+            {fx.board === 'counter' && (
+              <span dir="ltr" className="absolute top-1.5 left-2.5 text-sm font-black">
+                3
+              </span>
+            )}
+            {fx.board === 'lives' && (
+              <div dir="ltr" className="absolute top-2 left-2 flex gap-1">
+                {Array.from({ length: fx.lives }, (_, i) => (
+                  <span
+                    key={i}
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={i < fx.lives - 1 ? { background: '#22c55e' } : { boxShadow: 'inset 0 0 0 1.5px rgba(255,255,255,.35)' }}
+                  />
+                ))}
+              </div>
+            )}
+            {fx.closenessBar && (
+              <div dir="ltr" className="absolute bottom-3 left-1/2 -translate-x-1/2 w-1/2 h-3">
+                <span className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 opacity-30" style={{ background: fg }} />
+                <span className="absolute left-1/2 inset-y-0 w-0.5 -translate-x-1/2 opacity-70" style={{ background: fg }} />
+                <span className="absolute top-1/2 left-[58%] w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: fg }} />
+              </div>
+            )}
             {config.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={config.logoUrl} alt="" className="object-contain max-w-[80%]" style={{ height: `${fx.logoSize}%` }} />
@@ -398,6 +431,66 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                 <p className="text-xs text-text-secondary">אפשר גם לגרור קובץ PNG לכל מקום בחלון</p>
               )}
             </div>
+          </section>
+
+          {/* Scoreboard */}
+          <section className="space-y-2" aria-labelledby="tenbool-board">
+            <h3 id="tenbool-board" className="text-sm font-semibold text-text-primary">
+              לוח
+            </h3>
+            <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-secondary px-3 py-2.5">
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-medium text-text-primary">מצב לוח</span>
+                <span className="block text-xs text-text-secondary truncate">
+                  {fx.board === 'wins'
+                    ? 'נקודה ירוקה על כל בול'
+                    : fx.board === 'counter'
+                      ? 'מונה החטאות, מתאפס בבול'
+                      : fx.board === 'lives'
+                        ? 'חיים לכל שחקן, נקודת זהב על כל בול'
+                        : 'בלי נקודות בפינות'}
+                </span>
+              </span>
+              <select
+                value={fx.board}
+                onChange={(e) => update({ board: e.target.value as TenBoolBoard })}
+                className="input !w-48 !py-2 !bg-bg-primary"
+              >
+                {TENBOOL_BOARDS.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {fx.board === 'lives' && (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-bg-secondary px-3 py-2.5">
+                <span className="text-sm font-medium text-text-primary">מספר חיים</span>
+                <div className="flex items-center gap-2" dir="ltr">
+                  <button
+                    onClick={() => update({ lives: Math.max(TENBOOL_LIVES.min, fx.lives - 1) })}
+                    aria-label="פחות חיים"
+                    className="w-8 h-8 rounded-lg bg-bg-primary text-text-primary hover:bg-bg-hover"
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center font-semibold tabular-nums text-text-primary">{fx.lives}</span>
+                  <button
+                    onClick={() => update({ lives: Math.min(TENBOOL_LIVES.max, fx.lives + 1) })}
+                    aria-label="יותר חיים"
+                    className="w-8 h-8 rounded-lg bg-bg-primary text-text-primary hover:bg-bg-hover"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+            <SwitchRow
+              label="פס קרבה"
+              hint="מראה כמה קרוב ל-10.00 עצרו"
+              checked={fx.closenessBar}
+              onChange={(v) => update({ closenessBar: v })}
+            />
           </section>
 
           {/* End of round + countdown hints */}
