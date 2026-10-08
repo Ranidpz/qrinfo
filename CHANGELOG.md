@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.24.4] - 2026-10-08
+
+- Win dots are gold coins in every board mode (radial orange-gold, soft glow, a shine sweeping across every ~3.6s, staggered per dot via `--i`). Same size as a life. Green is now only ever a life. Shine is off under reduced motion.
+
 ## [1.24.3] - 2026-10-08
 
 - `TenBoolViewer` toast (Assistant bold, top centre, fades out): on entry for 3s a swipe tip — "דפדפו בין המשחקים בחצים…" on desktop, "משכו את המסך…" when `(pointer: coarse)`; on each mode switch for 2.5s the mode name ("N פסילות למתמודד", "כמה פעמים עד 10 בול?", "משחק רגיל").

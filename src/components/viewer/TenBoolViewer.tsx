@@ -56,10 +56,16 @@ const TENBOOL_STYLE = `
 .tenbool-win .tenbool-hint { animation: tenbool-bounce .345s ease-in-out 10 }
 .tenbool-idle-hint { animation: tenbool-breathe 1.6s ease-in-out infinite }
 .tenbool-beep { animation: tenbool-flash .18s ease-out }
-.tenbool-dot { width:max(10px,2.4vmin); height:max(10px,2.4vmin); border-radius:9999px; background:#22c55e; box-shadow:0 0 0 max(1px,.25vmin) rgba(0,0,0,.25) }
+/* A win = a gold coin: warm orange-gold, a soft glow, and a shine that sweeps across now and then.
+   Same size as a life dot. Gold always means a hit; green only ever means a life. */
+.tenbool-dot { position:relative; overflow:hidden; width:max(10px,2.4vmin); height:max(10px,2.4vmin); border-radius:9999px;
+  background:radial-gradient(circle at 35% 30%, #fff4b8 0%, #ffd43b 30%, #f59e0b 68%, #c2410c 100%);
+  box-shadow:0 0 0 max(1px,.25vmin) rgba(0,0,0,.25), 0 0 max(4px,.9vmin) rgba(255,176,0,.55) }
+@keyframes tenbool-shine { 0%, 78% { transform:translateX(-160%) } 100% { transform:translateX(160%) } }
+.tenbool-dot::after { content:''; position:absolute; inset:0; background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.95) 50%, transparent 70%);
+  transform:translateX(-160%); animation: tenbool-shine 3.6s ease-in-out infinite; animation-delay: calc(4s + var(--i, 0) * .3s) }
 /* The new dot waits out the 3.45s win strobe, then bounces in */
 .tenbool-dot-new { animation: tenbool-dot-in .55s cubic-bezier(.2,1.4,.4,1) 3.45s both }
-.tenbool-gold { background:#f5b301 }
 /* Lives: a ring per life; the dot inside falls out on a miss and the whole row rebuilds for the next player */
 .tenbool-slot { position:relative; width:max(10px,2.4vmin); height:max(10px,2.4vmin); border-radius:9999px; box-shadow:inset 0 0 0 max(1.5px,.3vmin) rgba(255,255,255,.35) }
 .tenbool-life { position:absolute; inset:0; border-radius:9999px; background:#22c55e }
@@ -83,7 +89,7 @@ const TENBOOL_STYLE = `
 @keyframes tenbool-land { 0% { transform:translate(-50%,-4vmin); opacity:0 } 60% { transform:translate(-50%,.4vmin); opacity:1 } 100% { transform:translate(-50%,0); opacity:1 } }
 .tenbool-land { animation: tenbool-land .45s cubic-bezier(.3,1.3,.5,1) both }
 @media (prefers-reduced-motion: reduce) {
-  .tenbool-lose-bg, .tenbool-win-bg, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep, .tenbool-dot-new, .tenbool-slot, .tenbool-life-in, .tenbool-count, .tenbool-land { animation: none !important }
+  .tenbool-lose-bg, .tenbool-win-bg, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep, .tenbool-dot-new, .tenbool-dot::after, .tenbool-slot, .tenbool-life-in, .tenbool-count, .tenbool-land { animation: none !important }
   /* Reduce Motion (common on iPhones): no movement, but the +1 / -1 / lost life still read as a fade */
   .tenbool-plus { animation: tenbool-fade-out 1.3s ease-out both !important }
   .tenbool-life-lost { animation: tenbool-fade-out .4s both !important }
@@ -461,7 +467,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
           className="pointer-events-none absolute top-[max(0.75rem,3vmin)] right-[max(0.75rem,3vmin)] max-w-[45vw] flex flex-wrap gap-[max(6px,1.2vmin)]"
         >
           {Array.from({ length: wins }, (_, i) => (
-            <span key={i} className={`tenbool-dot tenbool-dot-new ${fx.board === 'lives' ? 'tenbool-gold' : ''}`} />
+            <span key={i} className="tenbool-dot tenbool-dot-new" style={{ ['--i' as string]: i % 6 }} />
           ))}
         </div>
       )}

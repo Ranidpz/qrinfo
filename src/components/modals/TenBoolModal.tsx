@@ -301,7 +301,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             {fx.board !== 'off' && (
               <div dir="rtl" className="absolute top-2 right-2 flex gap-1">
                 {[0, 1].map((i) => (
-                  <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ background: fx.board === 'lives' ? '#f5b301' : '#22c55e' }} />
+                  <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ background: 'radial-gradient(circle at 35% 30%, #fff4b8 0%, #ffd43b 30%, #f59e0b 68%, #c2410c 100%)' }} />
                 ))}
               </div>
             )}
@@ -443,7 +443,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                 <span className="block text-sm font-medium text-text-primary">מצב לוח</span>
                 <span className="block text-xs text-text-secondary truncate">
                   {fx.board === 'wins'
-                    ? 'נקודה ירוקה על כל בול'
+                    ? 'נקודת זהב על כל בול'
                     : fx.board === 'counter'
                       ? 'מונה החטאות, מתאפס בבול'
                       : fx.board === 'lives'

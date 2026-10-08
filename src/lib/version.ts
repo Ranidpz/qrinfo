@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.24.3';
+export const APP_VERSION = '1.24.4';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.24.4', date: '2026-10-08', isNew: true, highlights: {
+    he: ['10 בול: כל בול מקבל נקודת זהב מנצנצת — זהב תמיד זכייה, ירוק תמיד חיים'],
+    en: ['10 Bool: every hit earns a shining gold dot — gold always means a win, green always a life'],
+  } },
   { version: '1.24.3', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: שם המשחק מופיע למעלה בכל מעבר בין המשחקים, הסבר קצר על הדפדוף בכניסה, ופסילה נעלמת בבאונס'],
     en: ['10 Bool: the game name shows at the top on every switch, a short swipe tip on entry, and a lost life bounces out'],
