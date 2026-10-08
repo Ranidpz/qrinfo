@@ -1,4 +1,5 @@
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, type DocumentReference, type Firestore } from 'firebase-admin/firestore';
+import { createHash } from 'node:crypto';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { deleteStoredObjectByUrl } from '@/lib/server-storage';
 import {
@@ -21,7 +22,6 @@ export interface PdfReplacementInput {
   sourceMessageId?: string;
   detectedDate?: string;
   replaceNonPdf?: boolean;
-  deleteOld?: boolean;
   workflow?: string;
 }
 
@@ -78,6 +78,7 @@ export async function replaceCodePdfWithBuffer(
     throw new Error('Code owner does not match Fattal owner');
   }
 
+  const cleanupStillPending = await recoverPdfCleanup(db, ownerId);
   const pageCount = await countPdfPages(input.buffer);
   const r2Key = buildStorageKey(
     [ownerId, codeId, 'booklets'],
@@ -106,7 +107,11 @@ export async function replaceCodePdfWithBuffer(
   let codeTitle = '';
   let updatedAt = '';
   let oldUrl: string | undefined;
+  let oldSizeForOwner = 0;
   let storageDelta = uploaded.size;
+  const cleanupRef = db.collection('contentIntakePdfCleanup').doc(
+    createHash('sha256').update(`${ownerId}:${uploaded.key}`).digest('hex')
+  );
   let updatedMediaForResponse: Record<string, unknown> | null = null;
 
   try {
@@ -142,15 +147,20 @@ export async function replaceCodePdfWithBuffer(
         throw new Error('Target media is not a PDF');
       }
 
-      const oldSizeForOwner = oldMedia?.uploadedBy === ownerId
+      oldUrl = oldMedia?.url;
+      oldSizeForOwner = oldUrl && oldUrl !== uploaded.url && oldMedia?.uploadedBy === ownerId
         ? Number(oldMedia.size || 0)
         : 0;
-      storageDelta = uploaded.size - oldSizeForOwner;
 
       const userData = userDoc.data() || {};
       const currentUsage = Number(userData.storageUsed || 0);
       const storageLimit = Number(userData.storageLimit || 0);
-      if (storageDelta > 0 && storageLimit > 0 && currentUsage + storageDelta > storageLimit) {
+      const hasCleanupDebt = cleanupStillPending || Number(userData.pdfCleanupBytes || 0) > 0;
+      // Allow a replacement at the quota boundary, but never recycle the space
+      // from an earlier failed cleanup. Charge both objects until deletion succeeds.
+      const projectedUsage = currentUsage + uploaded.size - oldSizeForOwner;
+      if (storageLimit > 0 && projectedUsage > storageLimit
+        && (uploaded.size > oldSizeForOwner || hasCleanupDebt)) {
         throw new Error('Storage quota exceeded');
       }
 
@@ -190,7 +200,6 @@ export async function replaceCodePdfWithBuffer(
         media.push(newMedia);
       }
 
-      oldUrl = oldMedia?.url;
       updatedMediaForResponse = serializeMedia(newMedia);
 
       transaction.update(codeRef, {
@@ -201,7 +210,17 @@ export async function replaceCodePdfWithBuffer(
       if (storageDelta !== 0) {
         transaction.update(userRef, {
           storageUsed: FieldValue.increment(storageDelta),
+          pdfCleanupBytes: FieldValue.increment(oldSizeForOwner),
           updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      if (oldUrl && oldUrl !== uploaded.url) {
+        // Durable evidence survives a process exit or deletion/accounting failure.
+        // Cleanup is server-owned; legacy deleteOld flags cannot retain free copies.
+        transaction.set(cleanupRef, {
+          ownerId, codeId, oldUrl, replacementUrl: uploaded.url,
+          chargedBytes: oldSizeForOwner,
+          createdAt: FieldValue.serverTimestamp(),
         });
       }
     });
@@ -213,12 +232,13 @@ export async function replaceCodePdfWithBuffer(
   }
 
   let oldDeleteWarning: string | undefined;
-  if (input.deleteOld !== false && oldUrl && oldUrl !== uploaded.url) {
+  if (oldUrl && oldUrl !== uploaded.url) {
     try {
-      await deleteStoredObjectByUrl(oldUrl);
+      const creditedBytes = await completePdfCleanup(db, cleanupRef);
+      storageDelta -= creditedBytes;
     } catch (error) {
-      console.error('[PDF R2] Failed to delete previous PDF:', error);
-      oldDeleteWarning = 'Previous PDF was replaced in Firestore but could not be deleted from storage';
+      console.error('[PDF R2] Previous PDF cleanup remains pending:', error);
+      oldDeleteWarning = 'PDF replaced successfully; previous PDF cleanup is pending and remains charged to storage';
     }
   }
 
@@ -236,6 +256,42 @@ export async function replaceCodePdfWithBuffer(
     storageDelta,
     warning: oldDeleteWarning,
   };
+}
+
+async function completePdfCleanup(db: Firestore, ref: DocumentReference): Promise<number> {
+  const job = (await ref.get()).data();
+  if (!job) return 0;
+  // Storage deletion is idempotent. The transaction consumes the debt once even
+  // when two requests recover the same job or a previous credit response was lost.
+  await deleteStoredObjectByUrl(job.oldUrl);
+  return db.runTransaction(async (transaction) => {
+    const cleanup = await transaction.get(ref);
+    if (!cleanup.exists) return 0;
+    const bytes = Number(cleanup.data()?.chargedBytes || 0);
+    if (bytes > 0) {
+      transaction.update(db.collection('users').doc(job.ownerId), {
+        storageUsed: FieldValue.increment(-bytes),
+        pdfCleanupBytes: FieldValue.increment(-bytes),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    transaction.delete(ref);
+    return bytes;
+  });
+}
+
+async function recoverPdfCleanup(db: Firestore, ownerId: string): Promise<boolean> {
+  const jobs = await db.collection('contentIntakePdfCleanup').where('ownerId', '==', ownerId).limit(11).get();
+  let pending = jobs.docs.length > 10;
+  for (const job of jobs.docs.slice(0, 10)) {
+    try {
+      await completePdfCleanup(db, job.ref);
+    } catch (error) {
+      pending = true;
+      console.error('[PDF R2] Previous cleanup retry failed:', error);
+    }
+  }
+  return pending;
 }
 
 export async function fetchPdfBuffer(sourceUrl: string, filename?: string): Promise<Pick<PdfReplacementInput, 'buffer' | 'filename' | 'contentType'>> {

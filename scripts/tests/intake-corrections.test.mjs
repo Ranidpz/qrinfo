@@ -92,7 +92,7 @@ test('server preview reads only successful owner-scoped receipts and fails close
 test('changed baseline during commit rolls back upload without modifying the target', async () => {
   const deleted=[];let writes=0;
   globalThis.correctionCommitDb={
-    collection:name=>({doc:id=>({name,id,get:async()=>({exists:true,data:()=>({ownerId:'owner'})})})}),
+    collection:name=>({where:()=>({limit:()=>({get:async()=>({docs:[]})})}),doc:id=>({name,id,get:async()=>({exists:true,data:()=>({ownerId:'owner'})})})}),
     runTransaction:async fn=>fn({get:async ref=>({exists:true,data:()=>ref.name==='codes'?{ownerId:'owner',media:[{type:'pdf',url:'https://pdf.test/manual.pdf'}]}:{}}),update:()=>writes++}),
   };
   globalThis.correctionDeleted=deleted;

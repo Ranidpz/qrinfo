@@ -320,7 +320,7 @@ test('owner transfer or concurrent edit rolls back newly uploaded PDF', async ()
   globalThis.fattalPdfTest = state;
   const dbSource = `
     export const getAdminDb=()=>({
-      collection:(collection)=>({doc:(id)=>({collection,id,get:async()=>({exists:true,data:()=>({ownerId:'original-owner'}),updateTime:{isEqual:()=>false}})})}),
+      collection:(collection)=>({where:()=>({limit:()=>({get:async()=>({docs:[]})})}),doc:(id)=>({collection,id,get:async()=>({exists:true,data:()=>({ownerId:'original-owner'}),updateTime:{isEqual:()=>false}})})}),
       runTransaction:async(fn)=>fn({
         get:async(ref)=>ref.collection==='codes'
           ? {exists:true,data:()=>({ownerId:globalThis.fattalPdfTest.changedOwner?'new-owner':'original-owner'}),updateTime:{}}
@@ -453,7 +453,7 @@ test('file audit persists both names, hash and replacement time; duplicates pres
 test('replacement result uses the title and timestamp persisted in the successful code transaction', async () => {
   const time='2026-09-20T12:09:42.000Z';let written;
   globalThis.__replacementAuditDb = {
-    collection:name=>({doc:id=>({name,id,get:async()=>({exists:true,data:()=>({ownerId:'owner',title:'Actual QR title'})})})}),
+    collection:name=>({where:()=>({limit:()=>({get:async()=>({docs:[]})})}),doc:id=>({name,id,get:async()=>({exists:true,data:()=>({ownerId:'owner',title:'Actual QR title'})})})}),
     runTransaction:async fn=>fn({get:async ref=>({exists:true,data:()=>ref.name==='codes'?{ownerId:'owner',title:'Actual QR title',media:[]}:{storageUsed:0,storageLimit:10000}}),update:(ref,value)=>{if(ref.name==='codes')written=value;}}),
   };
   try {

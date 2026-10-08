@@ -88,7 +88,6 @@ async function readPdfReplacementInput(request: NextRequest): Promise<PdfReplace
       sourceMessageId: stringValue(formData.get('sourceMessageId')),
       detectedDate: stringValue(formData.get('detectedDate')),
       replaceNonPdf: booleanValue(formData.get('replaceNonPdf')),
-      deleteOld: formData.has('deleteOld') ? booleanValue(formData.get('deleteOld')) : true,
     };
   }
 
@@ -106,7 +105,6 @@ async function readPdfReplacementInput(request: NextRequest): Promise<PdfReplace
     sourceMessageId: typeof body.sourceMessageId === 'string' ? body.sourceMessageId : undefined,
     detectedDate: typeof body.detectedDate === 'string' ? body.detectedDate : undefined,
     replaceNonPdf: body.replaceNonPdf === true,
-    deleteOld: body.deleteOld !== false,
   };
 }
 

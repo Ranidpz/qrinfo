@@ -29,7 +29,6 @@ interface CommitRequestPayload {
   ownerEmail?: unknown;
   source?: ContentIntakeSource;
   batchPreviewRunId?: string;
-  deleteOld?: boolean;
 }
 
 interface CommitFilePayload extends IntakeFileCandidate {
@@ -45,7 +44,6 @@ interface CommitJsonBody {
   ownerEmail?: unknown;
   source?: unknown;
   batchPreviewRunId?: unknown;
-  deleteOld?: unknown;
 }
 
 
@@ -138,7 +136,6 @@ export async function POST(request: NextRequest) {
       ownerId,
       preview,
       files: payload.files,
-      deleteOld: payload.deleteOld,
     });
 
     const suggestedReplyAfterCommitHe = buildCommitReply(preview, results);
@@ -247,7 +244,6 @@ async function parseMultipartCommitRequest(request: NextRequest): Promise<Commit
     ownerEmail: parseString(formData.get('ownerEmail')),
     source,
     batchPreviewRunId: parseString(formData.get('batchPreviewRunId')),
-    deleteOld: parseBoolean(formData.get('deleteOld'), true),
   };
 }
 
@@ -263,7 +259,6 @@ async function parseJsonCommitRequest(request: NextRequest): Promise<CommitReque
     ownerEmail: body.ownerEmail,
     source,
     batchPreviewRunId: typeof body.batchPreviewRunId === 'string' ? body.batchPreviewRunId : undefined,
-    deleteOld: typeof body.deleteOld === 'boolean' ? body.deleteOld : true,
   };
 }
 
@@ -310,7 +305,6 @@ async function commitMatchedFiles(params: {
   ownerId: string;
   preview: ContentIntakePreview;
   files: CommitFilePayload[];
-  deleteOld?: boolean;
 }): Promise<ContentIntakeCommitResult[]> {
   const results: ContentIntakeCommitResult[] = [];
 
@@ -382,7 +376,6 @@ async function commitMatchedFiles(params: {
           sourceFileId: file.sourceFileId,
           sourceMessageId: file.sourceMessageId,
           detectedDate: match.detectedDate.value,
-          deleteOld: params.deleteOld,
           workflow: 'fattal-booklets',
         },
         { expectedOwnerId: params.ownerId, expectedCurrentUrl: match.replacesConfirmedUrl }
@@ -465,14 +458,6 @@ function parseString(value: FormDataEntryValue | null): string | undefined {
   return typeof value === 'string' && value.trim().length > 0
     ? value.trim()
     : undefined;
-}
-
-function parseBoolean(value: FormDataEntryValue | null, fallback: boolean): boolean {
-  if (value === null) return fallback;
-  if (typeof value !== 'string') return fallback;
-  if (value === 'false' || value === '0') return false;
-  if (value === 'true' || value === '1') return true;
-  return fallback;
 }
 
 function isUploadedFile(value: FormDataEntryValue): value is File {
