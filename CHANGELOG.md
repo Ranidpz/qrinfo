@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.25.2] - 2026-10-08
+
+- Secret test win (kept out of the in-app changelog): 4 taps within 1.5s on the top-left corner of the opening screen (max(80px, 15% of the short side)) = an instant exact 10.00 through the normal `finish()` path. The corner is inert on the opening screen; mid-round it still stops the timer. Buzzer / keyboard can't trigger it.
+
 ## [1.25.1] - 2026-10-08
 
 - Phones: the centre column (`stageRef`: logo, title, timer, hint, bar, share) follows the finger while swiping; past max(60px, 20% width) it slides off and the next mode slides in from the other side, else it snaps back. Corners stay put. Taps are ignored while it slides.

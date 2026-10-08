@@ -26,6 +26,10 @@ const WIN_FX_MS = 3450; // length of the win strobe / success sound - board chan
 const LOSE_FX_MS = 1200; // length of the miss strobe / fail sound
 const SWIPE_MODES: TenBoolBoard[] = ['wins', 'counter', 'lives'];
 const SWIPE_MIN_PX = 60;
+// Secret: 4 quick taps on the top-left corner of the opening screen = an instant 10.00 (for demos /
+// testing). Corner-only so mashing the buzzer or random taps can never trigger it.
+const CHEAT_TAPS = 4;
+const CHEAT_WINDOW_MS = 1500;
 const SWIPE_TIP_TOUCH = 'משכו את המסך ימינה ושמאלה למעבר בין המשחקים';
 
 type SoundName = TenBoolSoundSlot;
@@ -604,6 +608,16 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
 
   // In idle a touch starts the round on release, so a swipe can change the mode instead.
   // A running round still stops on pointerdown - the stop is the timed moment.
+  const cheatTapsRef = useRef<number[]>([]);
+  const cheatWin = () => {
+    if (phaseRef.current !== 'idle' || turnOverRef.current || slidingRef.current) return;
+    audioRef.current?.ctx.resume().catch(() => {});
+    const now = performance.now();
+    startAtRef.current = now - TARGET_MS;
+    phaseRef.current = 'running';
+    finish(now);
+  };
+
   const touchStartRef = useRef<{ x: number; y: number; id: number; touch: boolean; dragging: boolean } | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const slidingRef = useRef(false); // a page-turn animation is running - ignore taps
@@ -670,6 +684,19 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       onPointerDown={(e) => {
         if (e.button !== 0 || slidingRef.current) return;
         if (phaseRef.current === 'idle') {
+          const box = e.currentTarget.getBoundingClientRect();
+          const corner = Math.max(80, Math.min(box.width, box.height) * 0.15);
+          if (e.clientX - box.left < corner && e.clientY - box.top < corner) {
+            // The corner is inert on the opening screen; it only counts the secret taps
+            const now = performance.now();
+            const taps = [...cheatTapsRef.current.filter((t) => now - t < CHEAT_WINDOW_MS), now];
+            cheatTapsRef.current = taps;
+            if (taps.length >= CHEAT_TAPS) {
+              cheatTapsRef.current = [];
+              cheatWin();
+            }
+            return;
+          }
           touchStartRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId, touch: e.pointerType === 'touch', dragging: false };
           return;
         }
