@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.25.0';
+export const APP_VERSION = '1.25.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.25.1', date: '2026-10-08', isNew: true, highlights: {
+    he: ['10 בול: בטלפון הטיימר נגרר עם האצבע בין המשחקים, ותמונת השיתוף נראית כמו צילום של מסך התוצאה'],
+    en: ['10 Bool: on phones the timer follows your finger between games, and the share image looks like a screenshot of the result screen'],
+  } },
   { version: '1.25.0', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: שיתוף התוצאה בוואטסאפ עם תמונה (בטלפון, מהבול השני), תמונת תצוגה מקדימה חדשה לקישור, רווח מפעיל כמו Enter, וההסבר על הדפדוף חוזר בטלפון אחרי הסיבוב הראשון'],
     en: ['10 Bool: share your score to WhatsApp with an image (phones, from the 2nd hit), a new link preview image, Space works like Enter, and the swipe tip returns on phones after the first round'],

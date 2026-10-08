@@ -100,7 +100,23 @@ const TENBOOL_STYLE = `
 
 // ---------- WhatsApp share card (phones) ----------
 
-type ShareStats = { wins: number; attempts: number; board: TenBoolBoard; lives: number; title?: string; bg: string; fg: string };
+type ShareStats = {
+  wins: number;
+  attempts: number;
+  misses: number;
+  livesLeft: number;
+  board: TenBoolBoard;
+  lives: number;
+  title?: string;
+  bg: string;
+  fg: string;
+  font: string;
+  bgImage?: string;
+  logo?: string;
+  logoSize: number; // % of screen height, as in the game
+  lastMs?: number;
+  lastDiff?: number;
+};
 
 function shareLine(st: ShareStats) {
   const hits = st.wins === 1 ? 'בול אחד' : `${st.wins} בולים`;
@@ -108,61 +124,133 @@ function shareLine(st: ShareStats) {
   return `${hits} ב-${st.attempts} ניסיונות`;
 }
 
-// Drawn ahead of time (iOS only lets navigator.share run straight inside the tap)
+// Images only make it into the card if their host allows CORS; otherwise they're skipped (a tainted
+// canvas can't be exported)
+function loadImage(src?: string): Promise<HTMLImageElement | null> {
+  if (!src) return Promise.resolve(null);
+  return new Promise((res) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => res(img);
+    img.onerror = () => res(null);
+    img.src = src;
+  });
+}
+
+function coin(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.4, 1, x, y, r);
+  g.addColorStop(0, '#fff4b8');
+  g.addColorStop(0.3, '#ffd43b');
+  g.addColorStop(0.68, '#f59e0b');
+  g.addColorStop(1, '#c2410c');
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,176,0,.6)';
+  ctx.shadowBlur = r;
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// A "screenshot" of the result screen, drawn ahead of time (iOS only lets navigator.share run
+// straight inside the tap): same background, logo, title, corners and timer as the game.
 async function drawShareCard(st: ShareStats): Promise<File | null> {
   try {
     await document.fonts.ready;
-    const size = 1080;
+    const W = 1080;
+    const H = 1920;
+    const vmin = W / 100;
+    const vh = H / 100;
     const c = document.createElement('canvas');
-    c.width = size;
-    c.height = size;
+    c.width = W;
+    c.height = H;
     const ctx = c.getContext('2d');
     if (!ctx) return null;
-    const fam = getComputedStyle(document.documentElement).getPropertyValue('--font-assistant').trim() || 'system-ui, sans-serif';
+    const [bgImg, logoImg] = await Promise.all([loadImage(st.bgImage), loadImage(st.logo)]);
+
     ctx.fillStyle = st.bg;
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, W, H);
+    if (bgImg) {
+      const k = Math.max(W / bgImg.width, H / bgImg.height);
+      ctx.drawImage(bgImg, (W - bgImg.width * k) / 2, (H - bgImg.height * k) / 2, bgImg.width * k, bgImg.height * k);
+    }
+
+    const RLM = '‏'; // keeps mixed Hebrew + numbers in Hebrew order even where canvas ignores direction
+    ctx.direction = 'rtl';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.direction = 'rtl';
-    const RLM = '\u200F'; // keeps "3 בולים" in Hebrew order even where canvas ignores direction
     ctx.fillStyle = st.fg;
+    const pad = 3 * vmin + 10;
+    const r = 1.8 * vmin + 6;
+
+    // Corners, as on screen: gold coins top-right, counter / lives top-left
+    const shown = Math.min(st.wins, 12);
+    for (let i = 0; i < shown; i += 1) coin(ctx, W - pad - r - i * (2 * r + 1.2 * vmin), pad + r, r);
+    if (st.board === 'counter') {
+      ctx.textAlign = 'left';
+      ctx.font = `900 ${Math.round(5 * vmin)}px ${st.font}`;
+      ctx.fillText(String(st.misses), pad, pad + r);
+      ctx.textAlign = 'center';
+    } else if (st.board === 'lives') {
+      for (let i = 0; i < st.lives; i += 1) {
+        const x = pad + r + i * (2 * r + 1.2 * vmin);
+        ctx.beginPath();
+        ctx.arc(x, pad + r, r, 0, Math.PI * 2);
+        if (i < st.livesLeft) {
+          ctx.fillStyle = '#22c55e';
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = 'rgba(255,255,255,.35)';
+          ctx.lineWidth = 0.3 * vmin;
+          ctx.stroke();
+        }
+      }
+      ctx.fillStyle = st.fg;
+    }
+
+    // Centre column, laid out top-down then centred vertically like the flex column in the game
+    const logoH = logoImg ? (st.logoSize / 100) * H * 0.75 : 0;
+    const titleH = st.title ? 7 * vmin : 0;
+    const timerH = 30 * vmin;
+    const hintH = 12 * vmin;
+    const statH = 6 * vmin;
+    const gap = 2 * vh;
+    const total = logoH + titleH + timerH + hintH + statH + gap * ((logoH ? 1 : 0) + (titleH ? 1 : 0) + 2);
+    let y = (H - total) / 2;
+    if (logoImg) {
+      const lw = Math.min(W * 0.8, (logoImg.width / logoImg.height) * logoH);
+      const lh = (lw / logoImg.width) * logoImg.height;
+      ctx.drawImage(logoImg, (W - lw) / 2, y + (logoH - lh) / 2, lw, lh);
+      y += logoH + gap;
+    }
     if (st.title) {
-      ctx.globalAlpha = 0.75;
-      ctx.font = `700 64px ${fam}`;
-      ctx.fillText(RLM + st.title, size / 2, 170, size - 120);
+      ctx.globalAlpha = 0.8;
+      ctx.font = `700 ${Math.round(5 * vmin)}px ${st.font}`;
+      ctx.fillText(RLM + st.title, W / 2, y + titleH / 2, W - 2 * pad);
       ctx.globalAlpha = 1;
+      y += titleH + gap;
     }
-    ctx.font = `900 230px ${fam}`;
-    ctx.fillText('10.00', size / 2, 400);
-    // Gold coins, one per hit (up to 14, then the line below carries the count)
-    const n = Math.min(st.wins, 14);
-    const r = 34;
-    const gap = 22;
-    const perRow = 7;
-    for (let i = 0; i < n; i += 1) {
-      const row = Math.floor(i / perRow);
-      const inRow = Math.min(perRow, n - row * perRow);
-      const x = size / 2 + ((inRow - 1) / 2 - (i % perRow)) * (2 * r + gap);
-      const y = 640 + row * (2 * r + gap);
-      const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.4, 2, x, y, r);
-      g.addColorStop(0, '#fff4b8');
-      g.addColorStop(0.3, '#ffd43b');
-      g.addColorStop(0.68, '#f59e0b');
-      g.addColorStop(1, '#c2410c');
-      ctx.shadowColor = 'rgba(255,176,0,.6)';
-      ctx.shadowBlur = 24;
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = st.fg;
-    ctx.font = `800 76px ${fam}`;
-    ctx.fillText(RLM + shareLine(st), size / 2, n > perRow ? 880 : 800, size - 100);
-    ctx.globalAlpha = 0.5;
-    ctx.font = `700 40px ${fam}`;
-    ctx.fillText('10 בול · The Q', size / 2, 1000);
+    const ms = st.lastMs ?? 10000;
+    const h = Math.floor(ms / 10);
+    const time = `${String(Math.floor(h / 100)).padStart(2, '0')}.${String(h % 100).padStart(2, '0')}`;
+    ctx.font = `900 ${Math.round(22 * vmin)}px ${st.font}`;
+    ctx.fillText(time, W / 2, y + timerH / 2);
+    y += timerH + gap;
+    const diff = st.lastDiff ?? 0;
+    const hint = diff === 0 ? 'בול!' : `${diff < 0 ? 'מוקדם' : 'מאוחר'} ב-${(Math.abs(diff) / 100).toFixed(2)}`;
+    ctx.font = `900 ${Math.round((diff === 0 ? 12 : 7) * vmin)}px ${st.font}`;
+    ctx.fillText(RLM + hint, W / 2, y + hintH / 2, W - 2 * pad);
+    y += hintH + gap;
+    ctx.globalAlpha = 0.75;
+    ctx.font = `700 ${Math.round(4.5 * vmin)}px ${st.font}`;
+    ctx.fillText(RLM + shareLine(st), W / 2, y + statH / 2, W - 2 * pad);
+    ctx.globalAlpha = 0.4;
+    ctx.font = `400 ${Math.round(3 * vmin)}px ${st.font}`;
+    ctx.direction = 'ltr';
+    ctx.fillText('Powered by Playzone', W / 2, H - pad - vmin);
+    ctx.globalAlpha = 1;
+
     const blob = await new Promise<Blob | null>((res) => c.toBlob(res, 'image/png'));
     return blob ? new File([blob], '10-bool.png', { type: 'image/png' }) : null;
   } catch {
@@ -186,6 +274,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const [livesOut, setLivesOut] = useState(false);
   const [endedAt, setEndedAt] = useState(0);
   const [attempts, setAttempts] = useState(0); // rounds played this session, for the share card
+  const [lastResult, setLastResult] = useState<{ ms: number; diff: number } | null>(null); // survives the reset to idle
   const missesRef = useRef(0);
   missesRef.current = misses;
   const livesLeftRef = useRef(livesLeft);
@@ -316,6 +405,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       stopAll();
       play(diff === 0 ? 'success' : 'fail');
       setResult({ ms, diff });
+      setLastResult({ ms, diff });
       setPhase('ended');
       setEndedAt(endedAtRef.current);
       setAttempts((a) => a + 1);
@@ -434,7 +524,24 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   // Share (phones, from the 2nd hit): the card is rebuilt whenever the score changes
   const shareFileRef = useRef<File | null>(null);
   const bgColor = config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor;
-  const shareStats: ShareStats = { wins, attempts, board: fx.board, lives: fx.lives, title, bg: bgColor, fg: textColor };
+  const assistant = typeof document === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue('--font-assistant').trim();
+  const shareStats: ShareStats = {
+    wins,
+    attempts,
+    misses,
+    livesLeft,
+    board: fx.board,
+    lives: fx.lives,
+    title,
+    bg: bgColor,
+    fg: textColor,
+    font: `'${font.family}', ${assistant || 'system-ui'}, sans-serif`,
+    bgImage: config?.backgroundImageUrl,
+    logo: config?.logoUrl,
+    logoSize: fx.logoSize,
+    lastMs: lastResult?.ms,
+    lastDiff: lastResult?.diff,
+  };
   const canShare = isTouch && wins >= 2;
   const shareKey = JSON.stringify(shareStats);
   useEffect(() => {
@@ -497,7 +604,37 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
 
   // In idle a touch starts the round on release, so a swipe can change the mode instead.
   // A running round still stops on pointerdown - the stop is the timed moment.
-  const touchStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; id: number; touch: boolean; dragging: boolean } | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const slidingRef = useRef(false); // a page-turn animation is running - ignore taps
+
+  const moveStage = (x: number, ms: number, ease = 'ease-out') => {
+    const el = stageRef.current;
+    if (!el) return;
+    el.style.transition = ms ? `transform ${ms}ms ${ease}` : 'none';
+    el.style.transform = x ? `translateX(${x}px)` : '';
+  };
+
+  // Release after a drag: far enough = the game slides off and the next one slides in from the other side
+  const finishDrag = (dx: number) => {
+    const w = window.innerWidth;
+    if (Math.abs(dx) < Math.max(SWIPE_MIN_PX, w * 0.2)) {
+      moveStage(0, 200);
+      return;
+    }
+    const dir = dx < 0 ? -1 : 1;
+    slidingRef.current = true;
+    moveStage(dir * w, 180, 'ease-in');
+    later(() => {
+      cycleBoard(dx < 0 ? 1 : -1);
+      moveStage(-dir * w, 0);
+      void stageRef.current?.offsetWidth; // commit the off-screen start before sliding in
+      moveStage(0, 240);
+      later(() => {
+        slidingRef.current = false;
+      }, 240);
+    }, 180);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -531,12 +668,19 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     <div
       dir="rtl"
       onPointerDown={(e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || slidingRef.current) return;
         if (phaseRef.current === 'idle') {
-          touchStartRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+          touchStartRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId, touch: e.pointerType === 'touch', dragging: false };
           return;
         }
         press(e.timeStamp);
+      }}
+      onPointerMove={(e) => {
+        const start = touchStartRef.current;
+        if (!start || !start.touch || start.id !== e.pointerId || phaseRef.current !== 'idle' || turnOverRef.current) return;
+        const dx = e.clientX - start.x;
+        if (!start.dragging && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(e.clientY - start.y)) start.dragging = true;
+        if (start.dragging) moveStage(dx, 0); // the game follows the finger
       }}
       onPointerUp={(e) => {
         const start = touchStartRef.current;
@@ -544,13 +688,15 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         if (!start || start.id !== e.pointerId || phaseRef.current !== 'idle') return;
         const dx = e.clientX - start.x;
         const dy = e.clientY - start.y;
-        if (Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) cycleBoard(dx < 0 ? 1 : -1);
+        if (start.dragging) finishDrag(dx);
+        else if (Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) cycleBoard(dx < 0 ? 1 : -1);
         else press(e.timeStamp);
       }}
       onPointerCancel={() => {
+        if (touchStartRef.current?.dragging) moveStage(0, 200);
         touchStartRef.current = null;
       }}
-      className={`fixed inset-0 flex flex-col items-center justify-center gap-[2vh] select-none overflow-hidden cursor-pointer ${
+      className={`fixed inset-0 select-none overflow-hidden cursor-pointer ${
         phase === 'ended'
           ? win
             ? `tenbool-win ${fx.winFlash ? 'tenbool-win-bg' : ''}`
@@ -623,66 +769,70 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
           ))}
         </div>
       )}
+      {/* The centre (timer and what's around it) is what a phone swipe drags sideways - the corners
+          keep their own animations and stay put */}
+      <div ref={stageRef} className="absolute inset-0 flex flex-col items-center justify-center gap-[2vh]">
+        {config?.logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={config.logoUrl}
+            alt=""
+            draggable={false}
+            className="pointer-events-none object-contain max-w-[80vw]"
+            style={{ height: `${fx.logoSize}vh` }}
+          />
+        )}
+        {title && phase === 'idle' && <div className="text-[5vmin] font-bold opacity-80">{title}</div>}
+        <div
+          ref={timerRef}
+          dir="ltr"
+          className="tenbool-timer font-black leading-none tabular-nums text-[min(22vw,40vh)]"
+        >
+          00.00
+        </div>
+        <div
+          className={`tenbool-hint font-black min-h-[1.2em] text-center px-4 ${
+            phase === 'idle' ? 'tenbool-idle-hint text-[5vmin]' : phase === 'ended' ? (win ? 'text-[12vmin]' : 'text-[7vmin]') : ''
+          }`}
+        >
+          {hint}
+        </div>
+        {fx.closenessBar && (
+          // ±1.00s maps to the bar ends; anything further sits at the edge
+          <div dir="ltr" className="pointer-events-none relative w-[min(60vw,720px)] h-[4vmin]" aria-hidden="true">
+            <span className="absolute left-0 right-0 top-1/2 h-[max(2px,.35vmin)] -translate-y-1/2 rounded-full opacity-30" style={{ background: textColor }} />
+            <span className="absolute left-1/2 top-0 bottom-0 w-[max(2px,.4vmin)] -translate-x-1/2 rounded-full opacity-70" style={{ background: textColor }} />
+            {phase === 'ended' && result && (
+              <span
+                key={endedAt}
+                className="tenbool-land absolute top-1/2 -mt-[max(6px,1.2vmin)] h-[max(12px,2.4vmin)] w-[max(12px,2.4vmin)] rounded-full"
+                style={{
+                  left: `${50 + Math.max(-1, Math.min(1, result.diff / 100)) * 50}%`,
+                  background: result.diff === 0 ? '#22c55e' : textColor,
+                }}
+              />
+            )}
+          </div>
+        )}
+        {canShare && phase !== 'running' && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={share}
+            className="mt-[1vh] flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-[max(15px,2.4vmin)] font-bold text-white shadow-lg active:scale-95 transition-transform"
+            style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif' }}
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
+              <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z" />
+            </svg>
+            שתפו בוואטסאפ
+          </button>
+        )}
+      </div>
       {toast && (
         <div key={toast.id} dir="rtl" className="tenbool-toast" style={{ animationDuration: `${toast.ms}ms` }}>
           {toast.text}
         </div>
-      )}
-      {config?.logoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={config.logoUrl}
-          alt=""
-          draggable={false}
-          className="pointer-events-none object-contain max-w-[80vw]"
-          style={{ height: `${fx.logoSize}vh` }}
-        />
-      )}
-      {title && phase === 'idle' && <div className="text-[5vmin] font-bold opacity-80">{title}</div>}
-      <div
-        ref={timerRef}
-        dir="ltr"
-        className="tenbool-timer font-black leading-none tabular-nums text-[min(22vw,40vh)]"
-      >
-        00.00
-      </div>
-      <div
-        className={`tenbool-hint font-black min-h-[1.2em] text-center px-4 ${
-          phase === 'idle' ? 'tenbool-idle-hint text-[5vmin]' : phase === 'ended' ? (win ? 'text-[12vmin]' : 'text-[7vmin]') : ''
-        }`}
-      >
-        {hint}
-      </div>
-      {fx.closenessBar && (
-        // ±1.00s maps to the bar ends; anything further sits at the edge
-        <div dir="ltr" className="pointer-events-none relative w-[min(60vw,720px)] h-[4vmin]" aria-hidden="true">
-          <span className="absolute left-0 right-0 top-1/2 h-[max(2px,.35vmin)] -translate-y-1/2 rounded-full opacity-30" style={{ background: textColor }} />
-          <span className="absolute left-1/2 top-0 bottom-0 w-[max(2px,.4vmin)] -translate-x-1/2 rounded-full opacity-70" style={{ background: textColor }} />
-          {phase === 'ended' && result && (
-            <span
-              key={endedAt}
-              className="tenbool-land absolute top-1/2 -mt-[max(6px,1.2vmin)] h-[max(12px,2.4vmin)] w-[max(12px,2.4vmin)] rounded-full"
-              style={{
-                left: `${50 + Math.max(-1, Math.min(1, result.diff / 100)) * 50}%`,
-                background: result.diff === 0 ? '#22c55e' : textColor,
-              }}
-            />
-          )}
-        </div>
-      )}
-      {canShare && phase !== 'running' && (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          onClick={share}
-          className="mt-[1vh] flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-[max(15px,2.4vmin)] font-bold text-white shadow-lg active:scale-95 transition-transform"
-          style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif' }}
-        >
-          <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
-            <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z" />
-          </svg>
-          שתפו בוואטסאפ
-        </button>
       )}
       {/* New tab, and kept off the game's tap target, so a stray touch never ends a round */}
       <a

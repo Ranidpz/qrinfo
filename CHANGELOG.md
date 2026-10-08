@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.25.1] - 2026-10-08
+
+- Phones: the centre column (`stageRef`: logo, title, timer, hint, bar, share) follows the finger while swiping; past max(60px, 20% width) it slides off and the next mode slides in from the other side, else it snaps back. Corners stay put. Taps are ignored while it slides.
+- Share card is now a 1080×1920 "screenshot" of the result screen: background (+ image if its host allows CORS), corners, logo, title, last time + hint, a small summary line and "Powered by Playzone". The last result is kept across the reset to idle.
+
 ## [1.25.0] - 2026-10-08
 
 - Space now plays like Enter (buzzers map to either).
