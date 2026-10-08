@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   TENBOOL_DEFAULTS,
   resolveTenBoolSoundUrl,
+  tenboolPlaybackRate,
   tenboolFont,
   tenboolFontStylesheet,
   type TenBoolConfig,
@@ -20,7 +21,7 @@ const AUTO_STOP_MS = 20000; // nobody pressed - count it as a miss
 const RESET_LOCK_MS = 1200; // a double press right after the result must not reset it
 
 type SoundName = TenBoolSoundSlot;
-const SOUND_SLOTS: SoundName[] = ['start', 'beep', 'success', 'fail'];
+const SOUND_SLOTS: SoundName[] = ['start', 'beep', 'ten', 'success', 'fail'];
 
 type Phase = 'idle' | 'running' | 'ended';
 
@@ -40,6 +41,7 @@ const TENBOOL_STYLE = `
 @keyframes tenbool-bounce { 0%,100% { transform:translateY(0) scale(1) } 50% { transform:translateY(-3vh) scale(1.08) } }
 @keyframes tenbool-breathe { 0%,100% { opacity:.45 } 50% { opacity:1 } }
 @keyframes tenbool-flash { 0% { opacity:.55 } 100% { opacity:0 } }
+@keyframes tenbool-dot-in { 0% { transform:scale(0) } 55% { transform:scale(1.6) } 75% { transform:scale(.85) } 100% { transform:scale(1) } }
 .tenbool-lose { animation: tenbool-lose .1s steps(1) 12 }
 .tenbool-win { animation: tenbool-win .345s steps(1) 10 }
 .tenbool-win .tenbool-timer { animation: tenbool-pop .5s cubic-bezier(.2,1.6,.4,1) both; text-shadow: 0 .8vmin 0 rgba(0,0,0,.45), 0 0 4vmin rgba(255,255,255,.9) }
@@ -47,8 +49,11 @@ const TENBOOL_STYLE = `
 .tenbool-win .tenbool-hint { animation: tenbool-bounce .345s ease-in-out 10 }
 .tenbool-idle-hint { animation: tenbool-breathe 1.6s ease-in-out infinite }
 .tenbool-beep { animation: tenbool-flash .18s ease-out }
+.tenbool-dot { width:max(10px,2.4vmin); height:max(10px,2.4vmin); border-radius:9999px; background:#22c55e; box-shadow:0 0 0 max(1px,.25vmin) rgba(0,0,0,.25) }
+/* The new dot waits out the 3.45s win strobe, then bounces in */
+.tenbool-dot-new { animation: tenbool-dot-in .55s cubic-bezier(.2,1.4,.4,1) 3.45s both }
 @media (prefers-reduced-motion: reduce) {
-  .tenbool-lose, .tenbool-win, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep { animation: none !important }
+  .tenbool-lose, .tenbool-win, .tenbool-timer, .tenbool-hint, .tenbool-idle-hint, .tenbool-beep, .tenbool-dot-new { animation: none !important }
   .tenbool-lose { background:#a00000 !important } .tenbool-win { background:#00a83a !important }
 }
 `;
@@ -56,6 +61,9 @@ const TENBOOL_STYLE = `
 export default function TenBoolViewer({ title, config }: { title?: string; config?: TenBoolConfig }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<{ ms: number; diff: number } | null>(null);
+
+  // One green dot per exact 10.00 - a silent scoreboard. In memory only, so a refresh clears it.
+  const [wins, setWins] = useState(0);
 
   const timerRef = useRef<HTMLDivElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
@@ -79,6 +87,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const textColor = config?.textColor || TENBOOL_DEFAULTS.textColor;
   const textColorRef = useRef(textColor);
   textColorRef.current = textColor;
+  const tenRateRef = useRef(1);
+  tenRateRef.current = tenboolPlaybackRate(config, 'ten');
 
   useEffect(() => {
     const urls = soundKey.split('|');
@@ -158,6 +168,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       play(diff === 0 ? 'success' : 'fail');
       setResult({ ms, diff });
       setPhase('ended');
+      if (diff === 0) setWins((w) => w + 1);
     },
     [play, stopAll]
   );
@@ -174,7 +185,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       // One beep per whole second: 7, 8, 9 and a higher one at 10
       if (sec >= WARN_FROM_S && sec <= TARGET_MS / 1000 && sec > lastBeepRef.current) {
         lastBeepRef.current = sec;
-        play('beep', sec * 1000 === TARGET_MS ? 1.6 : 1);
+        if (sec * 1000 === TARGET_MS) play('ten', tenRateRef.current);
+        else play('beep');
         // A red flash on every beep - restart the CSS animation by re-adding the class
         const flash = flashRef.current;
         if (flash) {
@@ -245,7 +257,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         if (e.button !== 0) return;
         press(e.timeStamp);
       }}
-      className={`h-screen w-full relative flex flex-col items-center justify-center gap-[2vh] select-none overflow-hidden cursor-pointer ${
+      className={`fixed inset-0 flex flex-col items-center justify-center gap-[2vh] select-none overflow-hidden cursor-pointer ${
         phase === 'ended' ? (win ? 'tenbool-win' : 'tenbool-lose') : ''
       }`}
       style={{
@@ -259,6 +271,17 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     >
       <style>{TENBOOL_STYLE}</style>
       <div ref={flashRef} className="pointer-events-none absolute inset-0 bg-red-600 opacity-0" />
+      {wins > 0 && (
+        <div
+          dir="rtl"
+          aria-label={`${wins} הצלחות`}
+          className="pointer-events-none absolute top-[max(0.75rem,3vmin)] inset-x-[max(0.75rem,3vmin)] flex flex-wrap gap-[max(6px,1.2vmin)]"
+        >
+          {Array.from({ length: wins }, (_, i) => (
+            <span key={i} className="tenbool-dot tenbool-dot-new" />
+          ))}
+        </div>
+      )}
       {title && phase === 'idle' && <div className="text-[5vmin] font-bold opacity-80">{title}</div>}
       <div
         ref={timerRef}
@@ -281,7 +304,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         rel="noopener noreferrer"
         dir="ltr"
         onPointerDown={(e) => e.stopPropagation()}
-        className="absolute bottom-3 inset-x-0 mx-auto w-fit text-[12px] opacity-40 hover:opacity-80 transition-opacity"
+        className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-0 mx-auto w-fit text-[12px] opacity-40 hover:opacity-80 transition-opacity"
       >
         Powered by <span className="font-bold">Playzone</span>
       </a>

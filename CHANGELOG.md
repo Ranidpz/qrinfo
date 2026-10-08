@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.22.2] - 2026-10-08
+
+- `TenBoolViewer`: a green dot per exact 10.00, filling right to left at the top of the screen. The new dot waits out the 3.45s win strobe, then bounces in. In memory only — a refresh clears the board.
+- Root is now `fixed inset-0` instead of `h-screen`: on iPhone Safari `100vh` runs under the bottom toolbar, which hid "Powered by Playzone".
+- New sound slot `ten` (the beep on 10.00), default = the beep at 1.6x as before. The library drops `win` / `spin` (byte-identical to success / start; saved choices still resolve) and names the two buzzers by length.
+
 ## [1.22.1] - 2026-10-06
 
 - Q.Treasure security (phase 0 of the overhaul): player + scan writes go through the Admin SDK via `src/lib/qtreasure/store.ts`; `register`/`start`/`scan` add rate limiting + origin checks; `phase` is owner-only (was unauthenticated); `resolve-station` uses indexed `shortId` lookups instead of scanning all codes. `firestore.rules`: `qtreasure_players` / `qtreasure_scans` create+update → `if false` (deployed with this release, both projects).

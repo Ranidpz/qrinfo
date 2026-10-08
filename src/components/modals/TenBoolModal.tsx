@@ -10,6 +10,7 @@ import {
   resolveTenBoolSoundUrl,
   tenboolFont,
   tenboolFontStylesheet,
+  tenboolPlaybackRate,
   tenboolSoundSetting,
   type TenBoolConfig,
   type TenBoolFontId,
@@ -23,7 +24,8 @@ import {
 
 const SLOTS: { slot: TenBoolSoundSlot; label: string; hint: string }[] = [
   { slot: 'start', label: 'פתיחה', hint: 'כשהטיימר מתחיל' },
-  { slot: 'beep', label: 'צפצוף', hint: 'בכל שנייה מ-7 עד 10' },
+  { slot: 'beep', label: 'צפצוף', hint: 'בשניות 7, 8 ו-9' },
+  { slot: 'ten', label: 'צפצוף 10', hint: 'בדיוק על 10.00' },
   { slot: 'success', label: 'הצלחה', hint: 'עצירה בדיוק על 10.00' },
   { slot: 'fail', label: 'כישלון', hint: 'כל עצירה אחרת' },
 ];
@@ -107,6 +109,9 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
     if (!url) return;
     audioRef.current?.pause();
     const audio = new Audio(url);
+    // Same pitch as the game (the beep on 10.00 plays higher)
+    audio.playbackRate = tenboolPlaybackRate(config, slot);
+    audio.preservesPitch = false;
     audio.onended = () => setPlaying((p) => (p === slot ? null : p));
     audioRef.current = audio;
     setPlaying(slot);
