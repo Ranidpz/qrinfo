@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, ExternalLink, ImagePlus, Loader2, Play, RotateCcw, Square, Timer, Trash2, Upload, X } from 'lucide-react';
+import { Check, Copy, ExternalLink, ImagePlus, Loader2, Monitor, Play, RotateCcw, Smartphone, Square, Timer, Trash2, Upload, Users, X } from 'lucide-react';
+import TenBoolPlayersPanel from '@/components/modals/TenBoolPlayersPanel';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { NEON_STYLE, NeonBackdrop, NeonRing } from '@/components/viewer/tenbool/NeonSpace';
 import {
   TENBOOL_DEFAULTS,
   TENBOOL_BOARDS,
+  TENBOOL_BOARD_SIZE,
   TENBOOL_FONTS,
   TENBOOL_LIVES,
   TENBOOL_LOGO_SIZE,
@@ -15,6 +17,7 @@ import {
   tenboolFont,
   tenboolFontStylesheet,
   tenboolEffects,
+  tenboolCompetition,
   tenboolPlaybackRate,
   tenboolSoundSetting,
   type TenBoolBoard,
@@ -69,6 +72,8 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
   const [dragOver, setDragOver] = useState(false);
   const dragDepth = useRef(0);
   const [playing, setPlaying] = useState<TenBoolSoundSlot | null>(null);
+  const [showPlayers, setShowPlayers] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const soundInputRef = useRef<HTMLInputElement>(null);
@@ -217,6 +222,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
   const fg = config.textColor || TENBOOL_DEFAULTS.textColor;
   const isDefault = JSON.stringify(config) === '{}';
   const fx = tenboolEffects(config);
+  const comp = tenboolCompetition(config);
 
   return (
     <div
@@ -306,19 +312,19 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                 <NeonBackdrop from={fx.neonFrom} to={fx.neonTo} centre={fx.spaceFrom} edge={fx.spaceTo} stars={fx.neonStars} />
               </>
             )}
-            {fx.board !== 'off' && (
+            {!comp.phone && fx.board !== 'off' && (
               <div dir="rtl" className="absolute top-2 right-2 flex gap-1">
                 {[0, 1].map((i) => (
                   <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ background: 'radial-gradient(circle at 35% 30%, #fff4b8 0%, #ffd43b 30%, #f59e0b 68%, #c2410c 100%)' }} />
                 ))}
               </div>
             )}
-            {fx.board === 'counter' && (
+            {!comp.phone && fx.board === 'counter' && (
               <span dir="ltr" className="absolute top-1.5 left-2.5 text-sm font-black">
                 3
               </span>
             )}
-            {fx.board === 'lives' && (
+            {!comp.phone && fx.board === 'lives' && (
               <div dir="ltr" className="absolute top-2 left-2 flex gap-1">
                 {Array.from({ length: fx.lives }, (_, i) => (
                   <span
@@ -347,8 +353,125 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                 10.00
               </div>
             </div>
-            <div className="relative text-sm sm:text-base font-black opacity-70">תנו בבאזר או געו במסך כדי להתחיל</div>
+            <div className="relative text-sm sm:text-base font-black opacity-70">
+              {comp.phone ? 'געו במסך כדי להתחיל' : 'תנו בבאזר או געו במסך כדי להתחיל'}
+            </div>
           </div>
+
+          {/* How people play: the buzzer on the big screen, or everyone on their phone + a live leaderboard */}
+          <section className="space-y-2" aria-labelledby="tenbool-mode">
+            <h3 id="tenbool-mode" className="text-sm font-semibold text-text-primary">
+              איך משחקים
+            </h3>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="tenbool-mode">
+              {(
+                [
+                  { id: 'buzzer', label: 'באזר על המסך', hint: 'שחקן אחד בכל פעם', Icon: Monitor },
+                  { id: 'phone', label: 'בטלפונים', hint: 'כולם משחקים, לוח תוצאות במסך', Icon: Smartphone },
+                ] as const
+              ).map(({ id, label, hint, Icon }) => {
+                const active = (id === 'phone') === comp.phone;
+                return (
+                  <button
+                    key={id}
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => update({ playMode: id })}
+                    className={`rounded-xl px-3 py-2.5 text-start border transition-colors ${
+                      active ? 'border-accent bg-accent/10' : 'border-transparent bg-bg-secondary hover:bg-bg-hover'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
+                      <Icon className="w-4 h-4" />
+                      {label}
+                    </span>
+                    <span className="block text-xs text-text-secondary mt-0.5">{hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {comp.phone && (
+              <>
+                <div className="rounded-xl bg-bg-secondary px-3 py-2.5 space-y-2">
+                  <p className="text-xs text-text-secondary">
+                    פתחו את הלוח על המסך הגדול. הקוד שעל הלוח מוביל את השחקנים ישר למשחק בטלפון.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={`/v/${shortId}?screen=board`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary !py-2 !px-3 text-sm"
+                    >
+                      <Monitor className="w-4 h-4" />
+                      פתחו את הלוח
+                    </a>
+                    <button
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(`${window.location.origin}/v/${shortId}`).then(() => {
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        });
+                      }}
+                      className="btn btn-secondary !py-2 !px-3 text-sm"
+                    >
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copied ? 'הועתק' : 'העתיקו קישור לשחקנים'}
+                    </button>
+                  </div>
+                </div>
+                <SwitchRow
+                  label="אימות בוואטסאפ לזוכים"
+                  hint={comp.verifyWinners ? 'רק מי שעצר בול מאמת טלפון. מספר אחד — מקום אחד בלוח' : 'כבוי — כל בול עולה ללוח בלי אימות'}
+                  checked={comp.verifyWinners}
+                  onChange={(v) => update({ verifyWinners: v })}
+                />
+                <SwitchRow
+                  label="רשימת הכי קרובים"
+                  hint="מי שעצר בטווח של שנייה מ-10.00"
+                  checked={comp.nearMisses}
+                  onChange={(v) => update({ nearMisses: v })}
+                />
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-bg-secondary px-3 py-2.5">
+                  <span className="text-sm font-medium text-text-primary">שורות בלוח</span>
+                  <div className="flex items-center gap-2" dir="ltr">
+                    <button
+                      onClick={() => update({ boardSize: Math.max(TENBOOL_BOARD_SIZE.min, comp.boardSize - 1) })}
+                      aria-label="פחות שורות"
+                      className="w-8 h-8 rounded-lg bg-bg-primary text-text-primary hover:bg-bg-hover"
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-center font-semibold tabular-nums text-text-primary">{comp.boardSize}</span>
+                    <button
+                      onClick={() => update({ boardSize: Math.min(TENBOOL_BOARD_SIZE.max, comp.boardSize + 1) })}
+                      aria-label="יותר שורות"
+                      className="w-8 h-8 rounded-lg bg-bg-primary text-text-primary hover:bg-bg-hover"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-bg-secondary px-3 py-2.5">
+                  <button
+                    onClick={() => setShowPlayers((v) => !v)}
+                    aria-expanded={showPlayers}
+                    className="w-full flex items-center gap-1.5 text-sm font-medium text-text-primary"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span className="flex-1 text-start">שחקנים, זוכים וניהול הלוח</span>
+                    <span className="text-xs text-text-secondary">{showPlayers ? 'הסתירו' : 'הציגו'}</span>
+                  </button>
+                  {showPlayers && (
+                    <div className="mt-3">
+                      <TenBoolPlayersPanel codeId={codeId} title={title} />
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
 
           {/* Look */}
           <section className="space-y-3" aria-labelledby="tenbool-look">
@@ -480,7 +603,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             <h3 id="tenbool-board" className="text-sm font-semibold text-text-primary">
               לוח
             </h3>
-            <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-secondary px-3 py-2.5">
+            {!comp.phone && <label className="flex items-center justify-between gap-3 rounded-xl bg-bg-secondary px-3 py-2.5">
               <span className="flex-1 min-w-0">
                 <span className="block text-sm font-medium text-text-primary">מצב לוח</span>
                 <span className="block text-xs text-text-secondary truncate">
@@ -504,8 +627,8 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                   </option>
                 ))}
               </select>
-            </label>
-            {fx.board === 'lives' && (
+            </label>}
+            {!comp.phone && fx.board === 'lives' && (
               <div className="flex items-center justify-between gap-3 rounded-xl bg-bg-secondary px-3 py-2.5">
                 <span className="text-sm font-medium text-text-primary">מספר חיים</span>
                 <div className="flex items-center gap-2" dir="ltr">

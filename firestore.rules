@@ -104,6 +104,13 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // 10 בול phone-mode players (phones + OTP state + attempts). FULLY locked —
+      // players use /api/tenbool/*, the big screen reads /api/tenbool/board,
+      // owners use /api/tenbool/admin.
+      match /tenboolPlayers/{playerId} {
+        allow read, write: if false;
+      }
+
       // Q.Games Players subcollection (all writes via Admin SDK / API routes)
       match /qgames_players/{playerId} {
         allow read: if true;

@@ -19,7 +19,7 @@ import { QTreasurePlayerView, QTreasureDisplay } from '@/components/qtreasure';
 import QChallengeViewer from '@/components/viewer/QChallengeViewer';
 import QTagViewer from '@/components/viewer/QTagViewer';
 import QGamesViewer from '@/components/viewer/QGamesViewer';
-import TenBoolViewer from '@/components/viewer/TenBoolViewer';
+import TenBoolExperience from '@/components/viewer/tenbool/TenBoolExperience';
 import QGamesDisplay from '@/components/qgames/QGamesDisplay';
 import QGamesDisplayWidescreen from '@/components/qgames/QGamesDisplayWidescreen';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
@@ -1562,7 +1562,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
         ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isTenBool ? (
-          <TenBoolViewer title={title || currentMedia.title} config={currentMedia.tenboolConfig} />
+          <TenBoolExperience codeId={codeId} shortId={shortId} title={title || currentMedia.title} config={currentMedia.tenboolConfig} />
         ) : isQBet && currentMedia.qbetConfig ? (
           <QBetViewer config={currentMedia.qbetConfig} codeId={codeId} shortId={shortId} ownerId={ownerId} />
         ) : isQVote && currentMedia.qvoteConfig ? (

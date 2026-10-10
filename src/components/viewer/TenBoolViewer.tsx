@@ -338,7 +338,29 @@ async function drawShareCard(st: ShareStats): Promise<File | null> {
   }
 }
 
-export default function TenBoolViewer({ title, config }: { title?: string; config?: TenBoolConfig }) {
+// Phone-mode competition (TenBoolPhonePlay): the game reports each round and can be paused while
+// the win flow is on screen. Off-board extras that would let a player game the count are switched off.
+export interface TenBoolCompetitionHooks {
+  onStart: () => void;
+  onFinish: (result: { ms: number; diff: number }) => void;
+  locked: boolean; // presses are ignored (a form is open on top)
+  hud?: React.ReactNode;
+}
+
+const isTyping = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+
+export default function TenBoolViewer({
+  title,
+  config,
+  competition,
+}: {
+  title?: string;
+  config?: TenBoolConfig;
+  competition?: TenBoolCompetitionHooks;
+}) {
+  const competitionRef = useRef(competition);
+  competitionRef.current = competition;
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<{ ms: number; diff: number } | null>(null);
 
@@ -395,7 +417,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const baseFx = tenboolEffects(config);
   const logoSrc = useLocalCopy(config?.logoUrl);
   const bgImageSrc = useLocalCopy(config?.backgroundStyle === 'neon' ? undefined : config?.backgroundImageUrl);
-  const fx = { ...baseFx, board: boardOverride ?? baseFx.board };
+  // Competition: no corner scoreboard (the phone shows its own attempt count) and no mode swipes
+  const fx = { ...baseFx, board: competition ? ('off' as TenBoolBoard) : (boardOverride ?? baseFx.board) };
   // Countdown phase (from second 7) - only the neon ring needs it as state, the digits use refs
   const [warnOn, setWarnOn] = useState(false);
   const warnOnRef = useRef(false);
@@ -496,10 +519,11 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       setPhase('ended');
       setEndedAt(endedAtRef.current);
       setAttempts((a) => a + 1);
+      competitionRef.current?.onFinish({ ms, diff });
       // Phones, regular game: repeat the swipe tip once, after the first round's strobe
       if (!firstRoundDoneRef.current) {
         firstRoundDoneRef.current = true;
-        if (isTouchRef.current && boardRef.current === 'wins') {
+        if (isTouchRef.current && boardRef.current === 'wins' && !competitionRef.current) {
           later(() => showToastRef.current(SWIPE_TIP_TOUCH, 3000), diff === 0 ? WIN_FX_MS : LOSE_FX_MS);
         }
       }
@@ -586,8 +610,10 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     (pressAt: number) => {
       audioRef.current?.ctx.resume().catch(() => {}); // browsers unlock audio only inside a user gesture
       if (turnOverRef.current) return; // the board is rebuilding for the next player
+      if (competitionRef.current?.locked) return;
       const current = phaseRef.current;
       if (current === 'idle') {
+        competitionRef.current?.onStart();
         phaseRef.current = 'running';
         lastBeepRef.current = 0;
         setResult(null);
@@ -635,7 +661,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     lastDiff: lastResult?.diff,
     neon: fx.neon ? { from: fx.neonFrom, to: fx.neonTo, centre: fx.spaceFrom, edge: fx.spaceTo, stars: fx.neonStars } : undefined,
   };
-  const canShare = isPhone && wins >= 1;
+  const canShare = isPhone && wins >= 1 && !competition;
   const shareKey = JSON.stringify(shareStats);
   useEffect(() => {
     if (!canShare) return;
@@ -680,11 +706,11 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     const touch = window.matchMedia('(pointer: coarse)').matches;
     setIsPhone(touch && !window.matchMedia('(min-width: 1024px)').matches);
     isTouchRef.current = touch;
-    showToast(touch ? SWIPE_TIP_TOUCH : 'דפדפו בין המשחקים בחצים ימינה ושמאלה', 3000);
+    if (!competitionRef.current) showToast(touch ? SWIPE_TIP_TOUCH : 'דפדפו בין המשחקים בחצים ימינה ושמאלה', 3000);
   }, [showToast]);
 
   const cycleBoard = useCallback((step: 1 | -1) => {
-    if (phaseRef.current !== 'idle' || turnOverRef.current) return;
+    if (competitionRef.current || phaseRef.current !== 'idle' || turnOverRef.current) return;
     const i = SWIPE_MODES.indexOf(boardRef.current);
     const next = SWIPE_MODES[(Math.max(0, i) + step + SWIPE_MODES.length) % SWIPE_MODES.length];
     setBoardOverride(next);
@@ -706,7 +732,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   // A running round still stops on pointerdown - the stop is the timed moment.
   const cornerTapsRef = useRef<number[]>([]);
   const cornerWin = () => {
-    if (phaseRef.current !== 'idle' || turnOverRef.current || slidingRef.current) return;
+    // The staff shortcut is a free hit - never in a competition
+    if (competitionRef.current || phaseRef.current !== 'idle' || turnOverRef.current || slidingRef.current) return;
     audioRef.current?.ctx.resume().catch(() => {});
     const now = performance.now();
     startAtRef.current = now - TARGET_MS;
@@ -753,8 +780,9 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         cycleBoard(e.key === 'ArrowLeft' ? 1 : -1);
         return;
       }
-      // Enter or Space (buzzers map to either); holding the key down does not count
-      if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat) return;
+      // Enter or Space (buzzers map to either); holding the key down does not count.
+      // Typing a name in a form on top of the game is not a press.
+      if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat || isTyping(e.target)) return;
       e.preventDefault();
       press(e.timeStamp);
     };
@@ -772,7 +800,9 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const ringState: NeonRingState = phase === 'ended' ? (win ? 'win' : 'lose') : warnOn ? 'warn' : 'idle';
   const hint =
     phase === 'idle'
-      ? 'תנו בבאזר או געו במסך כדי להתחיל'
+      ? competition
+        ? 'געו במסך כדי להתחיל'
+        : 'תנו בבאזר או געו במסך כדי להתחיל'
       : phase === 'running'
         ? ''
         : win
@@ -787,7 +817,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         if (phaseRef.current === 'idle') {
           const box = e.currentTarget.getBoundingClientRect();
           const corner = Math.max(80, Math.min(box.width, box.height) * 0.15);
-          if (e.clientX - box.left < corner && e.clientY - box.top < corner) {
+          if (!competitionRef.current && e.clientX - box.left < corner && e.clientY - box.top < corner) {
             const now = performance.now();
             const taps = [...cornerTapsRef.current.filter((t) => now - t < CORNER_WINDOW_MS), now];
             cornerTapsRef.current = taps;
@@ -804,7 +834,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       }}
       onPointerMove={(e) => {
         const start = touchStartRef.current;
-        if (!start || !start.touch || start.id !== e.pointerId || phaseRef.current !== 'idle' || turnOverRef.current) return;
+        if (!start || !start.touch || start.id !== e.pointerId || phaseRef.current !== 'idle' || turnOverRef.current || competitionRef.current) return;
         const dx = e.clientX - start.x;
         if (!start.dragging && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(e.clientY - start.y)) start.dragging = true;
         if (start.dragging) moveStage(dx, 0); // the game follows the finger
@@ -816,7 +846,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         const dx = e.clientX - start.x;
         const dy = e.clientY - start.y;
         if (start.dragging) finishDrag(dx);
-        else if (Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) cycleBoard(dx < 0 ? 1 : -1);
+        else if (!competitionRef.current && Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) cycleBoard(dx < 0 ? 1 : -1);
         else press(e.timeStamp);
       }}
       onPointerCancel={() => {
@@ -959,6 +989,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
           </button>
         )}
       </div>
+      {competition?.hud}
       {toast && (
         <div key={toast.id} dir="rtl" className="tenbool-toast" style={{ animationDuration: `${toast.ms}ms` }}>
           {toast.text}

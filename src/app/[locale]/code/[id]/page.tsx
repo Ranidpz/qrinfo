@@ -4619,7 +4619,12 @@ export default function CodeEditPage({ params }: PageProps) {
                   {/* External link */}
                   <Tooltip text={t('openInNewWindow')}>
                     <a
-                      href={media.type === 'tenbool' ? `/v/${code.shortId}` : media.url}
+                      href={
+                        media.type === 'tenbool'
+                          ? // Phone mode: the code page opens the big screen's leaderboard (players scan its code)
+                            `/v/${code.shortId}${media.tenboolConfig?.playMode === 'phone' ? '?screen=board' : ''}`
+                          : media.url
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
