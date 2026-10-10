@@ -567,7 +567,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const share = () => {
     const url = `${window.location.origin}${window.location.pathname}`;
     // The message is Hebrew, so its landing link is too; the game link stays first (it drives the preview)
-    const text = `הצלחתי ${shareLine(shareStats)}!!! נסו אתם ${url}\n\nרוצים 10 בול משלכם? ${window.location.origin}/he/experiences/10-bool`;
+    const text = `הצלחתי ${shareLine(shareStats)}!!! נסו אתם ${url}\n\nרוצים 10 בול משלכם? ${window.location.origin}/he/experiences/10-bool?ref=share`;
     const file = shareFileRef.current;
     if (file && navigator.canShare?.({ files: [file] })) {
       navigator.share({ files: [file], text }).catch(() => {});
@@ -872,14 +872,19 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       )}
       {/* New tab, and kept off the game's tap target, so a stray touch never ends a round */}
       <a
-        href={`/${landingLocale}/experiences/10-bool`}
+        // ?ref= tells the analytics which channel brought the visit; the landing page's canonical drops it
+        href={`/${landingLocale}/experiences/10-bool?ref=game`}
         target="_blank"
         rel="noopener noreferrer"
-        dir="ltr"
+        dir="rtl"
         onPointerDown={(e) => e.stopPropagation()}
         className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-0 mx-auto w-fit text-[12px] opacity-40 hover:opacity-80 transition-opacity"
       >
-        Powered by <span className="font-bold">Playzone</span>
+        {/* "10 בול" in the anchor text tells search engines what the landing page is about */}
+        <span className="font-bold">10 בול</span> ·{' '}
+        <span dir="ltr">
+          Powered by <span className="font-bold">Playzone</span>
+        </span>
       </a>
     </div>
   );

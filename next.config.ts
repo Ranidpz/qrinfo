@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
   // Security headers
   async headers() {
     return [
+      // Customer-owned experience pages (a client's event game, gallery, raffle…) stay out of search
+      // results - people searching should land on our own landing pages - but links on them (e.g.
+      // the 10 בול "Powered by" footer) are still followed.
+      ...['/v/:path*', '/gallery/:path*', '/lobby/:path*', '/packs/:path*', '/raffle/:path*', '/:locale/p/:path*'].map(
+        (source) => ({ source, headers: [{ key: 'X-Robots-Tag', value: 'noindex, follow' }] })
+      ),
       {
         // Apply to all routes
         source: '/:path*',

@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.26.3] - 2026-10-10
+
+- 10 בול footer reads "10 בול · Powered by Playzone" (keyword anchor text) and links to the landing page with `?ref=game`; the WhatsApp share's landing link carries `?ref=share`. The landing page's canonical drops the query.
+- `X-Robots-Tag: noindex, follow` (next.config `headers()`) on customer experience pages: `/v/`, `/gallery/`, `/lobby/`, `/packs/`, `/raffle/`, `/:locale/p/`. They stay out of search results, while their links are still followed.
+
 ## [1.25.6] - 2026-10-08
 
 - Share text: "הצלחתי {N בולים מתוך M ניסיונות | N בולים עם K פסילות למתמודד}!!! נסו אתם {url}". The card's summary line uses "מתוך" too.

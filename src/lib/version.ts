@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.2';
+export const APP_VERSION = '1.26.3';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.3', date: '2026-10-10', isNew: true, highlights: {
+    he: ['10 בול: הכיתוב בתחתית המשחק מוביל לדף הנחיתה עם "10 בול" בטקסט, ודפי משחק של לקוחות לא מופיעים בגוגל'],
+    en: ['10 Bool: the in-game footer links to the landing page with "10 בול" in its text, and client game pages stay out of Google'],
+  } },
   { version: '1.26.2', date: '2026-10-10', isNew: true, highlights: {
     he: ['עמוד הבית: "חוויות שאפשר ליצור" מציג עכשיו את כל החוויות (כולל הגרלה, ניחוש ו־10 בול) לפי קטגוריות, וכל כרטיס לחיץ'],
     en: ['Home page: "Experiences You Can Create" now shows every experience (including raffle, score prediction and 10 Bool) by category, and every card is clickable'],
