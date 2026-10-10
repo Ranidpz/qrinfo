@@ -21,54 +21,54 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ogAlt: 'שעון עצר שמראה 10.00 בדיוק',
       keywords: ['10 בול', 'עשר בול', 'משחק 10 בול', 'משחק טיימר', 'לעצור את הטיימר על 10', 'משחק 10 שניות', 'משחק לאירועים', 'משחק למסך גדול', 'משחק לכנס', 'באזר לאירוע'],
     },
-    nav: { how: 'איך זה עובד', ways: 'לאירועים', pricing: 'צרו בעצמכם', cta: 'יצירת משחק' },
+    nav: { how: 'איך משחקים', ways: 'איפה משחקים', pricing: 'מחירים', cta: 'יצירת משחק' },
     hero: {
-      eyebrow: 'משחק אינטראקטיבי לאירועים',
+      eyebrow: 'משחק לאירועים',
       tagline: ['10 שניות. שתי לחיצות.', 'מי יעצור בדיוק על 10.00?'],
-      lead: 'משחק תזמון קצר, ממכר ומותח שכל אחד רוצה לנסות. על מסך LED ענק באירוע, עם הבאזר שלנו, או ישר מהטלפון.',
+      lead: 'משחק קצר וממכר שכולם רוצים לנסות – על מסך ענק באירוע עם הבאזר שלנו, או ישר מהטלפון.',
       ctaPrimary: 'צרו משחק משלכם',
       ctaSecondary: 'התנסו עכשיו',
       chips: ['חינם להתנסות', 'בלי התקנה', 'באזר פיזי לאירוע'],
       image: { src: HERO_IMAGE, alt: 'אורחים באירוע לוחצים על באזר ירוק מול מסך ענק שמראה 09.98' },
       stats: [
-        { value: '10.00', label: 'המטרה' },
+        { value: '10.00', label: 'מטרה' },
         { value: '02', label: 'לחיצות' },
         { value: '∞', label: 'ניסיונות' },
-        { value: '0', label: 'התקנה' },
+        { value: '0', label: 'התקנות' },
       ],
     },
     demo: {
-      kicker: 'נסו בעצמכם',
-      title: 'נראה קל? נסו בעצמכם.',
-      text: 'הטיימר מתחיל בלחיצה הראשונה ונעצר בשנייה. המטרה: בדיוק 10.00 – לא 9.99 ולא 10.01.',
+      kicker: 'דמו חי',
+      title: 'חושבים שזה קל? נסו.',
+      text: 'לחיצה אחת מפעילה, לחיצה שנייה עוצרת. צריך לעצור בדיוק על 10.00 – לא 9.99 ולא 10.01.',
     },
     steps: {
-      kicker: 'המשחק',
-      title: '10 שניות של מתח. עוד ניסיון. ועוד אחד.',
+      kicker: 'איך משחקים',
+      title: 'פשוט לשחק. קשה לפגוע.',
       items: [
-        { title: 'לוחצים ומתחילים', text: 'הטיימר יוצא לדרך ורץ במאיות שנייה.' },
-        { title: 'סופרים עשר בראש', text: 'בשלוש השניות האחרונות מגיעים צפצופים.' },
-        { title: 'עוצרים על 10.00', text: 'עצרתם בדיוק? בול! כל השאר – עוד ניסיון.' },
+        { title: 'לוחצים', text: 'הטיימר מתחיל לרוץ.' },
+        { title: 'סופרים בראש עד 10', text: 'בשלוש השניות האחרונות שומעים צפצופים.' },
+        { title: 'עוצרים על 10.00', text: 'בדיוק? בול! לא? עוד סיבוב.' },
       ],
     },
     ways: {
-      kicker: 'דרכי משחק',
-      title: 'חוויה אחת. כל דרך משחק.',
+      kicker: 'איפה משחקים',
+      title: 'על הבמה או בטלפון.',
       items: [
         {
           badge: 'מסך LED + באזר',
           title: 'על הבמה ובדוכן',
-          text: 'מסך גדול, באזר אחד וקהל שלם סביבו. כל לחיצה על הבאזר מפעילה ועוצרת את הטיימר.',
+          text: 'מסך גדול, באזר אחד, וכל הקהל מסביב.',
           visual: { image: { src: STAGE_IMAGE, alt: 'שחקן לוחץ על באזר מול מסך ענק באירוע, והקהל מריע' } },
         },
         {
-          badge: 'טלפון / QR',
-          title: 'מהטלפון, בכל מקום',
-          text: 'סורקים קוד QR ומשחקים. מהבול השני אפשר לשתף את התוצאה בוואטסאפ.',
+          badge: 'קוד QR',
+          title: 'בטלפון',
+          text: 'סורקים ומשחקים. מהבול השני אפשר לשתף בוואטסאפ.',
           visual: { phone: '09.98' },
         },
       ],
-      chipsLabel: 'לוח התוצאות לבחירתכם:',
+      chipsLabel: 'לוח תוצאות:',
       chips: [
         { icon: Trophy, label: 'נקודות זהב' },
         { icon: Hash, label: 'מונה ניסיונות' },
@@ -78,7 +78,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     },
     customize: {
       kicker: 'מיתוג',
-      title: 'המשחק שלכם, במיתוג שלכם.',
+      title: 'עם הלוגו והצבעים שלכם.',
       items: [
         { icon: ImageIcon, label: 'לוגו ותמונת רקע' },
         { icon: Palette, label: 'צבעים' },
@@ -90,7 +90,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       demo: { label: 'נסו את רקע הניאון', href: '/play/10-bool?bg=neon' },
     },
     pricing: {
-      kicker: 'יצירה',
+      kicker: 'מחירים',
       title: 'רוצים 10 בול משלכם?',
       plans: [
         {
@@ -103,7 +103,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         {
           name: 'לאירוע אחד',
           price: 'השכרה עם באזר',
-          text: 'המשחק, הבאזר והמיתוג – מוכנים לאירוע שלכם.',
+          text: 'אנחנו מכינים הכול: משחק, באזר ומיתוג.',
           features: ['מיתוג מלא לפי האירוע', 'באזר פיזי', 'התאמה למסך הגדול', 'ליווי לפני האירוע'],
           cta: { label: 'קבלו הצעת מחיר', kind: 'contact' },
           highlight: true,
@@ -115,14 +115,14 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       labels: { whatsapp: 'וואטסאפ', email: 'אימייל', call: 'תיאום שיחה' },
     },
     addon: {
-      kicker: 'הבאזר',
-      title: 'באזר אמיתי לאירוע.',
-      text: 'מתכת, בסיס כבד, מתחבר למחשב של המסך. משכירים לאירוע.',
+      kicker: 'השכרה',
+      title: 'באזר לאירוע.',
+      text: 'באזר מתכת על בסיס כבד, מתחבר למחשב של המסך.',
       points: ['כפתור ירוק או כחול'],
       cta: 'שכרו באזר לאירוע',
       whatsappText: 'היי, אשמח לשכור באזר לאירוע שלי',
       games: {
-        label: 'משחקים עם הבאזר:',
+        label: 'עובד עם:',
         items: [
           { name: '10 בול', href: '#demo' },
           { name: 'הגרלה', href: '/he/marketing#raffle' },
@@ -144,9 +144,9 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     final: {
-      kicker: 'מוכנים לאתגר?',
-      title: 'אז... יש לכם 10 בול?',
-      text: 'צרו משחק משלכם תוך דקה, או נסו עכשיו במסך מלא.',
+      kicker: 'מוכנים?',
+      title: 'מי יעשה בול ראשון?',
+      text: 'צרו משחק משלכם, או נסו עכשיו במסך מלא.',
       cta: 'צרו משחק משלכם',
       secondary: 'התנסו עכשיו',
       social: 'תמונות וסרטונים מאירועים שלנו',
@@ -162,7 +162,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ogAlt: 'A stopwatch showing exactly 10.00',
       keywords: ['10 bool', 'stop the timer at 10 seconds', '10 second challenge game', 'timer game', 'stopwatch game', 'event game', 'big screen game', 'conference booth game', 'event buzzer', '10 בול'],
     },
-    nav: { how: 'How it works', ways: 'For events', pricing: 'Create', cta: 'Create a game' },
+    nav: { how: 'How to play', ways: 'Where to play', pricing: 'Pricing', cta: 'Create a game' },
     hero: {
       eyebrow: 'Interactive game for events',
       tagline: ['10 seconds. Two presses.', 'Who stops at exactly 10.00?'],
@@ -179,13 +179,13 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     demo: {
-      kicker: 'Try it yourself',
-      title: 'Looks easy? Try it.',
+      kicker: 'Live demo',
+      title: 'Think it’s easy? Try it.',
       text: 'The first press starts the timer, the second stops it. The goal: exactly 10.00 – not 9.99, not 10.01.',
     },
     steps: {
-      kicker: 'The game',
-      title: '10 seconds of suspense. One more try. And another.',
+      kicker: 'How to play',
+      title: 'Easy to play. Hard to nail.',
       items: [
         { title: 'Press to start', text: 'The timer sets off, counting in hundredths.' },
         { title: 'Count to ten', text: 'The last three seconds come with beeps.' },
@@ -193,8 +193,8 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     ways: {
-      kicker: 'Ways to play',
-      title: 'One experience. Every way to play.',
+      kicker: 'Where to play',
+      title: 'On stage or on a phone.',
       items: [
         {
           badge: 'LED screen + buzzer',
@@ -219,7 +219,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     },
     customize: {
       kicker: 'Branding',
-      title: 'Your game, your brand.',
+      title: 'With your logo and colours.',
       items: [
         { icon: ImageIcon, label: 'Logo and background image' },
         { icon: Palette, label: 'Colours' },
@@ -231,7 +231,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       demo: { label: 'Try the neon background', href: '/play/10-bool?bg=neon' },
     },
     pricing: {
-      kicker: 'Create',
+      kicker: 'Pricing',
       title: 'Want your own 10 Bool?',
       plans: [
         {
@@ -256,14 +256,14 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       labels: { whatsapp: 'WhatsApp', email: 'Email', call: 'Book a call' },
     },
     addon: {
-      kicker: 'The buzzer',
-      title: 'A real buzzer for your event.',
+      kicker: 'Rental',
+      title: 'A buzzer for your event.',
       text: 'Metal, heavy base, plugs into the screen’s computer. Rent it for your event.',
       points: ['Green or blue button'],
       cta: 'Rent a buzzer',
       whatsappText: 'Hi, I’d like to rent a buzzer for my event',
       games: {
-        label: 'Games with the buzzer:',
+        label: 'Works with:',
         items: [
           { name: '10 Bool', href: '#demo' },
           { name: 'Raffle', href: '/en/marketing#raffle' },
@@ -285,8 +285,8 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     final: {
-      kicker: 'Ready for the challenge?',
-      title: 'So… have you got a 10 Bool?',
+      kicker: 'Ready?',
+      title: 'Who’ll hit a bool first?',
       text: 'Create your own game in a minute, or try it now full screen.',
       cta: 'Create your own',
       secondary: 'Try it now',
