@@ -2,10 +2,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection - only the user themselves or super_admin can read/write
+    // Profile owners cannot grant roles or replace their authorization identity.
+    // Existing trusted super admins retain their current user-management workflow.
     match /users/{userId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow create: if (
+        request.auth != null && request.auth.uid == userId &&
+        request.resource.data.keys().hasOnly([
+          'email', 'displayName', 'role', 'storageLimit', 'storageUsed', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.role == 'free' &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.storageLimit == 25 * 1024 * 1024 &&
+        request.resource.data.storageUsed == 0
+      ) || isAdmin();
+      allow update: if isAdmin() || (
+        request.auth != null && request.auth.uid == userId &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role', 'email', 'storageLimit', 'createdAt'
+        ])
+      );
+      // Prevent delete/recreate from resetting identity, role or initial quota.
+      allow delete: if isAdmin();
     }
 
     // Codes collection

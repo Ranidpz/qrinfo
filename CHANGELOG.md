@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.26.17] - 2026-10-10
+
+- Browser signup always creates a free account; remove email-based administrator auto-promotion.
+- Add validated Firestore users-role protections and isolated emulator regressions. Rules are committed as a candidate only: Firebase activation remains pending existing-admin review and explicit operator publication. Other rules are unchanged; cloud upload flags remain disabled by default.
+
 ## [1.26.16] - 2026-10-10
 
 - 10 בול: the phone WhatsApp share button appears from the first hit (was the second).
