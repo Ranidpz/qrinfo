@@ -1,4 +1,4 @@
-import { Hash, Heart, Trophy } from 'lucide-react';
+import { Hash, Heart, ImageIcon, Palette, PartyPopper, Sparkles, Trophy, Type, Volume2 } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
 import type { ExperienceLandingContent } from './types';
 
@@ -76,22 +76,35 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
       audience: ['כנסים ותערוכות', 'אירועי חברה', 'ימי הולדת', 'כיתות', 'ברים'],
     },
+    customize: {
+      kicker: 'מיתוג',
+      title: 'המשחק שלכם, במיתוג שלכם.',
+      items: [
+        { icon: ImageIcon, label: 'לוגו ותמונת רקע' },
+        { icon: Palette, label: 'צבעים' },
+        { icon: Type, label: 'גופן' },
+        { icon: Volume2, label: 'צלילים משלכם' },
+        { icon: Sparkles, label: 'רקע מונפש – חלל ניאון' },
+        { icon: PartyPopper, label: 'קונפטי בכל בול' },
+      ],
+      demo: { label: 'נסו את רקע הניאון', href: '/play/10-bool?bg=neon' },
+    },
     pricing: {
       kicker: 'יצירה',
       title: 'רוצים 10 בול משלכם?',
       plans: [
         {
-          name: 'יוצרים בעצמכם',
-          price: 'חינם',
-          text: 'מקימים משחק מהדשבורד ומפעילים אותו בכל אירוע.',
+          name: 'מנוי ל־The Q',
+          price: 'יוצרים בעצמכם',
+          text: '10 בול וכל החוויות של The Q, במיתוג שלכם.',
           features: ['קישור וקוד QR משלכם', 'לוגו, צבעים, גופן וצלילים', 'טלפון, מחשב ומסך גדול'],
           cta: { label: 'צרו משחק משלכם', kind: 'create' },
         },
         {
-          name: 'אנחנו מפיקים לכם',
-          price: 'הצעת מחיר',
-          text: 'הצוות של Playzone מכין את המשחק ומתאים אותו לאירוע.',
-          features: ['מיתוג מלא לפי האירוע', 'באזר פיזי להשכרה', 'התאמה למסך הגדול', 'ליווי לפני האירוע'],
+          name: 'לאירוע אחד',
+          price: 'השכרה עם באזר',
+          text: 'המשחק, הבאזר והמיתוג – מוכנים לאירוע שלכם.',
+          features: ['מיתוג מלא לפי האירוע', 'באזר פיזי', 'התאמה למסך הגדול', 'ליווי לפני האירוע'],
           cta: { label: 'קבלו הצעת מחיר', kind: 'contact' },
           highlight: true,
         },
@@ -124,7 +137,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       title: 'שאלות נפוצות',
       items: [
         { q: 'למה קוראים לזה "10 בול"?', a: '"בול" זה פגיעה מדויקת. עוצרים את הטיימר על 10.00 בדיוק – בול.' },
-        { q: 'האם זה חינמי?', a: 'כן. לשחק אפשר בלי הרשמה, ויצירת משחק משלכם זמינה בחשבון החינמי של The Q.' },
+        { q: 'זה בחינם?', a: 'לשחק ולהתנסות – כן, כאן בדמו ובטלפון. משחק משלכם: במנוי ל־The Q, או בהשכרה לאירוע אחד עם הבאזר.' },
         { q: 'צריך להוריד אפליקציה?', a: 'לא. המשחק רץ בדפדפן בטלפון, במחשב ובמסך חכם.' },
         { q: 'איך מחברים באזר?', a: 'מחברים למחשב שמפעיל את המסך באזר שמוגדר כ־Enter או כרווח. אין לכם באזר? אנחנו משכירים.' },
         { q: 'כמה אנשים יכולים לשחק?', a: 'כמה שרוצים. על מסך גדול משחקים בתורות, ודרך קוד QR כל אחד משחק בטלפון שלו.' },
@@ -204,22 +217,35 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
       audience: ['Conferences and expos', 'Company events', 'Birthdays', 'Classrooms', 'Bars'],
     },
+    customize: {
+      kicker: 'Branding',
+      title: 'Your game, your brand.',
+      items: [
+        { icon: ImageIcon, label: 'Logo and background image' },
+        { icon: Palette, label: 'Colours' },
+        { icon: Type, label: 'Font' },
+        { icon: Volume2, label: 'Your own sounds' },
+        { icon: Sparkles, label: 'Animated neon space background' },
+        { icon: PartyPopper, label: 'Confetti on every bool' },
+      ],
+      demo: { label: 'Try the neon background', href: '/play/10-bool?bg=neon' },
+    },
     pricing: {
       kicker: 'Create',
       title: 'Want your own 10 Bool?',
       plans: [
         {
-          name: 'Do it yourself',
-          price: 'Free',
-          text: 'Set up a game from the dashboard and run it at any event.',
+          name: 'The Q subscription',
+          price: 'Create it yourself',
+          text: '10 Bool and every The Q experience, with your branding.',
           features: ['Your own link and QR code', 'Logo, colours, font and sounds', 'Phone, computer and big screen'],
           cta: { label: 'Create your own', kind: 'create' },
         },
         {
-          name: 'We produce it for you',
-          price: 'Custom quote',
-          text: 'The Playzone team prepares the game and fits it to your event.',
-          features: ['Full branding for your event', 'Physical buzzer for rent', 'Set up for the big screen', 'Support before the event'],
+          name: 'One event',
+          price: 'Rental with a buzzer',
+          text: 'The game, the buzzer and the branding – ready for your event.',
+          features: ['Full branding for your event', 'Physical buzzer', 'Set up for the big screen', 'Support before the event'],
           cta: { label: 'Get a quote', kind: 'contact' },
           highlight: true,
         },
@@ -252,7 +278,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       title: 'FAQ',
       items: [
         { q: 'Why is it called “10 Bool”?', a: '“Bool” is Hebrew slang for a bullseye. Stop the timer at exactly 10.00 – a bool.' },
-        { q: 'Is it free?', a: 'Yes. Playing needs no sign-up, and creating your own game is available on the free The Q account.' },
+        { q: 'Is it free?', a: 'Playing and trying it – yes, here in the demo and on phones. Your own game: with a The Q subscription, or a one-event rental with the buzzer.' },
         { q: 'Do I need to download an app?', a: 'No. The game runs in the browser on phones, computers and smart TVs.' },
         { q: 'How do I connect a buzzer?', a: 'Plug a buzzer mapped to Enter or Space into the computer running the screen. No buzzer? We rent them out.' },
         { q: 'How many people can play?', a: 'As many as you like. On a big screen players take turns; with a QR code everyone plays on their own phone.' },

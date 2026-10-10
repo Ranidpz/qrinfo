@@ -43,6 +43,8 @@ export interface ExperienceLandingContent {
     chips?: { icon: LucideIcon; label: string }[];
     audience?: string[];
   };
+  // What the owner can set (logo, colours, sounds, animated background...) + an optional demo of one
+  customize?: { kicker: string; title: string; items: { icon: LucideIcon; label: string }[]; demo?: { label: string; href: string } };
   pricing: {
     kicker: string;
     title: string;

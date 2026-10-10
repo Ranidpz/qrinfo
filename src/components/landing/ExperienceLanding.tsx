@@ -266,6 +266,36 @@ export default function ExperienceLanding({
           </div>
         </section>
 
+        {/* ---------- Make it yours ---------- */}
+        {c.customize && (
+          <section id="customize" className="scroll-mt-14 border-t border-border/60 py-16 sm:py-20">
+            <div className="mx-auto max-w-5xl px-4 sm:px-6">
+              <div className="text-center">
+                <p className={kicker}>{c.customize.kicker}</p>
+                <h2 className={h2}>{c.customize.title}</h2>
+              </div>
+              <ul className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {c.customize.items.map(({ icon: Icon, label }) => (
+                  <li key={label} className="flex items-center gap-3 rounded-2xl border border-border bg-bg-card p-4">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="text-sm font-semibold sm:text-base">{label}</span>
+                  </li>
+                ))}
+              </ul>
+              {c.customize.demo && (
+                <div className="mt-6 text-center">
+                  <a href={c.customize.demo.href} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 font-semibold text-violet-600 hover:underline dark:text-violet-400">
+                    {c.customize.demo.label}
+                    {forward}
+                  </a>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* ---------- Pricing ---------- */}
         <section id="pricing" className="scroll-mt-14 border-t border-border/60 bg-bg-secondary py-16 sm:py-20">
           <div className="mx-auto max-w-5xl px-4 sm:px-6">

@@ -1,6 +1,6 @@
 {
   "name": "temp-next",
-  "version": "1.26.12",
+  "version": "1.26.13",
   "private": true,
   "scripts": {
     "dev": "next dev",

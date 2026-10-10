@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.26.13] - 2026-10-11
+
+- `/play/10-bool` (the public demo) now carries a real 10 בול link preview: own title/description, OG image `/api/og/tenbool`, stopwatch apple icon and an install manifest (`/play/10-bool/manifest.json`) - shared on WhatsApp it looked like the generic "The Q - Dynamic QR Codes". `?bg=neon` shows the neon space background.
+- Landing template gains `customize` (logo, colours, font, sounds, animated neon background, confetti + "try the neon background"). Pricing no longer says creating is free: playing/trying is free; your own game = a The Q subscription or a one-event rental with the buzzer (FAQ too).
+
 ## [1.26.12] - 2026-10-11
 
 - Buzzer band copy cut to "באזר אמיתי לאירוע." + one line; the product shot is bigger (up to `max-w-lg`, image on top on phones) and drifts with the scroll via `components/landing/Parallax.tsx` (rAF transform, only while on screen, off for reduced motion); the band clips it (`overflow-hidden`).
