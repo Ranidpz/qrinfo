@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import RaffleConfetti from '@/components/raffle/RaffleConfetti';
+import { NEON_STYLE, NeonBackdrop, NeonRing, type NeonRingState } from '@/components/viewer/tenbool/NeonSpace';
 import {
   TENBOOL_DEFAULTS,
   resolveTenBoolSoundUrl,
@@ -120,6 +121,7 @@ type ShareStats = {
   logoSize: number; // % of screen height, as in the game
   lastMs?: number;
   lastDiff?: number;
+  neon?: { from: string; to: string };
 };
 
 function shareLine(st: ShareStats) {
@@ -175,7 +177,21 @@ async function drawShareCard(st: ShareStats): Promise<File | null> {
 
     ctx.fillStyle = st.bg;
     ctx.fillRect(0, 0, W, H);
-    if (bgImg) {
+    if (st.neon) {
+      // Same deep-space backdrop as the game (stars + nebula glow; the ring is drawn round the timer below)
+      const g = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, H * 0.75);
+      g.addColorStop(0, '#1b1352');
+      g.addColorStop(0.42, '#0d0b2c');
+      g.addColorStop(1, '#04040c');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      let seed = 11;
+      const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 0xffffffff);
+      for (let i = 0; i < 180; i += 1) {
+        ctx.fillStyle = `rgba(255,255,255,${(0.3 + rnd() * 0.7).toFixed(2)})`;
+        ctx.fillRect(rnd() * W, rnd() * H, rnd() < 0.15 ? 3 : 2, rnd() < 0.15 ? 3 : 2);
+      }
+    } else if (bgImg) {
       const k = Math.max(W / bgImg.width, H / bgImg.height);
       ctx.drawImage(bgImg, (W - bgImg.width * k) / 2, (H - bgImg.height * k) / 2, bgImg.width * k, bgImg.height * k);
     }
@@ -234,6 +250,31 @@ async function drawShareCard(st: ShareStats): Promise<File | null> {
       ctx.fillText(RLM + st.title, W / 2, y + titleH / 2, W - 2 * pad);
       ctx.globalAlpha = 1;
       y += titleH + gap;
+    }
+    if (st.neon) {
+      const R = W * 0.42;
+      const cy = y + timerH / 2;
+      const rg = ctx.createLinearGradient(W / 2 - R, cy - R, W / 2 + R, cy + R);
+      rg.addColorStop(0, st.neon.from);
+      rg.addColorStop(1, st.neon.to);
+      ctx.save();
+      // The orbit, barely there, with one glint on it - as the game shows it between laps
+      ctx.strokeStyle = rg;
+      ctx.globalAlpha = 0.18;
+      ctx.lineWidth = 0.5 * vmin;
+      ctx.beginPath();
+      ctx.arc(W / 2, cy, R, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 0.9 * vmin;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = st.neon.from;
+      ctx.shadowBlur = 5 * vmin;
+      ctx.beginPath();
+      ctx.arc(W / 2, cy, R, -Math.PI * 0.85, -Math.PI * 0.45);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = st.fg;
     }
     const ms = st.lastMs ?? 10000;
     const h = Math.floor(ms / 10);
@@ -318,6 +359,9 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const [boardOverride, setBoardOverride] = useState<TenBoolBoard | null>(null);
   const baseFx = tenboolEffects(config);
   const fx = { ...baseFx, board: boardOverride ?? baseFx.board };
+  // Countdown phase (from second 7) - only the neon ring needs it as state, the digits use refs
+  const [warnOn, setWarnOn] = useState(false);
+  const warnOnRef = useRef(false);
   const warningRef = useRef(fx.warningCues);
   warningRef.current = fx.warningCues;
   const boardRef = useRef(fx.board);
@@ -410,6 +454,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       play(diff === 0 ? 'success' : 'fail');
       setResult({ ms, diff });
       setLastResult({ ms, diff });
+      warnOnRef.current = false;
+      setWarnOn(false);
       setPhase('ended');
       setEndedAt(endedAtRef.current);
       setAttempts((a) => a + 1);
@@ -476,6 +522,10 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       }
       const sec = Math.floor(ms / 1000);
       setTimerText(ms, warningRef.current && sec >= WARN_FROM_S);
+      if (warningRef.current && sec >= WARN_FROM_S && !warnOnRef.current) {
+        warnOnRef.current = true;
+        setWarnOn(true);
+      }
       // One beep per whole second: 7, 8, 9 and a higher one at 10 (owner can switch all hints off)
       if (warningRef.current && sec >= WARN_FROM_S && sec <= TARGET_MS / 1000 && sec > lastBeepRef.current) {
         lastBeepRef.current = sec;
@@ -540,11 +590,12 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     bg: bgColor,
     fg: textColor,
     font: `'${font.family}', ${assistant || 'system-ui'}, sans-serif`,
-    bgImage: config?.backgroundImageUrl,
+    bgImage: fx.neon ? undefined : config?.backgroundImageUrl,
     logo: config?.logoUrl,
     logoSize: fx.logoSize,
     lastMs: lastResult?.ms,
     lastDiff: lastResult?.diff,
+    neon: fx.neon ? { from: fx.neonFrom, to: fx.neonTo } : undefined,
   };
   const canShare = isTouch && wins >= 2;
   const shareKey = JSON.stringify(shareStats);
@@ -677,6 +728,11 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   }, [press, cycleBoard]);
 
   const win = result?.diff === 0;
+  // The end-of-round strobe animates a background: the root's normally, an overlay above the neon scene
+  const strobeClass =
+    phase === 'ended' ? (win ? (fx.winFlash ? 'tenbool-win-bg' : '') : fx.loseFlash ? 'tenbool-lose-bg' : '') : '';
+  const ringState: NeonRingState = phase === 'ended' ? (win ? 'win' : 'lose') : warnOn ? 'warn' : 'idle';
+  const NEON_RING_SIZE = 'min(78vh, 90vw)';
   const hint =
     phase === 'idle'
       ? 'תנו בבאזר או געו במסך כדי להתחיל'
@@ -730,22 +786,16 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         if (touchStartRef.current?.dragging) moveStage(0, 200);
         touchStartRef.current = null;
       }}
-      className={`fixed inset-0 select-none overflow-hidden cursor-pointer ${
-        phase === 'ended'
-          ? win
-            ? `tenbool-win ${fx.winFlash ? 'tenbool-win-bg' : ''}`
-            : fx.loseFlash
-              ? 'tenbool-lose-bg'
-              : ''
-          : ''
+      className={`fixed inset-0 select-none overflow-hidden cursor-pointer ${phase === 'ended' && win ? 'tenbool-win' : ''} ${
+        fx.neon ? '' : strobeClass
       }`}
       style={{
         top: 'var(--pwa-banner-h, 0px)', // start below the install banner while it shows
         transition: 'top .25s ease',
         fontFamily: `'${font.family}', var(--font-assistant), system-ui, sans-serif`,
         color: textColor,
-        backgroundColor: config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor,
-        backgroundImage: config?.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
+        backgroundColor: fx.neon ? '#04040c' : config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor,
+        backgroundImage: !fx.neon && config?.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         ['--tb-lose' as string]: fx.loseColor,
@@ -755,6 +805,13 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       }}
     >
       <style>{TENBOOL_STYLE}</style>
+      {fx.neon && (
+        <>
+          <style>{NEON_STYLE}</style>
+          <NeonBackdrop from={fx.neonFrom} to={fx.neonTo} />
+          <div className={`pointer-events-none absolute inset-0 ${strobeClass}`} />
+        </>
+      )}
       <div ref={flashRef} className="pointer-events-none absolute inset-0 bg-red-600 opacity-0" />
       {/* Keyed per round so every hit replays the burst */}
       {phase === 'ended' && win && fx.confetti && <RaffleConfetti key={endedAt} colors={CONFETTI_COLORS} glow="#ffffff" count={110} />}
@@ -814,20 +871,25 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
             src={config.logoUrl}
             alt=""
             draggable={false}
-            className="pointer-events-none object-contain max-w-[80vw]"
+            className="pointer-events-none relative z-[1] object-contain max-w-[80vw]"
             style={{ height: `${fx.logoSize}vh` }}
           />
         )}
-        {title && phase === 'idle' && <div className="text-[5vmin] font-bold opacity-80">{title}</div>}
-        <div
-          ref={timerRef}
-          dir="ltr"
-          className="tenbool-timer font-black leading-none tabular-nums text-[min(22vw,40vh)]"
-        >
-          00.00
+        {title && phase === 'idle' && <div className="relative z-[1] text-[5vmin] font-bold opacity-80">{title}</div>}
+        <div className="relative flex items-center justify-center" style={fx.neon ? { ['--ring' as string]: NEON_RING_SIZE } : undefined}>
+          {fx.neon && <NeonRing from={fx.neonFrom} to={fx.neonTo} state={ringState} loseColor={fx.loseColor} />}
+          <div
+            ref={timerRef}
+            dir="ltr"
+            className="tenbool-timer relative font-black leading-none tabular-nums text-[min(22vw,40vh)]"
+            // Inside the ring the digits are sized to the ring, so 10.00 always fits within it
+            style={fx.neon ? { fontSize: `calc(${NEON_RING_SIZE} * 0.26)` } : undefined}
+          >
+            00.00
+          </div>
         </div>
         <div
-          className={`tenbool-hint font-black min-h-[1.2em] text-center px-4 ${
+          className={`tenbool-hint relative z-[1] font-black min-h-[1.2em] text-center px-4 ${
             phase === 'idle' ? 'tenbool-idle-hint text-[5vmin]' : phase === 'ended' ? (win ? 'text-[12vmin]' : 'text-[7vmin]') : ''
           }`}
         >
@@ -835,7 +897,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         </div>
         {fx.closenessBar && (
           // ±1.00s maps to the bar ends; anything further sits at the edge
-          <div dir="ltr" className="pointer-events-none relative w-[min(60vw,720px)] h-[4vmin]" aria-hidden="true">
+          <div dir="ltr" className="pointer-events-none relative z-[1] w-[min(60vw,720px)] h-[4vmin]" aria-hidden="true">
             <span className="absolute left-0 right-0 top-1/2 h-[max(2px,.35vmin)] -translate-y-1/2 rounded-full opacity-30" style={{ background: textColor }} />
             <span className="absolute left-1/2 top-0 bottom-0 w-[max(2px,.4vmin)] -translate-x-1/2 rounded-full opacity-70" style={{ background: textColor }} />
             {phase === 'ended' && result && (
@@ -855,7 +917,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
             onPointerDown={(e) => e.stopPropagation()}
             onPointerUp={(e) => e.stopPropagation()}
             onClick={share}
-            className="mt-[1vh] flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-[max(15px,2.4vmin)] font-bold text-white shadow-lg active:scale-95 transition-transform"
+            className="relative z-[1] mt-[1vh] flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-[max(15px,2.4vmin)] font-bold text-white shadow-lg active:scale-95 transition-transform"
             style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif' }}
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
