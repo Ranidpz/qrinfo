@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { Gamepad2, Globe } from 'lucide-react';
+import { Globe, Sparkles } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
 import { landingPath } from '@/lib/landing/site';
 
@@ -8,7 +8,7 @@ import { landingPath } from '@/lib/landing/site';
 
 const SHELL_TEXT = {
   he: {
-    games: 'משחקים',
+    experiences: 'חוויות The Q',
     otherLang: 'English',
     home: 'מה זה The Q?',
     privacy: 'פרטיות',
@@ -16,7 +16,7 @@ const SHELL_TEXT = {
     rights: 'The Q מבית Playzone · משחקים וחוויות דיגיטליות לאירועים',
   },
   en: {
-    games: 'Games',
+    experiences: 'The Q Experiences',
     otherLang: 'עברית',
     home: 'What is The Q?',
     privacy: 'Privacy',
@@ -53,8 +53,8 @@ export function LandingShell({
               href={landingPath(locale)}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
             >
-              <Gamepad2 className="h-4 w-4" />
-              {t.games}
+              <Sparkles className="h-4 w-4" />
+              {t.experiences}
             </a>
             <a
               href={landingPath(other, slug)}
@@ -72,7 +72,7 @@ export function LandingShell({
       <footer className="border-t border-border/60 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 text-sm text-text-secondary sm:px-6">
           <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-            <a href={landingPath(locale)} className="hover:text-text-primary">{t.games}</a>
+            <a href={landingPath(locale)} className="hover:text-text-primary">{t.experiences}</a>
             <a href={`/${locale}/marketing`} className="hover:text-text-primary">{t.home}</a>
             <a href={`/${locale}/privacy`} className="hover:text-text-primary">{t.privacy}</a>
             <a href={`/${locale}/accessibility`} className="hover:text-text-primary">{t.accessibility}</a>

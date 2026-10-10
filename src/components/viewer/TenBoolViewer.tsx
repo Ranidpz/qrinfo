@@ -567,7 +567,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const share = () => {
     const url = `${window.location.origin}${window.location.pathname}`;
     // The message is Hebrew, so its landing link is too; the game link stays first (it drives the preview)
-    const text = `הצלחתי ${shareLine(shareStats)}!!! נסו אתם ${url}\n\nרוצים 10 בול משלכם? ${window.location.origin}/he/games/10-bool`;
+    const text = `הצלחתי ${shareLine(shareStats)}!!! נסו אתם ${url}\n\nרוצים 10 בול משלכם? ${window.location.origin}/he/experiences/10-bool`;
     const file = shareFileRef.current;
     if (file && navigator.canShare?.({ files: [file] })) {
       navigator.share({ files: [file], text }).catch(() => {});
@@ -872,7 +872,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       )}
       {/* New tab, and kept off the game's tap target, so a stray touch never ends a round */}
       <a
-        href={`/${landingLocale}/games/10-bool`}
+        href={`/${landingLocale}/experiences/10-bool`}
         target="_blank"
         rel="noopener noreferrer"
         dir="ltr"

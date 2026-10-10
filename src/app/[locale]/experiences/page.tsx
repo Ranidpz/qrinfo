@@ -5,32 +5,32 @@ import { ArrowLeft } from 'lucide-react';
 import { LandingShell, JsonLd, Breadcrumbs } from '@/components/landing/LandingShell';
 import { LANDING_PAGES, SITE_URL, isLandingLocale, landingAlternates, landingPath, landingUrl } from '@/lib/landing/site';
 
-// Hub of the public landing pages. Each entry in LANDING_PAGES gets a card here.
+// "חוויות The Q" hub. Each entry in LANDING_PAGES gets a card linking to its own landing page.
 
 const HUB = {
   he: {
-    title: 'משחקים לאירועים, לכיתה ולמסך הגדול | The Q',
+    title: 'חוויות The Q – משחקים וחוויות אינטראקטיביות לאירועים',
     description:
-      'משחקים קצרים וממכרים שרצים בדפדפן – למסך גדול באירוע, לכנס, לכיתה ולטלפון. שחקו בחינם או צרו משחק משלכם עם לוגו, צבעים וקוד QR.',
+      'כל חוויות The Q במקום אחד: משחקים וחוויות אינטראקטיביות למסך גדול, לכנסים, לכיתה ולטלפון. לכל חוויה דף משלה עם הסבר, דמו חי ודרך ליצור או להזמין.',
     home: 'The Q',
-    crumb: 'משחקים',
-    h1: 'משחקים לאירועים ולמסך הגדול',
+    crumb: 'חוויות',
+    h1: 'חוויות The Q',
     intro:
-      'משחקים קצרים שכל אחד מבין בשנייה – על מסך גדול עם באזר, בכיתה או בטלפון דרך קוד QR. נסו כל משחק כאן בחינם, ואז צרו גרסה משלכם עם הלוגו, הצבעים והצלילים שלכם.',
-    open: 'לדף המשחק',
-    more: 'משחקים נוספים בדרך.',
+      'משחקים וחוויות לאירועים שכל אחד מבין בשנייה – על מסך גדול, בכיתה או בטלפון דרך קוד QR. לכל חוויה דף משלה: מה היא עושה, דמו חי לנסות, ואיך יוצרים אותה בעצמכם או מזמינים אותה לאירוע.',
+    open: 'לדף החוויה',
+    more: 'חוויות נוספות בדרך.',
   },
   en: {
-    title: 'Games for Events, Classrooms and Big Screens | The Q',
+    title: 'The Q Experiences – Interactive Games and Experiences for Events',
     description:
-      'Quick, addictive games that run in the browser – for event big screens, conferences, classrooms and phones. Play free or create your own with your logo, colours and a QR code.',
+      'All The Q experiences in one place: interactive games and experiences for big screens, conferences, classrooms and phones. Each one has its own page with details, a live demo and a way to create or book it.',
     home: 'The Q',
-    crumb: 'Games',
-    h1: 'Games for events and big screens',
+    crumb: 'Experiences',
+    h1: 'The Q Experiences',
     intro:
-      'Short games anyone gets in a second – on a big screen with a buzzer, in class, or on phones through a QR code. Try every game here for free, then create your own version with your logo, colours and sounds.',
-    open: 'Open the game page',
-    more: 'More games are on the way.',
+      'Event games and experiences anyone gets in a second – on a big screen, in class, or on phones through a QR code. Each one has its own page: what it does, a live demo to try, and how to create it yourself or book it for your event.',
+    open: 'Open the experience',
+    more: 'More experiences are on the way.',
   },
 } as const;
 
@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function GamesHubPage({ params }: Props) {
+export default async function ExperiencesHubPage({ params }: Props) {
   const { locale } = await params;
   if (!isLandingLocale(locale)) notFound();
   setRequestLocale(locale);
