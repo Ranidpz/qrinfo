@@ -21,7 +21,8 @@ import {
   Mic2,
   Crosshair,
   Map,
-  Ticket
+  Ticket,
+  Timer
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { clsx } from 'clsx';
@@ -173,6 +174,19 @@ const categories: FAQCategory[] = [
       { questionKey: 'qgamesSetup', answerKey: 'qgamesSetupAnswer' },
       { questionKey: 'qgamesLeaderboard', answerKey: 'qgamesLeaderboardAnswer' },
       { questionKey: 'qgamesWidescreen', answerKey: 'qgamesWidescreenAnswer' },
+    ],
+  },
+  {
+    id: 'tenbool',
+    icon: Timer,
+    color: 'text-rose-500',
+    bgColor: 'bg-rose-500/10',
+    questions: [
+      { questionKey: 'whatIsTenbool', answerKey: 'whatIsTenboolAnswer' },
+      { questionKey: 'tenboolBuzzer', answerKey: 'tenboolBuzzerAnswer' },
+      { questionKey: 'tenboolPhoneMode', answerKey: 'tenboolPhoneModeAnswer' },
+      { questionKey: 'tenboolWinnersVerify', answerKey: 'tenboolWinnersVerifyAnswer' },
+      { questionKey: 'tenboolManagePlayers', answerKey: 'tenboolManagePlayersAnswer' },
     ],
   },
   {

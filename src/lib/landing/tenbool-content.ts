@@ -62,7 +62,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         {
           badge: 'קוד QR',
           title: 'בטלפון',
-          text: 'סורקים ומשחקים. מהבול השני אפשר לשתף בוואטסאפ.',
+          text: 'כל הקהל סורק ומשחק בטלפון, ובמסך הגדול לוח תוצאות חי עם הסלפי של מי שעשה בול.',
           visual: { phone: '09.98' },
         },
       ],
@@ -134,7 +134,8 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { q: 'זה בחינם?', a: 'לשחק ולהתנסות – כן, כאן בדמו ובטלפון. משחק משלכם: במנוי ל־The Q, או בהשכרה לאירוע אחד עם הבאזר.' },
         { q: 'צריך להוריד אפליקציה?', a: 'לא. המשחק רץ בדפדפן בטלפון, במחשב ובמסך חכם.' },
         { q: 'איך מחברים באזר?', a: 'מחברים למחשב שמפעיל את המסך באזר שמוגדר כ־Enter או כרווח. אין לכם באזר? אנחנו משכירים.' },
-        { q: 'כמה אנשים יכולים לשחק?', a: 'כמה שרוצים. על מסך גדול משחקים בתורות, ודרך קוד QR כל אחד משחק בטלפון שלו.' },
+        { q: 'כמה אנשים יכולים לשחק?', a: 'כמה שרוצים. עם באזר משחקים בתורות. במצב טלפונים כל הקהל משחק במקביל, והמסך הגדול מציג לוח תוצאות חי לפי מספר הניסיונות עד הבול.' },
+        { q: 'אין לנו באזר. אפשר לשחק בכל זאת?', a: 'כן. בוחרים בהגדרות "בטלפונים": המסך הגדול מציג קוד לסריקה ולוח תוצאות, וכל אחד משחק בטלפון שלו. מי שעושה בול מצטלם ועולה ללוח, ואפשר לבקש אימות בוואטסאפ לזוכים בפרסים.' },
       ],
     },
     final: {
@@ -196,7 +197,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         {
           badge: 'Phone / QR',
           title: 'From a phone, anywhere',
-          text: 'Scan a QR code and play. From the second bool you can share your score on WhatsApp.',
+          text: 'The whole crowd scans and plays on their phones, while the big screen shows a live leaderboard with a selfie of everyone who hits a bool.',
           visual: { phone: '09.98' },
         },
       ],
@@ -268,7 +269,8 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { q: 'Is it free?', a: 'Playing and trying it – yes, here in the demo and on phones. Your own game: with a The Q subscription, or a one-event rental with the buzzer.' },
         { q: 'Do I need to download an app?', a: 'No. The game runs in the browser on phones, computers and smart TVs.' },
         { q: 'How do I connect a buzzer?', a: 'Plug a buzzer mapped to Enter or Space into the computer running the screen. No buzzer? We rent them out.' },
-        { q: 'How many people can play?', a: 'As many as you like. On a big screen players take turns; with a QR code everyone plays on their own phone.' },
+        { q: 'How many people can play?', a: 'As many as you like. With a buzzer players take turns. In phone mode the whole crowd plays at once and the big screen shows a live leaderboard ranked by attempts until the bool.' },
+        { q: 'We have no buzzer. Can we still play?', a: 'Yes. Choose "On phones" in the settings: the big screen shows a scan code and a leaderboard, and everyone plays on their own phone. Whoever hits a bool takes a selfie and goes up on the board, with optional WhatsApp verification for prize winners.' },
       ],
     },
     final: {

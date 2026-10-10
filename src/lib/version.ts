@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.18';
+export const APP_VERSION = '1.27.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,18 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.0', date: '2026-10-11', isNew: true, highlights: {
+    he: [
+      '10 בול בטלפונים: כל הקהל סורק ומשחק בטלפון, והמסך הגדול מציג לוח תוצאות חי — סלפי, שם וכמה ניסיונות לקח עד הבול',
+      'אימות בוואטסאפ רק למי שעשה בול (אפשר לכבות), מספר אחד — מקום אחד בלוח, ורשימת "הכי קרובים" בטווח של שנייה',
+      'ניהול שחקנים בהגדרות: טלפונים לזוכים, הסתרה, הסרת תמונה, ייצוא לאקסל ואיפוס; ופרק 10 בול חדש במדריך',
+    ],
+    en: [
+      '10 Bool on phones: the whole crowd scans and plays on their phones while the big screen shows a live leaderboard — selfie, name and attempts until the bool',
+      'WhatsApp verification only for players who hit a bool (can be switched off), one spot per phone, and a "closest" list within one second',
+      'Player management in the settings: phones of the winners, hide, remove photo, Excel export and reset; plus a new 10 Bool chapter in the guide',
+    ],
+  } },
   { version: '1.26.18', date: '2026-10-11', isNew: true, highlights: {
     he: ['דפי החוויות בשפה הגרפית של המערכת: כחול במקום סגול, הדר עם הלוגו בלבד ותפריט שמסמן את האזור שעל המסך, וכפתורים נוחים למגע בטלפון ובאייפד'],
     en: ['Experience pages in the system\'s visual language: blue instead of purple, a logo-only header whose menu follows the section on screen, and touch-friendly buttons on phones and iPads'],

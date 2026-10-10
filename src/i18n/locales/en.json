@@ -265,7 +265,8 @@
       "sharing": "Sharing & Distribution",
       "tipsAndTricks": "Tips & Tricks",
       "qtag": "Q.Tag - Event Registration",
-      "qgames": "Q.Games - Multiplayer Games"
+      "qgames": "Q.Games - Multiplayer Games",
+      "tenbool": "10 Bool – the timing game"
     },
     "questions": {
       "createFirstCode": "How do I create my first QR code?",
@@ -447,7 +448,17 @@
       "qgamesLeaderboard": "How does the leaderboard work?",
       "qgamesLeaderboardAnswer": "The leaderboard updates in real-time showing top players. You can filter by game type and sort by score or win rate. Results are also displayed on the big screen for all participants to watch.",
       "qgamesWidescreen": "What is Widescreen mode?",
-      "qgamesWidescreenAnswer": "Widescreen mode displays the games on a wide screen (TV or projector) at events. Players play from their phones while results appear in real-time on the big screen - perfect for team building, bars and events."
+      "qgamesWidescreenAnswer": "Widescreen mode displays the games on a wide screen (TV or projector) at events. Players play from their phones while results appear in real-time on the big screen - perfect for team building, bars and events.",
+      "whatIsTenbool": "What is 10 Bool?",
+      "whatIsTenboolAnswer": "A short timing game: tap to start the timer and try to stop it at exactly 10.00. A perfect stop is a \"bool\". Play with a buzzer in front of a big screen, or let the whole crowd play on their phones while the big screen shows a live leaderboard. Create it from the experiences menu and set the logo, colours, font, background and sounds in its settings.",
+      "tenboolBuzzer": "How do I play with a buzzer?",
+      "tenboolBuzzerAnswer": "Open the game on the computer connected to the screen and plug in a buzzer mapped to Enter or Space. Every press starts or stops the timer. In the settings, pick the corner scoreboard: gold dots per bool, an attempt counter, or lives per player. No buzzer? Play on phones (see the next question) or rent a buzzer from us.",
+      "tenboolPhoneMode": "How do I run it on phones with a leaderboard?",
+      "tenboolPhoneModeAnswer": "In the game settings, under \"How to play\", choose \"On phones\" and save. Click \"Open the board\" and show it on the big screen. The board has a scan code: everyone scans and plays on their own phone, no sign-up. Whoever stops at 10.00 takes a selfie, types a name and goes up on the board. Ranking is by attempts until the bool; ties go to whoever got there first. Every new bool gets a full-screen celebration with the player's photo. You can also show a \"closest\" list for stops within one second of 10.00 and choose how many rows the board has.",
+      "tenboolWinnersVerify": "How does WhatsApp verification work, and what about prizes?",
+      "tenboolWinnersVerifyAnswer": "When verification is on (the default), only players who hit a bool are asked for their phone number and a code sent on WhatsApp before they go up on the board. One phone number gets one spot, and you have the number to contact the winners. Turn verification off in the settings and every bool goes straight to the board. Attempts are counted on the server from the moment a round starts, so a bad round can't be \"erased\".",
+      "tenboolManagePlayers": "How do I manage players and the board?",
+      "tenboolManagePlayersAnswer": "In the settings, in phone mode, open \"Players, winners and board\". You'll see every player with their attempts, bool and phone (click to open WhatsApp). You can hide a player from the board, remove an unsuitable photo, export everything to Excel, and reset the game between rounds. A reset permanently deletes all players and photos."
     }
   },
   "sidebar": {
