@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.15] - 2026-10-11
+
+- 10 בול landing copy rewritten in natural Hebrew (no translated phrasing): "חושבים שזה קל? נסו.", "פשוט לשחק. קשה לפגוע.", "על הבמה או בטלפון.", "עם הלוגו והצבעים שלכם.", "באזר לאירוע.", "מי יעשה בול ראשון?"; nav = איך משחקים / איפה משחקים / מחירים. English mirrors it.
+
 ## [1.26.14] - 2026-10-11
 
 - 10 בול neon space: stars are four sparse layers that each fade in, drift a touch and fade out on their own clock (no fixed sky), with a "כוכבים" switch (`neonStars`, absent = on). The background gradient is the owner's (`spaceFrom` centre / `spaceTo` edges, mixed middle stop via `mixHex`/`spaceGradient` in `NeonSpace.tsx`) in the game, the settings preview and the share card. A miss no longer flashes the circle.

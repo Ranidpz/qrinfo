@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.14';
+export const APP_VERSION = '1.26.15';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.15', date: '2026-10-11', isNew: true, highlights: {
+    he: ['דף 10 בול: כותרות וטקסטים בעברית קצרה וברורה'],
+    en: ['10 Bool page: shorter, clearer Hebrew headings and copy'],
+  } },
   { version: '1.26.14', date: '2026-10-11', isNew: true, highlights: {
     he: ['10 בול – חלל ניאון: כוכבים עדינים שזזים ונעלמים (אפשר לכבות), בחירת צבעי הרקע, ובלי עיגול בהחטאה', 'הלוגו נשאר על המסך גם כשהאינטרנט נופל באמצע אירוע'],
     en: ['10 Bool neon space: gentle stars that drift and fade (can be switched off), your own background colours, and no circle on a miss', 'The logo stays on screen even when the internet drops mid-event'],
