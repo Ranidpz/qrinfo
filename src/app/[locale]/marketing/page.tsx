@@ -10,31 +10,57 @@ import Pricing from '@/components/marketing/Pricing';
 import FAQ from '@/components/marketing/FAQ';
 import FinalCTA from '@/components/marketing/FinalCTA';
 import Footer from '@/components/marketing/Footer';
-import { isLandingLocale, publicPageAlternates } from '@/lib/landing/site';
+import { JsonLd } from '@/components/landing/LandingShell';
+import { CATALOG } from '@/lib/experiences/catalog';
+import { SITE_URL, isLandingLocale, publicPageMetadata } from '@/lib/landing/site';
 
 // The pages print the current year (and costume: next Purim) - regenerate daily so it never goes stale
 export const revalidate = 86400;
 
 type Props = { params: Promise<{ locale: string }> };
 
+const META = {
+  he: {
+    title: 'The Q – חוויות אינטראקטיביות וקודי QR דינמיים לאירועים',
+    description:
+      'רישום וצ׳ק־אין, הגרלות, הצבעות, קיר סלפי, טריוויה, ציד מטמון, 10 בול ועוד – כל החוויות לאירועים, לכנסים ולעסקים, על קוד QR דינמי שמתעדכן בלי להדפיס מחדש.',
+  },
+  en: {
+    title: 'The Q – Interactive Event Experiences & Dynamic QR Codes',
+    description:
+      'Registration & check-in, raffles, voting, a selfie wall, trivia, treasure hunts, 10 Bool and more – every experience for events, conferences and businesses, on a dynamic QR you never reprint.',
+  },
+} as const;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
+  if (!isLandingLocale(locale)) return {};
   return {
-    title: 'The Q - One Code. Endless Experiences.',
-    description: 'Create dynamic QR codes for interactive experiences - voting, multiplayer games, event registration & check-in, treasure hunts, trivia, selfie walls, schedules, gamification and more. Update in real-time without reprinting. | צרו קודי QR דינמיים לחוויות אינטראקטיביות - הצבעות, משחקי מולטיפלייר, רישום לאירועים, ציד אוצרות, טריוויה, קירות סלפי ועוד.',
-    keywords: ['QR code', 'dynamic QR', 'interactive QR', 'voting system', 'Q.Vote', 'event management', 'event registration', 'check-in', 'Q.Tag', 'digital experiences', 'selfie wall', 'gamification', 'Q.Games', 'multiplayer games', 'mini games', 'trivia', 'Q.Challenge', 'treasure hunt', 'Q.Hunt', 'Q.Treasure', 'Q.Stage', 'oLeague', 'tournament', 'weekly schedule', 'Q.Cal'],
-    openGraph: {
-      title: 'The Q - One Code. Endless Experiences.',
-      description: 'Create dynamic QR codes for interactive digital experiences | צרו קודי QR דינמיים לחוויות אינטראקטיביות',
-      type: 'website',
-    },
-    ...(isLandingLocale(locale) ? { alternates: publicPageAlternates(locale, 'marketing') } : {}),
+    ...publicPageMetadata(locale, 'marketing', META[locale]),
+    keywords: ['QR code', 'dynamic QR', 'interactive QR', 'event experiences', 'raffle', 'voting system', 'Q.Vote', 'event registration', 'check-in', 'Q.Tag', 'selfie wall', 'Q.Games', 'trivia', 'treasure hunt', 'Q.Stage', '10 בול', 'הגרלה לאירוע', 'קוד QR דינמי', 'חוויות לאירועים'],
   };
 }
 
-export default function MarketingPage() {
+export default async function MarketingPage({ params }: Props) {
+  const { locale } = await params;
+  const l = isLandingLocale(locale) ? locale : 'he';
+  // Every experience, for search engines (the same catalogue the section renders)
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: l === 'he' ? 'חוויות The Q' : 'The Q Experiences',
+    url: `${SITE_URL}/${l}/marketing#features`,
+    itemListElement: CATALOG.map((e, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: e.name[l],
+      description: e.pitch[l],
+      url: e.landing ? `${SITE_URL}/${l}${e.landing}` : e.externalUrl ?? `${SITE_URL}/${l}/marketing#${e.id}`,
+    })),
+  };
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
+      <JsonLd data={jsonLd} />
       <MarketingHeader />
       <main>
         <Hero />

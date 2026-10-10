@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import { Globe, Sparkles } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
-import { landingPath } from '@/lib/landing/site';
+import { experiencesHref, landingPath } from '@/lib/landing/site';
 
 // Server-rendered frame for the public landing pages: everything here is plain HTML so
 // crawlers read it without running JS.
@@ -50,7 +50,7 @@ export function LandingShell({
           </a>
           <nav className="flex items-center gap-1 text-sm font-medium">
             <a
-              href={landingPath(locale)}
+              href={experiencesHref(locale)}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
             >
               <Sparkles className="h-4 w-4" />
@@ -72,7 +72,7 @@ export function LandingShell({
       <footer className="border-t border-border/60 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 text-sm text-text-secondary sm:px-6">
           <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-            <a href={landingPath(locale)} className="hover:text-text-primary">{t.experiences}</a>
+            <a href={experiencesHref(locale)} className="hover:text-text-primary">{t.experiences}</a>
             <a href={`/${locale}/marketing`} className="hover:text-text-primary">{t.home}</a>
             <a href={`/${locale}/privacy`} className="hover:text-text-primary">{t.privacy}</a>
             <a href={`/${locale}/accessibility`} className="hover:text-text-primary">{t.accessibility}</a>

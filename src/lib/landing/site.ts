@@ -29,7 +29,13 @@ export function isLandingLocale(value: string): value is Locale {
   return (LANDING_LOCALES as string[]).includes(value);
 }
 
-// slug undefined = the hub itself
+// Every experience is listed in ONE place: the "חוויות שאפשר ליצור" section of the home page.
+// (/[locale]/experiences itself 301s there - see next.config redirects.)
+export function experiencesHref(locale: Locale, id?: string) {
+  return `/${locale}/marketing#${id ?? 'features'}`;
+}
+
+// A full experience landing page; slug undefined = the old hub URL (redirected)
 export function landingPath(locale: Locale, slug?: string) {
   return `/${locale}/experiences${slug ? `/${slug}` : ''}`;
 }

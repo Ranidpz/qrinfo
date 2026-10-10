@@ -66,7 +66,7 @@ const navItems: NavItem[] = [
   { href: '/guide', icon: HelpCircle, labelKey: 'guide' },
   { href: '/marketing', icon: QrCode, labelKey: 'whatIsQ', dividerBefore: true },
   { href: '/costume-competition', icon: Drama, labelKey: 'costumeCompetition' },
-  { href: '/experiences', icon: Sparkles, labelKey: 'experiences' },
+  { href: '/marketing#features', icon: Sparkles, labelKey: 'experiences' },
   { href: '/qtag', icon: Ticket, labelKey: 'qtag', dividerBefore: true },
   { href: '#qorder', icon: ShoppingCart, labelKey: 'qOrder', badge: 'comingSoon', disabled: true },
   { href: '/admin/users', icon: Users, labelKey: 'userManagement', roles: ['super_admin'], dividerBefore: true },

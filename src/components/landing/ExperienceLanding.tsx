@@ -1,7 +1,7 @@
 import { ArrowLeft, CalendarDays, Check, ChevronDown, Mail, Sparkles } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
 import type { ExperienceLandingContent } from '@/lib/landing/types';
-import { CONTACT, SITE_URL, createHref, landingPath, landingUrl } from '@/lib/landing/site';
+import { CONTACT, SITE_URL, createHref, experiencesHref, landingUrl } from '@/lib/landing/site';
 import { LandingShell, JsonLd, Breadcrumbs } from './LandingShell';
 
 // The one template every experience landing page uses (modelled on the costume-competition page):
@@ -62,8 +62,7 @@ export default function ExperienceLanding({
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'The Q', item: `${SITE_URL}/${locale}/marketing` },
-        { '@type': 'ListItem', position: 2, name: CRUMB[locale], item: landingUrl(locale) },
-        { '@type': 'ListItem', position: 3, name: c.name, item: pageUrl },
+        { '@type': 'ListItem', position: 2, name: c.name, item: pageUrl },
       ],
     },
   ];
@@ -83,7 +82,7 @@ export default function ExperienceLanding({
               <Breadcrumbs
                 items={[
                   { label: 'The Q', href: `/${locale}/marketing` },
-                  { label: CRUMB[locale], href: landingPath(locale) },
+                  { label: CRUMB[locale], href: experiencesHref(locale) },
                   { label: c.name },
                 ]}
               />

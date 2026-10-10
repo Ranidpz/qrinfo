@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.4] - 2026-10-10
+
+- One list of every experience: the home page's "חוויות שאפשר ליצור" (`Features.tsx`, from `src/lib/experiences/catalog.ts`) gained everything the separate hub had – WhatsApp CTA per experience, demo + external links, add-on chips that jump to the buzzer card, card anchors (`/marketing#raffle`). `/[locale]/experiences` 301s to `/[locale]/marketing#features`; sidebar, landing header/breadcrumbs follow. Home page gets per-language title/description + an `ItemList` JSON-LD of all experiences.
+
 ## [1.26.3] - 2026-10-10
 
 - 10 בול footer reads "10 בול · Powered by Playzone" (keyword anchor text) and links to the landing page with `?ref=game`; the WhatsApp share's landing link carries `?ref=share`. The landing page's canonical drops the query.

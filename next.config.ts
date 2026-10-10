@@ -11,6 +11,13 @@ const nextConfig: NextConfig = {
   // Fix jsdom ESM issue with isomorphic-dompurify
   serverExternalPackages: ['jsdom', 'xlsx'],
 
+  // The experiences hub merged into the home page's experiences section
+  async redirects() {
+    return [
+      { source: '/:locale(he|en)/experiences', destination: '/:locale/marketing#features', permanent: true },
+    ];
+  },
+
   // Security headers
   async headers() {
     return [

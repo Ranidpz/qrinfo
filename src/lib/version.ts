@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.3';
+export const APP_VERSION = '1.26.4';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.4', date: '2026-10-10', isNew: true, highlights: {
+    he: ['כל החוויות במקום אחד: הקטע "חוויות שאפשר ליצור" בעמוד הבית הוא עכשיו הרשימה המלאה – עם וואטסאפ לכל חוויה, דמו, ובאזר להשכרה'],
+    en: ['Every experience in one place: the home page\'s "Experiences You Can Create" is now the full list – with WhatsApp per experience, demos and buzzer rental'],
+  } },
   { version: '1.26.3', date: '2026-10-10', isNew: true, highlights: {
     he: ['10 בול: הכיתוב בתחתית המשחק מוביל לדף הנחיתה עם "10 בול" בטקסט, ודפי משחק של לקוחות לא מופיעים בגוגל'],
     en: ['10 Bool: the in-game footer links to the landing page with "10 בול" in its text, and client game pages stay out of Google'],

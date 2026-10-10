@@ -1533,9 +1533,14 @@
       "title": "Experiences You Can Create",
       "subtitle": "Everything you need to create impressive digital experiences",
       "all": "All",
-      "allExperiences": "See all experiences",
-      "footerNote": "New experiences are added regularly. Can't find what you're looking for? Want a custom branded experience? Contact us and we'll build it together.",
-      "contactUs": "Contact Us"
+      "open": "Open the experience",
+      "external": "Visit site",
+      "demo": "Try the demo",
+      "talk": "Want this at your event? Talk to us",
+      "whatsappText": "Hi, I’d like to hear about {name} for my event",
+      "missingCta": "Chat with us on WhatsApp",
+      "missingWhatsapp": "Hi, I’m looking for an experience for my event",
+      "footerNote": "New experiences are added regularly. Can't find what you're looking for? Want a custom branded experience? Contact us and we'll build it together."
     },
     "useCases": {
       "title": "Who Is It For?",
