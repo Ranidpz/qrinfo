@@ -448,3 +448,202 @@ test('server-only caller and real API route interoperate end-to-end through isol
     assert.equal(f.db.writes, writes); assert.equal(f.counts().uploads, uploads);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+// Writer integration: actual caller, route, policy and journal with real private
+// temporary files. Only Firestore/R2 and transport are simulated.
+import { mkdtemp, readFile, rm, writeFile, chmod, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+const journalModule = await loadTs('../../src/lib/content-intake/cloud-upload-journal.ts', { './cloud-policy': policyModule });
+globalThis.cloudFixture.journal = journalModule;
+const { createFattalCloudUploader } = await loadTs('../../src/lib/content-intake/cloud-uploader.ts', {
+  './fattal': fattalModule, './cloud-policy': policyModule, './cloud-upload-journal': exportsOf('journal', journalModule),
+});
+async function writerFixture(t, overrides = {}) {
+  const f = routeSetup();
+  const directory = await mkdtemp(join(tmpdir(), 'fattal-writer-test-'));
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async url => { const object = f.objects.get(String(url)); assert.ok(object); return new Response(object); };
+  t.after(async () => { globalThis.fetch = originalFetch; await rm(directory, { recursive: true, force: true }); });
+  const state = { calls: [], resolutions: 0, loseCommit: false, loseRecovery: false,
+    beforeCommit: async () => {}, mutate: (r) => r };
+  const settings = { enabled: true, writesEnabled: true, baseUrl: 'https://fixture.invalid', ...config,
+    allowedTargets: [first.shortId], stateDirectory: directory, durableStateConfirmed: true, ...overrides };
+  const runtime = { now: () => instant, resolveSecret: async () => { state.resolutions++; return token; },
+    fetch: async (url, init) => {
+      const operation = new URL(url).pathname.split('/').pop(); state.calls.push(operation);
+      assert.equal(init.redirect, 'error'); assert.equal(init.credentials, 'omit');
+      if (operation === 'commit') {
+        const saved = JSON.parse(await readFile(join(directory, 'uploader.json'), 'utf8'));
+        assert.equal(saved.attempts[manifestId(f.m)].status, 'pending', 'journal exists before network POST');
+        await state.beforeCommit();
+      }
+      if (operation === 'recovery' && state.loseRecovery) throw Error(`Synthetic lost reply ${token}`);
+      const request = new Request(url, init); request.nextUrl = new URL(url);
+      const response = await route[init.method](request, { params: Promise.resolve({ operation }) });
+      if (operation === 'commit' && state.loseCommit) throw Error(`Synthetic lost reply ${token}`);
+      return state.mutate(response, operation);
+    } };
+  return { ...f, directory, state, settings, runtime, writer: createFattalCloudUploader(settings, runtime),
+    journal: async () => JSON.parse(await readFile(join(directory, 'uploader.json'), 'utf8')) };
+}
+test('writer defaults deny all transport/secret resolution; separate write and durable-volume gates', async t => {
+  for (const change of [{ enabled: false }, { writesEnabled: false }, { durableStateConfirmed: false }, { allowedTargets: ['foreign'] }, { baseUrl: 'http://fixture.invalid' }]) {
+    const f = await writerFixture(t, change);
+    await assert.rejects(() => f.writer.upload(f.m, bytes));
+    assert.equal(f.state.calls.length, 0); assert.equal(f.state.resolutions, 0);
+  }
+  await assert.rejects(createFattalCloudUploader().health, /disabled/);
+});
+test('writer verifies exact PDF before network; malformed bytes/hash/size and changed active version never commit', async t => {
+  const f = await writerFixture(t);
+  for (const bad of [Buffer.from('wrong'), Buffer.from('%PDF-different')]) await assert.rejects(() => f.writer.upload(f.m, bad), /input/);
+  assert.equal(f.state.calls.length, 0);
+  f.db.data.get('codes/target').media[0].title = 'Concurrent edit';
+  await assert.rejects(() => f.writer.upload(f.m, bytes), /input/);
+  assert.equal(f.state.calls.includes('commit'), false); assert.equal(f.counts().uploads, 0);
+});
+test('writer uploads through actual route, persists receipt and re-verifies active bytes after POST', async t => {
+  const f = await writerFixture(t);
+  const result = await f.writer.upload(f.m, bytes);
+  assert.equal(result.verified, true); assert.equal(result.retryAllowed, false);
+  assert.equal(f.counts().uploads, 1); assert.equal((await f.journal()).attempts[manifestId(f.m)].status, 'verified');
+  assert.equal(f.state.calls.at(-1), 'recovery');
+  assert.doesNotMatch(JSON.stringify(await f.journal()), /tq_fc_|keyHash|pdfBase64/);
+});
+test('writer lost commit and recovery responses survive restart and rerun only recovers, even with expired review', async t => {
+  const f = await writerFixture(t); f.state.loseCommit = true; f.state.loseRecovery = true;
+  assert.equal((await f.writer.upload(f.m, bytes)).status, 'uncertain');
+  assert.equal((await f.journal()).attempts[manifestId(f.m)].status, 'pending');
+  f.state.loseRecovery = false;
+  const restarted = createFattalCloudUploader(f.settings, { ...f.runtime, now: () => instant + 2 * 3600000 });
+  assert.equal((await restarted.upload(f.m, bytes)).verified, true);
+  assert.equal(f.state.calls.filter(c => c === 'commit').length, 1); assert.equal(f.counts().uploads, 1);
+});
+test('writer rerun success still recovers and detects superseded pointers without writing again', async t => {
+  const f = await writerFixture(t); await f.writer.upload(f.m, bytes);
+  f.db.data.get('codes/target').media[0].url = 'https://fixture.invalid/newer.pdf';
+  const result = await f.writer.upload(f.m, bytes);
+  assert.equal(result.status, 'superseded'); assert.equal(result.verified, false);
+  assert.equal(f.state.calls.filter(c => c === 'commit').length, 1);
+});
+test('writer expired grant fails before commit; expiry during POST leaves durable pending and no blind retry', async t => {
+  const f = await writerFixture(t); f.db.data.get(grantPath).expiresAt = instant;
+  await assert.rejects(() => f.writer.upload(f.m, bytes), /transport/);
+  assert.equal(f.state.calls.includes('commit'), false);
+  f.db.data.get(grantPath).expiresAt = instant + 86400000;
+  f.state.beforeCommit = async () => { f.db.data.get(grantPath).expiresAt = instant; };
+  assert.equal((await f.writer.upload(f.m, bytes)).status, 'uncertain');
+  f.db.data.get(grantPath).expiresAt = instant + 86400000;
+  assert.equal((await f.writer.upload(f.m, bytes)).status, 'uncertain');
+  assert.equal(f.state.calls.filter(c => c === 'commit').length, 1); assert.equal(f.counts().uploads, 0);
+});
+test('writer cannot create or bypass administrator approval; missing approval remains unresolved', async t => {
+  const f = await writerFixture(t); f.db.data.delete(`fattalCloudApprovals/${manifestId(f.m)}`);
+  assert.equal((await f.writer.upload(f.m, bytes)).status, 'uncertain');
+  assert.equal(f.counts().uploads, 0); assert.equal(f.db.writes, 0);
+  assert.equal((await f.writer.upload(f.m, bytes)).status, 'uncertain');
+  assert.equal(f.state.calls.filter(c => c === 'commit').length, 1);
+});
+test('writer concurrent version change between preview and commit preserves pending and original PDF', async t => {
+  const f = await writerFixture(t);
+  f.state.beforeCommit = async () => { f.db.data.get('codes/target').media[0].title = 'Concurrent edit'; };
+  assert.equal((await f.writer.upload(f.m, bytes)).status, 'uncertain');
+  assert.equal(f.counts().uploads, 0); assert.equal(f.db.data.get('codes/target').media[0].url, old.url);
+  assert.equal((await f.writer.upload(f.m, bytes)).status, 'uncertain');
+  assert.equal(f.state.calls.filter(c => c === 'commit').length, 1);
+});
+test('writer rejects altered recovery identities and corrupt active bytes even after successful commit', async t => {
+  const f = await writerFixture(t);
+  f.state.mutate = async (response, operation) => {
+    if (operation === 'recovery') { const data = await response.json(); return Response.json({ ...data, sha256: 'f'.repeat(64) }); }
+    return response;
+  };
+  assert.equal((await f.writer.upload(f.m, bytes)).verified, false);
+  f.state.mutate = r => r;
+  for (const key of f.objects.keys()) f.objects.set(key, Buffer.from('corrupted'));
+  assert.equal((await f.writer.recover(f.m)).verified, false);
+  assert.equal(f.counts().uploads, 1);
+});
+test('writer blocks a different manifest on unresolved target and serializes concurrent invocations', async t => {
+  const f = await writerFixture(t); f.state.loseRecovery = true;
+  const outcomes = await Promise.allSettled([f.writer.upload(f.m, bytes), f.writer.upload(f.m, bytes)]);
+  assert.equal(outcomes.filter(r => r.status === 'rejected').length, 1);
+  assert.equal(f.counts().uploads, 1);
+  const other = { ...f.m, filename: 'corrected.pdf' };
+  await assert.rejects(() => f.writer.upload(other, bytes), /pending/);
+  assert.equal(f.state.calls.filter(c => c === 'commit').length, 1);
+});
+test('writer rejects unavailable, permissive, symlinked, corrupt or differently-bound state before POST', async t => {
+  const f = await writerFixture(t);
+  await chmod(f.directory, 0o755);
+  await assert.rejects(() => f.writer.upload(f.m, bytes), /state/);
+  await chmod(f.directory, 0o700);
+  await writeFile(join(f.directory, 'uploader.lock'), 'crashed process');
+  await assert.rejects(() => f.writer.upload(f.m, bytes), /state/);
+  await rm(join(f.directory, 'uploader.lock'));
+  await writeFile(join(f.directory, 'uploader.json'), '{corrupt', { mode: 0o600 });
+  await assert.rejects(() => f.writer.upload(f.m, bytes), /state/);
+  await rm(join(f.directory, 'uploader.json'));
+  await symlink('/does-not-exist', join(f.directory, 'uploader.json'));
+  await assert.rejects(() => f.writer.upload(f.m, bytes), /state/);
+  await rm(join(f.directory, 'uploader.json'));
+  assert.equal(f.state.calls.length, 0);
+  await f.writer.upload(f.m, bytes);
+  const other = createFattalCloudUploader({ ...f.settings, baseUrl: 'https://other.invalid' }, f.runtime);
+  await assert.rejects(() => other.recover(f.m), /state/);
+});
+test('writer accepts recovery while local write switch is off; never initializes missing recovery history', async t => {
+  const f = await writerFixture(t);
+  await assert.rejects(() => f.writer.recover(f.m), /state/); assert.equal(f.state.calls.length, 0);
+  await f.writer.upload(f.m, bytes);
+  const reader = createFattalCloudUploader({ ...f.settings, writesEnabled: false }, f.runtime);
+  assert.equal((await reader.recover(f.m)).verified, true);
+  await assert.rejects(() => reader.upload(f.m, bytes), /disabled/);
+});
+
+import { execFileSync } from 'node:child_process';
+import { main as uploaderCli } from '../fattal-cloud-upload.mjs';
+test('cloud CLI runs actual upload and recovery with injected runtime key; never prints secret', async t => {
+  execFileSync(process.execPath, ['scripts/build-fattal-cloud-cli.mjs'], { cwd: new URL('../..', import.meta.url), stdio: 'pipe' });
+  const f = await writerFixture(t);
+  const path = join(f.directory, 'config.json'); const manifestPath = join(f.directory, 'manifest.json'); const pdfPath = join(f.directory, 'file.pdf');
+  await writeFile(path, JSON.stringify(f.settings)); await writeFile(manifestPath, JSON.stringify(f.m)); await writeFile(pdfPath, bytes);
+  const previous = process.env.FATTAL_CLOUD_CLIENT_KEY;
+  process.env.FATTAL_CLOUD_CLIENT_KEY = token;
+  t.after(() => { if (previous === undefined) delete process.env.FATTAL_CLOUD_CLIENT_KEY; else process.env.FATTAL_CLOUD_CLIENT_KEY = previous; });
+  t.mock.method(Date, 'now', () => instant);
+  const objectFetch = globalThis.fetch;
+  globalThis.fetch = (url, init) => new URL(url).pathname.startsWith('/api/') ? f.runtime.fetch(url, init) : objectFetch(url, init);
+  const output = []; const env = { FATTAL_CLOUD_UPLOADER_CONFIG: path, FATTAL_CLOUD_CLIENT_KEY: token };
+  assert.equal(await uploaderCli(['upload', '--manifest', manifestPath, '--pdf', pdfPath], env, text => output.push(text)), 0);
+  assert.equal(await uploaderCli(['recover', '--manifest', manifestPath], env, text => output.push(text)), 0);
+  assert.equal(f.counts().uploads, 1); assert.equal(f.state.calls.filter(c => c === 'commit').length, 1);
+  const receipts = output.map(text => JSON.parse(text).telemetry);
+  assert.equal(receipts[0].operations.commit.attempts, 1); assert.equal(receipts[1].operations.commit.attempts, 0);
+  assert.equal(receipts[0].files, 1); assert.equal(receipts[0].bytes, bytes.length); assert.equal(receipts[0].billing.status, 'unknown');
+  assert.ok(output.every(text => JSON.parse(text).verified)); assert.doesNotMatch(output.join(''), /tq_fc_|pdfBase64|keyHash/);
+});
+test('CLI rejects key arguments, missing/default-disabled configuration and credential-containing config without leaking', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'fattal-cli-test-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = join(directory, 'config.json'); const output = [];
+  const emit = text => output.push(text);
+  assert.equal(await uploaderCli(['health'], {}, emit), 1);
+  assert.equal(await uploaderCli(['health', '--key', token], {}, emit), 1);
+  assert.equal(await uploaderCli(['upload', '--manifest', token, '--pdf', 'unused'], {}, emit), 1);
+  await writeFile(path, JSON.stringify({ enabled: false }));
+  assert.equal(await uploaderCli(['health'], { FATTAL_CLOUD_UPLOADER_CONFIG: path }, emit), 1);
+  await writeFile(path, JSON.stringify({ enabled: true, key: token }));
+  assert.equal(await uploaderCli(['health'], { FATTAL_CLOUD_UPLOADER_CONFIG: path }, emit), 1);
+  assert.doesNotMatch(output.join(''), /tq_fc_|unused|config.json/);
+});
+
+test('uploader telemetry reports uncertain transport without secrets or automatic retries and cannot affect outcomes', async t => {
+ const f = await writerFixture(t); const events=[]; f.runtime.onOperation=e=>events.push(e);f.state.loseCommit=true;f.state.loseRecovery=true;
+ const writer=createFattalCloudUploader(f.settings,f.runtime);assert.equal((await writer.upload(f.m,bytes)).status,'uncertain');
+ assert.equal(events.filter(e=>e.operation==='commit').length,1);assert.equal(events.find(e=>e.operation==='commit').outcome,'failed');
+ assert.ok(events.every(e=>e.retry===false));assert.doesNotMatch(JSON.stringify(events),/tq_fc_|owner|manifest|same.pdf/);
+ f.state.loseRecovery=false;f.runtime.onOperation=()=>{throw Error('collector failure');};
+ assert.equal((await writer.recover(f.m)).status,'verified');assert.equal(f.counts().uploads,1);
+});

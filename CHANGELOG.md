@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.10] - 2026-10-10
+
+- Add super-admin read-only setup review for explicit owner/email/project and all 12 Fattal targets, with Hebrew/English UI and no credential issuance or activation. Add opt-in cloud upload/recovery CLI with durable pending journal, verified recovery and no automatic write retries; sanitized run metrics report unknown billing. All cloud flags stay disabled by default. No live uploads, notifications, cleanup, secret provisioning or schedules are enabled.
+
 ## [1.26.9] - 2026-10-11
 
 - Buzzer product shot (`public/experiences/10-bool/buzzer-product.webp`) in the 10 Bool buzzer band (edges radial-masked into the navy band) and as a thumbnail on the buzzer card on the home page (`CatalogEntry.thumb`). Copy now matches the real buzzer: metal, heavy stable base, green or blue button that does not light up. The glowing render (`buzzer-glow.webp`) is decoration only: a dim backdrop (`final.backdrop`) behind the closing CTA, fixed/parallax on desktop.

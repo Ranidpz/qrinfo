@@ -1,4 +1,5 @@
 import 'server-only';
+import type { IntakeOperationEvent } from './run-telemetry';
 import { FATTAL_BOOKLET_TARGETS } from './fattal';
 import { canonical, isHash, manifestId, parseManifest } from './cloud-policy';
 
@@ -17,6 +18,7 @@ export interface CloudClientRuntime {
   fetch: typeof fetch;
   resolveSecret: (reference: 'env:FATTAL_CLOUD_CLIENT_KEY') => Promise<string | undefined>;
   now: () => number;
+  onOperation?: (event: IntakeOperationEvent) => void;
 }
 export class CloudClientError extends Error {
   constructor(public code: 'disabled' | 'configuration' | 'input' | 'credential' | 'transport' | 'response') {
@@ -62,6 +64,8 @@ export function createFattalCloudClient(config: CloudClientConfig = {}, runtime:
     async function request(operation: 'health' | 'preview' | 'recovery', body?: unknown, id?: string) {
       const url = new URL(`/api/content-intake/fattal/cloud/${operation}`, origin);
       if (id) url.searchParams.set('manifestId', id);
+      const started = performance.now();
+      let outcome: IntakeOperationEvent['outcome'] = 'failed';
       try {
         const response = await runtime.fetch(url.toString(), {
           method: body === undefined ? 'GET' : 'POST', redirect: 'error', credentials: 'omit', cache: 'no-store',
@@ -84,10 +88,15 @@ export function createFattalCloudClient(config: CloudClientConfig = {}, runtime:
         } finally { reader.releaseLock(); }
         const text = Buffer.concat(chunks).toString('utf8');
         check(!text.includes(key) && !/tq_(?:fc|ci)_[a-f0-9]{32}\.[a-f0-9]{64}/.test(text), 'response');
-        return object(JSON.parse(text));
+        const result = object(JSON.parse(text));
+        outcome = 'completed';
+        return result;
       } catch (error) {
         if (error instanceof CloudClientError) throw error;
         throw new CloudClientError('transport');
+      } finally {
+        // Observability cannot turn success into failure or trigger a retry.
+        try { runtime.onOperation?.({ operation, outcome, durationMs: Math.max(0, performance.now() - started), retry: false }); } catch { /* Keep original request outcome. */ }
       }
     }
     const health = await request('health');
