@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart, Package, Smartphone, CreditCard, TrendingUp, HelpCircle, Drama, Bot } from 'lucide-react';
+import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart, Package, Smartphone, CreditCard, TrendingUp, HelpCircle, Drama, Bot, Gamepad2 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -66,6 +66,7 @@ const navItems: NavItem[] = [
   { href: '/guide', icon: HelpCircle, labelKey: 'guide' },
   { href: '/marketing', icon: QrCode, labelKey: 'whatIsQ', dividerBefore: true },
   { href: '/costume-competition', icon: Drama, labelKey: 'costumeCompetition' },
+  { href: '/games', icon: Gamepad2, labelKey: 'games' },
   { href: '/qtag', icon: Ticket, labelKey: 'qtag', dividerBefore: true },
   { href: '#qorder', icon: ShoppingCart, labelKey: 'qOrder', badge: 'comingSoon', disabled: true },
   { href: '/admin/users', icon: Users, labelKey: 'userManagement', roles: ['super_admin'], dividerBefore: true },

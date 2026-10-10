@@ -18,9 +18,10 @@ export const config = {
   // - Lobby pages (standalone TV display)
   // - Packs pages (prize opening)
   // - Raffle pages (standalone big-screen draw)
+  // - Play pages (public game demos, e.g. /play/10-bool)
   matcher: [
     // Match all pathnames except for
-    // - … if they start with `/api`, `/_next`, `/v/`, `/gallery/`, `/lobby/`, `/packs/`, `/raffle/` or contain a dot
-    '/((?!api|_next|v/|gallery/|lobby/|packs/|raffle/|.*\\..*).*)',
+    // - … if they start with `/api`, `/_next`, `/v/`, `/gallery/`, `/lobby/`, `/packs/`, `/raffle/`, `/play/` or contain a dot
+    '/((?!api|_next|v/|gallery/|lobby/|packs/|raffle/|play/|.*\\..*).*)',
   ],
 };

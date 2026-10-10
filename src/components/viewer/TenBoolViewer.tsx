@@ -558,9 +558,16 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       alive = false;
     };
   }, [canShare, shareKey]);
+  // "Powered by" + the share message lead to the 10 בול landing page (in the viewer's language),
+  // so every shared game also brings people to where they can create their own
+  const [landingLocale, setLandingLocale] = useState<'he' | 'en'>('he');
+  useEffect(() => {
+    if (!navigator.language.toLowerCase().startsWith('he')) setLandingLocale('en');
+  }, []);
   const share = () => {
     const url = `${window.location.origin}${window.location.pathname}`;
-    const text = `הצלחתי ${shareLine(shareStats)}!!! נסו אתם ${url}`;
+    // The message is Hebrew, so its landing link is too; the game link stays first (it drives the preview)
+    const text = `הצלחתי ${shareLine(shareStats)}!!! נסו אתם ${url}\n\nרוצים 10 בול משלכם? ${window.location.origin}/he/games/10-bool`;
     const file = shareFileRef.current;
     if (file && navigator.canShare?.({ files: [file] })) {
       navigator.share({ files: [file], text }).catch(() => {});
@@ -865,7 +872,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       )}
       {/* New tab, and kept off the game's tap target, so a stray touch never ends a round */}
       <a
-        href="/"
+        href={`/${landingLocale}/games/10-bool`}
         target="_blank"
         rel="noopener noreferrer"
         dir="ltr"

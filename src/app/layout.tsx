@@ -23,6 +23,10 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://qr.playzones.app'),
   title: "The Q - Dynamic QR Codes",
   description: "Create dynamic QR codes with advanced media display",
+  // Google Search Console "HTML tag" verification - set GOOGLE_SITE_VERIFICATION in Vercel (content value only)
+  ...(process.env.GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+    : {}),
   icons: {
     icon: "/favicon.svg",
     apple: "/theQ.png",

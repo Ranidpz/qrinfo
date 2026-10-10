@@ -12,7 +12,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+export function ThemeProvider({ children, renderBeforeMount = false }: { children: ReactNode; renderBeforeMount?: boolean }) {
   const [theme, setThemeState] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
 
@@ -82,8 +82,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemeState(newTheme);
   };
 
-  // Prevent flash of wrong theme
-  if (!mounted) {
+  // Prevent flash of wrong theme (the <head> script already sets the class, so pages that opt in
+  // via renderBeforeMount can render on the server)
+  if (!mounted && !renderBeforeMount) {
     return null;
   }
 

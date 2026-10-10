@@ -8,6 +8,7 @@ import CookieConsent from '@/components/legal/CookieConsent';
 import AccessibilityButton from '@/components/legal/AccessibilityButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { clsx } from 'clsx';
+import { isLandingPathname } from '@/lib/landing/site';
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,7 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
   // Check if we're on a full-screen page (no app shell needed)
   const isFullScreenPage = pathname?.includes('/marketing') ||
     pathname?.includes('/costume-competition') ||
+    isLandingPathname(pathname) ||
     pathname?.includes('/checkin') ||
     pathname?.includes('/scanner');
 

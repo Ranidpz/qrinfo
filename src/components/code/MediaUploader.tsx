@@ -33,6 +33,8 @@ const linkModeOptions: { mode: LinkMode; icon: React.ReactNode; label: string; l
   { mode: 'payment', icon: <CreditCard className="w-4 h-4" />, label: 'תשלום', labelKey: 'linkModePayment' },
 ];
 
+export type UploaderTab = 'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qbet' | 'tenbool' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames';
+
 interface MediaUploaderProps {
   onFileSelect: (file: File) => void;
   onLinkAdd?: (url: string, name: string) => void;
@@ -50,6 +52,7 @@ interface MediaUploaderProps {
   onQChallengeCreate?: (name: string) => void;
   onQTagCreate?: (name: string) => void;
   onQGamesCreate?: (name: string) => void;
+  initialTab?: UploaderTab; // e.g. preselected from a landing page's ?create= link
   maxSize?: number; // bytes
   accept?: string[];
   disabled?: boolean;
@@ -72,11 +75,12 @@ export default function MediaUploader({
   onQChallengeCreate,
   onQTagCreate,
   onQGamesCreate,
+  initialTab,
   maxSize = 5 * 1024 * 1024, // 5MB default
   disabled = false,
 }: MediaUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [activeTab, setActiveTab] = useState<'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qbet' | 'tenbool' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames'>('upload');
+  const [activeTab, setActiveTab] = useState<UploaderTab>(initialTab ?? 'upload');
   // Required name given to every experience before it can be created
   const [experienceName, setExperienceName] = useState('');
   const [linkUrl, setLinkUrl] = useState('');

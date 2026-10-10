@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import Image from 'next/image';
@@ -81,7 +81,7 @@ function pendingUploadStorageMetadata(uploadData: UploadResponse) {
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, refreshUser, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, refreshUser, signInWithGoogle } = useAuth();
   const locale = useLocale() as 'he' | 'en';
   const t = useTranslations('dashboard');
   const tCommon = useTranslations('common');
@@ -212,6 +212,23 @@ export default function DashboardPage() {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [searchParams]);
+
+  // ?create=tenbool from the 10 בול landing page: open the create panel on that tab (read once,
+  // the uploader takes it as its initial tab). A guest is asked to sign in first - the param stays
+  // in the URL meanwhile, so this runs again once the user exists.
+  const [createTab] = useState(() => (searchParams.get('create') === 'tenbool' ? ('tenbool' as const) : undefined));
+  const uploadSectionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (searchParams.get('create') !== 'tenbool' || authLoading) return;
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+    setShowLoginModal(false);
+    setUploadSectionCollapsed(false);
+    window.history.replaceState({}, '', window.location.pathname);
+    requestAnimationFrame(() => uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [searchParams, user, authLoading]);
 
   // Load user's codes, folders and owner names (or global codes for guests)
   useEffect(() => {
@@ -2113,7 +2130,7 @@ export default function DashboardPage() {
 
       {/* Upload Section - Collapsible (only for logged in users) */}
       {user ? (
-        <div className="bg-bg-card border border-border rounded-xl overflow-hidden">
+        <div ref={uploadSectionRef} className="bg-bg-card border border-border rounded-xl overflow-hidden scroll-mt-20">
           <button
             onClick={() => {
               const newValue = !uploadSectionCollapsed;
@@ -2155,6 +2172,7 @@ export default function DashboardPage() {
                   onQChallengeCreate={(name) => { setPendingExperienceName(name); setQchallengeModalOpen(true); }}
                   onQTagCreate={(name) => { setPendingExperienceName(name); setEditingQTagCode(null); setQtagModalOpen(true); }}
                   onQGamesCreate={(name) => { setPendingExperienceName(name); setQgamesModalOpen(true); }}
+                  initialTab={createTab}
                   disabled={uploading}
                 />
               </div>
