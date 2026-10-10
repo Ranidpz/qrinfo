@@ -38,7 +38,7 @@ export default function QTagFooter() {
             {t('backToDashboard')} &larr;
           </a>
 
-          <div className="mt-4 pt-4 border-t border-[var(--border)] w-full max-w-xs text-xs text-[var(--text-secondary)]">
+          <div className="mt-4 pt-4 border-t border-[var(--border)] w-full max-w-xs text-xs text-[var(--text-secondary)]" suppressHydrationWarning>
             Built by{' '}
             <a
               href="https://playzone.co.il"

@@ -71,7 +71,7 @@ export default function Footer() {
         </div>
 
         {/* Copyright */}
-        <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-[var(--border)] text-center text-xs md:text-sm text-[var(--text-secondary)]">
+        <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-[var(--border)] text-center text-xs md:text-sm text-[var(--text-secondary)]" suppressHydrationWarning>
           © {new Date().getFullYear()} The Q. {t('tagline')}
         </div>
       </div>

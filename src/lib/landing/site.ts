@@ -15,6 +15,16 @@ export function isLandingPathname(pathname: string | null | undefined) {
   return /^\/(he|en)\/experiences(\/|$)/.test(pathname ?? '');
 }
 
+// Public pages that ship real HTML from the server (for search engines). ThemeProvider renders them
+// before mount, so nothing they render may read window / localStorage / matchMedia - do that in an
+// effect. App pages (dashboard, code, admin...) stay client-only on purpose.
+const PUBLIC_SSR_PAGES = ['marketing', 'costume-competition', 'qtag', 'guide', 'privacy', 'accessibility'];
+const PUBLIC_SSR_RE = new RegExp(`^/(he|en)/(${PUBLIC_SSR_PAGES.join('|')})/?$`);
+
+export function isPublicSsrPathname(pathname: string | null | undefined) {
+  return isLandingPathname(pathname) || PUBLIC_SSR_RE.test(pathname ?? '');
+}
+
 export function isLandingLocale(value: string): value is Locale {
   return (LANDING_LOCALES as string[]).includes(value);
 }

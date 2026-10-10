@@ -167,7 +167,7 @@ export default function AccessibilityPage() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-gray-700 text-center text-gray-500">
-          <p>{t.copyright.replace('{year}', new Date().getFullYear().toString())}</p>
+          <p suppressHydrationWarning>{t.copyright.replace('{year}', new Date().getFullYear().toString())}</p>
         </div>
       </div>
     </div>

@@ -81,7 +81,7 @@ export default function CostumeHero() {
         {/* Subtitle badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-gradient-to-r from-purple-500/20 to-amber-500/20 border border-purple-500/30 backdrop-blur-sm animate-fade-in">
           <Sparkles className="w-4 h-4 text-amber-400" />
-          <span className="text-sm font-medium bg-gradient-to-r from-purple-300 to-amber-300 bg-clip-text text-transparent">
+          <span className="text-sm font-medium bg-gradient-to-r from-purple-300 to-amber-300 bg-clip-text text-transparent" suppressHydrationWarning>
             פורים {purimYear}
           </span>
           <Sparkles className="w-4 h-4 text-purple-400" />

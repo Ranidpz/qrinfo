@@ -11,6 +11,9 @@ import {
   QTagCTA,
 } from '@/components/marketing/qtag';
 
+// The pages print the current year (and costume: next Purim) - regenerate daily so it never goes stale
+export const revalidate = 86400;
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('qtagMarketing.meta');
 
