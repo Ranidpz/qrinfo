@@ -4,11 +4,11 @@ import { setRequestLocale } from 'next-intl/server';
 import ExperienceLanding from '@/components/landing/ExperienceLanding';
 import TenBoolDemo from '@/components/landing/TenBoolDemo';
 import { TENBOOL_CONTENT, TENBOOL_DEMO_LABELS } from '@/lib/landing/tenbool-content';
-import { LANDING_PAGES, SITE_URL, isLandingLocale, landingAlternates, landingPath, tenboolDemoSrc } from '@/lib/landing/site';
+import { SITE_URL, isLandingLocale, landingAlternates, landingPath, tenboolDemoSrc } from '@/lib/landing/site';
+import { getExperience } from '@/lib/experiences/catalog';
 
 const SLUG = '10-bool';
-const CARD = LANDING_PAGES.find((p) => p.slug === SLUG)!;
-const OG_IMAGE = CARD.image;
+const OG_IMAGE = getExperience('tenbool').image!;
 
 type Props = { params: Promise<{ locale: string }> };
 

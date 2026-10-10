@@ -135,7 +135,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
           name: 'לאירוע שלכם',
           price: 'הצעת מחיר',
           text: 'הצוות של Playzone מכין את המשחק בשבילכם ומתאים אותו לאירוע.',
-          features: ['מיתוג מלא לפי האירוע', 'התאמה למסך הגדול ולבאזר', 'ליווי לפני האירוע'],
+          features: ['מיתוג מלא לפי האירוע', 'באזר פיזי להשכרה', 'התאמה למסך הגדול ולבאזר', 'ליווי לפני האירוע'],
           cta: { label: 'קבלו הצעת מחיר', kind: 'contact' },
           highlight: true,
         },
@@ -162,7 +162,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { q: 'צריך להוריד אפליקציה?', a: 'לא. המשחק רץ בדפדפן בטלפון, בטאבלט, במחשב ובמסך חכם. בטלפון אפשר גם להוסיף אותו למסך הבית.' },
         {
           q: 'איך מחברים באזר?',
-          a: 'פותחים את המשחק במסך מלא במחשב שמחובר למסך, ומחברים באזר או לחצן USB שמוגדר כ־Enter או כרווח. זה הכול – כל לחיצה על הבאזר מפעילה ועוצרת את הטיימר.',
+          a: 'פותחים את המשחק במסך מלא במחשב שמחובר למסך, ומחברים באזר או לחצן USB שמוגדר כ־Enter או כרווח. זה הכול – כל לחיצה על הבאזר מפעילה ועוצרת את הטיימר. אין לכם באזר? אפשר לשכור מאיתנו באזר פיזי לאירוע.',
         },
         {
           q: 'כמה אנשים יכולים לשחק?',
@@ -296,7 +296,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
           name: 'For your event',
           price: 'Custom quote',
           text: 'The Playzone team prepares the game for you and fits it to your event.',
-          features: ['Full branding for your event', 'Set up for the big screen and a buzzer', 'Support before the event'],
+          features: ['Full branding for your event', 'Physical buzzer for rent', 'Set up for the big screen and a buzzer', 'Support before the event'],
           cta: { label: 'Get a quote', kind: 'contact' },
           highlight: true,
         },
@@ -323,7 +323,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { q: 'Do I need to download an app?', a: 'No. The game runs in the browser on phones, tablets, computers and smart TVs. On a phone you can also add it to your home screen.' },
         {
           q: 'How do I connect a buzzer?',
-          a: 'Open the game full screen on a computer connected to the display, and plug in a USB buzzer or button mapped to Enter or Space. That’s it – every press of the buzzer starts and stops the timer.',
+          a: 'Open the game full screen on a computer connected to the display, and plug in a USB buzzer or button mapped to Enter or Space. That’s it – every press of the buzzer starts and stops the timer. No buzzer? You can rent a physical one from us for your event.',
         },
         {
           q: 'How many people can play?',

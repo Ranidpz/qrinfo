@@ -1,5 +1,8 @@
 import type { MetadataRoute } from 'next';
-import { LANDING_LOCALES, LANDING_PAGES, LANDING_UPDATED, SITE_URL, landingUrl } from '@/lib/landing/site';
+import { LANDING_LOCALES, SITE_URL, landingUrl } from '@/lib/landing/site';
+import { EXPERIENCE_PAGES, experienceSlug } from '@/lib/experiences/catalog';
+
+const HUB_UPDATED = EXPERIENCE_PAGES.map((p) => p.updated ?? '').sort().at(-1) || undefined;
 
 // Public, indexable pages only, each listed per language with its hreflang alternates.
 
@@ -16,8 +19,8 @@ function bothLanguages(path: (locale: 'he' | 'en') => string, priority: number, 
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
-    ...bothLanguages((l) => landingUrl(l), 0.8, LANDING_UPDATED),
-    ...LANDING_PAGES.flatMap((p) => bothLanguages((l) => landingUrl(l, p.slug), 0.9, p.updated)),
+    ...bothLanguages((l) => landingUrl(l), 0.8, HUB_UPDATED),
+    ...EXPERIENCE_PAGES.flatMap((p) => bothLanguages((l) => landingUrl(l, experienceSlug(p)), 0.9, p.updated)),
     ...bothLanguages((l) => `${SITE_URL}/${l}/marketing`, 0.7),
     ...bothLanguages((l) => `${SITE_URL}/${l}/costume-competition`, 0.5),
     ...bothLanguages((l) => `${SITE_URL}/${l}/qtag`, 0.5),

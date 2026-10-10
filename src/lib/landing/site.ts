@@ -58,32 +58,3 @@ export type DemoBoard = 'wins' | 'counter' | 'lives';
 export function tenboolDemoSrc(board: DemoBoard = 'wins') {
   return `/play/10-bool?board=${board}`;
 }
-
-export interface LandingCard {
-  slug: string;
-  updated: string; // ISO date, for the sitemap
-  image: string;
-  title: Record<Locale, string>;
-  tagline: Record<Locale, string>;
-  tags: Record<Locale, string[]>;
-}
-
-// The hub lists these, and the sitemap emits every one in both languages.
-export const LANDING_PAGES: LandingCard[] = [
-  {
-    slug: '10-bool',
-    updated: '2026-10-10',
-    image: '/api/og/tenbool',
-    title: { he: '10 בול', en: '10 Bool' },
-    tagline: {
-      he: 'עצרו את הטיימר בדיוק על 10.00. משחק תזמון קצר וממכר למסך גדול, לכיתה ולטלפון.',
-      en: 'Stop the timer at exactly 10.00. A quick, addictive timing game for big screens, classrooms and phones.',
-    },
-    tags: {
-      he: ['אירועים', 'כנסים', 'ימי הולדת', 'כיתות'],
-      en: ['Events', 'Conferences', 'Birthdays', 'Classrooms'],
-    },
-  },
-];
-
-export const LANDING_UPDATED = LANDING_PAGES.map((p) => p.updated).sort().at(-1)!;
