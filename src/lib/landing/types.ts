@@ -21,6 +21,9 @@ export interface PricingPlan {
 
 export interface ExperienceLandingContent {
   name: string; // the experience's display name, e.g. "10 בול"
+  // The experience's OWN colour (10 בול = gold): only its name and its numbers. Every action and
+  // icon on the page uses the system accent instead.
+  brandColor: string;
   meta: { title: string; description: string; ogAlt: string; keywords: string[] };
   nav: { how: string; ways: string; pricing: string; cta: string };
   hero: {
@@ -33,20 +36,18 @@ export interface ExperienceLandingContent {
     image: LandingImage;
     stats?: { value: string; label: string }[];
   };
-  demo: { kicker: string; title: string; text: string };
-  steps: { kicker: string; title: string; items: { title: string; text: string }[] };
+  demo: { title: string; text: string };
+  steps: { title: string; items: { title: string; text: string }[] };
   ways: {
-    kicker: string;
     title: string;
     items: { title: string; text: string; badge: string; visual: { image: LandingImage } | { phone: string } }[];
     chipsLabel?: string;
     chips?: { icon: LucideIcon; label: string }[];
-    audience?: string[];
+    audience?: string; // one plain sentence
   };
   // What the owner can set (logo, colours, sounds, animated background...) + an optional demo of one
-  customize?: { kicker: string; title: string; items: { icon: LucideIcon; label: string }[]; demo?: { label: string; href: string } };
+  customize?: { title: string; items: { icon: LucideIcon; label: string }[]; demo?: { label: string; href: string } };
   pricing: {
-    kicker: string;
     title: string;
     plans: PricingPlan[];
     contactTitle: string;
@@ -56,7 +57,6 @@ export interface ExperienceLandingContent {
   };
   // Something to rent for the event (e.g. the physical buzzer) - its own band with a photo
   addon?: {
-    kicker: string;
     title: string;
     text: string;
     points: string[];
@@ -67,6 +67,6 @@ export interface ExperienceLandingContent {
     games?: { label: string; items: { name: string; href?: string; soon?: string }[] };
     idea?: { text: string; cta: string; whatsappText: string }; // "thought of a game? talk to us"
   };
-  faq: { kicker: string; title: string; items: { q: string; a: string }[] };
-  final: { kicker: string; title: string; text: string; cta: string; secondary: string; social: string; backdrop?: string }; // backdrop = a dim parallax photo
+  faq: { title: string; items: { q: string; a: string }[] };
+  final: { title: string; text: string; cta: string; secondary: string; social: string; backdrop?: string }; // backdrop = a dim parallax photo
 }

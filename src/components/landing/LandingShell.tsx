@@ -3,6 +3,7 @@ import { Globe, Sparkles } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
 import { experiencesHref, landingPath } from '@/lib/landing/site';
 import SocialLinks from './SocialLinks';
+import LandingNav from './LandingNav';
 
 // Server-rendered frame for the public landing pages: everything here is plain HTML so
 // crawlers read it without running JS.
@@ -35,13 +36,13 @@ export function LandingShell({
 }: {
   locale: Locale;
   slug?: string; // current page, so the language switch lands on the same page in the other language
-  nav?: { label: string; href: string }[]; // in-page jump links (desktop)
+  nav?: { label: string; href: string }[]; // in-page sections ('#id'): scrollspy nav, pills on phones
   cta?: { label: string; href: string };
   children: React.ReactNode;
 }) {
   const t = SHELL_TEXT[locale];
   const other: Locale = locale === 'he' ? 'en' : 'he';
-  const link = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-white/70 hover:bg-white/10 hover:text-white transition-colors';
+  const link = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary';
   return (
     <div
       lang={locale}
@@ -49,22 +50,13 @@ export function LandingShell({
       className="min-h-screen bg-bg-primary text-text-primary"
       style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif' }}
     >
-      {/* Always dark: it sits on top of the dark hero */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0b0e1d]/90 text-white backdrop-blur-lg">
+      {/* Same header language as the rest of The Q: the logo alone, system colours, one accent button */}
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-bg-primary/85 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <a href={`/${locale}/marketing`} className="flex items-center gap-2 shrink-0" aria-label="The Q">
-            <Image src="/theQ.png" alt="The Q" width={32} height={32} className="rounded-md" />
-            <span className="hidden text-sm font-bold sm:inline">The Q</span>
+          <a href={`/${locale}/marketing`} className="flex min-h-11 shrink-0 items-center" aria-label="The Q">
+            <Image src="/theQ.png" alt="The Q" width={34} height={34} className="rounded-md" />
           </a>
-          {nav && (
-            <nav className="hidden items-center gap-1 text-sm font-medium md:flex">
-              {nav.map((n) => (
-                <a key={n.href} href={n.href} className={link}>
-                  {n.label}
-                </a>
-              ))}
-            </nav>
-          )}
+          {nav && <LandingNav items={nav} />}
           <div className="flex items-center gap-1 text-sm font-medium">
             {!nav && (
               <a href={experiencesHref(locale)} className={link}>
@@ -79,7 +71,7 @@ export function LandingShell({
             {cta && (
               <a
                 href={cta.href}
-                className="ms-1 inline-flex items-center rounded-lg border border-white/25 px-3 py-1.5 font-semibold text-white transition-colors hover:border-amber-400 hover:text-amber-300"
+                className="ms-1 inline-flex min-h-10 items-center rounded-lg bg-accent px-4 font-semibold text-white transition-colors hover:bg-accent-hover"
               >
                 {cta.label}
               </a>
