@@ -1,23 +1,14 @@
-import {
-  Building2,
-  CircleDot,
-  Cake,
-  GraduationCap,
-  Hash,
-  Heart,
-  Keyboard,
-  MessageCircle,
-  PartyPopper,
-  Smartphone,
-  Trophy,
-  Users,
-  UtensilsCrossed,
-} from 'lucide-react';
+import { Hash, Heart, Trophy } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
 import type { ExperienceLandingContent } from './types';
 
-// Marketing copy for the "10 בול" landing page, both languages side by side. It lives here and
-// not in he.json/en.json because it is long-form page content, rendered on the server only.
+// Copy for the "10 בול" landing page, both languages side by side. Short on purpose - a line or
+// two per block. It lives here (not he.json/en.json) because it is page content, server-rendered.
+
+const HERO_IMAGE = '/experiences/10-bool/hero-buzzer-crowd.webp';
+const STAGE_IMAGE = '/experiences/10-bool/stage-big-screen.webp';
+// Until there's a product shot of the buzzer, crop it out of the hero photo
+const BUZZER_IMAGE = { src: HERO_IMAGE, position: '32% 85%' };
 
 export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
   he: {
@@ -27,116 +18,79 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       description:
         'עצרו את הטיימר בדיוק על 10.00 ותקבלו בול! משחק תזמון חינמי בדפדפן – למסך גדול באירוע, לכיתה, ליום הולדת ולטלפון. שחקו עכשיו או צרו משחק משלכם.',
       ogAlt: 'שעון עצר שמראה 10.00 בדיוק',
-      keywords: ['10 בול', 'עשר בול', 'משחק 10 בול', 'משחק טיימר', 'לעצור את הטיימר על 10', 'משחק 10 שניות', 'משחק לאירועים', 'משחק למסך גדול', 'משחק לכנס', 'משחק לכיתה'],
+      keywords: ['10 בול', 'עשר בול', 'משחק 10 בול', 'משחק טיימר', 'לעצור את הטיימר על 10', 'משחק 10 שניות', 'משחק לאירועים', 'משחק למסך גדול', 'משחק לכנס', 'באזר לאירוע'],
     },
+    nav: { how: 'איך זה עובד', ways: 'לאירועים', pricing: 'צרו בעצמכם', cta: 'יצירת משחק' },
     hero: {
-      eyebrow: 'משחק לאירועים · חינם בדפדפן',
-      title: '10 בול – עצרו את הטיימר בדיוק על 10.00',
-      lead:
-        'הטיימר רץ, אתם לוחצים, וצריך לעצור אותו בדיוק על 10.00. לא 9.99 ולא 10.01. משחק של עשר שניות שגורם לכולם לבקש "עוד פעם אחת" – על מסך גדול באירוע, בכיתה, ביום הולדת או בטלפון מול החברים.',
+      eyebrow: 'משחק אינטראקטיבי לאירועים',
+      tagline: ['10 שניות. שתי לחיצות.', 'מי יעצור בדיוק על 10.00?'],
+      lead: 'משחק תזמון קצר, ממכר ומותח שכל אחד רוצה לנסות. על מסך LED ענק באירוע, עם הבאזר שלנו, או ישר מהטלפון.',
       ctaPrimary: 'צרו משחק משלכם',
-      ctaSecondary: 'שחקו במסך מלא',
-      chips: ['חינם', 'בלי התקנה', 'טלפון, מחשב ומסך גדול'],
-    },
-    what: {
-      title: 'מה זה 10 בול?',
-      paragraphs: [
-        '10 בול הוא משחק תזמון: לוחצים פעם אחת והטיימר מתחיל לרוץ במאיות שנייה, לוחצים שוב והוא עוצר. המטרה אחת – לעצור בדיוק על 10.00. מי שמצליח קיבל "בול".',
-        'נשמע קל? רוב השחקנים מפספסים בכמה מאיות, וזה בדיוק מה שהופך אותו לממכר. בשלוש השניות האחרונות מגיעים צפצופים והספרות מאדימות, המתח עולה, וכשמישהו סוף סוף פוגע – כל הקהל מריע.',
-        'המשחק רץ בדפדפן, בלי הורדה ובלי הרשמה לשחקנים. מציגים קישור או קוד QR, וכל אחד יכול להצטרף – על המסך הגדול או בטלפון שלו.',
+      ctaSecondary: 'התנסו עכשיו',
+      chips: ['חינם להתנסות', 'בלי התקנה', 'באזר פיזי לאירוע'],
+      image: { src: HERO_IMAGE, alt: 'אורחים באירוע לוחצים על באזר ירוק מול מסך ענק שמראה 09.98' },
+      stats: [
+        { value: '10.00', label: 'המטרה' },
+        { value: '02', label: 'לחיצות' },
+        { value: '∞', label: 'ניסיונות' },
+        { value: '0', label: 'התקנה' },
       ],
     },
-    howTo: {
-      title: 'איך משחקים',
-      steps: [
-        { title: 'לחצו כדי להתחיל', text: 'הטיימר יוצא לדרך מ־00.00 ורץ במאיות שנייה.' },
-        { title: 'ספרו עשר בראש', text: 'מתרכזים, סופרים בקצב, ומקשיבים לצפצופים של השניות האחרונות.' },
-        { title: 'לחצו שוב כדי לעצור', text: 'עצרתם על 10.00 בדיוק? בול! כל תוצאה אחרת – נסו שוב.' },
-      ],
-      extrasTitle: 'בכל מסך, בדרך שנוחה לו',
-      extras: [
-        {
-          icon: Keyboard,
-          title: 'מסך גדול ומחשב',
-          text: 'לוחצים Enter או רווח. כל באזר או לחצן USB שמוגדר לאחד המקשים האלה עובד מיד – מושלם לדוכן באירוע או לבמה. אין לכם באזר? אנחנו משכירים.',
-        },
-        {
-          icon: Smartphone,
-          title: 'טלפון וטאבלט',
-          text: 'נוגעים בכל מקום במסך. אפשר גם להוסיף את המשחק למסך הבית ולפתוח אותו כמו אפליקציה.',
-        },
+    demo: {
+      kicker: 'נסו בעצמכם',
+      title: 'נראה קל? נסו בעצמכם.',
+      text: 'הטיימר מתחיל בלחיצה הראשונה ונעצר בשנייה. המטרה: בדיוק 10.00 – לא 9.99 ולא 10.01.',
+    },
+    steps: {
+      kicker: 'המשחק',
+      title: '10 שניות של מתח. עוד ניסיון. ועוד אחד.',
+      items: [
+        { title: 'לוחצים ומתחילים', text: 'הטיימר יוצא לדרך ורץ במאיות שנייה.' },
+        { title: 'סופרים עשר בראש', text: 'בשלוש השניות האחרונות מגיעים צפצופים.' },
+        { title: 'עוצרים על 10.00', text: 'עצרתם בדיוק? בול! כל השאר – עוד ניסיון.' },
       ],
     },
-    features: {
-      id: 'modes',
-      title: 'שלושה לוחות תוצאות',
-      intro: 'בעלי המשחק בוחרים בהגדרות איך התוצאות מוצגות בפינות המסך. כל לוח מתאים לסוג אחר של אירוע.',
+    ways: {
+      kicker: 'דרכי משחק',
+      title: 'חוויה אחת. כל דרך משחק.',
       items: [
         {
-          icon: Trophy,
-          title: 'נקודות זהב',
-          text: 'כל בול מוסיף נקודת זהב מנצנצת בפינת המסך. רואים לאורך כל האירוע כמה פעמים הקהל פגע.',
-          note: 'מתאים לדוכן פתוח שכל אחד ניגש אליו',
+          badge: 'מסך LED + באזר',
+          title: 'על הבמה ובדוכן',
+          text: 'מסך גדול, באזר אחד וקהל שלם סביבו. כל לחיצה על הבאזר מפעילה ועוצרת את הטיימר.',
+          visual: { image: { src: STAGE_IMAGE, alt: 'שחקן לוחץ על באזר מול מסך ענק באירוע, והקהל מריע' } },
         },
         {
-          icon: Hash,
-          title: 'מונה ניסיונות',
-          text: 'לצד נקודות הזהב רץ מונה של הניסיונות מאז הבול האחרון. רואים כמה זה באמת קשה – והמונה רק מגביר את המתח.',
-          note: 'מתאים לקהל גדול שמשחק ברצף',
-        },
-        {
-          icon: Heart,
-          title: 'חיים',
-          text: 'לכל מתמודד מספר פסילות קבוע – בין 1 ל־9, ושלוש כברירת מחדל. כל החטאה מורידה חיים, התור נגמר בבול או כשהחיים נגמרים, והלוח מתאפס לשחקן הבא.',
-          note: 'מתאים לתחרות בתורות',
+          badge: 'טלפון / QR',
+          title: 'מהטלפון, בכל מקום',
+          text: 'סורקים קוד QR ומשחקים. מהבול השני אפשר לשתף את התוצאה בוואטסאפ.',
+          visual: { phone: '09.98' },
         },
       ],
-      footnote: 'ואפשר גם לכבות את הלוח לגמרי ולהשאיר רק את הטיימר.',
-    },
-    audience: {
-      title: 'למי זה מתאים',
-      items: [
-        { icon: Building2, title: 'כנסים ותערוכות', text: 'עמדה בדוכן שמושכת אנשים, יוצרת תור ונותנת סיבה לעצור ולדבר.' },
-        { icon: Users, title: 'אירועי חברה וגיבוש', text: 'פותחים ערב צוות, חוצים קבוצות לתחרות, ומחלקים פרס למי שפגע הכי הרבה.' },
-        { icon: Cake, title: 'ימי הולדת ובר/בת מצווה', text: 'מסך אחד, באזר אחד, וכל האורחים בתור – מהילדים ועד הסבתות.' },
-        { icon: GraduationCap, title: 'כיתות ותנועות נוער', text: 'הפסקה פעילה של דקה, תרגול ריכוז ותחושת זמן, ותחרות כיתתית בלי שום הכנה.' },
-        { icon: UtensilsCrossed, title: 'ברים ומסעדות', text: 'מציגים קוד QR על השולחן ומזמינים את הסועדים לנסות לפגוע בבול.' },
-        { icon: PartyPopper, title: 'סתם מול החברים', text: 'שולחים קישור בקבוצה ובודקים מי מגיע ראשון לבול.' },
+      chipsLabel: 'לוח התוצאות לבחירתכם:',
+      chips: [
+        { icon: Trophy, label: 'נקודות זהב' },
+        { icon: Hash, label: 'מונה ניסיונות' },
+        { icon: Heart, label: 'חיים לכל מתמודד' },
       ],
-    },
-    customize: {
-      title: 'המשחק שלכם, במיתוג שלכם',
-      intro: 'כל משחק שאתם יוצרים מקבל קישור וקוד QR משלו, ואתם קובעים איך הוא נראה ונשמע:',
-      items: [
-        'לוגו במרכז המסך ותמונת רקע',
-        'צבעי רקע וטקסט וגופן מתוך גופנים עבריים',
-        'צלילים לפתיחה, לצפצופים, להצלחה ולהחטאה – או קבצי שמע משלכם',
-        'הבזק ניצחון, הבזק החטאה וקונפטי צבעוני בכל בול',
-        'פס קרבה שמראה כמה רחוק הייתה כל עצירה מ־10.00',
-        'לוח התוצאות ומספר החיים לכל מתמודד',
-      ],
-      callout: {
-        icon: MessageCircle,
-        title: 'מתפשט לבד בוואטסאפ',
-        text: 'בטלפון, מהבול השני מופיע כפתור שיתוף שיוצר תמונה של התוצאה ושולח אותה בוואטסאפ עם קישור למשחק. כל מי שמקבל – מנסה לעקוף.',
-      },
+      audience: ['כנסים ותערוכות', 'אירועי חברה', 'ימי הולדת', 'כיתות', 'ברים'],
     },
     pricing: {
-      title: 'מחירים',
-      intro: 'אפשר להקים את המשחק לבד ובחינם, או לתת לנו להכין אותו לאירוע שלכם.',
+      kicker: 'יצירה',
+      title: 'רוצים 10 בול משלכם?',
       plans: [
         {
-          name: 'בעצמכם',
+          name: 'יוצרים בעצמכם',
           price: 'חינם',
-          text: 'יוצרים משחק מהדשבורד של The Q ומפעילים אותו בכל אירוע.',
-          features: ['קישור וקוד QR משלכם', 'לוגו, צבעים, גופן וצלילים', 'שלושה לוחות תוצאות', 'טלפון, מחשב ומסך גדול'],
+          text: 'מקימים משחק מהדשבורד ומפעילים אותו בכל אירוע.',
+          features: ['קישור וקוד QR משלכם', 'לוגו, צבעים, גופן וצלילים', 'טלפון, מחשב ומסך גדול'],
           cta: { label: 'צרו משחק משלכם', kind: 'create' },
         },
         {
-          name: 'לאירוע שלכם',
+          name: 'אנחנו מפיקים לכם',
           price: 'הצעת מחיר',
-          text: 'הצוות של Playzone מכין את המשחק בשבילכם ומתאים אותו לאירוע.',
-          features: ['מיתוג מלא לפי האירוע', 'באזר פיזי להשכרה', 'התאמה למסך הגדול ולבאזר', 'ליווי לפני האירוע'],
+          text: 'הצוות של Playzone מכין את המשחק ומתאים אותו לאירוע.',
+          features: ['מיתוג מלא לפי האירוע', 'באזר פיזי להשכרה', 'התאמה למסך הגדול', 'ליווי לפני האירוע'],
           cta: { label: 'קבלו הצעת מחיר', kind: 'contact' },
           highlight: true,
         },
@@ -145,47 +99,34 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       whatsappText: 'היי, אשמח לשמוע על 10 בול לאירוע שלי',
       emailSubject: '10 בול – בקשת הצעת מחיר',
       labels: { whatsapp: 'וואטסאפ', email: 'אימייל', call: 'תיאום שיחה' },
-      addon: {
-        icon: CircleDot,
-        title: 'תוספת לאירוע: באזר פיזי להשכרה',
-        text: 'באזר גדול שמתחבר למחשב שמפעיל את המסך. כל לחיצה מפעילה ועוצרת את הטיימר – והקהל נהנה פי כמה.',
-        cta: 'שכרו באזר לאירוע',
-        whatsappText: 'היי, אשמח לשכור באזר ל־10 בול לאירוע שלי',
-      },
     },
-    create: {
-      title: 'יוצרים משחק בדקה',
-      steps: [
-        'מתחברים ל־The Q עם חשבון גוגל.',
-        'בוחרים "10 בול" ונותנים למשחק שם.',
-        'מעצבים, מוסיפים לוגו וצלילים, ומציגים את הקישור או את קוד ה־QR.',
-      ],
-      cta: 'צרו משחק משלכם',
+    addon: {
+      kicker: 'הבאזר',
+      title: 'לפעמים כל מה שצריך זה כפתור ירוק אחד.',
+      text: 'באזר פיזי גדול שמתחבר למחשב שמפעיל את המסך. לחיצה אחת – והטיימר יוצא לדרך. משכירים לאירוע.',
+      points: ['מתאים ל־10 בול ולהגרלה', 'גדול, יציב ובולט בדוכן'],
+      cta: 'שכרו באזר לאירוע',
+      whatsappText: 'היי, אשמח לשכור באזר ל־10 בול לאירוע שלי',
+      image: { ...BUZZER_IMAGE, alt: 'הבאזר של Playzone – עמוד שחור עם כפתור ירוק מואר' },
     },
     faq: {
+      kicker: 'טוב לדעת',
       title: 'שאלות נפוצות',
       items: [
-        { q: 'למה קוראים לזה "10 בול"?', a: '"בול" זה פגיעה מדויקת. המטרה היא לעצור את הטיימר על 10.00 בדיוק – בול.' },
-        { q: 'האם המשחק חינמי?', a: 'כן. לשחק אפשר בלי הרשמה ובלי תשלום, ויצירת משחק משלכם זמינה בחשבון החינמי של The Q.' },
-        { q: 'צריך להוריד אפליקציה?', a: 'לא. המשחק רץ בדפדפן בטלפון, בטאבלט, במחשב ובמסך חכם. בטלפון אפשר גם להוסיף אותו למסך הבית.' },
-        {
-          q: 'איך מחברים באזר?',
-          a: 'פותחים את המשחק במסך מלא במחשב שמחובר למסך, ומחברים באזר או לחצן USB שמוגדר כ־Enter או כרווח. זה הכול – כל לחיצה על הבאזר מפעילה ועוצרת את הטיימר. אין לכם באזר? אפשר לשכור מאיתנו באזר פיזי לאירוע.',
-        },
-        {
-          q: 'כמה אנשים יכולים לשחק?',
-          a: 'כמה שרוצים. על מסך גדול משחקים בתורות, ולוח החיים מנהל את התור לכל מתמודד. דרך קוד QR כל אחד משחק בטלפון שלו במקביל.',
-        },
-        { q: 'כמה מדויקת המדידה?', a: 'הזמן נמדד במאיות שנייה ולפי רגע הלחיצה עצמו, כך שבול נחשב רק כשהתצוגה עוצרת על 10.00 בדיוק.' },
-        { q: 'אפשר להוסיף לוגו וצבעים של החברה?', a: 'כן. בהגדרות המשחק מעלים לוגו ותמונת רקע, בוחרים צבעים, גופן וצלילים, וזה מה שהשחקנים רואים.' },
-        { q: 'התוצאות נשמרות?', a: 'לוח התוצאות חי על המסך שבו משחקים. רענון של הדף פותח לוח חדש – נוח במיוחד כשעוברים בין סבבים או בין קבוצות.' },
+        { q: 'למה קוראים לזה "10 בול"?', a: '"בול" זה פגיעה מדויקת. עוצרים את הטיימר על 10.00 בדיוק – בול.' },
+        { q: 'האם זה חינמי?', a: 'כן. לשחק אפשר בלי הרשמה, ויצירת משחק משלכם זמינה בחשבון החינמי של The Q.' },
+        { q: 'צריך להוריד אפליקציה?', a: 'לא. המשחק רץ בדפדפן בטלפון, במחשב ובמסך חכם.' },
+        { q: 'איך מחברים באזר?', a: 'מחברים למחשב שמפעיל את המסך באזר שמוגדר כ־Enter או כרווח. אין לכם באזר? אנחנו משכירים.' },
+        { q: 'כמה אנשים יכולים לשחק?', a: 'כמה שרוצים. על מסך גדול משחקים בתורות, ודרך קוד QR כל אחד משחק בטלפון שלו.' },
       ],
     },
     final: {
-      title: 'מוכנים לבול?',
-      text: 'צרו משחק 10 בול משלכם תוך דקה, או שחקו עכשיו במסך מלא.',
+      kicker: 'מוכנים לאתגר?',
+      title: 'אז... יש לכם 10 בול?',
+      text: 'צרו משחק משלכם תוך דקה, או נסו עכשיו במסך מלא.',
       cta: 'צרו משחק משלכם',
-      secondary: 'שחקו עכשיו',
+      secondary: 'התנסו עכשיו',
+      social: 'תמונות וסרטונים מאירועים שלנו',
     },
   },
   en: {
@@ -195,116 +136,79 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       description:
         'Stop the timer at exactly 10.00 to score a "bool"! A free browser timing game for event big screens, classrooms, birthdays and phones. Play now or create your own.',
       ogAlt: 'A stopwatch showing exactly 10.00',
-      keywords: ['10 bool', 'stop the timer at 10 seconds', '10 second challenge game', 'timer game', 'stopwatch game', 'event game', 'big screen game', 'conference booth game', 'classroom timer game', '10 בול'],
+      keywords: ['10 bool', 'stop the timer at 10 seconds', '10 second challenge game', 'timer game', 'stopwatch game', 'event game', 'big screen game', 'conference booth game', 'event buzzer', '10 בול'],
     },
+    nav: { how: 'How it works', ways: 'For events', pricing: 'Create', cta: 'Create a game' },
     hero: {
-      eyebrow: 'Event game · Free in the browser',
-      title: '10 Bool – stop the timer at exactly 10.00',
-      lead:
-        'The timer runs, you press, and you have to stop it at exactly 10.00. Not 9.99, not 10.01. A ten-second game that has everyone asking for "just one more go" – on an event big screen, in class, at a birthday party or on your phone.',
+      eyebrow: 'Interactive game for events',
+      tagline: ['10 seconds. Two presses.', 'Who stops at exactly 10.00?'],
+      lead: 'A short, addictive timing game everyone wants to try. On a giant LED screen at your event, with our buzzer, or straight from a phone.',
       ctaPrimary: 'Create your own',
-      ctaSecondary: 'Play full screen',
-      chips: ['Free', 'Nothing to install', 'Phone, computer and big screen'],
-    },
-    what: {
-      title: 'What is 10 Bool?',
-      paragraphs: [
-        '10 Bool is a timing game: press once and a stopwatch starts counting in hundredths of a second, press again and it stops. There is one goal – stop it at exactly 10.00. Nail it and you score a "bool", Hebrew slang for a bullseye.',
-        'Sounds easy? Most players miss by a few hundredths, which is exactly what makes it addictive. The last three seconds bring beeps and red digits, the tension builds, and when someone finally hits it the whole room cheers.',
-        'It runs in the browser – no download, no sign-up for players. Put up a link or a QR code and anyone can join, on the big screen or on their own phone.',
+      ctaSecondary: 'Try it now',
+      chips: ['Free to try', 'Nothing to install', 'Physical buzzer for events'],
+      image: { src: HERO_IMAGE, alt: 'Event guests slamming a green buzzer in front of a giant screen showing 09.98' },
+      stats: [
+        { value: '10.00', label: 'Target' },
+        { value: '02', label: 'Presses' },
+        { value: '∞', label: 'Tries' },
+        { value: '0', label: 'Installs' },
       ],
     },
-    howTo: {
-      title: 'How to play',
-      steps: [
-        { title: 'Press to start', text: 'The timer sets off from 00.00, counting in hundredths of a second.' },
-        { title: 'Count to ten in your head', text: 'Focus, keep a steady beat and listen for the beeps of the final seconds.' },
-        { title: 'Press again to stop', text: 'Stopped on exactly 10.00? That’s a bool! Anything else – have another go.' },
-      ],
-      extrasTitle: 'Every screen, its own way',
-      extras: [
-        {
-          icon: Keyboard,
-          title: 'Big screens and computers',
-          text: 'Press Enter or Space. Any USB buzzer or button mapped to one of those keys works straight away – perfect for an event booth or a stage. No buzzer? We rent them out.',
-        },
-        {
-          icon: Smartphone,
-          title: 'Phones and tablets',
-          text: 'Tap anywhere on the screen. You can also add the game to your home screen and open it like an app.',
-        },
+    demo: {
+      kicker: 'Try it yourself',
+      title: 'Looks easy? Try it.',
+      text: 'The first press starts the timer, the second stops it. The goal: exactly 10.00 – not 9.99, not 10.01.',
+    },
+    steps: {
+      kicker: 'The game',
+      title: '10 seconds of suspense. One more try. And another.',
+      items: [
+        { title: 'Press to start', text: 'The timer sets off, counting in hundredths.' },
+        { title: 'Count to ten', text: 'The last three seconds come with beeps.' },
+        { title: 'Stop on 10.00', text: 'Spot on? That’s a bool! Anything else – try again.' },
       ],
     },
-    features: {
-      id: 'modes',
-      title: 'Three scoreboards',
-      intro: 'In the settings, the game’s owner chooses how scores show up in the corners of the screen. Each board suits a different kind of event.',
+    ways: {
+      kicker: 'Ways to play',
+      title: 'One experience. Every way to play.',
       items: [
         {
-          icon: Trophy,
-          title: 'Gold dots',
-          text: 'Every bool adds a shining gold dot in the corner, so all event long you can see how many times the crowd hit it.',
-          note: 'Best for an open booth anyone can walk up to',
+          badge: 'LED screen + buzzer',
+          title: 'On stage and at the booth',
+          text: 'A big screen, one buzzer and a whole crowd around it. Every slam starts and stops the timer.',
+          visual: { image: { src: STAGE_IMAGE, alt: 'A player slams the buzzer in front of a giant event screen as the crowd cheers' } },
         },
         {
-          icon: Hash,
-          title: 'Attempt counter',
-          text: 'Next to the gold dots, a counter tracks the attempts since the last bool. It shows how hard it really is – and only adds to the tension.',
-          note: 'Best for a big crowd playing back to back',
-        },
-        {
-          icon: Heart,
-          title: 'Lives',
-          text: 'Each contestant gets a fixed number of lives – anywhere from 1 to 9, three by default. Every miss costs a life; the turn ends on a bool or when the lives run out, and the board resets for the next player.',
-          note: 'Best for a take-turns competition',
+          badge: 'Phone / QR',
+          title: 'From a phone, anywhere',
+          text: 'Scan a QR code and play. From the second bool you can share your score on WhatsApp.',
+          visual: { phone: '09.98' },
         },
       ],
-      footnote: 'You can also switch the board off and keep just the timer.',
-    },
-    audience: {
-      title: 'Who it’s for',
-      items: [
-        { icon: Building2, title: 'Conferences and expos', text: 'A booth activity that draws people in, builds a queue and gives them a reason to stop and talk.' },
-        { icon: Users, title: 'Company events and team building', text: 'Kick off a team night, split into groups and give a prize to whoever hits it most.' },
-        { icon: Cake, title: 'Birthdays and bar/bat mitzvahs', text: 'One screen, one buzzer, and every guest in line – from the kids to the grandparents.' },
-        { icon: GraduationCap, title: 'Classrooms and youth groups', text: 'A one-minute active break that trains focus and sense of time, with zero preparation.' },
-        { icon: UtensilsCrossed, title: 'Bars and restaurants', text: 'Put a QR code on the table and challenge diners to hit a bool.' },
-        { icon: PartyPopper, title: 'Just you and your friends', text: 'Drop the link in the group chat and see who gets a bool first.' },
+      chipsLabel: 'Pick your scoreboard:',
+      chips: [
+        { icon: Trophy, label: 'Gold dots' },
+        { icon: Hash, label: 'Attempt counter' },
+        { icon: Heart, label: 'Lives per player' },
       ],
-    },
-    customize: {
-      title: 'Your game, your brand',
-      intro: 'Every game you create gets its own link and QR code, and you decide how it looks and sounds:',
-      items: [
-        'A logo in the middle of the screen and a background image',
-        'Background and text colours, and a font (Hebrew-ready fonts included)',
-        'Sounds for the start, the beeps, a hit and a miss – or your own audio files',
-        'A win flash, a miss flash and colourful confetti on every bool',
-        'A closeness bar showing how far each stop was from 10.00',
-        'The scoreboard and the number of lives per contestant',
-      ],
-      callout: {
-        icon: MessageCircle,
-        title: 'Spreads by itself on WhatsApp',
-        text: 'On phones, from the second bool a share button turns the result into an image and sends it on WhatsApp with a link to the game. Everyone who gets it tries to beat it.',
-      },
+      audience: ['Conferences and expos', 'Company events', 'Birthdays', 'Classrooms', 'Bars'],
     },
     pricing: {
-      title: 'Pricing',
-      intro: 'Set the game up yourself for free, or let us prepare it for your event.',
+      kicker: 'Create',
+      title: 'Want your own 10 Bool?',
       plans: [
         {
           name: 'Do it yourself',
           price: 'Free',
-          text: 'Create a game from The Q dashboard and run it at any event.',
-          features: ['Your own link and QR code', 'Logo, colours, font and sounds', 'Three scoreboards', 'Phone, computer and big screen'],
+          text: 'Set up a game from the dashboard and run it at any event.',
+          features: ['Your own link and QR code', 'Logo, colours, font and sounds', 'Phone, computer and big screen'],
           cta: { label: 'Create your own', kind: 'create' },
         },
         {
-          name: 'For your event',
+          name: 'We produce it for you',
           price: 'Custom quote',
-          text: 'The Playzone team prepares the game for you and fits it to your event.',
-          features: ['Full branding for your event', 'Physical buzzer for rent', 'Set up for the big screen and a buzzer', 'Support before the event'],
+          text: 'The Playzone team prepares the game and fits it to your event.',
+          features: ['Full branding for your event', 'Physical buzzer for rent', 'Set up for the big screen', 'Support before the event'],
           cta: { label: 'Get a quote', kind: 'contact' },
           highlight: true,
         },
@@ -313,47 +217,34 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       whatsappText: 'Hi, I’d like to hear about 10 Bool for my event',
       emailSubject: '10 Bool – quote request',
       labels: { whatsapp: 'WhatsApp', email: 'Email', call: 'Book a call' },
-      addon: {
-        icon: CircleDot,
-        title: 'Event add-on: a physical buzzer for rent',
-        text: 'A big buzzer that plugs into the computer running the screen. Every slam starts and stops the timer – and the crowd loves it.',
-        cta: 'Rent a buzzer',
-        whatsappText: 'Hi, I’d like to rent a buzzer for 10 Bool at my event',
-      },
     },
-    create: {
-      title: 'Create a game in a minute',
-      steps: [
-        'Sign in to The Q with your Google account.',
-        'Pick “10 Bool” and give your game a name.',
-        'Style it, add a logo and sounds, then show the link or the QR code.',
-      ],
-      cta: 'Create your own',
+    addon: {
+      kicker: 'The buzzer',
+      title: 'Sometimes all it takes is one green button.',
+      text: 'A big physical buzzer that plugs into the computer running the screen. One slam – and the timer is off. Rent it for your event.',
+      points: ['Works with 10 Bool and the raffle', 'Big, sturdy and eye-catching at a booth'],
+      cta: 'Rent a buzzer',
+      whatsappText: 'Hi, I’d like to rent a buzzer for 10 Bool at my event',
+      image: { ...BUZZER_IMAGE, alt: 'The Playzone buzzer – a black pillar with a glowing green button' },
     },
     faq: {
+      kicker: 'Good to know',
       title: 'FAQ',
       items: [
-        { q: 'Why is it called “10 Bool”?', a: '“Bool” is Hebrew slang for a bullseye – a perfect hit. The goal is to stop the timer at exactly 10.00: a bool.' },
-        { q: 'Is it free?', a: 'Yes. Playing needs no sign-up and no payment, and creating your own game is available on the free The Q account.' },
-        { q: 'Do I need to download an app?', a: 'No. The game runs in the browser on phones, tablets, computers and smart TVs. On a phone you can also add it to your home screen.' },
-        {
-          q: 'How do I connect a buzzer?',
-          a: 'Open the game full screen on a computer connected to the display, and plug in a USB buzzer or button mapped to Enter or Space. That’s it – every press of the buzzer starts and stops the timer. No buzzer? You can rent a physical one from us for your event.',
-        },
-        {
-          q: 'How many people can play?',
-          a: 'As many as you like. On a big screen players take turns, and the Lives board manages each contestant’s turn. With a QR code everyone plays on their own phone at the same time.',
-        },
-        { q: 'How accurate is the timing?', a: 'Time is measured in hundredths of a second from the moment of the press itself, so a bool only counts when the display stops on exactly 10.00.' },
-        { q: 'Can I add my company logo and colours?', a: 'Yes. In the game settings you upload a logo and a background image and pick colours, a font and sounds – that’s what players see.' },
-        { q: 'Are scores saved?', a: 'The scoreboard lives on the screen you play on. Reloading the page starts a fresh board – handy when switching rounds or teams.' },
+        { q: 'Why is it called “10 Bool”?', a: '“Bool” is Hebrew slang for a bullseye. Stop the timer at exactly 10.00 – a bool.' },
+        { q: 'Is it free?', a: 'Yes. Playing needs no sign-up, and creating your own game is available on the free The Q account.' },
+        { q: 'Do I need to download an app?', a: 'No. The game runs in the browser on phones, computers and smart TVs.' },
+        { q: 'How do I connect a buzzer?', a: 'Plug a buzzer mapped to Enter or Space into the computer running the screen. No buzzer? We rent them out.' },
+        { q: 'How many people can play?', a: 'As many as you like. On a big screen players take turns; with a QR code everyone plays on their own phone.' },
       ],
     },
     final: {
-      title: 'Ready for a bool?',
-      text: 'Create your own 10 Bool game in a minute, or play right now full screen.',
+      kicker: 'Ready for the challenge?',
+      title: 'So… have you got a 10 Bool?',
+      text: 'Create your own game in a minute, or try it now full screen.',
       cta: 'Create your own',
-      secondary: 'Play now',
+      secondary: 'Try it now',
+      social: 'Photos and videos from our events',
     },
   },
 };
@@ -366,14 +257,14 @@ export const TENBOOL_DEMO_LABELS: Record<
   he: {
     label: 'דמו חי של 10 בול',
     start: 'לחצו כדי לשחק',
-    hint: 'לחיצה מפעילה את הטיימר, לחיצה נוספת עוצרת אותו. במחשב אפשר גם עם Enter או רווח.',
+    hint: 'במחשב אפשר גם עם Enter או רווח.',
     modes: { wins: 'נקודות זהב', counter: 'מונה ניסיונות', lives: 'חיים' },
     fullscreen: 'מסך מלא',
   },
   en: {
     label: '10 Bool live demo',
     start: 'Tap to play',
-    hint: 'One press starts the timer, the next press stops it. On a computer, Enter or Space work too.',
+    hint: 'On a computer, Enter or Space work too.',
     modes: { wins: 'Gold dots', counter: 'Attempt counter', lives: 'Lives' },
     fullscreen: 'Full screen',
   },

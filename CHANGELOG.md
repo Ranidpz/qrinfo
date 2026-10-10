@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.6] - 2026-10-11
+
+- Experience landing template redesigned from Rani's mockup (`ExperienceLanding.tsx` + `types.ts`): full-photo hero (text on the photo's dark right side via physical `lg:ml-auto`; photo on top on phones) with a stats strip, live demo, three steps, "ways to play" cards (photo / CSS phone) + scoreboard chips, pricing, a dark rental band (`addon`) with a photo, 5-question FAQ, dark closing CTA + social links. Copy cut to a line or two per block. Dark header with in-page nav + "create a game". Photos in `public/experiences/10-bool/` (AI-made illustrations - not shown as "real event" photos); the buzzer band crops the hero photo until a product shot exists.
+
 ## [1.26.5] - 2026-10-10
 
 - Playzone social profiles in one place, `SOCIAL` in `src/lib/landing/site.ts` (Facebook + YouTube; Instagram is an empty slot, rendered once it gets a url), shown by `components/landing/SocialLinks.tsx` in the home page footer, the experience-page footer, a "see it at a real event" strip in the experiences section and the experience pages' final section. Home page JSON-LD adds the `Organization` with `sameAs`. Footer "צור קשר" → "צרו קשר".

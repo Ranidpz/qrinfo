@@ -29,14 +29,19 @@ const SHELL_TEXT = {
 export function LandingShell({
   locale,
   slug,
+  nav,
+  cta,
   children,
 }: {
   locale: Locale;
   slug?: string; // current page, so the language switch lands on the same page in the other language
+  nav?: { label: string; href: string }[]; // in-page jump links (desktop)
+  cta?: { label: string; href: string };
   children: React.ReactNode;
 }) {
   const t = SHELL_TEXT[locale];
   const other: Locale = locale === 'he' ? 'en' : 'he';
+  const link = 'inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-white/70 hover:bg-white/10 hover:text-white transition-colors';
   return (
     <div
       lang={locale}
@@ -44,29 +49,42 @@ export function LandingShell({
       className="min-h-screen bg-bg-primary text-text-primary"
       style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif' }}
     >
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-bg-primary/85 backdrop-blur-lg">
+      {/* Always dark: it sits on top of the dark hero */}
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0b0e1d]/90 text-white backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <a href={`/${locale}/marketing`} className="flex items-center gap-2 shrink-0" aria-label="The Q">
             <Image src="/theQ.png" alt="The Q" width={32} height={32} className="rounded-md" />
+            <span className="hidden text-sm font-bold sm:inline">The Q</span>
           </a>
-          <nav className="flex items-center gap-1 text-sm font-medium">
-            <a
-              href={experiencesHref(locale)}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
-            >
-              <Sparkles className="h-4 w-4" />
-              {t.experiences}
-            </a>
-            <a
-              href={landingPath(other, slug)}
-              hrefLang={other}
-              lang={other}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors"
-            >
+          {nav && (
+            <nav className="hidden items-center gap-1 text-sm font-medium md:flex">
+              {nav.map((n) => (
+                <a key={n.href} href={n.href} className={link}>
+                  {n.label}
+                </a>
+              ))}
+            </nav>
+          )}
+          <div className="flex items-center gap-1 text-sm font-medium">
+            {!nav && (
+              <a href={experiencesHref(locale)} className={link}>
+                <Sparkles className="h-4 w-4" />
+                {t.experiences}
+              </a>
+            )}
+            <a href={landingPath(other, slug)} hrefLang={other} lang={other} className={link} aria-label={t.otherLang}>
               <Globe className="h-4 w-4" />
-              {t.otherLang}
+              <span className="hidden sm:inline">{t.otherLang}</span>
             </a>
-          </nav>
+            {cta && (
+              <a
+                href={cta.href}
+                className="ms-1 inline-flex items-center rounded-lg border border-white/25 px-3 py-1.5 font-semibold text-white transition-colors hover:border-amber-400 hover:text-amber-300"
+              >
+                {cta.label}
+              </a>
+            )}
+          </div>
         </div>
       </header>
       {children}
