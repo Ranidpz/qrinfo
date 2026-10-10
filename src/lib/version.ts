@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.1';
+export const APP_VERSION = '1.26.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.2', date: '2026-10-10', isNew: true, highlights: {
+    he: ['עמוד הבית: "חוויות שאפשר ליצור" מציג עכשיו את כל החוויות (כולל הגרלה, ניחוש ו־10 בול) לפי קטגוריות, וכל כרטיס לחיץ'],
+    en: ['Home page: "Experiences You Can Create" now shows every experience (including raffle, score prediction and 10 Bool) by category, and every card is clickable'],
+  } },
   { version: '1.26.1', date: '2026-10-10', isNew: true, highlights: {
     he: ['חוויות The Q: אזור חדש של השכרת ציוד לאירועים עם באזר פיזי, ותוספת "באזר להשכרה" בולטת בדף 10 בול'],
     en: ['The Q Experiences: a new event equipment rental section with a physical buzzer, and a prominent "buzzer for rent" add-on on the 10 Bool page'],
