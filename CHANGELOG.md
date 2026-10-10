@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.18] - 2026-10-11
+
+- Experience pages aligned with the system's visual language (rules: `docs/LANDING_PAGES_DESIGN_HE.md`): every action/icon uses the system `accent`, one `brandColor` per experience for its name and numbers only, dark bands use the system dark surfaces, no purple / eyebrow labels / button arrows / middle-dot lists. Header = logo only + `LandingNav` (smooth scroll, scrollspy with a sliding indicator, a pill row on phones) + one accent "create" button. Touch targets 44-48px.
+
 ## [1.26.17] - 2026-10-10
 
 - Browser signup always creates a free account; remove email-based administrator auto-promotion.
