@@ -49,6 +49,20 @@ function Photo({ image, sizes, priority }: { image: LandingImage; sizes: string;
   );
 }
 
+// Decorative scan code for the leaderboard mock (a fixed pattern, not a real QR)
+const SCAN_BITS = '1110111100101110111001011010110101100101101111001110110101001011101010110110111001110';
+function ScanCode() {
+  return (
+    <span aria-hidden="true" className="grid aspect-square w-full max-w-[5.5rem] grid-cols-9 gap-px rounded bg-white p-1">
+      {SCAN_BITS.slice(0, 81)
+        .split('')
+        .map((b, i) => (
+          <span key={i} className={b === '1' ? 'bg-black' : 'bg-white'} />
+        ))}
+    </span>
+  );
+}
+
 // "10 בול" -> "10 " + "בול." in the experience's own colour
 function BigName({ name, color }: { name: string; color: string }) {
   const i = name.lastIndexOf(' ');
@@ -216,19 +230,19 @@ export default function ExperienceLanding({
             <div className="text-center">
               <h2 className={h2}>{c.ways.title}</h2>
             </div>
-            <div className="mt-10 grid gap-5 md:grid-cols-2">
+            <div className={`mt-10 grid gap-5 ${c.ways.items.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
               {c.ways.items.map((w) => (
                 <article key={w.title} className="overflow-hidden rounded-2xl border border-border bg-bg-card">
                   <div className={`relative aspect-[16/10] overflow-hidden ${DARK}`}>
                     {'image' in w.visual ? (
-                      <Photo image={w.visual.image} sizes="(min-width: 768px) 50vw, 100vw" />
-                    ) : (
+                      <Photo image={w.visual.image} sizes="(min-width: 768px) 33vw, 100vw" />
+                    ) : 'phone' in w.visual ? (
                       // a phone showing the game - CSS only
-                      <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#2b2470,#0b0e1d_70%)]">
-                        <div className="h-[78%] w-[30%] min-w-[120px] -rotate-6 rounded-[2rem] border-4 border-white/20 bg-black p-1.5 shadow-2xl">
-                          <div className="flex h-full flex-col items-center justify-center gap-2 rounded-[1.6rem] bg-gradient-to-b from-[#1b1f4b] to-black text-white">
+                      <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#1e3a5f,#0f1419_70%)]">
+                        <div className="h-[78%] w-[30%] min-w-[110px] -rotate-6 rounded-[2rem] border-4 border-white/20 bg-black p-1.5 shadow-2xl">
+                          <div className="flex h-full flex-col items-center justify-center gap-2 rounded-[1.6rem] bg-gradient-to-b from-[#1a1f2e] to-black text-white">
                             <span className="text-xs opacity-60">{c.name}</span>
-                            <span dir="ltr" className="text-4xl font-black tabular-nums">
+                            <span dir="ltr" className="text-3xl font-black tabular-nums">
                               {w.visual.phone}
                             </span>
                             <span className="mt-2 flex gap-1" aria-hidden="true">
@@ -238,10 +252,36 @@ export default function ExperienceLanding({
                           </div>
                         </div>
                       </div>
+                    ) : (
+                      // a big screen: scan code + live leaderboard - CSS only
+                      <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#1e3a5f,#0f1419_70%)] p-4">
+                        <div className="flex aspect-video w-full max-w-[22rem] gap-3 rounded-lg border-4 border-white/15 bg-black p-3 text-white shadow-2xl">
+                          <div className="flex w-[38%] flex-col items-center justify-center gap-1.5">
+                            <ScanCode />
+                            <span className="text-center text-[10px] leading-tight text-white/60">{w.visual.board.scan}</span>
+                          </div>
+                          <div className="flex flex-1 flex-col justify-center gap-1.5">
+                            <span className="text-xs font-bold" style={{ color: c.brandColor }}>
+                              {w.visual.board.title}
+                            </span>
+                            {w.visual.board.rows.map((r) => (
+                              <span key={r.name} className="flex items-center justify-between gap-2 rounded bg-white/10 px-2 py-1 text-[11px]">
+                                <span className="truncate">{r.name}</span>
+                                <span dir="ltr" className="font-bold tabular-nums">
+                                  {r.value}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     )}
                     <span className="absolute start-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
                       {w.badge}
                     </span>
+                    {w.soon && (
+                      <span className="absolute end-3 top-3 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white">{w.soon}</span>
+                    )}
                   </div>
                   <div className="p-6">
                     <h3 className="text-xl font-bold">{w.title}</h3>

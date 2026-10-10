@@ -40,7 +40,14 @@ export interface ExperienceLandingContent {
   steps: { title: string; items: { title: string; text: string }[] };
   ways: {
     title: string;
-    items: { title: string; text: string; badge: string; visual: { image: LandingImage } | { phone: string } }[];
+    items: {
+      title: string;
+      text: string;
+      badge: string;
+      soon?: string; // not live yet: a "coming soon" tag on the card
+      // a photo, a phone showing the game, or a big screen with a scan code + live leaderboard
+      visual: { image: LandingImage } | { phone: string } | { board: { scan: string; title: string; rows: { name: string; value: string }[] } };
+    }[];
     chipsLabel?: string;
     chips?: { icon: LucideIcon; label: string }[];
     audience?: string; // one plain sentence
