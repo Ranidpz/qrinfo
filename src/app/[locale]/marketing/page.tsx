@@ -10,17 +10,27 @@ import Pricing from '@/components/marketing/Pricing';
 import FAQ from '@/components/marketing/FAQ';
 import FinalCTA from '@/components/marketing/FinalCTA';
 import Footer from '@/components/marketing/Footer';
+import { isLandingLocale, publicPageAlternates } from '@/lib/landing/site';
 
-export const metadata: Metadata = {
-  title: 'The Q - One Code. Endless Experiences.',
-  description: 'Create dynamic QR codes for interactive experiences - voting, multiplayer games, event registration & check-in, treasure hunts, trivia, selfie walls, schedules, gamification and more. Update in real-time without reprinting. | צרו קודי QR דינמיים לחוויות אינטראקטיביות - הצבעות, משחקי מולטיפלייר, רישום לאירועים, ציד אוצרות, טריוויה, קירות סלפי ועוד.',
-  keywords: ['QR code', 'dynamic QR', 'interactive QR', 'voting system', 'Q.Vote', 'event management', 'event registration', 'check-in', 'Q.Tag', 'digital experiences', 'selfie wall', 'gamification', 'Q.Games', 'multiplayer games', 'mini games', 'trivia', 'Q.Challenge', 'treasure hunt', 'Q.Hunt', 'Q.Treasure', 'Q.Stage', 'oLeague', 'tournament', 'weekly schedule', 'Q.Cal'],
-  openGraph: {
+// The pages print the current year (and costume: next Purim) - regenerate daily so it never goes stale
+export const revalidate = 86400;
+
+type Props = { params: Promise<{ locale: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  return {
     title: 'The Q - One Code. Endless Experiences.',
-    description: 'Create dynamic QR codes for interactive digital experiences | צרו קודי QR דינמיים לחוויות אינטראקטיביות',
-    type: 'website',
-  },
-};
+    description: 'Create dynamic QR codes for interactive experiences - voting, multiplayer games, event registration & check-in, treasure hunts, trivia, selfie walls, schedules, gamification and more. Update in real-time without reprinting. | צרו קודי QR דינמיים לחוויות אינטראקטיביות - הצבעות, משחקי מולטיפלייר, רישום לאירועים, ציד אוצרות, טריוויה, קירות סלפי ועוד.',
+    keywords: ['QR code', 'dynamic QR', 'interactive QR', 'voting system', 'Q.Vote', 'event management', 'event registration', 'check-in', 'Q.Tag', 'digital experiences', 'selfie wall', 'gamification', 'Q.Games', 'multiplayer games', 'mini games', 'trivia', 'Q.Challenge', 'treasure hunt', 'Q.Hunt', 'Q.Treasure', 'Q.Stage', 'oLeague', 'tournament', 'weekly schedule', 'Q.Cal'],
+    openGraph: {
+      title: 'The Q - One Code. Endless Experiences.',
+      description: 'Create dynamic QR codes for interactive digital experiences | צרו קודי QR דינמיים לחוויות אינטראקטיביות',
+      type: 'website',
+    },
+    ...(isLandingLocale(locale) ? { alternates: publicPageAlternates(locale, 'marketing') } : {}),
+  };
+}
 
 export default function MarketingPage() {
   return (

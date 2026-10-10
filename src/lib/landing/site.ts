@@ -15,6 +15,16 @@ export function isLandingPathname(pathname: string | null | undefined) {
   return /^\/(he|en)\/experiences(\/|$)/.test(pathname ?? '');
 }
 
+// Public pages that ship real HTML from the server (for search engines). ThemeProvider renders them
+// before mount, so nothing they render may read window / localStorage / matchMedia - do that in an
+// effect. App pages (dashboard, code, admin...) stay client-only on purpose.
+export const PUBLIC_SSR_PAGES = ['marketing', 'costume-competition', 'qtag', 'guide', 'privacy', 'accessibility'] as const;
+const PUBLIC_SSR_RE = new RegExp(`^/(he|en)/(${PUBLIC_SSR_PAGES.join('|')})/?$`);
+
+export function isPublicSsrPathname(pathname: string | null | undefined) {
+  return isLandingPathname(pathname) || PUBLIC_SSR_RE.test(pathname ?? '');
+}
+
 export function isLandingLocale(value: string): value is Locale {
   return (LANDING_LOCALES as string[]).includes(value);
 }
@@ -29,15 +39,30 @@ export function landingUrl(locale: Locale, slug?: string) {
 }
 
 // canonical + hreflang (he / en / x-default) - every language has its own real URL
-export function landingAlternates(locale: Locale, slug?: string): Metadata['alternates'] {
+function alternatesFor(locale: Locale, path: (l: Locale) => string): Metadata['alternates'] {
   return {
-    canonical: landingPath(locale, slug),
+    canonical: path(locale),
     languages: {
-      he: landingPath('he', slug),
-      en: landingPath('en', slug),
-      'x-default': landingPath(LANDING_DEFAULT_LOCALE, slug),
+      he: path('he'),
+      en: path('en'),
+      'x-default': path(LANDING_DEFAULT_LOCALE),
     },
   };
+}
+
+export function landingAlternates(locale: Locale, slug?: string): Metadata['alternates'] {
+  return alternatesFor(locale, (l) => landingPath(l, slug));
+}
+
+// The other public pages (/he/marketing, /en/privacy, ...)
+export type PublicPage = (typeof PUBLIC_SSR_PAGES)[number];
+
+export function publicPagePath(locale: Locale, page: PublicPage) {
+  return `/${locale}/${page}`;
+}
+
+export function publicPageAlternates(locale: Locale, page: PublicPage): Metadata['alternates'] {
+  return alternatesFor(locale, (l) => publicPagePath(l, page));
 }
 
 // Where "create your own" lands: the dashboard opens the create panel on that experience's tab
@@ -57,4 +82,26 @@ export const CONTACT = {
 export type DemoBoard = 'wins' | 'counter' | 'lives';
 export function tenboolDemoSrc(board: DemoBoard = 'wins') {
   return `/play/10-bool?board=${board}`;
+}
+
+// Metadata for a simple public page (guide, privacy, accessibility): own title, canonical + hreflang
+export function publicPageMetadata(
+  locale: Locale,
+  page: PublicPage,
+  { title, description }: { title: string; description: string },
+): Metadata {
+  return {
+    title: { absolute: title },
+    description,
+    alternates: publicPageAlternates(locale, page),
+    openGraph: {
+      title,
+      description,
+      url: publicPagePath(locale, page),
+      siteName: 'The Q',
+      locale: locale === 'he' ? 'he_IL' : 'en_US',
+      type: 'website',
+      images: [{ url: '/theQ.png', width: 512, height: 512, alt: 'The Q' }],
+    },
+  };
 }

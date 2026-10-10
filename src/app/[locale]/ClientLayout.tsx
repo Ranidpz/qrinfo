@@ -8,7 +8,7 @@ import CookieConsent from '@/components/legal/CookieConsent';
 import AccessibilityButton from '@/components/legal/AccessibilityButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { clsx } from 'clsx';
-import { isLandingPathname } from '@/lib/landing/site';
+import { isLandingPathname, isPublicSsrPathname } from '@/lib/landing/site';
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -35,13 +35,17 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
     document.documentElement.dir = direction;
   }, [locale, direction]);
 
+  // Server-rendered public pages: <html> only gets lang/dir in the effect above, so carry them here
+  // too - otherwise the server HTML paints left-to-right until hydration
+  const ssrDir = isPublicSsrPathname(pathname) ? { dir: direction, lang: locale } : {};
+
   // Full-screen pages get their own layout without sidebar/header
   if (isFullScreenPage) {
-    return <>{children}</>;
+    return isPublicSsrPathname(pathname) ? <div {...ssrDir}>{children}</div> : <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary overflow-x-hidden">
+    <div className="min-h-screen bg-bg-primary overflow-x-hidden" {...ssrDir}>
       <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} direction={direction} />
       <Sidebar
         isOpen={sidebarOpen}

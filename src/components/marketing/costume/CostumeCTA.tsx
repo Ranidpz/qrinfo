@@ -37,7 +37,7 @@ export default function CostumeCTA() {
 
           {/* Main headline */}
           <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
-            <span className="bg-gradient-to-r from-purple-300 via-pink-300 to-amber-300 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-purple-300 via-pink-300 to-amber-300 bg-clip-text text-transparent" suppressHydrationWarning>
               פורים {purimYear} מתקרב!
             </span>
           </h2>
@@ -50,6 +50,7 @@ export default function CostumeCTA() {
           {/* CTA buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
+              suppressHydrationWarning
               href={`mailto:info@playzone.co.il?subject=תחרות תחפושות פורים ${purimYear} - בקשת הצעת מחיר`}
               className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/30"
             >

@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
+import { isLandingLocale, publicPageAlternates } from '@/lib/landing/site';
 import {
   CostumeHeader,
   CostumeFooter,
@@ -15,8 +16,14 @@ import {
   CostumeCTA,
 } from '@/components/marketing/costume';
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('costumeCompetition.meta');
+// The pages print the current year (and costume: next Purim) - regenerate daily so it never goes stale
+export const revalidate = 86400;
+
+type Props = { params: Promise<{ locale: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'costumeCompetition.meta' });
 
   return {
     title: t('title'),
@@ -33,6 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: t('title'),
       description: t('description'),
     },
+    ...(isLandingLocale(locale) ? { alternates: publicPageAlternates(locale, 'costume-competition') } : {}),
   };
 }
 
