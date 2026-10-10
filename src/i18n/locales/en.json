@@ -1532,66 +1532,8 @@
     "features": {
       "title": "Experiences You Can Create",
       "subtitle": "Everything you need to create impressive digital experiences",
-      "smartLinks": {
-        "title": "Smart Links",
-        "description": "WhatsApp, navigation, payment, social media",
-        "useCase": "Menus, business cards"
-      },
-      "weeklySchedule": {
-        "title": "Weekly Schedule",
-        "description": "Interactive activity calendar with RSVP",
-        "useCase": "Hotels, camps, gyms"
-      },
-      "digitalBooklets": {
-        "title": "Digital Booklets",
-        "description": "PDF with 3D page-flip animation",
-        "useCase": "Catalogs, guides, menus"
-      },
-      "voting": {
-        "title": "Voting System",
-        "description": "Digital elections with registration and results",
-        "useCase": "Events, competitions, surveys"
-      },
-      "gamification": {
-        "title": "Games & Prizes",
-        "description": "XP, levels, riddles, leaderboard and prizes",
-        "useCase": "Museums, exhibitions, tours"
-      },
-      "selfieWall": {
-        "title": "Selfie Wall",
-        "description": "Upload photos to shared gallery",
-        "useCase": "Events, bars, parties"
-      },
-      "qstage": {
-        "title": "Q.Stage",
-        "description": "Live audience voting with real-time bar display",
-        "useCase": "Talent shows, debates, competitions"
-      },
-      "qhunt": {
-        "title": "Q.Hunt",
-        "description": "Competitive QR scanning race with scattered codes",
-        "useCase": "Team building, events, exhibitions"
-      },
-      "qtreasure": {
-        "title": "Q.Treasure",
-        "description": "Sequential treasure hunt with stations, clues and video",
-        "useCase": "Tours, birthdays, adventures"
-      },
-      "qtag": {
-        "title": "Q.Tag",
-        "description": "Digital registration, personal QR via WhatsApp and fast scanner check-in",
-        "useCase": "Events, conferences, venues"
-      },
-      "minigames": {
-        "title": "Q.Games",
-        "description": "1v1 multiplayer mini games with live leaderboard on the big screen",
-        "useCase": "Events, team building, bars & restaurants"
-      },
-      "qchallenge": {
-        "title": "Q.Challenge",
-        "description": "Trivia quiz game with questions, answers and real-time leaderboard",
-        "useCase": "Companies, team building, seminars"
-      },
+      "all": "All",
+      "allExperiences": "See all experiences",
       "footerNote": "New experiences are added regularly. Can't find what you're looking for? Want a custom branded experience? Contact us and we'll build it together.",
       "contactUs": "Contact Us"
     },

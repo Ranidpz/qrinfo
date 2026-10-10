@@ -81,7 +81,8 @@ function ExperienceCard({ entry, locale }: { entry: CatalogEntry; locale: Locale
   const linkProps = entry.externalUrl && !entry.landing ? { target: '_blank', rel: 'noopener' } : {};
   return (
     <li
-      className={`relative flex flex-col rounded-2xl border bg-bg-card p-5 transition-all ${
+      id={entry.id} // /experiences#raffle lands on this card (linked from the marketing page)
+      className={`relative flex scroll-mt-20 flex-col rounded-2xl border bg-bg-card p-5 transition-all target:ring-2 target:ring-amber-500 ${
         entry.landing ? 'border-amber-500/40 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-amber-500/10' : 'border-border'
       } ${href ? 'hover:border-amber-500/60' : ''}`}
     >

@@ -1,129 +1,102 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import { Link2, Calendar, BookOpen, Vote, Gamepad2, Camera, Mic2, Crosshair, Map, Tag, Trophy } from 'lucide-react';
+import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import { ArrowLeft } from 'lucide-react';
+import type { Locale } from '@/i18n/config';
+import { CATALOG, CATEGORIES, type ExperienceCategory } from '@/lib/experiences/catalog';
+import { landingPath } from '@/lib/landing/site';
+
+// "חוויות שאפשר ליצור": rendered from the same catalogue as the "חוויות The Q" hub
+// (src/lib/experiences/catalog.ts), so the two never drift. Each card opens the experience's
+// landing page, or its card on the hub.
+
+const GRADIENT: Record<ExperienceCategory, string> = {
+  events: 'from-sky-500 to-blue-600',
+  engagement: 'from-fuchsia-500 to-pink-500',
+  games: 'from-amber-500 to-orange-500',
+  tools: 'from-emerald-500 to-teal-600',
+  rentals: 'from-violet-500 to-purple-600',
+};
 
 export default function Features() {
   const t = useTranslations('marketing.features');
-
-  const features = [
-    {
-      icon: Link2,
-      key: 'smartLinks',
-      gradient: 'from-blue-500 to-cyan-500',
-    },
-    {
-      icon: Calendar,
-      key: 'weeklySchedule',
-      gradient: 'from-purple-500 to-pink-500',
-    },
-    {
-      icon: BookOpen,
-      key: 'digitalBooklets',
-      gradient: 'from-orange-500 to-amber-500',
-    },
-    {
-      icon: Vote,
-      key: 'voting',
-      gradient: 'from-green-500 to-emerald-500',
-    },
-    {
-      icon: Gamepad2,
-      key: 'gamification',
-      gradient: 'from-red-500 to-rose-500',
-    },
-    {
-      icon: Camera,
-      key: 'selfieWall',
-      gradient: 'from-indigo-500 to-violet-500',
-    },
-    {
-      icon: Mic2,
-      key: 'qstage',
-      gradient: 'from-fuchsia-500 to-pink-500',
-    },
-    {
-      icon: Crosshair,
-      key: 'qhunt',
-      gradient: 'from-cyan-500 to-pink-500',
-    },
-    {
-      icon: Map,
-      key: 'qtreasure',
-      gradient: 'from-amber-500 to-emerald-700',
-    },
-    {
-      icon: Tag,
-      key: 'qtag',
-      gradient: 'from-sky-500 to-blue-600',
-    },
-    {
-      icon: Gamepad2,
-      key: 'minigames',
-      gradient: 'from-violet-500 to-purple-600',
-    },
-    {
-      icon: Trophy,
-      key: 'qchallenge',
-      gradient: 'from-yellow-500 to-orange-500',
-    },
+  const locale = (useLocale() === 'en' ? 'en' : 'he') as Locale;
+  const [category, setCategory] = useState<ExperienceCategory | 'all'>('all');
+  const entries = category === 'all' ? CATALOG : CATALOG.filter((e) => e.category === category);
+  const tabs: { id: ExperienceCategory | 'all'; label: string }[] = [
+    { id: 'all', label: t('all') },
+    ...CATEGORIES.map((c) => ({ id: c.id, label: c.title[locale] })),
   ];
 
   return (
     <section className="py-16 md:py-24 bg-[var(--bg-primary)]">
       <div className="container mx-auto px-4 sm:px-6">
         {/* Section header */}
-        <div className="text-center mb-10 md:mb-16">
-          <h2 className="text-2xl md:text-4xl font-bold text-[var(--text-primary)] mb-4">
-            {t('title')}
-          </h2>
-          <p className="text-base md:text-lg text-[var(--text-secondary)] max-w-2xl mx-auto">
-            {t('subtitle')}
-          </p>
+        <div className="text-center mb-8 md:mb-10">
+          <h2 className="text-2xl md:text-4xl font-bold text-[var(--text-primary)] mb-4">{t('title')}</h2>
+          <p className="text-base md:text-lg text-[var(--text-secondary)] max-w-2xl mx-auto">{t('subtitle')}</p>
         </div>
 
-        {/* Features grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto">
-          {features.map((feature, index) => (
-            <div
-              key={feature.key}
-              className="group relative bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border)] hover:border-transparent transition-all duration-300 hover:shadow-xl overflow-hidden"
-              style={{ animationDelay: `${index * 50}ms` }}
+        {/* Category filter */}
+        <div role="tablist" aria-label={t('title')} className="mb-8 flex flex-wrap justify-center gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={category === tab.id}
+              onClick={() => setCategory(tab.id)}
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                category === tab.id
+                  ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                  : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
             >
-              {/* Hover gradient background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-
-              {/* Content */}
-              <div className="relative">
-                {/* Icon */}
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-5 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg`}>
-                  <feature.icon className="w-7 h-7 text-white" strokeWidth={1.5} />
-                </div>
-
-                {/* Title */}
-                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2 group-hover:text-[var(--accent)] transition-colors">
-                  {t(`${feature.key}.title`)}
-                </h3>
-
-                {/* Description */}
-                <p className="text-[var(--text-secondary)] text-sm leading-relaxed mb-4">
-                  {t(`${feature.key}.description`)}
-                </p>
-
-                {/* Use case tag */}
-                <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border)]">
-                  {t(`${feature.key}.useCase`)}
-                </span>
-              </div>
-            </div>
+              {tab.label}
+            </button>
           ))}
         </div>
 
-        {/* Footer note */}
+        {/* Experience cards */}
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 max-w-6xl mx-auto">
+          {entries.map((e) => {
+            const Icon = e.icon;
+            const href = e.landing ? `/${locale}${e.landing}` : `${landingPath(locale)}#${e.id}`;
+            return (
+              <li key={e.id}>
+                <a
+                  href={href}
+                  className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-transparent hover:shadow-xl"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-br ${GRADIENT[e.category]} opacity-0 transition-opacity duration-300 group-hover:opacity-5`} />
+                  <div className="relative flex items-center gap-3">
+                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${GRADIENT[e.category]} shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}>
+                      <Icon className="h-6 w-6 text-white" strokeWidth={1.5} />
+                    </span>
+                    <h3 className="text-base font-semibold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent)]">
+                      {e.name[locale]}
+                    </h3>
+                  </div>
+                  <p className="relative mt-3 flex-1 text-sm leading-relaxed text-[var(--text-secondary)]">{e.pitch[locale]}</p>
+                  <span className="relative mt-3 inline-flex w-fit items-center rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+                    {e.tags[locale]}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* All experiences + footer note */}
         <div className="text-center mt-10 md:mt-14 space-y-4">
-          <p className="text-[var(--text-secondary)] text-sm md:text-base max-w-2xl mx-auto">
-            {t('footerNote')}
-          </p>
+          <a
+            href={landingPath(locale)}
+            className="inline-flex items-center gap-2 text-base font-semibold text-[var(--accent)] hover:underline"
+          >
+            {t('allExperiences')}
+            <ArrowLeft className="h-4 w-4 ltr:rotate-180" aria-hidden="true" />
+          </a>
+          <p className="text-[var(--text-secondary)] text-sm md:text-base max-w-2xl mx-auto">{t('footerNote')}</p>
           <a
             href="#contact"
             className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium rounded-xl bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
