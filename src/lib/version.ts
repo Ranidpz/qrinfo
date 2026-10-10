@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.16';
+export const APP_VERSION = '1.26.18';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,14 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.18', date: '2026-10-11', isNew: true, highlights: {
+    he: ['דפי החוויות בשפה הגרפית של המערכת: כחול במקום סגול, הדר עם הלוגו בלבד ותפריט שמסמן את האזור שעל המסך, וכפתורים נוחים למגע בטלפון ובאייפד'],
+    en: ['Experience pages in the system\'s visual language: blue instead of purple, a logo-only header whose menu follows the section on screen, and touch-friendly buttons on phones and iPads'],
+  } },
+  { version: '1.26.17', date: '2026-10-10', isNew: true, highlights: {
+    he: ['חשבונות חדשים נפתחים בהרשאת משתמש רגיל; הרשאות מנהל ניתנות בנפרד'],
+    en: ['New accounts start with the free role; administrator access is granted separately'],
+  } },
   { version: '1.26.16', date: '2026-10-10', isNew: true, highlights: {
     he: ['10 בול: אפשר לשתף בוואטסאפ מהטלפון כבר מהבול הראשון'],
     en: ['10 Bool: share to WhatsApp from your phone from the very first hit'],

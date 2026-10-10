@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { ArrowLeft, CalendarDays, Check, ChevronDown, Mail } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Mail } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
 import type { ExperienceLandingContent, LandingImage } from '@/lib/landing/types';
 import { CONTACT, SITE_URL, createHref, experiencesHref, landingUrl } from '@/lib/landing/site';
@@ -12,16 +12,20 @@ import Parallax from './Parallax';
 // call to action. Short sections, server-rendered, so it all reaches search engines as HTML.
 
 const CRUMB = { he: 'חוויות', en: 'Experiences' } as const;
-const NAVY = 'bg-[#0b0e1d]';
+// Dark bands use the system's own dark surfaces (globals.css dark --bg-primary / --bg-secondary)
+const DARK = 'bg-[#0f1419]';
+const DARK_CARD = 'bg-[#1a1f2e]';
 
+// Buttons = the system's buttons (accent fill / outline), min 48px tall for touch
 const primaryBtn =
-  'inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-7 py-3.5 text-base font-bold text-black shadow-lg shadow-amber-400/20 transition-all hover:bg-amber-300 active:scale-[.98]';
+  'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent px-7 text-base font-semibold text-white transition-colors hover:bg-accent-hover active:scale-[.98]';
 const outlineDark =
-  'inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 px-7 py-3.5 text-base font-semibold text-white transition-colors hover:border-amber-400 hover:text-amber-300';
+  'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/25 px-7 text-base font-semibold text-white transition-colors hover:border-white/60 active:scale-[.98]';
 const outlineLight =
-  'inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-bg-card px-7 py-3.5 text-base font-semibold transition-colors hover:border-amber-500/60';
-const kicker = 'text-xs font-bold uppercase ltr:tracking-[0.2em] text-violet-600 dark:text-violet-400';
-const h2 = 'mt-2 text-3xl font-black tracking-tight sm:text-4xl';
+  'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-bg-card px-7 text-base font-semibold transition-colors hover:border-accent/50 active:scale-[.98]';
+const h2 = 'text-3xl font-black tracking-tight sm:text-4xl';
+// Anchored sections land below the sticky header (+ the phone pill row)
+const anchor = 'scroll-mt-28 md:scroll-mt-16';
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -45,13 +49,13 @@ function Photo({ image, sizes, priority }: { image: LandingImage; sizes: string;
   );
 }
 
-// "10 בול" -> "10 " + amber "בול."
-function BigName({ name }: { name: string }) {
+// "10 בול" -> "10 " + "בול." in the experience's own colour
+function BigName({ name, color }: { name: string; color: string }) {
   const i = name.lastIndexOf(' ');
   return (
     <span className="block text-6xl font-black leading-none tracking-tight sm:text-7xl lg:text-8xl">
       {i > 0 ? name.slice(0, i + 1) : ''}
-      <span className="text-amber-400">{i > 0 ? name.slice(i + 1) : name}.</span>
+      <span style={{ color }}>{i > 0 ? name.slice(i + 1) : name}.</span>
     </span>
   );
 }
@@ -77,7 +81,6 @@ export default function ExperienceLanding({
   const pageUrl = landingUrl(locale, slug);
   const wa = (text: string) => `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(text)}`;
   const mail = `mailto:${CONTACT.email}?subject=${encodeURIComponent(c.pricing.emailSubject)}`;
-  const forward = <ArrowLeft className="h-5 w-5 ltr:rotate-180" aria-hidden="true" />;
 
   const jsonLd = [
     { '@context': 'https://schema.org', '@id': `${pageUrl}#experience`, url: pageUrl, inLanguage: locale, ...entityJsonLd },
@@ -111,11 +114,11 @@ export default function ExperienceLanding({
       <JsonLd data={jsonLd} />
       <main>
         {/* ---------- Hero: full photo, text on its dark side; on phones the photo sits on top ---------- */}
-        <section className={`relative overflow-hidden ${NAVY} text-white`}>
+        <section className={`relative overflow-hidden ${DARK} text-white`}>
           <div className="relative aspect-[16/10] lg:absolute lg:inset-0 lg:aspect-auto">
             <Photo image={c.hero.image} sizes="100vw" priority />
-            <div className="absolute inset-0 hidden bg-gradient-to-l from-[#0b0e1d] via-[#0b0e1d]/75 to-transparent lg:block" />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0b0e1d] to-transparent lg:hidden" />
+            <div className="absolute inset-0 hidden bg-gradient-to-l from-[#0f1419] via-[#0f1419]/75 to-transparent lg:block" />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0f1419] to-transparent lg:hidden" />
           </div>
           <div className="relative mx-auto max-w-6xl px-4 pb-10 pt-2 sm:px-6 lg:py-24">
             {/* ml-auto (not ms-auto): the photo's dark side is on the right in both languages */}
@@ -129,12 +132,12 @@ export default function ExperienceLanding({
                   ]}
                 />
               </div>
-              <p className="flex items-center gap-3 text-sm font-semibold text-amber-300 lg:mt-6">
-                <span className="h-0.5 w-8 bg-amber-400" aria-hidden="true" />
+              <p className="flex items-center gap-3 text-sm font-semibold text-white/70 lg:mt-6">
+                <span className="h-0.5 w-8 bg-accent" aria-hidden="true" />
                 {c.hero.eyebrow}
               </p>
               <h1 className="mt-4">
-                <BigName name={c.name} />
+                <BigName name={c.name} color={c.brandColor} />
                 <span className="mt-5 block text-2xl font-bold leading-snug sm:text-3xl lg:text-4xl">
                   {c.hero.tagline.map((line) => (
                     <span key={line} className="block">
@@ -147,7 +150,6 @@ export default function ExperienceLanding({
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a href="#demo" className={primaryBtn}>
                   {c.hero.ctaSecondary}
-                  {forward}
                 </a>
                 <a href={create} className={outlineDark}>
                   {c.hero.ctaPrimary}
@@ -164,12 +166,12 @@ export default function ExperienceLanding({
             </div>
           </div>
           {c.hero.stats && (
-            <div className="relative border-t border-white/10 bg-[#0f1430]/90">
+            <div className="relative border-t border-white/10 bg-[#1a1f2e]">
               <dl className="mx-auto grid max-w-4xl grid-cols-4 gap-2 px-4 py-4 text-center sm:px-6">
                 {c.hero.stats.map((s) => (
                   <div key={s.label} className="flex flex-col-reverse items-center gap-0.5 sm:flex-row-reverse sm:justify-center sm:gap-2">
                     <dt className="text-xs text-white/60 sm:text-sm">{s.label}</dt>
-                    <dd dir="ltr" className="text-lg font-black tabular-nums text-amber-300 sm:text-xl">
+                    <dd dir="ltr" className="text-lg font-black tabular-nums sm:text-xl" style={{ color: c.brandColor }}>
                       {s.value}
                     </dd>
                   </div>
@@ -180,9 +182,8 @@ export default function ExperienceLanding({
         </section>
 
         {/* ---------- Try it ---------- */}
-        <section id="demo" className="scroll-mt-14 py-16 sm:py-20">
+        <section id="demo" className={`${anchor} py-16 sm:py-20`}>
           <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-            <p className={kicker}>{c.demo.kicker}</p>
             <h2 className={h2}>{c.demo.title}</h2>
             <p className="mx-auto mt-3 max-w-xl leading-relaxed text-text-secondary">{c.demo.text}</p>
             <div className="mt-8 text-start">{demo}</div>
@@ -190,16 +191,15 @@ export default function ExperienceLanding({
         </section>
 
         {/* ---------- Three steps ---------- */}
-        <section id="how-it-works" className="scroll-mt-14 border-t border-border/60 bg-bg-secondary py-16 sm:py-20">
+        <section id="how-it-works" className={`${anchor} border-t border-border/60 bg-bg-secondary py-16 sm:py-20`}>
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="text-center">
-              <p className={kicker}>{c.steps.kicker}</p>
               <h2 className={h2}>{c.steps.title}</h2>
             </div>
             <ol className="mt-10 grid gap-4 md:grid-cols-3">
               {c.steps.items.map((s, i) => (
                 <li key={s.title} className="relative overflow-hidden rounded-2xl border border-border bg-bg-card p-6">
-                  <span dir="ltr" aria-hidden="true" className="absolute end-4 top-2 text-6xl font-black text-violet-500/15">
+                  <span dir="ltr" aria-hidden="true" className="absolute end-4 top-2 text-6xl font-black text-accent/20">
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <h3 className="relative mt-6 text-xl font-bold">{s.title}</h3>
@@ -211,16 +211,15 @@ export default function ExperienceLanding({
         </section>
 
         {/* ---------- Ways to play ---------- */}
-        <section id="ways" className="scroll-mt-14 py-16 sm:py-20">
+        <section id="ways" className={`${anchor} py-16 sm:py-20`}>
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="text-center">
-              <p className={kicker}>{c.ways.kicker}</p>
               <h2 className={h2}>{c.ways.title}</h2>
             </div>
             <div className="mt-10 grid gap-5 md:grid-cols-2">
               {c.ways.items.map((w) => (
                 <article key={w.title} className="overflow-hidden rounded-2xl border border-border bg-bg-card">
-                  <div className={`relative aspect-[16/10] overflow-hidden ${NAVY}`}>
+                  <div className={`relative aspect-[16/10] overflow-hidden ${DARK}`}>
                     {'image' in w.visual ? (
                       <Photo image={w.visual.image} sizes="(min-width: 768px) 50vw, 100vw" />
                     ) : (
@@ -233,8 +232,8 @@ export default function ExperienceLanding({
                               {w.visual.phone}
                             </span>
                             <span className="mt-2 flex gap-1" aria-hidden="true">
-                              <span className="h-2 w-2 rounded-full bg-amber-400" />
-                              <span className="h-2 w-2 rounded-full bg-amber-400" />
+                              <span className="h-2 w-2 rounded-full" style={{ background: c.brandColor }} />
+                              <span className="h-2 w-2 rounded-full" style={{ background: c.brandColor }} />
                             </span>
                           </div>
                         </div>
@@ -256,28 +255,27 @@ export default function ExperienceLanding({
                 {c.ways.chipsLabel && <span className="text-text-secondary">{c.ways.chipsLabel}</span>}
                 {c.ways.chips.map(({ icon: Icon, label }) => (
                   <span key={label} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-card px-3 py-1.5 font-medium">
-                    <Icon className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                    <Icon className="h-4 w-4 text-accent" aria-hidden="true" />
                     {label}
                   </span>
                 ))}
               </div>
             )}
-            {c.ways.audience && <p className="mt-4 text-center text-sm text-text-secondary">{c.ways.audience.join(' · ')}</p>}
+            {c.ways.audience && <p className="mt-4 text-center text-sm text-text-secondary">{c.ways.audience}</p>}
           </div>
         </section>
 
         {/* ---------- Make it yours ---------- */}
         {c.customize && (
-          <section id="customize" className="scroll-mt-14 border-t border-border/60 py-16 sm:py-20">
+          <section id="customize" className={`${anchor} border-t border-border/60 py-16 sm:py-20`}>
             <div className="mx-auto max-w-5xl px-4 sm:px-6">
               <div className="text-center">
-                <p className={kicker}>{c.customize.kicker}</p>
                 <h2 className={h2}>{c.customize.title}</h2>
               </div>
               <ul className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {c.customize.items.map(({ icon: Icon, label }) => (
                   <li key={label} className="flex items-center gap-3 rounded-2xl border border-border bg-bg-card p-4">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
                       <Icon className="h-5 w-5" aria-hidden="true" />
                     </span>
                     <span className="text-sm font-semibold sm:text-base">{label}</span>
@@ -286,9 +284,8 @@ export default function ExperienceLanding({
               </ul>
               {c.customize.demo && (
                 <div className="mt-6 text-center">
-                  <a href={c.customize.demo.href} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 font-semibold text-violet-600 hover:underline dark:text-violet-400">
+                  <a href={c.customize.demo.href} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 font-semibold text-accent hover:underline">
                     {c.customize.demo.label}
-                    {forward}
                   </a>
                 </div>
               )}
@@ -297,10 +294,9 @@ export default function ExperienceLanding({
         )}
 
         {/* ---------- Pricing ---------- */}
-        <section id="pricing" className="scroll-mt-14 border-t border-border/60 bg-bg-secondary py-16 sm:py-20">
+        <section id="pricing" className={`${anchor} border-t border-border/60 bg-bg-secondary py-16 sm:py-20`}>
           <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center">
-              <p className={kicker}>{c.pricing.kicker}</p>
               <h2 className={h2}>{c.pricing.title}</h2>
             </div>
             <div className="mt-10 grid gap-5 md:grid-cols-2">
@@ -308,16 +304,16 @@ export default function ExperienceLanding({
                 <div
                   key={plan.name}
                   className={`flex flex-col rounded-2xl border p-6 sm:p-8 ${
-                    plan.highlight ? `${NAVY} border-violet-500/40 text-white` : 'border-border bg-bg-card'
+                    plan.highlight ? `${DARK_CARD} border-accent/40 text-white` : 'border-border bg-bg-card'
                   }`}
                 >
                   <h3 className="text-xl font-bold">{plan.name}</h3>
-                  <p className={`mt-1 text-3xl font-black ${plan.highlight ? 'text-amber-300' : 'text-violet-600 dark:text-violet-400'}`}>{plan.price}</p>
+                  <p className={`mt-1 text-3xl font-black ${plan.highlight ? 'text-white' : 'text-accent'}`}>{plan.price}</p>
                   <p className={`mt-3 leading-relaxed ${plan.highlight ? 'text-white/70' : 'text-text-secondary'}`}>{plan.text}</p>
                   <ul className="mt-5 flex-1 space-y-2.5">
                     {plan.features.map((f) => (
                       <li key={f} className="flex items-start gap-2.5">
-                        <Check className={`mt-0.5 h-5 w-5 shrink-0 ${plan.highlight ? 'text-amber-300' : 'text-emerald-500'}`} aria-hidden="true" />
+                        <Check className={`mt-0.5 h-5 w-5 shrink-0 ${plan.highlight ? 'text-accent' : 'text-emerald-500'}`} aria-hidden="true" />
                         <span>{f}</span>
                       </li>
                     ))}
@@ -325,7 +321,6 @@ export default function ExperienceLanding({
                   {plan.cta.kind === 'create' ? (
                     <a href={create} className={`mt-7 ${outlineLight}`}>
                       {plan.cta.label}
-                      {forward}
                     </a>
                   ) : (
                     <a href={wa(c.pricing.whatsappText)} target="_blank" rel="noopener noreferrer" className={`mt-7 ${primaryBtn}`}>
@@ -358,14 +353,10 @@ export default function ExperienceLanding({
 
         {/* ---------- Rental add-on (the buzzer) ---------- */}
         {c.addon && (
-          <section id="buzzer" className={`scroll-mt-14 overflow-hidden ${NAVY} py-16 text-white sm:py-20`}>
+          <section id="buzzer" className={`${anchor} overflow-hidden ${DARK} py-16 text-white sm:py-20`}>
             <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 sm:px-6 md:grid-cols-2 md:gap-10">
               <div>
-                <p className="flex items-center gap-3 text-xs font-bold uppercase ltr:tracking-[0.2em] text-violet-300">
-                  <span className="h-0.5 w-8 bg-violet-400" aria-hidden="true" />
-                  {c.addon.kicker}
-                </p>
-                <h2 className="mt-3 text-3xl font-black leading-tight sm:text-4xl">{c.addon.title}</h2>
+                <h2 className="text-3xl font-black leading-tight sm:text-4xl">{c.addon.title}</h2>
                 <p className="mt-4 max-w-xl leading-relaxed text-white/75">{c.addon.text}</p>
                 <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/80">
                   {c.addon.points.map((p) => (
@@ -380,13 +371,13 @@ export default function ExperienceLanding({
                     <span className="text-white/60">{c.addon.games.label}</span>
                     {c.addon.games.items.map((g) =>
                       g.href ? (
-                        <a key={g.name} href={g.href} className="rounded-full border border-white/20 px-3 py-1.5 font-semibold text-white transition-colors hover:border-amber-400 hover:text-amber-300">
+                        <a key={g.name} href={g.href} className="rounded-full border border-white/20 px-3 py-1.5 font-semibold text-white transition-colors hover:border-accent">
                           {g.name}
                         </a>
                       ) : (
                         <span key={g.name} className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-white/20 px-3 py-1.5 font-semibold text-white/70">
                           {g.name}
-                          {g.soon && <span className="rounded-full bg-violet-500/30 px-2 py-0.5 text-[11px] text-violet-200">{g.soon}</span>}
+                          {g.soon && <span className="rounded-full bg-accent/25 px-2 py-0.5 text-[11px] text-blue-100">{g.soon}</span>}
                         </span>
                       ),
                     )}
@@ -416,15 +407,14 @@ export default function ExperienceLanding({
         )}
 
         {/* ---------- FAQ: native <details>, answers stay in the HTML while collapsed ---------- */}
-        <section id="faq" className="scroll-mt-14 py-16 sm:py-20">
+        <section id="faq" className={`${anchor} py-16 sm:py-20`}>
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <div className="text-center">
-              <p className={kicker}>{c.faq.kicker}</p>
               <h2 className={h2}>{c.faq.title}</h2>
             </div>
             <div className="mt-8 space-y-3">
               {c.faq.items.map((f) => (
-                <details key={f.q} className="group rounded-2xl border border-border bg-bg-card open:border-amber-500/40">
+                <details key={f.q} className="group rounded-2xl border border-border bg-bg-card open:border-accent/40">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-lg font-semibold [&::-webkit-details-marker]:hidden">
                     <h3>{f.q}</h3>
                     <ChevronDown className="h-5 w-5 shrink-0 text-text-secondary transition-transform group-open:rotate-180" aria-hidden="true" />
@@ -437,7 +427,7 @@ export default function ExperienceLanding({
         </section>
 
         {/* ---------- Closing call to action ---------- */}
-        <section className={`relative overflow-hidden ${NAVY} py-16 text-center text-white sm:py-24`}>
+        <section className={`relative overflow-hidden ${DARK} py-16 text-center text-white sm:py-24`}>
           {c.final.backdrop && (
             // dim photo behind the text; fixed (parallax) on desktop only - iOS ignores background-attachment
             <div
@@ -447,13 +437,11 @@ export default function ExperienceLanding({
             />
           )}
           <div className="relative mx-auto max-w-3xl px-4 sm:px-6">
-            <p className="text-xs font-bold uppercase ltr:tracking-[0.2em] text-violet-300">{c.final.kicker}</p>
-            <h2 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">{c.final.title}</h2>
+            <h2 className="text-4xl font-black tracking-tight sm:text-5xl">{c.final.title}</h2>
             <p className="mt-4 text-lg text-white/70">{c.final.text}</p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <a href={create} className={primaryBtn}>
                 {c.final.cta}
-                {forward}
               </a>
               <a href={playHref} target="_blank" rel="noopener" className={outlineDark}>
                 {c.final.secondary}

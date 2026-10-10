@@ -47,7 +47,7 @@ export default function TenBoolDemo({
         </a>
       </div>
 
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-black shadow-2xl shadow-amber-500/10 ring-1 ring-white/10 sm:aspect-[16/10]">
+      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/10 sm:aspect-[16/10]">
         {live ? (
           <iframe
             ref={frameRef}
@@ -72,7 +72,7 @@ export default function TenBoolDemo({
             >
               10.00
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-6 py-3 text-base font-bold text-black shadow-lg shadow-amber-500/30 transition-transform group-hover:scale-105 group-active:scale-95">
+            <span className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-base font-semibold text-white shadow-lg transition-transform group-hover:scale-105 group-active:scale-95">
               <Play className="h-5 w-5 fill-current" />
               {labels.start}
             </span>

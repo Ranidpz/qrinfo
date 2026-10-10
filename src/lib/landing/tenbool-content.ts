@@ -14,6 +14,7 @@ const BUZZER_GLOW = '/experiences/10-bool/buzzer-glow.webp';
 export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
   he: {
     name: '10 בול',
+    brandColor: '#fbbf24',
     meta: {
       title: '10 בול – משחק עצירת טיימר על 10.00 בדיוק | The Q',
       description:
@@ -38,12 +39,10 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     demo: {
-      kicker: 'דמו חי',
       title: 'חושבים שזה קל? נסו.',
       text: 'לחיצה אחת מפעילה, לחיצה שנייה עוצרת. צריך לעצור בדיוק על 10.00 – לא 9.99 ולא 10.01.',
     },
     steps: {
-      kicker: 'איך משחקים',
       title: 'פשוט לשחק. קשה לפגוע.',
       items: [
         { title: 'לוחצים', text: 'הטיימר מתחיל לרוץ.' },
@@ -52,7 +51,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     ways: {
-      kicker: 'איפה משחקים',
       title: 'על הבמה או בטלפון.',
       items: [
         {
@@ -74,10 +72,9 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { icon: Hash, label: 'מונה ניסיונות' },
         { icon: Heart, label: 'חיים לכל מתמודד' },
       ],
-      audience: ['כנסים ותערוכות', 'אירועי חברה', 'ימי הולדת', 'כיתות', 'ברים'],
+      audience: 'מתאים לכנסים, לאירועי חברה, לימי הולדת, לכיתות ולברים.',
     },
     customize: {
-      kicker: 'מיתוג',
       title: 'עם הלוגו והצבעים שלכם.',
       items: [
         { icon: ImageIcon, label: 'לוגו ותמונת רקע' },
@@ -90,7 +87,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       demo: { label: 'נסו את רקע הניאון', href: '/play/10-bool?bg=neon' },
     },
     pricing: {
-      kicker: 'מחירים',
       title: 'רוצים 10 בול משלכם?',
       plans: [
         {
@@ -115,7 +111,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       labels: { whatsapp: 'וואטסאפ', email: 'אימייל', call: 'תיאום שיחה' },
     },
     addon: {
-      kicker: 'השכרה',
       title: 'באזר לאירוע.',
       text: 'באזר מתכת על בסיס כבד, מתחבר למחשב של המסך.',
       points: ['כפתור ירוק או כחול'],
@@ -133,7 +128,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       image: { ...BUZZER_IMAGE, alt: 'הבאזר של Playzone – עמוד מתכת שחור על בסיס כבד, עם כפתור ירוק' },
     },
     faq: {
-      kicker: 'טוב לדעת',
       title: 'שאלות נפוצות',
       items: [
         { q: 'למה קוראים לזה "10 בול"?', a: '"בול" זה פגיעה מדויקת. עוצרים את הטיימר על 10.00 בדיוק – בול.' },
@@ -144,7 +138,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     final: {
-      kicker: 'מוכנים?',
       title: 'מי יעשה בול ראשון?',
       text: 'צרו משחק משלכם, או נסו עכשיו במסך מלא.',
       cta: 'צרו משחק משלכם',
@@ -155,6 +148,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
   },
   en: {
     name: '10 Bool',
+    brandColor: '#fbbf24',
     meta: {
       title: '10 Bool – Stop the Timer at Exactly 10.00 | The Q',
       description:
@@ -179,12 +173,10 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     demo: {
-      kicker: 'Live demo',
       title: 'Think it’s easy? Try it.',
       text: 'The first press starts the timer, the second stops it. The goal: exactly 10.00 – not 9.99, not 10.01.',
     },
     steps: {
-      kicker: 'How to play',
       title: 'Easy to play. Hard to nail.',
       items: [
         { title: 'Press to start', text: 'The timer sets off, counting in hundredths.' },
@@ -193,7 +185,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     ways: {
-      kicker: 'Where to play',
       title: 'On stage or on a phone.',
       items: [
         {
@@ -215,10 +206,9 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { icon: Hash, label: 'Attempt counter' },
         { icon: Heart, label: 'Lives per player' },
       ],
-      audience: ['Conferences and expos', 'Company events', 'Birthdays', 'Classrooms', 'Bars'],
+      audience: 'For conferences, company events, birthdays, classrooms and bars.',
     },
     customize: {
-      kicker: 'Branding',
       title: 'With your logo and colours.',
       items: [
         { icon: ImageIcon, label: 'Logo and background image' },
@@ -231,7 +221,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       demo: { label: 'Try the neon background', href: '/play/10-bool?bg=neon' },
     },
     pricing: {
-      kicker: 'Pricing',
       title: 'Want your own 10 Bool?',
       plans: [
         {
@@ -256,7 +245,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       labels: { whatsapp: 'WhatsApp', email: 'Email', call: 'Book a call' },
     },
     addon: {
-      kicker: 'Rental',
       title: 'A buzzer for your event.',
       text: 'Metal, heavy base, plugs into the screen’s computer. Rent it for your event.',
       points: ['Green or blue button'],
@@ -274,7 +262,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       image: { ...BUZZER_IMAGE, alt: 'The Playzone buzzer – a black metal pillar on a heavy base with a green button' },
     },
     faq: {
-      kicker: 'Good to know',
       title: 'FAQ',
       items: [
         { q: 'Why is it called “10 Bool”?', a: '“Bool” is Hebrew slang for a bullseye. Stop the timer at exactly 10.00 – a bool.' },
@@ -285,7 +272,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     final: {
-      kicker: 'Ready?',
       title: 'Who’ll hit a bool first?',
       text: 'Create your own game in a minute, or try it now full screen.',
       cta: 'Create your own',

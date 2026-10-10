@@ -56,19 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Super admin emails - loaded from environment variable for security
-  const SUPER_ADMIN_EMAILS = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').filter(Boolean);
-
   // Create user document in Firestore
   const createUserDocument = async (
     firebaseUser: FirebaseUser
   ): Promise<User> => {
     const displayName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'משתמש';
 
-    // Auto-assign super_admin role for specific emails
-    const role: UserRole = SUPER_ADMIN_EMAILS.includes(firebaseUser.email || '')
-      ? 'super_admin'
-      : 'free';
+    // Browser registration never grants privileged roles. Existing administrators
+    // manage promotion after registration; existing user documents are unchanged.
+    const role: UserRole = 'free';
 
     const userData = {
       email: firebaseUser.email,

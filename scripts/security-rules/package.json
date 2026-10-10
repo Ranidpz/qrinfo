@@ -1,0 +1,12 @@
+{
+  "name": "qrinfo-security-rules-tests",
+  "private": true,
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-qrinfo-role-review --config ../../firebase.rules-test.json \"node --test ../tests/firestore-roles.emulator.mjs\""
+  },
+  "devDependencies": {
+    "firebase-tools": "15.33.0",
+    "@firebase/rules-unit-testing": "5.0.0",
+    "firebase": "12.6.0"
+  }
+}
