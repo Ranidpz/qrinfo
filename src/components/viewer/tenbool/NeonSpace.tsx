@@ -3,11 +3,11 @@
 import { useMemo, type CSSProperties } from 'react';
 
 // "חלל ניאון" background for 10 בול, kept minimal so the timer stays the hero: a deep-space
-// gradient, faint stars on a very slow zoom-in, and a thin orbit that hugs the digits. The orbit
-// is invisible at rest - a glint runs one lap of it now and then - and reacts to the game: a red
-// glint every second in the countdown, a gold flash of the whole orbit on a hit, the miss colour
-// on a miss. Pure CSS + SVG, no assets, so it keeps working offline. Backdrop sizes are container
-// units (cq*) and the orbit is sized off the digits' own box, so the settings preview reuses both.
+// gradient (owner's colours), faint stars that drift a little and fade in and out (optional), and a
+// huge round orbit around the digits. The orbit is invisible at rest - a glint runs one lap of it
+// now and then - and reacts to the game: a red glint every second in the countdown, a gold flash of
+// the whole orbit on a hit, nothing on a miss. Pure CSS + SVG, no assets, so it keeps
+// working offline. Backdrop sizes are container units (cq*), so the settings preview reuses it.
 
 export type NeonRingState = 'idle' | 'warn' | 'win' | 'lose';
 
@@ -29,6 +29,36 @@ function starLayer(seed: number, count: number, alpha: number) {
   return out.join(',');
 }
 
+/** Hex colour between a and b (t = 0..1) - the gradient's middle stop, in CSS and on the share card */
+export function mixHex(a: string, b: string, t: number) {
+  const p = (h: string) => {
+    const x = h.replace('#', '');
+    const f = x.length === 3 ? x.split('').map((c) => c + c).join('') : x.padEnd(6, '0').slice(0, 6);
+    return [0, 2, 4].map((i) => parseInt(f.slice(i, i + 2), 16) || 0);
+  };
+  const [ca, cb] = [p(a), p(b)];
+  return `#${ca.map((v, i) => Math.round(v + (cb[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** The space gradient: centre colour, a darker middle, the edge colour */
+export function spaceGradient(centre: string, edge: string) {
+  return `radial-gradient(ellipse at 50% 45%, ${centre} 0%, ${mixHex(centre, edge, 0.55)} 45%, ${edge} 100%)`;
+}
+
+// Stars: a few sparse layers, each fading in, drifting a touch, and fading out on its own clock, so
+// single stars come and go instead of a fixed, noticeable sky. Seeds keep the sky identical everywhere.
+const STAR_LAYERS = [
+  { seed: 11, count: 26, alpha: 0.5, size: 1, dx: -1.6, dy: -1, dur: 15, delay: 0 },
+  { seed: 29, count: 26, alpha: 0.5, size: 1, dx: 1.4, dy: -1.2, dur: 17, delay: -6 },
+  { seed: 47, count: 22, alpha: 0.45, size: 1, dx: -1, dy: 1.3, dur: 19, delay: -11 },
+  { seed: 83, count: 10, alpha: 0.55, size: 2, dx: 1.2, dy: 0.8, dur: 21, delay: -3 },
+];
+const starKeyframes = STAR_LAYERS.map(
+  ({ dx, dy, dur, delay }, i) => `
+@keyframes neon-star-${i} { 0% { opacity:0; transform:translate(0,0) } 30% { opacity:1 } 70% { opacity:1 } 100% { opacity:0; transform:translate(${dx}cqw,${dy}cqh) } }
+.neon-stars-${i} { animation: neon-star-${i} ${dur}s ease-in-out ${delay}s infinite }`
+).join('');
+
 // The glint is three dashes on the same ellipse sharing one leading edge: a bright head and two
 // fading tails. Lengths are in pathLength units (the whole orbit = 100).
 const GLINT = [
@@ -48,13 +78,10 @@ const lapKeyframes = GLINT.map(
 ).join('');
 
 export const NEON_STYLE = `
-.neon-space { position:absolute; inset:0; overflow:hidden; pointer-events:none; container-type:size;
-  background: radial-gradient(ellipse at 50% 45%, #1b1352 0%, #0d0b2c 45%, #04040c 100%) }
+.neon-space { position:absolute; inset:0; overflow:hidden; pointer-events:none; container-type:size }
 .neon-tint { position:absolute; inset:0 }
-.neon-starfield { position:absolute; inset:0; transform-origin:50% 45%; animation: neon-zoom 60s ease-in-out infinite alternate }
-@keyframes neon-zoom { 0% { transform:scale(1) } 100% { transform:scale(1.18) } }
-.neon-stars { position:absolute; left:0; top:0; width:1px; height:1px; border-radius:9999px }
-.neon-stars-b { width:2px; height:2px }
+.neon-stars { position:absolute; left:0; top:0; border-radius:9999px; opacity:0 }
+${starKeyframes}
 
 /* Orbit: a huge circle centred on the digits, like the event-booth screen - it runs off the top and
    bottom of the screen and frames the number from the sides. Rendered inside the digits' box (which
@@ -77,16 +104,16 @@ export const NEON_STYLE = `
 /* Countdown: a red glint laps every second, in time with the beeps */
 .neon-ring-warn .neon-glint { animation:none; opacity:1 }
 ${lapKeyframes}
-/* Result: the whole orbit flashes once (gold on a hit, the miss colour on a miss), then fades */
+/* Result: a hit flashes the whole orbit gold once, then it fades; a miss shows no orbit at all */
 .neon-ring-win .neon-glint, .neon-ring-lose .neon-glint { display:none }
 .neon-ring-win .neon-ring-full { animation: neon-flash 2.4s ease-out both }
-.neon-ring-lose .neon-ring-full { animation: neon-flash 1.3s ease-out both }
 .neon-ring-win svg { animation: neon-flare .6s cubic-bezier(.2,1.6,.4,1) both }
 @keyframes neon-flash { 0% { opacity:0 } 12% { opacity:1 } 55% { opacity:.85 } 100% { opacity:0 } }
 @keyframes neon-flare { 0% { transform:scale(.94) } 50% { transform:scale(1.05) } 100% { transform:scale(1) } }
 
 @media (prefers-reduced-motion: reduce) {
-  .neon-starfield, .neon-ring svg, .neon-ring ellipse, .neon-glint { animation: none !important }
+  .neon-ring svg, .neon-ring ellipse, .neon-glint, .neon-stars { animation: none !important }
+  .neon-stars { opacity:.6 }
 }
 `;
 
@@ -96,27 +123,26 @@ const RING_COLORS: Record<Exclude<NeonRingState, 'idle' | 'lose'>, [string, stri
 };
 
 /** The space backdrop (fills its positioned parent). */
-export function NeonBackdrop({ from, to }: { from: string; to: string }) {
-  const stars = useMemo(() => [starLayer(11, 90, 0.5), starLayer(29, 24, 0.6)], []);
+export function NeonBackdrop({ from, to, centre, edge, stars }: { from: string; to: string; centre: string; edge: string; stars: boolean }) {
+  const layers = useMemo(() => STAR_LAYERS.map((l) => starLayer(l.seed, l.count, l.alpha)), []);
   return (
-    <div className="neon-space" aria-hidden="true">
+    <div className="neon-space" style={{ background: spaceGradient(centre, edge) }} aria-hidden="true">
       {/* A still, barely-there wash of the two neon colours - no moving clouds */}
       <div
         className="neon-tint"
         style={{ background: `radial-gradient(60cqmax 40cqmax at 30% 35%, ${to}26, transparent), radial-gradient(55cqmax 40cqmax at 72% 70%, ${from}1a, transparent)` }}
       />
-      {/* Stars on a very slow zoom-in, like drifting forward through space */}
-      <div className="neon-starfield">
-        <div className="neon-stars" style={{ boxShadow: stars[0] }} />
-        <div className="neon-stars neon-stars-b" style={{ boxShadow: stars[1] }} />
-      </div>
+      {stars &&
+        STAR_LAYERS.map((l, i) => (
+          <div key={l.seed} className={`neon-stars neon-stars-${i}`} style={{ width: l.size, height: l.size, boxShadow: layers[i] }} />
+        ))}
     </div>
   );
 }
 
 /** The orbit - render inside the relatively positioned box that holds the digits. */
-export function NeonRing({ from, to, state, loseColor }: { from: string; to: string; state: NeonRingState; loseColor: string }) {
-  const [a, b] = state === 'idle' ? [from, to] : state === 'lose' ? [loseColor, loseColor] : RING_COLORS[state];
+export function NeonRing({ from, to, state }: { from: string; to: string; state: NeonRingState }) {
+  const [a, b] = state === 'idle' || state === 'lose' ? [from, to] : RING_COLORS[state];
   const ellipse = { cx: '50%', cy: '50%', rx: '50%', ry: '50%', pathLength: 100 } as const;
   return (
     <div

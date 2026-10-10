@@ -290,7 +290,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
           <div
             className="relative aspect-video w-full rounded-xl overflow-hidden border border-border flex flex-col items-center justify-center gap-1"
             style={{
-              backgroundColor: fx.neon ? '#04040c' : bg,
+              backgroundColor: fx.neon ? fx.spaceTo : bg,
               backgroundImage: !fx.neon && config.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
@@ -303,7 +303,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             {fx.neon && (
               <>
                 <style>{NEON_STYLE}</style>
-                <NeonBackdrop from={fx.neonFrom} to={fx.neonTo} />
+                <NeonBackdrop from={fx.neonFrom} to={fx.neonTo} centre={fx.spaceFrom} edge={fx.spaceTo} stars={fx.neonStars} />
               </>
             )}
             {fx.board !== 'off' && (
@@ -342,7 +342,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             )}
             {title && <div className="relative text-base sm:text-lg font-bold opacity-80">{title}</div>}
             <div className="relative text-6xl sm:text-7xl" style={fx.neon ? { ['--orbit' as string]: 'max(2.8em, 72cqw)' } : undefined}>
-              {fx.neon && <NeonRing from={fx.neonFrom} to={fx.neonTo} state="idle" loseColor={fx.loseColor} />}
+              {fx.neon && <NeonRing from={fx.neonFrom} to={fx.neonTo} state="idle" />}
               <div dir="ltr" className="relative font-black leading-none tabular-nums">
                 10.00
               </div>
@@ -384,10 +384,22 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             </label>
 
             {fx.neon ? (
-              <div className="grid grid-cols-2 gap-3">
-                <ColorField label="ניאון 1" value={fx.neonFrom} onChange={(v) => update({ neonFrom: v })} />
-                <ColorField label="ניאון 2" value={fx.neonTo} onChange={(v) => update({ neonTo: v })} />
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <ColorField label="ניאון 1" value={fx.neonFrom} onChange={(v) => update({ neonFrom: v })} />
+                  <ColorField label="ניאון 2" value={fx.neonTo} onChange={(v) => update({ neonTo: v })} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <ColorField label="רקע במרכז" value={fx.spaceFrom} onChange={(v) => update({ spaceFrom: v })} />
+                  <ColorField label="רקע בקצוות" value={fx.spaceTo} onChange={(v) => update({ spaceTo: v })} />
+                </div>
+                <SwitchRow
+                  label="כוכבים"
+                  hint="כוכבים עדינים שמופיעים ונעלמים ברקע"
+                  checked={fx.neonStars}
+                  onChange={(v) => update({ neonStars: v })}
+                />
+              </>
             ) : null}
 
             <div className="grid grid-cols-2 gap-3">

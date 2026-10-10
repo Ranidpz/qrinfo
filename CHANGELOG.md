@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.26.14] - 2026-10-11
+
+- 10 בול neon space: stars are four sparse layers that each fade in, drift a touch and fade out on their own clock (no fixed sky), with a "כוכבים" switch (`neonStars`, absent = on). The background gradient is the owner's (`spaceFrom` centre / `spaceTo` edges, mixed middle stop via `mixHex`/`spaceGradient` in `NeonSpace.tsx`) in the game, the settings preview and the share card. A miss no longer flashes the circle.
+- Logo + background image are read once into a `blob:` URL (`useLocalCopy` in `TenBoolViewer.tsx`), so they stay on screen and on the share card when the venue's internet drops; without CORS it falls back to the original URL.
+
 ## [1.26.13] - 2026-10-11
 
 - `/play/10-bool` (the public demo) now carries a real 10 בול link preview: own title/description, OG image `/api/og/tenbool`, stopwatch apple icon and an install manifest (`/play/10-bool/manifest.json`) - shared on WhatsApp it looked like the generic "The Q - Dynamic QR Codes". `?bg=neon` shows the neon space background.

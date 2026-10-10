@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import RaffleConfetti from '@/components/raffle/RaffleConfetti';
-import { NEON_STYLE, NeonBackdrop, NeonRing, type NeonRingState } from '@/components/viewer/tenbool/NeonSpace';
+import { NEON_STYLE, NeonBackdrop, NeonRing, mixHex, type NeonRingState } from '@/components/viewer/tenbool/NeonSpace';
 import {
   TENBOOL_DEFAULTS,
   resolveTenBoolSoundUrl,
@@ -121,8 +121,33 @@ type ShareStats = {
   logoSize: number; // % of screen height, as in the game
   lastMs?: number;
   lastDiff?: number;
-  neon?: { from: string; to: string };
+  neon?: { from: string; to: string; centre: string; edge: string; stars: boolean };
 };
+
+// The logo and background image are read once into memory (a blob: URL), so the game keeps showing
+// them - and the share card keeps drawing them - when the venue's internet drops mid-event. Until
+// the copy is ready, or if the host doesn't allow it (CORS), the original URL is used as before.
+function useLocalCopy(url?: string) {
+  const [copy, setCopy] = useState<{ src: string; local: string } | null>(null);
+  useEffect(() => {
+    if (!url) return;
+    let alive = true;
+    let local = '';
+    fetch(url, { mode: 'cors' })
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+      .then((blob) => {
+        if (!alive) return;
+        local = URL.createObjectURL(blob);
+        setCopy({ src: url, local });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (local) URL.revokeObjectURL(local);
+    };
+  }, [url]);
+  return copy && copy.src === url ? copy.local : url;
+}
 
 function shareLine(st: ShareStats) {
   const hits = st.wins === 1 ? 'בול אחד' : `${st.wins} בולים`;
@@ -181,18 +206,21 @@ async function drawShareCard(st: ShareStats): Promise<File | null> {
     ctx.fillStyle = st.bg;
     ctx.fillRect(0, 0, W, H);
     if (st.neon) {
-      // Same deep-space backdrop as the game (stars + nebula glow; the ring is drawn round the timer below)
-      const g = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, H * 0.75);
-      g.addColorStop(0, '#1b1352');
-      g.addColorStop(0.42, '#0d0b2c');
-      g.addColorStop(1, '#04040c');
+      // Same deep-space backdrop as the game (the owner's gradient + faint stars; the circle is drawn round the timer below)
+      const g = ctx.createRadialGradient(W / 2, H * 0.45, 0, W / 2, H * 0.45, H * 0.75);
+      g.addColorStop(0, st.neon.centre);
+      g.addColorStop(0.45, mixHex(st.neon.centre, st.neon.edge, 0.55));
+      g.addColorStop(1, st.neon.edge);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
-      let seed = 11;
-      const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 0xffffffff);
-      for (let i = 0; i < 180; i += 1) {
-        ctx.fillStyle = `rgba(255,255,255,${(0.3 + rnd() * 0.7).toFixed(2)})`;
-        ctx.fillRect(rnd() * W, rnd() * H, rnd() < 0.15 ? 3 : 2, rnd() < 0.15 ? 3 : 2);
+      if (st.neon.stars) {
+        let seed = 11;
+        const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 0xffffffff);
+        for (let i = 0; i < 90; i += 1) {
+          ctx.fillStyle = `rgba(255,255,255,${(0.2 + rnd() * 0.4).toFixed(2)})`;
+          const sz = rnd() < 0.12 ? 3 : 2;
+          ctx.fillRect(rnd() * W, rnd() * H, sz, sz);
+        }
       }
     } else if (bgImg) {
       const k = Math.max(W / bgImg.width, H / bgImg.height);
@@ -365,6 +393,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   // Local to this screen and never saved - a refresh returns to the editor's choice.
   const [boardOverride, setBoardOverride] = useState<TenBoolBoard | null>(null);
   const baseFx = tenboolEffects(config);
+  const logoSrc = useLocalCopy(config?.logoUrl);
+  const bgImageSrc = useLocalCopy(config?.backgroundStyle === 'neon' ? undefined : config?.backgroundImageUrl);
   const fx = { ...baseFx, board: boardOverride ?? baseFx.board };
   // Countdown phase (from second 7) - only the neon ring needs it as state, the digits use refs
   const [warnOn, setWarnOn] = useState(false);
@@ -598,12 +628,12 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     bg: bgColor,
     fg: textColor,
     font: `'${font.family}', ${assistant || 'system-ui'}, sans-serif`,
-    bgImage: fx.neon ? undefined : config?.backgroundImageUrl,
-    logo: config?.logoUrl,
+    bgImage: fx.neon ? undefined : bgImageSrc,
+    logo: logoSrc,
     logoSize: fx.logoSize,
     lastMs: lastResult?.ms,
     lastDiff: lastResult?.diff,
-    neon: fx.neon ? { from: fx.neonFrom, to: fx.neonTo } : undefined,
+    neon: fx.neon ? { from: fx.neonFrom, to: fx.neonTo, centre: fx.spaceFrom, edge: fx.spaceTo, stars: fx.neonStars } : undefined,
   };
   const canShare = isPhone && wins >= 2;
   const shareKey = JSON.stringify(shareStats);
@@ -801,8 +831,8 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         transition: 'top .25s ease',
         fontFamily: `'${font.family}', var(--font-assistant), system-ui, sans-serif`,
         color: textColor,
-        backgroundColor: fx.neon ? '#04040c' : config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor,
-        backgroundImage: !fx.neon && config?.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
+        backgroundColor: fx.neon ? fx.spaceTo : config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor,
+        backgroundImage: !fx.neon && bgImageSrc ? `url("${bgImageSrc}")` : undefined,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         ['--tb-lose' as string]: fx.loseColor,
@@ -815,7 +845,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       {fx.neon && (
         <>
           <style>{NEON_STYLE}</style>
-          <NeonBackdrop from={fx.neonFrom} to={fx.neonTo} />
+          <NeonBackdrop from={fx.neonFrom} to={fx.neonTo} centre={fx.spaceFrom} edge={fx.spaceTo} stars={fx.neonStars} />
           <div className={`pointer-events-none absolute inset-0 ${strobeClass}`} />
         </>
       )}
@@ -872,10 +902,10 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
       {/* The centre (timer and what's around it) is what a phone swipe drags sideways - the corners
           keep their own animations and stay put */}
       <div ref={stageRef} className="absolute inset-0 flex flex-col items-center justify-center gap-[2vh]">
-        {config?.logoUrl && (
+        {logoSrc && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={config.logoUrl}
+            src={logoSrc}
             alt=""
             draggable={false}
             className="pointer-events-none relative z-[1] object-contain max-w-[80vw]"
@@ -885,7 +915,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
         {title && phase === 'idle' && <div className="relative z-[1] text-[5vmin] font-bold opacity-80">{title}</div>}
         {/* The digits' box carries their font size, so the neon orbit (centred on it) is sized in their em */}
         <div className="relative text-[min(22vw,40vh)]">
-          {fx.neon && <NeonRing from={fx.neonFrom} to={fx.neonTo} state={ringState} loseColor={fx.loseColor} />}
+          {fx.neon && <NeonRing from={fx.neonFrom} to={fx.neonTo} state={ringState} />}
           <div ref={timerRef} dir="ltr" className="tenbool-timer relative font-black leading-none tabular-nums">
             00.00
           </div>
