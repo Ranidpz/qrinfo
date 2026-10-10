@@ -374,7 +374,7 @@ export default function ExperienceLanding({
                   </p>
                 )}
               </div>
-              <div className="relative mx-auto aspect-[4/5] w-full max-w-sm overflow-hidden rounded-3xl ring-1 ring-white/10">
+              <div className="relative mx-auto aspect-[4/5] w-full max-w-sm [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_80%)]">
                 <Photo image={c.addon.image} sizes="(min-width: 768px) 384px, 100vw" />
               </div>
             </div>
@@ -403,8 +403,16 @@ export default function ExperienceLanding({
         </section>
 
         {/* ---------- Closing call to action ---------- */}
-        <section className={`${NAVY} py-16 text-center text-white sm:py-24`}>
-          <div className="mx-auto max-w-3xl px-4 sm:px-6">
+        <section className={`relative overflow-hidden ${NAVY} py-16 text-center text-white sm:py-24`}>
+          {c.final.backdrop && (
+            // dim photo behind the text; fixed (parallax) on desktop only - iOS ignores background-attachment
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-contain bg-center bg-no-repeat opacity-25 lg:bg-fixed"
+              style={{ backgroundImage: `url(${c.final.backdrop})` }}
+            />
+          )}
+          <div className="relative mx-auto max-w-3xl px-4 sm:px-6">
             <p className="text-xs font-bold uppercase ltr:tracking-[0.2em] text-violet-300">{c.final.kicker}</p>
             <h2 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">{c.final.title}</h2>
             <p className="mt-4 text-lg text-white/70">{c.final.text}</p>

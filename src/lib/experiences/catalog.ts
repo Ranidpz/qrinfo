@@ -57,6 +57,7 @@ export interface CatalogEntry {
   // Full experience landing pages (under /experiences) only: link-preview image + sitemap date
   image?: string;
   updated?: string;
+  thumb?: string; // a small product photo on its card (rentable equipment)
   // Cards without a page: override the default "talk to us" CTA + its prefilled WhatsApp message
   contact?: { cta: Record<Locale, string>; whatsapp: Record<Locale, string> };
 }
@@ -282,12 +283,13 @@ export const CATALOG: CatalogEntry[] = [
     id: 'buzzer',
     name: { he: 'באזר פיזי', en: 'Physical buzzer' },
     pitch: {
-      he: 'באזר גדול שמתחבר למחשב שמפעיל את המסך – מפעיל את 10 בול, את ההגרלה ובקרוב גם את פרוגר. משכירים לאירוע.',
-      en: 'A big buzzer that plugs into the computer running the screen – it plays 10 Bool, the raffle and, soon, Frogger. Rent it for your event.',
+      he: 'באזר מתכת עם בסיס כבד ויציב, שמתחבר למחשב שמפעיל את המסך – מפעיל את 10 בול, את ההגרלה ובקרוב גם את פרוגר. משכירים לאירוע.',
+      en: 'A metal buzzer on a heavy, stable base that plugs into the computer running the screen – it plays 10 Bool, the raffle and, soon, Frogger. Rent it for your event.',
     },
     tags: { he: '10 בול, הגרלה, פרוגר (בקרוב)', en: '10 Bool, raffle, Frogger (soon)' },
     icon: CircleDot,
     category: 'rentals',
+    thumb: '/experiences/10-bool/buzzer-product.webp',
     contact: {
       cta: { he: 'רוצים באזר לאירוע? דברו איתנו', en: 'Need a buzzer for your event? Talk to us' },
       whatsapp: { he: 'היי, אשמח לשכור באזר לאירוע שלי', en: 'Hi, I’d like to rent a buzzer for my event' },

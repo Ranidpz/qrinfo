@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.9] - 2026-10-11
+
+- Buzzer product shot (`public/experiences/10-bool/buzzer-product.webp`) in the 10 Bool buzzer band (edges radial-masked into the navy band) and as a thumbnail on the buzzer card on the home page (`CatalogEntry.thumb`). Copy now matches the real buzzer: metal, heavy stable base, green or blue button that does not light up. The glowing render (`buzzer-glow.webp`) is decoration only: a dim backdrop (`final.backdrop`) behind the closing CTA, fixed/parallax on desktop.
+
 ## [1.26.8] - 2026-10-11
 
 - Buzzer band (`addon.games` + `addon.idea` in the landing template): the games that work with the buzzer – 10 Bool (#demo), the raffle (home page card) and Frogger as "coming soon" – and a "got an idea for a buzzer game? talk to us" WhatsApp link. The buzzer card in the catalogue says the same.

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, ArrowUpRight, Play } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
@@ -50,7 +51,14 @@ function ExperienceCard({ entry: e, locale, onAddon }: { entry: CatalogEntry; lo
           )}
         </h3>
       </div>
-      <p className="relative mt-3 flex-1 text-sm leading-relaxed text-[var(--text-secondary)]">{e.pitch[locale]}</p>
+      <div className="relative mt-3 flex flex-1 items-start gap-3">
+        <p className="flex-1 text-sm leading-relaxed text-[var(--text-secondary)]">{e.pitch[locale]}</p>
+        {e.thumb && (
+          <span className="relative h-24 w-[4.8rem] shrink-0 overflow-hidden rounded-xl bg-[#0b0e1d]">
+            <Image src={e.thumb} alt="" fill sizes="80px" className="object-cover" />
+          </span>
+        )}
+      </div>
       <div className="relative mt-3 flex flex-wrap gap-2">
         <span className="inline-flex w-fit items-center rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
           {e.tags[locale]}

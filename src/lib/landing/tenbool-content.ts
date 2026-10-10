@@ -7,8 +7,9 @@ import type { ExperienceLandingContent } from './types';
 
 const HERO_IMAGE = '/experiences/10-bool/hero-buzzer-crowd.webp';
 const STAGE_IMAGE = '/experiences/10-bool/stage-big-screen.webp';
-// Until there's a product shot of the buzzer, crop it out of the hero photo
-const BUZZER_IMAGE = { src: HERO_IMAGE, position: '32% 85%' };
+const BUZZER_IMAGE = { src: '/experiences/10-bool/buzzer-product.webp' };
+// Decorative only: our real buzzer doesn't light up, so this one is a dim backdrop, never "the product"
+const BUZZER_GLOW = '/experiences/10-bool/buzzer-glow.webp';
 
 export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
   he: {
@@ -103,8 +104,8 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     addon: {
       kicker: 'הבאזר',
       title: 'לפעמים כל מה שצריך זה כפתור ירוק אחד.',
-      text: 'באזר פיזי גדול שמתחבר למחשב שמפעיל את המסך. לחיצה אחת – והמשחק יוצא לדרך. משכירים לאירוע.',
-      points: ['גדול, יציב ובולט בדוכן'],
+      text: 'באזר מתכת גדול עם בסיס כבד ויציב, שמתחבר למחשב שמפעיל את המסך. לחיצה אחת – והמשחק יוצא לדרך. משכירים לאירוע.',
+      points: ['מתכת ובסיס כבד – עומד בכל אירוע', 'כפתור ירוק או כחול'],
       cta: 'שכרו באזר לאירוע',
       whatsappText: 'היי, אשמח לשכור באזר לאירוע שלי',
       games: {
@@ -116,7 +117,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         ],
       },
       idea: { text: 'חשבתם על משחק לבאזר?', cta: 'דברו איתנו', whatsappText: 'היי, יש לי רעיון למשחק עם הבאזר' },
-      image: { ...BUZZER_IMAGE, alt: 'הבאזר של Playzone – עמוד שחור עם כפתור ירוק מואר' },
+      image: { ...BUZZER_IMAGE, alt: 'הבאזר של Playzone – עמוד מתכת שחור על בסיס כבד, עם כפתור ירוק' },
     },
     faq: {
       kicker: 'טוב לדעת',
@@ -136,6 +137,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       cta: 'צרו משחק משלכם',
       secondary: 'התנסו עכשיו',
       social: 'תמונות וסרטונים מאירועים שלנו',
+      backdrop: BUZZER_GLOW,
     },
   },
   en: {
@@ -230,8 +232,8 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     addon: {
       kicker: 'The buzzer',
       title: 'Sometimes all it takes is one green button.',
-      text: 'A big physical buzzer that plugs into the computer running the screen. One slam – and the game is on. Rent it for your event.',
-      points: ['Big, sturdy and eye-catching at a booth'],
+      text: 'A big metal buzzer on a heavy, stable base that plugs into the computer running the screen. One slam – and the game is on. Rent it for your event.',
+      points: ['Metal with a heavy base – built for events', 'Green or blue button'],
       cta: 'Rent a buzzer',
       whatsappText: 'Hi, I’d like to rent a buzzer for my event',
       games: {
@@ -243,7 +245,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         ],
       },
       idea: { text: 'Got an idea for a buzzer game?', cta: 'Talk to us', whatsappText: 'Hi, I have an idea for a buzzer game' },
-      image: { ...BUZZER_IMAGE, alt: 'The Playzone buzzer – a black pillar with a glowing green button' },
+      image: { ...BUZZER_IMAGE, alt: 'The Playzone buzzer – a black metal pillar on a heavy base with a green button' },
     },
     faq: {
       kicker: 'Good to know',
@@ -263,6 +265,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       cta: 'Create your own',
       secondary: 'Try it now',
       social: 'Photos and videos from our events',
+      backdrop: BUZZER_GLOW,
     },
   },
 };

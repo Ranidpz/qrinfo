@@ -66,5 +66,5 @@ export interface ExperienceLandingContent {
     idea?: { text: string; cta: string; whatsappText: string }; // "thought of a game? talk to us"
   };
   faq: { kicker: string; title: string; items: { q: string; a: string }[] };
-  final: { kicker: string; title: string; text: string; cta: string; secondary: string; social: string };
+  final: { kicker: string; title: string; text: string; cta: string; secondary: string; social: string; backdrop?: string }; // backdrop = a dim parallax photo
 }
