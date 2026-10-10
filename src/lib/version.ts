@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.25.6';
+export const APP_VERSION = '1.26.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.0', date: '2026-10-10', isNew: true, highlights: {
+    he: ['חוויות The Q: עמוד חדש עם כל החוויות של המערכת, ודף מלא ל־10 בול עם דמו חי, מחירים ויצירת משחק בלחיצה', 'עמודי השיווק נקראים עכשיו גם על ידי גוגל (כותרות, מפת אתר וקישורי שפה)'],
+    en: ['The Q Experiences: a new page with every experience on the platform, and a full 10 Bool page with a live demo, pricing and one-click create', 'The marketing pages are now readable by Google (titles, sitemap and language links)'],
+  } },
   { version: '1.25.6', date: '2026-10-08', isNew: true, highlights: {
     he: ['10 בול: הודעת השיתוף בוואטסאפ — "הצלחתי X בולים מתוך Y ניסיונות!!! נסו אתם" עם הקישור'],
     en: ['10 Bool: the WhatsApp share message now reads "I hit X bools out of Y tries!!! Try it" with the link'],
