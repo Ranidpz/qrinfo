@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.26.6] - 2026-10-10
+
+- Add a default-disabled, scoped Fattal cloud API with reviewed manifest binding, durable replacement receipts and read-only recovery. Notifications and cleanup remain unavailable. Legacy PDF replacement checks pending cloud claims.
+- Replace the old installation walkthrough with a super-admin dot status and receipt view. Preserve legacy computer/connection controls and audit records; no credential provisioning, schedules or live uploads are enabled.
+
 ## [1.26.5] - 2026-10-10
 
 - Playzone social profiles in one place, `SOCIAL` in `src/lib/landing/site.ts` (Facebook + YouTube; Instagram is an empty slot, rendered once it gets a url), shown by `components/landing/SocialLinks.tsx` in the home page footer, the experience-page footer, a "see it at a real event" strip in the experiences section and the experience pages' final section. Home page JSON-LD adds the `Organization` with `sameAs`. Footer "צור קשר" → "צרו קשר".

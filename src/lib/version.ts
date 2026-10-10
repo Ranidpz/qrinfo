@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.5';
+export const APP_VERSION = '1.26.6';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.6', date: '2026-10-10', isNew: true, highlights: {
+    he: ['ניהול חוברות: מסך dot לבדיקת חיבור וקבלות, עם שמירת הבקרה על החיבורים הקודמים. החיבור החדש דורש הגדרה ואינו מפעיל העלאות או הודעות'],
+    en: ['Brochure management: a dot connection and receipt view with previous connection controls retained. The new connection requires setup and does not enable uploads or messages'],
+  } },
   { version: '1.26.5', date: '2026-10-10', isNew: true, highlights: {
     he: ['קישורים לפייסבוק וליוטיוב של Playzone – תמונות וסרטונים מאירועים אמיתיים, בעמוד הבית ובדפי החוויות'],
     en: ['Links to Playzone on Facebook and YouTube – photos and videos from real events, on the home page and the experience pages'],

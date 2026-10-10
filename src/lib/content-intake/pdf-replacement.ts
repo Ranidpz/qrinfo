@@ -72,6 +72,9 @@ export async function replaceCodePdfWithBuffer(
   if (!codeDoc.exists) throw new Error('Code not found');
 
   const codeData = codeDoc.data() || {};
+  // The opt-in cloud path retains this claim through uncertain operations.
+  // Legacy callers must not replace/delete its predecessor while it is staging.
+  if (codeData.fattalCloudPending) throw new Error('Target has a pending cloud replacement');
   const ownerId = String(codeData.ownerId || '');
   if (!ownerId) throw new Error('Code owner is missing');
   if (options.expectedOwnerId && ownerId !== options.expectedOwnerId) {
@@ -119,6 +122,7 @@ export async function replaceCodePdfWithBuffer(
       if (!userDoc.exists) throw new Error('Owner user not found');
 
       const freshCodeData = freshCodeDoc.data() || {};
+      if (freshCodeData.fattalCloudPending) throw new Error('Target has a pending cloud replacement');
       if (freshCodeData.ownerId !== ownerId) {
         throw new Error('Code owner does not match Fattal owner');
       }
