@@ -5,6 +5,7 @@ import type { ExperienceLandingContent, LandingImage } from '@/lib/landing/types
 import { CONTACT, SITE_URL, createHref, experiencesHref, landingUrl } from '@/lib/landing/site';
 import { LandingShell, JsonLd, Breadcrumbs } from './LandingShell';
 import SocialLinks from './SocialLinks';
+import Parallax from './Parallax';
 
 // The one template every experience landing page uses: a photo hero with a stats strip, the live
 // demo, three steps, the ways to play, pricing, an optional rental add-on band, FAQ and a closing
@@ -327,8 +328,8 @@ export default function ExperienceLanding({
 
         {/* ---------- Rental add-on (the buzzer) ---------- */}
         {c.addon && (
-          <section id="buzzer" className={`scroll-mt-14 ${NAVY} py-16 text-white sm:py-20`}>
-            <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 md:grid-cols-[1.1fr_1fr]">
+          <section id="buzzer" className={`scroll-mt-14 overflow-hidden ${NAVY} py-16 text-white sm:py-20`}>
+            <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 sm:px-6 md:grid-cols-2 md:gap-10">
               <div>
                 <p className="flex items-center gap-3 text-xs font-bold uppercase ltr:tracking-[0.2em] text-violet-300">
                   <span className="h-0.5 w-8 bg-violet-400" aria-hidden="true" />
@@ -374,9 +375,12 @@ export default function ExperienceLanding({
                   </p>
                 )}
               </div>
-              <div className="relative mx-auto aspect-[4/5] w-full max-w-sm [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_80%)]">
-                <Photo image={c.addon.image} sizes="(min-width: 768px) 384px, 100vw" />
-              </div>
+              {/* big, edges faded into the band, drifting a little with the scroll */}
+              <Parallax speed={0.12} className="order-first md:order-none">
+                <div className="relative mx-auto aspect-[4/5] w-full max-w-[18rem] [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_78%)] sm:max-w-md md:max-w-lg md:scale-110">
+                  <Photo image={c.addon.image} sizes="(min-width: 768px) 512px, 288px" />
+                </div>
+              </Parallax>
             </div>
           </section>
         )}

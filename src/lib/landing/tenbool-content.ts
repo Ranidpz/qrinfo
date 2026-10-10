@@ -103,9 +103,9 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     },
     addon: {
       kicker: 'הבאזר',
-      title: 'לפעמים כל מה שצריך זה כפתור ירוק אחד.',
-      text: 'באזר מתכת גדול עם בסיס כבד ויציב, שמתחבר למחשב שמפעיל את המסך. לחיצה אחת – והמשחק יוצא לדרך. משכירים לאירוע.',
-      points: ['מתכת ובסיס כבד – עומד בכל אירוע', 'כפתור ירוק או כחול'],
+      title: 'באזר אמיתי לאירוע.',
+      text: 'מתכת, בסיס כבד, מתחבר למחשב של המסך. משכירים לאירוע.',
+      points: ['כפתור ירוק או כחול'],
       cta: 'שכרו באזר לאירוע',
       whatsappText: 'היי, אשמח לשכור באזר לאירוע שלי',
       games: {
@@ -231,9 +231,9 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     },
     addon: {
       kicker: 'The buzzer',
-      title: 'Sometimes all it takes is one green button.',
-      text: 'A big metal buzzer on a heavy, stable base that plugs into the computer running the screen. One slam – and the game is on. Rent it for your event.',
-      points: ['Metal with a heavy base – built for events', 'Green or blue button'],
+      title: 'A real buzzer for your event.',
+      text: 'Metal, heavy base, plugs into the screen’s computer. Rent it for your event.',
+      points: ['Green or blue button'],
       cta: 'Rent a buzzer',
       whatsappText: 'Hi, I’d like to rent a buzzer for my event',
       games: {

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.10] - 2026-10-11
+
+- Buzzer band copy cut to "באזר אמיתי לאירוע." + one line; the product shot is bigger (up to `max-w-lg`, image on top on phones) and drifts with the scroll via `components/landing/Parallax.tsx` (rAF transform, only while on screen, off for reduced motion); the band clips it (`overflow-hidden`).
+
 ## [1.26.9] - 2026-10-11
 
 - Buzzer product shot (`public/experiences/10-bool/buzzer-product.webp`) in the 10 Bool buzzer band (edges radial-masked into the navy band) and as a thumbnail on the buzzer card on the home page (`CatalogEntry.thumb`). Copy now matches the real buzzer: metal, heavy stable base, green or blue button that does not light up. The glowing render (`buzzer-glow.webp`) is decoration only: a dim backdrop (`final.backdrop`) behind the closing CTA, fixed/parallax on desktop.

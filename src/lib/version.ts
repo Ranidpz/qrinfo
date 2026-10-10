@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.9';
+export const APP_VERSION = '1.26.10';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.10', date: '2026-10-11', isNew: true, highlights: {
+    he: ['10 בול: אזור הבאזר קצר וקולע יותר, והבאזר גדול יותר וזז קלות עם הגלילה'],
+    en: ['10 Bool: a shorter buzzer section, with a bigger buzzer that drifts gently as you scroll'],
+  } },
   { version: '1.26.9', date: '2026-10-11', isNew: true, highlights: {
     he: ['הבאזר: תמונת מוצר אמיתית – עמוד מתכת עם בסיס כבד וכפתור ירוק או כחול – בדף 10 בול ובכרטיס בעמוד הבית'],
     en: ['The buzzer: a real product shot – a metal pillar on a heavy base with a green or blue button – on the 10 Bool page and its home page card'],
