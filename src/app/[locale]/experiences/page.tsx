@@ -104,8 +104,13 @@ function ExperienceCard({ entry, locale }: { entry: CatalogEntry; locale: Locale
       {entry.addons && (
         <ul className="mt-3 flex flex-wrap gap-2">
           {entry.addons.map((a) => (
-            <li key={a} className="rounded-full bg-bg-hover px-2.5 py-1 text-xs font-medium text-text-secondary">
-              + {ADDONS[a][locale]}
+            <li key={a}>
+              <a
+                href="#rentals"
+                className="relative z-10 inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:border-amber-500/60 dark:text-amber-300"
+              >
+                + {ADDONS[a][locale]}
+              </a>
             </li>
           ))}
         </ul>
@@ -123,12 +128,12 @@ function ExperienceCard({ entry, locale }: { entry: CatalogEntry; locale: Locale
           </span>
         ) : (
           <a
-            href={wa(t.whatsappText(name))}
+            href={wa(entry.contact?.whatsapp[locale] ?? t.whatsappText(name))}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-[#128C7E] hover:underline dark:text-[#25D366]"
           >
-            {t.talk}
+            {entry.contact?.cta[locale] ?? t.talk}
           </a>
         )}
         {entry.demo && (

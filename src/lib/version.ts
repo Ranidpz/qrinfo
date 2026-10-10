@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.0';
+export const APP_VERSION = '1.26.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.1', date: '2026-10-10', isNew: true, highlights: {
+    he: ['חוויות The Q: אזור חדש של השכרת ציוד לאירועים עם באזר פיזי, ותוספת "באזר להשכרה" בולטת בדף 10 בול'],
+    en: ['The Q Experiences: a new event equipment rental section with a physical buzzer, and a prominent "buzzer for rent" add-on on the 10 Bool page'],
+  } },
   { version: '1.26.0', date: '2026-10-10', isNew: true, highlights: {
     he: ['חוויות The Q: עמוד חדש עם כל החוויות של המערכת, ודף מלא ל־10 בול עם דמו חי, מחירים ויצירת משחק בלחיצה', 'עמודי השיווק נקראים עכשיו גם על ידי גוגל (כותרות, מפת אתר וקישורי שפה)'],
     en: ['The Q Experiences: a new page with every experience on the platform, and a full 10 Bool page with a live demo, pricing and one-click create', 'The marketing pages are now readable by Google (titles, sitemap and language links)'],

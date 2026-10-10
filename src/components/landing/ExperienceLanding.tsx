@@ -258,6 +258,28 @@ export default function ExperienceLanding({
                 </div>
               ))}
             </div>
+            {c.pricing.addon && (
+              <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-4">
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-black">
+                    <c.pricing.addon.icon className="h-7 w-7" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <h3 className="text-xl font-bold">{c.pricing.addon.title}</h3>
+                    <p className="mt-1.5 leading-relaxed text-text-secondary">{c.pricing.addon.text}</p>
+                  </div>
+                </div>
+                <a
+                  href={`https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(c.pricing.addon.whatsappText)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`shrink-0 ${secondaryBtn}`}
+                >
+                  <WhatsAppIcon className="h-5 w-5 text-[#25D366]" />
+                  {c.pricing.addon.cta}
+                </a>
+              </div>
+            )}
             <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border border-border bg-bg-secondary p-5 sm:flex-row sm:justify-between">
               <p className="font-semibold">{c.pricing.contactTitle}</p>
               <div className="flex flex-wrap items-center justify-center gap-2">

@@ -1,5 +1,6 @@
 import {
   Building2,
+  CircleDot,
   Cake,
   GraduationCap,
   Hash,
@@ -57,7 +58,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         {
           icon: Keyboard,
           title: 'מסך גדול ומחשב',
-          text: 'לוחצים Enter או רווח. כל באזר או לחצן USB שמוגדר לאחד המקשים האלה עובד מיד – מושלם לדוכן באירוע או לבמה.',
+          text: 'לוחצים Enter או רווח. כל באזר או לחצן USB שמוגדר לאחד המקשים האלה עובד מיד – מושלם לדוכן באירוע או לבמה. אין לכם באזר? אנחנו משכירים.',
         },
         {
           icon: Smartphone,
@@ -144,6 +145,13 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       whatsappText: 'היי, אשמח לשמוע על 10 בול לאירוע שלי',
       emailSubject: '10 בול – בקשת הצעת מחיר',
       labels: { whatsapp: 'וואטסאפ', email: 'אימייל', call: 'תיאום שיחה' },
+      addon: {
+        icon: CircleDot,
+        title: 'תוספת לאירוע: באזר פיזי להשכרה',
+        text: 'באזר גדול שמתחבר למחשב שמפעיל את המסך. כל לחיצה מפעילה ועוצרת את הטיימר – והקהל נהנה פי כמה.',
+        cta: 'שכרו באזר לאירוע',
+        whatsappText: 'היי, אשמח לשכור באזר ל־10 בול לאירוע שלי',
+      },
     },
     create: {
       title: 'יוצרים משחק בדקה',
@@ -218,7 +226,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         {
           icon: Keyboard,
           title: 'Big screens and computers',
-          text: 'Press Enter or Space. Any USB buzzer or button mapped to one of those keys works straight away – perfect for an event booth or a stage.',
+          text: 'Press Enter or Space. Any USB buzzer or button mapped to one of those keys works straight away – perfect for an event booth or a stage. No buzzer? We rent them out.',
         },
         {
           icon: Smartphone,
@@ -305,6 +313,13 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       whatsappText: 'Hi, I’d like to hear about 10 Bool for my event',
       emailSubject: '10 Bool – quote request',
       labels: { whatsapp: 'WhatsApp', email: 'Email', call: 'Book a call' },
+      addon: {
+        icon: CircleDot,
+        title: 'Event add-on: a physical buzzer for rent',
+        text: 'A big buzzer that plugs into the computer running the screen. Every slam starts and stops the timer – and the crowd loves it.',
+        cta: 'Rent a buzzer',
+        whatsappText: 'Hi, I’d like to rent a buzzer for 10 Bool at my event',
+      },
     },
     create: {
       title: 'Create a game in a minute',

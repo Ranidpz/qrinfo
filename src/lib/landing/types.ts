@@ -43,6 +43,8 @@ export interface ExperienceLandingContent {
     whatsappText: string; // prefilled WhatsApp message
     emailSubject: string;
     labels: { whatsapp: string; email: string; call: string };
+    // An extra you can rent for the event (e.g. a physical buzzer), shown as its own block
+    addon?: { icon: LucideIcon; title: string; text: string; cta: string; whatsappText: string };
   };
   create: { title: string; steps: string[]; cta: string };
   faq: { title: string; items: { q: string; a: string }[] };

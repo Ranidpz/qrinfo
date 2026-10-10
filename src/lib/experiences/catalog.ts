@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  CircleDot,
   CalendarDays,
   Camera,
   Cloud,
@@ -25,13 +26,14 @@ import type { Locale } from '@/i18n/config';
 // the sitemap and the landing pages all read from here, so adding an experience = one entry.
 // Only list what the dashboard really offers and is live in production.
 
-export type ExperienceCategory = 'events' | 'engagement' | 'games' | 'tools';
+export type ExperienceCategory = 'events' | 'engagement' | 'games' | 'tools' | 'rentals';
 
 export const CATEGORIES: { id: ExperienceCategory; title: Record<Locale, string> }[] = [
   { id: 'events', title: { he: 'ניהול אירועים', en: 'Event management' } },
   { id: 'engagement', title: { he: 'השתתפות קהל', en: 'Audience engagement' } },
   { id: 'games', title: { he: 'משחקים', en: 'Games' } },
   { id: 'tools', title: { he: 'כלים', en: 'Tools' } },
+  { id: 'rentals', title: { he: 'השכרת ציוד לאירועים', en: 'Event equipment for rent' } },
 ];
 
 export type AddonId = 'buzzer';
@@ -54,6 +56,8 @@ export interface CatalogEntry {
   // Full experience landing pages (under /experiences) only: link-preview image + sitemap date
   image?: string;
   updated?: string;
+  // Cards without a page: override the default "talk to us" CTA + its prefilled WhatsApp message
+  contact?: { cta: Record<Locale, string>; whatsapp: Record<Locale, string> };
 }
 
 export const CATALOG: CatalogEntry[] = [
@@ -252,6 +256,22 @@ export const CATALOG: CatalogEntry[] = [
     },
     icon: BookOpen,
     category: 'tools',
+  },
+
+  // ---------- Event equipment for rent ----------
+  {
+    id: 'buzzer',
+    name: { he: 'באזר פיזי', en: 'Physical buzzer' },
+    pitch: {
+      he: 'באזר גדול שמתחבר למחשב שמפעיל את המסך – לחיצה אחת מפעילה ועוצרת את 10 בול או מתחילה את ההגרלה. משכירים לאירוע.',
+      en: 'A big buzzer that plugs into the computer running the screen – one slam starts and stops 10 Bool or kicks off the raffle. Rent it for your event.',
+    },
+    icon: CircleDot,
+    category: 'rentals',
+    contact: {
+      cta: { he: 'רוצים באזר לאירוע? דברו איתנו', en: 'Need a buzzer for your event? Talk to us' },
+      whatsapp: { he: 'היי, אשמח לשכור באזר לאירוע שלי', en: 'Hi, I’d like to rent a buzzer for my event' },
+    },
   },
 ];
 
