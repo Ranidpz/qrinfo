@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.2] - 2026-10-11
+
+- Public viewer `/v/:path*` may be framed by the TVzone signage player: it sends `Content-Security-Policy: frame-ancestors 'self' https://tvzone.playzones.app https://bindexcloud.playzones.app http://localhost:3200` instead of `X-Frame-Options`. Every other route keeps `X-Frame-Options: SAMEORIGIN` (dashboard, login, admin, API, /raffle, /gallery, /lobby, /play). Rollback = revert this release commit (header-only change, no data/rules involved).
+
 ## [1.27.1] - 2026-10-11
 
 - 10 בול: keyboard play is Space only; Enter is left free for other uses. Touch unchanged. Landing page FAQ/hint copy updated to match (he + en).

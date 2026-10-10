@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.1';
+export const APP_VERSION = '1.27.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.2', date: '2026-10-11', isNew: true, highlights: {
+    he: ['דף המשחק (/v/) יכול לרוץ עכשיו בתוך נגן המסכים TVzone — למשל 10 בול על מסך טלוויזיה עם באזר'],
+    en: ['The game page (/v/) can now run inside the TVzone signage player — e.g. 10 Bool on a TV screen with a buzzer'],
+  } },
   { version: '1.27.1', date: '2026-10-11', isNew: true, highlights: {
     he: ['10 בול: במקלדת המשחק עובד רק עם מקש הרווח (Enter כבר לא מפעיל אותו); בטלפון — בנגיעה כמו קודם'],
     en: ['10 Bool: on a keyboard the game now plays with the Space key only (Enter no longer triggers it); phones still play by tapping'],
