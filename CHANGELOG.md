@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.16] - 2026-10-10
+
+- 10 בול: the phone WhatsApp share button appears from the first hit (was the second).
+
 ## [1.26.15] - 2026-10-11
 
 - 10 בול landing copy rewritten in natural Hebrew (no translated phrasing): "חושבים שזה קל? נסו.", "פשוט לשחק. קשה לפגוע.", "על הבמה או בטלפון.", "עם הלוגו והצבעים שלכם.", "באזר לאירוע.", "מי יעשה בול ראשון?"; nav = איך משחקים / איפה משחקים / מחירים. English mirrors it.

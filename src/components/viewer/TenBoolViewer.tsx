@@ -613,7 +613,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
   const [isPhone, setIsPhone] = useState(false);
   const isTouchRef = useRef(false);
   const firstRoundDoneRef = useRef(false);
-  // Share (phones, from the 2nd hit): the card is rebuilt whenever the score changes
+  // Share (phones, from the first hit): the card is rebuilt whenever the score changes
   const shareFileRef = useRef<File | null>(null);
   const bgColor = config?.backgroundColor || TENBOOL_DEFAULTS.backgroundColor;
   const assistant = typeof document === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue('--font-assistant').trim();
@@ -635,7 +635,7 @@ export default function TenBoolViewer({ title, config }: { title?: string; confi
     lastDiff: lastResult?.diff,
     neon: fx.neon ? { from: fx.neonFrom, to: fx.neonTo, centre: fx.spaceFrom, edge: fx.spaceTo, stars: fx.neonStars } : undefined,
   };
-  const canShare = isPhone && wins >= 2;
+  const canShare = isPhone && wins >= 1;
   const shareKey = JSON.stringify(shareStats);
   useEffect(() => {
     if (!canShare) return;

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.15';
+export const APP_VERSION = '1.26.16';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.16', date: '2026-10-10', isNew: true, highlights: {
+    he: ['10 בול: אפשר לשתף בוואטסאפ מהטלפון כבר מהבול הראשון'],
+    en: ['10 Bool: share to WhatsApp from your phone from the very first hit'],
+  } },
   { version: '1.26.15', date: '2026-10-11', isNew: true, highlights: {
     he: ['דף 10 בול: כותרות וטקסטים בעברית קצרה וברורה'],
     en: ['10 Bool page: shorter, clearer Hebrew headings and copy'],
