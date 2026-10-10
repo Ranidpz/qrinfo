@@ -53,6 +53,10 @@ export interface TenBoolConfig {
   backgroundColor?: string;
   textColor?: string;
   backgroundImageUrl?: string;
+  // 'neon' = the animated "חלל ניאון" scene (space + a big neon circle around the timer); absent = colour / image
+  backgroundStyle?: 'plain' | 'neon';
+  neonFrom?: string; // circle colours
+  neonTo?: string;
   logoUrl?: string; // PNG (transparency kept), centred above the timer
   logoSize?: number; // % of screen height
   warningCues?: boolean; // 7-10s beeps, red digits and red flash; absent = on
@@ -82,6 +86,8 @@ export const TENBOOL_DEFAULTS = {
   fontId: 'assistant' as TenBoolFontId,
   logoSize: 22,
   loseColor: '#ff0000',
+  neonFrom: '#ff3fd2',
+  neonTo: '#6d4bff',
 };
 export const TENBOOL_LOGO_SIZE = { min: 8, max: 50 };
 
@@ -97,6 +103,9 @@ export function tenboolEffects(config: TenBoolConfig | undefined) {
     board: config?.board ?? ('wins' as TenBoolBoard),
     lives: Math.min(TENBOOL_LIVES.max, Math.max(TENBOOL_LIVES.min, config?.lives ?? TENBOOL_LIVES.default)),
     closenessBar: config?.closenessBar === true,
+    neon: config?.backgroundStyle === 'neon',
+    neonFrom: config?.neonFrom || TENBOOL_DEFAULTS.neonFrom,
+    neonTo: config?.neonTo || TENBOOL_DEFAULTS.neonTo,
   };
 }
 
