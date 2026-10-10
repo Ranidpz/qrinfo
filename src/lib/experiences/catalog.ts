@@ -282,10 +282,10 @@ export const CATALOG: CatalogEntry[] = [
     id: 'buzzer',
     name: { he: 'באזר פיזי', en: 'Physical buzzer' },
     pitch: {
-      he: 'באזר גדול שמתחבר למחשב שמפעיל את המסך – לחיצה אחת מפעילה ועוצרת את 10 בול או מתחילה את ההגרלה. משכירים לאירוע.',
-      en: 'A big buzzer that plugs into the computer running the screen – one slam starts and stops 10 Bool or kicks off the raffle. Rent it for your event.',
+      he: 'באזר גדול שמתחבר למחשב שמפעיל את המסך – מפעיל את 10 בול, את ההגרלה ובקרוב גם את פרוגר. משכירים לאירוע.',
+      en: 'A big buzzer that plugs into the computer running the screen – it plays 10 Bool, the raffle and, soon, Frogger. Rent it for your event.',
     },
-    tags: { he: '10 בול, הגרלות', en: '10 Bool, raffles' },
+    tags: { he: '10 בול, הגרלה, פרוגר (בקרוב)', en: '10 Bool, raffle, Frogger (soon)' },
     icon: CircleDot,
     category: 'rentals',
     contact: {

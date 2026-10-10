@@ -103,10 +103,19 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     addon: {
       kicker: 'הבאזר',
       title: 'לפעמים כל מה שצריך זה כפתור ירוק אחד.',
-      text: 'באזר פיזי גדול שמתחבר למחשב שמפעיל את המסך. לחיצה אחת – והטיימר יוצא לדרך. משכירים לאירוע.',
-      points: ['מתאים ל־10 בול ולהגרלה', 'גדול, יציב ובולט בדוכן'],
+      text: 'באזר פיזי גדול שמתחבר למחשב שמפעיל את המסך. לחיצה אחת – והמשחק יוצא לדרך. משכירים לאירוע.',
+      points: ['גדול, יציב ובולט בדוכן'],
       cta: 'שכרו באזר לאירוע',
-      whatsappText: 'היי, אשמח לשכור באזר ל־10 בול לאירוע שלי',
+      whatsappText: 'היי, אשמח לשכור באזר לאירוע שלי',
+      games: {
+        label: 'משחקים עם הבאזר:',
+        items: [
+          { name: '10 בול', href: '#demo' },
+          { name: 'הגרלה', href: '/he/marketing#raffle' },
+          { name: 'פרוגר', soon: 'בקרוב' },
+        ],
+      },
+      idea: { text: 'חשבתם על משחק לבאזר?', cta: 'דברו איתנו', whatsappText: 'היי, יש לי רעיון למשחק עם הבאזר' },
       image: { ...BUZZER_IMAGE, alt: 'הבאזר של Playzone – עמוד שחור עם כפתור ירוק מואר' },
     },
     faq: {
@@ -221,10 +230,19 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     addon: {
       kicker: 'The buzzer',
       title: 'Sometimes all it takes is one green button.',
-      text: 'A big physical buzzer that plugs into the computer running the screen. One slam – and the timer is off. Rent it for your event.',
-      points: ['Works with 10 Bool and the raffle', 'Big, sturdy and eye-catching at a booth'],
+      text: 'A big physical buzzer that plugs into the computer running the screen. One slam – and the game is on. Rent it for your event.',
+      points: ['Big, sturdy and eye-catching at a booth'],
       cta: 'Rent a buzzer',
-      whatsappText: 'Hi, I’d like to rent a buzzer for 10 Bool at my event',
+      whatsappText: 'Hi, I’d like to rent a buzzer for my event',
+      games: {
+        label: 'Games with the buzzer:',
+        items: [
+          { name: '10 Bool', href: '#demo' },
+          { name: 'Raffle', href: '/en/marketing#raffle' },
+          { name: 'Frogger', soon: 'Coming soon' },
+        ],
+      },
+      idea: { text: 'Got an idea for a buzzer game?', cta: 'Talk to us', whatsappText: 'Hi, I have an idea for a buzzer game' },
       image: { ...BUZZER_IMAGE, alt: 'The Playzone buzzer – a black pillar with a glowing green button' },
     },
     faq: {

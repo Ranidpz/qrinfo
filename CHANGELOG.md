@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.8] - 2026-10-11
+
+- Buzzer band (`addon.games` + `addon.idea` in the landing template): the games that work with the buzzer – 10 Bool (#demo), the raffle (home page card) and Frogger as "coming soon" – and a "got an idea for a buzzer game? talk to us" WhatsApp link. The buzzer card in the catalogue says the same.
+
 ## [1.26.7] - 2026-10-11
 
 - Experience landing template redesigned from Rani's mockup (`ExperienceLanding.tsx` + `types.ts`): full-photo hero (text on the photo's dark right side via physical `lg:ml-auto`; photo on top on phones) with a stats strip, live demo, three steps, "ways to play" cards (photo / CSS phone) + scoreboard chips, pricing, a dark rental band (`addon`) with a photo, 5-question FAQ, dark closing CTA + social links. Copy cut to a line or two per block. Dark header with in-page nav + "create a game". Photos in `public/experiences/10-bool/` (AI-made illustrations - not shown as "real event" photos); the buzzer band crops the hero photo until a product shot exists.

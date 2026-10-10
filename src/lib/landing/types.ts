@@ -53,7 +53,18 @@ export interface ExperienceLandingContent {
     labels: { whatsapp: string; email: string; call: string };
   };
   // Something to rent for the event (e.g. the physical buzzer) - its own band with a photo
-  addon?: { kicker: string; title: string; text: string; points: string[]; cta: string; whatsappText: string; image: LandingImage };
+  addon?: {
+    kicker: string;
+    title: string;
+    text: string;
+    points: string[];
+    cta: string;
+    whatsappText: string;
+    image: LandingImage;
+    // What else the rented item works with: href = its page / card, soon = not live yet
+    games?: { label: string; items: { name: string; href?: string; soon?: string }[] };
+    idea?: { text: string; cta: string; whatsappText: string }; // "thought of a game? talk to us"
+  };
   faq: { kicker: string; title: string; items: { q: string; a: string }[] };
   final: { kicker: string; title: string; text: string; cta: string; secondary: string; social: string };
 }

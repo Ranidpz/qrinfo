@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.7';
+export const APP_VERSION = '1.26.8';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.8', date: '2026-10-11', isNew: true, highlights: {
+    he: ['הבאזר: רשימת המשחקים שעובדים איתו – 10 בול, הגרלה ופרוגר (בקרוב) – ו"חשבתם על משחק לבאזר? דברו איתנו"'],
+    en: ['The buzzer: the games it plays – 10 Bool, the raffle and Frogger (coming soon) – plus "Got an idea for a buzzer game? Talk to us"'],
+  } },
   { version: '1.26.7', date: '2026-10-11', isNew: true, highlights: {
     he: ['דף 10 בול בעיצוב חדש: תמונת אירוע גדולה, טקסטים קצרים, דרכי משחק (מסך גדול ובאזר או טלפון), ואזור השכרת הבאזר'],
     en: ['A redesigned 10 Bool page: a big event photo, short copy, ways to play (big screen and buzzer, or a phone) and a buzzer rental band'],

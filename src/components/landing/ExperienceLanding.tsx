@@ -344,10 +344,35 @@ export default function ExperienceLanding({
                     </li>
                   ))}
                 </ul>
+                {c.addon.games && (
+                  <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-white/60">{c.addon.games.label}</span>
+                    {c.addon.games.items.map((g) =>
+                      g.href ? (
+                        <a key={g.name} href={g.href} className="rounded-full border border-white/20 px-3 py-1.5 font-semibold text-white transition-colors hover:border-amber-400 hover:text-amber-300">
+                          {g.name}
+                        </a>
+                      ) : (
+                        <span key={g.name} className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-white/20 px-3 py-1.5 font-semibold text-white/70">
+                          {g.name}
+                          {g.soon && <span className="rounded-full bg-violet-500/30 px-2 py-0.5 text-[11px] text-violet-200">{g.soon}</span>}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                )}
                 <a href={wa(c.addon.whatsappText)} target="_blank" rel="noopener noreferrer" className={`mt-8 ${primaryBtn}`}>
                   <WhatsAppIcon className="h-5 w-5" />
                   {c.addon.cta}
                 </a>
+                {c.addon.idea && (
+                  <p className="mt-4 text-sm text-white/60">
+                    {c.addon.idea.text}{' '}
+                    <a href={wa(c.addon.idea.whatsappText)} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
+                      {c.addon.idea.cta}
+                    </a>
+                  </p>
+                )}
               </div>
               <div className="relative mx-auto aspect-[4/5] w-full max-w-sm overflow-hidden rounded-3xl ring-1 ring-white/10">
                 <Photo image={c.addon.image} sizes="(min-width: 768px) 384px, 100vw" />
