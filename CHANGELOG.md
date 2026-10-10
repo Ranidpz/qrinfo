@@ -1,8 +1,18 @@
 # Changelog
 
-## [1.26.10] - 2026-10-11
+## [1.26.12] - 2026-10-11
 
 - Buzzer band copy cut to "באזר אמיתי לאירוע." + one line; the product shot is bigger (up to `max-w-lg`, image on top on phones) and drifts with the scroll via `components/landing/Parallax.tsx` (rAF transform, only while on screen, off for reduced motion); the band clips it (`overflow-hidden`).
+
+## [1.26.11] - 2026-10-10
+
+- 10 בול "חלל ניאון" background (`backgroundStyle: 'neon'` + `neonFrom`/`neonTo`, "סוג רקע" in the settings modal): `src/components/viewer/tenbool/NeonSpace.tsx` – a still deep-space gradient with a faint colour wash and stars on a slow zoom, and a huge round orbit centred on the digits like the event-booth screen (~72vw landscape, running off the top/bottom; 94vw on a portrait phone). The orbit is invisible at rest: an SVG dash glint laps it every 12s, a red one every second in the 7-10s countdown, and the whole circle flashes gold on a hit / the miss colour on a miss. Digits keep their normal size, so the layout matches the plain background; under neon the win/lose strobe runs on an overlay above the scene. Pure CSS/SVG, offline-safe, reduced-motion = static.
+- Share card: neon scene + circle when neon is on, and the readable address `qr.playzones.app/10-bool` above "Powered by Playzone"; `/10-bool` redirects (307) to `/he/experiences/10-bool`.
+- The WhatsApp share button shows only on phone-sized touch screens (coarse pointer and < 1024px), never on an event screen or touch kiosk.
+
+## [1.26.10] - 2026-10-10
+
+- Add super-admin read-only setup review for explicit owner/email/project and all 12 Fattal targets, with Hebrew/English UI and no credential issuance or activation. Add opt-in cloud upload/recovery CLI with durable pending journal, verified recovery and no automatic write retries; sanitized run metrics report unknown billing. All cloud flags stay disabled by default. No live uploads, notifications, cleanup, secret provisioning or schedules are enabled.
 
 ## [1.26.9] - 2026-10-11
 

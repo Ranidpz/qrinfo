@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/:locale(he|en)/experiences', destination: '/:locale/marketing#features', permanent: true },
+      // Short address printed on the 10 בול share card
+      { source: '/10-bool', destination: '/he/experiences/10-bool', permanent: false },
     ];
   },
 

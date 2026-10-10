@@ -130,3 +130,22 @@ test('oversized and untrusted redirect responses fail closed', async () => {
   f.runtime.fetch = async () => { const r = new Response('{}'); Object.defineProperty(r, 'url', { value: 'https://other.invalid' }); return r; };
   await assert.rejects(f.client.health, /transport/);
 });
+
+test('read client emits sanitized per-request telemetry; concurrent calls and failures never retry', async () => {
+  const {createIntakeRunTelemetry}=await loadTs('../../src/lib/content-intake/run-telemetry.ts');
+  const f=fixture();const run=createIntakeRunTelemetry({files:0,bytes:0});
+  f.runtime.onOperation=run.recordOperation;
+  await Promise.all([f.client.health(),f.client.health()]);
+  f.state.fail=true;await assert.rejects(f.client.health);
+  const result=run.finish('failed');assert.equal(result.operations.health.attempts,3);
+  assert.equal(result.operations.health.completed,2);assert.equal(result.operations.health.failures,1);
+  assert.equal(result.retries,0);assert.equal(f.state.calls.length,3);assert.ok(!JSON.stringify(result).includes(key));
+  assert.ok(!JSON.stringify(result).includes('fixture@example.invalid'));
+});
+test('throwing telemetry sinks cannot change request success/failure or cause extra calls',async()=>{
+  const f=fixture();f.runtime.onOperation=()=>{throw Error('sink failed');};
+  await f.client.health();assert.equal(f.state.calls.length,1);
+  f.state.fail=true;await assert.rejects(f.client.health,/transport/);assert.equal(f.state.calls.length,2);
+  const disabled=fixture({enabled:false});let events=0;disabled.runtime.onOperation=()=>events++;
+  await assert.rejects(disabled.client.health,/disabled/);assert.equal(events,0);
+});

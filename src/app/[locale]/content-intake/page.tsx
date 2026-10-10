@@ -6,6 +6,7 @@ import { ChevronDown, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import DotConnection from './DotConnection';
+import DotSetupReview from './DotSetupReview';
 
 import ComputerList, { type IntakeComputer } from './ComputerList';
 
@@ -64,6 +65,7 @@ function ContentIntake() {
       <h1 className="text-2xl font-bold">{t('dotTitle')}</h1><p className="mt-2 text-text-secondary">{t('dotIntro')}</p>
     </header>
     <DotConnection />
+    <DotSetupReview owners={data.owners} />
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-4 text-red-500">{t('error')}</p>}
     <section className={panel}>
       <div className="mb-4 flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-lg font-semibold"><ShieldCheck size={20} />{t('legacyTitle')}</h2><button disabled={busy || loading} className="inline-flex items-center gap-2 text-accent" onClick={() => { setError(false); refresh().catch(() => setError(true)); }}><RefreshCw size={16} />{t('refresh')}</button></div>

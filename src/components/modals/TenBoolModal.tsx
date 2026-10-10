@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ExternalLink, ImagePlus, Loader2, Play, RotateCcw, Square, Timer, Trash2, Upload, X } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
+import { NEON_STYLE, NeonBackdrop, NeonRing } from '@/components/viewer/tenbool/NeonSpace';
 import {
   TENBOOL_DEFAULTS,
   TENBOOL_BOARDS,
@@ -289,15 +290,22 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
           <div
             className="relative aspect-video w-full rounded-xl overflow-hidden border border-border flex flex-col items-center justify-center gap-1"
             style={{
-              backgroundColor: bg,
-              backgroundImage: config.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
+              backgroundColor: fx.neon ? '#04040c' : bg,
+              backgroundImage: !fx.neon && config.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               color: fg,
               fontFamily: `'${font.family}', var(--font-assistant), system-ui, sans-serif`,
+              containerType: 'size',
             }}
             aria-label="תצוגה מקדימה של מסך המשחק"
           >
+            {fx.neon && (
+              <>
+                <style>{NEON_STYLE}</style>
+                <NeonBackdrop from={fx.neonFrom} to={fx.neonTo} />
+              </>
+            )}
             {fx.board !== 'off' && (
               <div dir="rtl" className="absolute top-2 right-2 flex gap-1">
                 {[0, 1].map((i) => (
@@ -330,13 +338,16 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             )}
             {config.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={config.logoUrl} alt="" className="object-contain max-w-[80%]" style={{ height: `${fx.logoSize}%` }} />
+              <img src={config.logoUrl} alt="" className="relative object-contain max-w-[80%]" style={{ height: `${fx.logoSize}%` }} />
             )}
-            {title && <div className="text-base sm:text-lg font-bold opacity-80">{title}</div>}
-            <div dir="ltr" className="text-6xl sm:text-7xl font-black leading-none tabular-nums">
-              10.00
+            {title && <div className="relative text-base sm:text-lg font-bold opacity-80">{title}</div>}
+            <div className="relative text-6xl sm:text-7xl" style={fx.neon ? { ['--orbit' as string]: 'max(2.8em, 72cqw)' } : undefined}>
+              {fx.neon && <NeonRing from={fx.neonFrom} to={fx.neonTo} state="idle" loseColor={fx.loseColor} />}
+              <div dir="ltr" className="relative font-black leading-none tabular-nums">
+                10.00
+              </div>
             </div>
-            <div className="text-sm sm:text-base font-black opacity-70">תנו בבאזר או געו במסך כדי להתחיל</div>
+            <div className="relative text-sm sm:text-base font-black opacity-70">תנו בבאזר או געו במסך כדי להתחיל</div>
           </div>
 
           {/* Look */}
@@ -360,12 +371,31 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
               </select>
             </label>
 
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-sm text-text-secondary">סוג רקע</span>
+              <select
+                value={fx.neon ? 'neon' : 'plain'}
+                onChange={(e) => update({ backgroundStyle: e.target.value as 'plain' | 'neon' })}
+                className="input !w-44 !py-2"
+              >
+                <option value="plain">צבע או תמונה</option>
+                <option value="neon">חלל ניאון (מונפש)</option>
+              </select>
+            </label>
+
+            {fx.neon ? (
+              <div className="grid grid-cols-2 gap-3">
+                <ColorField label="ניאון 1" value={fx.neonFrom} onChange={(v) => update({ neonFrom: v })} />
+                <ColorField label="ניאון 2" value={fx.neonTo} onChange={(v) => update({ neonTo: v })} />
+              </div>
+            ) : null}
+
             <div className="grid grid-cols-2 gap-3">
-              <ColorField label="צבע רקע" value={bg} onChange={(v) => update({ backgroundColor: v })} />
+              {!fx.neon && <ColorField label="צבע רקע" value={bg} onChange={(v) => update({ backgroundColor: v })} />}
               <ColorField label="צבע טקסט" value={fg} onChange={(v) => update({ textColor: v })} />
             </div>
 
-            <div className="flex items-center justify-between gap-3">
+            <div className={`flex items-center justify-between gap-3 ${fx.neon ? 'hidden' : ''}`}>
               <span className="text-sm text-text-secondary">תמונת רקע</span>
               <div className="flex items-center gap-1">
                 <button

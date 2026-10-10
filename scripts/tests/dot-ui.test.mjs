@@ -21,6 +21,10 @@ globalThis.dotUI={state,translate:(key,values={})=>{
  return text.replace(/\{(\w+)\}/g,(_,name)=>values[name]);
 },fetch:async(url,options={})=>{
  state.calls.push({url,options});
+ if(url.startsWith('/api/content-intake/dot/setup')) {
+  if(url.includes('?')) return state.setupResponse ? state.setupResponse(url) : new Response(JSON.stringify({mappingVerified:true,ownerEmail:'legacy@example.invalid',ownerId:'legacy-owner',projectId:'fixture',targets:[],proposal:{expiresAt:Date.now()+3600000}}));
+  return new Response(JSON.stringify({projectId:'fixture'}));
+ }
  if(url.startsWith('/api/content-intake/dot')){
   if(state.failure)return new Response('{}',{status:503});
   return new Response(JSON.stringify(url.includes('?')?{state:'ready',recovery:{manifestId:'a'.repeat(64),shortId:'target1',sha256:'b'.repeat(64),status:'uncertain'}}:state.dot));
@@ -42,6 +46,7 @@ async function component(name){
  for(const [from,to]of Object.entries(replacements)){outputText=outputText.replaceAll(`'${from}'`,JSON.stringify(to)).replaceAll(`"${from}"`,JSON.stringify(to));}
  return stub(outputText);
 }
+replacements['./DotSetupReview']=await component('DotSetupReview');
 replacements['./DotConnection']=await component('DotConnection');
 replacements['./ComputerList']=await component('ComputerList');
 const {default:Page}=await import(await component('page'));
@@ -66,7 +71,7 @@ test('unconfigured dot and legacy disconnect controls remain visible in English 
 test('verified target identity is required for recovery; uncertainty and failed refresh never offer retry or retain ready status',async()=>{
  state.dot={state:'ready',health:{ownerId:'owner',ownerEmail:'fixture@example.invalid',projectId:'fixture',expiresAt:Date.now()+60000,targets:[{shortId:'target1',hotel:'Fixture hotel',expectedVersion:'c'.repeat(64),pending:true}]}};
  await render();assert.ok(document.body.textContent.includes('fixture@example.invalid'));
- const submit=document.querySelector('button[type="submit"]')||document.querySelector('form button');assert.equal(submit.disabled,true);
+ const submit=document.querySelector('section[aria-labelledby="dot-title"] form button');assert.equal(submit.disabled,true);
  await change('dot-manifest','a'.repeat(64));await change('dot-hash','b'.repeat(64));assert.equal(submit.disabled,true);
  await change('dot-target','target1');assert.equal(submit.disabled,false);
  await React.act(async()=>document.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
@@ -74,9 +79,21 @@ test('verified target identity is required for recovery; uncertainty and failed 
  const lookup=state.calls.find(c=>c.url.startsWith('/api/content-intake/dot?'));assert.ok(lookup);assert.equal(lookup.options.method,undefined);
  state.failure=true;await React.act(async()=>document.querySelector('section[aria-labelledby="dot-title"] button').click());
  assert.ok(document.body.textContent.includes(locales.en.dotState_unavailable));assert.ok(!document.body.textContent.includes(locales.en.dotState_ready));
- assert.ok(!document.body.textContent.includes(locales.en.dotReceipt_uncertain));assert.equal(document.querySelector('form'),null);
+ assert.ok(!document.body.textContent.includes(locales.en.dotReceipt_uncertain));assert.equal(document.querySelector('section[aria-labelledby="dot-title"] form'),null);
  await cleanup();
 });
 test('non-admin page never mounts either management data surface',async()=>{
  state.user={id:'ordinary',role:'user'};await render();assert.ok(document.body.textContent.includes(locales.en.adminOnly));assert.equal(state.calls.length,0);await cleanup();
+});
+
+test('setup requires explicit owner and expected email, clears stale proposal and ignores late responses',async()=>{
+ await render(); const submit=document.querySelector('#dot-setup-form button');assert.equal(document.getElementById('setup-owner').value,'');assert.equal(submit.disabled,true);
+ await change('setup-owner','legacy-owner');assert.equal(submit.disabled,true);await change('setup-email','legacy@example.invalid');assert.equal(submit.disabled,false);
+ const send=()=>React.act(async()=>document.getElementById('dot-setup-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
+ await send();assert.ok(document.body.textContent.includes(locales.en.setupVerified));assert.ok(state.calls.some(c=>c.url.includes('ownerEmail=legacy%40example.invalid')));
+ await change('setup-duration','4');assert.ok(!document.body.textContent.includes(locales.en.setupVerified));
+ let resolve;state.setupResponse=()=>new Promise(r=>resolve=r);await send();await change('setup-owner','');
+ await React.act(async()=>resolve(new Response(JSON.stringify({mappingVerified:true,targets:[],proposal:null}))));
+ assert.ok(!document.body.textContent.includes(locales.en.setupVerified));assert.equal(submit.disabled,true);
+ state.setupResponse=null;await cleanup();
 });

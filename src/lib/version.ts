@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.10';
+export const APP_VERSION = '1.26.12';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,9 +13,17 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
-  { version: '1.26.10', date: '2026-10-11', isNew: true, highlights: {
+  { version: '1.26.12', date: '2026-10-11', isNew: true, highlights: {
     he: ['10 בול: אזור הבאזר קצר וקולע יותר, והבאזר גדול יותר וזז קלות עם הגלילה'],
     en: ['10 Bool: a shorter buzzer section, with a bigger buzzer that drifts gently as you scroll'],
+  } },
+  { version: '1.26.11', date: '2026-10-10', isNew: true, highlights: {
+    he: ['10 בול: רקע חדש "חלל ניאון" – חלל כהה עם כוכבים ועיגול ניאון ענק סביב המספר שמגיב למשחק', 'כרטיס השיתוף בוואטסאפ מציג את הכתובת qr.playzones.app/10-bool'],
+    en: ['10 Bool: a new "neon space" background – dark space with stars and a huge neon circle round the timer that reacts to the game', 'The WhatsApp share card shows the address qr.playzones.app/10-bool'],
+  } },
+  { version: '1.26.10', date: '2026-10-10', isNew: true, highlights: {
+    he: ['בדיקת הכנה לקריאה בלבד: אימות בעלים, פרויקט ו־12 יעדי פתאל; כלי העלאה מוגן ומדדי ריצה מוכנים, ללא הפעלת החיבור'],
+    en: ['Read-only setup review for owner, project and all 12 Fattal targets; guarded uploader and run metrics prepared without activating the connection'],
   } },
   { version: '1.26.9', date: '2026-10-11', isNew: true, highlights: {
     he: ['הבאזר: תמונת מוצר אמיתית – עמוד מתכת עם בסיס כבד וכפתור ירוק או כחול – בדף 10 בול ובכרטיס בעמוד הבית'],
