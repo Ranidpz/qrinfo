@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.5] - 2026-10-10
+
+- Playzone social profiles in one place, `SOCIAL` in `src/lib/landing/site.ts` (Facebook + YouTube; Instagram is an empty slot, rendered once it gets a url), shown by `components/landing/SocialLinks.tsx` in the home page footer, the experience-page footer, a "see it at a real event" strip in the experiences section and the experience pages' final section. Home page JSON-LD adds the `Organization` with `sameAs`. Footer "צור קשר" → "צרו קשר".
+
 ## [1.26.4] - 2026-10-10
 
 - One list of every experience: the home page's "חוויות שאפשר ליצור" (`Features.tsx`, from `src/lib/experiences/catalog.ts`) gained everything the separate hub had – WhatsApp CTA per experience, demo + external links, add-on chips that jump to the buzzer card, card anchors (`/marketing#raffle`). `/[locale]/experiences` 301s to `/[locale]/marketing#features`; sidebar, landing header/breadcrumbs follow. Home page gets per-language title/description + an `ItemList` JSON-LD of all experiences.

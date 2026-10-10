@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { Globe, Sparkles } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
 import { experiencesHref, landingPath } from '@/lib/landing/site';
+import SocialLinks from './SocialLinks';
 
 // Server-rendered frame for the public landing pages: everything here is plain HTML so
 // crawlers read it without running JS.
@@ -80,6 +81,7 @@ export function LandingShell({
               {t.otherLang}
             </a>
           </nav>
+          <SocialLinks />
           <p className="text-center text-xs opacity-80">{t.rights}</p>
         </div>
       </footer>

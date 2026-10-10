@@ -3,12 +3,14 @@ import type { Locale } from '@/i18n/config';
 import type { ExperienceLandingContent } from '@/lib/landing/types';
 import { CONTACT, SITE_URL, createHref, experiencesHref, landingUrl } from '@/lib/landing/site';
 import { LandingShell, JsonLd, Breadcrumbs } from './LandingShell';
+import SocialLinks from './SocialLinks';
 
 // The one template every experience landing page uses (modelled on the costume-competition page):
 // hero + live demo, what it is, how it works, features, who it's for, branding, pricing + contact,
 // create steps, FAQ, final CTA. Server-rendered, so all of it is in the HTML for search engines.
 
 const CRUMB = { he: 'חוויות', en: 'Experiences' } as const;
+const EVENTS = { he: 'תמונות וסרטונים מאירועים אמיתיים', en: 'Photos and videos from real events' } as const;
 
 const primaryBtn =
   'inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-7 py-3.5 text-base font-bold text-black shadow-lg shadow-amber-500/25 transition-all hover:bg-amber-400 hover:shadow-amber-500/40 active:scale-[.98]';
@@ -351,6 +353,10 @@ export default function ExperienceLanding({
               <a href={playHref} target="_blank" rel="noopener" className={secondaryBtn}>
                 {c.final.secondary}
               </a>
+            </div>
+            <div className="mt-10 flex flex-col items-center gap-3">
+              <p className="text-sm text-text-secondary">{EVENTS[locale]}</p>
+              <SocialLinks labels />
             </div>
           </div>
         </section>

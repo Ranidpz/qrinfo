@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowUpRight, Play } from 'lucide-react';
 import type { Locale } from '@/i18n/config';
 import { ADDONS, CATALOG, CATEGORIES, type CatalogEntry, type ExperienceCategory } from '@/lib/experiences/catalog';
 import { CONTACT } from '@/lib/landing/site';
+import SocialLinks from '@/components/landing/SocialLinks';
 
 // "חוויות שאפשר ליצור" = the one place that lists every experience ("חוויות The Q"), rendered
 // from src/lib/experiences/catalog.ts. /[locale]/experiences redirects here (#features), and each
@@ -160,8 +161,17 @@ export default function Features() {
           ))}
         </ul>
 
+        {/* Real events: photos + videos on our social pages */}
+        <div className="mx-auto mt-10 flex max-w-6xl flex-col items-start gap-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 sm:flex-row sm:items-center sm:justify-between md:mt-14">
+          <div>
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">{t('eventsTitle')}</h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)] md:text-base">{t('eventsText')}</p>
+          </div>
+          <SocialLinks labels className="shrink-0" />
+        </div>
+
         {/* Can't find it? */}
-        <div className="mx-auto mt-10 flex max-w-6xl flex-col items-start gap-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 sm:flex-row sm:items-center sm:justify-between md:mt-14">
+        <div className="mx-auto mt-4 flex max-w-6xl flex-col items-start gap-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-[var(--text-secondary)] md:text-base">{t('footerNote')}</p>
           <a
             href={wa(t('missingWhatsapp'))}

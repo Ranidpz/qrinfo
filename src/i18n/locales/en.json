@@ -1540,6 +1540,8 @@
       "whatsappText": "Hi, I’d like to hear about {name} for my event",
       "missingCta": "Chat with us on WhatsApp",
       "missingWhatsapp": "Hi, I’m looking for an experience for my event",
+      "eventsTitle": "Want to see it at a real event?",
+      "eventsText": "Photos and videos from our events are waiting on Facebook and YouTube.",
       "footerNote": "New experiences are added regularly. Can't find what you're looking for? Want a custom branded experience? Contact us and we'll build it together."
     },
     "useCases": {

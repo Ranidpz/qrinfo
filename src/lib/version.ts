@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.4';
+export const APP_VERSION = '1.26.5';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.5', date: '2026-10-10', isNew: true, highlights: {
+    he: ['קישורים לפייסבוק וליוטיוב של Playzone – תמונות וסרטונים מאירועים אמיתיים, בעמוד הבית ובדפי החוויות'],
+    en: ['Links to Playzone on Facebook and YouTube – photos and videos from real events, on the home page and the experience pages'],
+  } },
   { version: '1.26.4', date: '2026-10-10', isNew: true, highlights: {
     he: ['כל החוויות במקום אחד: הקטע "חוויות שאפשר ליצור" בעמוד הבית הוא עכשיו הרשימה המלאה – עם וואטסאפ לכל חוויה, דמו, ובאזר להשכרה'],
     en: ['Every experience in one place: the home page\'s "Experiences You Can Create" is now the full list – with WhatsApp per experience, demos and buzzer rental'],

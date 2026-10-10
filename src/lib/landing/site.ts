@@ -77,6 +77,13 @@ export function createHref(locale: Locale, experience: string) {
   return `/${locale}/dashboard?create=${experience}`;
 }
 
+// Playzone's social profiles (event photos + videos). An empty url = not live yet, not rendered.
+export const SOCIAL = {
+  facebook: 'https://www.facebook.com/playzone.co.il/',
+  youtube: 'https://www.youtube.com/@%D7%A4%D7%9C%D7%99%D7%99%D7%96%D7%95%D7%9F',
+  instagram: '', // coming soon
+} as const;
+
 // Same contact channels as the costume-competition page
 export const CONTACT = {
   whatsapp: '972773006306',

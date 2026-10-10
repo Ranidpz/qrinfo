@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import Image from 'next/image';
+import SocialLinks from '@/components/landing/SocialLinks';
 
 // WhatsApp icon component
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -54,6 +55,7 @@ export default function Footer() {
               <WhatsAppIcon className="w-4 h-4" />
               {t('contact')}
             </a>
+            <SocialLinks />
           </div>
 
           {/* Made by */}

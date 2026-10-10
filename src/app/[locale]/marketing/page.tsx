@@ -12,7 +12,7 @@ import FinalCTA from '@/components/marketing/FinalCTA';
 import Footer from '@/components/marketing/Footer';
 import { JsonLd } from '@/components/landing/LandingShell';
 import { CATALOG } from '@/lib/experiences/catalog';
-import { SITE_URL, isLandingLocale, publicPageMetadata } from '@/lib/landing/site';
+import { SITE_URL, SOCIAL, isLandingLocale, publicPageMetadata } from '@/lib/landing/site';
 
 // The pages print the current year (and costume: next Purim) - regenerate daily so it never goes stale
 export const revalidate = 86400;
@@ -60,7 +60,19 @@ export default async function MarketingPage({ params }: Props) {
   };
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      <JsonLd data={jsonLd} />
+      <JsonLd
+        data={[
+          jsonLd,
+          {
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: 'Playzone',
+            url: 'https://playzone.co.il',
+            logo: `${SITE_URL}/theQ.png`,
+            sameAs: Object.values(SOCIAL).filter(Boolean),
+          },
+        ]}
+      />
       <MarketingHeader />
       <main>
         <Hero />
