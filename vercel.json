@@ -4,5 +4,10 @@
       "path": "/api/cron/qgames-reset",
       "schedule": "*/5 * * * *"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "codex/fattal-cloud-readonly": false
+    }
+  }
 }

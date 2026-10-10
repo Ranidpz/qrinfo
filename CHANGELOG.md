@@ -1,8 +1,13 @@
 # Changelog
 
-## [1.26.6] - 2026-10-11
+## [1.26.7] - 2026-10-11
 
 - Experience landing template redesigned from Rani's mockup (`ExperienceLanding.tsx` + `types.ts`): full-photo hero (text on the photo's dark right side via physical `lg:ml-auto`; photo on top on phones) with a stats strip, live demo, three steps, "ways to play" cards (photo / CSS phone) + scoreboard chips, pricing, a dark rental band (`addon`) with a photo, 5-question FAQ, dark closing CTA + social links. Copy cut to a line or two per block. Dark header with in-page nav + "create a game". Photos in `public/experiences/10-bool/` (AI-made illustrations - not shown as "real event" photos); the buzzer band crops the hero photo until a product shot exists.
+
+## [1.26.6] - 2026-10-10
+
+- Add a default-disabled, scoped Fattal cloud API with reviewed manifest binding, durable replacement receipts and read-only recovery. Notifications and cleanup remain unavailable. Legacy PDF replacement checks pending cloud claims.
+- Replace the old installation walkthrough with a super-admin dot status and receipt view. Preserve legacy computer/connection controls and audit records; no credential provisioning, schedules or live uploads are enabled.
 
 ## [1.26.5] - 2026-10-10
 
