@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.13';
+export const APP_VERSION = '1.26.14';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.14', date: '2026-10-11', isNew: true, highlights: {
+    he: ['10 בול – חלל ניאון: כוכבים עדינים שזזים ונעלמים (אפשר לכבות), בחירת צבעי הרקע, ובלי עיגול בהחטאה', 'הלוגו נשאר על המסך גם כשהאינטרנט נופל באמצע אירוע'],
+    en: ['10 Bool neon space: gentle stars that drift and fade (can be switched off), your own background colours, and no circle on a miss', 'The logo stays on screen even when the internet drops mid-event'],
+  } },
   { version: '1.26.13', date: '2026-10-11', isNew: true, highlights: {
     he: ['10 בול: שיתוף הדמו בוואטסאפ מציג תצוגה ואייקון של 10 בול, אזור "המשחק שלכם, במיתוג שלכם" (כולל רקע חלל ניאון), ומחירים: מנוי או השכרה לאירוע'],
     en: ['10 Bool: sharing the demo on WhatsApp shows the 10 Bool preview and icon, a "your game, your brand" section (including the neon space background), and pricing: subscription or event rental'],

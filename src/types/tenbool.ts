@@ -57,6 +57,9 @@ export interface TenBoolConfig {
   backgroundStyle?: 'plain' | 'neon';
   neonFrom?: string; // circle colours
   neonTo?: string;
+  spaceFrom?: string; // neon background gradient: centre colour
+  spaceTo?: string; // neon background gradient: edge colour
+  neonStars?: boolean; // faint drifting stars on the neon background; absent = on
   logoUrl?: string; // PNG (transparency kept), centred above the timer
   logoSize?: number; // % of screen height
   warningCues?: boolean; // 7-10s beeps, red digits and red flash; absent = on
@@ -88,6 +91,8 @@ export const TENBOOL_DEFAULTS = {
   loseColor: '#ff0000',
   neonFrom: '#ff3fd2',
   neonTo: '#6d4bff',
+  spaceFrom: '#1b1352',
+  spaceTo: '#04040c',
 };
 export const TENBOOL_LOGO_SIZE = { min: 8, max: 50 };
 
@@ -106,6 +111,9 @@ export function tenboolEffects(config: TenBoolConfig | undefined) {
     neon: config?.backgroundStyle === 'neon',
     neonFrom: config?.neonFrom || TENBOOL_DEFAULTS.neonFrom,
     neonTo: config?.neonTo || TENBOOL_DEFAULTS.neonTo,
+    spaceFrom: config?.spaceFrom || TENBOOL_DEFAULTS.spaceFrom,
+    spaceTo: config?.spaceTo || TENBOOL_DEFAULTS.spaceTo,
+    neonStars: config?.neonStars !== false,
   };
 }
 
