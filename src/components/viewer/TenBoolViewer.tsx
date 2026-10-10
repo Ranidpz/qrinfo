@@ -17,7 +17,7 @@ import {
 } from '@/types/tenbool';
 
 // "10 בול": start the timer, then stop it at exactly 10.00.
-// Enter (keyboard / a USB button mapped to Enter) on a big screen, a tap anywhere on a phone.
+// Space (keyboard / a USB buzzer mapped to Space) on a big screen, a tap anywhere on a phone.
 // Everything the game needs is loaded on mount, so it keeps working if the network drops.
 
 const TARGET_MS = 10000;
@@ -780,9 +780,10 @@ export default function TenBoolViewer({
         cycleBoard(e.key === 'ArrowLeft' ? 1 : -1);
         return;
       }
-      // Enter or Space (buzzers map to either); holding the key down does not count.
+      // Space only (the buzzer is mapped to it) - Enter is deliberately left free for other uses.
+      // Holding the key down does not count.
       // Typing a name in a form on top of the game is not a press.
-      if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat || isTyping(e.target)) return;
+      if (e.key !== ' ' || e.repeat || isTyping(e.target)) return;
       e.preventDefault();
       press(e.timeStamp);
     };

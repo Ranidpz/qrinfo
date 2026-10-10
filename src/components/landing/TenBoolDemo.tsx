@@ -56,7 +56,7 @@ export default function TenBoolDemo({
             title={labels.label}
             allow="autoplay; fullscreen"
             className="absolute inset-0 h-full w-full border-0"
-            // so Enter / Space reach the game right away
+            // so Space reaches the game right away
             onLoad={() => frameRef.current?.contentWindow?.focus()}
           />
         ) : (

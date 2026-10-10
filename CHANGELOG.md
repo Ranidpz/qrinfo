@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.1] - 2026-10-11
+
+- 10 בול: keyboard play is Space only; Enter is left free for other uses. Touch unchanged. Landing page FAQ/hint copy updated to match (he + en).
+
 ## [1.26.19] - 2026-10-11
 
 - 10 בול landing: "שלוש דרכים לשחק" – a buzzer on stage, everyone on their phones with a live leaderboard on the big screen (new `board` visual: decorative scan code + leaderboard rows; tagged "בקרוב" via `soon` until phone mode ships), and a phone anywhere. Share copy fixed (sharing works from the first bool since v1.26.16). Phone mock background moved off purple to the system dark blue.
