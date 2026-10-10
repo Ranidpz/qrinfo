@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.26.18';
+export const APP_VERSION = '1.26.19';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.26.19', date: '2026-10-11', isNew: true, highlights: {
+    he: ['דף 10 בול: שלוש דרכים לשחק – באזר על הבמה, כולם בטלפון עם לוח תוצאות על המסך (בקרוב), ובטלפון בכל מקום'],
+    en: ['10 Bool page: three ways to play – a buzzer on stage, everyone on their phones with a leaderboard on screen (coming soon), and a phone anywhere'],
+  } },
   { version: '1.26.18', date: '2026-10-11', isNew: true, highlights: {
     he: ['דפי החוויות בשפה הגרפית של המערכת: כחול במקום סגול, הדר עם הלוגו בלבד ותפריט שמסמן את האזור שעל המסך, וכפתורים נוחים למגע בטלפון ובאייפד'],
     en: ['Experience pages in the system\'s visual language: blue instead of purple, a logo-only header whose menu follows the section on screen, and touch-friendly buttons on phones and iPads'],

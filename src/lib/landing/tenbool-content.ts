@@ -51,22 +51,39 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     ways: {
-      title: 'על הבמה או בטלפון.',
+      title: 'שלוש דרכים לשחק.',
       items: [
         {
-          badge: 'מסך LED + באזר',
-          title: 'על הבמה ובדוכן',
-          text: 'מסך גדול, באזר אחד, וכל הקהל מסביב.',
+          badge: 'מסך + באזר',
+          title: 'באזר על הבמה',
+          text: 'שחקן אחד בכל פעם, וכל הקהל מסביב.',
           visual: { image: { src: STAGE_IMAGE, alt: 'שחקן לוחץ על באזר מול מסך ענק באירוע, והקהל מריע' } },
         },
         {
-          badge: 'קוד QR',
-          title: 'בטלפון',
-          text: 'סורקים ומשחקים. מהבול השני אפשר לשתף בוואטסאפ.',
+          badge: 'מסך + טלפונים',
+          soon: 'בקרוב',
+          title: 'כולם בטלפון, לוח על המסך',
+          text: 'סורקים את הקוד מהמסך ומשחקים. המסך מראה בזמן אמת מי עשה בול ומי הכי קרוב.',
+          visual: {
+            board: {
+              scan: 'סרקו ושחקו',
+              title: 'עשו בול',
+              rows: [
+                { name: 'נועה', value: '10.00' },
+                { name: 'איתי', value: '10.00' },
+                { name: 'דנה', value: '09.99' },
+              ],
+            },
+          },
+        },
+        {
+          badge: 'קישור',
+          title: 'בטלפון, בכל מקום',
+          text: 'שולחים קישור ומשחקים. אפשר לשתף את התוצאה בוואטסאפ.',
           visual: { phone: '09.98' },
         },
       ],
-      chipsLabel: 'לוח תוצאות:',
+      chipsLabel: 'מצבי ניקוד:',
       chips: [
         { icon: Trophy, label: 'נקודות זהב' },
         { icon: Hash, label: 'מונה ניסיונות' },
@@ -134,7 +151,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { q: 'זה בחינם?', a: 'לשחק ולהתנסות – כן, כאן בדמו ובטלפון. משחק משלכם: במנוי ל־The Q, או בהשכרה לאירוע אחד עם הבאזר.' },
         { q: 'צריך להוריד אפליקציה?', a: 'לא. המשחק רץ בדפדפן בטלפון, במחשב ובמסך חכם.' },
         { q: 'איך מחברים באזר?', a: 'מחברים למחשב שמפעיל את המסך באזר שמוגדר כ־Enter או כרווח. אין לכם באזר? אנחנו משכירים.' },
-        { q: 'כמה אנשים יכולים לשחק?', a: 'כמה שרוצים. על מסך גדול משחקים בתורות, ודרך קוד QR כל אחד משחק בטלפון שלו.' },
+        { q: 'כמה אנשים יכולים לשחק?', a: 'כמה שרוצים. עם באזר משחקים בתורות, ובטלפון כל אחד משחק בעצמו – ובקרוב גם עם לוח תוצאות חי על המסך.' },
       ],
     },
     final: {
@@ -185,22 +202,39 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ],
     },
     ways: {
-      title: 'On stage or on a phone.',
+      title: 'Three ways to play.',
       items: [
         {
-          badge: 'LED screen + buzzer',
-          title: 'On stage and at the booth',
-          text: 'A big screen, one buzzer and a whole crowd around it. Every slam starts and stops the timer.',
+          badge: 'Screen + buzzer',
+          title: 'A buzzer on stage',
+          text: 'One player at a time, with the whole crowd around.',
           visual: { image: { src: STAGE_IMAGE, alt: 'A player slams the buzzer in front of a giant event screen as the crowd cheers' } },
         },
         {
-          badge: 'Phone / QR',
-          title: 'From a phone, anywhere',
-          text: 'Scan a QR code and play. From the second bool you can share your score on WhatsApp.',
+          badge: 'Screen + phones',
+          soon: 'Coming soon',
+          title: 'Everyone on their phone, the board on screen',
+          text: 'Scan the code on the screen and play. The screen shows live who hit a bool and who came closest.',
+          visual: {
+            board: {
+              scan: 'Scan to play',
+              title: 'Bools',
+              rows: [
+                { name: 'Noa', value: '10.00' },
+                { name: 'Itay', value: '10.00' },
+                { name: 'Dana', value: '09.99' },
+              ],
+            },
+          },
+        },
+        {
+          badge: 'Link',
+          title: 'On a phone, anywhere',
+          text: 'Send a link and play. Share your score on WhatsApp.',
           visual: { phone: '09.98' },
         },
       ],
-      chipsLabel: 'Pick your scoreboard:',
+      chipsLabel: 'Scoring modes:',
       chips: [
         { icon: Trophy, label: 'Gold dots' },
         { icon: Hash, label: 'Attempt counter' },
@@ -268,7 +302,7 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { q: 'Is it free?', a: 'Playing and trying it – yes, here in the demo and on phones. Your own game: with a The Q subscription, or a one-event rental with the buzzer.' },
         { q: 'Do I need to download an app?', a: 'No. The game runs in the browser on phones, computers and smart TVs.' },
         { q: 'How do I connect a buzzer?', a: 'Plug a buzzer mapped to Enter or Space into the computer running the screen. No buzzer? We rent them out.' },
-        { q: 'How many people can play?', a: 'As many as you like. On a big screen players take turns; with a QR code everyone plays on their own phone.' },
+        { q: 'How many people can play?', a: 'As many as you like. With a buzzer players take turns; on phones everyone plays at once – and soon with a live leaderboard on the big screen.' },
       ],
     },
     final: {

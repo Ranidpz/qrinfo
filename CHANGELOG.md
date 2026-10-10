@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.26.19] - 2026-10-11
+
+- 10 בול landing: "שלוש דרכים לשחק" – a buzzer on stage, everyone on their phones with a live leaderboard on the big screen (new `board` visual: decorative scan code + leaderboard rows; tagged "בקרוב" via `soon` until phone mode ships), and a phone anywhere. Share copy fixed (sharing works from the first bool since v1.26.16). Phone mock background moved off purple to the system dark blue.
+
 ## [1.26.18] - 2026-10-11
 
 - Experience pages aligned with the system's visual language (rules: `docs/LANDING_PAGES_DESIGN_HE.md`): every action/icon uses the system `accent`, one `brandColor` per experience for its name and numbers only, dark bands use the system dark surfaces, no purple / eyebrow labels / button arrows / middle-dot lists. Header = logo only + `LandingNav` (smooth scroll, scrollspy with a sliding indicator, a pill row on phones) + one accent "create" button. Touch targets 44-48px.
