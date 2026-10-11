@@ -148,7 +148,7 @@ No writer secret was issued or bound by this implementation. Future provisioning
 use an authenticated administrator's private tooling and the host's secure secret
 entry facility; never paste the value into chat, files, logs or source.
 
-All worker invocations must share one private persistent POSIX state volume with
+In the default durable mode, all invocations must share one private persistent POSIX state volume with
 atomic rename, exclusive file creation and file/directory fsync. Confirm the actual
 mount persists across worker restarts before setting `durableStateConfirmed:true`.
 A Next.js/Vercel temporary directory is not such a volume. The library cannot prove
@@ -193,9 +193,22 @@ checks SIGKILL with retained lock/pending history, explicit operator reconciliat
 and GET-only recovery. Optional Next/browser coverage exercises actual HTTP and
 server auth with synthetic identities. The [caller runtime plan](FATTAL_CALLER_RUNTIME.md)
 records the remaining durable-volume gate.
-Before enabling any live writer, remaining acceptance includes actual environment
-remount persistence, intended R2 storage verification, deployed/private credential
-transport, and an explicitly reviewed new or
-revised brochure. The eleven manual completions must not be replayed. U Splash stays
+Durable mode still requires actual environment remount acceptance. Explicit
+supervised mode instead uses the server-backed claim described below. Both modes
+still require intended R2 storage verification, deployed/private credential
+transport, and an explicitly reviewed new or revised brochure. The eleven manual completions must not be replayed. U Splash stays
 paused. Approval UI visibility, credential issuance, upload activation and later
 cleanup are separate controls; releasing code enables none of them by itself.
+
+### Explicit supervised cloud pilot
+
+`executionMode:"supervised"` is opt-in and requires an exact
+`supervisedManifestId`, one allowed target, and a separately issued supervised
+writer. It rejects `durableStateConfirmed:true` and any `stateDirectory` rather
+than relaxing durable journal validation. New writes still require the local and
+server write gates, server supervised gate and exact administrator approval.
+The server permanently consumes the writer in its pre-storage claim transaction.
+A known consumed attempt is reconciled with GET; a missing receipt is uncertainty,
+never permission for automatic resubmission. No caller journal is initialized.
+The administrator GET reconciliation UI works independently of the writer grant
+and caller history. See [runtime and publication gates](FATTAL_CALLER_RUNTIME.md).

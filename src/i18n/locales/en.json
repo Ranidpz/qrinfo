@@ -1,5 +1,13 @@
 {
   "contentIntake": {
+    "supervisedRecoveryTitle": "Check a supervised upload",
+    "supervisedRecoveryIntro": "Use the exact approval digest after a lost response or caller history. Sign in as the reviewing administrator; no writer key is needed. This check never uploads or retries.",
+    "supervisedManifestId": "Exact approval digest",
+    "supervisedInspect": "Verify server receipt and file",
+    "supervisedState_verified": "The approved file is active and its bytes are verified.",
+    "supervisedState_uncertain": "The result is uncertain or no receipt exists. Stop and reconcile; do not upload again.",
+    "supervisedState_superseded": "This upload is no longer active. Do not upload it again.",
+    "supervisedUnavailable": "The check could not be completed. This does not permit another upload.",
     "writerState_active": "Writer permission active",
     "writerState_revoked": "Writer permission revoked",
     "writerState_expired": "Writer permission expired",

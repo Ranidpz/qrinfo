@@ -67,6 +67,8 @@ export function createCloudService(db: Firestore, config: CloudConfig, token: st
     const ctx = await context('read');
     return { protocol: 1, ownerId: config.ownerId, ownerEmail: config.ownerEmail, projectId: config.projectId,
       scopes: ctx.grant.scopes, expiresAt: ctx.grant.expiresAt, writesEnabled: config.writesEnabled,
+      supervisedEnabled: config.supervisedEnabled === true, writeMode: ctx.grant.writeMode ?? 'durable',
+      attemptManifestId: ctx.grant.attemptManifestId ?? null,
       notificationsEnabled: false, cleanupEnabled: false,
       targets: ctx.targets.map(d => ({ shortId: d.data().shortId, hotel: FATTAL_BOOKLET_TARGETS.find(t => t.shortId === d.data().shortId)!.key,
         expectedVersion: activeVersion(d.data().media), pending: !!d.data().fattalCloudPending })) };
@@ -106,10 +108,12 @@ export function createCloudService(db: Firestore, config: CloudConfig, token: st
       sources: manifest.sources, supersedes: manifest.supersedes, activatedAt: receipt.activatedAt ?? null,
       notification: 'disabled', cleanup: 'disabled' };
   }
-  async function commit(value: unknown, reviewedId: string, bytes: Buffer) {
+  async function commit(value: unknown, reviewedId: string, bytes: Buffer, executionMode: 'durable' | 'supervised' = 'durable') {
     const ctx = await context('write');
     requireCloud(config.writesEnabled, 403, 'Cloud writes are disabled');
-    requireCloud(ctx.grant.writeMode !== 'supervised', 403, 'Supervised dispatch required');
+    const supervised = executionMode === 'supervised';
+    requireCloud(supervised ? config.supervisedEnabled === true && ctx.grant.writeMode === 'supervised'
+      : ctx.grant.writeMode === undefined, 403, 'Writer execution mode mismatch');
     const manifest = parseManifest(value, ctx.grant, now());
     const id = manifestId(manifest);
     requireOpenCloudTarget(manifest.shortId);
@@ -124,6 +128,11 @@ export function createCloudService(db: Firestore, config: CloudConfig, token: st
       const target = targetFor(fresh, manifest.shortId);
       const existing = await tx.get(runRef);
       const duplicate = await tx.get(ledger.doc(fileLedgerId(manifest)));
+      requireCloud(supervised ? fresh.grant.writeMode === 'supervised' : fresh.grant.writeMode === undefined, 403, 'Writer execution mode changed');
+      if (supervised && fresh.grant.attemptManifestId) {
+        requireCloud(fresh.grant.attemptManifestId === id && existing.exists, 409, 'Writer already attempted; reconcile only');
+        return { upload: false, id };
+      }
       if (existing.exists) return { upload: false, id };
       if (duplicate.exists) return { upload: false, id: String(duplicate.data()!.manifestId) };
       await approval(manifest, tx);
@@ -136,9 +145,11 @@ export function createCloudService(db: Firestore, config: CloudConfig, token: st
         && (!limit || usage + manifest.size <= limit), 409, 'Storage quota exceeded or unavailable');
       // Charge the new bytes without subtracting the retained predecessor. Failed
       // staging keeps a conservative reservation until separately audited cleanup.
+      // The one-use writer marker survives caller history loss and is never cleared.
+      if (supervised) tx.update(grantRef, { attemptManifestId: id, attemptedAt: now() });
       tx.update(ownerRef, { storageUsed: usage + manifest.size });
       tx.update(target.doc.ref, { fattalCloudPending: id });
-      tx.create(runRef, { status: 'pending', manifest, connectionId, codeId: target.doc.id, claimedAt: now(), reservedBytes: manifest.size });
+      tx.create(runRef, { status: 'pending', manifest, connectionId, executionMode, codeId: target.doc.id, claimedAt: now(), reservedBytes: manifest.size });
       return { upload: true, id };
     });
     if (!claim.upload) return recovery(claim.id);
@@ -149,6 +160,8 @@ export function createCloudService(db: Firestore, config: CloudConfig, token: st
       await db.runTransaction(async tx => {
         const fresh = await context('write', tx); // Revocation/expiry rechecked at activation.
         parseManifest(manifest, fresh.grant, now());
+        requireCloud(supervised ? fresh.grant.writeMode === 'supervised' && fresh.grant.attemptManifestId === id
+          : fresh.grant.writeMode === undefined, 403, 'Writer execution mode changed');
         const target = targetFor(fresh, manifest.shortId);
         const receipt = await tx.get(runRef);
         const duplicate = await tx.get(ledger.doc(fileLedgerId(manifest)));

@@ -8,7 +8,7 @@ import { JSDOM } from 'jsdom';
 import { stub } from './load-ts.mjs';
 
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {url:'https://fixture.invalid/he/content-intake'});
-globalThis.window=dom.window; globalThis.document=dom.window.document;
+globalThis.window=dom.window; globalThis.document=dom.window.document; globalThis.localStorage=dom.window.localStorage;
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 const React=await import('react');
 const {createRoot}=await import('react-dom/client');
@@ -21,6 +21,8 @@ globalThis.dotUI={state,translate:(key,values={})=>{
  return text.replace(/\{(\w+)\}/g,(_,name)=>values[name]);
 },fetch:async(url,options={})=>{
  state.calls.push({url,options});
+ if(url.startsWith('/api/content-intake/dot/write-grant') && state.writerResponse)return state.writerResponse(url,options);
+ if(url.startsWith('/api/content-intake/dot/supervised') && state.supervisedResponse)return state.supervisedResponse(url,options);
  if(url.startsWith('/api/content-intake/dot/approvals') && state.approvalResponse)return state.approvalResponse(url,options);
  if(url.startsWith('/api/content-intake/dot/read-grant') && state.grantResponse)return state.grantResponse(url,options);
  if(url.startsWith('/api/content-intake/dot/setup')) {
@@ -48,6 +50,7 @@ async function component(name){
  for(const [from,to]of Object.entries(replacements)){outputText=outputText.replaceAll(`'${from}'`,JSON.stringify(to)).replaceAll(`"${from}"`,JSON.stringify(to));}
  return stub(outputText);
 }
+replacements['./DotSupervisedRecovery']=await component('DotSupervisedRecovery');
 replacements['./DotManifestApproval']=await component('DotManifestApproval');
 replacements['./DotReadGrant']=await component('DotReadGrant');
 replacements['./DotWriteGrant']=await component('DotWriteGrant');
@@ -57,7 +60,7 @@ replacements['./ComputerList']=await component('ComputerList');
 const {default:Page}=await import(await component('page'));
 let root;
 async function render(){root=createRoot(document.getElementById('root'));await React.act(async()=>{root.render(React.createElement(Page));});}
-async function cleanup(){await React.act(async()=>root.unmount());state.calls=[];state.failure=false;state.user={id:'admin',role:'super_admin'};state.locale='en';state.dot={state:'unconfigured'};state.grantResponse=null;state.approvalResponse=null;}
+async function cleanup(){await React.act(async()=>root.unmount());state.calls=[];state.failure=false;state.user={id:'admin',role:'super_admin'};state.locale='en';state.dot={state:'unconfigured'};state.grantResponse=null;state.approvalResponse=null;state.writerResponse=null;state.supervisedResponse=null;}
 async function change(id,value){const element=document.getElementById(id);await React.act(async()=>{
  Object.getOwnPropertyDescriptor(element.tagName==='SELECT'?window.HTMLSelectElement.prototype:window.HTMLInputElement.prototype,'value').set.call(element,value);
  element.dispatchEvent(new window.Event(element.tagName==='SELECT'?'change':'input',{bubbles:true}));
@@ -195,4 +198,48 @@ test('approval UI stays hidden when creation is disabled and performs no write',
  const {default:Approval}=await import(replacements['./DotManifestApproval']);state.approvalResponse=()=>Response.json({approvalEnabled:false});
  root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Approval)));
  assert.equal(document.querySelector('section'),null);assert.equal(state.calls.length,1);assert.ok(!state.calls[0].options.method);await cleanup();
+});
+
+test('writer UI preserves cancellation ID on uncertain issuance/reload, never persists secret, and hides copy after uncertain revocation', async () => {
+ const {default:Writer}=await import(replacements['./DotWriteGrant']);
+ localStorage.clear(); state.locale='he';let submitted,phase='missing',copied;
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:async value=>{copied=value;}}}});
+ const handler=(url,options)=>{
+  if(options.method==='POST'){submitted=JSON.parse(options.body);return Response.json({error:'PRIVATE_ERROR'},{status:503});}
+  if(options.method==='DELETE'){phase='revoked';return Response.json({error:'PRIVATE_ERROR'},{status:503});}
+  return Response.json(url.includes('?')?{connectionId:submitted.connectionId,state:phase,expiresAt:Date.now()+900000}:{issuanceEnabled:true});
+ };
+ state.writerResponse=handler;
+ const props={ownerId:'owner',ownerEmail:'owner@example.invalid',projectId:'fixture',targets:[{shortId:'abc123',title:'Synthetic hotel'}]};
+ root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Writer,props)));
+ const button=key=>[...document.querySelectorAll('button')].find(b=>b.textContent===locales[state.locale][key]);
+ await change('writer-target','abc123');await React.act(async()=>document.querySelector('input[type=checkbox]').click());
+ await React.act(async()=>button('writerIssue').click());
+ const deadline=performance.now()+2000;
+ while(!document.body.textContent.includes(locales.he.writerUncertain)&&performance.now()<deadline)await React.act(async()=>new Promise(resolve=>setTimeout(resolve,5)));
+ assert.ok(submitted);assert.ok(!document.body.textContent.includes('PRIVATE_ERROR'));
+ assert.equal(document.getElementById('writer-attempt-id').value,submitted.connectionId);assert.equal(document.getElementById('writer-attempt-id').disabled,true);
+ assert.equal(localStorage.getItem('fattal-writer-attempt:fixture:owner'),submitted.connectionId);
+ assert.equal(button('writerIssue'),undefined);assert.equal(button('writerCopy'),undefined);
+ await React.act(async()=>button('writerInspect').click());assert.equal(button('writerIssue'),undefined);assert.equal(button('writerCopy'),undefined);
+ phase='active';await React.act(async()=>button('writerInspect').click());await React.act(async()=>button('writerCopy').click());
+ assert.match(copied,/^tq_fc_[a-f0-9]{32}\.[a-f0-9]{64}$/);assert.ok(!document.documentElement.outerHTML.includes(copied));
+ assert.ok(!JSON.stringify(localStorage).includes(copied));assert.ok(!JSON.stringify(state.calls).includes(copied));
+ await React.act(async()=>button('writerRevoke').click());assert.equal(button('writerCopy'),undefined);assert.equal(button('writerIssue'),undefined);
+ assert.equal(state.calls.filter(c=>c.options.method==='POST').length,1);
+ await cleanup();state.locale='he';state.writerResponse=handler;
+ root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Writer,props)));
+ assert.equal(document.getElementById('writer-attempt-id').value,submitted.connectionId);assert.equal(button('writerIssue'),undefined);assert.equal(button('writerCopy'),undefined);
+ await React.act(async()=>button('writerInspect').click());assert.ok(button('writerNew'));
+ await React.act(async()=>button('writerNew').click());assert.ok(button('writerIssue'));assert.equal(localStorage.length,0);
+ await cleanup();
+});
+test('independent recovery UI uses only GET, treats missing receipt as uncertainty and rejects a retry-authorizing response', async () => {
+ const {default:Recovery}=await import(replacements['./DotSupervisedRecovery']);state.locale='he';let retry=false;
+ state.supervisedResponse=(url,options)=>{assert.equal(options.method,'GET');return Response.json({manifestId:'a'.repeat(64),status:'uncertain',retryAllowed:retry,uploadAllowed:false});};
+ root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Recovery)));
+ await change('supervised-manifest-id','a'.repeat(64));await React.act(async()=>document.querySelector('button').click());
+ assert.ok(document.body.textContent.includes(locales.he.supervisedState_uncertain));assert.equal(document.querySelectorAll('button').length,1);
+ retry=true;await React.act(async()=>document.querySelector('button').click());assert.ok(document.body.textContent.includes(locales.he.supervisedUnavailable));
+ assert.ok(state.calls.every(c=>c.options.method==='GET'));await cleanup();
 });

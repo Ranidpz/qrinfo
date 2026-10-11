@@ -1,5 +1,13 @@
 {
   "contentIntake": {
+    "supervisedRecoveryTitle": "בדיקת העלאה בהשגחה",
+    "supervisedRecoveryIntro": "לאחר אובדן תשובה או היסטוריית ההעלאה, הזינו את מזהה האישור המדויק והתחברו כמנהל שאישר אותו. אין צורך במפתח כתיבה. הבדיקה אינה מעלה קובץ ואינה מנסה שוב.",
+    "supervisedManifestId": "מזהה האישור המדויק",
+    "supervisedInspect": "בדיקת האישור והקובץ בשרת",
+    "supervisedState_verified": "הקובץ שאושר פעיל ותוכנו אומת.",
+    "supervisedState_uncertain": "התוצאה אינה ודאית או שאין קבלה. יש לעצור ולברר; אין להעלות שוב.",
+    "supervisedState_superseded": "ההעלאה הזו אינה פעילה כעת. אין להעלות אותה שוב.",
+    "supervisedUnavailable": "לא ניתן להשלים את הבדיקה. אין בכך אישור להעלאה נוספת.",
     "writerState_active": "הרשאת כתיבה פעילה",
     "writerState_revoked": "הרשאת הכתיבה בוטלה",
     "writerState_expired": "תוקף הרשאת הכתיבה פג",

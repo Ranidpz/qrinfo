@@ -15,6 +15,8 @@ export interface UploaderConfig {
   stateDirectory?: string;
   durableStateConfirmed?: boolean;
   credentialMode?: 'raw' | 'network-secret';
+  executionMode?: 'durable' | 'supervised';
+  supervisedManifestId?: string;
 }
 export interface UploaderRuntime {
   fetch: typeof fetch;
@@ -46,6 +48,9 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, suppliedR
     insist(bounds.allowedTargets.length > 0 && bounds.allowedTargets.length <= 12
       && new Set(bounds.allowedTargets).size === bounds.allowedTargets.length
       && bounds.allowedTargets.every(id => FATTAL_BOOKLET_TARGETS.some(t => t.shortId === id)), 'configuration');
+    insist(bounds.executionMode === undefined || ['durable', 'supervised'].includes(bounds.executionMode), 'configuration');
+    if (bounds.executionMode === 'supervised') insist(bounds.allowedTargets.length === 1 && isHash(bounds.supervisedManifestId)
+      && bounds.durableStateConfirmed !== true && bounds.stateDirectory === undefined, 'configuration');
     return origin.origin;
   }
   function normalize(value: unknown, fresh = true): CloudManifest {
@@ -110,7 +115,8 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, suppliedR
     });
     insist(new Set(targets.map(t => t.shortId)).size === targets.length, 'response');
     return { protocol: 1, ownerId: bounds.ownerId, projectId: bounds.projectId, scopes: h.scopes as string[],
-      writesEnabled: h.writesEnabled, expiresAt: Number(h.expiresAt), targets };
+      writesEnabled: h.writesEnabled, supervisedEnabled: h.supervisedEnabled === true, writeMode: h.writeMode,
+      attemptManifestId: h.attemptManifestId, expiresAt: Number(h.expiresAt), targets };
   }
   async function preview(value: unknown) {
     const manifest = normalize(value);
@@ -125,6 +131,7 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, suppliedR
   }
   function journalBinding() {
     const origin = configuration();
+    insist(bounds.executionMode !== 'supervised', 'configuration');
     insist(bounds.durableStateConfirmed === true && bounds.stateDirectory?.startsWith('/'), 'configuration');
     return sha256(canonical({ origin, ownerId: bounds.ownerId, ownerEmail: bounds.ownerEmail, projectId: bounds.projectId,
       targets: [...bounds.allowedTargets].sort() }));
@@ -180,6 +187,33 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, suppliedR
       return result;
     });
   }
+  const supervisedAttempts = new Set<string>();
+  async function supervisedRun(value: unknown, inputBytes?: Buffer, recoverOnly = false) {
+    const manifest = normalize(value, false), id = manifestId(manifest);
+    insist(bounds.executionMode === 'supervised' && id === bounds.supervisedManifestId, 'configuration');
+    if (recoverOnly || supervisedAttempts.has(id)) {
+      try { return await recoverManifest(manifest); } catch { return uncertain(manifest); }
+    }
+    insist(bounds.writesEnabled === true && !FATTAL_CLOUD_PAUSED_TARGETS.includes(manifest.shortId), 'disabled');
+    const bytes = inputBytes && Buffer.from(inputBytes);
+    insist(bytes && bytes.length === manifest.size && sha256(bytes) === manifest.sha256 && bytes.subarray(0, 5).toString() === '%PDF-', 'input');
+    supervisedAttempts.add(id); // Includes concurrent calls and ambiguous preflight failures.
+    const h = await health();
+    insist(h.writeMode === 'supervised' && (h.attemptManifestId === null || isHash(h.attemptManifestId)), 'response');
+    if (h.attemptManifestId !== null) {
+      insist(h.attemptManifestId === id, 'pending');
+      try { return await recoverManifest(manifest, true); } catch { return uncertain(manifest); }
+    }
+    insist(h.supervisedEnabled && h.writesEnabled && h.scopes.includes('write'), 'credential');
+    const p = await preview(manifest); insist(!p.duplicate, 'pending');
+    normalize(manifest);
+    const body = { activate: true, executionMode: 'supervised', manifest, manifestId: id, pdfBase64: bytes.toString('base64'), ...effects };
+    insist(Buffer.byteLength(JSON.stringify(body)) <= maxBody, 'input');
+    // A server transaction consumes the writer and claims the target before R2.
+    // Locally, even a missing receipt or failed POST can never trigger another POST.
+    try { await request('commit', body); } catch { /* Reconcile only. */ }
+    try { return await recoverManifest(manifest); } catch { return uncertain(manifest); }
+  }
   async function initializeState() {
     return withUploadJournal(bounds.stateDirectory!, journalBinding(), async () => ({ protocol: 1, initialized: true, networkRequests: 0 }), true);
   }
@@ -207,6 +241,6 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, suppliedR
       return { protocol: 1, results, pending: Object.values(journal.attempts).filter(attempt => attempt.status === 'pending').length, retryAllowed: false };
     });
   }
-  return { health, preview, initializeState, state, recoverPending, upload: (manifest: unknown, bytes: Buffer) => run(manifest, bytes),
-    recover: (manifest: unknown) => run(manifest, undefined, true) };
+  return { health, preview, initializeState, state, recoverPending, upload: (manifest: unknown, bytes: Buffer) => bounds.executionMode === 'supervised' ? supervisedRun(manifest, bytes) : run(manifest, bytes),
+    recover: (manifest: unknown) => bounds.executionMode === 'supervised' ? supervisedRun(manifest, undefined, true) : run(manifest, undefined, true) };
 }

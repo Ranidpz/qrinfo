@@ -61,6 +61,7 @@ export async function uploadStoredObject(params: {
   cacheControl?: string;
   metadata?: Record<string, string>;
   provider?: StoredObjectProvider;
+  maxAttempts?: 1;
 }): Promise<StoredObject> {
   const provider = params.provider || getConfiguredMediaStorageProvider(params.mediaType);
 
@@ -71,6 +72,7 @@ export async function uploadStoredObject(params: {
       contentType: params.contentType,
       cacheControl: params.cacheControl,
       metadata: params.metadata,
+      maxAttempts: params.maxAttempts,
     });
 
     return {

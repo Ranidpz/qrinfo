@@ -37,8 +37,8 @@ class MemoryDb {
     return { exists: data !== undefined, id: path.split('/')[1], ref: { path }, data: () => structuredClone(data) };
   }
   async query(q, state = this.data) {
-    assert.equal(q.op, 'in');
-    const docs = await Promise.all([...state].filter(([path, d]) => path.startsWith(`${q.name}/`) && q.values.includes(d[q.field])).map(([path]) => this.snapshot(path, state)));
+    assert.ok(['in', '=='].includes(q.op));
+    const docs = await Promise.all([...state].filter(([path, d]) => path.startsWith(`${q.name}/`) && (q.op === 'in' ? q.values.includes(d[q.field]) : q.values === d[q.field])).map(([path]) => this.snapshot(path, state)));
     return { docs };
   }
   async runTransaction(fn) {
@@ -236,7 +236,7 @@ globalThis.cloudFixture.createCloudService = createCloudService;
 const route = await loadTs('../../src/app/api/content-intake/fattal/cloud/[operation]/route.ts', {
   'next/server': stub('export const NextResponse={json:(body, init)=>new Response(JSON.stringify(body), {...init, headers:{...init?.headers,"Content-Type":"application/json"}})};'),
   '@/lib/firebase-admin': stub('export const getAdminDb=()=>globalThis.cloudFixture.routeFixture.db; export const getAdminApp=()=>({options:{projectId:"fixture-project"}});'),
-  '@/lib/media-storage': stub('export const uploadStoredObject=({key,body})=>globalThis.cloudFixture.routeFixture.storage.upload(key,body);'),
+  '@/lib/media-storage': stub('export const uploadStoredObject=({key,body,maxAttempts})=>{if(maxAttempts!==1)throw Error("Cloud adapter must disable SDK retries");return globalThis.cloudFixture.routeFixture.storage.upload(key,body);};'),
   '@/lib/r2-storage': stub('export const isR2Url=url=>url.startsWith("https://fixture.invalid/");'),
   '@/lib/content-intake/cloud-policy': policyModule,
   '@/lib/content-intake/cloud-service': stub('export const createCloudService=(db,config,token,storage)=>globalThis.cloudFixture.createCloudService(db,config,token,storage,()=>globalThis.cloudFixture.instant);'),
@@ -727,4 +727,120 @@ test('default library resolver selects only the explicit credential mode with no
     assert.equal(calls, 1);
   `;
   execFileSync(process.execPath, ['--input-type=module', '-e', script], { cwd, stdio: 'pipe', env: {} });
+});
+
+function supervisedServiceFixture() {
+  const f = fixture({ supervisedEnabled: true }); f.db.data.get(grantPath).writeMode = 'supervised';
+  return f;
+}
+const supervisedCommit = (f, m = f.m) => f.api.commit(m, manifestId(m), bytes, 'supervised');
+test('supervised claim consumes one writer atomically before storage; repeat or competing manifests cannot upload twice', async () => {
+  const f = supervisedServiceFixture(), original = f.storage.upload;
+  f.storage.upload = async (...args) => {
+    assert.equal(f.db.data.get(grantPath).attemptManifestId, manifestId(f.m));
+    assert.equal(f.db.data.get(`fattalCloudRuns/${manifestId(f.m)}`).executionMode, 'supervised');
+    return original(...args);
+  };
+  const results = await Promise.all([supervisedCommit(f), supervisedCommit(f)]);
+  assert.ok(results.some(r => r.verified)); assert.equal(f.counts().uploads, 1);
+  assert.equal((await supervisedCommit(f)).verified, true); assert.equal(f.counts().uploads, 1);
+  const other = { ...f.m, filename: 'different.pdf', sources: [{ ...f.m.sources[0], messageId: 'different' }] };
+  approve(f, other); await assert.rejects(supervisedCommit(f, other), /already attempted/); assert.equal(f.counts().uploads, 1);
+});
+test('supervised and durable modes cannot substitute for each other or bypass the new default-off gate', async () => {
+  const f = supervisedServiceFixture(); await assert.rejects(commit(f), /mode mismatch/);
+  const durable = fixture({ supervisedEnabled: true }); await assert.rejects(supervisedCommit(durable), /mode mismatch/);
+  const disabled = fixture(); disabled.db.data.get(grantPath).writeMode = 'supervised'; await assert.rejects(supervisedCommit(disabled), /mode mismatch/);
+  for (const value of [f, durable, disabled]) { assert.equal(value.db.writes, 0); assert.equal(value.counts().uploads, 0); }
+});
+test('uncertain supervised storage retains writer marker, target lock and reservation; missing receipt cannot reopen upload', async () => {
+  const f = supervisedServiceFixture(); let attempts = 0;
+  f.storage.upload = async () => { attempts++; throw Error('uncertain fixture write'); };
+  assert.equal((await supervisedCommit(f)).status, 'uncertain'); assert.equal((await supervisedCommit(f)).status, 'uncertain');
+  assert.equal(attempts, 1); assert.equal(f.db.data.get('codes/target').fattalCloudPending, manifestId(f.m));
+  f.db.data.delete(`fattalCloudRuns/${manifestId(f.m)}`);
+  await assert.rejects(supervisedCommit(f), /already attempted/); assert.equal(attempts, 1);
+});
+async function supervisedClientFixture(t) {
+  const f = routeSetup(), originalFetch = globalThis.fetch;
+  f.db.data.get(grantPath).writeMode = 'supervised'; process.env.FATTAL_CLOUD_SUPERVISED_ENABLED = 'true';
+  globalThis.fetch = async url => new Response(f.objects.get(String(url)));
+  t.after(() => { globalThis.fetch = originalFetch; delete process.env.FATTAL_CLOUD_SUPERVISED_ENABLED; });
+  const calls = [], faults = { dropBeforeCommit: false, dropAfterCommit: false };
+  const settings = { ...config, baseUrl: 'https://fixture.invalid', allowedTargets: [first.shortId], executionMode: 'supervised', supervisedManifestId: manifestId(f.m) };
+  const runtime = { now: () => instant, resolveSecret: async () => token, fetch: async (url, init) => {
+    const operation = new URL(url).pathname.split('/').pop(); calls.push(`${init.method} ${operation}`);
+    if (operation === 'commit' && faults.dropBeforeCommit) throw Error('before claim');
+    const request = new Request(url, init); request.nextUrl = new URL(url);
+    const result = await route[init.method](request, { params: Promise.resolve({ operation }) });
+    if (operation === 'commit' && faults.dropAfterCommit) throw Error('lost reply');
+    return result;
+  } };
+  return { ...f, calls, faults, settings, runtime, client: createFattalCloudUploader(settings, runtime) };
+}
+test('supervised client needs no local history and never asserts durable storage; exact digest and separate mode required', async t => {
+  const f = await supervisedClientFixture(t);
+  for (const change of [{ durableStateConfirmed: true }, { stateDirectory: '/tmp/should-not-exist' }, { supervisedManifestId: 'bad' }, { supervisedManifestId: 'c'.repeat(64) }]) {
+    await assert.rejects(createFattalCloudUploader({ ...f.settings, ...change }, f.runtime).upload(f.m, bytes), /configuration/);
+  }
+  assert.deepEqual(f.calls, []); await assert.rejects(f.client.initializeState(), /configuration/);
+  assert.equal((await f.client.upload(f.m, bytes)).verified, true); assert.equal(f.counts().uploads, 1);
+  f.calls.length = 0;
+  assert.equal((await createFattalCloudUploader({ ...f.settings, writesEnabled: false }, f.runtime).recover(f.m)).verified, true);
+  assert.deepEqual(f.calls, ['GET health', 'GET recovery']);
+});
+test('supervised missing receipt and lost commit reply never authorize automatic resubmit, including a fresh recovery client', async t => {
+  const f = await supervisedClientFixture(t); f.faults.dropBeforeCommit = true;
+  assert.equal((await f.client.upload(f.m, bytes)).status, 'uncertain'); assert.equal(f.counts().uploads, 0);
+  await f.client.upload(f.m, bytes); assert.equal(f.calls.filter(c => c === 'POST commit').length, 1);
+  f.calls.length = 0;
+  const fresh = createFattalCloudUploader({ ...f.settings, writesEnabled: false }, f.runtime);
+  assert.equal((await fresh.recover(f.m)).status, 'uncertain'); assert.deepEqual(f.calls, ['GET health', 'GET recovery']);
+});
+test('supervised fresh process-style client uses consumed marker for GET-only verification after activation', async t => {
+  const f = await supervisedClientFixture(t); f.faults.dropAfterCommit = true;
+  assert.equal((await f.client.upload(f.m, bytes)).verified, true); f.calls.length = 0;
+  assert.equal((await createFattalCloudUploader(f.settings, f.runtime).upload(f.m, bytes)).verified, true);
+  assert.deepEqual(f.calls, ['GET health', 'GET recovery']); assert.equal(f.counts().uploads, 1);
+});
+const setupForSupervised = await loadTs('../../src/lib/content-intake/setup-review.ts', { './fattal': fattalModule });
+globalThis.cloudFixture.supervisedSetup = setupForSupervised;
+const { createSupervisedReconciliation } = await loadTs('../../src/lib/content-intake/cloud-supervised.ts', {
+  './fattal': fattalModule, './cloud-policy': policyModule, './setup-review': exportsOf('supervisedSetup', setupForSupervised),
+});
+function adminReconciliation(f, read = async object => {
+  const content = f.objects.get(object.url); return { sha256: sha256(content), size: content.length };
+}) {
+  f.db.data.set('users/reviewer', { role: 'super_admin' });
+  return createSupervisedReconciliation(f.db, { projectId: config.projectId, publicProjectId: config.projectId, cloudProjectId: config.projectId,
+    cloudOwnerId: config.ownerId, cloudOwnerEmail: config.ownerEmail }, read);
+}
+test('independent administrator reconciles approved manifest after writer expiry/revocation without any database writes', async () => {
+  const f = supervisedServiceFixture(); await supervisedCommit(f);
+  const admin = adminReconciliation(f), writes = f.db.writes;
+  Object.assign(f.db.data.get(grantPath), { revokedAt: instant, expiresAt: instant - 1 });
+  const result = await admin.reconcile('reviewer', manifestId(f.m));
+  assert.equal(result.verified, true); assert.equal(result.retryAllowed, false); assert.equal(result.uploadAllowed, false);
+  assert.deepEqual(result.manifest, f.m); assert.equal(f.db.writes, writes); assert.equal(f.counts().uploads, 1);
+});
+test('admin missing receipt remains uncertainty, never a new write authorization; wrong reviewer and changed bounds fail closed', async () => {
+  const f = supervisedServiceFixture(), admin = adminReconciliation(f);
+  const missing = await admin.reconcile('reviewer', manifestId(f.m));
+  assert.equal(missing.status, 'uncertain'); assert.equal(missing.receiptPresent, false); assert.equal(missing.retryAllowed, false); assert.equal(f.db.writes, 0);
+  f.db.data.set('users/other', { role: 'super_admin' }); await assert.rejects(admin.reconcile('other', manifestId(f.m)));
+  f.db.data.get('codes/target').ownerId = 'other'; await assert.rejects(admin.reconcile('reviewer', manifestId(f.m)));
+  assert.equal(f.db.writes, 0);
+});
+test('admin verifies bytes and rechecks actor and active pointer after I/O; corruption never reports verified', async () => {
+  for (const scenario of ['hash', 'actor', 'pointer', 'receipt']) {
+    const f = supervisedServiceFixture(); await supervisedCommit(f);
+    const admin = adminReconciliation(f, async object => {
+      if (scenario === 'actor') f.db.data.get('users/reviewer').role = 'free';
+      if (scenario === 'pointer') f.db.data.get('codes/target').media[0].url = old.url;
+      if (scenario === 'receipt') f.db.data.get(`fattalCloudRuns/${manifestId(f.m)}`).manifest.sha256 = '0'.repeat(64);
+      const content = f.objects.get(object.url); return { sha256: scenario === 'hash' ? '0'.repeat(64) : sha256(content), size: content.length };
+    });
+    if (['actor', 'receipt'].includes(scenario)) await assert.rejects(admin.reconcile('reviewer', manifestId(f.m)));
+    else assert.equal((await admin.reconcile('reviewer', manifestId(f.m))).verified, false);
+  }
 });

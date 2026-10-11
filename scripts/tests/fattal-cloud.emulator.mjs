@@ -45,6 +45,9 @@ await source('readGrant', '../../src/lib/content-intake/read-grant.ts', {
 const writerGrant = await source('writerGrant', '../../src/lib/content-intake/write-grant.ts', {
   './fattal': expose('fattal'), './cloud-policy': expose('policy'), './setup-review': expose('setup'), './read-grant': expose('readGrant'),
 });
+const supervised = await source('supervised', '../../src/lib/content-intake/cloud-supervised.ts', {
+  './fattal': expose('fattal'), './cloud-policy': expose('policy'), './setup-review': expose('setup'),
+});
 const pdfReader = await source('pdfReader', '../../src/lib/content-intake/cloud-review-pdf.ts', { './cloud-policy': expose('policy') });
 const route = await loadTs('../../src/app/api/content-intake/fattal/cloud/[operation]/route.ts', {
   'next/server': stub('export const NextResponse={json:(body,init)=>Response.json(body,init)};'),
@@ -158,7 +161,7 @@ async function fixture(t) {
       storageProvider: 'cloudflare-r2', storageKey: key, storageBucket: 'synthetic-disk-bucket' };
   };
   globalThis.fattalEmulator.fixture = f;
-  Object.assign(process.env, { FATTAL_CLOUD_ENABLED: 'true', FATTAL_CLOUD_WRITES_ENABLED: 'true',
+  Object.assign(process.env, { FATTAL_CLOUD_ENABLED: 'true', FATTAL_CLOUD_WRITES_ENABLED: 'true', FATTAL_CLOUD_SUPERVISED_ENABLED: 'false',
     FATTAL_CLOUD_OWNER_ID: ownerId, FATTAL_CLOUD_OWNER_EMAIL: ownerEmail, FATTAL_CLOUD_PROJECT_ID: projectId,
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: projectId });
   const old = { id: 'old', type: 'pdf', filename: 'synthetic-old.pdf', size: oldBytes.length,
@@ -179,7 +182,7 @@ async function fixture(t) {
   pdfReader.createReviewPdfReader(['https://fattal-objects.invalid'], f.readObject));
   f.request = async (operation, body) => {
     const response = await originalFetch(`${f.apiOrigin || f.origin}/api/content-intake/fattal/cloud/${operation}`, {
-      method: body === undefined ? 'GET' : 'POST', redirect: 'error', headers: { 'x-fattal-cloud-key': token, 'Content-Type': 'application/json' },
+      method: body === undefined ? 'GET' : 'POST', redirect: 'error', headers: { 'x-fattal-cloud-key': f.token || token, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     return { status: response.status, body: await response.json() };
@@ -195,9 +198,9 @@ async function fixture(t) {
         evidence: 'Synthetic fixture only: explicit generated PDF, target and period.' } };
   };
   f.approve = async (manifest) => {
-    const review = await f.approvals.preview('synthetic-admin', writerId, manifest);
+    const review = await f.approvals.preview('synthetic-admin', f.writerId || writerId, manifest);
     assert.equal(review.persisted, false);
-    const result = await f.approvals.approve('synthetic-admin', writerId, review.manifest, review.manifestId);
+    const result = await f.approvals.approve('synthetic-admin', f.writerId || writerId, review.manifest, review.manifestId);
     assert.equal(result.state, 'approved');
     return review.manifest;
   };
@@ -214,7 +217,7 @@ async function fixture(t) {
     if (manifest) args.push('--manifest', manifestPath);
     if (command === 'upload') args.push('--pdf', pdfPath);
     const child = spawn(process.execPath, args, { cwd: root,
-      env: { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, FATTAL_TEST_HTTP_ORIGIN: f.apiOrigin || f.origin, FATTAL_CLOUD_UPLOADER_CONFIG: configPath },
+      env: { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, FATTAL_TEST_HTTP_ORIGIN: f.apiOrigin || f.origin, FATTAL_TEST_WRITER_ID: f.writerId || writerId, FATTAL_CLOUD_UPLOADER_CONFIG: configPath },
       stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '', errors = '';
     child.stdout.on('data', b => { output += b; }); child.stderr.on('data', b => { errors += b; });
@@ -444,6 +447,50 @@ test('corrupt or missing journal/identity and stale lock block a new process bef
   }
 });
 
+async function superviseFixture(f) {
+  process.env.FATTAL_CLOUD_SUPERVISED_ENABLED = 'true';
+  await db.doc(`fattalCloudConnections/${writerId}`).update({ writeMode: 'supervised', allowedTargets: [target.shortId] });
+  f.config = { ...f.config, allowedTargets: [target.shortId], stateDirectory: undefined, durableStateConfirmed: undefined, executionMode: 'supervised' };
+  await rm(f.stateDirectory, { recursive: true });
+  const m = await f.approve(await f.makeManifest()); f.config.supervisedManifestId = manifestId(m);
+  const admin = supervised.createSupervisedReconciliation(f.database,
+    { projectId, publicProjectId: projectId, cloudProjectId: projectId, cloudOwnerId: ownerId, cloudOwnerEmail: ownerEmail },
+    pdfReader.createReviewPdfReader(['https://fattal-objects.invalid'], f.readObject));
+  return { m, admin };
+}
+test('supervised SIGKILL with no local journal: revoked/expired writer still permits independent administrator GET-only reconciliation', async t => {
+  const f = await fixture(t), { m, admin } = await superviseFixture(f);
+  let reached, release, child;
+  const ready = new Promise(resolve => { reached = resolve; }), held = new Promise(resolve => { release = resolve; });
+  f.afterCommit = async response => { assert.equal(response.status, 200); reached(); await held; };
+  const running = f.worker('upload', m, newBytes, {}, p => { child = p; });
+  await ready; child.kill('SIGKILL'); assert.equal((await running).signal, 'SIGKILL'); release();
+  assert.equal((await db.doc(`fattalCloudConnections/${writerId}`).get()).data().attemptManifestId, manifestId(m));
+  await assert.rejects(readdir(f.stateDirectory), { code: 'ENOENT' });
+  await db.doc(`fattalCloudConnections/${writerId}`).update({ revokedAt: Date.now(), expiresAt: Date.now() - 1 });
+  f.calls.length = 0;
+  assert.equal((await admin.reconcile('synthetic-admin', manifestId(m))).verified, true);
+  assert.equal(f.counts.puts, 1); assert.equal(f.counts.commitRequests, 1); assert.equal(f.counts.deleteAttempts, 0);
+  assert.deepEqual(f.calls, []); // Administrator path needs no writer-authenticated call.
+  t.diagnostic('Supervised history-loss recovery: one PUT; no local journal; independent admin verifies after writer revocation/expiry.');
+});
+test('supervised ambiguous staging consumes writer permanently; fresh processes only recover and missing receipt never reopens upload', async t => {
+  const f = await fixture(t), { m, admin } = await superviseFixture(f);
+  f.afterPersist = async () => { throw Error('synthetic ambiguous storage result'); };
+  assert.equal((await f.worker('upload', m)).result.status, 'uncertain');
+  f.calls.length = 0;
+  assert.equal((await f.worker('upload', m)).result.status, 'uncertain');
+  assert.deepEqual(f.calls, [{ method: 'GET', operation: 'health' }, { method: 'GET', operation: 'recovery' }]);
+  assert.equal((await admin.reconcile('synthetic-admin', manifestId(m))).status, 'uncertain');
+  await db.doc(`fattalCloudRuns/${manifestId(m)}`).delete(); // Corruption fixture only.
+  f.calls.length = 0;
+  assert.equal((await f.worker('upload', m)).result.status, 'uncertain');
+  assert.deepEqual(f.calls, [{ method: 'GET', operation: 'health' }, { method: 'GET', operation: 'recovery' }]);
+  const missing = await admin.reconcile('synthetic-admin', manifestId(m));
+  assert.equal(missing.receiptPresent, false); assert.equal(missing.status, 'uncertain'); assert.equal(missing.retryAllowed, false);
+  assert.equal(f.counts.puts, 1); assert.equal(f.counts.commitRequests, 1); assert.equal(f.counts.deleteAttempts, 0);
+});
+
 test('real SDK writer issuance/cancellation race always leaves a revoked grant or permanent cancellation fence', async t => {
   const f = await fixture(t);
   const bindings = { projectId, publicProjectId: projectId, cloudProjectId: projectId, cloudOwnerId: ownerId, cloudOwnerEmail: ownerEmail };
@@ -510,8 +557,8 @@ test('running Next HTTP routes and real approval UI authorize, approve, upload, 
   }
   f.apiOrigin = origin;
   const firstHealth = await f.request('health'); assert.equal(firstHealth.status, 200, JSON.stringify(firstHealth.body));
-  const adminRequest = async (method, body, uid = 'synthetic-admin', requestOrigin = origin, suffix = '') => {
-    const response = await originalFetch(`${origin}/api/content-intake/dot/approvals${suffix}`, {
+  const adminRequest = async (method, body, uid = 'synthetic-admin', requestOrigin = origin, suffix = '', path = '/api/content-intake/dot/approvals') => {
+    const response = await originalFetch(`${origin}${path}${suffix}`, {
       method, headers: { 'Content-Type': 'application/json', Origin: requestOrigin,
         ...(uid ? { Authorization: `Bearer ${emulatorToken(uid)}` } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
@@ -609,13 +656,51 @@ test('running Next HTTP routes and real approval UI authorize, approve, upload, 
   await writerPanel.getByRole('status').filter({ hasText: he.writerState_revoked }).waitFor();
   assert.ok((await db.doc(`fattalCloudConnections/${writerResult.connectionId}`).get()).data().revokedAt);
   // A manually recovered missing attempt can be cancelled after page loss too.
+  await writerPanel.getByRole('button', { name: he.writerNew, exact: true }).click();
   await page.locator('#writer-attempt-id').fill('f'.repeat(32));
   await writerPanel.getByRole('button', { name: he.writerRevoke, exact: true }).click();
   await writerPanel.getByRole('status').filter({ hasText: he.writerState_revoked }).waitFor();
   assert.equal((await db.doc(`fattalCloudConnections/${'f'.repeat(32)}`).get()).data().recordType, 'revocation_tombstone');
+  // Fresh writer issued by the real authenticated API, with a synthetic known token.
+  const supervisedWriterId = '9'.repeat(32), supervisedToken = `tq_fc_${supervisedWriterId}.${'b'.repeat(64)}`;
+  const writerPath = '/api/content-intake/dot/write-grant';
+  const issued = await adminRequest('POST', { connectionId: supervisedWriterId, keyHash: sha256(supervisedToken),
+    ownerId, ownerEmail, projectId, shortId: target.shortId, durationMinutes: 15 }, 'synthetic-admin', browserOrigin, '', writerPath);
+  assert.equal(issued.status, 201);
+  f.writerId = supervisedWriterId; f.token = supervisedToken;
+  f.config = { ...f.config, allowedTargets: [target.shortId], stateDirectory: undefined, durableStateConfirmed: undefined, executionMode: 'supervised' };
+  await rm(f.stateDirectory, { recursive: true });
+  const supervisedBytes = pdf('SYNTHETIC supervised new revision');
+  const candidateSupervised = { ...await f.makeManifest(supervisedBytes, target, 'supervised'), supersedes: reviewed.sources };
+  const previewSupervised = await adminRequest('POST', { action: 'preview', connectionId: supervisedWriterId, manifest: candidateSupervised }, 'synthetic-admin', browserOrigin);
+  assert.equal(previewSupervised.status, 200, JSON.stringify(previewSupervised.body));
+  const exact = previewSupervised.body.manifest, exactId = manifestId(exact);
+  assert.equal((await adminRequest('POST', { action: 'approve', connectionId: supervisedWriterId, manifest: exact, manifestId: exactId }, 'synthetic-admin', browserOrigin)).status, 200);
+  f.config.supervisedManifestId = exactId;
+  assert.equal((await f.worker('upload', exact, supervisedBytes)).result.verified, true);
+  assert.equal((await adminRequest('DELETE', null, 'synthetic-admin', browserOrigin, `?connectionId=${supervisedWriterId}`, writerPath)).body.state, 'revoked');
+  await db.doc(`fattalCloudConnections/${supervisedWriterId}`).update({ expiresAt: Date.now() - 1 });
+  const recoveryPath = '/api/content-intake/dot/supervised', query = `?manifestId=${exactId}`;
+  assert.equal((await adminRequest('GET', null, '', browserOrigin, query, recoveryPath)).status, 401);
+  assert.equal((await adminRequest('GET', null, ownerId, browserOrigin, query, recoveryPath)).status, 403);
+  const independent = await adminRequest('GET', null, 'synthetic-admin', browserOrigin, query, recoveryPath);
+  assert.equal(independent.status, 200); assert.equal(independent.body.verified, true);
+  assert.equal(independent.body.retryAllowed, false); assert.equal(independent.body.uploadAllowed, false);
+  assert.equal((await originalFetch(`${origin}${recoveryPath}${query}`, { method: 'POST' })).status, 405);
+  await page.locator('#supervised-manifest-id').fill(exactId);
+  const reconciliationPanel = page.locator('section[aria-labelledby=supervised-recovery-title]');
+  await reconciliationPanel.getByRole('button', { name: he.supervisedInspect }).click();
+  await reconciliationPanel.getByRole('status').filter({ hasText: he.supervisedState_verified }).waitFor();
+  if (artifacts) await page.screenshot({ path: join(artifacts, 'supervised-hebrew-reconciled.png'), fullPage: true });
+  // Missing receipt stays visibly uncertain and never provides a write action.
+  await db.doc(`fattalCloudRuns/${exactId}`).delete();
+  await reconciliationPanel.getByRole('button', { name: he.supervisedInspect }).click();
+  await reconciliationPanel.getByRole('status').filter({ hasText: he.supervisedState_uncertain }).waitFor();
+  assert.equal(await reconciliationPanel.getByRole('button').count(), 1);
+  await assert.rejects(readdir(f.stateDirectory), { code: 'ENOENT' });
   assert.deepEqual(externalRequests, []); assert.deepEqual(consoleErrors, []);
   assert.equal(await page.locator('nextjs-portal [data-nextjs-dialog-overlay]').count(), 0, 'No framework error overlay');
-  assert.equal(f.counts.puts, 1); assert.equal(f.counts.deleteAttempts, 0);
+  assert.equal(f.counts.puts, 2); assert.equal(f.counts.deleteAttempts, 0);
   t.diagnostic(JSON.stringify({ nextVersion: dependencies('next/package.json').version,
     actualNextRequestResponse: true, realServerAuthGuard: true, authMode: 'synthetic unsigned Firebase Auth emulator token',
     browserPlugin: 'absent; installed Playwright used', ui: ['preview', 'export', 'approve', 'revoke'],

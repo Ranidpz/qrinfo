@@ -313,7 +313,8 @@ history. Optional `FATTAL_TEST_NEXT=true` adds running Next HTTP routes, real
 server auth through the Auth emulator, and browser approval/export/revocation. See
 [setup and exact limits](../scripts/fattal-emulator/README.md). The fresh October 11
 environment allowed the official JAR download; size and SHA-256 matched installed
-firebase-tools metadata. The initial 29-test run and extended 31-test Next/browser run passed. The test
+firebase-tools metadata. The initial 29-test run, 31-test transport extension and 34-test supervised
+Next/browser extension passed. The test
 README records exact scope and limits. This supersedes the earlier
 environment's HTTP 403 download blocker, not the remaining production acceptance.
 
@@ -371,3 +372,27 @@ revocation or expiry. The writer interface cannot inspect/revoke a read grant.
 Local validation covers issuance bounds, authorization, expiry, existing-ID
 rejection, tombstones, real SDK issuance/cancellation contention and Hebrew
 browser issuance/inspection/revocation after reload. No real grants were created.
+
+### Supervised dispatch and independent reconciliation
+
+A commit may explicitly request `executionMode:"supervised"`; omission preserves
+the durable path. Supervised commits require `FATTAL_CLOUD_SUPERVISED_ENABLED=true`
+in addition to the independent write gate, and a `writeMode:supervised` grant.
+Durable commits cannot use supervised grants and supervised commits cannot use
+legacy durable grants. In the claim transaction the writer gains a permanent
+`attemptManifestId`, and the run records `executionMode:supervised`, before storage.
+A second manifest cannot consume that writer. Missing/corrupt receipts do not
+clear the writer or target claim. Approval creation also rejects consumed writers.
+
+Authenticated super-admin GET `/api/content-intake/dot/supervised?manifestId=...`
+reconciles the original reviewer's exact stored approval. It uses no writer secret,
+never writes a journal or database record, and remains available with issuance and
+write gates off. It checks current actor/owner/project/target and receipt bindings,
+reads trusted object bytes, then rechecks the evidence after I/O. Revoked/expired
+writers remain auditable. Missing receipt returns uncertainty, never upload or
+retry permission. No mutation method exists on this endpoint. The Hebrew panel
+accepts the exact non-secret approval digest after caller loss.
+
+All Fattal cloud storage calls use explicit SDK `maxAttempts:1`; a real SDK retry
+stack test with an in-memory retryable 503 proves one attempt. Ordinary R2 callers
+retain their previous configuration. Real R2/proxy acceptance is still pending.

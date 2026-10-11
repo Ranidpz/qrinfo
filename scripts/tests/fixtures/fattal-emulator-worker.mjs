@@ -20,8 +20,10 @@ globalThis.fetch = async (input, init) => {
   // existing injected fixture tests. This does not test production TLS routing.
   return new Response(response.body, { status: response.status, headers: response.headers });
 };
+const writerId = process.env.FATTAL_TEST_WRITER_ID || 'a'.repeat(32);
+assert.match(writerId, /^[a-f0-9]{32}$/);
 const environment = {
   FATTAL_CLOUD_UPLOADER_CONFIG: process.env.FATTAL_CLOUD_UPLOADER_CONFIG,
-  FATTAL_CLOUD_CLIENT_KEY: `tq_fc_${'a'.repeat(32)}.${'b'.repeat(64)}`, // Synthetic fixture only.
+  FATTAL_CLOUD_CLIENT_KEY: `tq_fc_${writerId}.${'b'.repeat(64)}`, // Synthetic fixture only.
 };
 process.exitCode = await main(process.argv.slice(2), environment);

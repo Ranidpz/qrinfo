@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 const noStore = { 'Cache-Control': 'no-store' };
 const storage: CloudStorage = {
-  upload: (key, bytes) => uploadStoredObject({ key, body: bytes, provider: 'cloudflare-r2', contentType: 'application/pdf', cacheControl: 'public, max-age=31536000, immutable' }),
+  upload: (key, bytes) => uploadStoredObject({ key, body: bytes, maxAttempts: 1, provider: 'cloudflare-r2', contentType: 'application/pdf', cacheControl: 'public, max-age=31536000, immutable' }),
   async verify(object, hash, size) {
     // Only server-produced managed R2 URLs, never arbitrary request URLs or redirects.
     const url = new URL(object.url);
@@ -35,6 +35,7 @@ function service(request: NextRequest) {
   const config: CloudConfig = {
     enabled: process.env.FATTAL_CLOUD_ENABLED === 'true',
     writesEnabled: process.env.FATTAL_CLOUD_WRITES_ENABLED === 'true',
+    supervisedEnabled: process.env.FATTAL_CLOUD_SUPERVISED_ENABLED === 'true',
     ownerId: process.env.FATTAL_CLOUD_OWNER_ID || '',
     ownerEmail: process.env.FATTAL_CLOUD_OWNER_EMAIL || '',
     projectId: process.env.FATTAL_CLOUD_PROJECT_ID || '',
@@ -93,7 +94,8 @@ async function handle(request: NextRequest, route: RouteContext) {
         requireCloud(body.activate === true && typeof body.manifestId === 'string' && typeof body.pdfBase64 === 'string', 400, 'Explicit activation and reviewed PDF are required');
         const bytes = Buffer.from(body.pdfBase64, 'base64');
         requireCloud(bytes.toString('base64') === body.pdfBase64, 400, 'Invalid PDF encoding');
-        result = await api.commit(body.manifest, body.manifestId, bytes);
+        requireCloud(body.executionMode === undefined || ['durable', 'supervised'].includes(String(body.executionMode)), 400, 'Invalid execution mode');
+        result = await api.commit(body.manifest, body.manifestId, bytes, body.executionMode === 'supervised' ? 'supervised' : 'durable');
       }
     }
     return NextResponse.json(result, { headers: noStore });

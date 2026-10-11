@@ -40,7 +40,7 @@ export async function main(args = process.argv.slice(2), environment = process.e
     const raw = (await boundedFile(environment.FATTAL_CLOUD_UPLOADER_CONFIG, 16384)).toString('utf8');
     if (/tq_(?:fc|ci)_/i.test(raw)) throw Error('configuration');
     const config = JSON.parse(raw);
-    const allowed = ['enabled', 'writesEnabled', 'baseUrl', 'ownerId', 'ownerEmail', 'projectId', 'allowedTargets', 'stateDirectory', 'durableStateConfirmed', 'credentialMode'];
+    const allowed = ['enabled', 'writesEnabled', 'baseUrl', 'ownerId', 'ownerEmail', 'projectId', 'allowedTargets', 'stateDirectory', 'durableStateConfirmed', 'credentialMode', 'executionMode', 'supervisedManifestId'];
     if (!config || typeof config !== 'object' || Array.isArray(config) || Object.keys(config).some(k => !allowed.includes(k))) throw Error('configuration');
     if (config.enabled !== true || (command === 'upload' && config.writesEnabled !== true)) throw Error('disabled');
     const { createFattalCloudUploader } = await import('../build/fattal-cloud/cloud-uploader.js');

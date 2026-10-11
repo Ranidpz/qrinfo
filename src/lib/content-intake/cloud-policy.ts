@@ -19,7 +19,7 @@ export function canonical(value: unknown): string {
 export const activeVersion = (media: unknown) => sha256(canonical(media ?? []));
 export type CloudScope = 'read' | 'write';
 export interface CloudConfig {
-  enabled: boolean; writesEnabled: boolean;
+  enabled: boolean; writesEnabled: boolean; supervisedEnabled?: boolean;
   ownerId: string; ownerEmail: string; projectId: string;
 }
 export interface CloudGrant {
@@ -62,6 +62,9 @@ export function validateGrantMetadata(record: unknown, config: CloudConfig, scop
   requireCloud(Array.isArray(grant.allowedTargets) && grant.allowedTargets.length > 0 && grant.allowedTargets.length <= 12
     && new Set(grant.allowedTargets).size === grant.allowedTargets.length
     && grant.allowedTargets.every(id => allowed.has(id)), 403, 'Invalid cloud target bounds');
+  requireCloud(grant.writeMode === undefined || (grant.writeMode === 'supervised' && grant.allowedTargets.length === 1
+    && grant.scopes.length === 2 && grant.scopes.includes('write')
+    && (grant.attemptManifestId === undefined || isHash(grant.attemptManifestId))), 403, 'Invalid writer mode');
   return grant;
 }
 export function cloudTokenId(token: string): string {

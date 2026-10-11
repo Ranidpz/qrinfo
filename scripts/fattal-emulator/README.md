@@ -66,7 +66,7 @@ the installed Auth emulator on loopback, seeds synthetic identities, and loads t
 real approval component in a minimal Next page. Playwright covers preview, JSON
 export, approval, one upload, revocation and recovery of the activated receipt.
 Missing authentication, ordinary-user role and foreign Origin are also rejected.
-The full mode reports 31 tests; without it, 30 pass and the Next case is skipped.
+The full mode now reports 34 tests; without it, 33 pass and the Next case is skipped.
 
 Use an already available Chromium with `FATTAL_TEST_CHROMIUM=/absolute/path/chromium`.
 `FATTAL_TEST_PLAYWRIGHT_ROOT` optionally selects an existing Playwright package
@@ -107,3 +107,14 @@ earlier SDK metadata-discovery attempt failed DNS; explicit
 API or credentials were used. Desktop/mobile screenshots show the functional
 approved/revoked states; omitted application CSS causes narrow-screen hash
 overflow, so they do not establish responsive styling acceptance.
+
+Supervised extensions verify no-local-journal SIGKILL recovery, independent admin
+reconciliation after writer expiry/revocation, permanent consumption on uncertain
+storage, missing-receipt refusal, writer issuance/cancellation contention, and
+actual Next writer/approval/reconciliation endpoints with Hebrew browser controls.
+The original durable-mode cases remain in the same suite.
+
+Final local supervised milestone: 34 emulator/Next/browser tests passed; 161
+focused security, API, UI, SDK retry and legacy regression tests passed. Focused
+TypeScript/ESLint checks and the isolated Next production build passed. The full
+application shell/build and live R2/proxy transport were not acceptance targets.

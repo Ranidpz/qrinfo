@@ -80,10 +80,11 @@ export function getConfiguredMediaStorageProvider(mediaType?: string): 'cloudfla
   return provider === R2_STORAGE_PROVIDER ? R2_STORAGE_PROVIDER : 'vercel-blob';
 }
 
-function getR2Client(config: R2Config): S3Client {
-  if (cachedClient) return cachedClient;
+function getR2Client(config: R2Config, maxAttempts?: 1): S3Client {
+  if (cachedClient && maxAttempts !== 1) return cachedClient;
 
-  cachedClient = new S3Client({
+  const client = new S3Client({
+    ...(maxAttempts === 1 ? { maxAttempts: 1 } : {}),
     region: 'auto',
     endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
     credentials: {
@@ -92,7 +93,8 @@ function getR2Client(config: R2Config): S3Client {
     },
   });
 
-  return cachedClient;
+  if (maxAttempts !== 1) cachedClient = client;
+  return client;
 }
 
 export function sanitizeObjectName(name: string, fallback = 'file'): string {
@@ -180,37 +182,42 @@ export async function uploadBufferToR2(params: {
   contentType: string;
   cacheControl?: string;
   metadata?: Record<string, string>;
+  maxAttempts?: 1;
 }): Promise<R2UploadResult> {
   const config = getR2Config();
   if (!config) {
     throw new Error('Cloudflare R2 is not configured');
   }
 
-  const client = getR2Client(config);
+  const client = getR2Client(config, params.maxAttempts);
 
-  await client.send(new PutObjectCommand({
-    Bucket: config.bucket,
-    Key: params.key,
-    Body: params.body,
-    ContentType: params.contentType,
-    CacheControl: params.cacheControl,
-    Metadata: params.metadata,
-  }));
+  try {
+    await client.send(new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: params.key,
+      Body: params.body,
+      ContentType: params.contentType,
+      CacheControl: params.cacheControl,
+      Metadata: params.metadata,
+    }));
 
-  const head = await client.send(new HeadObjectCommand({
-    Bucket: config.bucket,
-    Key: params.key,
-  }));
+    const head = await client.send(new HeadObjectCommand({
+      Bucket: config.bucket,
+      Key: params.key,
+    }));
 
-  return {
-    provider: R2_STORAGE_PROVIDER,
-    bucket: config.bucket,
-    key: params.key,
-    url: getR2PublicUrl(params.key),
-    size: head.ContentLength ?? params.body.byteLength,
-    contentType: head.ContentType || params.contentType,
-    etag: head.ETag,
-  };
+    return {
+      provider: R2_STORAGE_PROVIDER,
+      bucket: config.bucket,
+      key: params.key,
+      url: getR2PublicUrl(params.key),
+      size: head.ContentLength ?? params.body.byteLength,
+      contentType: head.ContentType || params.contentType,
+      etag: head.ETag,
+    };
+  } finally {
+    if (params.maxAttempts === 1) client.destroy();
+  }
 }
 
 export async function deleteR2ObjectByUrl(url: string): Promise<void> {

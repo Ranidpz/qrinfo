@@ -30,6 +30,7 @@ export function createManifestApprovals(db: Firestore, bindings: SetupBindings,
     ]);
     requireCloud(actor.data()?.role === 'super_admin', 403, 'Administrator required');
     const grant = validateGrantMetadata(connection.data(), bounds, 'write', now());
+    requireCloud(!grant.attemptManifestId, 409, 'Writer already attempted; reconcile before any new review');
     const mapping = buildSetupReview({ ...bounds, durationHours: 1 }, bindings, owner.data(), codes.docs.map(doc => doc.data()), now());
     requireCloud(mapping.mappingVerified, 409, 'All twelve parent targets must verify');
     const manifest = parseManifest(value, grant, now());
