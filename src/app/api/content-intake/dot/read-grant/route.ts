@@ -45,7 +45,8 @@ async function handle(request: NextRequest) {
     }
     requireCloud(request.nextUrl.searchParams.size === 1 && request.nextUrl.searchParams.has('connectionId'), 400, 'Invalid lookup');
     // Inspection and revocation remain available when new issuance is disabled.
-    const result = await inspectReadGrant(getAdminDb(), auth.uid, request.nextUrl.searchParams.get('connectionId') || '', request.method === 'DELETE');
+    const result = await inspectReadGrant(getAdminDb(), auth.uid, request.nextUrl.searchParams.get('connectionId') || '', request.method === 'DELETE',
+      undefined, request.method === 'DELETE' ? bindings() : undefined);
     // Existing open pages can inspect this response without losing their in-memory key.
     return reply(request.method === 'GET' && result.state === 'missing'
       ? { ...result, diagnostics: readGrantConfiguration(bindings(), issuanceEnabled()) } : result);

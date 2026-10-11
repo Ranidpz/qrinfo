@@ -74,22 +74,50 @@ export async function issueReadGrant(db: Firestore, actorId: string, bindings: S
   });
 }
 
-export async function inspectReadGrant(db: Firestore, actorId: string, connectionId: string, revoke = false, now = () => Date.now()) {
+type RevocationTombstone = Pick<CloudGrant, 'workflow' | 'ownerId' | 'ownerEmail' | 'projectId'
+  | 'ownerVerifiedBy' | 'ownerVerifiedAt' | 'scopes'> & { recordType: 'revocation_tombstone'; revokedAt: number };
+
+export async function inspectReadGrant(db: Firestore, actorId: string, connectionId: string, revoke = false,
+  now = () => Date.now(), bindings?: SetupBindings) {
   requireCloud(/^[a-f0-9]{32}$/.test(connectionId), 400, 'Invalid connection');
   const ref = db.collection('fattalCloudConnections').doc(connectionId);
-  const evaluate = (record: CloudGrant | undefined) => {
+  const evaluate = (record: CloudGrant | RevocationTombstone | undefined) => {
     if (!record) return { connectionId, state: 'missing' };
     requireReadGrant(record.workflow === 'fattal-cloud-v1' && record.ownerVerifiedBy === actorId
       && record.scopes?.length === 1 && record.scopes[0] === 'read', 403, 'issuer_scope');
+    if ('recordType' in record) {
+      requireReadGrant(record.recordType === 'revocation_tombstone' && Number.isSafeInteger(record.revokedAt), 403, 'issuer_scope');
+      return { connectionId, state: 'revoked', scopes: ['read'] };
+    }
     return { connectionId, state: record.revokedAt != null || record.disabledAt != null ? 'revoked'
       : !Number.isSafeInteger(record.expiresAt) || record.expiresAt <= now() ? 'expired' : 'active', expiresAt: record.expiresAt, scopes: ['read'] };
   };
-  if (!revoke) return evaluate((await ref.get()).data() as CloudGrant | undefined);
+  if (!revoke) return evaluate((await ref.get()).data() as CloudGrant | RevocationTombstone | undefined);
   return db.runTransaction(async tx => {
     const [actor, snapshot] = await Promise.all([tx.get(db.collection('users').doc(actorId)), tx.get(ref)]);
     requireCloud(actor.data()?.role === 'super_admin', 403, 'Administrator required');
-    const result = evaluate(snapshot.data() as CloudGrant | undefined);
-    if (result.state === 'missing' || result.state === 'revoked') return result;
+    const result = evaluate(snapshot.data() as CloudGrant | RevocationTombstone | undefined);
+    if (result.state === 'revoked') return result;
+    if (result.state === 'missing') {
+      // Fence this exact attempted ID, including an issuance transaction already in flight.
+      // No credential/hash/expiry is stored; this document can never authorize access.
+      // Existing-grant revocation remains available without these issuance bindings.
+      requireReadGrant(bindings?.cloudOwnerId && bindings.cloudOwnerEmail && bindings.cloudProjectId, 409, 'server_identity_required');
+      const selection = parseSetupSelection(new URLSearchParams({ ownerId: bindings.cloudOwnerId,
+        ownerEmail: bindings.cloudOwnerEmail, projectId: bindings.cloudProjectId, durationHours: '1' }));
+      const [owner, codes] = await Promise.all([
+        tx.get(db.collection('users').doc(selection.ownerId)),
+        tx.get(db.collection('codes').where('shortId', 'in', FATTAL_BOOKLET_TARGETS.map(t => t.shortId))),
+      ]);
+      const revokedAt = now();
+      const review = buildSetupReview(selection, bindings, owner.data(), codes.docs.map(d => d.data()), revokedAt);
+      requireReadGrant(review.mappingVerified, 409, 'targets_unverified');
+      const tombstone: RevocationTombstone = { recordType: 'revocation_tombstone', workflow: 'fattal-cloud-v1',
+        ownerId: review.ownerId, ownerEmail: review.ownerEmail, projectId: review.projectId,
+        ownerVerifiedBy: actorId, ownerVerifiedAt: revokedAt, scopes: ['read'], revokedAt };
+      tx.create(ref, tombstone);
+      return { connectionId, state: 'revoked', scopes: ['read'] };
+    }
     tx.update(ref, { revokedAt: now() });
     return { ...result, state: 'revoked' };
   });

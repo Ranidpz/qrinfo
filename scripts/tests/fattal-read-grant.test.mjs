@@ -163,3 +163,79 @@ test('same-attempt missing status gives read-only current configuration diagnost
  assert.deepEqual(f.writes,[]);assert.equal(f.docs.has(`fattalCloudConnections/${id}`),false);
  const unauthenticated=await call('GET',null,{Authorization:''},'?connectionId='+id);assert.equal(unauthenticated.status,401);assert.equal(unauthenticated.body.diagnostics,undefined);
 });
+
+const cancelMissing=(f,b=bindings)=>service.inspectReadGrant(f.db,'admin',id,true,()=>now+1,b);
+test('missing-attempt cancellation creates only an issuer/owner/project-bound permanent revocation fence',async()=>{
+ const f=fixture();const result=await cancelMissing(f),record=f.docs.get(`fattalCloudConnections/${id}`);
+ assert.equal(result.state,'revoked');assert.equal(record.recordType,'revocation_tombstone');
+ assert.equal(record.ownerVerifiedBy,'admin');assert.equal(record.ownerId,selection.ownerId);
+ assert.equal(record.ownerEmail,selection.ownerEmail);assert.equal(record.projectId,selection.projectId);
+ for(const key of ['keyHash','expiresAt','allowedTargets','token'])assert.equal(record[key],undefined);
+ assert.equal((await service.inspectReadGrant(f.db,'admin',id,false,()=>now+2)).state,'revoked');
+ await cancelMissing(f);assert.equal(f.writes.length,1);await assert.rejects(issue(f));assert.equal(f.writes.length,1);
+ await assert.rejects(service.inspectReadGrant(f.db,'other-admin',id,true,()=>now+2,bindings));
+ assert.throws(()=>policy.validateGrant(record,`tq_fc_${id}.${'c'.repeat(64)}`,{enabled:true,writesEnabled:false,ownerId:selection.ownerId,ownerEmail:selection.ownerEmail,projectId:selection.projectId},'read',now+2));
+});
+test('missing-attempt cancellation fails closed on missing/foreign identity, ordinary actor and unverified parent targets',async()=>{
+ for(const change of [{cloudOwnerId:undefined},{cloudOwnerEmail:''},{cloudProjectId:undefined},
+  {cloudOwnerId:'foreign'},{cloudOwnerEmail:'foreign@example.invalid'},{cloudProjectId:'foreign'},
+  {publicProjectId:'foreign'},{legacyOwnerId:'foreign'},{legacyOwnerEmail:'foreign@example.invalid'}]){
+  const f=fixture();await assert.rejects(cancelMissing(f,{...bindings,...change}));assert.deepEqual(f.writes,[]);
+ }
+ for(const mutate of [f=>f.docs.set('users/admin',{role:'free'}),f=>f.docs.delete('users/owner'),f=>f.codes.pop(),
+  f=>f.codes.push({...f.codes[0]}),f=>f.codes[0].parentCodeShortId='parent',f=>f.codes[0].ownerId='other']){
+  const f=fixture();mutate(f);await assert.rejects(cancelMissing(f));assert.deepEqual(f.writes,[]);
+ }
+ const f=fixture();await assert.rejects(service.inspectReadGrant(f.db,'admin',id,true,()=>now));assert.deepEqual(f.writes,[]);
+});
+// Optimistic transaction fixture: both operations initially observe a missing ID;
+// force either commit order and retry the loser against the new document version.
+function raceFixture(firstCommit){
+ const f=fixture(),versions=new Map();let releaseFirst,conflicts=0;
+ const firstDone=new Promise(resolve=>releaseFirst=resolve);
+ f.db.runTransaction=async fn=>{
+  for(let attempt=0;attempt<5;attempt++){
+   const reads=new Map(),staged=[];
+   const result=await fn({get:async ref=>{
+    if(ref.query)return {docs:f.codes.map(c=>({data:()=>structuredClone(c)}))};
+    reads.set(ref.path,versions.get(ref.path)||0);const data=structuredClone(f.docs.get(ref.path));
+    return {id:ref.id,exists:data!==undefined,data:()=>data};
+   },create:(ref,data)=>staged.push({ref,data,create:true}),update:(ref,data)=>staged.push({ref,data,create:false})});
+   const kind=staged[0]?.data.recordType==='revocation_tombstone'?'cancel':'issue';
+   if(attempt===0&&kind!==firstCommit)await firstDone;
+   if([...reads].some(([path,v])=>(versions.get(path)||0)!==v)){conflicts++;continue;}
+   for(const {ref,data,create} of staged){
+    if(create)assert.equal(f.docs.has(ref.path),false);
+    f.docs.set(ref.path,create?data:{...f.docs.get(ref.path),...data});
+    versions.set(ref.path,(versions.get(ref.path)||0)+1);f.writes.push(ref.path);
+   }
+   if(attempt===0&&kind===firstCommit)releaseFirst();
+   return result;
+  }
+  throw Error('fixture transaction retry limit');
+ };
+ return {...f,conflicts:()=>conflicts};
+}
+test('concurrent cancel first fences in-flight issuance after transaction retry', {timeout:3000},async()=>{
+ const f=raceFixture('cancel');const [created,cancelled]=await Promise.allSettled([issue(f),cancelMissing(f)]);
+ assert.equal(created.status,'rejected');assert.equal(cancelled.status,'fulfilled');assert.equal(cancelled.value.state,'revoked');
+ assert.equal(f.conflicts(),1);assert.equal(f.writes.length,1);assert.equal(f.docs.get(`fattalCloudConnections/${id}`).recordType,'revocation_tombstone');
+});
+test('concurrent issuance first is revoked by cancellation retry, preserving existing grant behavior', {timeout:3000},async()=>{
+ const f=raceFixture('issue');const [created,cancelled]=await Promise.all([issue(f),cancelMissing(f)]);
+ assert.equal(created.state,'active');assert.equal(cancelled.state,'revoked');assert.equal(f.conflicts(),1);assert.equal(f.writes.length,2);
+ const record=f.docs.get(`fattalCloudConnections/${id}`);assert.equal(record.keyHash,selection.keyHash);assert.equal(record.expiresAt,now+3600000);assert.equal(record.revokedAt,now+1);
+ assert.equal((await service.inspectReadGrant(f.db,'admin',id,false,()=>now+2)).state,'revoked');await assert.rejects(issue(f));
+});
+test('actual DELETE fences missing ID with no issuance flags, is idempotent and still requires same-origin administrator',async()=>{
+ let f=reset();let result=await call('DELETE',null,{},'?connectionId='+id);
+ assert.equal(result.status,200);assert.equal(result.body.state,'revoked');assert.equal(f.writes.length,1);
+ result=await call('GET',null,{},'?connectionId='+id);assert.equal(result.body.state,'revoked');assert.equal(f.writes.length,1);
+ await call('DELETE',null,{},'?connectionId='+id);assert.equal(f.writes.length,1);
+ enable();assert.equal((await call()).body.code,'connection_exists');assert.equal(f.writes.length,1);
+ for(const headers of [{Authorization:''},{Origin:'https://foreign.invalid'}]){
+  f=reset();assert.ok([401,403].includes((await call('DELETE',null,headers,'?connectionId='+id)).status));assert.deepEqual(f.writes,[]);
+ }
+ f=reset();delete process.env.FATTAL_CLOUD_PROJECT_ID;result=await call('DELETE',null,{},'?connectionId='+id);
+ assert.equal(result.status,409);assert.equal(result.body.code,'server_identity_required');assert.deepEqual(f.writes,[]);
+});

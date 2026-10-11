@@ -273,3 +273,26 @@ external writes are not duplicated. It is not a Firestore emulator: actual SDK c
 retry and R2 integration remain unverified. The legacy helper's pre-existing ambiguous
 transaction cleanup behavior is not redesigned here; the cloud path never calls that
 helper and does not inherit its notification/deletion behavior.
+
+### Cancelling an uncertain read-grant attempt
+
+The authenticated same-origin `DELETE /api/content-intake/dot/read-grant?connectionId=...`
+revokes an existing issuer-owned read grant. Since 1.27.7, cancelling a missing ID
+transactionally creates a permanent `revocation_tombstone` in the same connection
+document. For a missing ID, the server requires explicit cloud owner/email/project
+bindings and rechecks the administrator, owner identity and all twelve parent targets
+inside the transaction. Existing grant revocation remains available when issuance is
+disabled or its configuration is absent.
+
+A tombstone has no key hash, access expiry or allowed targets and cannot authenticate.
+Do not automatically expire or delete it: its existence prevents late issuance from
+creating that ID. If issuance commits first, cancellation retries and revokes that
+grant; if cancellation commits first, issuance retries and refuses the existing ID.
+Repeated cancellation is idempotent and status remains issuer-scoped. GET is always
+read-only and a `missing` response alone is not proof of cancellation.
+
+Keep the original browser page open until the exact attempt returns `revoked` from a
+successful cancellation or subsequent status read. Only then may the operator discard
+that page and start one newly authorized read-grant attempt. An uncertain DELETE must
+be reconciled by GET, not treated as success. Publishing this behavior does not cancel
+or issue any connection; the operator must explicitly invoke cancellation.

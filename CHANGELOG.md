@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.7] - 2026-10-11
+
+- Explicit cancellation of a missing read-grant attempt now creates a permanent revocation tombstone in a transaction, bound to the verified configured owner/project and issuing administrator. Late or concurrent issuance cannot overwrite that ID. No credential is created; existing grant revocation and read-only lookup behavior are preserved.
+
 ## [1.27.6] - 2026-10-11
 
 - Read grant failures return fixed, nonsecret diagnostic codes. The UI retains the original response status, reason and time while inspecting the same in-memory attempt. Missing status responses include current configuration blockers without authorizing retries or changing credentials; already-open pages can inspect the response without refreshing.
