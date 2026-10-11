@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.27.3] - 2026-10-11
+
+- Add separately disabled one-hour read grant issuance for the verified twelve Fattal parent targets, with hash-only server storage, issuer-scoped status and revocation. No grant or connection is activated by deployment.
+- Add a fixed-host read-only health check compatible with cloud network-secret placeholders. Browser controls prevent duplicate issuance, clear expired keys and require status recovery after uncertain replies.
+
+## [1.27.2] - 2026-10-11
+
+- Public viewer `/v/:path*` may be framed by the TVzone signage player: it sends `Content-Security-Policy: frame-ancestors 'self' https://tvzone.playzones.app https://bindexcloud.playzones.app http://localhost:3200` instead of `X-Frame-Options`. Every other route keeps `X-Frame-Options: SAMEORIGIN` (dashboard, login, admin, API, /raffle, /gallery, /lobby, /play). Rollback = revert this release commit (header-only change, no data/rules involved).
+
+## [1.27.1] - 2026-10-11
+
+- 10 בול: keyboard play is Space only; Enter is left free for other uses. Touch unchanged. Landing page FAQ/hint copy updated to match (he + en).
+
 ## [1.26.19] - 2026-10-11
 
 - 10 בול landing: "שלוש דרכים לשחק" – a buzzer on stage, everyone on their phones with a live leaderboard on the big screen (new `board` visual: decorative scan code + leaderboard rows; tagged "בקרוב" via `soon` until phone mode ships), and a phone anywhere. Share copy fixed (sharing works from the first bool since v1.26.16). Phone mock background moved off purple to the system dark blue.

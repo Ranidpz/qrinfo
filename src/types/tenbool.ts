@@ -72,6 +72,28 @@ export interface TenBoolConfig {
   board?: TenBoolBoard;
   lives?: number;
   closenessBar?: boolean; // a line under the timer showing how far off each stop was
+  // 'phone' = everyone plays on their own phone and the big screen shows a scan code + a live
+  // leaderboard (/v/{shortId}?screen=board). Absent = the buzzer game on the big screen.
+  playMode?: TenBoolPlayMode;
+  verifyWinners?: boolean; // phone mode: a hit needs a WhatsApp code before it goes on the board; absent = on
+  nearMisses?: boolean; // phone mode: a "closest" list for stops within a second of 10.00; absent = on
+  boardSize?: number; // phone mode: rows in the winners list
+}
+
+export type TenBoolPlayMode = 'buzzer' | 'phone';
+export const TENBOOL_BOARD_SIZE = { min: 3, max: 20, default: 10 };
+
+// Phone-mode switches, resolved like everything else so old codes stay on the buzzer game.
+export function tenboolCompetition(config: TenBoolConfig | undefined) {
+  return {
+    phone: config?.playMode === 'phone',
+    verifyWinners: config?.verifyWinners !== false,
+    nearMisses: config?.nearMisses !== false,
+    boardSize: Math.min(
+      TENBOOL_BOARD_SIZE.max,
+      Math.max(TENBOOL_BOARD_SIZE.min, config?.boardSize ?? TENBOOL_BOARD_SIZE.default)
+    ),
+  };
 }
 
 export type TenBoolBoard = 'off' | 'wins' | 'counter' | 'lives';

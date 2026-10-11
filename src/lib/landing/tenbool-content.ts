@@ -55,9 +55,8 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         },
         {
           badge: 'מסך + טלפונים',
-          soon: 'בקרוב',
           title: 'כולם בטלפון, לוח על המסך',
-          text: 'סורקים את הקוד מהמסך ומשחקים. המסך מראה בזמן אמת מי עשה בול ומי הכי קרוב.',
+          text: 'סורקים את הקוד מהמסך ומשחקים. המסך מראה בזמן אמת מי עשה בול בהכי מעט ניסיונות, עם סלפי, ומי הכי קרוב.',
           visual: {
             board: {
               scan: 'סרקו ושחקו',
@@ -144,8 +143,9 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { q: 'למה קוראים לזה "10 בול"?', a: '"בול" זה פגיעה מדויקת. עוצרים את הטיימר על 10.00 בדיוק – בול.' },
         { q: 'זה בחינם?', a: 'לשחק ולהתנסות – כן, כאן בדמו ובטלפון. משחק משלכם: במנוי ל־The Q, או בהשכרה לאירוע אחד עם הבאזר.' },
         { q: 'צריך להוריד אפליקציה?', a: 'לא. המשחק רץ בדפדפן בטלפון, במחשב ובמסך חכם.' },
-        { q: 'איך מחברים באזר?', a: 'מחברים למחשב שמפעיל את המסך באזר שמוגדר כ־Enter או כרווח. אין לכם באזר? אנחנו משכירים.' },
-        { q: 'כמה אנשים יכולים לשחק?', a: 'כמה שרוצים. עם באזר משחקים בתורות, ובטלפון כל אחד משחק בעצמו – ובקרוב גם עם לוח תוצאות חי על המסך.' },
+        { q: 'איך מחברים באזר?', a: 'מחברים למחשב שמפעיל את המסך באזר שמוגדר כמקש רווח. אין לכם באזר? אנחנו משכירים.' },
+        { q: 'כמה אנשים יכולים לשחק?', a: 'כמה שרוצים. עם באזר משחקים בתורות. במצב טלפונים כל הקהל משחק במקביל, והמסך הגדול מציג לוח תוצאות חי לפי מספר הניסיונות עד הבול.' },
+        { q: 'אין לנו באזר. אפשר לשחק בכל זאת?', a: 'כן. בוחרים בהגדרות "בטלפונים": המסך הגדול מציג קוד לסריקה ולוח תוצאות, וכל אחד משחק בטלפון שלו. מי שעושה בול מצטלם ועולה ללוח, ואפשר לבקש אימות בוואטסאפ לזוכים בפרסים.' },
       ],
     },
     final: {
@@ -200,9 +200,8 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         },
         {
           badge: 'Screen + phones',
-          soon: 'Coming soon',
           title: 'Everyone on their phone, the board on screen',
-          text: 'Scan the code on the screen and play. The screen shows live who hit a bool and who came closest.',
+          text: 'Scan the code on the screen and play. The screen shows live who hit a bool in the fewest attempts, with a selfie, and who came closest.',
           visual: {
             board: {
               scan: 'Scan to play',
@@ -289,8 +288,9 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
         { q: 'Why is it called “10 Bool”?', a: '“Bool” is Hebrew slang for a bullseye. Stop the timer at exactly 10.00 – a bool.' },
         { q: 'Is it free?', a: 'Playing and trying it – yes, here in the demo and on phones. Your own game: with a The Q subscription, or a one-event rental with the buzzer.' },
         { q: 'Do I need to download an app?', a: 'No. The game runs in the browser on phones, computers and smart TVs.' },
-        { q: 'How do I connect a buzzer?', a: 'Plug a buzzer mapped to Enter or Space into the computer running the screen. No buzzer? We rent them out.' },
-        { q: 'How many people can play?', a: 'As many as you like. With a buzzer players take turns; on phones everyone plays at once – and soon with a live leaderboard on the big screen.' },
+        { q: 'How do I connect a buzzer?', a: 'Plug a buzzer mapped to the Space key into the computer running the screen. No buzzer? We rent them out.' },
+        { q: 'How many people can play?', a: 'As many as you like. With a buzzer players take turns. In phone mode the whole crowd plays at once and the big screen shows a live leaderboard ranked by attempts until the bool.' },
+        { q: 'We have no buzzer. Can we still play?', a: 'Yes. Choose "On phones" in the settings: the big screen shows a scan code and a leaderboard, and everyone plays on their own phone. Whoever hits a bool takes a selfie and goes up on the board, with optional WhatsApp verification for prize winners.' },
       ],
     },
     final: {
@@ -312,14 +312,14 @@ export const TENBOOL_DEMO_LABELS: Record<
   he: {
     label: 'דמו חי של 10 בול',
     start: 'לחצו כדי לשחק',
-    hint: 'במחשב אפשר גם עם Enter או רווח.',
+    hint: 'במחשב אפשר גם עם מקש הרווח.',
     modes: { wins: 'נקודות זהב', counter: 'מונה ניסיונות', lives: 'חיים' },
     fullscreen: 'מסך מלא',
   },
   en: {
     label: '10 Bool live demo',
     start: 'Tap to play',
-    hint: 'On a computer, Enter or Space work too.',
+    hint: 'On a computer, the Space key works too.',
     modes: { wins: 'Gold dots', counter: 'Attempt counter', lives: 'Lives' },
     fullscreen: 'Full screen',
   },

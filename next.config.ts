@@ -29,6 +29,27 @@ const nextConfig: NextConfig = {
       ...['/v/:path*', '/gallery/:path*', '/lobby/:path*', '/packs/:path*', '/raffle/:path*', '/:locale/p/:path*'].map(
         (source) => ({ source, headers: [{ key: 'X-Robots-Tag', value: 'noindex, follow' }] })
       ),
+      // The public viewer may be framed by the TVzone signage player (a game on a TV screen with a
+      // USB buzzer). Only these origins - every other route keeps X-Frame-Options: SAMEORIGIN below.
+      {
+        source: '/v/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https://tvzone.playzones.app https://bindexcloud.playzones.app http://localhost:3200"
+          },
+        ],
+      },
+      {
+        // Clickjacking protection on every route except /v/ (framing there is governed by the CSP above)
+        source: '/((?!v/).*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN'
+          },
+        ],
+      },
       {
         // Apply to all routes
         source: '/:path*',
@@ -40,10 +61,6 @@ const nextConfig: NextConfig = {
           {
             key: 'X-XSS-Protection',
             value: '1; mode=block'
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
           },
           {
             key: 'X-Content-Type-Options',
