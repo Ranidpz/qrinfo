@@ -22,8 +22,9 @@ The smallest next integration step, if existing verified read access is availabl
 check of the selected development project's 12 allowlisted code records and their referenced
 owner records. `qrinfo-dev` is the development project named in AGENTS.md, not a project
 verified by this task. Report absent, duplicate, foreign or child targets without creating
-fixtures or changing ownership. A read-only connection is a later, separate step. No credential
-provisioning endpoint or script is included in this change. A trusted administrator can
+fixtures or changing ownership. A read-only connection is a later, separate step. Writer credential
+provisioning is not implemented. The separate default-disabled read-grant dashboard
+flow is described in FATTAL_DOT_MANAGEMENT.md and cannot issue write scope. A trusted administrator can
 create the following record through their existing authenticated Firebase Admin tooling,
 using a locally generated cryptographically random ID (16 bytes) and secret (32 bytes).
 Never paste credentials into chat, source, command arguments, logs or a software archive.
@@ -80,8 +81,9 @@ Server configuration (none changed by this implementation):
    Start with `FATTAL_CLOUD_ENABLED=false` and `FATTAL_CLOUD_WRITES_ENABLED=false`.
    No production environment inheritance, production credentials, or R2/notification
    credentials are needed for read-only health/preview. Cloud flags do not disable
-   the app's separate legacy APIs. The build is currently blocked by Google Fonts
-   DNS failures, so no deployable build or reachable cloud URL has been verified.
+   the app's separate legacy APIs. Local production builds use synthetic Firebase
+   configuration and a local font fixture with external networking disabled; they
+   do not verify production deployment or production storage behavior.
 3. **Configure the server-side caller and verify secure entry before generating a secret:**
    `cloud-client.ts` now provides a default-disabled client and strict read-only dispatcher;
    see [FATTAL_CLOUD_CLIENT.md](FATTAL_CLOUD_CLIENT.md). There is no registered MCP
@@ -117,11 +119,44 @@ intended production owner email.
 
 ## Administrator review approval
 
-A write key and a caller-computable digest are **not** review authorization. Before a
-future authorized write, an administrator must independently inspect the exact normalized
-preview manifest and record approval through trusted Admin SDK tooling in
-`fattalCloudApprovals/<manifestId>`. No approval endpoint or provisioning action is
-included or executed by this change. This collection also has default-deny client access.
+A write key and a caller-computable digest are **not** review authorization. The
+super-admin dashboard includes a separately disabled review panel backed by
+`/api/content-intake/dot/approvals`. It accepts the non-secret writer connection ID
+and a prepared manifest JSON file, never a credential or PDF upload. The administrator
+must inspect the actual PDF and exact group/message evidence, explicitly confirm it,
+and export the server-normalized manifest for the worker. This is a narrow operator
+review flow; it does not collect WhatsApp evidence or issue writer credentials.
+
+- GET without parameters reports capabilities. Creation and the panel require both
+  `FATTAL_CLOUD_ENABLED=true` and `FATTAL_CLOUD_APPROVALS_ENABLED=true`; defaults are off.
+- POST `{action:"preview",connectionId,manifest}` reads only. The authenticated reviewer
+  and server time replace caller attribution. Owner/project, the writer's scope and
+  expiry, all twelve unique parent targets, expected active version, pending claims,
+  receipts and correction evidence are checked before and after reading current bytes.
+- Current PDF reads require `FATTAL_CLOUD_REVIEW_STORAGE_ORIGINS`, a JSON array of exact
+  trusted HTTPS storage origins, configured by an administrator. There is no default,
+  redirect, forwarded credential, query-string URL or arbitrary source URL support.
+  The bounded read compares the actual active SHA-256, including manual uploads with
+  no cloud metadata. Identical bytes are rejected even under a different filename.
+- POST `{action:"approve",connectionId,manifest,manifestId}` repeats those checks and
+  transactionally creates only the approval record. It does not upload, activate,
+  reserve quota, notify or clean up. Expiry is bounded by 15 minutes, writer expiry and
+  review freshness. An existing approval cannot be overwritten, extended or revived.
+- GET `?manifestId=...` inspects the issuing reviewer's record; DELETE revokes it with
+  same-origin authentication. These remain available with creation disabled. A missing
+  DELETE fails closed: it does not claim cancellation of a possibly delayed creation.
+- After an uncertain mutation, the panel freezes the attempt and offers status recovery.
+  A missing result does not authorize resubmission. Export and retain the exact manifest
+  before approval so its digest can be inspected after a page or worker restart.
+
+U Splash (`5ubXFS`) is explicitly paused for new cloud approvals and commits until a
+reviewed reopening policy change. It remains in the exact twelve-target mapping and
+read/recovery access. The eleven manually completed brochures are not an upload queue;
+only genuinely new or revised, explicitly reviewed evidence is eligible.
+
+The approval collection has default-deny client access. Existing approvals created
+through trusted Admin SDK tooling remain compatible; this feature changes neither
+legacy desktop keys nor legacy commit/report behavior.
 
 The approval record contains `manifest` (the exact normalized manifest), `connectionId`
 (the dedicated writer key ID), `approvedBy` (matching `manifest.review.reviewer`),
@@ -264,9 +299,16 @@ sufficient; target fixtures use the real fixed short-ID constants with mock owne
 and storage. No development secrets or connection provisioning are necessary. `npx tsc --noEmit --incremental false` and
 focused ESLint validate the TypeScript. The cloud tests exercise durable claims,
 concurrency, idempotency, expected-version rejection, ambiguous writes and revocation
-between upload/activation. No live data is needed or accessed. A Firestore emulator or
+between upload/activation. The approval tests also exercise actual-PDF dedupe,
+read-only preview, actor/owner/grant changes during the read, stale manifests,
+concurrent creation, revocation and uncertain-response recovery. No live data is
+needed or accessed. A Firestore emulator or
 privately configured development project plus development R2 storage is still needed to
 verify SDK transaction conflict/retry and storage behavior end to end before rollout.
+
+The October 11 local validation could not run a Firestore emulator: the official
+JAR download returned HTTP 403. Real SDK contention/retry remains an activation
+blocker; mocked success must not be described as production end-to-end acceptance.
 
 The transaction fixture also replays a callback to check that quota reservations and
 external writes are not duplicated. It is not a Firestore emulator: actual SDK conflict,

@@ -21,6 +21,7 @@ globalThis.dotUI={state,translate:(key,values={})=>{
  return text.replace(/\{(\w+)\}/g,(_,name)=>values[name]);
 },fetch:async(url,options={})=>{
  state.calls.push({url,options});
+ if(url.startsWith('/api/content-intake/dot/approvals') && state.approvalResponse)return state.approvalResponse(url,options);
  if(url.startsWith('/api/content-intake/dot/read-grant') && state.grantResponse)return state.grantResponse(url,options);
  if(url.startsWith('/api/content-intake/dot/setup')) {
   if(url.includes('?')) return state.setupResponse ? state.setupResponse(url) : new Response(JSON.stringify({mappingVerified:true,ownerEmail:'legacy@example.invalid',ownerId:'legacy-owner',projectId:'fixture',targets:[],proposal:{expiresAt:Date.now()+3600000}}));
@@ -47,6 +48,7 @@ async function component(name){
  for(const [from,to]of Object.entries(replacements)){outputText=outputText.replaceAll(`'${from}'`,JSON.stringify(to)).replaceAll(`"${from}"`,JSON.stringify(to));}
  return stub(outputText);
 }
+replacements['./DotManifestApproval']=await component('DotManifestApproval');
 replacements['./DotReadGrant']=await component('DotReadGrant');
 replacements['./DotSetupReview']=await component('DotSetupReview');
 replacements['./DotConnection']=await component('DotConnection');
@@ -54,7 +56,7 @@ replacements['./ComputerList']=await component('ComputerList');
 const {default:Page}=await import(await component('page'));
 let root;
 async function render(){root=createRoot(document.getElementById('root'));await React.act(async()=>{root.render(React.createElement(Page));});}
-async function cleanup(){await React.act(async()=>root.unmount());state.calls=[];state.failure=false;state.user={id:'admin',role:'super_admin'};state.locale='en';state.dot={state:'unconfigured'};state.grantResponse=null;}
+async function cleanup(){await React.act(async()=>root.unmount());state.calls=[];state.failure=false;state.user={id:'admin',role:'super_admin'};state.locale='en';state.dot={state:'unconfigured'};state.grantResponse=null;state.approvalResponse=null;}
 async function change(id,value){const element=document.getElementById(id);await React.act(async()=>{
  Object.getOwnPropertyDescriptor(element.tagName==='SELECT'?window.HTMLSelectElement.prototype:window.HTMLInputElement.prototype,'value').set.call(element,value);
  element.dispatchEvent(new window.Event(element.tagName==='SELECT'?'change':'input',{bubbles:true}));
@@ -137,6 +139,12 @@ test('issuance keeps original safe failure and same in-memory attempt across rea
   root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Grant,{ownerId:'owner',ownerEmail:'owner@example.invalid',projectId:'fixture'})));
   const button=key=>[...document.querySelectorAll('button')].find(b=>b.textContent===locales[locale][key]);
   await React.act(async()=>document.querySelector('input[type=checkbox]').click());await React.act(async()=>button('readGrantIssue').click());
+  // WebCrypto digest completes outside React's event promise. Wait for the
+  // observed response state, not for a particular event-loop timing under load.
+  const deadline=performance.now()+2000;
+  while(!document.body.textContent.includes(locales[locale].readGrantFailure_same_origin_required)&&performance.now()<deadline){
+   await React.act(async()=>new Promise(resolve=>setTimeout(resolve,5)));
+  }
   assert.ok(document.body.textContent.includes(locales[locale].readGrantFailure_same_origin_required));assert.ok(document.body.textContent.includes('403'));
   assert.ok(document.body.textContent.includes(submitted.connectionId));assert.ok(!document.body.textContent.includes('SENSITIVE_BACKEND_DETAIL'));
   assert.ok(!document.body.textContent.includes(submitted.keyHash));assert.equal(button('readGrantIssue'),undefined);assert.equal(button('readGrantCopy'),undefined);
@@ -147,4 +155,43 @@ test('issuance keeps original safe failure and same in-memory attempt across rea
   assert.equal(state.calls.filter(c=>c.options.method==='POST').length,1);assert.equal(state.calls.filter(c=>c.options.method==='DELETE').length,0);
   await cleanup();
  }
+});
+
+
+test('approval UI requires explicit review, binds the server manifest and recovers uncertain writes with GET only',async()=>{
+ const {default:Approval}=await import(replacements['./DotManifestApproval']);
+ for(const locale of ['he','en']){
+  state.locale=locale;let phase='missing',review,submitted;
+  const candidate={filename:'reviewed.pdf',hotel:'fixture-hotel',shortId:'fixture',sha256:'b'.repeat(64),expectedVersion:'c'.repeat(64),
+   period:{kind:'weekday',startDate:'2026-10-11',endDate:'2026-10-14'},sourceGroupId:'exact-group',sources:[{messageId:'message',fileId:'file',sha256:'b'.repeat(64)}],supersedes:[],review:{evidence:'Resolved actual PDF/source context'}};
+  state.approvalResponse=(url,options)=>{
+   if(options.method==='POST'){
+    const body=JSON.parse(options.body);
+    if(body.action==='preview'){review={connectionId:body.connectionId,manifestId:'a'.repeat(64),manifest:{...body.manifest,review:{...body.manifest.review,reviewer:'admin',reviewedAt:Date.now()}},predecessor:{sha256:'d'.repeat(64)},expiresAt:Date.now()+900000,persisted:false};return Response.json(review);}
+    submitted=body;phase='approved';return Response.json({error:'PRIVATE_ERROR_DETAIL'},{status:503});
+   }
+   if(options.method==='DELETE'){phase='revoked';return Response.json({},{status:503});}
+   return Response.json(url.includes('?')?{manifestId:review.manifestId,state:phase}:{approvalEnabled:true});
+  };
+  root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Approval)));
+  const button=key=>[...document.querySelectorAll('button')].find(b=>b.textContent===locales[locale][key]);
+  assert.equal(button('approvalPreview').disabled,true);await change('approval-writer','f'.repeat(32));
+  const input=document.getElementById('approval-file');Object.defineProperty(input,'files',{configurable:true,value:[{size:1000,text:async()=>JSON.stringify(candidate)}]});
+  await React.act(async()=>input.dispatchEvent(new window.Event('change',{bubbles:true})));await React.act(async()=>button('approvalPreview').click());
+  assert.equal(button('approvalApprove').disabled,true);assert.ok(document.body.textContent.includes('exact-group'));assert.ok(document.body.textContent.includes('d'.repeat(64)));
+  await React.act(async()=>document.querySelector('input[type=checkbox]').click());await React.act(async()=>{button('approvalApprove').click();button('approvalApprove')?.click();});
+  assert.deepEqual(submitted.manifest,review.manifest);assert.equal(submitted.manifestId,review.manifestId);
+  assert.equal(button('approvalApprove'),undefined);assert.equal(document.getElementById('approval-writer').disabled,true);assert.ok(!document.body.textContent.includes('PRIVATE_ERROR_DETAIL'));
+  phase='missing';await React.act(async()=>button('approvalInspect').click());assert.ok(document.body.textContent.includes(locales[locale].approvalState_missing));assert.equal(button('approvalApprove'),undefined);
+  phase='approved';await React.act(async()=>button('approvalInspect').click());assert.ok(document.body.textContent.includes(locales[locale].approvalState_approved));
+  await React.act(async()=>button('approvalRevoke').click());assert.equal(button('approvalRevoke').disabled,true);await React.act(async()=>button('approvalInspect').click());
+  assert.ok(document.body.textContent.includes(locales[locale].approvalState_revoked));
+  assert.equal(state.calls.filter(c=>c.options.method==='POST'&&JSON.parse(c.options.body).action==='approve').length,1);
+  assert.equal(state.calls.filter(c=>c.options.method==='DELETE').length,1);await cleanup();
+ }
+});
+test('approval UI stays hidden when creation is disabled and performs no write',async()=>{
+ const {default:Approval}=await import(replacements['./DotManifestApproval']);state.approvalResponse=()=>Response.json({approvalEnabled:false});
+ root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Approval)));
+ assert.equal(document.querySelector('section'),null);assert.equal(state.calls.length,1);assert.ok(!state.calls[0].options.method);await cleanup();
 });

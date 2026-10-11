@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.27.9] - 2026-10-11
+
+- Add separately disabled super-admin Fattal manifest review: authenticate the reviewer, verify owner/project and all twelve parent targets, hash the active PDF to reject manual-upload duplicates, and bind expiring approval to the exact writer, sources, period, hash and expected version. Status/revocation support uncertain-response recovery; approval creates no upload or notification.
+- Pause new cloud writes for U Splash while preserving read/recovery access. Require explicit durable worker journal initialization, retain pending attempts across restart and provide read-only state inspection plus GET-only recovery. No automatic stale-lock takeover or lost-journal reset.
+- Add explicit fixed-host writer network-secret transport with a distinct environment binding and no raw-key fallback. No credential, feature flag, schedule, live brochure, notification or cleanup is activated by this release. Real Firestore emulator/storage and persistent-volume acceptance remain required before enabling a writer.
+
 ## [1.27.8] - 2026-10-11
 
 - 10 בול idle instruction by device: `(pointer: coarse)` (phones, tablets) → "געו במסך כדי להתחיל" + "נגיעה נוספת עוצרת את הזמן"; otherwise → "לחצו על הבאזר כדי להתחיל" + "לחיצה נוספת עוצרת את הזמן". Nothing renders until detection (no wrong-line flash). Settings preview shows the buzzer line for the big screen.

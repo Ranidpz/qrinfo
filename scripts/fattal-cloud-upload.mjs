@@ -23,7 +23,8 @@ export async function main(args = process.argv.slice(2), environment = process.e
   let telemetry;
   try {
     const [command, ...rest] = args;
-    if (!['health', 'preview', 'upload', 'recover'].includes(command)) throw Error('input');
+    const withoutManifest = ['health', 'initialize-state', 'state', 'recover-pending'];
+    if (![...withoutManifest, 'preview', 'upload', 'recover'].includes(command)) throw Error('input');
     const options = {};
     for (let i = 0; i < rest.length; i += 2) {
       const key = rest[i]; const value = rest[i + 1];
@@ -31,7 +32,7 @@ export async function main(args = process.argv.slice(2), environment = process.e
         || /tq_(?:fc|ci)_/i.test(value)) throw Error('input');
       options[key] = value;
     }
-    if ((command === 'health' && rest.length) || (command !== 'health' && !options['--manifest'])
+    if ((withoutManifest.includes(command) && rest.length) || (!withoutManifest.includes(command) && !options['--manifest'])
       || (command === 'upload' ? !options['--pdf'] : options['--pdf'])) throw Error('input');
     // Only non-secret configuration file location may come from host environment.
     // Neither a key flag, dotenv file, nor a secret resolver option is supported.
@@ -39,21 +40,25 @@ export async function main(args = process.argv.slice(2), environment = process.e
     const raw = (await boundedFile(environment.FATTAL_CLOUD_UPLOADER_CONFIG, 16384)).toString('utf8');
     if (/tq_(?:fc|ci)_/i.test(raw)) throw Error('configuration');
     const config = JSON.parse(raw);
-    const allowed = ['enabled', 'writesEnabled', 'baseUrl', 'ownerId', 'ownerEmail', 'projectId', 'allowedTargets', 'stateDirectory', 'durableStateConfirmed'];
+    const allowed = ['enabled', 'writesEnabled', 'baseUrl', 'ownerId', 'ownerEmail', 'projectId', 'allowedTargets', 'stateDirectory', 'durableStateConfirmed', 'credentialMode'];
     if (!config || typeof config !== 'object' || Array.isArray(config) || Object.keys(config).some(k => !allowed.includes(k))) throw Error('configuration');
     if (config.enabled !== true || (command === 'upload' && config.writesEnabled !== true)) throw Error('disabled');
     const { createFattalCloudUploader } = await import('../build/fattal-cloud/cloud-uploader.js');
-    const manifest = command === 'health' ? undefined : JSON.parse((await boundedFile(options['--manifest'], 65536)).toString('utf8'));
+    const manifest = withoutManifest.includes(command) ? undefined : JSON.parse((await boundedFile(options['--manifest'], 65536)).toString('utf8'));
     const bytes = command === 'upload' ? await boundedFile(options['--pdf'], 3 * 1024 * 1024) : undefined;
     const { createIntakeRunTelemetry } = await import('../build/fattal-cloud/run-telemetry.js');
     telemetry = createIntakeRunTelemetry({ files: bytes ? 1 : 0, bytes: bytes?.length || 0 });
     const client = createFattalCloudUploader(config, { fetch: (...args) => fetch(...args), now: () => Date.now(),
-      resolveSecret: async () => environment.FATTAL_CLOUD_CLIENT_KEY, onOperation: telemetry.recordOperation });
-    const result = command === 'health' ? await client.health() : command === 'preview' ? await client.preview(manifest)
+      resolveSecret: async () => config.credentialMode === 'network-secret' ? environment.FATTAL_CLOUD_WRITER_NETWORK_KEY : environment.FATTAL_CLOUD_CLIENT_KEY,
+      onOperation: telemetry.recordOperation });
+    const result = command === 'initialize-state' ? await client.initializeState()
+      : command === 'state' ? await client.state() : command === 'recover-pending' ? await client.recoverPending()
+      : command === 'health' ? await client.health() : command === 'preview' ? await client.preview(manifest)
       : command === 'recover' ? await client.recover(manifest)
       : await client.upload(manifest, bytes);
-    output(`${JSON.stringify({ ...result, telemetry: telemetry.finish(result.status === 'uncertain' ? 'uncertain' : result.status === 'superseded' ? 'failed' : 'completed') })}\n`);
-    return result.status === 'uncertain' || result.status === 'superseded' ? 2 : 0;
+    const uncertain = result.status === 'uncertain' || result.pending > 0;
+    output(`${JSON.stringify({ ...result, telemetry: telemetry.finish(uncertain ? 'uncertain' : result.status === 'superseded' ? 'failed' : 'completed') })}\n`);
+    return uncertain || result.status === 'superseded' ? 2 : 0;
   } catch (error) {
     const codes = ['disabled', 'configuration', 'input', 'credential', 'transport', 'response', 'state', 'pending'];
     const code = codes.includes(error?.code) ? error.code : codes.includes(error?.message) ? error.message : 'configuration';

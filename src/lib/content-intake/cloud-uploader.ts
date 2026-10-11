@@ -1,8 +1,8 @@
 import { Buffer } from 'node:buffer';
 import type { IntakeOperation, IntakeOperationEvent } from './run-telemetry';
 import { FATTAL_BOOKLET_TARGETS } from './fattal';
-import { canonical, isHash, manifestId, parseManifest, sha256, type CloudManifest } from './cloud-policy';
-import { insist, UploadError, withUploadJournal } from './cloud-upload-journal';
+import { canonical, isHash, manifestId, parseManifest, sha256, FATTAL_CLOUD_PAUSED_TARGETS, type CloudManifest } from './cloud-policy';
+import { insist, inspectUploadJournal, UploadError, withUploadJournal } from './cloud-upload-journal';
 
 export interface UploaderConfig {
   enabled?: boolean;
@@ -14,6 +14,7 @@ export interface UploaderConfig {
   allowedTargets?: string[];
   stateDirectory?: string;
   durableStateConfirmed?: boolean;
+  credentialMode?: 'raw' | 'network-secret';
 }
 export interface UploaderRuntime {
   fetch: typeof fetch;
@@ -21,15 +22,17 @@ export interface UploaderRuntime {
   resolveSecret: () => Promise<string | undefined>;
   onOperation?: (event: IntakeOperationEvent) => void;
 }
-const runtimeDefaults: UploaderRuntime = {
+const runtimeDefaults = {
   fetch: (...args) => fetch(...args), now: () => Date.now(),
-  resolveSecret: async () => process.env.FATTAL_CLOUD_CLIENT_KEY,
-};
+} satisfies Pick<UploaderRuntime, 'fetch' | 'now'>;
 const effects = { sendEmail: false, notify: false, deleteOld: false, cleanup: false };
 const secretShape = /tq_(?:fc|ci)_/i;
 const maxBody = 4 * 1024 * 1024;
-export function createFattalCloudUploader(config: UploaderConfig = {}, runtime: UploaderRuntime = runtimeDefaults) {
+export function createFattalCloudUploader(config: UploaderConfig = {}, suppliedRuntime?: UploaderRuntime) {
   const bounds = { ...config, allowedTargets: [...(config.allowedTargets ?? [])] };
+  const runtime: UploaderRuntime = suppliedRuntime ?? { ...runtimeDefaults,
+    resolveSecret: async () => bounds.credentialMode === 'network-secret'
+      ? process.env.FATTAL_CLOUD_WRITER_NETWORK_KEY : process.env.FATTAL_CLOUD_CLIENT_KEY };
   function configuration() {
     insist(bounds.enabled === true, 'disabled');
     insist(bounds.baseUrl && bounds.ownerId && bounds.ownerEmail && bounds.projectId
@@ -38,6 +41,8 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, runtime: 
     try { origin = new URL(bounds.baseUrl); } catch { throw new UploadError('configuration'); }
     insist(origin.protocol === 'https:' && !origin.username && !origin.password && !origin.search && !origin.hash
       && origin.pathname === '/' && !origin.port, 'configuration');
+    insist(bounds.credentialMode === undefined || ['raw', 'network-secret'].includes(bounds.credentialMode), 'configuration');
+    if (bounds.credentialMode === 'network-secret') insist(origin.origin === 'https://qr.playzones.app', 'configuration');
     insist(bounds.allowedTargets.length > 0 && bounds.allowedTargets.length <= 12
       && new Set(bounds.allowedTargets).size === bounds.allowedTargets.length
       && bounds.allowedTargets.every(id => FATTAL_BOOKLET_TARGETS.some(t => t.shortId === id)), 'configuration');
@@ -54,7 +59,8 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, runtime: 
     const origin = configuration();
     let key: string | undefined;
     try { key = await runtime.resolveSecret(); } catch { throw new UploadError('credential'); }
-    insist(typeof key === 'string' && /^tq_fc_[a-f0-9]{32}\.[a-f0-9]{64}$/.test(key), 'credential');
+    insist(typeof key === 'string' && key.length > 0 && key.length <= 4096 && !/[\r\n]/.test(key)
+      && (bounds.credentialMode === 'network-secret' || /^tq_fc_[a-f0-9]{32}\.[a-f0-9]{64}$/.test(key)), 'credential');
     const url = new URL(`/api/content-intake/fattal/cloud/${operation}`, origin);
     if (id) url.searchParams.set('manifestId', id);
     const started = performance.now();
@@ -127,8 +133,8 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, runtime: 
     return { manifestId: manifestId(m), shortId: m.shortId, sha256: m.sha256, status: 'uncertain' as const,
       verified: false, retryAllowed: false, notification: 'disabled', cleanup: 'disabled' };
   }
-  async function recoverManifest(m: CloudManifest) {
-    await health(); // Expiry/revocation/identity checked even after an earlier success.
+  async function recoverManifest(m: CloudManifest, healthChecked = false) {
+    if (!healthChecked) await health(); // Each server recovery also authenticates/rechecks scope.
     const r = await request('recovery', undefined, manifestId(m));
     insist(r.protocol === 1 && r.manifestId === manifestId(m) && r.shortId === m.shortId && r.sha256 === m.sha256
       && ['verified', 'uncertain', 'superseded'].includes(String(r.status)) && r.verified === (r.status === 'verified')
@@ -140,6 +146,7 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, runtime: 
     const manifest = normalize(value, false);
     const id = manifestId(manifest);
     if (!recoverOnly) insist(bounds.writesEnabled === true, 'disabled');
+    if (!recoverOnly) insist(!FATTAL_CLOUD_PAUSED_TARGETS.includes(manifest.shortId), 'disabled');
     const binding = journalBinding();
     const bytes = inputBytes && Buffer.from(inputBytes); // Freeze bytes before any await.
     return withUploadJournal(bounds.stateDirectory!, binding, async (journal, save) => {
@@ -173,6 +180,33 @@ export function createFattalCloudUploader(config: UploaderConfig = {}, runtime: 
       return result;
     });
   }
-  return { health, preview, upload: (manifest: unknown, bytes: Buffer) => run(manifest, bytes),
+  async function initializeState() {
+    return withUploadJournal(bounds.stateDirectory!, journalBinding(), async () => ({ protocol: 1, initialized: true, networkRequests: 0 }), true);
+  }
+  async function state() {
+    const { journal, lockPresent } = await inspectUploadJournal(bounds.stateDirectory!, journalBinding());
+    return { protocol: 1, lockPresent, currentServerStateVerified: false,
+      attempts: Object.entries(journal.attempts).map(([id, attempt]) => ({ manifestId: id,
+        shortId: attempt.manifest.shortId, filename: attempt.manifest.filename, sha256: attempt.manifest.sha256, lastKnownStatus: attempt.status })) };
+  }
+  async function recoverPending() {
+    return withUploadJournal(bounds.stateDirectory!, journalBinding(), async (journal, save) => {
+      const pending = Object.entries(journal.attempts).filter(([, attempt]) => attempt.status === 'pending');
+      const results: Array<Awaited<ReturnType<typeof recoverManifest>>> = [];
+      if (!pending.length) return { protocol: 1, results, pending: 0, retryAllowed: false };
+      await health(); // One failure stops the scan rather than repeating denied requests.
+      for (const [, attempt] of pending.slice(0, 25)) {
+        const manifest = normalize(attempt.manifest, false);
+        let result;
+        try { result = await recoverManifest(manifest, true); }
+        catch { results.push(uncertain(manifest)); break; }
+        attempt.status = result.verified ? 'verified' : result.status === 'superseded' ? 'superseded' : 'pending';
+        await save();
+        results.push(result);
+      }
+      return { protocol: 1, results, pending: Object.values(journal.attempts).filter(attempt => attempt.status === 'pending').length, retryAllowed: false };
+    });
+  }
+  return { health, preview, initializeState, state, recoverPending, upload: (manifest: unknown, bytes: Buffer) => run(manifest, bytes),
     recover: (manifest: unknown) => run(manifest, undefined, true) };
 }

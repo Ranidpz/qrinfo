@@ -16,7 +16,7 @@ const token = `tq_fc_${'a'.repeat(32)}.${'b'.repeat(64)}`; // Synthetic test fix
 const grantPath = `fattalCloudConnections/${'a'.repeat(32)}`;
 const config = { enabled: true, writesEnabled: true, ownerId: 'fixture-owner', ownerEmail: 'fixture@example.invalid', projectId: 'fixture-project' };
 const bytes = Buffer.from('%PDF-1.7\nfixture brochure');
-const first = fattal.FATTAL_BOOKLET_TARGETS[0];
+const first = fattal.FATTAL_BOOKLET_TARGETS.find(target => target.shortId !== '5ubXFS');
 function grant() { return { workflow: 'fattal-cloud-v1', keyHash: sha256(token), ...config, ownerVerifiedAt: instant - 1000, ownerVerifiedBy: 'fixture-reviewer', scopes: ['read', 'write'], allowedTargets: [first.shortId], expiresAt: instant + 86400000 }; }
 const old = { id: 'old', type: 'pdf', filename: 'same.pdf', size: 20, uploadedBy: config.ownerId, url: 'https://fixture.invalid/old.pdf', pageCount: 9 };
 function manifest() { return { protocol: 1, ownerId: config.ownerId, projectId: config.projectId, shortId: first.shortId, hotel: first.key,
@@ -132,7 +132,7 @@ test('writes require separate enabled switch', async () => {
 });
 test('manifest rejects inferred/conflicting hotel, missing source, wrong hash, stale review, period and target', () => {
   for (const change of [
-    { hotel: 'adjacent-hotel' }, { shortId: fattal.FATTAL_BOOKLET_TARGETS[1].shortId }, { ownerId: 'other' }, { projectId: 'other' },
+    { hotel: 'adjacent-hotel' }, { shortId: fattal.FATTAL_BOOKLET_TARGETS.find(target => target.shortId !== first.shortId).shortId }, { ownerId: 'other' }, { projectId: 'other' },
     { expectedVersion: '' }, { sources: [] }, { sources: [{ messageId: 'm', fileId: 'f', sha256: 'c'.repeat(64) }] },
     { period: { kind: 'maybe', startDate: '2026-10-08', endDate: '2026-10-10' } },
     { period: { kind: 'weekday', startDate: '2026-02-30', endDate: '2026-03-02' } },
@@ -213,7 +213,7 @@ test('revocation, expiry, target change or corrupt staging during upload prevent
     f => f.db.data.get(grantPath).expiresAt = instant,
     f => f.db.data.get('codes/target').media[0].url = 'https://fixture.invalid/manual-replacement',
     f => f.db.data.get('codes/target').parentCodeShortId = 'parent',
-    f => f.db.data.get(grantPath).allowedTargets = [fattal.FATTAL_BOOKLET_TARGETS[1].shortId],
+    f => f.db.data.get(grantPath).allowedTargets = [fattal.FATTAL_BOOKLET_TARGETS.find(target => target.shortId !== first.shortId).shortId],
   ]) { const f = fixture(); const upload = f.storage.upload; f.storage.upload = async (...args) => { const object = await upload(...args); mutate(f); return object; };
     assert.equal((await commit(f)).status, 'uncertain');
     assert.notEqual(f.db.data.get('codes/target').media[0].contentIntake?.sha256, f.m.sha256);
@@ -225,8 +225,8 @@ test('recovery cannot cross target bounds and superseded receipts cannot claim c
   const f = fixture(); await commit(f);
   f.db.data.get('codes/target').media[0].url = 'https://fixture.invalid/manual-newer';
   assert.equal((await f.api.recovery(manifestId(f.m))).status, 'superseded');
-  f.db.data.get(grantPath).allowedTargets = [fattal.FATTAL_BOOKLET_TARGETS[1].shortId];
-  f.db.data.set('codes/second', { shortId: fattal.FATTAL_BOOKLET_TARGETS[1].shortId, ownerId: config.ownerId, media: [] });
+  f.db.data.get(grantPath).allowedTargets = [fattal.FATTAL_BOOKLET_TARGETS.find(target => target.shortId !== first.shortId).shortId];
+  f.db.data.set('codes/second', { shortId: fattal.FATTAL_BOOKLET_TARGETS.find(target => target.shortId !== first.shortId).shortId, ownerId: config.ownerId, media: [] });
   await rejects(() => f.api.recovery(manifestId(f.m)), /not found/);
 });
 
@@ -484,6 +484,7 @@ async function writerFixture(t, overrides = {}) {
       if (operation === 'commit' && state.loseCommit) throw Error(`Synthetic lost reply ${token}`);
       return state.mutate(response, operation);
     } };
+  await createFattalCloudUploader({ ...settings, enabled: true, baseUrl: 'https://fixture.invalid', allowedTargets: [first.shortId], durableStateConfirmed: true }, runtime).initializeState();
   return { ...f, directory, state, settings, runtime, writer: createFattalCloudUploader(settings, runtime),
     journal: async () => JSON.parse(await readFile(join(directory, 'uploader.json'), 'utf8')) };
 }
@@ -576,6 +577,7 @@ test('writer blocks a different manifest on unresolved target and serializes con
 });
 test('writer rejects unavailable, permissive, symlinked, corrupt or differently-bound state before POST', async t => {
   const f = await writerFixture(t);
+  const originalJournal = await readFile(join(f.directory, 'uploader.json'), 'utf8');
   await chmod(f.directory, 0o755);
   await assert.rejects(() => f.writer.upload(f.m, bytes), /state/);
   await chmod(f.directory, 0o700);
@@ -589,6 +591,8 @@ test('writer rejects unavailable, permissive, symlinked, corrupt or differently-
   await assert.rejects(() => f.writer.upload(f.m, bytes), /state/);
   await rm(join(f.directory, 'uploader.json'));
   assert.equal(f.state.calls.length, 0);
+  await assert.rejects(() => f.writer.upload(f.m, bytes), /state/);
+  await writeFile(join(f.directory, 'uploader.json'), originalJournal, { mode: 0o600 }); // Restore a fixture backup explicitly.
   await f.writer.upload(f.m, bytes);
   const other = createFattalCloudUploader({ ...f.settings, baseUrl: 'https://other.invalid' }, f.runtime);
   await assert.rejects(() => other.recover(f.m), /state/);
@@ -646,4 +650,81 @@ test('uploader telemetry reports uncertain transport without secrets or automati
  assert.ok(events.every(e=>e.retry===false));assert.doesNotMatch(JSON.stringify(events),/tq_fc_|owner|manifest|same.pdf/);
  f.state.loseRecovery=false;f.runtime.onOperation=()=>{throw Error('collector failure');};
  assert.equal((await writer.recover(f.m)).status,'verified');assert.equal(f.counts().uploads,1);
+});
+
+test('closed U Splash rejects new cloud writes while read health remains available', async () => {
+  const f = fixture(), paused = fattal.FATTAL_BOOKLET_TARGETS.find(item => item.shortId === '5ubXFS');
+  f.db.data.get(grantPath).allowedTargets = [paused.shortId]; f.db.data.get('codes/target').shortId = paused.shortId;
+  const m = { ...f.m, shortId: paused.shortId, hotel: paused.key }; approve(f, m);
+  assert.equal((await f.api.health()).targets[0].shortId, paused.shortId);
+  await assert.rejects(commit(f, m), /paused/); assert.equal(f.counts().uploads, 0); assert.equal(f.db.writes, 0);
+});
+test('durable journal must be initialized explicitly and cannot silently reset after loss', async t => {
+  const f = await writerFixture(t); const original = await readFile(join(f.directory, 'uploader.json'), 'utf8');
+  await assert.rejects(f.writer.initializeState(), /state/); assert.equal(await readFile(join(f.directory, 'uploader.json'), 'utf8'), original);
+  await rm(join(f.directory, 'uploader.json'));
+  await assert.rejects(f.writer.upload(f.m, bytes), /state/); await assert.rejects(f.writer.initializeState(), /state/);
+  assert.deepEqual(f.state.calls, []); assert.equal(f.state.resolutions, 0);
+  const empty = await mkdtemp(join(tmpdir(), 'fattal-empty-state-')); t.after(() => rm(empty, { recursive: true, force: true }));
+  const client = createFattalCloudUploader({ ...f.settings, stateDirectory: empty }, f.runtime);
+  await assert.rejects(client.upload(f.m, bytes), /state/); assert.equal(f.state.calls.length, 0);
+  assert.equal((await client.initializeState()).initialized, true); assert.equal((await client.state()).attempts.length, 0); assert.equal(f.state.calls.length, 0);
+});
+test('state inspection remains read-only with a stale lock and never reports cached receipt as current server proof', async t => {
+  const f = await writerFixture(t); f.state.loseRecovery = true; await f.writer.upload(f.m, bytes);
+  const before = await readFile(join(f.directory, 'uploader.json'), 'utf8'), calls = f.state.calls.length;
+  await writeFile(join(f.directory, 'uploader.lock'), 'stale fixture lock', { mode: 0o600 });
+  const result = await f.writer.state(); assert.equal(result.lockPresent, true); assert.equal(result.currentServerStateVerified, false);
+  assert.equal(result.attempts[0].lastKnownStatus, 'pending'); assert.equal(result.attempts[0].manifestId, manifestId(f.m));
+  assert.equal(await readFile(join(f.directory, 'uploader.lock'), 'utf8'), 'stale fixture lock');
+  assert.equal(await readFile(join(f.directory, 'uploader.json'), 'utf8'), before); assert.equal(f.state.calls.length, calls);
+  await assert.rejects(f.writer.recoverPending(), /state/); assert.equal(f.state.calls.length, calls);
+});
+test('pending recovery after restart uses only GET, persists verified evidence and never resolves secrets for an empty queue', async t => {
+  const f = await writerFixture(t); f.state.loseCommit = true; f.state.loseRecovery = true;
+  await f.writer.upload(f.m, bytes); f.state.loseRecovery = false; f.state.calls = [];
+  const restarted = createFattalCloudUploader({ ...f.settings, writesEnabled: false }, f.runtime);
+  const result = await restarted.recoverPending(); assert.equal(result.pending, 0); assert.equal(result.results[0].verified, true);
+  assert.deepEqual(f.state.calls, ['health', 'recovery']); assert.equal(f.counts().uploads, 1);
+  assert.equal((await f.journal()).attempts[manifestId(f.m)].status, 'verified');
+  const calls = f.state.calls.length, resolutions = f.state.resolutions;
+  assert.equal((await restarted.recoverPending()).results.length, 0); assert.equal(f.state.calls.length, calls); assert.equal(f.state.resolutions, resolutions);
+});
+test('network-secret writer transport requires explicit mode and the fixed approved host; opaque placeholders are never printed', async t => {
+  const f = await writerFixture(t); const placeholder = 'opaque-network-secret-fixture'; let calls = 0;
+  const runtime = { ...f.runtime, resolveSecret: async () => placeholder, fetch: async (url, init) => {
+    calls++; assert.equal(new URL(url).origin, 'https://qr.playzones.app'); assert.equal(init.headers['x-fattal-cloud-key'], placeholder);
+    return Response.json(await f.api.health());
+  } };
+  const client = createFattalCloudUploader({ ...f.settings, baseUrl: 'https://qr.playzones.app', credentialMode: 'network-secret' }, runtime);
+  assert.equal((await client.health()).ownerId, config.ownerId); assert.equal(calls, 1);
+  await assert.rejects(createFattalCloudUploader({ ...f.settings, credentialMode: 'network-secret' }, runtime).health, /configuration/);
+  await assert.rejects(createFattalCloudUploader(f.settings, runtime).health, /credential/); assert.equal(calls, 1);
+});
+
+test('default library resolver selects only the explicit credential mode with no network-secret fallback', () => {
+  const cwd = new URL('../..', import.meta.url);
+  execFileSync(process.execPath, ['scripts/build-fattal-cloud-cli.mjs'], { cwd, stdio: 'pipe', env: {} });
+  // A separate empty environment ensures no real host credential is inspected.
+  const script = `
+    import assert from 'node:assert/strict';
+    import { createFattalCloudUploader } from './build/fattal-cloud/cloud-uploader.js';
+    const config = ${JSON.stringify({ ...config, baseUrl: 'https://qr.playzones.app', allowedTargets: [first.shortId], credentialMode: 'network-secret' })};
+    process.env.FATTAL_CLOUD_CLIENT_KEY = 'tq_fc_' + 'a'.repeat(32) + '.' + 'b'.repeat(64);
+    process.env.FATTAL_CLOUD_WRITER_NETWORK_KEY = 'synthetic-writer-placeholder';
+    let calls = 0, usedKey;
+    globalThis.fetch = async (_url, init) => {
+      calls++;
+      usedKey = init.headers['x-fattal-cloud-key'];
+      throw Error('synthetic lost response');
+    };
+    const writer = createFattalCloudUploader(config);
+    await assert.rejects(writer.health, /transport/);
+    assert.equal(calls, 1);
+    assert.equal(usedKey, 'synthetic-writer-placeholder');
+    delete process.env.FATTAL_CLOUD_WRITER_NETWORK_KEY;
+    await assert.rejects(writer.health, /credential/);
+    assert.equal(calls, 1);
+  `;
+  execFileSync(process.execPath, ['--input-type=module', '-e', script], { cwd, stdio: 'pipe', env: {} });
 });

@@ -3,7 +3,7 @@ import type { StoredObject } from '@/lib/media-storage';
 import { FATTAL_BOOKLET_TARGETS } from './fattal';
 import {
   activeVersion, canonical, cloudTokenId, fileLedgerId, isHash, manifestId, parseManifest,
-  requireCloud, sha256, validateGrant,
+  requireCloud, requireOpenCloudTarget, sha256, validateGrant,
   type CloudConfig, type CloudManifest, type CloudScope,
 } from './cloud-policy';
 
@@ -111,6 +111,7 @@ export function createCloudService(db: Firestore, config: CloudConfig, token: st
     requireCloud(config.writesEnabled, 403, 'Cloud writes are disabled');
     const manifest = parseManifest(value, ctx.grant, now());
     const id = manifestId(manifest);
+    requireOpenCloudTarget(manifest.shortId);
     requireCloud(isHash(reviewedId) && reviewedId === id, 409, 'Reviewed manifest digest mismatch');
     requireCloud(bytes.length === manifest.size && sha256(bytes) === manifest.sha256 && bytes.subarray(0, 5).toString() === '%PDF-', 400, 'PDF bytes differ from reviewed manifest');
     const runRef = runs.doc(id);

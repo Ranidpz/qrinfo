@@ -29,12 +29,27 @@ export interface CloudGrant {
   scopes: CloudScope[]; allowedTargets: string[]; expiresAt: number;
   revokedAt?: unknown; disabledAt?: unknown;
 }
+// Operational hold reported by the owner. Read/recovery and the exact twelve-target
+// allowlist remain intact; reopening requires an explicit reviewed policy change.
+export const FATTAL_CLOUD_PAUSED_TARGETS: readonly string[] = ['5ubXFS'];
+export function requireOpenCloudTarget(shortId: string) {
+  requireCloud(!FATTAL_CLOUD_PAUSED_TARGETS.includes(shortId), 409, 'This hotel is paused until reopening');
+}
 export function validateGrant(record: unknown, token: string, config: CloudConfig, scope: CloudScope, now = Date.now()): CloudGrant {
   requireCloud(config.enabled && config.ownerId && config.ownerEmail && config.projectId, 503, 'Cloud intake is not configured');
   requireCloud(record && typeof record === 'object', 401, 'Invalid cloud credential');
   const grant = record as CloudGrant;
   const hash = sha256(token);
   requireCloud(isHash(grant.keyHash) && timingSafeEqual(Buffer.from(hash), Buffer.from(grant.keyHash)), 401, 'Invalid cloud credential');
+  return validateGrantMetadata(record, config, scope, now);
+}
+// Structural bounds validation for independently authenticated administrator review.
+// This does NOT authenticate a cloud caller; cloud API routes still use validateGrant.
+export function validateGrantMetadata(record: unknown, config: CloudConfig, scope: CloudScope, now = Date.now()): CloudGrant {
+  requireCloud(config.enabled && config.ownerId && config.ownerEmail && config.projectId, 503, 'Cloud intake is not configured');
+  requireCloud(record && typeof record === 'object', 401, 'Invalid cloud credential');
+  const grant = record as CloudGrant;
+  requireCloud(isHash(grant.keyHash), 401, 'Invalid cloud credential');
   requireCloud(grant.workflow === 'fattal-cloud-v1' && grant.revokedAt == null && grant.disabledAt == null
     && Number.isSafeInteger(grant.expiresAt) && grant.expiresAt > now, 401, 'Cloud credential expired or disabled');
   requireCloud(grant.ownerId === config.ownerId && grant.ownerEmail === config.ownerEmail && grant.projectId === config.projectId

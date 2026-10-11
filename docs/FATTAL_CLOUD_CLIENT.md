@@ -103,7 +103,9 @@ restrictions, identity/scope mismatches, forced read-only preview, manifest tamp
 recovery binding, no retries, secret/error suppression and response limits. Synthetic
 owner/project/key values and fixed allowlist IDs suffice; no secrets are needed.
 
-Still required: a successful deployment build, an isolated development API URL,
+Local production builds pass with synthetic settings and local font fixtures; actual
+deployment acceptance remains separate. Still required for isolated live integration:
+an isolated development API URL,
 verified development ownership (not inferred from confirmed production email
 `biduratias@gmail.com`), a chosen secure host injection mechanism, a separately
 provisioned read-only connection, and host-side bootstrap/registration. None is
@@ -118,3 +120,75 @@ not inherently require fresh approval. This task currently has no verified acces
 do not seek or create credentials to obtain it. An existing administrator may supply
 the non-secret mapping instead. Deployment, credential provisioning/binding and any
 future writes remain distinct permission-dependent actions.
+
+
+## Separate writer and durable recovery client
+
+The read-only dispatcher above remains unchanged. The separate, default-disabled
+`cloud-uploader.ts` and `scripts/fattal-cloud-upload.mjs` prepare a narrowly scoped
+writer. Build its fixed source list with `npm run fattal:cloud:build`. Supply only a
+non-secret JSON configuration path through `FATTAL_CLOUD_UPLOADER_CONFIG`:
+`enabled`, `writesEnabled`, `baseUrl`, verified `ownerId`/`ownerEmail`/`projectId`,
+`allowedTargets`, absolute `stateDirectory`, `durableStateConfirmed`, and optional
+`credentialMode`. Do not include keys or use dotenv/credential command arguments.
+Both enable flags default off. A server write switch, live write-scoped grant and
+exact independent manifest approval are still required for an eventual upload.
+
+Credential transport modes are explicit and never fall back:
+
+- Default `raw`: resolve only `FATTAL_CLOUD_CLIENT_KEY`, requiring dedicated token shape.
+- `network-secret`: resolve only `FATTAL_CLOUD_WRITER_NETWORK_KEY`; allow an opaque
+  host-injected placeholder only at the fixed `https://qr.playzones.app` origin.
+  The host must privately bind it to the dedicated writer credential and exact header.
+  Use a proxy-aware supported Node runtime (`node --use-env-proxy`) when required by
+  that host. A read-only network-secret binding does not authorize writing. Local
+  placeholder tests do not prove a real host binding or production writer transport.
+
+No writer secret was issued or bound by this implementation. Future provisioning must
+use an authenticated administrator's private tooling and the host's secure secret
+entry facility; never paste the value into chat, files, logs or source.
+
+All worker invocations must share one private persistent POSIX state volume with
+atomic rename, exclusive file creation and file/directory fsync. Confirm the actual
+mount persists across worker restarts before setting `durableStateConfirmed:true`.
+A Next.js/Vercel temporary directory is not such a volume. The library cannot prove
+mount durability or distinguish complete volume loss from deliberate first use.
+
+| Command | Behavior |
+| --- | --- |
+| `initialize-state` | Explicit first-use initialization on an empty private directory; no secret resolution or network |
+| `state` | Read-only historical journal snapshot, including lock presence; not current server verification |
+| `health` | Verify identity, expiry, scope and target mapping through authenticated GET |
+| `preview --manifest reviewed.json` | Read-only preflight, explicitly `saveRun:false` |
+| `upload --manifest reviewed.json --pdf reviewed.pdf` | Persist pending evidence before one POST, then independently GET recovery |
+| `recover --manifest reviewed.json` | Recover an already journaled attempt through GET only |
+| `recover-pending` | Scan at most 25 pending attempts, GET-only network calls, retain uncertain entries and stop on transport/auth failure |
+
+Invoke commands as `node scripts/fattal-cloud-upload.mjs <command>` after the build.
+With network-secret transport use `node --use-env-proxy scripts/fattal-cloud-upload.mjs`.
+Do not run upload against production as a readiness test. Commands return exit code 2
+for remaining uncertainty or a superseded single attempt, 1 for a fixed-code failure,
+and 0 for completed operations. No raw remote error or key is printed.
+
+Initialization durably writes `uploader.identity` before the empty `uploader.json`.
+A missing, corrupt, foreign-bound or unsafe-permission journal blocks further writes;
+initialization refuses an existing identity or journal. It never silently recreates
+lost history. A crash between identity and journal creation also blocks operation.
+Older cloud journals without the identity marker require separately reviewed migration
+and receipt reconciliation; there is deliberately no automatic adoption/reset command.
+Keep both files and the source/hash ledger in durable backups. The desktop updater's
+state format is unchanged.
+
+There is no stale-lock takeover. `state` can inspect an atomic historical snapshot
+while a lock exists, but mutation/recovery stays blocked until an administrator proves
+all prior invocations stopped and reconciles the evidence. Never remove a lock just
+because a timeout elapsed. Pending records survive restart; verified records remain
+in the ledger. No automatic upload retry, queue-directory deletion, email, cleanup,
+WhatsApp collection/send, scheduling or independent missed-run monitor is implemented.
+
+Before enabling any live writer, remaining acceptance includes actual persistent-volume
+restart behavior, isolated Firestore SDK contention/lost-response integration, intended
+storage verification, private credential transport, and an explicitly reviewed new or
+revised brochure. The eleven manual completions must not be replayed. U Splash stays
+paused. Approval UI visibility, credential issuance, upload activation and later
+cleanup are separate controls; releasing code enables none of them by itself.
