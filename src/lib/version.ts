@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.3';
+export const APP_VERSION = '1.27.4';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.4', date: '2026-10-11', isNew: true, highlights: {
+    he: ['דף 10 בול: ירדה שורת הנתונים שמתחת לתמונה הראשית'],
+    en: ['10 Bool page: removed the stats strip under the main photo'],
+  } },
   { version: '1.27.3', date: '2026-10-11', isNew: true, highlights: {
     he: ['הכנת חיבור קריאה מוגבל לשעה ל־12 יעדי פתאל, עם בדיקת מצב וביטול; ההנפקה חסומה עד להפעלה נפרדת'],
     en: ['Prepare one-hour read access to the 12 Fattal targets, with status and revocation; issuance remains separately disabled'],

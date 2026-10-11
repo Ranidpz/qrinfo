@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.4] - 2026-10-11
+
+- 10 בול landing: removed the hero stats strip (10.00 / 02 / ∞ / 0) – it repeated the headline. `hero.stats` stays optional in the template.
+
 ## [1.27.3] - 2026-10-11
 
 - Add separately disabled one-hour read grant issuance for the verified twelve Fattal parent targets, with hash-only server storage, issuer-scoped status and revocation. No grant or connection is activated by deployment.
