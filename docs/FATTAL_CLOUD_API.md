@@ -346,3 +346,28 @@ successful cancellation or subsequent status read. Only then may the operator di
 that page and start one newly authorized read-grant attempt. An uncertain DELETE must
 be reconciled by GET, not treated as success. Publishing this behavior does not cancel
 or issue any connection; the operator must explicitly invoke cancellation.
+
+### Supervised writer grant provisioning
+
+`/api/content-intake/dot/write-grant` is a separate super-admin, same-origin
+issuer. Issuance requires `FATTAL_CLOUD_ENABLED`,
+`FATTAL_CLOUD_WRITE_GRANTS_ENABLED` and `FATTAL_CLOUD_SUPERVISED_ENABLED` explicitly
+true. It does not change the independent write or approval switches. The setup
+review UI exposes one selected non-paused hotel and exactly 15 minutes. Grants
+have `read,write` scopes and `writeMode:supervised`; only the supervised dispatch
+path may consume them. Existing read grants are never upgraded or overwritten.
+
+The browser generates a new cryptographic token, posts only its SHA-256 hash and
+verified owner/project/target selection, and keeps the token in memory. Only the
+non-secret connection ID is persisted in browser storage before POST. Copying is
+explicit, with Personal Vault instructions; no raw token enters the DOM, URL,
+logs, server response or persistent browser storage. Reload loses the secret but
+retains the ID for inspection/cancellation. GET and DELETE remain available with
+issuance disabled. DELETE of a missing ID atomically creates an issuer-bound
+permanent tombstone, fencing delayed issuance. Neither missing nor uncertain
+results authorize a new issuance attempt. A new ID is offered only after confirmed
+revocation or expiry. The writer interface cannot inspect/revoke a read grant.
+
+Local validation covers issuance bounds, authorization, expiry, existing-ID
+rejection, tombstones, real SDK issuance/cancellation contention and Hebrew
+browser issuance/inspection/revocation after reload. No real grants were created.

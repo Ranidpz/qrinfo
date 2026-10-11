@@ -39,6 +39,12 @@ await source('setup', '../../src/lib/content-intake/setup-review.ts', { './fatta
 const approval = await source('approval', '../../src/lib/content-intake/cloud-approval.ts', {
   './fattal': expose('fattal'), './cloud-policy': expose('policy'), './setup-review': expose('setup'),
 });
+await source('readGrant', '../../src/lib/content-intake/read-grant.ts', {
+  './fattal': expose('fattal'), './cloud-policy': expose('policy'), './setup-review': expose('setup'),
+});
+const writerGrant = await source('writerGrant', '../../src/lib/content-intake/write-grant.ts', {
+  './fattal': expose('fattal'), './cloud-policy': expose('policy'), './setup-review': expose('setup'), './read-grant': expose('readGrant'),
+});
 const pdfReader = await source('pdfReader', '../../src/lib/content-intake/cloud-review-pdf.ts', { './cloud-policy': expose('policy') });
 const route = await loadTs('../../src/app/api/content-intake/fattal/cloud/[operation]/route.ts', {
   'next/server': stub('export const NextResponse={json:(body,init)=>Response.json(body,init)};'),
@@ -438,6 +444,23 @@ test('corrupt or missing journal/identity and stale lock block a new process bef
   }
 });
 
+test('real SDK writer issuance/cancellation race always leaves a revoked grant or permanent cancellation fence', async t => {
+  const f = await fixture(t);
+  const bindings = { projectId, publicProjectId: projectId, cloudProjectId: projectId, cloudOwnerId: ownerId, cloudOwnerEmail: ownerEmail };
+  for (const id of ['c'.repeat(32), 'd'.repeat(32)]) {
+    const input = writerGrant.parseWriteGrant({ connectionId: id, keyHash: 'e'.repeat(64), ownerId, ownerEmail, projectId, shortId: target.shortId, durationMinutes: 15 });
+    const operations = [() => writerGrant.issueWriteGrant(f.database, 'synthetic-admin', bindings, input),
+      () => writerGrant.inspectWriteGrant(f.database, 'synthetic-admin', bindings, id, true)];
+    if (id[0] === 'd') operations.reverse();
+    const results = await Promise.allSettled(operations.map(fn => fn()));
+    assert.ok(results.some(r => r.status === 'fulfilled' && r.value.state === 'revoked'));
+    const record = (await db.doc(`fattalCloudConnections/${id}`).get()).data();
+    assert.ok(record.revokedAt); assert.equal(record.writeMode, 'supervised');
+    await assert.rejects(writerGrant.issueWriteGrant(f.database, 'synthetic-admin', bindings, input));
+  }
+  assert.equal(f.counts.puts, 0);
+});
+
 test('running Next HTTP routes and real approval UI authorize, approve, upload, recover and revoke synthetic review', {
   timeout: 180000, skip: process.env.FATTAL_TEST_NEXT !== 'true' ? 'Enable FATTAL_TEST_NEXT for the separately installed Next/browser acceptance' : false,
 }, async t => {
@@ -465,6 +488,7 @@ test('running Next HTTP routes and real approval UI authorize, approve, upload, 
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: projectId, FATTAL_CLOUD_PROJECT_ID: projectId,
     FATTAL_CLOUD_OWNER_ID: ownerId, FATTAL_CLOUD_OWNER_EMAIL: ownerEmail,
     FATTAL_CLOUD_ENABLED: 'true', FATTAL_CLOUD_WRITES_ENABLED: 'true', FATTAL_CLOUD_APPROVALS_ENABLED: 'true',
+    FATTAL_CLOUD_WRITE_GRANTS_ENABLED: 'true', FATTAL_CLOUD_SUPERVISED_ENABLED: 'true',
     FATTAL_CLOUD_REVIEW_STORAGE_ORIGINS: '["https://fattal-objects.invalid"]',
   };
   const next = spawn(process.execPath, [dependencies.resolve('next/dist/bin/next'), 'dev', fixtureRoot, '-H', '127.0.0.1', '-p', String(port)],
@@ -540,7 +564,7 @@ test('running Next HTTP routes and real approval UI authorize, approve, upload, 
   const download = await downloaded;
   const manifestPath = join(f.directory, 'browser-export.json'); await download.saveAs(manifestPath);
   const reviewed = JSON.parse(await readFile(manifestPath, 'utf8')); assert.equal(manifestId(reviewed), preview.manifestId);
-  await page.getByRole('checkbox').check();
+  await page.locator('section[aria-labelledby=manifest-approval-title]').getByRole('checkbox').check();
   const approveResponse = page.waitForResponse(r => r.url() === `${browserOrigin}/api/content-intake/dot/approvals` && r.request().method() === 'POST');
   await page.getByRole('button', { name: labels.approvalApprove, exact: true }).click();
   const approved = await (await approveResponse).json(); assert.equal(approved.state, 'approved');
@@ -558,6 +582,37 @@ test('running Next HTTP routes and real approval UI authorize, approve, upload, 
   assert.equal(recovered.code, 0); assert.equal(recovered.result.verified, true);
   await page.setViewportSize({ width: 390, height: 844 });
   if (artifacts) await page.screenshot({ path: join(artifacts, 'approval-mobile-revoked.png'), fullPage: true });
+  await page.goto(`${browserOrigin}/?locale=he`, { waitUntil: 'networkidle' });
+  const he = JSON.parse(await readFile(join(root, 'src/i18n/locales/he.json'), 'utf8')).contentIntake;
+  await page.getByRole('heading', { name: he.writerTitle }).waitFor();
+  const writerPanel = page.locator('section[aria-labelledby=writer-grant-title]');
+  await page.locator('#writer-target').selectOption(target.shortId);
+  await writerPanel.getByRole('checkbox').check();
+  const writerReply = page.waitForResponse(r => r.url().endsWith('/dot/write-grant') && r.request().method() === 'POST');
+  await writerPanel.getByRole('button', { name: he.writerIssue, exact: true }).click();
+  const writerResponse = await writerReply; assert.equal(writerResponse.status(), 201);
+  const writerResult = await writerResponse.json();
+  const writerRecord = (await db.doc(`fattalCloudConnections/${writerResult.connectionId}`).get()).data();
+  assert.deepEqual(writerRecord.allowedTargets, [target.shortId]); assert.deepEqual(writerRecord.scopes, ['read', 'write']);
+  assert.equal(writerRecord.writeMode, 'supervised'); assert.equal(writerRecord.expiresAt - writerRecord.ownerVerifiedAt, 900000);
+  assert.match(writerRecord.keyHash, /^[a-f0-9]{64}$/);
+  assert.equal(await page.evaluate(() => /tq_fc_/.test(document.documentElement.outerHTML + JSON.stringify(localStorage))), false);
+  await writerPanel.getByRole('button', { name: he.writerCopy, exact: true }).waitFor();
+  if (artifacts) await page.screenshot({ path: join(artifacts, 'writer-hebrew-active.png'), fullPage: true });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: he.writerTitle }).waitFor();
+  assert.equal(await page.locator('#writer-attempt-id').inputValue(), writerResult.connectionId);
+  assert.equal(await writerPanel.getByRole('button', { name: he.writerCopy, exact: true }).count(), 0);
+  await writerPanel.getByRole('button', { name: he.writerInspect, exact: true }).click();
+  await writerPanel.getByRole('status').filter({ hasText: he.writerState_active }).waitFor();
+  await writerPanel.getByRole('button', { name: he.writerRevoke, exact: true }).click();
+  await writerPanel.getByRole('status').filter({ hasText: he.writerState_revoked }).waitFor();
+  assert.ok((await db.doc(`fattalCloudConnections/${writerResult.connectionId}`).get()).data().revokedAt);
+  // A manually recovered missing attempt can be cancelled after page loss too.
+  await page.locator('#writer-attempt-id').fill('f'.repeat(32));
+  await writerPanel.getByRole('button', { name: he.writerRevoke, exact: true }).click();
+  await writerPanel.getByRole('status').filter({ hasText: he.writerState_revoked }).waitFor();
+  assert.equal((await db.doc(`fattalCloudConnections/${'f'.repeat(32)}`).get()).data().recordType, 'revocation_tombstone');
   assert.deepEqual(externalRequests, []); assert.deepEqual(consoleErrors, []);
   assert.equal(await page.locator('nextjs-portal [data-nextjs-dialog-overlay]').count(), 0, 'No framework error overlay');
   assert.equal(f.counts.puts, 1); assert.equal(f.counts.deleteAttempts, 0);

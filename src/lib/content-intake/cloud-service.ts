@@ -109,6 +109,7 @@ export function createCloudService(db: Firestore, config: CloudConfig, token: st
   async function commit(value: unknown, reviewedId: string, bytes: Buffer) {
     const ctx = await context('write');
     requireCloud(config.writesEnabled, 403, 'Cloud writes are disabled');
+    requireCloud(ctx.grant.writeMode !== 'supervised', 403, 'Supervised dispatch required');
     const manifest = parseManifest(value, ctx.grant, now());
     const id = manifestId(manifest);
     requireOpenCloudTarget(manifest.shortId);

@@ -50,6 +50,7 @@ async function component(name){
 }
 replacements['./DotManifestApproval']=await component('DotManifestApproval');
 replacements['./DotReadGrant']=await component('DotReadGrant');
+replacements['./DotWriteGrant']=await component('DotWriteGrant');
 replacements['./DotSetupReview']=await component('DotSetupReview');
 replacements['./DotConnection']=await component('DotConnection');
 replacements['./ComputerList']=await component('ComputerList');

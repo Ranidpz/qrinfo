@@ -28,6 +28,7 @@ export interface CloudGrant {
   ownerVerifiedBy: string; ownerVerifiedAt: number;
   scopes: CloudScope[]; allowedTargets: string[]; expiresAt: number;
   revokedAt?: unknown; disabledAt?: unknown;
+  writeMode?: 'supervised'; attemptManifestId?: string;
 }
 // Operational hold reported by the owner. Read/recovery and the exact twelve-target
 // allowlist remain intact; reopening requires an explicit reviewed policy change.
