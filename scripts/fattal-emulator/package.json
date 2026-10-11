@@ -1,0 +1,8 @@
+{
+  "name": "qrinfo-fattal-emulator-tests",
+  "private": true,
+  "devDependencies": {
+    "firebase-admin": "13.6.0",
+    "firebase-tools": "15.33.0"
+  }
+}

@@ -302,17 +302,22 @@ concurrency, idempotency, expected-version rejection, ambiguous writes and revoc
 between upload/activation. The approval tests also exercise actual-PDF dedupe,
 read-only preview, actor/owner/grant changes during the read, stale manifests,
 concurrent creation, revocation and uncertain-response recovery. No live data is
-needed or accessed. A Firestore emulator or
-privately configured development project plus development R2 storage is still needed to
-verify SDK transaction conflict/retry and storage behavior end to end before rollout.
+needed or accessed.
 
-The October 11 local validation could not run a Firestore emulator: the official
-JAR download returned HTTP 403. Real SDK contention/retry remains an activation
-blocker; mocked success must not be described as production end-to-end acceptance.
+`npm run fattal:cloud:test:emulator` adds isolated acceptance with actual Firebase
+Admin transactions, the official Firestore emulator, a loopback disk-backed object
+store and separate uploader OS processes. It checks replacement bytes/pointer/
+receipt/quota, competing transactions, duplicate requests, lost-response recovery,
+permission changes, paused Splash and missing/corrupt journal history. See
+[setup and exact limits](../scripts/fattal-emulator/README.md). The fresh October 11
+environment allowed the official JAR download; size and SHA-256 matched installed
+firebase-tools metadata. All 29 reported tests passed. This supersedes the earlier
+environment's HTTP 403 download blocker, not the remaining production acceptance.
 
 The transaction fixture also replays a callback to check that quota reservations and
-external writes are not duplicated. It is not a Firestore emulator: actual SDK conflict,
-retry and R2 integration remain unverified. The legacy helper's pre-existing ambiguous
+external writes are not duplicated. That fixture remains a mock; the separate
+emulator suite exercises real SDK contention. Actual R2/S3 adapter integration,
+environment remount persistence and deployed transport remain unverified. The legacy helper's pre-existing ambiguous
 transaction cleanup behavior is not redesigned here; the cloud path never calls that
 helper and does not inherit its notification/deletion behavior.
 

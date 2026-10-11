@@ -9,6 +9,7 @@
     "fattal:intake": "node scripts/fattal-intake.mjs",
     "lint": "eslint",
     "fattal:cloud:build": "node scripts/build-fattal-cloud-cli.mjs",
+    "fattal:cloud:test:emulator": "node scripts/run-fattal-emulator-tests.mjs",
     "fattal:cloud": "node scripts/fattal-cloud-upload.mjs"
   },
   "dependencies": {

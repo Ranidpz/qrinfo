@@ -186,9 +186,12 @@ because a timeout elapsed. Pending records survive restart; verified records rem
 in the ledger. No automatic upload retry, queue-directory deletion, email, cleanup,
 WhatsApp collection/send, scheduling or independent missed-run monitor is implemented.
 
-Before enabling any live writer, remaining acceptance includes actual persistent-volume
-restart behavior, isolated Firestore SDK contention/lost-response integration, intended
-storage verification, private credential transport, and an explicitly reviewed new or
+The [isolated emulator suite](../scripts/fattal-emulator/README.md) verifies actual
+Firestore SDK contention and lost-response recovery by a new OS process on the
+same journal filesystem, using generated PDFs and loopback disk storage.
+Before enabling any live writer, remaining acceptance includes actual environment
+remount persistence, intended R2 storage verification, deployed/private credential
+transport, and an explicitly reviewed new or
 revised brochure. The eleven manual completions must not be replayed. U Splash stays
 paused. Approval UI visibility, credential issuance, upload activation and later
 cleanup are separate controls; releasing code enables none of them by itself.
