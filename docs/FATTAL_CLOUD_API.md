@@ -308,10 +308,13 @@ needed or accessed.
 Admin transactions, the official Firestore emulator, a loopback disk-backed object
 store and separate uploader OS processes. It checks replacement bytes/pointer/
 receipt/quota, competing transactions, duplicate requests, lost-response recovery,
-permission changes, paused Splash and missing/corrupt journal history. See
+SIGKILL reconciliation, permission changes, paused Splash and missing/corrupt journal
+history. Optional `FATTAL_TEST_NEXT=true` adds running Next HTTP routes, real
+server auth through the Auth emulator, and browser approval/export/revocation. See
 [setup and exact limits](../scripts/fattal-emulator/README.md). The fresh October 11
 environment allowed the official JAR download; size and SHA-256 matched installed
-firebase-tools metadata. All 29 reported tests passed. This supersedes the earlier
+firebase-tools metadata. The initial 29-test run and extended 31-test Next/browser run passed. The test
+README records exact scope and limits. This supersedes the earlier
 environment's HTTP 403 download blocker, not the remaining production acceptance.
 
 The transaction fixture also replays a callback to check that quota reservations and

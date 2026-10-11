@@ -21,7 +21,8 @@ assert.equal(createHash('sha256').update(jarBytes).digest('hex'), info.expectedC
 const artifacts = process.env.FATTAL_TEST_ARTIFACTS ? resolve(process.env.FATTAL_TEST_ARTIFACTS)
   : await mkdtemp(join(tmpdir(), 'fattal-emulator-evidence-'));
 await mkdir(artifacts, { recursive: true, mode: 0o700 });
-const env = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, LANG: 'C.UTF-8', TMPDIR: tmpdir() };
+const env = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, LANG: 'C.UTF-8', TMPDIR: tmpdir(),
+  METADATA_SERVER_DETECTION: 'none', XDG_CONFIG_HOME: join(artifacts, 'empty-cli-config') };
 async function run(command, args, childEnv = env) {
   const child = spawn(command, args, { cwd: root, env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
@@ -59,7 +60,12 @@ try {
   }
   console.log(`Verified emulator ${info.version} running on loopback; project ${projectId}.`);
   const childEnv = { ...env, FIRESTORE_EMULATOR_HOST: `127.0.0.1:${port}`,
-    FATTAL_TEST_DEPENDENCY_ROOT: dependencies, FATTAL_TEST_ARTIFACTS: artifacts };
+    FATTAL_TEST_DEPENDENCY_ROOT: dependencies, FATTAL_TEST_ARTIFACTS: artifacts,
+    ...(process.env.FATTAL_TEST_NEXT === 'true' ? { FATTAL_TEST_NEXT: 'true',
+      ...(process.env.FATTAL_TEST_PLAYWRIGHT_ROOT ? { FATTAL_TEST_PLAYWRIGHT_ROOT: resolve(process.env.FATTAL_TEST_PLAYWRIGHT_ROOT) } : {}),
+      ...(process.env.FATTAL_TEST_CHROMIUM ? { FATTAL_TEST_CHROMIUM: resolve(process.env.FATTAL_TEST_CHROMIUM) } : {}),
+    } : {}),
+  };
   const child = spawn(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=tap',
     'scripts/tests/fattal-cloud.emulator.mjs'], { cwd: root, env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
@@ -79,6 +85,9 @@ try {
   await writeFile(join(artifacts, 'environment.json'), JSON.stringify({ outcome, projectId,
     host: '127.0.0.1', emulatorVersion: info.version, expectedSHA256: info.expectedChecksumSHA256,
     javaVersion: javaVersion.trim(), inheritedCredentials: false, productionCalls: 0,
-    limitations: ['No actual environment remount', 'No real R2 or S3 adapter acceptance', 'Next server and TLS replaced by test transport'] }, null, 2) + '\n');
+    nextHTTPAndBrowserEnabled: process.env.FATTAL_TEST_NEXT === 'true',
+    limitations: ['No actual environment remount or host-crash durability proof', 'No real R2 or S3 adapter acceptance',
+      'No live TLS or production secret proxy acceptance',
+      ...(process.env.FATTAL_TEST_NEXT === 'true' ? ['Isolated Next fixture; synthetic browser login and object transport'] : ['Running Next/browser acceptance skipped'])] }, null, 2) + '\n');
   console.log(`Acceptance evidence: ${artifacts}`);
 }

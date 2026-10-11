@@ -80,7 +80,7 @@ async function fixture(t) {
   await mkdir(stateDirectory, { mode: 0o700 }); await mkdir(objects, { mode: 0o700 });
   const counts = { puts: 0, gets: 0, deleteAttempts: 0, commitRequests: 0, txCalls: 0, txCallbacks: 0, activeTransactions: 0, maxConcurrentTransactions: 0 };
   const f = { directory, stateDirectory, objects, counts, calls: [], dropCommit: false, blockRecovery: false,
-    beforeCommit: async () => {}, afterPersist: async () => {}, errors: [] };
+    beforeCommit: async () => {}, afterPersist: async () => {}, afterCommit: async () => {}, errors: [] };
   f.database = {
     collection: db.collection.bind(db),
     runTransaction: (callback, options) => {
@@ -125,6 +125,7 @@ async function fixture(t) {
       const req = new Request(apiUrl, { method: request.method, headers: request.headers,
         ...(body.length ? { body } : {}) }); req.nextUrl = apiUrl;
       const result = await route[request.method](req, { params: Promise.resolve({ operation }) });
+      if (operation === 'commit') await f.afterCommit(result);
       if (operation === 'commit' && f.dropCommit) { response.destroy(); return; }
       response.writeHead(result.status, Object.fromEntries(result.headers));
       response.end(Buffer.from(await result.arrayBuffer()));
@@ -171,7 +172,7 @@ async function fixture(t) {
     cloudProjectId: projectId, cloudOwnerId: ownerId, cloudOwnerEmail: ownerEmail },
   pdfReader.createReviewPdfReader(['https://fattal-objects.invalid'], f.readObject));
   f.request = async (operation, body) => {
-    const response = await originalFetch(`${f.origin}/api/content-intake/fattal/cloud/${operation}`, {
+    const response = await originalFetch(`${f.apiOrigin || f.origin}/api/content-intake/fattal/cloud/${operation}`, {
       method: body === undefined ? 'GET' : 'POST', redirect: 'error', headers: { 'x-fattal-cloud-key': token, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -198,7 +199,7 @@ async function fixture(t) {
     pdfBase64: bytes.toString('base64'), sendEmail: false, notify: false, cleanup: false, deleteOld: false });
   f.config = { enabled: true, writesEnabled: true, baseUrl: 'https://fattal-api.invalid', ownerId, ownerEmail, projectId,
     allowedTargets: targets.map(t => t.shortId), stateDirectory, durableStateConfirmed: true };
-  f.worker = async (command, manifest, bytes = newBytes, overrides = {}) => {
+  f.worker = async (command, manifest, bytes = newBytes, overrides = {}, observeChild = () => {}) => {
     const configPath = join(directory, 'worker-config.json'), manifestPath = join(directory, 'manifest.json'), pdfPath = join(directory, 'synthetic.pdf');
     await writeFile(configPath, JSON.stringify({ ...f.config, ...overrides }), { mode: 0o600 });
     if (manifest) await writeFile(manifestPath, JSON.stringify(manifest), { mode: 0o600 });
@@ -207,12 +208,14 @@ async function fixture(t) {
     if (manifest) args.push('--manifest', manifestPath);
     if (command === 'upload') args.push('--pdf', pdfPath);
     const child = spawn(process.execPath, args, { cwd: root,
-      env: { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, FATTAL_TEST_HTTP_ORIGIN: f.origin, FATTAL_CLOUD_UPLOADER_CONFIG: configPath },
+      env: { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, FATTAL_TEST_HTTP_ORIGIN: f.apiOrigin || f.origin, FATTAL_CLOUD_UPLOADER_CONFIG: configPath },
       stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '', errors = '';
     child.stdout.on('data', b => { output += b; }); child.stderr.on('data', b => { errors += b; });
-    const [code, signal] = await once(child, 'exit');
-    assert.equal(signal, null); assert.equal(errors, '');
+    observeChild(child);
+    const [code, signal] = await once(child, 'close');
+    assert.equal(errors, '');
+    if (signal) return { code, signal, pid: child.pid, output };
     assert.doesNotMatch(output, /tq_fc_|keyHash|pdfBase64/);
     return { code, pid: child.pid, result: JSON.parse(output) };
   };
@@ -257,6 +260,47 @@ test('one approved replacement persists bytes, pointer, receipt and quota; repea
     objectWrites: f.counts.puts, objectDeletes: f.counts.deleteAttempts,
     quotaBefore: oldBytes.length, quotaAfter: oldBytes.length + newBytes.length,
     clientRepeatCommits: 0, directDuplicateCommitVerified: true }));
+});
+
+test('SIGKILL after activation retains lock and pending journal; explicit proven-dead reconciliation precedes GET-only recovery', { timeout: 45000 }, async t => {
+  const f = await fixture(t), m = await f.approve(await f.makeManifest());
+  let reached, release, child;
+  const activated = new Promise(resolveReached => { reached = resolveReached; });
+  const heldResponse = new Promise(resolveRelease => { release = resolveRelease; });
+  f.afterCommit = async response => { assert.equal(response.status, 200); reached(); await heldResponse; };
+  const running = f.worker('upload', m, newBytes, {}, process => { child = process; });
+  await activated;
+  assert.equal((await f.journal()).attempts[manifestId(m)].status, 'pending');
+  assert.equal((await db.doc(`fattalCloudRuns/${manifestId(m)}`).get()).data().status, 'activated');
+  assert.ok(child.kill('SIGKILL'));
+  const killed = await running; assert.equal(killed.signal, 'SIGKILL'); release();
+  assert.throws(() => process.kill(killed.pid, 0), error => error.code === 'ESRCH', 'Exact fixture process has exited');
+  const lock = join(f.stateDirectory, 'uploader.lock');
+  const retainedLock = await readFile(lock, 'utf8'), retainedJournal = await readFile(join(f.stateDirectory, 'uploader.json'), 'utf8');
+  f.calls.length = 0;
+  const blocked = await f.worker('recover-pending', undefined, undefined, { writesEnabled: false });
+  assert.equal(blocked.result.error, 'state'); assert.deepEqual(f.calls, []);
+  const snapshot = await f.worker('state'); assert.equal(snapshot.result.lockPresent, true);
+  assert.equal(snapshot.result.attempts[0].lastKnownStatus, 'pending');
+  assert.equal(await readFile(lock, 'utf8'), retainedLock);
+  assert.equal(await readFile(join(f.stateDirectory, 'uploader.json'), 'utf8'), retainedJournal);
+  // Test-only operator reconciliation, never an automatic uploader takeover:
+  // the exact child is dead, this private directory has one caller, and GET
+  // independently confirms the bound receipt/pointer/bytes before lock removal.
+  await f.assertActivated(m);
+  const artifact = process.env.FATTAL_TEST_ARTIFACTS;
+  if (artifact) await writeFile(join(artifact, 'sigkill-reconciliation.json'), JSON.stringify({
+    killedPid: killed.pid, signal: killed.signal, exactProcessExited: true, automaticRecoveryBlocked: true,
+    retainedPendingManifest: manifestId(m), receiptIndependentlyVerified: true,
+    lockRemovedBy: 'explicit isolated test operator after reconciliation', journalReset: false,
+  }, null, 2) + '\n');
+  await rm(lock); f.calls.length = 0;
+  const recovered = await f.worker('recover-pending', undefined, undefined, { writesEnabled: false });
+  assert.equal(recovered.result.pending, 0); assert.equal(recovered.result.results[0].verified, true);
+  assert.deepEqual(f.calls, [{ method: 'GET', operation: 'health' }, { method: 'GET', operation: 'recovery' }]);
+  assert.equal(f.counts.commitRequests, 1); assert.equal(f.counts.puts, 1); assert.equal(f.counts.deleteAttempts, 0);
+  t.diagnostic(JSON.stringify({ signal: killed.signal, automaticTakeover: false,
+    operatorReconciled: true, recoveryProcess: recovered.pid, objectWrites: 1, objectDeletes: 0 }));
 });
 
 test('lost commit and recovery responses: fresh OS process recovers same pending journal using GET only', { timeout: 45000 }, async t => {
@@ -392,4 +436,134 @@ test('corrupt or missing journal/identity and stale lock block a new process bef
       }
     });
   }
+});
+
+test('running Next HTTP routes and real approval UI authorize, approve, upload, recover and revoke synthetic review', {
+  timeout: 180000, skip: process.env.FATTAL_TEST_NEXT !== 'true' ? 'Enable FATTAL_TEST_NEXT for the separately installed Next/browser acceptance' : false,
+}, async t => {
+  const f = await fixture(t);
+  const fixtureRoot = join(root, 'scripts/fattal-emulator/next-fixture');
+  const { emulatorToken } = await import('../fattal-emulator/next-fixture/emulator-token.mjs');
+  const probe = createServer(); probe.listen(0, '127.0.0.1'); await once(probe, 'listening');
+  const port = probe.address().port; await new Promise(resolveClose => probe.close(resolveClose));
+  const origin = `http://127.0.0.1:${port}`;
+  const { createApp } = dependencies('firebase-tools/lib/emulator/auth/server');
+  const authApp = await createApp(projectId, 2); // SingleProjectMode.ERROR
+  const authServer = authApp.listen(0, '127.0.0.1'); await once(authServer, 'listening');
+  t.after(async () => { authServer.closeAllConnections(); await new Promise(resolveClose => authServer.close(resolveClose)); });
+  const authHost = `127.0.0.1:${authServer.address().port}`;
+  const seededAuth = await originalFetch(`http://${authHost}/identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:batchCreate`, {
+    method: 'POST', headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ users: ['synthetic-admin', ownerId].map(localId => ({ localId, email: `${localId}@example.invalid`, validSince: '0' })) }),
+  });
+  assert.equal(seededAuth.status, 200); assert.deepEqual((await seededAuth.json()).error || [], []);
+  const nextEnv = { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, TMPDIR: tmpdir(),
+    METADATA_SERVER_DETECTION: 'none', XDG_CONFIG_HOME: join(f.directory, 'empty-cli-config'),
+    NEXT_TELEMETRY_DISABLED: '1', FATTAL_TEST_NEXT: 'true', FATTAL_TEST_OBJECT_ORIGIN: f.origin,
+    FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST,
+    FIREBASE_AUTH_EMULATOR_HOST: authHost,
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: projectId, FATTAL_CLOUD_PROJECT_ID: projectId,
+    FATTAL_CLOUD_OWNER_ID: ownerId, FATTAL_CLOUD_OWNER_EMAIL: ownerEmail,
+    FATTAL_CLOUD_ENABLED: 'true', FATTAL_CLOUD_WRITES_ENABLED: 'true', FATTAL_CLOUD_APPROVALS_ENABLED: 'true',
+    FATTAL_CLOUD_REVIEW_STORAGE_ORIGINS: '["https://fattal-objects.invalid"]',
+  };
+  const next = spawn(process.execPath, [dependencies.resolve('next/dist/bin/next'), 'dev', fixtureRoot, '-H', '127.0.0.1', '-p', String(port)],
+    { cwd: root, env: nextEnv, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+  let nextLog = '';
+  next.stdout.on('data', b => { nextLog += b; }); next.stderr.on('data', b => { nextLog += b; });
+  const nextClosed = once(next, 'close');
+  t.after(async () => {
+    if (next.exitCode === null) {
+      try { process.kill(-next.pid, 'SIGTERM'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+    }
+    await nextClosed;
+    if (process.env.FATTAL_TEST_ARTIFACTS) await writeFile(join(process.env.FATTAL_TEST_ARTIFACTS, 'next-server.log'), nextLog);
+  });
+  const deadline = Date.now() + 45000;
+  while (!nextLog.includes('Ready in')) {
+    assert.equal(next.exitCode, null, nextLog); assert.ok(Date.now() < deadline, nextLog);
+    await new Promise(resolveWait => setTimeout(resolveWait, 100));
+  }
+  f.apiOrigin = origin;
+  const firstHealth = await f.request('health'); assert.equal(firstHealth.status, 200, JSON.stringify(firstHealth.body));
+  const adminRequest = async (method, body, uid = 'synthetic-admin', requestOrigin = origin, suffix = '') => {
+    const response = await originalFetch(`${origin}/api/content-intake/dot/approvals${suffix}`, {
+      method, headers: { 'Content-Type': 'application/json', Origin: requestOrigin,
+        ...(uid ? { Authorization: `Bearer ${emulatorToken(uid)}` } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    return { status: response.status, body: await response.json() };
+  };
+  assert.equal((await adminRequest('GET', undefined, '')).status, 401);
+  assert.equal((await adminRequest('GET', undefined, ownerId)).status, 403);
+  const capability = await adminRequest('GET'); assert.equal(capability.status, 200); assert.equal(capability.body.approvalEnabled, true);
+  const candidate = await f.makeManifest();
+  assert.equal((await adminRequest('POST', { action: 'preview', connectionId: writerId, manifest: candidate }, 'synthetic-admin', 'https://foreign.invalid')).status, 403);
+
+  const browserDeps = process.env.FATTAL_TEST_PLAYWRIGHT_ROOT
+    ? createRequire(join(process.env.FATTAL_TEST_PLAYWRIGHT_ROOT, 'package.json')) : dependencies;
+  const { chromium } = browserDeps('playwright');
+  const browser = await chromium.launch({ headless: true, ...(process.env.FATTAL_TEST_CHROMIUM ? { executablePath: process.env.FATTAL_TEST_CHROMIUM } : {}),
+    args: ['--disable-background-networking', '--disable-dev-shm-usage'],
+    env: { PATH: nextEnv.PATH, TMPDIR: tmpdir() } });
+  t.after(() => browser.close());
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  // NextURL normalizes numeric loopback to localhost; use that browser Origin
+  // so the actual same-origin guard remains unchanged. CLI sockets stay numeric.
+  const browserOrigin = `http://localhost:${port}`;
+  const externalRequests = [], consoleErrors = [];
+  await context.route('**/*', route => {
+    if (new URL(route.request().url()).origin === browserOrigin) return route.continue();
+    externalRequests.push(route.request().url()); return route.abort();
+  });
+  const page = await context.newPage();
+  page.setDefaultTimeout(20000);
+  page.on('pageerror', e => consoleErrors.push(e.message));
+  page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+  const labels = JSON.parse(await readFile(join(root, 'src/i18n/locales/en.json'), 'utf8')).contentIntake;
+  await page.goto(browserOrigin, { waitUntil: 'networkidle' });
+  assert.equal(page.url(), `${browserOrigin}/`); assert.equal(await page.title(), 'Isolated Fattal approval acceptance');
+  await page.getByRole('heading', { name: labels.approvalTitle }).waitFor().catch(async error => {
+    throw new Error(`${error.message}; browser errors: ${JSON.stringify(consoleErrors)}; page: ${await page.locator('body').innerText()}`);
+  });
+  await page.locator('#approval-writer').fill(writerId);
+  await page.locator('#approval-file').setInputFiles({ name: 'synthetic-manifest.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(candidate)) });
+  const previewResponse = page.waitForResponse(r => r.url() === `${browserOrigin}/api/content-intake/dot/approvals` && r.request().method() === 'POST');
+  await page.getByRole('button', { name: labels.approvalPreview, exact: true }).click();
+  const previewReply = await previewResponse;
+  const preview = await previewReply.json(); assert.equal(previewReply.status(), 200, JSON.stringify(preview));
+  assert.equal(preview.persisted, false);
+  assert.equal(preview.manifest.review.reviewer, 'synthetic-admin'); assert.equal(preview.predecessor.sha256, sha256(oldBytes));
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('button', { name: labels.approvalExport, exact: true }).click();
+  const download = await downloaded;
+  const manifestPath = join(f.directory, 'browser-export.json'); await download.saveAs(manifestPath);
+  const reviewed = JSON.parse(await readFile(manifestPath, 'utf8')); assert.equal(manifestId(reviewed), preview.manifestId);
+  await page.getByRole('checkbox').check();
+  const approveResponse = page.waitForResponse(r => r.url() === `${browserOrigin}/api/content-intake/dot/approvals` && r.request().method() === 'POST');
+  await page.getByRole('button', { name: labels.approvalApprove, exact: true }).click();
+  const approved = await (await approveResponse).json(); assert.equal(approved.state, 'approved');
+  await page.getByRole('status').filter({ hasText: labels.approvalState_approved }).waitFor();
+  assert.equal(f.counts.puts, 0, 'Approval UI must not upload');
+  const artifacts = process.env.FATTAL_TEST_ARTIFACTS;
+  if (artifacts) await page.screenshot({ path: join(artifacts, 'approval-desktop.png'), fullPage: true });
+  const uploaded = await f.worker('upload', reviewed); assert.equal(uploaded.code, 0); assert.equal(uploaded.result.verified, true);
+  await f.assertActivated(reviewed);
+  const revokedResponse = page.waitForResponse(r => r.request().method() === 'DELETE');
+  await page.getByRole('button', { name: labels.approvalRevoke, exact: true }).click();
+  assert.equal((await (await revokedResponse).json()).state, 'revoked');
+  await page.getByRole('status').filter({ hasText: labels.approvalState_revoked }).waitFor();
+  const recovered = await f.worker('recover', reviewed, undefined, { writesEnabled: false });
+  assert.equal(recovered.code, 0); assert.equal(recovered.result.verified, true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  if (artifacts) await page.screenshot({ path: join(artifacts, 'approval-mobile-revoked.png'), fullPage: true });
+  assert.deepEqual(externalRequests, []); assert.deepEqual(consoleErrors, []);
+  assert.equal(await page.locator('nextjs-portal [data-nextjs-dialog-overlay]').count(), 0, 'No framework error overlay');
+  assert.equal(f.counts.puts, 1); assert.equal(f.counts.deleteAttempts, 0);
+  t.diagnostic(JSON.stringify({ nextVersion: dependencies('next/package.json').version,
+    actualNextRequestResponse: true, realServerAuthGuard: true, authMode: 'synthetic unsigned Firebase Auth emulator token',
+    browserPlugin: 'absent; installed Playwright used', ui: ['preview', 'export', 'approve', 'revoke'],
+    uploadVerified: true, recoveryAfterRevocation: true, externalBrowserRequests: 0, consoleErrors: 0,
+    liveTLSOrProxyProven: false, realR2Proven: false }));
 });

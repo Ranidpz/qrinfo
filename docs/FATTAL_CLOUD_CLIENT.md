@@ -188,7 +188,11 @@ WhatsApp collection/send, scheduling or independent missed-run monitor is implem
 
 The [isolated emulator suite](../scripts/fattal-emulator/README.md) verifies actual
 Firestore SDK contention and lost-response recovery by a new OS process on the
-same journal filesystem, using generated PDFs and loopback disk storage.
+same journal filesystem, using generated PDFs and loopback disk storage. It also
+checks SIGKILL with retained lock/pending history, explicit operator reconciliation
+and GET-only recovery. Optional Next/browser coverage exercises actual HTTP and
+server auth with synthetic identities. The [caller runtime plan](FATTAL_CALLER_RUNTIME.md)
+records the remaining durable-volume gate.
 Before enabling any live writer, remaining acceptance includes actual environment
 remount persistence, intended R2 storage verification, deployed/private credential
 transport, and an explicitly reviewed new or

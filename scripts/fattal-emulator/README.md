@@ -7,7 +7,7 @@ rereads generated one-page fixture PDFs on disk. Nothing contacts a production
 Firebase project, R2 bucket, website, grant service or messaging provider.
 
 Install the repository's ordinary development dependencies, then the test-only
-dependencies (`firebase-admin@13.6.0`, `firebase-tools@15.33.0`):
+dependencies pinned in this directory:
 
 ```sh
 npm install --prefix scripts/fattal-emulator --ignore-scripts --no-audit --no-fund
@@ -36,7 +36,7 @@ fixture setup and transactions operate only on that emulator. Each case resets
 only the dedicated demo database. The runner stops its emulator afterward and
 saves `environment.json`, `emulator.log` and `acceptance.tap`.
 
-The ten top-level cases (29 tests including parameterized subtests) cover:
+The base cases cover:
 
 - Approval and one replacement: persisted PDF bytes/SHA-256, active pointer,
   receipt, file ledger, predecessor retention, quota, verified journal.
@@ -45,6 +45,9 @@ The ten top-level cases (29 tests including parameterized subtests) cover:
 - Lost commit reply after activation plus unavailable recovery: a different OS
   process uses the same journal directory, writes disabled, and only GET health
   and GET recovery to confirm the pending attempt without another commit.
+- SIGKILL after server activation retains the pending journal and lock. Automatic
+  recovery is blocked; an explicit test operator proves the child dead and verifies
+  receipt/pointer/bytes before removing only the lock and invoking GET-only recovery.
 - Competing actual SDK transactions: one accepted revision, one conflict,
   one receipt/storage write/quota reservation; overlapping callbacks measured.
 - Stale expectedVersion, renamed same-byte PDF, expired/revoked/read-only grant,
@@ -55,16 +58,52 @@ The ten top-level cases (29 tests including parameterized subtests) cover:
 - Corrupt/missing history, missing identity and stale lock: new processes cannot
   upload, recover or silently initialize; historical inspection preserves locks.
 
-The production HTTPS validation is unchanged. An explicit test-only transport
-maps `.invalid` fixture origins to the loopback HTTP server. Next's response and
-bootstrap imports are substituted, so this is not a running Next/TLS deployment
-test. The real media-storage/R2 adapter is replaced by the local disk store; its
-R2-shaped metadata exercises service checks but does not prove S3/R2 behavior.
-No notification/deletion adapter is supplied; the object server also records and
-rejects DELETE. No real brochures or connections are used.
+## Running Next and browser acceptance
 
-Process restart on the same live filesystem is verified. Environment destruction
-and remount, host storage durability guarantees, abrupt SIGKILL reconciliation,
-production credential transport, real R2 acceptance, and live PDF rendering
-remain unverified. Transaction contention is real; exact retry counts may vary
-with emulator scheduling. A passing run does not authorize production activation.
+Add `FATTAL_TEST_NEXT=true` to the command to run the actual Next HTTP routes,
+actual Firebase Admin bootstrap and server authorization guards. This mode starts
+the installed Auth emulator on loopback, seeds synthetic identities, and loads the
+real approval component in a minimal Next page. Playwright covers preview, JSON
+export, approval, one upload, revocation and recovery of the activated receipt.
+Missing authentication, ordinary-user role and foreign Origin are also rejected.
+The full mode reports 31 tests; without it, 30 pass and the Next case is skipped.
+
+Use an already available Chromium with `FATTAL_TEST_CHROMIUM=/absolute/path/chromium`.
+`FATTAL_TEST_PLAYWRIGHT_ROOT` optionally selects an existing Playwright package
+installation. Otherwise the pinned test dependency is used. Browser installation
+is separate; the runner never downloads a browser. Next/React resolve from the
+ordinary repository dependencies; the test package also pins its Next executable.
+The fixture is opt-in, demo-project-only and bound to numeric loopback.
+
+The base route adapter substitutes Next response/bootstrap imports. The Next case
+uses actual Next request/response handling, Firestore and Auth emulators, but
+substitutes browser login token acquisition and media storage. Synthetic unsigned
+JWTs work only in explicit Auth emulator mode. No production login or token is
+used. The page omits the full application shell/styles, so screenshots establish
+functional approval states, not production visual acceptance.
+
+Production HTTPS validation is unchanged. Explicit test-only transport maps
+`.invalid` fixture object origins to loopback HTTP. R2-shaped metadata exercises
+service checks but does not prove real S3/R2 behavior. No notification/deletion
+adapter is supplied; the object server records and rejects DELETE. No real
+brochures or connections are used. Metadata-server discovery and telemetry are
+disabled; browser requests outside the local Next origin are blocked and fail the
+test. The minimal environment excludes credentials and proxies.
+
+Evidence includes `acceptance.tap`, `environment.json`, `emulator.log`,
+`sigkill-reconciliation.json`, and, in Next mode, `next-server.log` plus desktop and
+mobile approval-state screenshots. Process restart and explicit SIGKILL
+reconciliation are covered. Environment destruction/remount, host storage
+durability, production credential transport, real R2 acceptance, full dashboard
+integration and live PDF rendering remain unverified. Retry counts can vary with
+emulator scheduling. Passing does not authorize production activation. See the
+[minimal caller runtime plan](../../docs/FATTAL_CALLER_RUNTIME.md).
+
+October 11 acceptance: the full 31-test mode passed twice; the existing 90 focused
+regressions also passed. Initial fixture iterations exposed Auth emulator setup
+and NextURL loopback normalization issues, corrected only in the harness. An
+earlier SDK metadata-discovery attempt failed DNS; explicit
+`METADATA_SERVER_DETECTION=none` suppresses that probe in final runs. No production
+API or credentials were used. Desktop/mobile screenshots show the functional
+approved/revoked states; omitted application CSS causes narrow-screen hash
+overflow, so they do not establish responsive styling acceptance.
