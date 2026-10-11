@@ -4,13 +4,18 @@ import { useLocale, useTranslations } from 'next-intl';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 
 const endpoint = '/api/content-intake/dot/read-grant';
-type Receipt = { connectionId: string; state: string; expiresAt?: number };
+const failureCodes = ['same_origin_required', 'issuance_disabled', 'server_identity_required', 'owner_mismatch',
+  'project_mismatch', 'targets_unverified', 'administrator_required', 'connection_exists', 'issuer_scope', 'invalid_request', 'unavailable'] as const;
+type FailureCode = typeof failureCodes[number];
+const safeCode = (value: unknown): FailureCode => failureCodes.includes(value as FailureCode) ? value as FailureCode : 'unavailable';
+type Receipt = { connectionId: string; state: string; expiresAt?: number; diagnostics?: { currentConfigurationOnly?: boolean; blockers?: unknown[] } };
 export default function DotReadGrant({ ownerId, ownerEmail, projectId }: { ownerId: string; ownerEmail: string; projectId: string }) {
   const t = useTranslations('contentIntake');
   const locale = useLocale();
   const [enabled, setEnabled] = useState(false), [ready, setReady] = useState(false), [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null), [attempted, setAttempted] = useState(false);
   const [message, setMessage] = useState('');
+  const [failure, setFailure] = useState<{ code: FailureCode; status: number; at: number } | null>(null);
   // Never render/store the token, put it in a URL, or send it to the issuing API.
   const secret = useRef<{ token: string; connectionId: string } | null>(null);
   const inFlight = useRef(false);
@@ -35,7 +40,9 @@ export default function DotReadGrant({ ownerId, ownerEmail, projectId }: { owner
   async function issue() {
     if (!enabled || !ready || secret.current || inFlight.current) return;
     inFlight.current = true;
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setFailure(null);
+    const at = Date.now();
+    let status = 0, code: FailureCode = 'unavailable';
     try {
       const hex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
       const connectionId = hex(crypto.getRandomValues(new Uint8Array(16)));
@@ -45,11 +52,16 @@ export default function DotReadGrant({ ownerId, ownerEmail, projectId }: { owner
       secret.current = { token, connectionId }; setAttempted(true);
       const res = await fetchWithAuth(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connectionId, keyHash, ownerId, ownerEmail, projectId, durationHours: 1 }) });
-      if (!res.ok) throw Error();
+      status = res.status;
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        code = safeCode(error?.code);
+        throw Error();
+      }
       const result = await res.json();
       if (result.connectionId !== connectionId || result.state !== 'active') throw Error();
       if (active.current) setReceipt(result);
-    } catch { if (active.current) setMessage('readGrantUncertain'); }
+    } catch { if (active.current) { setFailure({ code, status, at }); setMessage('readGrantUncertain'); } }
     finally { inFlight.current = false; if (active.current) setBusy(false); }
   }
   async function inspect(revoke = false) {
@@ -84,11 +96,20 @@ export default function DotReadGrant({ ownerId, ownerEmail, projectId }: { owner
       <button type="button" disabled={!enabled || !ready || busy} onClick={issue} className="rounded bg-accent px-3 py-2 text-white disabled:opacity-50">{t('readGrantIssue')}</button>
     </>}
     {attempted && <>
+      {!receipt && secret.current && <p className="break-all">{t('readGrantAttemptId')} · <span dir="ltr">{secret.current.connectionId}</span></p>}
       {receipt && <p className="break-all">{t(`readGrantState_${receipt.state}`)} · <span dir="ltr">{receipt.connectionId}</span>{receipt.expiresAt ? ` · ${new Date(receipt.expiresAt).toLocaleString(locale, { timeZone: 'Asia/Jerusalem' })}` : ''}</p>}
       {receipt?.state === 'active' && <button type="button" onClick={copy} disabled={busy} className="rounded border px-3 py-2">{t('readGrantCopy')}</button>}
       <button type="button" onClick={() => inspect()} disabled={busy || !secret.current} className="rounded border px-3 py-2">{t('readGrantInspect')}</button>
       <button type="button" onClick={() => inspect(true)} disabled={busy || !secret.current} className="rounded border px-3 py-2">{t('readGrantRevoke')}</button>
     </>}
+    {failure && <p role="status">{t('readGrantOriginalFailure', {
+      reason: t(`readGrantFailure_${failure.code}`), status: failure.status ? String(failure.status) : t('readGrantNoResponse'),
+      time: new Date(failure.at).toLocaleString(locale, { timeZone: 'Asia/Jerusalem' }),
+    })}</p>}
+    {receipt?.state === 'missing' && receipt.diagnostics?.currentConfigurationOnly === true
+      && Array.isArray(receipt.diagnostics.blockers) && <p>{t('readGrantCurrentConfiguration', {
+        reason: receipt.diagnostics.blockers.length ? receipt.diagnostics.blockers.map(value => t(`readGrantFailure_${safeCode(value)}`)).join(' · ') : t('readGrantNoConfigurationBlocker'),
+      })}</p>}
     {message && <p role="status">{t(message)}</p>}
   </div>;
 }

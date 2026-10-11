@@ -1,9 +1,37 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { FATTAL_BOOKLET_TARGETS } from './fattal';
-import { buildSetupReview, parseSetupSelection, type SetupBindings } from './setup-review';
+import { buildSetupReview, parseSetupSelection, SetupReviewError, type SetupBindings } from './setup-review';
 import { CloudIntakeError, requireCloud, type CloudGrant } from './cloud-policy';
 
 export const READ_GRANT_LIFETIME_MS = 3600000;
+export type ReadGrantFailureCode = 'same_origin_required' | 'issuance_disabled' | 'server_identity_required'
+  | 'owner_mismatch' | 'project_mismatch' | 'targets_unverified' | 'administrator_required'
+  | 'connection_exists' | 'issuer_scope' | 'invalid_request' | 'unavailable';
+class ReadGrantFailure extends CloudIntakeError {
+  constructor(status: number, public code: ReadGrantFailureCode) { super(status, code); }
+}
+export function requireReadGrant(condition: unknown, status: number, code: ReadGrantFailureCode): asserts condition {
+  if (!condition) throw new ReadGrantFailure(status, code);
+}
+// Only fixed codes leave the server: never exception messages, identities or key hashes.
+export function readGrantFailureCode(error: unknown): ReadGrantFailureCode {
+  if (error instanceof ReadGrantFailure) return error.code;
+  if (error instanceof SetupReviewError) return error.code === 'ownerMismatch' ? 'owner_mismatch'
+    : error.code === 'projectMismatch' ? 'project_mismatch' : 'invalid_request';
+  return error instanceof CloudIntakeError && [400, 413].includes(error.status) ? 'invalid_request' : 'unavailable';
+}
+// A current configuration check is not evidence of why an earlier POST failed.
+// No database writes, secret values, owner inference, or retry authorization.
+export function readGrantConfiguration(bindings: SetupBindings, enabled: boolean) {
+  const blockers: ReadGrantFailureCode[] = [];
+  if (!enabled) blockers.push('issuance_disabled');
+  if (!bindings.cloudOwnerId || !bindings.cloudOwnerEmail || !bindings.cloudProjectId) blockers.push('server_identity_required');
+  if (!bindings.projectId || bindings.projectId !== bindings.publicProjectId
+    || (bindings.cloudProjectId && bindings.cloudProjectId !== bindings.projectId)) blockers.push('project_mismatch');
+  if ((bindings.cloudOwnerId && bindings.legacyOwnerId && bindings.cloudOwnerId !== bindings.legacyOwnerId)
+    || (bindings.cloudOwnerEmail && bindings.legacyOwnerEmail && bindings.cloudOwnerEmail !== bindings.legacyOwnerEmail)) blockers.push('owner_mismatch');
+  return { currentConfigurationOnly: true, blockers, retryAllowed: false };
+}
 export function parseReadGrant(value: unknown) {
   requireCloud(value && typeof value === 'object' && !Array.isArray(value), 400, 'Invalid request');
   const input = value as Record<string, unknown>;
@@ -21,20 +49,22 @@ export function parseReadGrant(value: unknown) {
 // this service. Recheck administrator, owner and all twelve parents atomically.
 export async function issueReadGrant(db: Firestore, actorId: string, bindings: SetupBindings,
   input: ReturnType<typeof parseReadGrant>, now = () => Date.now()) {
-  requireCloud(bindings.cloudProjectId === bindings.projectId && bindings.cloudOwnerId === input.selection.ownerId
-    && bindings.cloudOwnerEmail === input.selection.ownerEmail, 409, 'Explicit server identity is required');
+  requireReadGrant(bindings.cloudProjectId && bindings.cloudOwnerId && bindings.cloudOwnerEmail, 409, 'server_identity_required');
+  requireReadGrant(bindings.cloudProjectId === bindings.projectId, 409, 'project_mismatch');
+  requireReadGrant(bindings.cloudOwnerId === input.selection.ownerId
+    && bindings.cloudOwnerEmail === input.selection.ownerEmail, 409, 'owner_mismatch');
   const ref = db.collection('fattalCloudConnections').doc(input.connectionId);
   return db.runTransaction(async tx => {
     const [actor, owner, codes, existing] = await Promise.all([
       tx.get(db.collection('users').doc(actorId)), tx.get(db.collection('users').doc(input.selection.ownerId)),
       tx.get(db.collection('codes').where('shortId', 'in', FATTAL_BOOKLET_TARGETS.map(t => t.shortId))), tx.get(ref),
     ]);
-    requireCloud(actor.data()?.role === 'super_admin', 403, 'Administrator required');
+    requireReadGrant(actor.data()?.role === 'super_admin', 403, 'administrator_required');
     const checkedAt = now();
     const review = buildSetupReview(input.selection, bindings, owner.data(), codes.docs.map(d => d.data()), checkedAt);
-    requireCloud(review.mappingVerified, 409, 'All twelve parent targets must verify');
+    requireReadGrant(review.mappingVerified, 409, 'targets_unverified');
     // Never reuse, rotate, extend, reactivate or overwrite an existing identity.
-    requireCloud(!existing.exists, 409, 'Connection exists; inspect its status');
+    requireReadGrant(!existing.exists, 409, 'connection_exists');
     const grant: CloudGrant = { workflow: 'fattal-cloud-v1', keyHash: input.keyHash,
       ownerId: review.ownerId, ownerEmail: review.ownerEmail, projectId: review.projectId,
       ownerVerifiedBy: actorId, ownerVerifiedAt: checkedAt, scopes: ['read'],
@@ -49,8 +79,8 @@ export async function inspectReadGrant(db: Firestore, actorId: string, connectio
   const ref = db.collection('fattalCloudConnections').doc(connectionId);
   const evaluate = (record: CloudGrant | undefined) => {
     if (!record) return { connectionId, state: 'missing' };
-    requireCloud(record.workflow === 'fattal-cloud-v1' && record.ownerVerifiedBy === actorId
-      && record.scopes?.length === 1 && record.scopes[0] === 'read', 403, 'Connection is outside issuer scope');
+    requireReadGrant(record.workflow === 'fattal-cloud-v1' && record.ownerVerifiedBy === actorId
+      && record.scopes?.length === 1 && record.scopes[0] === 'read', 403, 'issuer_scope');
     return { connectionId, state: record.revokedAt != null || record.disabledAt != null ? 'revoked'
       : !Number.isSafeInteger(record.expiresAt) || record.expiresAt <= now() ? 'expired' : 'active', expiresAt: record.expiresAt, scopes: ['read'] };
   };

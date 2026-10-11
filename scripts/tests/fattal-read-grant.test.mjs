@@ -130,3 +130,36 @@ test('network probe defaults off, rejects arguments and never retries failed or 
   p=probeFixture();change(p.health);assert.equal(await healthCheck([],p.env,p.runtime),1);assert.equal(p.requests(),1);assert.equal(p.output[0],'{"error":"Read-only health check failed","retryAllowed":false}\n');
  }
 });
+
+test('diagnostic codes distinguish original failures without returning values, hashes or raw exceptions',async()=>{
+ for(const [scenario,status,code] of [
+  ['origin',403,'same_origin_required'],['disabled',503,'issuance_disabled'],
+  ['identity',409,'server_identity_required'],['owner',409,'owner_mismatch'],
+  ['project',409,'project_mismatch'],['targets',409,'targets_unverified'],
+  ['input',400,'invalid_request'],['backend',503,'unavailable'],
+ ]) {
+  const f=reset();enable();
+  if(scenario==='disabled')delete process.env.FATTAL_CLOUD_READ_GRANTS_ENABLED;
+  if(scenario==='identity')delete process.env.FATTAL_CLOUD_OWNER_ID;
+  if(scenario==='owner')process.env.FATTAL_CLOUD_OWNER_ID='other-owner';
+  if(scenario==='project')process.env.FATTAL_CLOUD_PROJECT_ID='other-project';
+  if(scenario==='targets')f.codes.pop();
+  if(scenario==='backend')f.db.runTransaction=async()=>{throw Error('SENSITIVE_BACKEND_DETAIL');};
+  const result=await call('POST',scenario==='input'?'{':selection,scenario==='origin'?{Origin:'https://other.invalid'}:{});
+  assert.equal(result.status,status,scenario);assert.equal(result.body.code,code,scenario);assert.equal(result.body.retryAllowed,false);
+  const text=JSON.stringify(result.body);for(const secret of [selection.keyHash,selection.ownerEmail,'SENSITIVE_BACKEND_DETAIL','other-owner','other-project'])assert.ok(!text.includes(secret));
+  assert.deepEqual(f.writes,[]);
+ }
+});
+test('same-attempt missing status gives read-only current configuration diagnostics, never permission to retry',async()=>{
+ const f=reset();enable();delete process.env.FATTAL_CLOUD_OWNER_ID;
+ let result=await call('GET',null,{},'?connectionId='+id);
+ assert.equal(result.body.state,'missing');assert.equal(result.body.connectionId,id);
+ assert.deepEqual(result.body.diagnostics,{currentConfigurationOnly:true,blockers:['server_identity_required'],retryAllowed:false});
+ process.env.FATTAL_CLOUD_OWNER_ID='owner';process.env.FATTAL_BOOKLETS_OWNER_EMAIL='conflicting@example.invalid';
+ result=await call('GET',null,{},'?connectionId='+id);assert.deepEqual(result.body.diagnostics.blockers,['owner_mismatch']);
+ delete process.env.FATTAL_BOOKLETS_OWNER_EMAIL;
+ result=await call('GET',null,{},'?connectionId='+id);assert.deepEqual(result.body.diagnostics.blockers,[]);assert.equal(result.body.state,'missing');
+ assert.deepEqual(f.writes,[]);assert.equal(f.docs.has(`fattalCloudConnections/${id}`),false);
+ const unauthenticated=await call('GET',null,{Authorization:''},'?connectionId='+id);assert.equal(unauthenticated.status,401);assert.equal(unauthenticated.body.diagnostics,undefined);
+});

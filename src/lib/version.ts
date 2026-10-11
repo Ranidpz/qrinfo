@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.5';
+export const APP_VERSION = '1.27.6';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.6', date: '2026-10-11', isNew: true, highlights: {
+    he: ['אבחון בטוח לכשל בהנפקת חיבור קריאה, תוך שמירת הניסיון הקיים ובדיקת מצב ללא הנפקה חוזרת'],
+    en: ['Safe read-grant failure diagnostics preserve the existing attempt and read-only status recovery'],
+  } },
   { version: '1.27.5', date: '2026-10-11', isNew: true, highlights: {
     he: ['בהגדרת פתאל: הדוא״ל מתמלא בבחירת בעלים, עם כפתור להעתקת UID ובדיקות בעלות ללא שינוי'],
     en: ['Fattal setup fills the selected owner email and adds Copy UID; server ownership checks are unchanged'],

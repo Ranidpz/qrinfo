@@ -21,6 +21,7 @@ globalThis.dotUI={state,translate:(key,values={})=>{
  return text.replace(/\{(\w+)\}/g,(_,name)=>values[name]);
 },fetch:async(url,options={})=>{
  state.calls.push({url,options});
+ if(url.startsWith('/api/content-intake/dot/read-grant') && state.grantResponse)return state.grantResponse(url,options);
  if(url.startsWith('/api/content-intake/dot/setup')) {
   if(url.includes('?')) return state.setupResponse ? state.setupResponse(url) : new Response(JSON.stringify({mappingVerified:true,ownerEmail:'legacy@example.invalid',ownerId:'legacy-owner',projectId:'fixture',targets:[],proposal:{expiresAt:Date.now()+3600000}}));
   return new Response(JSON.stringify({projectId:'fixture'}));
@@ -53,7 +54,7 @@ replacements['./ComputerList']=await component('ComputerList');
 const {default:Page}=await import(await component('page'));
 let root;
 async function render(){root=createRoot(document.getElementById('root'));await React.act(async()=>{root.render(React.createElement(Page));});}
-async function cleanup(){await React.act(async()=>root.unmount());state.calls=[];state.failure=false;state.user={id:'admin',role:'super_admin'};state.locale='en';state.dot={state:'unconfigured'};}
+async function cleanup(){await React.act(async()=>root.unmount());state.calls=[];state.failure=false;state.user={id:'admin',role:'super_admin'};state.locale='en';state.dot={state:'unconfigured'};state.grantResponse=null;}
 async function change(id,value){const element=document.getElementById(id);await React.act(async()=>{
  Object.getOwnPropertyDescriptor(element.tagName==='SELECT'?window.HTMLSelectElement.prototype:window.HTMLInputElement.prototype,'value').set.call(element,value);
  element.dispatchEvent(new window.Event(element.tagName==='SELECT'?'change':'input',{bubbles:true}));
@@ -120,4 +121,30 @@ test('clipboard denial selects the UID for manual copy; a late copy result canno
  let finish;globalThis.navigator.clipboard.writeText=()=>new Promise(resolve=>finish=resolve);
  await React.act(async()=>document.getElementById('setup-copy-uid').click());await change('setup-owner','second-owner');
  await React.act(async()=>finish());assert.ok(!document.body.textContent.includes(locales.en.setupUidCopied));await cleanup();
+});
+
+
+test('issuance keeps original safe failure and same in-memory attempt across read-only missing/active recovery',async()=>{
+ const {default:Grant}=await import(replacements['./DotReadGrant']);
+ for(const locale of ['he','en']){
+  state.locale=locale;let submitted,lookupState='missing',copied;
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:async value=>{copied=value;}}}});
+  state.grantResponse=(url,options)=>{
+   if(options.method==='POST'){submitted=JSON.parse(options.body);return Response.json({code:'same_origin_required',error:'SENSITIVE_BACKEND_DETAIL'},{status:403});}
+   if(url.includes('?')){assert.equal(new URL(url,'https://fixture.invalid').searchParams.get('connectionId'),submitted.connectionId);return Response.json({connectionId:submitted.connectionId,state:lookupState,expiresAt:Date.now()+3600000,diagnostics:{currentConfigurationOnly:true,blockers:['server_identity_required']}});}
+   return Response.json({issuanceEnabled:true});
+  };
+  root=createRoot(document.getElementById('root'));await React.act(async()=>root.render(React.createElement(Grant,{ownerId:'owner',ownerEmail:'owner@example.invalid',projectId:'fixture'})));
+  const button=key=>[...document.querySelectorAll('button')].find(b=>b.textContent===locales[locale][key]);
+  await React.act(async()=>document.querySelector('input[type=checkbox]').click());await React.act(async()=>button('readGrantIssue').click());
+  assert.ok(document.body.textContent.includes(locales[locale].readGrantFailure_same_origin_required));assert.ok(document.body.textContent.includes('403'));
+  assert.ok(document.body.textContent.includes(submitted.connectionId));assert.ok(!document.body.textContent.includes('SENSITIVE_BACKEND_DETAIL'));
+  assert.ok(!document.body.textContent.includes(submitted.keyHash));assert.equal(button('readGrantIssue'),undefined);assert.equal(button('readGrantCopy'),undefined);
+  await React.act(async()=>button('readGrantInspect').click());await React.act(async()=>button('readGrantInspect').click());
+  assert.ok(document.body.textContent.includes(locales[locale].readGrantFailure_same_origin_required));assert.ok(document.body.textContent.includes(locales[locale].readGrantFailure_server_identity_required));
+  assert.equal(button('readGrantCopy'),undefined);lookupState='active';await React.act(async()=>button('readGrantInspect').click());
+  await React.act(async()=>button('readGrantCopy').click());assert.match(copied,new RegExp('^tq_fc_'+submitted.connectionId+'\\.[a-f0-9]{64}$'));assert.ok(!document.body.textContent.includes(copied));
+  assert.equal(state.calls.filter(c=>c.options.method==='POST').length,1);assert.equal(state.calls.filter(c=>c.options.method==='DELETE').length,0);
+  await cleanup();
+ }
 });

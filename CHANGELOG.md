@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.6] - 2026-10-11
+
+- Read grant failures return fixed, nonsecret diagnostic codes. The UI retains the original response status, reason and time while inspecting the same in-memory attempt. Missing status responses include current configuration blockers without authorizing retries or changing credentials; already-open pages can inspect the response without refreshing.
+
 ## [1.27.5] - 2026-10-11
 
 - Fattal read-access setup shows a selectable owner UID with a copy button and manual-copy fallback. Selecting the owner fills the read-only email field, avoiding retyping errors. Changing owners clears prior review/copy feedback; server identity, project and twelve-target checks remain unchanged.
