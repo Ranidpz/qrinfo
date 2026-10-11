@@ -31,12 +31,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ctaSecondary: 'התנסו עכשיו',
       chips: ['חינם להתנסות', 'בלי התקנה', 'באזר פיזי לאירוע'],
       image: { src: HERO_IMAGE, alt: 'אורחים באירוע לוחצים על באזר ירוק מול מסך ענק שמראה 09.98' },
-      stats: [
-        { value: '10.00', label: 'מטרה' },
-        { value: '02', label: 'לחיצות' },
-        { value: '∞', label: 'ניסיונות' },
-        { value: '0', label: 'התקנות' },
-      ],
     },
     demo: {
       title: 'חושבים שזה קל? נסו.',
@@ -182,12 +176,6 @@ export const TENBOOL_CONTENT: Record<Locale, ExperienceLandingContent> = {
       ctaSecondary: 'Try it now',
       chips: ['Free to try', 'Nothing to install', 'Physical buzzer for events'],
       image: { src: HERO_IMAGE, alt: 'Event guests slamming a green buzzer in front of a giant screen showing 09.98' },
-      stats: [
-        { value: '10.00', label: 'Target' },
-        { value: '02', label: 'Presses' },
-        { value: '∞', label: 'Tries' },
-        { value: '0', label: 'Installs' },
-      ],
     },
     demo: {
       title: 'Think it’s easy? Try it.',
