@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.27.11] - 2026-10-11
+
+- Align Fattal administration controls with existing site tokens: inset RTL select arrows, muted rounded fields, aligned checkboxes, spaced status/revoke actions and mobile stacking.
+- Remember only the selected owner UID in tab-local session storage scoped to the signed-in administrator and verified project. Restore only owners still in the current authorized list; verification, confirmations and credentials remain transient.
+- Add owner persistence/isolation tests and verify styled desktop/mobile loading, disabled and expired states. Server activation flags, grant lifetimes and security settings are unchanged by this release.
+
 ## [1.27.10] - 2026-10-11
 
 - Add separately gated, same-origin super-admin writer issuance for one non-paused Fattal hotel and 15 minutes, storing only credential hashes. Hebrew controls retain the non-secret attempt ID for status and permanent cancellation fences; existing read grants cannot be upgraded.
