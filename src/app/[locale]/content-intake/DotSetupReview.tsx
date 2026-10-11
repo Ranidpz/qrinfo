@@ -12,11 +12,14 @@ export default function DotSetupReview({ owners }: { owners: { id: string; email
   const locale = useLocale();
   const [project, setProject] = useState('');
   const [ownerId, setOwner] = useState('');
-  const [email, setEmail] = useState('');
+  const selectedOwner = owners.find(owner => owner.id === ownerId);
+  const email = selectedOwner?.email || '';
   const [duration, setDuration] = useState('1');
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [copyNotice, setCopyNotice] = useState<'setupUidCopied' | 'setupUidCopyFailed' | null>(null);
+  const uidInput = useRef<HTMLInputElement>(null);
   const generation = useRef(0);
   useEffect(() => {
     const controller = new AbortController();
@@ -28,7 +31,20 @@ export default function DotSetupReview({ owners }: { owners: { id: string; email
     }).catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => { controller.abort(); requestGeneration.current++; };
   }, []);
-  function invalidate() { generation.current++; setReview(null); setError(false); setBusy(false); }
+  function invalidate() { generation.current++; setReview(null); setError(false); setBusy(false); setCopyNotice(null); }
+  async function copyOwnerId() {
+    if (!selectedOwner) return;
+    const request = generation.current;
+    try {
+      await navigator.clipboard.writeText(selectedOwner.id);
+      if (generation.current === request) setCopyNotice('setupUidCopied');
+    } catch {
+      if (generation.current === request) {
+        uidInput.current?.focus(); uidInput.current?.select();
+        setCopyNotice('setupUidCopyFailed');
+      }
+    }
+  }
   async function inspect(event: React.FormEvent) {
     event.preventDefault();
     const request = ++generation.current;
@@ -48,12 +64,18 @@ export default function DotSetupReview({ owners }: { owners: { id: string; email
     <p className="mb-3 break-all text-sm">{t('setupProject')}: <span dir="ltr">{project || '—'}</span></p>
     <form id="dot-setup-form" onSubmit={inspect} className="space-y-3">
       <label className="block" htmlFor="setup-owner">{t('owner')}</label>
-      <select id="setup-owner" value={ownerId} onChange={e => { invalidate(); setOwner(e.target.value); setEmail(''); }} className="w-full rounded-lg border border-border bg-bg-primary p-3">
+      <select id="setup-owner" value={ownerId} onChange={e => { invalidate(); setOwner(e.target.value); }} className="w-full rounded-lg border border-border bg-bg-primary p-3">
         <option value="">{t('setupChoose')}</option>
-        {owners.map(o => <option key={o.id} value={o.id}>{o.name} · {o.email} · {o.id}</option>)}
+        {owners.map(o => <option key={o.id} value={o.id}>{o.name} · {o.email}</option>)}
       </select>
+      <label className="block" htmlFor="setup-owner-id">{t('setupOwnerId')}</label>
+      <div className="flex flex-wrap gap-2">
+        <input ref={uidInput} id="setup-owner-id" readOnly dir="ltr" value={selectedOwner?.id || ''} className="min-w-0 flex-1 rounded-lg border border-border bg-bg-primary p-3" />
+        <button id="setup-copy-uid" type="button" onClick={copyOwnerId} disabled={!selectedOwner} className="rounded-lg border border-border px-4 py-3 disabled:opacity-50">{t('setupCopyUid')}</button>
+      </div>
+      {copyNotice && <p role="status" className="text-sm">{t(copyNotice)}</p>}
       <label className="block" htmlFor="setup-email">{t('setupEmail')}</label>
-      <input id="setup-email" type="email" autoComplete="off" dir="ltr" required value={email} onChange={e => { invalidate(); setEmail(e.target.value); }} className="w-full rounded-lg border border-border bg-bg-primary p-3" />
+      <input id="setup-email" type="email" autoComplete="off" dir="ltr" readOnly required value={email} className="w-full rounded-lg border border-border bg-bg-primary p-3" />
       <label className="block" htmlFor="setup-duration">{t('setupDuration')}</label>
       <select id="setup-duration" value={duration} onChange={e => { invalidate(); setDuration(e.target.value); }} className="rounded-lg border border-border bg-bg-primary p-3">
         {[1, 4, 24].map(hours => <option key={hours} value={hours}>{t('setupHours', { hours })}</option>)}

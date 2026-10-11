@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.5] - 2026-10-11
+
+- Fattal read-access setup shows a selectable owner UID with a copy button and manual-copy fallback. Selecting the owner fills the read-only email field, avoiding retyping errors. Changing owners clears prior review/copy feedback; server identity, project and twelve-target checks remain unchanged.
+
 ## [1.27.4] - 2026-10-11
 
 - 10 בול landing: removed the hero stats strip (10.00 / 02 / ∞ / 0) – it repeated the headline. `hero.stats` stays optional in the template.

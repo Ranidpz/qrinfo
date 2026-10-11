@@ -30,7 +30,7 @@ globalThis.dotUI={state,translate:(key,values={})=>{
   return new Response(JSON.stringify(url.includes('?')?{state:'ready',recovery:{manifestId:'a'.repeat(64),shortId:'target1',sha256:'b'.repeat(64),status:'uncertain'}}:state.dot));
  }
  assert.ok(url.startsWith('/api/content-intake/connections'));
- return new Response(JSON.stringify({owners:[{id:'legacy-owner',name:'Legacy owner',email:'legacy@example.invalid',targets:[]}],connections:[{id:'connection1',name:'Existing connection',disabled:true,revoked:false}],agents:[{id:'mac1',recordId:'record1',computerName:'Fixture Mac',disabled:true,remoteControl:true,lastSeenAt:null,updatedAt:null}]}));
+ return new Response(JSON.stringify({owners:[{id:'legacy-owner',name:'Legacy owner',email:'legacy@example.invalid',targets:[]},{id:'second-owner',name:'Second owner',email:'second@example.invalid',targets:[]}],connections:[{id:'connection1',name:'Existing connection',disabled:true,revoked:false}],agents:[{id:'mac1',recordId:'record1',computerName:'Fixture Mac',disabled:true,remoteControl:true,lastSeenAt:null,updatedAt:null}]}));
 }};
 const replacements={
  'react':pathToFileURL(require.resolve('react')).href,
@@ -87,9 +87,9 @@ test('non-admin page never mounts either management data surface',async()=>{
  state.user={id:'ordinary',role:'user'};await render();assert.ok(document.body.textContent.includes(locales.en.adminOnly));assert.equal(state.calls.length,0);await cleanup();
 });
 
-test('setup requires explicit owner and expected email, clears stale proposal and ignores late responses',async()=>{
- await render(); const submit=document.querySelector('#dot-setup-form button');assert.equal(document.getElementById('setup-owner').value,'');assert.equal(submit.disabled,true);
- await change('setup-owner','legacy-owner');assert.equal(submit.disabled,true);await change('setup-email','legacy@example.invalid');assert.equal(submit.disabled,false);
+test('setup requires explicit owner, fills bound email, clears stale proposal and ignores late responses',async()=>{
+ await render(); const submit=document.querySelector('#dot-setup-form button[type=submit]');assert.equal(document.getElementById('setup-owner').value,'');assert.equal(submit.disabled,true);
+ await change('setup-owner','legacy-owner');assert.equal(document.getElementById('setup-email').value,'legacy@example.invalid');assert.equal(document.getElementById('setup-email').readOnly,true);assert.equal(submit.disabled,false);
  const send=()=>React.act(async()=>document.getElementById('dot-setup-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
  await send();assert.ok(document.body.textContent.includes(locales.en.setupVerified));assert.ok(state.calls.some(c=>c.url.includes('ownerEmail=legacy%40example.invalid')));
  await change('setup-duration','4');assert.ok(!document.body.textContent.includes(locales.en.setupVerified));
@@ -97,4 +97,27 @@ test('setup requires explicit owner and expected email, clears stale proposal an
  await React.act(async()=>resolve(new Response(JSON.stringify({mappingVerified:true,targets:[],proposal:null}))));
  assert.ok(!document.body.textContent.includes(locales.en.setupVerified));assert.equal(submit.disabled,true);
  state.setupResponse=null;await cleanup();
+});
+
+test('owner UID copies exact selected value without network calls; changing owner updates both fields and clears copy status',async()=>{
+ let copied;Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:async value=>{copied=value;}}}});
+ for(const locale of ['he','en']){
+  state.locale=locale;await render();const copy=document.getElementById('setup-copy-uid');assert.equal(copy.disabled,true);
+  await change('setup-owner','legacy-owner');assert.equal(document.getElementById('setup-owner-id').value,'legacy-owner');
+  const requests=state.calls.length;await React.act(async()=>copy.click());assert.equal(copied,'legacy-owner');assert.equal(state.calls.length,requests);
+  assert.ok(document.body.textContent.includes(locales[locale].setupUidCopied));
+  await change('setup-owner','second-owner');assert.equal(document.getElementById('setup-owner-id').value,'second-owner');assert.equal(document.getElementById('setup-email').value,'second@example.invalid');
+  assert.ok(!document.body.textContent.includes(locales[locale].setupUidCopied));await React.act(async()=>copy.click());assert.equal(copied,'second-owner');
+  await change('setup-owner','');assert.equal(document.getElementById('setup-owner-id').value,'');assert.equal(document.getElementById('setup-email').value,'');assert.equal(copy.disabled,true);await cleanup();
+ }
+});
+
+test('clipboard denial selects the UID for manual copy; a late copy result cannot describe a newly selected owner',async()=>{
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:async()=>{throw Error('denied');}}}});
+ await render();await change('setup-owner','legacy-owner');await React.act(async()=>document.getElementById('setup-copy-uid').click());
+ const uid=document.getElementById('setup-owner-id');assert.equal(document.activeElement,uid);assert.equal(uid.selectionStart,0);assert.equal(uid.selectionEnd,uid.value.length);
+ assert.ok(document.body.textContent.includes(locales.en.setupUidCopyFailed));
+ let finish;globalThis.navigator.clipboard.writeText=()=>new Promise(resolve=>finish=resolve);
+ await React.act(async()=>document.getElementById('setup-copy-uid').click());await change('setup-owner','second-owner');
+ await React.act(async()=>finish());assert.ok(!document.body.textContent.includes(locales.en.setupUidCopied));await cleanup();
 });

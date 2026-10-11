@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.4';
+export const APP_VERSION = '1.27.5';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.5', date: '2026-10-11', isNew: true, highlights: {
+    he: ['בהגדרת פתאל: הדוא״ל מתמלא בבחירת בעלים, עם כפתור להעתקת UID ובדיקות בעלות ללא שינוי'],
+    en: ['Fattal setup fills the selected owner email and adds Copy UID; server ownership checks are unchanged'],
+  } },
   { version: '1.27.4', date: '2026-10-11', isNew: true, highlights: {
     he: ['דף 10 בול: ירדה שורת הנתונים שמתחת לתמונה הראשית'],
     en: ['10 Bool page: removed the stats strip under the main photo'],
