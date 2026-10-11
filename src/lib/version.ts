@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.9';
+export const APP_VERSION = '1.27.10';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.10', date: '2026-10-11', isNew: true, highlights: {
+    he: ['הרשאת פתאל מוגבלת למלון אחד ל־15 דקות, עם ביטול בטוח ובדיקת העלאה לאחר אובדן תשובה; העלאות והודעות נשארות כבויות עד לאישור נפרד'],
+    en: ['Add 15-minute single-hotel Fattal writer permissions, safe cancellation and upload reconciliation after a lost response; uploads and messages remain separately disabled'],
+  } },
   { version: '1.27.9', date: '2026-10-11', isNew: true, highlights: {
     he: ['הכנת בדיקה ואישור נקודתיים לחוברות פתאל, עם התאוששות בטוחה; העלאות, הודעות וניקוי נשארים כבויים'],
     en: ['Prepare exact Fattal brochure review and durable recovery; uploads, notifications and cleanup remain disabled'],

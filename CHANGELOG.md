@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.27.10] - 2026-10-11
+
+- Add separately gated, same-origin super-admin writer issuance for one non-paused Fattal hotel and 15 minutes, storing only credential hashes. Hebrew controls retain the non-secret attempt ID for status and permanent cancellation fences; existing read grants cannot be upgraded.
+- Add explicit supervised uploads backed by an atomic one-use writer marker, target claim, approval and receipt in existing Firestore. Independent original-reviewer GET reconciliation works after caller history loss or writer expiry/revocation. Missing evidence never authorizes resubmission; the existing durable journal mode remains intact.
+- Require one SDK storage attempt for the cloud path while retaining ordinary R2 caller defaults. Add security, emulator, abrupt-kill, real Next API and Hebrew browser acceptance coverage. No environment flag, credential, approval, brochure upload, message, cleanup or schedule is enabled by this release; real R2/private writer transport acceptance remains separate.
+
 ## [1.27.9] - 2026-10-11
 
 - Add separately disabled super-admin Fattal manifest review: authenticate the reviewer, verify owner/project and all twelve parent targets, hash the active PDF to reject manual-upload duplicates, and bind expiring approval to the exact writer, sources, period, hash and expected version. Status/revocation support uncertain-response recovery; approval creates no upload or notification.
