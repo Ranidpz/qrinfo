@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.8] - 2026-10-11
+
+- 10 בול idle instruction by device: `(pointer: coarse)` (phones, tablets) → "געו במסך כדי להתחיל" + "נגיעה נוספת עוצרת את הזמן"; otherwise → "לחצו על הבאזר כדי להתחיל" + "לחיצה נוספת עוצרת את הזמן". Nothing renders until detection (no wrong-line flash). Settings preview shows the buzzer line for the big screen.
+
 ## [1.27.7] - 2026-10-11
 
 - Explicit cancellation of a missing read-grant attempt now creates a permanent revocation tombstone in a transaction, bound to the verified configured owner/project and issuing administrator. Late or concurrent issuance cannot overwrite that ID. No credential is created; existing grant revocation and read-only lookup behavior are preserved.

@@ -354,7 +354,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
               </div>
             </div>
             <div className="relative text-sm sm:text-base font-black opacity-70">
-              {comp.phone ? 'געו במסך כדי להתחיל' : 'תנו בבאזר או געו במסך כדי להתחיל'}
+              {comp.phone ? 'געו במסך כדי להתחיל' : 'לחצו על הבאזר כדי להתחיל'}
             </div>
           </div>
 

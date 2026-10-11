@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.7';
+export const APP_VERSION = '1.27.8';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.8', date: '2026-10-11', isNew: true, highlights: {
+    he: ['10 בול: הוראה לפי מכשיר — במחשב "לחצו על הבאזר כדי להתחיל", בטלפון ובטאבלט "געו במסך כדי להתחיל", ומתחת: לחיצה/נגיעה נוספת עוצרת את הזמן'],
+    en: ['10 Bool: instructions per device — "press the buzzer to start" on computers, "tap the screen to start" on phones and tablets, plus "press/tap again to stop"'],
+  } },
   { version: '1.27.7', date: '2026-10-11', isNew: true, highlights: {
     he: ['ביטול ניסיון חיבור קריאה חסר חוסם גם הנפקה מאוחרת של אותו מזהה'],
     en: ['Cancelling a missing read-grant attempt also blocks late issuance of the same ID'],

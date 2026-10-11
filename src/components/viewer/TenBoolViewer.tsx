@@ -637,6 +637,9 @@ export default function TenBoolViewer({
 
   // Share is for players on their own phone - never on the event's big screen, touch kiosks included
   const [isPhone, setIsPhone] = useState(false);
+  // Which instruction to show: touch screens (phones, tablets) tap, everything else uses the buzzer.
+  // null until detected after mount, so the wrong line never flashes.
+  const [touchDevice, setTouchDevice] = useState<boolean | null>(null);
   const isTouchRef = useRef(false);
   const firstRoundDoneRef = useRef(false);
   // Share (phones, from the first hit): the card is rebuilt whenever the score changes
@@ -706,6 +709,7 @@ export default function TenBoolViewer({
     const touch = window.matchMedia('(pointer: coarse)').matches;
     setIsPhone(touch && !window.matchMedia('(min-width: 1024px)').matches);
     isTouchRef.current = touch;
+    setTouchDevice(touch);
     if (!competitionRef.current) showToast(touch ? SWIPE_TIP_TOUCH : 'דפדפו בין המשחקים בחצים ימינה ושמאלה', 3000);
   }, [showToast]);
 
@@ -799,11 +803,14 @@ export default function TenBoolViewer({
   const strobeClass =
     phase === 'ended' ? (win ? (fx.winFlash ? 'tenbool-win-bg' : '') : fx.loseFlash ? 'tenbool-lose-bg' : '') : '';
   const ringState: NeonRingState = phase === 'ended' ? (win ? 'win' : 'lose') : warnOn ? 'warn' : 'idle';
+  const tapToPlay = competition || touchDevice === true;
   const hint =
     phase === 'idle'
-      ? competition
-        ? 'געו במסך כדי להתחיל'
-        : 'תנו בבאזר או געו במסך כדי להתחיל'
+      ? touchDevice === null && !competition
+        ? ''
+        : tapToPlay
+          ? 'געו במסך כדי להתחיל'
+          : 'לחצו על הבאזר כדי להתחיל'
       : phase === 'running'
         ? ''
         : win
@@ -957,6 +964,11 @@ export default function TenBoolViewer({
           }`}
         >
           {hint}
+          {phase === 'idle' && hint && (
+            <span className="block text-[max(14px,3.4vmin)] font-bold opacity-70 mt-[0.35em]">
+              {tapToPlay ? 'נגיעה נוספת עוצרת את הזמן' : 'לחיצה נוספת עוצרת את הזמן'}
+            </span>
+          )}
         </div>
         {fx.closenessBar && (
           // ±1.00s maps to the bar ends; anything further sits at the edge
