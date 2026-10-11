@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.2';
+export const APP_VERSION = '1.27.3';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.3', date: '2026-10-11', isNew: true, highlights: {
+    he: ['הכנת חיבור קריאה מוגבל לשעה ל־12 יעדי פתאל, עם בדיקת מצב וביטול; ההנפקה חסומה עד להפעלה נפרדת'],
+    en: ['Prepare one-hour read access to the 12 Fattal targets, with status and revocation; issuance remains separately disabled'],
+  } },
   { version: '1.27.2', date: '2026-10-11', isNew: true, highlights: {
     he: ['דף המשחק (/v/) יכול לרוץ עכשיו בתוך נגן המסכים TVzone — למשל 10 בול על מסך טלוויזיה עם באזר'],
     en: ['The game page (/v/) can now run inside the TVzone signage player — e.g. 10 Bool on a TV screen with a buzzer'],

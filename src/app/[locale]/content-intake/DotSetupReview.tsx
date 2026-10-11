@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import type { buildSetupReview } from '@/lib/content-intake/setup-review';
+import DotReadGrant from './DotReadGrant';
 
 type Review = ReturnType<typeof buildSetupReview>;
 const endpoint = '/api/content-intake/dot/setup';
@@ -66,6 +67,7 @@ export default function DotSetupReview({ owners }: { owners: { id: string; email
       <ul className="space-y-1 text-sm">{review.targets.map(target => <li key={target.shortId}>{target.title} · <span dir="ltr">{target.shortId}</span> · {t(`setupTarget_${target.state}`)}</li>)}</ul>
       {review.proposal && <p>{t('setupProposal', { expires: new Date(review.proposal.expiresAt).toLocaleString(locale, { timeZone: 'Asia/Jerusalem' }) })}</p>}
       <p className="text-sm text-text-secondary">{t('setupNoChanges')}</p>
+      {review.mappingVerified && duration === '1' && <DotReadGrant key={review.checkedAt} ownerId={review.ownerId} ownerEmail={review.ownerEmail} projectId={review.projectId} />}
     </div>}
   </section>;
 }

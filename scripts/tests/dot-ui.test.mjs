@@ -46,6 +46,7 @@ async function component(name){
  for(const [from,to]of Object.entries(replacements)){outputText=outputText.replaceAll(`'${from}'`,JSON.stringify(to)).replaceAll(`"${from}"`,JSON.stringify(to));}
  return stub(outputText);
 }
+replacements['./DotReadGrant']=await component('DotReadGrant');
 replacements['./DotSetupReview']=await component('DotSetupReview');
 replacements['./DotConnection']=await component('DotConnection');
 replacements['./ComputerList']=await component('ComputerList');
