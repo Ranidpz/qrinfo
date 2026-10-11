@@ -60,7 +60,7 @@ replacements['./ComputerList']=await component('ComputerList');
 const {default:Page}=await import(await component('page'));
 let root;
 async function render(){root=createRoot(document.getElementById('root'));await React.act(async()=>{root.render(React.createElement(Page));});}
-async function cleanup(){await React.act(async()=>root.unmount());state.calls=[];state.failure=false;state.user={id:'admin',role:'super_admin'};state.locale='en';state.dot={state:'unconfigured'};state.grantResponse=null;state.approvalResponse=null;state.writerResponse=null;state.supervisedResponse=null;}
+async function cleanup(){await React.act(async()=>root.unmount());try { window.sessionStorage.clear(); } catch {} state.calls=[];state.failure=false;state.user={id:'admin',role:'super_admin'};state.locale='en';state.dot={state:'unconfigured'};state.grantResponse=null;state.approvalResponse=null;state.writerResponse=null;state.supervisedResponse=null;}
 async function change(id,value){const element=document.getElementById(id);await React.act(async()=>{
  Object.getOwnPropertyDescriptor(element.tagName==='SELECT'?window.HTMLSelectElement.prototype:window.HTMLInputElement.prototype,'value').set.call(element,value);
  element.dispatchEvent(new window.Event(element.tagName==='SELECT'?'change':'input',{bubbles:true}));
@@ -242,4 +242,56 @@ test('independent recovery UI uses only GET, treats missing receipt as uncertain
  assert.ok(document.body.textContent.includes(locales.he.supervisedState_uncertain));assert.equal(document.querySelectorAll('button').length,1);
  retry=true;await React.act(async()=>document.querySelector('button').click());assert.ok(document.body.textContent.includes(locales.he.supervisedUnavailable));
  assert.ok(state.calls.every(c=>c.options.method==='GET'));await cleanup();
+});
+
+test('owner preference survives remount only for the same admin/project; verification and confirmations never persist', async () => {
+ window.sessionStorage.clear();
+ await render(); await change('setup-owner','legacy-owner');
+ assert.equal(window.sessionStorage.getItem('fattal-setup-owner:v1:admin:fixture'),'legacy-owner');
+ await React.act(async()=>document.getElementById('dot-setup-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
+ assert.ok(document.body.textContent.includes(locales.en.setupVerified));
+ await React.act(async()=>root.unmount()); await render();
+ assert.equal(document.getElementById('setup-owner').value,'legacy-owner');
+ assert.ok(!document.body.textContent.includes(locales.en.setupVerified));
+ assert.equal(document.getElementById('writer-grant-title'),null);
+ assert.deepEqual(Object.keys(window.sessionStorage),['fattal-setup-owner:v1:admin:fixture']);
+ state.user={id:'another-admin',role:'super_admin'};
+ await React.act(async()=>root.render(React.createElement(Page)));
+ assert.equal(document.getElementById('setup-owner').value,'');
+ await change('setup-owner','second-owner');
+ assert.equal(window.sessionStorage.getItem('fattal-setup-owner:v1:another-admin:fixture'),'second-owner');
+ assert.equal(window.sessionStorage.getItem('fattal-setup-owner:v1:admin:fixture'),'legacy-owner');
+ await cleanup(); window.sessionStorage.clear();
+});
+
+test('owner restoration waits for authorized owners and rejects missing owners or another project without writes', async () => {
+ window.sessionStorage.clear();
+ const {default:Setup}=await import(replacements['./DotSetupReview']);
+ const owners=[{id:'legacy-owner',email:'legacy@example.invalid',name:'Owner'}];
+ window.sessionStorage.setItem('fattal-setup-owner:v1:admin:other-project','legacy-owner');
+ window.sessionStorage.setItem('fattal-setup-owner:v1:admin:fixture','removed-owner');
+ root=createRoot(document.getElementById('root'));
+ await React.act(async()=>root.render(React.createElement(Setup,{adminId:'admin',owners:[],ownersReady:false})));
+ assert.equal(document.getElementById('setup-owner').disabled,true);
+ assert.equal(window.sessionStorage.getItem('fattal-setup-owner:v1:admin:fixture'),'removed-owner');
+ await React.act(async()=>root.render(React.createElement(Setup,{adminId:'admin',owners,ownersReady:true})));
+ assert.equal(document.getElementById('setup-owner').value,'');
+ assert.equal(window.sessionStorage.getItem('fattal-setup-owner:v1:admin:fixture'),null);
+ await change('setup-owner','legacy-owner');
+ await React.act(async()=>root.render(React.createElement(Setup,{adminId:'admin',owners:[],ownersReady:true})));
+ assert.equal(document.getElementById('setup-owner').value,'');
+ assert.equal(window.sessionStorage.getItem('fattal-setup-owner:v1:admin:fixture'),null);
+ assert.ok(state.calls.every(call=>!call.options.method||call.options.method==='GET'));
+ await cleanup(); window.sessionStorage.clear();
+});
+
+test('denied session storage leaves manual owner selection and verification usable',async()=>{
+ const descriptor=Object.getOwnPropertyDescriptor(window,'sessionStorage');
+ Object.defineProperty(window,'sessionStorage',{configurable:true,get(){throw new Error('blocked');}});
+ try {
+  await render(); await change('setup-owner','legacy-owner');
+  assert.equal(document.getElementById('setup-owner').value,'legacy-owner');
+  await React.act(async()=>document.getElementById('dot-setup-form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
+  assert.ok(document.body.textContent.includes(locales.en.setupVerified)); await cleanup();
+ } finally {Object.defineProperty(window,'sessionStorage',descriptor);}
 });

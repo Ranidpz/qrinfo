@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronDown, RefreshCw, ShieldCheck } from 'lucide-react';
+import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import DotConnection from './DotConnection';
@@ -62,12 +62,12 @@ function ContentIntake() {
       setRevoking(null); await refresh();
     } catch { setError(true); } finally { setBusy(false); }
   }
-  return <div className="mx-auto max-w-5xl space-y-6 text-text-primary">
+  return <div className="intake-module mx-auto max-w-5xl space-y-6 text-text-primary">
     <header>
       <h1 className="text-2xl font-bold">{t('dotTitle')}</h1><p className="mt-2 text-text-secondary">{t('dotIntro')}</p>
     </header>
     <DotConnection />
-    <DotSetupReview owners={data.owners} />
+    <DotSetupReview owners={data.owners} adminId={user!.id} ownersReady={!loading && !error} />
     <DotManifestApproval />
     <DotSupervisedRecovery />
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-4 text-red-500">{t('error')}</p>}
@@ -78,7 +78,7 @@ function ContentIntake() {
         <label className="block text-sm" htmlFor="intake-owner">{t('owner')}</label>
         <div className="relative mt-2"><select id="intake-owner" value={ownerId} disabled={busy} onChange={e => { setOwnerId(e.target.value); setRevoking(null); setData(d => ({ ...d, agents: [], connections: [] })); }} className="w-full appearance-none rounded-lg border border-border bg-bg-primary py-3 ps-3 pe-10">
           {data.owners.map(o => <option key={o.id} value={o.id}>{o.name} — {o.email}</option>)}
-        </select><ChevronDown aria-hidden="true" size={16} className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-text-secondary" /></div>
+        </select></div>
         <details className="my-4 text-sm text-text-secondary"><summary className="cursor-pointer">{t('scope', { count: owner?.targets.length || 0 })}</summary><ul className="mt-2 space-y-1">{owner?.targets.map(v => <li key={v.shortId}>{v.title}</li>)}</ul></details>
       </>}
       <ComputerList computers={data.agents} refresh={refresh} />

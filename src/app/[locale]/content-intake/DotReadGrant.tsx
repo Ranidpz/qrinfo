@@ -88,9 +88,9 @@ export default function DotReadGrant({ ownerId, ownerEmail, projectId }: { owner
     try { await navigator.clipboard.writeText(secret.current.token); setMessage('readGrantCopied'); }
     catch { setMessage('readGrantCopyFailed'); }
   }
-  return <div className="space-y-3 rounded-lg border border-border p-4">
+  return <div className="space-y-5 rounded-lg border border-border bg-bg-primary/40 p-5 sm:p-6">
     <p>{t('readGrantIntro')}</p>
-    {!enabled && <p>{t('readGrantDisabled')}</p>}
+    {!enabled && <p role="status" className="intake-notice">{t('readGrantDisabled')}</p>}
     {!attempted && <>
       <label className="flex gap-2"><input type="checkbox" checked={ready} onChange={e => setReady(e.target.checked)} disabled={!enabled || busy} />{t('readGrantReady')}</label>
       <button type="button" disabled={!enabled || !ready || busy} onClick={issue} className="rounded bg-accent px-3 py-2 text-white disabled:opacity-50">{t('readGrantIssue')}</button>
@@ -98,9 +98,11 @@ export default function DotReadGrant({ ownerId, ownerEmail, projectId }: { owner
     {attempted && <>
       {!receipt && secret.current && <p className="break-all">{t('readGrantAttemptId')} · <span dir="ltr">{secret.current.connectionId}</span></p>}
       {receipt && <p className="break-all">{t(`readGrantState_${receipt.state}`)} · <span dir="ltr">{receipt.connectionId}</span>{receipt.expiresAt ? ` · ${new Date(receipt.expiresAt).toLocaleString(locale, { timeZone: 'Asia/Jerusalem' })}` : ''}</p>}
-      {receipt?.state === 'active' && <button type="button" onClick={copy} disabled={busy} className="rounded border px-3 py-2">{t('readGrantCopy')}</button>}
-      <button type="button" onClick={() => inspect()} disabled={busy || !secret.current} className="rounded border px-3 py-2">{t('readGrantInspect')}</button>
-      <button type="button" onClick={() => inspect(true)} disabled={busy || !secret.current} className="rounded border px-3 py-2">{t('readGrantRevoke')}</button>
+      <div className="intake-actions">
+        {receipt?.state === 'active' && <button type="button" onClick={copy} disabled={busy} className="rounded border px-3 py-2">{t('readGrantCopy')}</button>}
+        <button type="button" onClick={() => inspect()} disabled={busy || !secret.current} className="rounded border px-3 py-2">{t('readGrantInspect')}</button>
+        <button type="button" onClick={() => inspect(true)} disabled={busy || !secret.current} className="intake-danger rounded border px-3 py-2">{t('readGrantRevoke')}</button>
+      </div>
     </>}
     {failure && <p role="status">{t('readGrantOriginalFailure', {
       reason: t(`readGrantFailure_${failure.code}`), status: failure.status ? String(failure.status) : t('readGrantNoResponse'),

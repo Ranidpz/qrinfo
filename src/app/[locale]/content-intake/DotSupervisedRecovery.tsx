@@ -21,9 +21,9 @@ export default function DotSupervisedRecovery() {
     } catch { setError(true); }
     finally { inFlight.current = false; setBusy(false); }
   }
-  return <section aria-labelledby="supervised-recovery-title" className="rounded-2xl border border-border p-5 space-y-3">
-    <h2 id="supervised-recovery-title" className="font-semibold">{t('supervisedRecoveryTitle')}</h2>
-    <p>{t('supervisedRecoveryIntro')}</p>
+  return <section aria-labelledby="supervised-recovery-title" className="rounded-2xl border border-border bg-bg-secondary p-5 sm:p-6 space-y-5">
+    <h2 id="supervised-recovery-title" className="text-lg font-semibold">{t('supervisedRecoveryTitle')}</h2>
+    <p className="text-sm text-text-secondary">{t('supervisedRecoveryIntro')}</p>
     <label className="block" htmlFor="supervised-manifest-id">{t('supervisedManifestId')}</label>
     <input id="supervised-manifest-id" dir="ltr" value={id} disabled={busy} onChange={e => { setId(e.target.value); setResult(null); setError(false); }} className="w-full rounded border p-2 bg-bg-primary" />
     <button type="button" disabled={busy || !/^[a-f0-9]{64}$/.test(id)} onClick={inspect} className="rounded border px-3 py-2 disabled:opacity-50">{t('supervisedInspect')}</button>

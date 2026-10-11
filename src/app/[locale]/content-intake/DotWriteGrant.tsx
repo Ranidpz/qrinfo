@@ -73,10 +73,10 @@ export default function DotWriteGrant({ ownerId, ownerEmail, projectId, targets 
     try { localStorage.removeItem(storageKey); secret.current = null; setId(''); setHasAttempt(false); setReceipt(null); setReady(false); setMessage(''); }
     catch { setMessage('writerStorageRequired'); }
   }
-  return <section aria-labelledby="writer-grant-title" className="rounded-lg border border-border p-4 space-y-3">
+  return <section aria-labelledby="writer-grant-title" className="rounded-lg border border-border bg-bg-primary/40 p-5 sm:p-6 space-y-5">
     <h3 id="writer-grant-title" className="font-semibold">{t('writerTitle')}</h3>
-    <p>{t('writerIntro')}</p>
-    {!enabled && <p>{t('writerDisabled')}</p>}
+    <p className="text-sm text-text-secondary">{t('writerIntro')}</p>
+    {!enabled && <p role="status" className="intake-notice">{t('writerDisabled')}</p>}
     {!id && !hasAttempt && <>
       <label htmlFor="writer-target">{t('writerTarget')}</label>
       <select id="writer-target" value={shortId} disabled={busy || !enabled} onChange={e => setShortId(e.target.value)} className="block w-full rounded border p-2 bg-bg-primary">
@@ -84,16 +84,18 @@ export default function DotWriteGrant({ ownerId, ownerEmail, projectId, targets 
         {targets.filter(target => target.shortId !== '5ubXFS').map(target => <option key={target.shortId} value={target.shortId}>{target.title} · {target.shortId}</option>)}
       </select>
       <label className="flex gap-2"><input type="checkbox" checked={ready} disabled={busy || !enabled} onChange={e => setReady(e.target.checked)} />{t('writerConfirm')}</label>
-      <button type="button" disabled={busy || !enabled || !ready || !shortId} onClick={issue} className="rounded border px-3 py-2 disabled:opacity-50">{t('writerIssue')}</button>
+      <button type="button" disabled={busy || !enabled || !ready || !shortId} onClick={issue} className="rounded-lg bg-accent px-4 py-3 text-white disabled:opacity-50">{t('writerIssue')}</button>
     </>}
     <label className="block" htmlFor="writer-attempt-id">{t('writerAttemptId')}</label>
     <input id="writer-attempt-id" dir="ltr" value={id} disabled={busy || hasAttempt} onChange={e => { setId(e.target.value); setReceipt(null); setMessage(''); }} className="w-full rounded border p-2 bg-bg-primary" />
-    <p>{t('writerRecoverHelp')}</p>
+    <p className="text-sm text-text-secondary">{t('writerRecoverHelp')}</p>
     {receipt && <p role="status">{t(`writerState_${receipt.state}`)}{receipt.expiresAt ? ` · ${new Date(receipt.expiresAt).toLocaleString(locale, { timeZone: 'Asia/Jerusalem' })}` : ''}</p>}
-    {receipt?.state === 'active' && secret.current && <button type="button" disabled={busy} onClick={copy} className="rounded border px-3 py-2">{t('writerCopy')}</button>}
-    <button type="button" disabled={busy || !idPattern.test(id)} onClick={() => inspect()} className="rounded border px-3 py-2">{t('writerInspect')}</button>
-    <button type="button" disabled={busy || !idPattern.test(id)} onClick={() => inspect(true)} className="rounded border px-3 py-2">{t('writerRevoke')}</button>
-    {receipt && ['revoked', 'expired'].includes(receipt.state) && <button type="button" disabled={busy} onClick={newAttempt} className="rounded border px-3 py-2">{t('writerNew')}</button>}
+    <div className="intake-actions">
+      {receipt?.state === 'active' && secret.current && <button type="button" disabled={busy} onClick={copy} className="rounded border px-3 py-2">{t('writerCopy')}</button>}
+      <button type="button" disabled={busy || !idPattern.test(id)} onClick={() => inspect()} className="rounded border px-3 py-2">{t('writerInspect')}</button>
+      <button type="button" disabled={busy || !idPattern.test(id)} onClick={() => inspect(true)} className="intake-danger rounded border px-3 py-2">{t('writerRevoke')}</button>
+      {receipt && ['revoked', 'expired'].includes(receipt.state) && <button type="button" disabled={busy} onClick={newAttempt} className="rounded border px-3 py-2">{t('writerNew')}</button>}
+    </div>
     {message && <p role="status">{t(message)}</p>}
   </section>;
 }

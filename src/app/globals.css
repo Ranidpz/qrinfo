@@ -1030,3 +1030,125 @@ body {
   }
 }
 
+
+/* Fattal administration: use the same tokens as the surrounding app shell.
+   Scoped so public viewers and other administrative forms are unaffected. */
+.intake-module {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.dark .intake-module {
+  color-scheme: dark;
+}
+
+.intake-module :where(input:not([type="checkbox"]), select) {
+  min-height: 2.875rem;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.intake-module select {
+  appearance: none;
+  padding-inline-end: 2.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+}
+
+[dir="rtl"] .intake-module select {
+  background-position: left 1rem center;
+}
+
+.intake-module input[type="file"]::file-selector-button {
+  margin-inline-end: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.intake-module :is(input, select):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.intake-module label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.75;
+}
+
+.intake-module input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-block-start: 0.2rem;
+  accent-color: var(--accent);
+}
+
+.intake-module button {
+  min-height: 2.75rem;
+  max-width: 100%;
+  border-color: var(--border);
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 150ms, border-color 150ms;
+}
+
+.intake-module button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.intake-module button.bg-accent:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.intake-module button.border:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+}
+
+.intake-module button.intake-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
+.intake-module button.intake-danger:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.intake-module .intake-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.intake-module .intake-notice {
+  border-inline-start: 3px solid var(--border);
+  padding: 0.75rem 1rem;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+}
+
+@media (max-width: 639px) {
+  .intake-module .intake-actions > button {
+    width: 100%;
+  }
+}

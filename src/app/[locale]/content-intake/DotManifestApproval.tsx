@@ -68,7 +68,7 @@ export default function DotManifestApproval() {
     const link = document.createElement('a'); link.href = url; link.download = `fattal-review-${review.manifestId}.json`; link.click(); URL.revokeObjectURL(url);
   }
   if (!enabled) return null;
-  return <section aria-labelledby="manifest-approval-title" className="rounded-2xl border border-border bg-bg-secondary p-5 sm:p-6 space-y-3">
+  return <section aria-labelledby="manifest-approval-title" className="rounded-2xl border border-border bg-bg-secondary p-5 sm:p-6 space-y-5">
     <h2 id="manifest-approval-title" className="text-lg font-semibold">{t('approvalTitle')}</h2>
     <p className="text-sm text-text-secondary">{t('approvalIntro')}</p>
     <label className="block" htmlFor="approval-writer">{t('approvalWriter')}</label>
@@ -76,7 +76,7 @@ export default function DotManifestApproval() {
     <label className="block" htmlFor="approval-file">{t('approvalFile')}</label>
     <input id="approval-file" type="file" accept="application/json,.json" disabled={busy || attempted} onChange={event => { void loadFile(event.target.files?.[0]); }} />
     <button type="button" onClick={() => action('preview')} disabled={busy || attempted || !candidate || !/^[a-f0-9]{32}$/.test(connectionId)} className="rounded border px-3 py-2 disabled:opacity-50">{t('approvalPreview')}</button>
-    {review && <div className="space-y-3 break-words">
+    {review && <div className="space-y-5 break-words border-t border-border pt-5">
       <p>{review.manifest.hotel} · {review.manifest.shortId} · {review.manifest.filename}</p>
       <p>{review.manifest.period.kind} · {review.manifest.period.startDate} — {review.manifest.period.endDate}</p>
       <p className="break-all" dir="ltr">SHA256: {review.manifest.sha256}</p>
@@ -94,8 +94,10 @@ export default function DotManifestApproval() {
         <button type="button" onClick={() => action('approve')} disabled={busy || !confirmed || review.expiresAt <= Date.now()} className="rounded bg-accent text-white px-3 py-2 disabled:opacity-50">{t('approvalApprove')}</button>
       </>}
       {attempted && <>
-        <button type="button" onClick={() => action('inspect')} disabled={busy} className="rounded border px-3 py-2">{t('approvalInspect')}</button>
-        <button type="button" onClick={() => action('revoke')} disabled={busy || status !== 'approved'} className="rounded border px-3 py-2">{t('approvalRevoke')}</button>
+        <div className="intake-actions">
+          <button type="button" onClick={() => action('inspect')} disabled={busy} className="rounded border px-3 py-2">{t('approvalInspect')}</button>
+          <button type="button" onClick={() => action('revoke')} disabled={busy || status !== 'approved'} className="intake-danger rounded border px-3 py-2">{t('approvalRevoke')}</button>
+        </div>
         <p className="break-all" dir="ltr">{review.manifestId}</p>
       </>}
     </div>}

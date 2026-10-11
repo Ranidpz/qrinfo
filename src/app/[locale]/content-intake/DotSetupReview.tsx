@@ -8,7 +8,9 @@ import DotWriteGrant from './DotWriteGrant';
 
 type Review = ReturnType<typeof buildSetupReview>;
 const endpoint = '/api/content-intake/dot/setup';
-export default function DotSetupReview({ owners }: { owners: { id: string; email: string; name: string }[] }) {
+export default function DotSetupReview({ owners, adminId, ownersReady }: {
+  owners: { id: string; email: string; name: string }[]; adminId: string; ownersReady: boolean;
+}) {
   const t = useTranslations('contentIntake');
   const locale = useLocale();
   const [project, setProject] = useState('');
@@ -22,6 +24,27 @@ export default function DotSetupReview({ owners }: { owners: { id: string; email
   const [copyNotice, setCopyNotice] = useState<'setupUidCopied' | 'setupUidCopyFailed' | null>(null);
   const uidInput = useRef<HTMLInputElement>(null);
   const generation = useRef(0);
+  const restoredScope = useRef('');
+  const storageKey = adminId && project ? `fattal-setup-owner:v1:${adminId}:${project}` : '';
+  useEffect(() => {
+    if (!storageKey || !ownersReady) return;
+    if (restoredScope.current !== storageKey) {
+      restoredScope.current = storageKey;
+      let restoredOwner = '';
+      // A remembered selection is only a convenience, never a verified identity.
+      try {
+        const saved = window.sessionStorage.getItem(storageKey);
+        if (saved && owners.some(owner => owner.id === saved)) restoredOwner = saved;
+        else window.sessionStorage.removeItem(storageKey);
+      } catch { /* Storage denial must not prevent manual selection. */ }
+      generation.current++;
+      setOwner(restoredOwner); setReview(null); setBusy(false); setCopyNotice(null);
+    } else if (ownerId && !owners.some(owner => owner.id === ownerId)) {
+      generation.current++;
+      setOwner(''); setReview(null); setBusy(false); setCopyNotice(null);
+      try { window.sessionStorage.removeItem(storageKey); } catch { /* Optional preference. */ }
+    }
+  }, [storageKey, ownersReady, owners, ownerId]);
   useEffect(() => {
     const controller = new AbortController();
     const requestGeneration = generation;
@@ -33,6 +56,14 @@ export default function DotSetupReview({ owners }: { owners: { id: string; email
     return () => { controller.abort(); requestGeneration.current++; };
   }, []);
   function invalidate() { generation.current++; setReview(null); setError(false); setBusy(false); setCopyNotice(null); }
+  function selectOwner(value: string) {
+    invalidate(); setOwner(value);
+    if (!storageKey || !ownersReady) return;
+    try {
+      if (owners.some(owner => owner.id === value)) window.sessionStorage.setItem(storageKey, value);
+      else window.sessionStorage.removeItem(storageKey);
+    } catch { /* Store only the nonsecret UID; selection still works without storage. */ }
+  }
   async function copyOwnerId() {
     if (!selectedOwner) return;
     const request = generation.current;
@@ -65,7 +96,7 @@ export default function DotSetupReview({ owners }: { owners: { id: string; email
     <p className="mb-3 break-all text-sm">{t('setupProject')}: <span dir="ltr">{project || '—'}</span></p>
     <form id="dot-setup-form" onSubmit={inspect} className="space-y-3">
       <label className="block" htmlFor="setup-owner">{t('owner')}</label>
-      <select id="setup-owner" value={ownerId} onChange={e => { invalidate(); setOwner(e.target.value); }} className="w-full rounded-lg border border-border bg-bg-primary p-3">
+      <select id="setup-owner" value={ownerId} disabled={!project || !ownersReady} onChange={e => selectOwner(e.target.value)} className="w-full rounded-lg border border-border bg-bg-primary p-3">
         <option value="">{t('setupChoose')}</option>
         {owners.map(o => <option key={o.id} value={o.id}>{o.name} · {o.email}</option>)}
       </select>
@@ -84,7 +115,7 @@ export default function DotSetupReview({ owners }: { owners: { id: string; email
       <button type="submit" disabled={busy || !project || !ownerId || !email} className="block rounded-lg bg-accent px-4 py-2 text-white disabled:opacity-50">{busy ? t('loading') : t('setupCheck')}</button>
     </form>
     {error && <p role="alert" className="mt-3 text-red-500">{t('setupError')}</p>}
-    {review && <div role="status" className="mt-4 space-y-3">
+    {review && review.ownerId === ownerId && review.ownerEmail === email && review.projectId === project && <div role="status" className="mt-6 space-y-5 border-t border-border pt-6">
       <p>{t(review.mappingVerified ? 'setupVerified' : 'setupBlocked')}</p>
       <p dir="ltr" className="break-all text-sm">{review.ownerEmail} · {review.ownerId} · {review.projectId}</p>
       <ul className="space-y-1 text-sm">{review.targets.map(target => <li key={target.shortId}>{target.title} · <span dir="ltr">{target.shortId}</span> · {t(`setupTarget_${target.state}`)}</li>)}</ul>
