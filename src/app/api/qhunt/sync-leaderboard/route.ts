@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { QHuntConfig, QHuntPlayer, QHuntLeaderboardEntry, QHuntStats } from '@/types/qhunt';
 
@@ -7,7 +8,7 @@ import { QHuntConfig, QHuntPlayer, QHuntLeaderboardEntry, QHuntStats } from '@/t
  * This is needed for players who registered before RTDB sync was added
  * Uses Admin SDK for server-side RTDB operations
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { codeId } = body;
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
     const adminDb = getAdminDb();
 
@@ -185,9 +189,8 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error syncing leaderboard:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: `Sync error: ${errorMessage}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

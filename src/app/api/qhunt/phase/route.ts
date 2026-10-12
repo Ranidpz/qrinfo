@@ -1,12 +1,11 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { QHuntConfig, QHuntPhase } from '@/types/qhunt';
-import { updateQHuntStatus, initQHuntSession, qhuntSessionExists } from '@/lib/qhunt-realtime';
 
 const VALID_PHASES: QHuntPhase[] = ['registration', 'countdown', 'playing', 'finished', 'results'];
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
@@ -28,11 +27,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if code exists
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
-    if (!codeDoc.exists()) {
+    // Check if code exists
+    const codeRef = getAdminDb().collection('codes').doc(codeId);
+    const codeDoc = await codeRef.get();
+
+    if (!codeDoc.exists) {
       return NextResponse.json(
         { success: false, error: 'Code not found' },
         { status: 404 }
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
     }
 
     // Find QHunt media item
-    const codeData = codeDoc.data();
+    const codeData = codeDoc.data()!;
     const mediaIndex = codeData.media?.findIndex(
       (m: { id: string }) => m.id === mediaId
     );
@@ -86,17 +88,28 @@ export async function POST(request: Request) {
       },
     };
 
-    await updateDoc(codeRef, { media: updatedMedia });
+    await codeRef.update({ media: updatedMedia });
 
-    // Update Realtime DB
+    // Update Realtime DB (Admin SDK — clients can't write qhunt/*)
     try {
-      // Initialize session if doesn't exist
-      const sessionExists = await qhuntSessionExists(codeId);
+      const sessionRef = getAdminRtdb().ref(`qhunt/${codeId}`);
+      const now = Date.now();
+      const sessionExists = (await sessionRef.once('value')).exists();
       if (!sessionExists) {
-        await initQHuntSession(codeId);
+        await sessionRef.set({
+          status: 'registration',
+          stats: { totalPlayers: 0, playersPlaying: 0, playersFinished: 0, totalScans: 0, avgScore: 0, topScore: 0, lastUpdated: now },
+          leaderboard: {},
+          teamScores: {},
+          recentScans: {},
+          lastUpdated: now,
+        });
       }
 
-      await updateQHuntStatus(codeId, newPhase);
+      const statusUpdate: Record<string, unknown> = { status: newPhase, lastUpdated: now };
+      if (newPhase === 'countdown') statusUpdate.countdownStartedAt = now;
+      else if (newPhase === 'playing') statusUpdate.gameStartedAt = now;
+      await sessionRef.update(statusUpdate);
     } catch (rtdbError) {
       console.error('Error updating Realtime DB:', rtdbError);
     }

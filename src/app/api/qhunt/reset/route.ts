@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { QHuntConfig, DEFAULT_QHUNT_CONFIG } from '@/types/qhunt';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
@@ -15,6 +16,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
     // Get Admin Firestore
     const adminDb = getAdminDb();
@@ -130,10 +134,8 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error resetting game:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Error details:', errorMessage);
     return NextResponse.json(
-      { success: false, error: `Reset error: ${errorMessage}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

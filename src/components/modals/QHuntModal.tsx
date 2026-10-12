@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import {
   X, Loader2, Plus, Trash2, Palette, Settings, Target, Users, Crosshair,
   Monitor, Copy, Check, ImageIcon, Upload, Timer, Play, Square, RotateCcw,
@@ -177,7 +178,7 @@ export default function QHuntModal({
 
     setLoadingPlayers(true);
     try {
-      const response = await fetch(`/api/qhunt/players?codeId=${codeId}`);
+      const response = await fetchWithAuth(`/api/qhunt/players?codeId=${codeId}`);
       const data = await response.json();
       if (data.success && data.players) {
         setPlayers(data.players);
@@ -196,7 +197,7 @@ export default function QHuntModal({
     setSyncing(true);
     setSyncMessage(null);
     try {
-      const response = await fetch('/api/qhunt/sync-leaderboard', {
+      const response = await fetchWithAuth('/api/qhunt/sync-leaderboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ codeId }),
@@ -246,7 +247,7 @@ export default function QHuntModal({
 
     const intervalId = setInterval(() => {
       // Silent refresh - don't show loading state
-      fetch(`/api/qhunt/players?codeId=${codeId}`)
+      fetchWithAuth(`/api/qhunt/players?codeId=${codeId}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.players) {
@@ -294,7 +295,7 @@ export default function QHuntModal({
 
     setDeletingPlayerId(playerId);
     try {
-      const response = await fetch(`/api/qhunt/players?codeId=${codeId}&playerId=${playerId}`, {
+      const response = await fetchWithAuth(`/api/qhunt/players?codeId=${codeId}&playerId=${playerId}`, {
         method: 'DELETE',
       });
       const data = await response.json();
@@ -315,7 +316,7 @@ export default function QHuntModal({
 
     setResettingPlayerId(playerId);
     try {
-      const response = await fetch(`/api/qhunt/players?codeId=${codeId}&playerId=${playerId}`, {
+      const response = await fetchWithAuth(`/api/qhunt/players?codeId=${codeId}&playerId=${playerId}`, {
         method: 'PATCH',
       });
       const data = await response.json();

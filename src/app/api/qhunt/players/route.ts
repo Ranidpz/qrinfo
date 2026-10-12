@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const codeId = searchParams.get('codeId');
@@ -12,6 +13,9 @@ export async function GET(request: Request) {
         { status: 400 }
       );
     }
+
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
     const adminDb = getAdminDb();
 
@@ -31,16 +35,15 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error fetching players:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: `Error: ${errorMessage}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
 // DELETE a single player
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const codeId = searchParams.get('codeId');
@@ -52,6 +55,9 @@ export async function DELETE(request: Request) {
         { status: 400 }
       );
     }
+
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
     const adminDb = getAdminDb();
 
@@ -102,16 +108,15 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting player:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: `Error: ${errorMessage}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
 // PATCH - End a player's game (mark as finished, keep their score)
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const codeId = searchParams.get('codeId');
@@ -123,6 +128,9 @@ export async function PATCH(request: Request) {
         { status: 400 }
       );
     }
+
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
     const adminDb = getAdminDb();
 
@@ -189,9 +197,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true, message: 'Player game ended' });
   } catch (error) {
     console.error('Error ending player game:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: `Error: ${errorMessage}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

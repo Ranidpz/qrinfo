@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import {
   X,
   Loader2,
@@ -156,7 +157,7 @@ export default function QTreasureModal({
 
     setCreatingQRForStation(stationId);
     try {
-      const response = await fetch('/api/qtreasure/create-station-qr', {
+      const response = await fetchWithAuth('/api/qtreasure/create-station-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -200,7 +201,7 @@ export default function QTreasureModal({
       const stationsNeedingQR = activeStations.filter(s => !s.stationShortId);
       for (const station of stationsNeedingQR) {
         try {
-          const response = await fetch('/api/qtreasure/create-station-qr', {
+          const response = await fetchWithAuth('/api/qtreasure/create-station-qr', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

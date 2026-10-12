@@ -2645,7 +2645,7 @@ export default function CodeEditPage({ params }: PageProps) {
     if (!code || !editingQHuntId) return;
 
     try {
-      const response = await fetch('/api/qhunt/reset', {
+      const response = await fetchWithAuth('/api/qhunt/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

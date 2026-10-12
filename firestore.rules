@@ -16,10 +16,12 @@ service cloud.firestore {
         request.resource.data.storageLimit == 25 * 1024 * 1024 &&
         request.resource.data.storageUsed == 0
       ) || isAdmin();
+      // Self-updates are an ALLOWLIST of profile fields. storageUsed / storageLimit /
+      // messageQuota / role are written only by the Admin SDK (API routes) or an admin.
       allow update: if isAdmin() || (
         request.auth != null && request.auth.uid == userId &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'role', 'email', 'storageLimit', 'createdAt'
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'updatedAt'
         ])
       );
       // Prevent delete/recreate from resetting identity, role or initial quota.
@@ -31,8 +33,10 @@ service cloud.firestore {
       // Anyone can read codes (for viewer page)
       allow read: if true;
 
-      // Only authenticated users can create codes
-      allow create: if request.auth != null;
+      // Only authenticated users can create codes, and only for themselves (admins: anyone)
+      allow create: if request.auth != null && (
+        request.resource.data.ownerId == request.auth.uid || isAdmin()
+      );
 
       // Owner, collaborators, or admin can update
       // Special case: owner can transfer ownership to another user
@@ -331,12 +335,10 @@ service cloud.firestore {
 
     // MessageLogs collection (for tracking sent messages)
     match /messageLogs/{logId} {
-      // Only owner or admin can read
-      allow read: if request.auth != null;
-      // Anyone can create (during OTP sending)
-      allow create: if true;
-      // No update or delete
-      allow update, delete: if false;
+      // Contains phone numbers: only the account it belongs to, or an admin, can read
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      // Written only by the Admin SDK (/api/verification/send)
+      allow create, update, delete: if false;
     }
 
     // Helper function to check if user is admin

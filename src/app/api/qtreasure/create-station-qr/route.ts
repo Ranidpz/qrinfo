@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { verifyAuthToken } from '@/lib/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 
 // Generate a unique short ID for QR codes
@@ -16,8 +17,11 @@ function generateShortId(length: number = 6): string {
  * Create a QR code for a Q.Treasure station
  * Uses Admin SDK to bypass Firestore auth rules (server-side operation)
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const authResult = await verifyAuthToken(request);
+    if ('error' in authResult) return authResult.error;
+
     const body = await request.json();
     const {
       ownerId,
@@ -41,6 +45,16 @@ export async function POST(request: Request) {
     }
 
     const db = getAdminDb();
+
+    // The caller must be the owner they create for, and must own the parent hunt code.
+    const callerDoc = await db.collection('users').doc(authResult.uid).get();
+    const isSuperAdmin = callerDoc.data()?.role === 'super_admin';
+    const parentSnap = await db.collection('codes').where('shortId', '==', parentCodeShortId).limit(1).get();
+    const parentOwnerId = parentSnap.docs[0]?.data()?.ownerId;
+    if (!parentOwnerId || parentOwnerId !== ownerId || (ownerId !== authResult.uid && !isSuperAdmin)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const shortId = generateShortId();
     const title = `תחנה ${stationOrder}: ${stationTitle}`;
 
