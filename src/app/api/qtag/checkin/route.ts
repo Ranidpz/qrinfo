@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { maskPhoneNumber } from '@/lib/phone-utils';
+import { authorizeScanner } from '@/lib/qtag/scannerAuth.server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { qrToken, action } = body;
+    const { qrToken, action, scannerPin } = body;
 
     if (!qrToken || !action) {
       return NextResponse.json(
@@ -95,6 +96,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Same door rules as the guest-list scanner: owner token, the scanner PIN when one is set,
+    // and nobody but the owner while the scanner is switched off.
+    const access = await authorizeScanner(request, codeId, scannerPin, clientIp);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error, code: access.code }, { status: access.status });
+    }
+
     const guestData = guestDoc.data()!;
     const alreadyArrived = guestData.status === 'arrived';
     const arrivedAt = guestData.arrivedAt instanceof Timestamp
@@ -141,6 +149,11 @@ export async function POST(request: NextRequest) {
 
         const freshData = freshDoc.data()!;
 
+        // A guest who cancelled gave up the spot — don't let the QR in
+        if (freshData.status === 'cancelled') {
+          return { cancelled: true as const };
+        }
+
         if (freshData.status === 'arrived') {
           return {
             alreadyArrived: true,
@@ -173,6 +186,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: result.error, errorCode: 'NOT_FOUND' },
           { status: 404 }
+        );
+      }
+      if ('cancelled' in result) {
+        return NextResponse.json(
+          { error: 'Registration was cancelled', errorCode: 'CANCELLED', guest: { id: guestDoc.id, name: guestData.name } },
+          { status: 409 }
         );
       }
 

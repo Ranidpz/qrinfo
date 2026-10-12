@@ -598,3 +598,27 @@ export function formatGameDuration(ms: number): string {
   const centiseconds = Math.floor((ms % 1000) / 10);
   return `${minutes}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
 }
+
+// =============================================================
+// Finish rules (shared by /api/qhunt/scan, /api/qhunt/end and QHuntScanner)
+// =============================================================
+/** How many codes this player hunts: all active codes of their colour, or the config target. */
+export function getQHuntTargetCount(
+  config: Pick<QHuntConfig, 'enableTypeBasedHunting' | 'codes' | 'targetCodeCount'>,
+  assignedCodeType?: QHuntCodeType
+): number {
+  if (config.enableTypeBasedHunting && assignedCodeType) {
+    return config.codes.filter(c => c.isActive && c.codeType === assignedCodeType).length;
+  }
+  return config.targetCodeCount;
+}
+
+/** Codes a player must find before the voluntary "End game" is allowed (0 = any time). */
+export function getQHuntCodesRequiredToEnd(
+  config: Pick<QHuntConfig, 'enableTypeBasedHunting' | 'codes' | 'targetCodeCount' | 'requireAllCodesToFinish' | 'minCodesToFinish'>,
+  assignedCodeType?: QHuntCodeType
+): number {
+  const target = getQHuntTargetCount(config, assignedCodeType);
+  if (config.requireAllCodesToFinish) return target;
+  return Math.min(Math.max(0, config.minCodesToFinish || 0), target);
+}

@@ -192,6 +192,7 @@ export interface QVoteConfig {
   // Scheduling
   schedule: QVoteSchedule;
   scheduleMode: ScheduleMode;
+  phaseChangedAt?: string;          // ISO time of the last MANUAL phase change (schedule times before it are ignored)
 
   // Voting settings
   minSelectionsPerVoter?: number;   // Minimum candidates to select (1 = can submit after selecting 1)
@@ -390,4 +391,42 @@ export function isValidPhaseTransition(from: QVotePhase, to: QVotePhase, enableF
   if (from === 'voting' && !enableFinals && to !== 'results') return false;
 
   return true;
+}
+
+// =============================================================
+// Phase scheduling (shared by QVoteViewer and /api/qvote/vote)
+// =============================================================
+const QVOTE_SCHEDULE_PHASES: QVotePhase[] = ['registration', 'preparation', 'voting', 'finals', 'calculating', 'results'];
+
+/**
+ * The latest scheduled phase whose start time has passed, or null when none applies.
+ * A manual phase change (`phaseChangedAt`) overrides every schedule time before it.
+ */
+export function getScheduledQVotePhase(
+  config: Pick<QVoteConfig, 'schedule' | 'phaseChangedAt'>,
+  now: number = Date.now()
+): QVotePhase | null {
+  if (!config.schedule) return null;
+  const manualAt = config.phaseChangedAt ? new Date(config.phaseChangedAt).getTime() : 0;
+  let latest: QVotePhase | null = null;
+  let latestTime = -Infinity;
+  for (const phase of QVOTE_SCHEDULE_PHASES) {
+    const at = config.schedule[phase];
+    if (!at) continue;
+    const time = new Date(at).getTime();
+    if (Number.isNaN(time) || time > now || time <= manualAt) continue;
+    if (time > latestTime) {
+      latestTime = time;
+      latest = phase;
+    }
+  }
+  return latest;
+}
+
+/** The phase participants are actually in: a passed schedule time wins over the stored phase. */
+export function getEffectiveQVotePhase(
+  config: Pick<QVoteConfig, 'currentPhase' | 'schedule' | 'phaseChangedAt'>,
+  now: number = Date.now()
+): QVotePhase {
+  return getScheduledQVotePhase(config, now) ?? config.currentPhase;
 }

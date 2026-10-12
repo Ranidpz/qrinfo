@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { normalizePhoneNumber } from '@/lib/phone-utils';
 import crypto from 'crypto';
+import { QVoteConfig, getEffectiveQVotePhase } from '@/types/qvote';
 
 // --- Config cache (per serverless instance, 30s TTL) ---
 const configCache = new Map<string, { data: Record<string, unknown>; expiresAt: number }>();
@@ -98,7 +99,8 @@ export async function POST(request: NextRequest) {
     const isTabletMode = tabletModeConfig?.enabled === true;
 
     // --- Fix 4: Validate voting phase ---
-    const currentPhase = qvoteConfig?.currentPhase;
+    // Effective phase = stored phase, unless a scheduled phase start has passed (same rule the viewer uses)
+    const currentPhase = qvoteConfig ? getEffectiveQVotePhase(qvoteConfig as unknown as QVoteConfig) : undefined;
     if (currentPhase !== 'voting' && currentPhase !== 'finals') {
       return NextResponse.json(
         { error: 'Voting is not currently open', errorCode: 'VOTING_CLOSED' },

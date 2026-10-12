@@ -61,7 +61,9 @@ export function QHuntPlayerView({
 
   const { config, loading: configLoading } = useQHuntConfig(codeId, mediaId);
   const { player, scans, refreshPlayer, refreshScans } = useQHuntPlayer(codeId, playerId);
-  const sounds = useQHuntSounds(config?.sound?.enabled ?? true);
+  // The editor's "Sound Effects" toggle writes `enableSound`; `sound.enabled` is the older field
+  const soundConfig = config || initialConfig;
+  const sounds = useQHuntSounds((soundConfig?.enableSound ?? true) && (soundConfig?.sound?.enabled ?? true));
 
   // Use live config or fallback to initial
   const activeConfig = config || initialConfig;

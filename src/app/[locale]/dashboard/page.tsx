@@ -1100,7 +1100,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleQHuntCreate = async (config: QHuntConfig) => {
+  const handleQHuntCreate = async (config: QHuntConfig, backgroundFile?: File, logoFile?: File) => {
     if (!user) return;
 
     setAddingQHunt(true);
@@ -1118,6 +1118,26 @@ export default function DashboardPage() {
           qhuntConfig: config,
         },
       ], currentFolderId);
+
+      // Branding images need the code id (storage folder + quota), so upload after create
+      if (backgroundFile || logoFile) {
+        const upload = async (file: File): Promise<string | null> => {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('codeId', newCode.id);
+          formData.append('folder', 'qhunt');
+          const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
+          return res.ok ? (await res.json()).url : null;
+        };
+        const branding = { ...config.branding };
+        const backgroundUrl = backgroundFile ? await upload(backgroundFile) : null;
+        const logoUrl = logoFile ? await upload(logoFile) : null;
+        if (backgroundUrl) branding.backgroundImage = backgroundUrl;
+        if (logoUrl) branding.eventLogo = logoUrl;
+        const media = newCode.media.map((m) => m.type === 'qhunt' ? { ...m, qhuntConfig: { ...config, branding } } : m);
+        await updateQRCode(newCode.id, { media });
+        newCode.media = media;
+      }
 
       // Add to list
       setCodes((prev) => [newCode, ...prev]);

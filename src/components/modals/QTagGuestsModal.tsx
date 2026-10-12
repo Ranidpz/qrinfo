@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, memo } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import {
   X,
@@ -176,6 +176,7 @@ const GuestRow = memo(function GuestRow({
 
 export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QTagGuestsModalProps) {
   const t = useTranslations('modals');
+  const locale = useLocale();
   const { guests, stats, loading } = useQTagGuests(codeId, isOpen);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -313,7 +314,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
 
   // Copy scanner link
   const copyScannerLink = () => {
-    const url = `${window.location.origin}/he/dashboard/qtag/${codeId}/scanner`;
+    const url = `${window.location.origin}/${locale}/dashboard/qtag/${codeId}/scanner`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);

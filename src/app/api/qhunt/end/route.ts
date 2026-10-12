@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
-import { QHuntPlayer, QHuntLeaderboardEntry, QHuntConfig } from '@/types/qhunt';
+import { QHuntPlayer, QHuntLeaderboardEntry, QHuntConfig, getQHuntCodesRequiredToEnd } from '@/types/qhunt';
 
 export async function POST(request: Request) {
   try {
@@ -61,6 +61,23 @@ export async function POST(request: Request) {
       });
     }
 
+    // Owner's finish rule: no voluntary end before the required number of codes,
+    // unless the game clock already ran out for this player.
+    const codeSnap = await adminDb.collection('codes').doc(codeId).get();
+    const huntConfig: QHuntConfig | undefined = codeSnap.data()?.media
+      ?.find((m: { type: string }) => m.type === 'qhunt')?.qhuntConfig;
+    if (huntConfig) {
+      const required = getQHuntCodesRequiredToEnd(huntConfig, player.assignedCodeType);
+      const timeUp = huntConfig.gameDurationSeconds > 0 && !!player.gameStartedAt
+        && Date.now() - player.gameStartedAt >= huntConfig.gameDurationSeconds * 1000;
+      if (!timeUp && (player.scansCount || 0) < required) {
+        return NextResponse.json(
+          { success: false, error: 'MIN_CODES_NOT_REACHED', required },
+          { status: 400 }
+        );
+      }
+    }
+
     // Mark player as finished
     const gameEndedAt = Date.now();
     await playerRef.update({
@@ -93,11 +110,7 @@ export async function POST(request: Request) {
     try {
       const adminRtdb = getAdminRtdb();
 
-      // Get config to find team color
-      const codeDoc = await adminDb.collection('codes').doc(codeId).get();
-      const codeData = codeDoc.data();
-      const qhuntMedia = codeData?.media?.find((m: { type: string }) => m.type === 'qhunt');
-      const config: QHuntConfig | undefined = qhuntMedia?.qhuntConfig;
+      const config = huntConfig;
 
       let teamColor: string | undefined;
       if (player.teamId && config?.teams) {

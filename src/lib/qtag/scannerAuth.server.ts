@@ -10,13 +10,14 @@ export type ScannerAccess = 'owner' | 'pin' | 'open';
 
 export type ScannerAuthResult =
   | { ok: true; access: ScannerAccess; shortId?: string }
-  | { ok: false; status: number; error: string; code: 'NOT_FOUND' | 'PIN_REQUIRED' | 'PIN_INVALID' | 'RATE_LIMITED' };
+  | { ok: false; status: number; error: string; code: 'NOT_FOUND' | 'PIN_REQUIRED' | 'PIN_INVALID' | 'RATE_LIMITED' | 'SCANNER_DISABLED' };
 
 /**
  * Who may use the Q.Tag door scanner for a code:
  * - the owner / a collaborator / a super admin (Bearer token), always;
  * - anyone holding the scanner PIN, when the owner set one;
  * - anyone with the link, when no PIN is set ("open" — the owner's choice).
+ * When the owner turned the scanner off (`scannerEnabled: false`) only the owner gets in.
  * The PIN is read on the server only (private secrets doc, legacy field as fallback).
  */
 export async function authorizeScanner(
@@ -45,6 +46,9 @@ export async function authorizeScanner(
 
   const media = (data.media || []) as Array<Record<string, unknown> & { id?: string }>;
   const qtagMedia = media.find((m) => m.qtagConfig);
+  if ((qtagMedia?.qtagConfig as { scannerEnabled?: boolean } | undefined)?.scannerEnabled === false) {
+    return { ok: false, status: 403, error: 'Scanner is disabled', code: 'SCANNER_DISABLED' };
+  }
   const expectedPin = (await resolveMediaSecret(codeId, qtagMedia, 'scannerPin'))?.trim();
 
   if (!expectedPin) return { ok: true, access: 'open', shortId };

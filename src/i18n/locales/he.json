@@ -1007,6 +1007,8 @@
     "qtagScanPrompt": "כוון את המצלמה לקוד QR של האורח",
     "qtagScanFailed": "הסריקה נכשלה",
     "qtagGuestNotFound": "האורח לא נמצא",
+    "qtagScannerDisabled": "הסורק כבוי בהגדרות האירוע",
+    "qtagGuestCancelledAtDoor": "ההרשמה של {name} בוטלה",
     "qtagInvalidQR": "קוד QR לא תקין לאירוע זה",
     "qtagConnectionError": "שגיאת חיבור. נסה שוב.",
     "qtagCameraError": "לא ניתן לגשת למצלמה. אנא אשר הרשאת מצלמה."

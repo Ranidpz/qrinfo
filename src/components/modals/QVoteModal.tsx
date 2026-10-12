@@ -680,8 +680,13 @@ export default function QVoteModal({
       categories: categories.map((c, i) => ({ ...c, order: i })),
       currentPhase,
       enableFinals,
-      schedule: {},
-      scheduleMode: 'manual',
+      // Phase schedules are edited on the candidates page — keep them (this used to write {} and wipe them)
+      schedule: initialConfig?.schedule ?? {},
+      scheduleMode: initialConfig?.scheduleMode ?? 'manual',
+      // Picking a phase here is a manual change: it must win over schedule times that already passed
+      ...(initialConfig && currentPhase !== initialConfig.currentPhase
+        ? { phaseChangedAt: new Date().toISOString() }
+        : initialConfig?.phaseChangedAt ? { phaseChangedAt: initialConfig.phaseChangedAt } : {}),
       minSelectionsPerVoter,
       maxSelectionsPerVoter,
       showVoteCount,

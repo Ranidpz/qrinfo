@@ -19,6 +19,8 @@ import {
   CODE_TYPE_CONFIG,
   QHUNT_TRANSLATIONS,
   formatGameTime,
+  getQHuntTargetCount,
+  getQHuntCodesRequiredToEnd,
 } from '@/types/qhunt';
 import { useQHuntTimer, useAnimatedScore } from '@/hooks/useQHuntRealtime';
 import { QHuntManualEntry } from './QHuntManualEntry';
@@ -150,17 +152,13 @@ export function QHuntScanner({
   const typeConfig = assignedType ? CODE_TYPE_CONFIG[assignedType] : null;
 
   // Calculate actual target based on assigned type (if type-based hunting)
-  const actualTargetCount = React.useMemo(() => {
-    if (config.enableTypeBasedHunting && assignedType) {
-      // Count active codes of the assigned type
-      const codesOfType = config.codes.filter(
-        c => c.isActive && c.codeType === assignedType
-      ).length;
-      return codesOfType;
-    }
-    // Default: use config target
-    return config.targetCodeCount;
-  }, [config.codes, config.enableTypeBasedHunting, config.targetCodeCount, assignedType]);
+  const actualTargetCount = React.useMemo(
+    () => getQHuntTargetCount(config, assignedType),
+    [config, assignedType]
+  );
+  // Owner's finish rule ("require all codes" / "minimum codes to finish") gates the End button
+  const codesRequiredToEnd = getQHuntCodesRequiredToEnd(config, assignedType);
+  const codesMissingToEnd = Math.max(0, codesRequiredToEnd - player.scansCount);
 
   // Extract code from URL if scanned text is a URL
   const extractCodeFromUrl = useCallback((scannedText: string): string => {
@@ -444,9 +442,13 @@ export function QHuntScanner({
               {lang === 'he' ? 'סיום המשחק' : 'End Game'}
             </h3>
             <p className="modal-text">
-              {lang === 'he'
-                ? `מצאתם ${player.scansCount} קודים וצברתם ${player.currentScore} נקודות. לסיים?`
-                : `You found ${player.scansCount} codes and scored ${player.currentScore} points. End now?`}
+              {codesMissingToEnd > 0
+                ? (lang === 'he'
+                  ? `מצאתם ${player.scansCount} קודים. כדי לסיים צריך למצוא עוד ${codesMissingToEnd}.`
+                  : `You found ${player.scansCount} codes. Find ${codesMissingToEnd} more to finish.`)
+                : (lang === 'he'
+                  ? `מצאתם ${player.scansCount} קודים וצברתם ${player.currentScore} נקודות. לסיים?`
+                  : `You found ${player.scansCount} codes and scored ${player.currentScore} points. End now?`)}
             </p>
             <div className="modal-buttons">
               <button
@@ -456,7 +458,7 @@ export function QHuntScanner({
               >
                 {lang === 'he' ? 'ממשיכים!' : 'Continue!'}
               </button>
-              <button
+              {codesMissingToEnd === 0 && <button
                 className="modal-btn modal-btn-confirm"
                 onClick={handleEndGame}
                 disabled={isEndingGame}
@@ -464,9 +466,9 @@ export function QHuntScanner({
                 {isEndingGame ? (
                   <span className="btn-loading" />
                 ) : (
-                  lang === 'he' ? 'סיים משחק' : 'End Game'
+                  lang === 'he' ? 'סיימו משחק' : 'End Game'
                 )}
-              </button>
+              </button>}
             </div>
           </div>
         </div>

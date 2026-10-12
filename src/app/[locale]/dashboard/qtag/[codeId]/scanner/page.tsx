@@ -186,6 +186,7 @@ export default function QTagScannerPage() {
 
   // PIN gate state
   const [pinRequired, setPinRequired] = useState<boolean | null>(null); // null = loading
+  const [scannerDisabled, setScannerDisabled] = useState(false);
   const [pinValue, setPinValue] = useState('');
   const [pinError, setPinError] = useState(false);
   const [pinUnlocked, setPinUnlocked] = useState(false);
@@ -361,6 +362,9 @@ export default function QTagScannerPage() {
           if (data.shortId) setShortId(data.shortId);
           setPinRequired(false);
           setPinUnlocked(true);
+        } else if (res.status === 403 && data.code === 'SCANNER_DISABLED') {
+          setScannerDisabled(true);
+          setPinRequired(false);
         } else if (res.status === 403 && (data.code === 'PIN_REQUIRED' || data.code === 'PIN_INVALID')) {
           setPinRequired(true);
         } else {
@@ -494,17 +498,18 @@ export default function QTagScannerPage() {
         return;
       }
 
-      const res = await fetch('/api/qtag/checkin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qrToken, action: 'checkin' }),
-      });
+      // Owner token + PIN go along — the check-in endpoint enforces the same door rules
+      const res = await scannerFetch('/api/qtag/checkin', { qrToken, action: 'checkin' });
 
       const data = await res.json();
 
       if (!res.ok) {
         setScannerState('error');
-        setScanError(data.errorCode === 'NOT_FOUND' ? t('qtagGuestNotFound') : data.error);
+        setScanError(
+          data.errorCode === 'NOT_FOUND' ? t('qtagGuestNotFound')
+            : data.errorCode === 'CANCELLED' ? t('qtagGuestCancelledAtDoor', { name: data.guest?.name || '' })
+            : data.error
+        );
         autoResetScanner(3000);
         return;
       }
@@ -1021,6 +1026,20 @@ export default function QTagScannerPage() {
     return (
       <div className="flex items-center justify-center h-dvh bg-gray-950">
         <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+      </div>
+    );
+  }
+
+  // Owner switched the scanner off in the Q.Tag settings
+  if (scannerDisabled) {
+    return (
+      <div className="flex items-center justify-center h-dvh bg-gray-950 px-6" dir="rtl">
+        <div className="w-full max-w-xs space-y-4 text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto">
+            <Lock className="w-7 h-7 text-red-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white font-assistant">{t('qtagScannerDisabled')}</h1>
+        </div>
       </div>
     );
   }

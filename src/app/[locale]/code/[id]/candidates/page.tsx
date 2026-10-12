@@ -33,6 +33,12 @@ function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
 }
 
 // Animated number component with smooth counting animation
+// <input type="datetime-local"> wants LOCAL time; toISOString() is UTC and showed the schedule hours off
+function toDateTimeLocalValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function AnimatedNumber({ value, duration = 500 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValue = useRef(0);
@@ -1590,7 +1596,8 @@ export default function QVoteCandidatesPage() {
                           } else {
                             // Change phase
                             const newPhase = phase.key as 'registration' | 'preparation' | 'voting' | 'finals' | 'calculating' | 'results';
-                            const newConfig = { ...qvoteConfig, currentPhase: newPhase };
+                            // phaseChangedAt makes this manual pick win over schedule times that already passed
+                            const newConfig = { ...qvoteConfig, currentPhase: newPhase, phaseChangedAt: new Date().toISOString() };
                             try {
                               if (code?.media && qvoteMediaItem) {
                                 const updatedMedia = code.media.map((m) =>
@@ -1636,12 +1643,15 @@ export default function QVoteCandidatesPage() {
                           </p>
                           <input
                             type="datetime-local"
-                            value={scheduleTime ? new Date(scheduleTime).toISOString().slice(0, 16) : ''}
+                            value={scheduleTime ? toDateTimeLocalValue(new Date(scheduleTime)) : ''}
                             onChange={async (e) => {
-                              const newSchedule = {
-                                ...qvoteConfig.schedule,
-                                [phase.key]: e.target.value ? new Date(e.target.value).toISOString() : undefined,
-                              };
+                              // Firestore rejects undefined — drop the key when the field is cleared
+                              const newSchedule = { ...qvoteConfig.schedule };
+                              if (e.target.value) {
+                                newSchedule[phase.key as keyof typeof newSchedule] = new Date(e.target.value).toISOString();
+                              } else {
+                                delete newSchedule[phase.key as keyof typeof newSchedule];
+                              }
                               const newConfig = { ...qvoteConfig, schedule: newSchedule };
                               try {
                                 if (code?.media && qvoteMediaItem) {

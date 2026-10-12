@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
+import { adjustQTagActiveRegistrations, isQTagAtCapacity } from '@/lib/server/qtag-stats';
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,6 +71,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, status: 'cancelled' });
       }
       await guestRef.update({ status: 'cancelled' });
+      // Frees the spot: cancelled guests no longer count toward maxRegistrations
+      await adjustQTagActiveRegistrations(codeId, guest.plusOneCount || 0, -1);
       return NextResponse.json({ success: true, status: 'cancelled' });
     }
 
@@ -77,7 +80,15 @@ export async function POST(request: NextRequest) {
       if (guest.status !== 'cancelled') {
         return NextResponse.json({ success: true, status: guest.status });
       }
+      // The spot may have been taken since the guest cancelled
+      if (await isQTagAtCapacity(codeId)) {
+        return NextResponse.json(
+          { error: 'Event is full', errorCode: 'CAPACITY_FULL' },
+          { status: 409 }
+        );
+      }
       await guestRef.update({ status: 'registered' });
+      await adjustQTagActiveRegistrations(codeId, guest.plusOneCount || 0, 1);
       return NextResponse.json({ success: true, status: 'registered' });
     }
 

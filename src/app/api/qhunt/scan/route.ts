@@ -9,6 +9,7 @@ import {
   QHuntScanMethod,
   QHuntLeaderboardEntry,
   CODE_TYPE_CONFIG,
+  getQHuntTargetCount,
 } from '@/types/qhunt';
 import { calculateTeamScores } from '@/lib/qhunt';
 
@@ -203,13 +204,7 @@ export async function POST(request: Request) {
     const newScansCount = player.scansCount + 1;
 
     // Calculate actual target based on assigned type (if type-based hunting)
-    let actualTargetCount = config.targetCodeCount;
-    if (config.enableTypeBasedHunting && player.assignedCodeType) {
-      // Count active codes of the player's assigned type
-      actualTargetCount = config.codes.filter(
-        c => c.isActive && c.codeType === player.assignedCodeType
-      ).length;
-    }
+    const actualTargetCount = getQHuntTargetCount(config, player.assignedCodeType);
 
     // Check if game complete (found all codes of assigned type)
     const isGameComplete = newScansCount >= actualTargetCount;

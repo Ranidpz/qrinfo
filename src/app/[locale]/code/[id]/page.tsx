@@ -61,7 +61,7 @@ import { QVoteConfig } from '@/types/qvote';
 import { getCandidates, bulkCreateCandidates } from '@/lib/qvote';
 import { QStageConfig } from '@/types/qstage';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
-import { QHuntConfig } from '@/types/qhunt';
+import { QHuntConfig, QHuntPhase } from '@/types/qhunt';
 import { QTreasureConfig } from '@/types/qtreasure';
 import { QChallengeConfig } from '@/types/qchallenge';
 import { QTagConfig } from '@/types/qtag';
@@ -402,6 +402,7 @@ export default function CodeEditPage({ params }: PageProps) {
   // Q.Hunt modal state
   const [qhuntModalOpen, setQhuntModalOpen] = useState(false);
   const [editingQHuntId, setEditingQHuntId] = useState<string | null>(null);
+  const qhuntPhaseChangeRef = useRef<{ mediaId: string; phase: QHuntPhase } | null>(null);
   const [addingQHunt, setAddingQHunt] = useState(false);
 
   // Q.Treasure modal state
@@ -2599,15 +2600,65 @@ export default function CodeEditPage({ params }: PageProps) {
   };
 
   // Handler for adding/editing Q.Hunt
-  const handleSaveQHunt = async (config: QHuntConfig) => {
+  const handleSaveQHunt = async (config: QHuntConfig, backgroundFile?: File, logoFile?: File) => {
     if (!code || !user) return;
 
     setAddingQHunt(true);
     try {
-      const qhuntConfig = { ...config };
+      const existingConfig = editingQHuntId
+        ? code.media.find(m => m.id === editingQHuntId)?.qhuntConfig
+        : undefined;
+
+      // Branding images picked in the modal arrive as Files — upload them and store the URLs.
+      const uploadBrandingImage = async (file: File, oldUrl?: string): Promise<string | null> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('codeId', code.id);
+        formData.append('folder', 'qhunt');
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
+        if (!res.ok) return null;
+        const { url } = await res.json();
+        if (oldUrl && isManagedStorageUrl(oldUrl)) {
+          await fetchWithAuth('/api/upload', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: oldUrl }),
+          }).catch(console.error);
+        }
+        return url;
+      };
+
+      const branding = { ...config.branding };
+      if (backgroundFile) {
+        const url = await uploadBrandingImage(backgroundFile, existingConfig?.branding?.backgroundImage);
+        if (!url) throw new Error('Background upload failed');
+        branding.backgroundImage = url;
+      }
+      if (logoFile) {
+        const url = await uploadBrandingImage(logoFile, existingConfig?.branding?.eventLogo);
+        if (!url) throw new Error('Logo upload failed');
+        branding.eventLogo = url;
+      }
+
+      const qhuntConfig: QHuntConfig = { ...config, branding };
       let updatedMedia: MediaItem[];
 
       if (editingQHuntId) {
+        // The game phase + session timestamps are owned by /api/qhunt/phase and /reset —
+        // keep the stored values so saving settings mid-game never rewinds the phase.
+        const fresh = await getQRCode(code.id);
+        const stored = fresh?.media.find(m => m.id === editingQHuntId)?.qhuntConfig;
+        if (stored) {
+          qhuntConfig.currentPhase = stored.currentPhase || qhuntConfig.currentPhase;
+          qhuntConfig.stats = stored.stats || qhuntConfig.stats;
+          delete qhuntConfig.gameStartedAt;
+          delete qhuntConfig.gameEndedAt;
+          delete qhuntConfig.lastResetAt;
+          if (stored.gameStartedAt !== undefined) qhuntConfig.gameStartedAt = stored.gameStartedAt;
+          if (stored.gameEndedAt !== undefined) qhuntConfig.gameEndedAt = stored.gameEndedAt;
+          if (stored.lastResetAt !== undefined) qhuntConfig.lastResetAt = stored.lastResetAt;
+        }
+
         // Editing existing Q.Hunt
         updatedMedia = code.media.map((m) =>
           m.id === editingQHuntId
@@ -2640,6 +2691,23 @@ export default function CodeEditPage({ params }: PageProps) {
     } finally {
       setAddingQHunt(false);
     }
+  };
+
+  // Handler for the modal's Game Control buttons (server writes Firestore + RTDB status)
+  const handleQHuntPhaseChange = async (newPhase: QHuntPhase) => {
+    if (!code || !editingQHuntId) return;
+    const response = await fetchWithAuth('/api/qhunt/phase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeId: code.id, mediaId: editingQHuntId, newPhase }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to change phase');
+    }
+    // Synced into `code` when the modal closes — doing it now would re-init the open modal
+    // from initialConfig and drop unsaved edits.
+    qhuntPhaseChangeRef.current = { mediaId: editingQHuntId, phase: newPhase };
   };
 
   // Handler for resetting Q.Hunt game
@@ -5013,10 +5081,21 @@ export default function CodeEditPage({ params }: PageProps) {
       <QHuntModal
         isOpen={qhuntModalOpen}
         onClose={() => {
+          const phaseChange = qhuntPhaseChangeRef.current;
+          if (phaseChange) {
+            qhuntPhaseChangeRef.current = null;
+            setCode((prev) => prev ? {
+              ...prev,
+              media: prev.media.map((m) => m.id === phaseChange.mediaId && m.qhuntConfig
+                ? { ...m, qhuntConfig: { ...m.qhuntConfig, currentPhase: phaseChange.phase } }
+                : m),
+            } : null);
+          }
           setQhuntModalOpen(false);
           setEditingQHuntId(null);
         }}
         onSave={handleSaveQHunt}
+        onPhaseChange={editingQHuntId ? handleQHuntPhaseChange : undefined}
         onReset={editingQHuntId ? handleResetQHunt : undefined}
         loading={addingQHunt}
         initialConfig={editingQHuntId ? code?.media.find(m => m.id === editingQHuntId)?.qhuntConfig : undefined}

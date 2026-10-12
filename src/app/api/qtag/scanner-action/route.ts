@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       const guestRef = db.collection('codes').doc(codeId)
         .collection('qtagGuests').doc(guestId);
 
-      await db.runTransaction(async (transaction) => {
+      const outcome = await db.runTransaction(async (transaction) => {
         const statsRef = db.collection('codes').doc(codeId)
           .collection('qtagStats').doc('current');
 
@@ -135,9 +135,11 @@ export async function POST(request: NextRequest) {
           transaction.get(statsRef),
         ]);
 
-        if (!freshDoc.exists) return;
+        if (!freshDoc.exists) return 'ok';
         const freshData = freshDoc.data()!;
-        if (freshData.status === 'arrived') return;
+        if (freshData.status === 'arrived') return 'ok';
+        // A guest who cancelled gave up the spot
+        if (freshData.status === 'cancelled') return 'cancelled';
 
         transaction.update(guestRef, {
           status: 'arrived',
@@ -153,8 +155,12 @@ export async function POST(request: NextRequest) {
             lastUpdated: FieldValue.serverTimestamp(),
           });
         }
+        return 'ok';
       });
 
+      if (outcome === 'cancelled') {
+        return NextResponse.json({ error: 'Registration was cancelled', errorCode: 'CANCELLED' }, { status: 409 });
+      }
       return NextResponse.json({ success: true });
     }
 
@@ -231,10 +237,13 @@ export async function POST(request: NextRequest) {
 
       if (statsDoc.exists) {
         const decrements: Record<string, unknown> = {
-          totalRegistered: FieldValue.increment(-1),
-          totalGuests: FieldValue.increment(-(1 + (guestData.plusOneCount || 0))),
           lastUpdated: FieldValue.serverTimestamp(),
         };
+        // A cancelled guest was already taken off the registration totals
+        if (guestData.status !== 'cancelled') {
+          decrements.totalRegistered = FieldValue.increment(-1);
+          decrements.totalGuests = FieldValue.increment(-(1 + (guestData.plusOneCount || 0)));
+        }
 
         if (guestData.status === 'arrived') {
           decrements.totalArrived = FieldValue.increment(-1);

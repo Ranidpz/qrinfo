@@ -21,14 +21,13 @@ import {
 interface QHuntModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (config: QHuntConfig, backgroundFile?: File) => Promise<void>;
+  onSave: (config: QHuntConfig, backgroundFile?: File, logoFile?: File) => Promise<void>;
   onPhaseChange?: (phase: QHuntPhase) => Promise<void>;
   onReset?: () => Promise<void>;
   loading?: boolean;
   initialConfig?: QHuntConfig;
   shortId?: string;
   codeId?: string;
-  currentPhase?: QHuntPhase;
 }
 
 interface QHuntPlayerDisplay {
@@ -112,7 +111,6 @@ export default function QHuntModal({
   initialConfig,
   shortId,
   codeId,
-  currentPhase = 'registration',
 }: QHuntModalProps) {
   const t = useTranslations('modals');
   const locale = useLocale();
@@ -614,7 +612,7 @@ export default function QHuntModal({
 
   // Handle save
   const handleSave = async () => {
-    await onSave(config, backgroundFile || undefined);
+    await onSave(config, backgroundFile || undefined, logoFile || undefined);
     // Reset dirty state after successful save
     originalConfigRef.current = JSON.stringify(config);
     setBackgroundFile(null);
@@ -623,11 +621,27 @@ export default function QHuntModal({
   };
 
   // Phase control
+  const [changingPhase, setChangingPhase] = useState(false);
   const handlePhaseChange = async (phase: QHuntPhase) => {
-    if (onPhaseChange) {
+    if (!onPhaseChange || changingPhase || phase === config.currentPhase) return;
+    setChangingPhase(true);
+    try {
       await onPhaseChange(phase);
+      // The phase is written server-side (/api/qhunt/phase); mirror it locally without
+      // marking the form dirty — Save never changes the phase.
+      setConfig(prev => ({ ...prev, currentPhase: phase }));
+      if (originalConfigRef.current) {
+        const original = JSON.parse(originalConfigRef.current) as QHuntConfig;
+        originalConfigRef.current = JSON.stringify({ ...original, currentPhase: phase });
+      }
+    } catch (error) {
+      console.error('Error changing Q.Hunt phase:', error);
+      alert(isRTL ? 'שינוי השלב נכשל' : 'Failed to change phase');
+    } finally {
+      setChangingPhase(false);
     }
   };
+  const currentPhase = config.currentPhase;
 
   // Generate printable codes page
   const generatePrintableCodes = async () => {
@@ -2326,7 +2340,7 @@ export default function QHuntModal({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <button
                     onClick={() => handlePhaseChange('registration')}
-                    disabled={!onPhaseChange}
+                    disabled={!onPhaseChange || changingPhase}
                     className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 ${
                       currentPhase === 'registration' ? 'border-blue-500 bg-blue-500/20' : 'border-gray-600 hover:border-gray-500'
                     }`}
@@ -2337,7 +2351,7 @@ export default function QHuntModal({
                   </button>
                   <button
                     onClick={() => handlePhaseChange('countdown')}
-                    disabled={!onPhaseChange}
+                    disabled={!onPhaseChange || changingPhase}
                     className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 ${
                       currentPhase === 'countdown' ? 'border-amber-500 bg-amber-500/20' : 'border-gray-600 hover:border-gray-500'
                     }`}
@@ -2348,7 +2362,7 @@ export default function QHuntModal({
                   </button>
                   <button
                     onClick={() => handlePhaseChange('playing')}
-                    disabled={!onPhaseChange}
+                    disabled={!onPhaseChange || changingPhase}
                     className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 ${
                       currentPhase === 'playing' ? 'border-emerald-500 bg-emerald-500/20' : 'border-gray-600 hover:border-gray-500'
                     }`}
@@ -2359,7 +2373,7 @@ export default function QHuntModal({
                   </button>
                   <button
                     onClick={() => handlePhaseChange('finished')}
-                    disabled={!onPhaseChange}
+                    disabled={!onPhaseChange || changingPhase}
                     className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 ${
                       currentPhase === 'finished' ? 'border-purple-500 bg-purple-500/20' : 'border-gray-600 hover:border-gray-500'
                     }`}

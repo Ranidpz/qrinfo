@@ -1007,6 +1007,8 @@
     "qtagScanPrompt": "Point camera at guest QR code",
     "qtagScanFailed": "Scan failed",
     "qtagGuestNotFound": "Guest not found",
+    "qtagScannerDisabled": "The scanner is turned off in the event settings",
+    "qtagGuestCancelledAtDoor": "{name}'s registration was cancelled",
     "qtagInvalidQR": "QR code is not valid for this event",
     "qtagConnectionError": "Connection error. Please try again.",
     "qtagCameraError": "Failed to access camera. Please allow camera permission."

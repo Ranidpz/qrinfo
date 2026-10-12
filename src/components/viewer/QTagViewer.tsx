@@ -614,9 +614,11 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
     }
   };
 
+  const [uncancelError, setUncancelError] = useState<string | null>(null);
   const handleUncancelRegistration = async () => {
     if (cancelling || !qrToken) return;
     setCancelling(true);
+    setUncancelError(null);
     try {
       const res = await fetch('/api/qtag/cancel-registration', {
         method: 'POST',
@@ -626,6 +628,10 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
       if (res.ok) {
         saveGuestToStorage(codeId, { guestId: guestId || '', qrToken, name, plusOneCount });
         setScreen('success');
+      } else {
+        // The freed spot may have been taken meanwhile
+        const data = await res.json().catch(() => ({}));
+        if (data.errorCode === 'CAPACITY_FULL') setUncancelError(t.eventFull);
       }
     } catch {
       // Silent
@@ -1348,6 +1354,10 @@ export default function QTagViewer({ config: initialConfig, codeId, shortId, qrT
         >
           {cancelling ? t.restoring : t.changedMind}
         </button>
+
+        {uncancelError && (
+          <p className="text-sm text-red-400 font-assistant">{uncancelError}</p>
+        )}
       </div>
     </div>
   );

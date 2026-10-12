@@ -733,6 +733,12 @@ export default function RaffleSettingsPanel({
                 </button>
               ))}
             </div>
+            {/* The live screen (/raffle/{shortId}) never receives phone numbers — say so */}
+            {config.displayMode === 'phones' && (
+              <p className="text-xs leading-relaxed text-white/40">
+                במסך ההגרלה עצמו יוצגו שמות בלבד, כדי שמספרי טלפון לא ייחשפו על המסך.
+              </p>
+            )}
           </Section>
           </div>
 

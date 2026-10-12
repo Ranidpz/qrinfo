@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { QVoteConfig, Candidate, CandidatePhoto, QVotePhase, ImagePositionConfig, DEFAULT_IMAGE_POSITION } from '@/types/qvote';
+import { QVoteConfig, Candidate, CandidatePhoto, QVotePhase, ImagePositionConfig, DEFAULT_IMAGE_POSITION, getScheduledQVotePhase } from '@/types/qvote';
 import { onSnapshot, collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getCandidates, getVoterVotes, createCandidate } from '@/lib/qvote';
@@ -221,30 +221,14 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     }
   }, [config.languageMode]);
 
-  // Check for scheduled phase transitions every 10 seconds
+  // Check for scheduled phase transitions every 10 seconds (same rule /api/qvote/vote applies)
+  const scheduleConfig = config.schedule;
+  const phaseChangedAt = config.phaseChangedAt;
   useEffect(() => {
-    if (!config.schedule) return;
+    if (!scheduleConfig) return;
 
     const checkSchedule = () => {
-      const now = new Date();
-      const phases = ['registration', 'preparation', 'voting', 'finals', 'calculating', 'results'] as const;
-
-      // Find the latest scheduled phase that has passed
-      let latestScheduledPhase: typeof phases[number] | null = null;
-      let latestScheduledTime: Date | null = null;
-
-      for (const phase of phases) {
-        const scheduleTime = config.schedule?.[phase];
-        if (scheduleTime) {
-          const scheduledDate = new Date(scheduleTime);
-          if (scheduledDate <= now) {
-            if (!latestScheduledTime || scheduledDate > latestScheduledTime) {
-              latestScheduledTime = scheduledDate;
-              latestScheduledPhase = phase;
-            }
-          }
-        }
-      }
+      const latestScheduledPhase = getScheduledQVotePhase({ schedule: scheduleConfig, phaseChangedAt });
 
       // If we found a scheduled phase that should be active and it's different from current
       if (latestScheduledPhase && latestScheduledPhase !== userPhase && !gracePeriodActive) {
@@ -258,7 +242,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     const interval = setInterval(checkSchedule, 10000);
 
     return () => clearInterval(interval);
-  }, [config.schedule, userPhase, gracePeriodActive]);
+  }, [scheduleConfig, phaseChangedAt, userPhase, gracePeriodActive]);
 
   // Subscribe to real-time config updates from Firestore
   useEffect(() => {
@@ -349,6 +333,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
             prev.maxSelectionsPerVoter !== newConfig.maxSelectionsPerVoter ||
             prev.showVoteCount !== newConfig.showVoteCount ||
             prev.showNames !== newConfig.showNames ||
+            prev.phaseChangedAt !== newConfig.phaseChangedAt ||
+            JSON.stringify(prev.schedule) !== JSON.stringify(newConfig.schedule) ||
             JSON.stringify(prev.stats) !== JSON.stringify(newStats)
           ) {
             return newConfig;
@@ -886,6 +872,14 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
     if (!visitorId) {
       setRegistrationError(locale === 'he' ? 'שגיאה בזיהוי המשתמש' : 'User identification error');
+      return;
+    }
+
+    // Fields the producer marked as required (the form only showed a '*' before)
+    const missingField = config.formFields.find((f) => f.required && !(formData[f.id] || '').trim());
+    if (missingField) {
+      const label = locale === 'en' && missingField.labelEn ? missingField.labelEn : missingField.label;
+      setRegistrationError(locale === 'he' ? `יש למלא את השדה: ${label}` : `Please fill in: ${label}`);
       return;
     }
 

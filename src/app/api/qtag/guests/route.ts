@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import { adjustQTagActiveRegistrations } from '@/lib/server/qtag-stats';
 import crypto from 'crypto';
 
 // POST: Quick-add a walk-in guest (admin only)
@@ -221,6 +222,13 @@ export async function PATCH(request: NextRequest) {
             });
           }
         }
+
+        // Cancelled guests don't count toward the registration total / capacity
+        if (status === 'cancelled') {
+          await adjustQTagActiveRegistrations(codeId, oldData.plusOneCount || 0, -1);
+        } else if (oldData.status === 'cancelled') {
+          await adjustQTagActiveRegistrations(codeId, oldData.plusOneCount || 0, 1);
+        }
       }
     }
 
@@ -290,10 +298,13 @@ export async function DELETE(request: NextRequest) {
 
     if (statsDoc.exists) {
       const decrements: Record<string, unknown> = {
-        totalRegistered: FieldValue.increment(-1),
-        totalGuests: FieldValue.increment(-(1 + (guestData.plusOneCount || 0))),
         lastUpdated: FieldValue.serverTimestamp(),
       };
+      // A cancelled guest was already taken off the registration totals
+      if (guestData.status !== 'cancelled') {
+        decrements.totalRegistered = FieldValue.increment(-1);
+        decrements.totalGuests = FieldValue.increment(-(1 + (guestData.plusOneCount || 0)));
+      }
 
       if (guestData.status === 'arrived') {
         decrements.totalArrived = FieldValue.increment(-1);
