@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, LayoutGrid, List, FolderOpen, Loader2 } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
@@ -59,7 +60,7 @@ export default function DashboardPage() {
         formData.append('folder', 'booklets');
       }
 
-      const uploadResponse = await fetch('/api/upload', {
+      const uploadResponse = await fetchWithAuth('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -152,7 +153,7 @@ export default function DashboardPage() {
       // Delete stored media
       for (const media of deleteModal.code.media) {
         if (media.type !== 'link') {
-          await fetch('/api/upload', {
+          await fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: media.url }),

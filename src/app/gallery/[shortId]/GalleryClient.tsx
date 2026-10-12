@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { UserGalleryImage, GallerySettings, GalleryDisplayMode } from '@/types';
 import { X, Trash2, Settings, Loader2, ImageIcon, ExternalLink } from 'lucide-react';
-import { onSnapshot, doc, updateDoc, Timestamp, getDoc, increment } from 'firebase/firestore';
+import { onSnapshot, doc, updateDoc, Timestamp, getDoc } from 'firebase/firestore';
 import { getBrowserLocale, galleryTranslations } from '@/lib/publicTranslations';
 
 // Styled tooltip component that appears immediately on hover
@@ -38,6 +38,7 @@ function Tooltip({ children, text, position = 'below' }: { children: ReactNode; 
   );
 }
 import { db } from '@/lib/firebase';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { getVisitorId } from '@/lib/xp';
 import { getFolder } from '@/lib/db';
@@ -924,14 +925,15 @@ export default function GalleryClient({
       // Filter out the image to delete
       const updatedGallery = currentGallery.filter(img => img.id !== image.id);
 
-      // Delete from Vercel Blob
-      await fetch('/api/gallery', {
+      // Delete from storage (owner-authorized; the server also frees the owner's storage)
+      await fetchWithAuth('/api/gallery', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           imageUrl: image.url,
+          codeId,
         }),
       });
 
@@ -1034,7 +1036,7 @@ export default function GalleryClient({
 
       // Delete all images from storage (R2). Pass codeId so the API authorizes the owner.
       for (const image of currentGallery) {
-        await fetch('/api/gallery', {
+        await fetchWithAuth('/api/gallery', {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
@@ -1051,16 +1053,7 @@ export default function GalleryClient({
         userGallery: [],
       });
 
-      // Reclaim the owner's storage quota for everything just removed (older rows without
-      // `size` contribute 0; guard keeps storageUsed from ever going negative).
-      const freed = currentGallery.reduce((sum, img) => sum + (img.size || 0), 0);
-      if (freed > 0 && ownerId) {
-        try {
-          await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(-freed) });
-        } catch (err) {
-          console.error('Failed to reclaim storage on delete-all:', err);
-        }
-      }
+      // The owner's storage quota is reclaimed server-side by /api/gallery DELETE.
 
       setLightboxImage(null);
     } catch (error) {

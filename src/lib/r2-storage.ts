@@ -238,6 +238,21 @@ export async function deleteR2ObjectByUrl(url: string): Promise<void> {
   }));
 }
 
+export async function getR2ObjectSizeByKey(key: string): Promise<number | null> {
+  const config = getR2Config();
+  if (!config) return null;
+
+  try {
+    const head = await getR2Client(config).send(new HeadObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+    }));
+    return head.ContentLength ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteR2ObjectByKey(key: string): Promise<void> {
   const config = getR2Config();
   if (!config) {

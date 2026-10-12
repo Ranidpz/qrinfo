@@ -7,6 +7,7 @@ import { onSnapshot, doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'fireb
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
 import { queuedUpload } from '@/lib/uploadQueue';
+import { saveGalleryDeleteToken, getGalleryDeleteToken, forgetGalleryDeleteToken } from '@/lib/galleryDeleteTokens';
 import { getBrowserLocale, uploadTranslations } from '@/lib/publicTranslations';
 import SquareImageCropper from '@/components/viewer/SquareImageCropper';
 import CountryPicker from '@/components/viewer/CountryPicker';
@@ -363,8 +364,9 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       await fetch('/api/gallery', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: image.url }),
+        body: JSON.stringify({ imageUrl: image.url, deleteToken: getGalleryDeleteToken(image.id) }),
       });
+      forgetGalleryDeleteToken(image.id);
 
       // Remove just this entry — all other entries keep every field intact.
       await mutateGallery((gallery) => gallery.filter((g) => g.id !== image.id));
@@ -406,14 +408,18 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
       // 1) If the photo was re-shot, upload the new bytes first.
       type ReplacedImage = { id: string; url: string; size?: number; storageProvider?: UserGalleryImage['storageProvider']; storageKey?: string; storageBucket?: string; contentType?: string };
       let replaced: ReplacedImage | null = null;
+      let replacedToken: string | undefined;
       if (stagedBlob && codeId && ownerId) {
         const fd = new FormData();
         fd.append('file', stagedBlob, `replace_${Date.now()}.webp`);
         fd.append('codeId', codeId);
         fd.append('ownerId', ownerId);
         fd.append('uploaderName', finalName);
-        const data = (await queuedUpload(fd, '/api/gallery')) as { success: boolean; image: ReplacedImage };
-        if (data.success) replaced = data.image;
+        const data = (await queuedUpload(fd, '/api/gallery')) as { success: boolean; image: ReplacedImage; deleteToken?: string };
+        if (data.success) {
+          replaced = data.image;
+          replacedToken = data.deleteToken;
+        }
       }
 
       // 2) Commit name + flag (+ new image) on this entry, preserving everything else.
@@ -442,10 +448,12 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
           await fetch('/api/gallery', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageUrl: oldUrl }),
+            body: JSON.stringify({ imageUrl: oldUrl, deleteToken: getGalleryDeleteToken(imageId) }),
           });
         } catch { /* orphaned object, not user-facing */ }
       }
+      // The entry keeps its id, so the new photo's token replaces the old one under it.
+      if (replaced) saveGalleryDeleteToken(imageId, replacedToken);
 
       setMyUploadedImages((prev) =>
         prev.map((img) =>
@@ -552,11 +560,13 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
           storageBucket?: string;
           contentType?: string;
         };
+        deleteToken?: string;
       };
 
       if (!data.success) {
         throw new Error('Upload failed');
       }
+      saveGalleryDeleteToken(data.image.id, data.deleteToken);
 
       // Moderation: when auto-approve is off, the participant's photo waits for admin
       // approval before it appears on the beam. Default (autoApprove !== false) = approved.

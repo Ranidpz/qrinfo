@@ -5,7 +5,20 @@ import {
   deleteStoredObjectByUrl,
   uploadStoredObject,
 } from '@/lib/media-storage';
+import { verifyAuthToken } from '@/lib/auth';
+import { getAdminDb } from '@/lib/firebase-admin';
+import {
+  adjustStorageUsed,
+  canDeleteStoredObject,
+  checkStorageQuota,
+  getStoredObjectKey,
+  getStoredObjectSize,
+  ownerOfKey,
+} from '@/lib/storage-guard';
 import sharp from 'sharp';
+
+// Anonymous Q.Games players may upload a small selfie avatar into the owner's code folder.
+const ANON_AVATAR_MAX_BYTES = 1024 * 1024;
 
 const PDF_SIGNATURE = Buffer.from('%PDF-');
 
@@ -42,7 +55,6 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const userId = formData.get('userId') as string;
     const codeId = formData.get('codeId') as string | null;
     const folder = formData.get('folder') as string | null;
     const convertToWebp = formData.get('convertToWebp') === 'true';
@@ -56,11 +68,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+    // The storage owner comes from the verified token — never from the form.
+    // Without a token, only a Q.Games player selfie is accepted, stored under the code's owner.
+    let userId: string;
+    let anonymousAvatar = false;
+    if (request.headers.get('Authorization')) {
+      const authResult = await verifyAuthToken(request);
+      if ('error' in authResult) return authResult.error;
+      userId = authResult.uid;
+    } else {
+      if (folder !== 'avatars' || !codeId || !file.type.startsWith('image/') || file.size > ANON_AVATAR_MAX_BYTES) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      }
+      const codeDoc = await getAdminDb().collection('codes').doc(codeId).get();
+      const codeData = codeDoc.data();
+      const hasQGames = Array.isArray(codeData?.media) &&
+        codeData.media.some((m: { type?: string }) => m?.type === 'qgames');
+      if (!codeData?.ownerId || !hasQGames) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      }
+      userId = codeData.ownerId as string;
+      anonymousAvatar = true;
     }
 
     // Validate file size
@@ -109,6 +137,17 @@ export async function POST(request: NextRequest) {
         { error: 'File type not allowed', fileType: file.type },
         { status: 400 }
       );
+    }
+
+    // Server-side storage quota (players' selfies count toward the owner but never block a live game)
+    if (!anonymousAvatar) {
+      const quota = await checkStorageQuota(userId, file.size);
+      if (!quota.ok) {
+        return NextResponse.json(
+          { error: 'Storage limit reached', code: 'STORAGE_LIMIT', used: quota.used, limit: quota.limit },
+          { status: 413 }
+        );
+      }
     }
 
     const timestamp = Date.now();
@@ -199,6 +238,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    try {
+      await adjustStorageUsed(userId, uploaded.size);
+    } catch (storageErr) {
+      console.error('Failed to update storageUsed:', storageErr);
+    }
+
     return NextResponse.json({
       url: uploaded.url,
       size: uploaded.size,
@@ -231,16 +276,35 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    const authResult = await verifyAuthToken(request);
+    if ('error' in authResult) return authResult.error;
+
     const { url } = await request.json();
 
-    if (!url) {
+    if (!url || typeof url !== 'string') {
       return NextResponse.json(
         { error: 'URL is required' },
         { status: 400 }
       );
     }
 
+    const key = getStoredObjectKey(url);
+    if (!key) {
+      return NextResponse.json({ error: 'Not a managed storage URL' }, { status: 400 });
+    }
+    if (!(await canDeleteStoredObject(authResult.uid, key))) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const size = await getStoredObjectSize(url);
     await deleteStoredObjectByUrl(url);
+    if (size) {
+      try {
+        await adjustStorageUsed(ownerOfKey(key), -size);
+      } catch (storageErr) {
+        console.error('Failed to update storageUsed:', storageErr);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

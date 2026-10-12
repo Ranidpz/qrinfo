@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
@@ -130,7 +131,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Delete stored media
       for (const media of code.media) {
         if (media.type !== 'link') {
-          await fetch('/api/upload', {
+          await fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: media.url }),
@@ -171,7 +172,7 @@ export default function CodeEditPage({ params }: PageProps) {
       formData.append('file', file);
       formData.append('userId', user.id);
 
-      const uploadResponse = await fetch('/api/upload', {
+      const uploadResponse = await fetchWithAuth('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -196,7 +197,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
     try {
       if (code.ogImage) {
-        await fetch('/api/upload', {
+        await fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: code.ogImage }),
@@ -221,7 +222,7 @@ export default function CodeEditPage({ params }: PageProps) {
       formData.append('userId', user.id);
       appendPdfUploadContext(formData, file, code.id);
 
-      const uploadResponse = await fetch('/api/upload', {
+      const uploadResponse = await fetchWithAuth('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -270,7 +271,7 @@ export default function CodeEditPage({ params }: PageProps) {
     try {
       // Delete stored media if not a link
       if (mediaToRemove.type !== 'link') {
-        await fetch('/api/upload', {
+        await fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: mediaToRemove.url }),

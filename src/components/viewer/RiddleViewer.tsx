@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { RiddleContent, UserGalleryImage, Visitor, PendingPack, PackOpening } from '@/types';
 import { ChevronLeft, ChevronRight, X, Camera, Loader2, Check, AlertCircle, Trash2, Star, User, Pencil, Plus, Globe } from 'lucide-react';
-import { onSnapshot, doc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
+import { onSnapshot, doc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import DOMPurify from 'isomorphic-dompurify';
 import { queuedUpload } from '@/lib/uploadQueue';
+import { saveGalleryDeleteToken, getGalleryDeleteToken, forgetGalleryDeleteToken } from '@/lib/galleryDeleteTokens';
 import { getBrowserLocale, uploadTranslations, gamificationTranslations, languageSwitcherTranslations } from '@/lib/publicTranslations';
 import { getVisitorId, getLevelForXP, getProgressToNextLevel, formatXP, getLevelName } from '@/lib/xp';
 import { getVisitor, recordPhotoUpload, recordStationScan, getFolder, removePhotoXP, updateVisitor } from '@/lib/db';
@@ -408,8 +409,9 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
       await fetch('/api/gallery', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: image.url }),
+        body: JSON.stringify({ imageUrl: image.url, deleteToken: getGalleryDeleteToken(image.id) }),
       });
+      forgetGalleryDeleteToken(image.id);
 
       // Remove from Firestore
       const codeRef = doc(db, 'codes', codeId);
@@ -569,11 +571,13 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
           storageBucket?: string;
           contentType?: string;
         };
+        deleteToken?: string;
       };
 
       if (!data.success) {
         throw new Error('Upload failed');
       }
+      saveGalleryDeleteToken(data.image.id, data.deleteToken);
 
       // Update Firestore with the new gallery image (client-side to use auth)
       const codeRef = doc(db, 'codes', codeId);
@@ -592,15 +596,7 @@ export default function RiddleViewer({ content, codeId, shortId, ownerId, folder
         }),
       });
 
-      // Update owner's storage used (may fail for anonymous users, non-blocking)
-      try {
-        const ownerRef = doc(db, 'users', ownerId);
-        await updateDoc(ownerRef, {
-          storageUsed: increment(data.image.size),
-        });
-      } catch (storageError) {
-        console.log('Storage tracking skipped (anonymous user):', storageError);
-      }
+      // The owner's storageUsed is counted server-side by /api/gallery POST.
 
       // Save the image ID to sessionStorage
       saveUploadedImageId(data.image.id);

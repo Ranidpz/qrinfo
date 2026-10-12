@@ -9,6 +9,14 @@ import {
   uploadStoredObject,
 } from '@/lib/media-storage';
 import { R2_STORAGE_PROVIDER, isR2Configured } from '@/lib/r2-storage';
+import {
+  adjustStorageUsed,
+  getStoredObjectKey,
+  getStoredObjectSize,
+  ownerOfKey,
+  signObjectDeleteToken,
+  verifyObjectDeleteToken,
+} from '@/lib/storage-guard';
 
 // POST: Upload a gallery image to the configured media storage
 // Note: Firestore update is done client-side to avoid permission issues
@@ -125,9 +133,12 @@ export async function POST(request: NextRequest) {
       console.error('Failed to increment owner storageUsed:', storageErr);
     }
 
-    // Return the image data - client will update Firestore
+    // Return the image data - client will update Firestore.
+    // deleteToken lets this (anonymous) uploader delete exactly this photo later.
+    const deleteToken = uploaded.storageKey ? signObjectDeleteToken(uploaded.storageKey) : null;
     return NextResponse.json({
       success: true,
+      ...(deleteToken ? { deleteToken } : {}),
       image: {
         id: imageId,
         url: uploaded.url,
@@ -163,23 +174,38 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { imageUrl, codeId } = await request.json();
+    const { imageUrl, codeId, deleteToken } = await request.json();
 
-    if (!imageUrl) {
+    if (!imageUrl || typeof imageUrl !== 'string') {
       return NextResponse.json(
         { error: 'imageUrl is required' },
         { status: 400 }
       );
     }
 
-    // Auth check: only code owner can delete gallery images
-    if (codeId) {
-      const auth = await requireCodeOwner(request, codeId);
-      if (isAuthError(auth)) return auth.response;
+    const key = getStoredObjectKey(imageUrl);
+    if (!key || !key.split('/').includes('gallery')) {
+      return NextResponse.json({ error: 'Invalid gallery URL' }, { status: 400 });
     }
 
+    // Either the uploader's signed token for this exact object, or the code owner
+    // deleting a photo stored in their own folder.
+    if (!verifyObjectDeleteToken(key, deleteToken)) {
+      if (!codeId) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      }
+      const auth = await requireCodeOwner(request, codeId);
+      if (isAuthError(auth)) return auth.response;
+      const codeSnap = await getAdminDb().collection('codes').doc(codeId).get();
+      if (ownerOfKey(key) !== codeSnap.data()?.ownerId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
+
+    const size = await getStoredObjectSize(imageUrl);
     try {
       await deleteStoredObjectByUrl(imageUrl);
+      if (size) await adjustStorageUsed(ownerOfKey(key), -size);
     } catch (deleteError) {
       console.error('Failed to delete gallery object:', deleteError);
       // Continue even if storage deletion fails

@@ -7,6 +7,7 @@ import {
   deleteStoredObjectByUrl,
   uploadStoredObject,
 } from '@/lib/media-storage';
+import { getStoredObjectKey, keyBelongsToCode } from '@/lib/storage-guard';
 
 // POST: Upload a candidate photo to the configured media storage
 export async function POST(request: NextRequest) {
@@ -33,7 +34,9 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const codeId = formData.get('codeId') as string;
-    let ownerId = formData.get('ownerId') as string;
+    // ownerId is always resolved from the code doc — a client-supplied one could point the
+    // upload into another user's folder.
+    let ownerId = '';
 
     if (!file || !codeId) {
       return NextResponse.json(
@@ -59,17 +62,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve ownerId from Firestore if not provided by client
-    if (!ownerId && codeId) {
-      try {
-        const adminDb = getAdminDb();
-        const codeDoc = await adminDb.collection('codes').doc(codeId).get();
-        if (codeDoc.exists) {
-          ownerId = codeDoc.data()?.ownerId || '';
-        }
-      } catch (err) {
-        console.error('Failed to resolve ownerId for QVote upload:', err);
+    try {
+      const adminDb = getAdminDb();
+      const codeDoc = await adminDb.collection('codes').doc(codeId).get();
+      if (!codeDoc.exists) {
+        return NextResponse.json({ error: 'Code not found' }, { status: 404 });
       }
+      ownerId = codeDoc.data()?.ownerId || '';
+    } catch (err) {
+      console.error('Failed to resolve ownerId for QVote upload:', err);
+      return NextResponse.json({ error: 'Failed to validate code' }, { status: 500 });
     }
 
     // Generate unique filename
@@ -156,17 +158,22 @@ export async function DELETE(request: NextRequest) {
 
     const { imageUrl, thumbnailUrl, codeId } = await request.json();
 
-    // Auth check: only code owner can delete photos
-    if (codeId) {
-      const auth = await requireCodeOwner(request, codeId);
-      if (isAuthError(auth)) return auth.response;
-    }
-
-    if (!imageUrl) {
+    if (!imageUrl || !codeId) {
       return NextResponse.json(
-        { error: 'imageUrl is required' },
+        { error: 'imageUrl and codeId are required' },
         { status: 400 }
       );
+    }
+
+    // Only the code owner can delete, and only files stored in this code's folder.
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
+
+    for (const url of [imageUrl, thumbnailUrl].filter(Boolean)) {
+      const key = getStoredObjectKey(url);
+      if (!key || !keyBelongsToCode(key, codeId)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     try {

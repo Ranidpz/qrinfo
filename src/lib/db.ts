@@ -503,11 +503,13 @@ export async function incrementViews(
 // ============ USERS ============
 
 // Update user storage
-export async function updateUserStorage(userId: string, bytesChange: number): Promise<void> {
-  await updateDoc(doc(db, 'users', userId), {
-    storageUsed: increment(bytesChange),
-    updatedAt: serverTimestamp(),
-  });
+/**
+ * @deprecated storageUsed is now maintained server-side by the upload/delete API routes
+ * (Admin SDK) and clients may no longer write it. Kept as a no-op so existing call sites
+ * keep compiling; remove them gradually.
+ */
+export async function updateUserStorage(_userId: string, _bytesChange: number): Promise<void> {
+  // no-op
 }
 
 // Check and update storage with transaction (prevents race conditions)

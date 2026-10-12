@@ -9,6 +9,7 @@ import {
   deleteStoredObjectsByPrefix,
   uploadStoredObject,
 } from '@/lib/media-storage';
+import { getStoredObjectKey, keyBelongsToCode } from '@/lib/storage-guard';
 
 // Avatar upload for registration - stores in codeId/avatars folder
 // Converts any image format (including HEIC) to WebP
@@ -50,11 +51,13 @@ export async function POST(request: NextRequest) {
     try {
       const adminDb = getAdminDb();
       const codeDoc = await adminDb.collection('codes').doc(codeId).get();
-      if (codeDoc.exists) {
-        ownerId = codeDoc.data()?.ownerId || null;
+      if (!codeDoc.exists) {
+        return NextResponse.json({ error: 'Code not found' }, { status: 404 });
       }
+      ownerId = codeDoc.data()?.ownerId || null;
     } catch (err) {
       console.error('Failed to resolve ownerId for avatar:', err);
+      return NextResponse.json({ error: 'Failed to validate code' }, { status: 500 });
     }
 
     // Validate file size (2MB max for avatars)
@@ -150,18 +153,16 @@ export async function DELETE(request: NextRequest) {
   try {
     const { url, codeId } = await request.json();
 
-    if (!url) {
-      return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+    if (!url || !codeId) {
+      return NextResponse.json({ error: 'url and codeId are required' }, { status: 400 });
     }
 
-    // Auth check: only code owner can delete avatars
-    if (codeId) {
-      const auth = await requireCodeOwner(request, codeId);
-      if (isAuthError(auth)) return auth.response;
-    }
+    // Only the code owner can delete, and only avatars stored in this code's folder.
+    const auth = await requireCodeOwner(request, codeId);
+    if (isAuthError(auth)) return auth.response;
 
-    // Only delete if it's an avatar URL
-    if (!url.includes('/avatars/')) {
+    const key = getStoredObjectKey(url);
+    if (!key || !key.includes('/avatars/') || !keyBelongsToCode(key, codeId)) {
       return NextResponse.json({ error: 'Invalid avatar URL' }, { status: 400 });
     }
 

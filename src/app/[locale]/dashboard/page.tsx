@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { fetchWithAuth, getAuthHeader } from '@/lib/fetchWithAuth';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import Image from 'next/image';
@@ -353,7 +354,7 @@ export default function DashboardPage() {
       formData.append('userId', user.id);
       appendPdfUploadContext(formData, file);
 
-      const uploadResponse = await fetch('/api/upload', {
+      const uploadResponse = await fetchWithAuth('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -470,7 +471,7 @@ export default function DashboardPage() {
         formData.append('file', file);
         formData.append('userId', user.id);
 
-        const uploadResponse = await fetch('/api/upload', {
+        const uploadResponse = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -539,7 +540,7 @@ export default function DashboardPage() {
         formData.append('file', file);
         formData.append('userId', user.id);
 
-        const uploadResponse = await fetch('/api/upload', {
+        const uploadResponse = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -626,7 +627,7 @@ export default function DashboardPage() {
         formData.append('file', landingImageFile);
         formData.append('userId', user.id);
 
-        const uploadResponse = await fetch('/api/upload', {
+        const uploadResponse = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -933,7 +934,7 @@ export default function DashboardPage() {
         formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '1000');
         formData.append('quality', '70');
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           config = {
@@ -956,7 +957,7 @@ export default function DashboardPage() {
         const formData = new FormData();
         formData.append('file', fileToUpload);
         formData.append('userId', user.id);
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           config = {
@@ -1023,7 +1024,7 @@ export default function DashboardPage() {
         formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '1000');
         formData.append('quality', '70');
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           config = {
@@ -1049,7 +1050,7 @@ export default function DashboardPage() {
         formData.append('userId', user.id);
         formData.append('codeId', editingQTagCode.id);
         formData.append('folder', 'qtag');
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           config = {
@@ -1214,7 +1215,7 @@ export default function DashboardPage() {
         const formData = new FormData();
         formData.append('file', fileToUpload);
         formData.append('userId', user.id);
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           finalConfig.branding.eventLogo = data.url;
@@ -1239,7 +1240,7 @@ export default function DashboardPage() {
         formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '1000');
         formData.append('quality', '70');
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           finalConfig.branding.backgroundImage = data.url;
@@ -1295,7 +1296,7 @@ export default function DashboardPage() {
       // Delete stored media
       for (const media of deleteModal.code.media) {
         if (media.type !== 'link') {
-          await fetch('/api/upload', {
+          await fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: media.url }),
@@ -1448,6 +1449,7 @@ export default function DashboardPage() {
       formData.append('userId', user.id);
       appendPdfUploadContext(formData, file, codeId);
 
+      const authHeader = await getAuthHeader();
       const uploadData = await new Promise<UploadResponse>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
@@ -1472,6 +1474,7 @@ export default function DashboardPage() {
 
         xhr.onerror = () => reject(new Error('Upload failed'));
         xhr.open('POST', '/api/upload');
+        xhr.setRequestHeader('Authorization', authHeader);
         xhr.send(formData);
       });
 
@@ -1481,7 +1484,7 @@ export default function DashboardPage() {
       // Delete old stored media if not a link
       const oldMedia = code.media[0];
       if (oldMedia && oldMedia.type !== 'link') {
-        await fetch('/api/upload', {
+        await fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: oldMedia.url }),
@@ -1544,6 +1547,7 @@ export default function DashboardPage() {
       formData.append('userId', user.id);
       appendPdfUploadContext(formData, file, codeId);
 
+      const authHeader = await getAuthHeader();
       const uploadData = await new Promise<UploadResponse>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
@@ -1568,6 +1572,7 @@ export default function DashboardPage() {
 
         xhr.onerror = () => reject(new Error('Upload failed'));
         xhr.open('POST', '/api/upload');
+        xhr.setRequestHeader('Authorization', authHeader);
         xhr.send(formData);
       });
 
@@ -1626,7 +1631,7 @@ export default function DashboardPage() {
       if (!pending) return;
 
       // Delete the pending stored file
-      await fetch('/api/upload', {
+      await fetchWithAuth('/api/upload', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: pending.newMediaUrl }),
@@ -1669,7 +1674,7 @@ export default function DashboardPage() {
       // Delete old stored media
       const oldMedia = code.media[0];
       if (oldMedia && oldMedia.type !== 'link') {
-        await fetch('/api/upload', {
+        await fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: oldMedia.url }),
@@ -2744,7 +2749,7 @@ export default function DashboardPage() {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('userId', user.id);
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
             if (res.ok) {
               const { url } = await res.json();
               return url;
@@ -2756,7 +2761,7 @@ export default function DashboardPage() {
         }}
         onDeleteCellImage={async (url: string) => {
           try {
-            const res = await fetch('/api/upload', {
+            const res = await fetchWithAuth('/api/upload', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url }),

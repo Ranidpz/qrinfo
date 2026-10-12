@@ -2926,7 +2926,7 @@ export default function QVoteCandidatesPage() {
                 formData.append('file', landingImageFile);
                 formData.append('userId', user.id);
 
-                const uploadResponse = await fetch('/api/upload', {
+                const uploadResponse = await fetchWithAuth('/api/upload', {
                   method: 'POST',
                   body: formData,
                 });
@@ -2943,7 +2943,7 @@ export default function QVoteCandidatesPage() {
                 logoFormData.append('file', logoFile);
                 logoFormData.append('userId', user.id);
 
-                const logoUploadResponse = await fetch('/api/upload', {
+                const logoUploadResponse = await fetchWithAuth('/api/upload', {
                   method: 'POST',
                   body: logoFormData,
                 });

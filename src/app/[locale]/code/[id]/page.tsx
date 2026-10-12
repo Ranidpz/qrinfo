@@ -714,7 +714,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Delete stored media
       for (const media of code.media) {
         if (media.type !== 'link') {
-          await fetch('/api/upload', {
+          await fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: media.url }),
@@ -1440,7 +1440,7 @@ export default function CodeEditPage({ params }: PageProps) {
       formData.append('userId', user.id);
       appendPdfUploadContext(formData, file, code.id);
 
-      const uploadResponse = await fetch('/api/upload', {
+      const uploadResponse = await fetchWithAuth('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -1501,7 +1501,7 @@ export default function CodeEditPage({ params }: PageProps) {
       formData.append('userId', user.id);
       appendPdfUploadContext(formData, file, code.id);
 
-      const uploadResponse = await fetch('/api/upload', {
+      const uploadResponse = await fetchWithAuth('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -1514,7 +1514,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
       // Delete old file if not a link
       if (oldMedia.type !== 'link') {
-        await fetch('/api/upload', {
+        await fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: oldMedia.url }),
@@ -1570,7 +1570,7 @@ export default function CodeEditPage({ params }: PageProps) {
     try {
       // Delete stored media if not a link
       if (mediaToRemove.type !== 'link') {
-        await fetch('/api/upload', {
+        await fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: mediaToRemove.url }),
@@ -1747,7 +1747,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Delete removed stored images
       for (const imageUrl of removedImages) {
         try {
-          await fetch('/api/upload', {
+          await fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: imageUrl }),
@@ -1766,7 +1766,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('file', file);
         formData.append('userId', user.id);
 
-        const uploadResponse = await fetch('/api/upload', {
+        const uploadResponse = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -1855,7 +1855,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const removedLogos = originalLogos.filter((url) => !content.companyLogos?.includes(url));
       for (const logoUrl of removedLogos) {
         try {
-          await fetch('/api/upload', {
+          await fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: logoUrl }),
@@ -1872,7 +1872,7 @@ export default function CodeEditPage({ params }: PageProps) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('userId', user.id);
-        const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+        const uploadResponse = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (!uploadResponse.ok) {
           throw new Error('Logo upload failed');
         }
@@ -2048,7 +2048,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const formData = new FormData();
       formData.append('file', bgImageFile);
       formData.append('userId', user.id);
-      const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+      const uploadResponse = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
       if (!uploadResponse.ok) {
         throw new Error('QBet background upload failed');
       }
@@ -2063,7 +2063,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const logoFormData = new FormData();
       logoFormData.append('file', logoFile);
       logoFormData.append('userId', user.id);
-      const logoResponse = await fetch('/api/upload', { method: 'POST', body: logoFormData });
+      const logoResponse = await fetchWithAuth('/api/upload', { method: 'POST', body: logoFormData });
       if (!logoResponse.ok) {
         throw new Error('QBet logo upload failed');
       }
@@ -2076,7 +2076,7 @@ export default function CodeEditPage({ params }: PageProps) {
     // Poster/logo replaced or removed → delete the old blob + free the quota
     if (previousUrl && previousUrl !== cfg.backgroundImageUrl) {
       try {
-        await fetch('/api/upload', {
+        await fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: previousUrl }),
@@ -2088,7 +2088,7 @@ export default function CodeEditPage({ params }: PageProps) {
     }
     if (previousLogoUrl && previousLogoUrl !== cfg.logoUrl) {
       try {
-        await fetch('/api/upload', {
+        await fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: previousLogoUrl }),
@@ -2206,7 +2206,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('file', landingImageFile);
         formData.append('userId', user.id);
 
-        const uploadResponse = await fetch('/api/upload', {
+        const uploadResponse = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -2226,7 +2226,7 @@ export default function CodeEditPage({ params }: PageProps) {
         logoFormData.append('file', logoFile);
         logoFormData.append('userId', user.id);
 
-        const logoUploadResponse = await fetch('/api/upload', {
+        const logoUploadResponse = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: logoFormData,
         });
@@ -2342,7 +2342,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const oldLandingUrl = existingConfig?.branding?.landing?.splashImageUrl;
       const newLandingUrl = config.branding?.landing?.splashImageUrl;
       if (oldLandingUrl && !newLandingUrl && isManagedStorageUrl(oldLandingUrl)) {
-        fetch('/api/upload', {
+        fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: oldLandingUrl }),
@@ -2353,7 +2353,7 @@ export default function CodeEditPage({ params }: PageProps) {
       if (landingImageFile) {
         // Delete old landing image if exists (being replaced)
         if (oldLandingUrl && isManagedStorageUrl(oldLandingUrl)) {
-          fetch('/api/upload', {
+          fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: oldLandingUrl }),
@@ -2366,7 +2366,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('codeId', code.id);
         formData.append('folder', 'weeklycal');
 
-        const uploadRes = await fetch('/api/upload', {
+        const uploadRes = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -2390,7 +2390,7 @@ export default function CodeEditPage({ params }: PageProps) {
       const oldDayBgUrl = existingConfig?.branding?.dayBackgroundImageUrl;
       const newDayBgUrl = config.branding?.dayBackgroundImageUrl;
       if (oldDayBgUrl && !newDayBgUrl && isManagedStorageUrl(oldDayBgUrl)) {
-        fetch('/api/upload', {
+        fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: oldDayBgUrl }),
@@ -2401,7 +2401,7 @@ export default function CodeEditPage({ params }: PageProps) {
       if (dayBgImageFile) {
         // Delete old day background image if exists (being replaced)
         if (oldDayBgUrl && isManagedStorageUrl(oldDayBgUrl)) {
-          fetch('/api/upload', {
+          fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: oldDayBgUrl }),
@@ -2414,7 +2414,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('codeId', code.id);
         formData.append('folder', 'weeklycal');
 
-        const uploadRes = await fetch('/api/upload', {
+        const uploadRes = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -2492,7 +2492,7 @@ export default function CodeEditPage({ params }: PageProps) {
         // Delete old background image if exists (being replaced)
         const oldBgUrl = existingConfig?.backgroundImage;
         if (oldBgUrl && isManagedStorageUrl(oldBgUrl)) {
-          fetch('/api/upload', {
+          fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: oldBgUrl }),
@@ -2505,7 +2505,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('codeId', code.id);
         formData.append('folder', 'qstage');
 
-        const uploadRes = await fetch('/api/upload', {
+        const uploadRes = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -2522,7 +2522,7 @@ export default function CodeEditPage({ params }: PageProps) {
         // Delete old background video if exists (being replaced)
         const oldVideoUrl = existingConfig?.backgroundVideo;
         if (oldVideoUrl && isManagedStorageUrl(oldVideoUrl)) {
-          fetch('/api/upload', {
+          fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: oldVideoUrl }),
@@ -2535,7 +2535,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('codeId', code.id);
         formData.append('folder', 'qstage');
 
-        const uploadRes = await fetch('/api/upload', {
+        const uploadRes = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -2750,7 +2750,7 @@ export default function CodeEditPage({ params }: PageProps) {
         // Delete old logo first if exists and different
         if (oldLogoUrl && oldLogoUrl !== config.branding.eventLogo) {
           try {
-            await fetch('/api/upload', {
+            await fetchWithAuth('/api/upload', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: oldLogoUrl }),
@@ -2765,7 +2765,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('userId', user.id);
         formData.append('convertToWebp', 'false'); // Keep PNG for transparency
 
-        const uploadResponse = await fetch('/api/upload', {
+        const uploadResponse = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -2782,7 +2782,7 @@ export default function CodeEditPage({ params }: PageProps) {
         // Delete old background first if exists and different
         if (oldBackgroundUrl && oldBackgroundUrl !== config.branding.backgroundImage) {
           try {
-            await fetch('/api/upload', {
+            await fetchWithAuth('/api/upload', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: oldBackgroundUrl }),
@@ -2797,7 +2797,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('userId', user.id);
         formData.append('convertToWebp', 'true'); // Convert background to webp for size
 
-        const uploadResponse = await fetch('/api/upload', {
+        const uploadResponse = await fetchWithAuth('/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -2812,7 +2812,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Handle case where background was removed (config has undefined but we had an old one)
       if (!config.branding.backgroundImage && oldBackgroundUrl && !backgroundFile) {
         try {
-          await fetch('/api/upload', {
+          await fetchWithAuth('/api/upload', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: oldBackgroundUrl }),
@@ -2890,7 +2890,7 @@ export default function CodeEditPage({ params }: PageProps) {
         const formData = new FormData();
         formData.append('file', fileToUpload);
         formData.append('userId', user.id);
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           finalConfig.branding.eventLogo = data.url;
@@ -2899,7 +2899,7 @@ export default function CodeEditPage({ params }: PageProps) {
           totalImageSize += data.size;
           // Delete old logo
           if (oldLogo && isManagedStorageUrl(oldLogo)) {
-            fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldLogo }) }).catch(() => {});
+            fetchWithAuth('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldLogo }) }).catch(() => {});
           }
         }
       }
@@ -2919,7 +2919,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '1000');
         formData.append('quality', '70');
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           finalConfig.branding.backgroundImage = data.url;
@@ -2928,7 +2928,7 @@ export default function CodeEditPage({ params }: PageProps) {
           totalImageSize += data.size;
           // Delete old background
           if (oldBg && isManagedStorageUrl(oldBg)) {
-            fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldBg }) }).catch(() => {});
+            fetchWithAuth('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldBg }) }).catch(() => {});
           }
         }
       }
@@ -2936,12 +2936,12 @@ export default function CodeEditPage({ params }: PageProps) {
       // Handle removal: logo removed in modal (was set, now undefined, no new file)
       if (!finalConfig.branding.eventLogo && oldLogo && !logoFile) {
         if (isManagedStorageUrl(oldLogo)) {
-          fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldLogo }) }).catch(() => {});
+          fetchWithAuth('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldLogo }) }).catch(() => {});
         }
       }
       if (!finalConfig.branding.backgroundImage && oldBg && !backgroundFile) {
         if (isManagedStorageUrl(oldBg)) {
-          fetch('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldBg }) }).catch(() => {});
+          fetchWithAuth('/api/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: oldBg }) }).catch(() => {});
         }
       }
 
@@ -3039,7 +3039,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('convertToWebp', 'true');
         formData.append('maxWidth', '1000');
         formData.append('quality', '70');
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           finalConfig.branding.backgroundImageUrl = data.url;
@@ -3061,7 +3061,7 @@ export default function CodeEditPage({ params }: PageProps) {
         formData.append('userId', user.id);
         formData.append('codeId', code.id);
         formData.append('folder', 'qtag');
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
           finalConfig.branding.logoUrl = data.url;
@@ -3274,7 +3274,7 @@ export default function CodeEditPage({ params }: PageProps) {
       // Delete old image if exists
       const oldUrl = code.landingPageConfig?.backgroundImageUrl;
       if (oldUrl && isManagedStorageUrl(oldUrl)) {
-        fetch('/api/upload', {
+        fetchWithAuth('/api/upload', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: oldUrl }),
@@ -3286,7 +3286,7 @@ export default function CodeEditPage({ params }: PageProps) {
       formData.append('userId', user.id);
       formData.append('folder', 'landing');
 
-      const uploadRes = await fetch('/api/upload', {
+      const uploadRes = await fetchWithAuth('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -4941,7 +4941,7 @@ export default function CodeEditPage({ params }: PageProps) {
             const renamedFile = new File([file], newFileName, { type: file.type });
             formData.append('file', renamedFile);
             formData.append('userId', user.id);
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
             if (res.ok) {
               const { url, filename } = await res.json();
               return url;
@@ -4953,7 +4953,7 @@ export default function CodeEditPage({ params }: PageProps) {
         }}
         onDeleteCellImage={async (url: string) => {
           try {
-            const res = await fetch('/api/upload', {
+            const res = await fetchWithAuth('/api/upload', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url }),

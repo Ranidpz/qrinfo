@@ -41,3 +41,9 @@ export async function fetchWithAuth(
 
   return fetch(url, { ...options, headers });
 }
+
+/** `Bearer <token>` for callers that can't use fetch (e.g. XHR with upload progress). */
+export async function getAuthHeader(): Promise<string> {
+  const currentUser = await waitForAuth();
+  return `Bearer ${await currentUser.getIdToken()}`;
+}

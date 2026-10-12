@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { useRouter, useParams } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { Loader2 } from 'lucide-react';
@@ -107,7 +108,7 @@ export default function CalendarEditorPage() {
         const formData = new FormData();
         formData.append('file', landingImageFile);
         formData.append('userId', user.id);
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const { url } = await res.json();
           landingImageUrl = url;
@@ -118,7 +119,7 @@ export default function CalendarEditorPage() {
         const formData = new FormData();
         formData.append('file', dayBgImageFile);
         formData.append('userId', user.id);
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const { url } = await res.json();
           dayBgImageUrl = url;
@@ -185,7 +186,7 @@ export default function CalendarEditorPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userId', user.id);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
       if (res.ok) {
         const { url } = await res.json();
         return url;
@@ -199,7 +200,7 @@ export default function CalendarEditorPage() {
   // Handle image delete
   const handleDeleteCellImage = useCallback(async (url: string): Promise<boolean> => {
     try {
-      const res = await fetch('/api/upload', {
+      const res = await fetchWithAuth('/api/upload', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),

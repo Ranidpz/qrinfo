@@ -7,8 +7,9 @@ import {
   Search, Check, X, Trash2, Loader2, Plus, Image as ImageIcon, ShieldCheck, Clock, User, Pencil,
   Pin, PinOff, ArrowUp, AlertTriangle, Flag,
 } from 'lucide-react';
-import { onSnapshot, doc, getDoc, updateDoc, arrayUnion, increment, Timestamp } from 'firebase/firestore';
+import { onSnapshot, doc, getDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { uploadQueue } from '@/lib/uploadQueue';
 import { cropImageToSquareWebp } from '@/lib/imageCrop';
 import { hashFile } from '@/lib/imageHash';
@@ -330,12 +331,10 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
             setUploading({ done: p.completed + p.failed, total: p.total })
           );
 
-          let totalSize = 0;
           const entries = result.successful
             .map(({ index, data }) => {
               const img = (data as { image?: RawGalleryEntry }).image;
               if (!img) return null;
-              totalSize += img.size || 0;
               return {
                 id: img.id,
                 url: img.url,
@@ -354,10 +353,8 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
             .filter((e): e is NonNullable<typeof e> => !!e);
 
           if (entries.length > 0) {
+            // storageUsed is counted server-side by /api/gallery POST.
             await updateDoc(doc(db, 'codes', codeId), { userGallery: arrayUnion(...entries) });
-            if (totalSize > 0) {
-              await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(totalSize) });
-            }
             uploadedCount = entries.length;
             setLastBatch({ count: entries.length, at: new Date() });
           }
@@ -412,22 +409,10 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
     }
   };
 
-  // Reclaim a user's storage quota after deletes. Admin-seed entries carry `size`; older
-  // rows without it contribute 0. Guard against ever pushing storageUsed below zero.
-  const reclaimStorage = async (entries: RawGalleryEntry[]) => {
-    const freed = entries.reduce((sum, e) => sum + (e.size || 0), 0);
-    if (freed <= 0) return;
-    try {
-      await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(-freed) });
-    } catch (err) {
-      console.error('Failed to reclaim storage:', err);
-    }
-  };
-
   const deleteImage = async (img: UserGalleryImage) => {
     markBusy(img.id, true);
     try {
-      await fetch('/api/gallery', {
+      await fetchWithAuth('/api/gallery', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageUrl: img.url, codeId }),
@@ -435,9 +420,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
       const ref = doc(db, 'codes', codeId);
       const snap = await getDoc(ref);
       const gallery = (snap.data()?.userGallery || []) as RawGalleryEntry[];
-      const removed = gallery.filter((g) => g.id === img.id);
       await updateDoc(ref, { userGallery: gallery.filter((g) => g.id !== img.id) });
-      await reclaimStorage(removed);
     } catch (err) {
       console.error('Failed to delete image:', err);
     } finally {
@@ -506,17 +489,13 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
         userGallery: gallery.map((g) => (g.id === target.id ? newEntry : g)),
       });
 
-      // 3) Delete the old object from storage and reconcile quota (added new, removed old).
+      // 3) Delete the old object from storage (the server reconciles the owner's quota).
       if (target.url) {
-        await fetch('/api/gallery', {
+        await fetchWithAuth('/api/gallery', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageUrl: target.url, codeId }),
         }).catch(() => {});
-      }
-      const delta = (up.size || 0) - (oldEntry?.size || 0);
-      if (delta !== 0) {
-        await updateDoc(doc(db, 'users', ownerId), { storageUsed: increment(delta) }).catch(() => {});
       }
       cancelReplace();
     } catch (err) {
@@ -658,7 +637,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
       const toDelete = images.filter((i) => selectedIds.has(i.id));
       await Promise.all(
         toDelete.map((img) =>
-          fetch('/api/gallery', {
+          fetchWithAuth('/api/gallery', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ imageUrl: img.url, codeId }),
@@ -668,9 +647,7 @@ export default function SelfiebeamPhotoManager({ codeId, ownerId }: SelfiebeamPh
       const ref = doc(db, 'codes', codeId);
       const snap = await getDoc(ref);
       const gallery = (snap.data()?.userGallery || []) as RawGalleryEntry[];
-      const removed = gallery.filter((g) => selectedIds.has(g.id));
       await updateDoc(ref, { userGallery: gallery.filter((g) => !selectedIds.has(g.id)) });
-      await reclaimStorage(removed);
       clearSelection();
     } catch (err) {
       console.error('Bulk delete failed:', err);
