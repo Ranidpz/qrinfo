@@ -97,6 +97,16 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
   const font = tenboolFont(config);
   useFontStylesheet(font.family, font.id);
 
+  // lg breakpoint, matching the lg: layout classes
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const sync = () => setWide(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
   if (!isOpen) return null;
 
   const update = (patch: Partial<TenBoolConfig>) => {
@@ -224,6 +234,102 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
   const fx = tenboolEffects(config);
   const comp = tenboolCompetition(config);
 
+  // End of round + countdown hints
+  const hintsSection = (
+    <section className="space-y-2" aria-labelledby="tenbool-fx">
+      <h3 id="tenbool-fx" className="text-sm font-semibold text-text-primary">
+        רמזים וסוף סיבוב
+      </h3>
+      <SwitchRow
+        label="רמזים מהשנייה ה-7"
+        hint="צפצופים, ספרות אדומות והבזק"
+        checked={fx.warningCues}
+        onChange={(v) => update({ warningCues: v })}
+      />
+      <SwitchRow label="הבהוב בהצלחה" hint="ירוק, צהוב וכחול" checked={fx.winFlash} onChange={(v) => update({ winFlash: v })} />
+      <SwitchRow label="קונפטי בבול" hint="פרץ צבעוני ומנצנץ יחד עם ההבהוב" checked={fx.confetti} onChange={(v) => update({ confetti: v })} />
+      <SwitchRow label="הבהוב בטעות" hint={fx.loseFlash ? "בצבע לבחירתכם" : "כבוי — הרקע נשאר כמו שהוא"} checked={fx.loseFlash} onChange={(v) => update({ loseFlash: v })}>
+        {fx.loseFlash && <input
+          type="color"
+          value={fx.loseColor}
+          onChange={(e) => update({ loseColor: e.target.value })}
+          aria-label="צבע ההבהוב בטעות"
+          className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
+        />}
+      </SwitchRow>
+    </section>
+  );
+
+  // Sounds: under the preview on wide screens (keeps the settings column short), in the settings
+  // column otherwise. Rendered in ONE place only - the ids inside must stay unique.
+  const soundsSection = (
+    <section className="space-y-2" aria-labelledby="tenbool-sounds">
+      <h3 id="tenbool-sounds" className="text-sm font-semibold text-text-primary">
+        צלילים
+      </h3>
+      <div className={wide ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
+        {SLOTS.map(({ slot, label, hint }) => {
+          const s = tenboolSoundSetting(config, slot);
+          const canPlay = !!resolveTenBoolSoundUrl(config, slot);
+          const selectId = `tenbool-sound-${slot}`;
+          return (
+            <div key={slot} className="rounded-xl bg-bg-secondary px-3 py-2.5 space-y-2">
+              <div className="flex items-center gap-2">
+                <label htmlFor={selectId} className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-text-primary">{label}</span>
+                  <span className="block text-xs text-text-secondary truncate">{hint}</span>
+                </label>
+                <select
+                  id={selectId}
+                  value={s.choice}
+                  onChange={(e) => onChoice(slot, e.target.value as TenBoolSoundChoice)}
+                  className="input select-input !w-36 sm:!w-40 !py-2 !bg-bg-primary"
+                >
+                  {Object.entries(TENBOOL_SOUND_LIBRARY).map(([id, snd]) => (
+                    <option key={id} value={id}>
+                      {snd.label}
+                    </option>
+                  ))}
+                  <option value="custom">צליל משלכם…</option>
+                  <option value="none">ללא צליל</option>
+                </select>
+                <button
+                  onClick={() => togglePreview(slot)}
+                  disabled={!canPlay}
+                  aria-label={playing === slot ? `עצרו את צליל ה${label}` : `השמיעו את צליל ה${label}`}
+                  className="w-9 h-9 shrink-0 rounded-lg bg-bg-primary text-text-primary hover:bg-bg-hover flex items-center justify-center disabled:opacity-30"
+                >
+                  {playing === slot ? <Square className="w-3.5 h-3.5" /> : <Play className="w-4 h-4" />}
+                </button>
+              </div>
+              {s.choice === 'custom' && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="flex-1 min-w-0 truncate text-text-secondary" dir="ltr">
+                    {s.customName || 'קובץ שהועלה'}
+                  </span>
+                  <button
+                    onClick={() => pickSoundFile(slot)}
+                    disabled={uploading === slot}
+                    className="flex items-center gap-1 text-accent hover:underline disabled:opacity-50"
+                  >
+                    {uploading === slot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    החליפו קובץ
+                  </button>
+                </div>
+              )}
+              {uploading === slot && s.choice !== 'custom' && (
+                <div className="flex items-center gap-1 text-xs text-text-secondary">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> מעלים…
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
@@ -234,7 +340,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
         role="dialog"
         aria-modal="true"
         aria-labelledby="tenbool-modal-title"
-        className="relative bg-bg-primary border border-border rounded-2xl w-full max-w-xl lg:max-w-5xl max-h-[94dvh] flex flex-col shadow-2xl overflow-hidden"
+        className="relative bg-bg-primary border border-border rounded-2xl w-full max-w-xl lg:max-w-[min(96vw,1440px)] max-h-[94dvh] flex flex-col shadow-2xl overflow-hidden"
         onDragEnter={(e) => {
           if (!e.dataTransfer.types.includes('Files')) return;
           e.preventDefault();
@@ -293,7 +399,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
 
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* Live preview of the big screen - stays in view while the settings scroll under/beside it */}
-        <div className="shrink-0 px-4 sm:px-5 py-3 border-b border-border lg:w-[55%] lg:p-6 lg:border-b-0 lg:border-e lg:flex lg:items-center">
+        <div className="shrink-0 px-4 sm:px-5 py-3 border-b border-border lg:flex-1 lg:min-w-0 lg:p-6 lg:border-b-0 lg:border-e lg:overflow-y-auto">
           <div
             className="relative aspect-video w-full mx-auto max-w-[calc(30dvh*16/9)] lg:max-w-none rounded-xl overflow-hidden border border-border flex flex-col items-center justify-center gap-1"
             style={{
@@ -336,31 +442,36 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                 ))}
               </div>
             )}
-            {fx.closenessBar && (
-              <div dir="ltr" className="absolute bottom-3 left-1/2 -translate-x-1/2 w-1/2 h-3">
-                <span className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 opacity-30" style={{ background: fg }} />
-                <span className="absolute left-1/2 inset-y-0 w-0.5 -translate-x-1/2 opacity-70" style={{ background: fg }} />
-                <span className="absolute top-1/2 left-[58%] w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: fg }} />
-              </div>
-            )}
             {config.logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={config.logoUrl} alt="" className="relative object-contain max-w-[80%]" style={{ height: `${fx.logoSize}%` }} />
             )}
-            {title && <div className="relative text-base sm:text-lg font-bold opacity-80">{title}</div>}
-            <div className="relative text-6xl sm:text-7xl" style={fx.neon ? { ['--orbit' as string]: 'max(2.8em, 72cqw)' } : undefined}>
+            {title && <div className="relative text-[5cqh] font-bold opacity-80">{title}</div>}
+            <div className="relative text-[min(20cqw,34cqh)]" style={fx.neon ? { ['--orbit' as string]: 'max(2.8em, 72cqw)' } : undefined}>
               {fx.neon && <NeonRing from={fx.neonFrom} to={fx.neonTo} state="idle" />}
               <div dir="ltr" className="relative font-black leading-none tabular-nums">
                 10.00
               </div>
             </div>
-            <div className="relative text-sm sm:text-base font-black opacity-70">
+            <div className="relative text-[5cqh] font-black opacity-70 text-center">
               {comp.phone ? 'געו במסך כדי להתחיל' : 'לחצו על הבאזר כדי להתחיל'}
+              <span className="block text-[3.4cqh] font-bold opacity-70 mt-[0.35em]">
+                {comp.phone ? 'נגיעה נוספת עוצרת את הזמן' : 'לחיצה נוספת עוצרת את הזמן'}
+              </span>
             </div>
+            {/* In the flow under the prompt (not pinned to the bottom) so it never overlaps the text on a small preview */}
+            {fx.closenessBar && (
+              <div dir="ltr" className="relative shrink-0 w-[60cqw] h-[4cqh]">
+                <span className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 opacity-30" style={{ background: fg }} />
+                <span className="absolute left-1/2 inset-y-0 w-0.5 -translate-x-1/2 opacity-70" style={{ background: fg }} />
+                <span className="absolute top-1/2 left-[58%] w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: fg }} />
+              </div>
+            )}
           </div>
+          {wide && <div className="mt-6">{soundsSection}</div>}
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 space-y-6">
+        <div className="flex-1 lg:flex-none lg:w-[460px] min-h-0 overflow-y-auto px-4 sm:px-5 py-4 space-y-6">
           {/* How people play: the buzzer on the big screen, or everyone on their phone + a live leaderboard */}
           <section className="space-y-2" aria-labelledby="tenbool-mode">
             <h3 id="tenbool-mode" className="text-sm font-semibold text-text-primary">
@@ -660,93 +771,8 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
             />
           </section>
 
-          {/* End of round + countdown hints */}
-          <section className="space-y-2" aria-labelledby="tenbool-fx">
-            <h3 id="tenbool-fx" className="text-sm font-semibold text-text-primary">
-              רמזים וסוף סיבוב
-            </h3>
-            <SwitchRow
-              label="רמזים מהשנייה ה-7"
-              hint="צפצופים, ספרות אדומות והבזק"
-              checked={fx.warningCues}
-              onChange={(v) => update({ warningCues: v })}
-            />
-            <SwitchRow label="הבהוב בהצלחה" hint="ירוק, צהוב וכחול" checked={fx.winFlash} onChange={(v) => update({ winFlash: v })} />
-            <SwitchRow label="קונפטי בבול" hint="פרץ צבעוני ומנצנץ יחד עם ההבהוב" checked={fx.confetti} onChange={(v) => update({ confetti: v })} />
-            <SwitchRow label="הבהוב בטעות" hint={fx.loseFlash ? "בצבע לבחירתכם" : "כבוי — הרקע נשאר כמו שהוא"} checked={fx.loseFlash} onChange={(v) => update({ loseFlash: v })}>
-              {fx.loseFlash && <input
-                type="color"
-                value={fx.loseColor}
-                onChange={(e) => update({ loseColor: e.target.value })}
-                aria-label="צבע ההבהוב בטעות"
-                className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
-              />}
-            </SwitchRow>
-          </section>
-
-          {/* Sounds */}
-          <section className="space-y-2" aria-labelledby="tenbool-sounds">
-            <h3 id="tenbool-sounds" className="text-sm font-semibold text-text-primary">
-              צלילים
-            </h3>
-            {SLOTS.map(({ slot, label, hint }) => {
-              const s = tenboolSoundSetting(config, slot);
-              const canPlay = !!resolveTenBoolSoundUrl(config, slot);
-              const selectId = `tenbool-sound-${slot}`;
-              return (
-                <div key={slot} className="rounded-xl bg-bg-secondary px-3 py-2.5 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor={selectId} className="flex-1 min-w-0">
-                      <span className="block text-sm font-medium text-text-primary">{label}</span>
-                      <span className="block text-xs text-text-secondary truncate">{hint}</span>
-                    </label>
-                    <select
-                      id={selectId}
-                      value={s.choice}
-                      onChange={(e) => onChoice(slot, e.target.value as TenBoolSoundChoice)}
-                      className="input select-input !w-36 sm:!w-40 !py-2 !bg-bg-primary"
-                    >
-                      {Object.entries(TENBOOL_SOUND_LIBRARY).map(([id, snd]) => (
-                        <option key={id} value={id}>
-                          {snd.label}
-                        </option>
-                      ))}
-                      <option value="custom">צליל משלכם…</option>
-                      <option value="none">ללא צליל</option>
-                    </select>
-                    <button
-                      onClick={() => togglePreview(slot)}
-                      disabled={!canPlay}
-                      aria-label={playing === slot ? `עצרו את צליל ה${label}` : `השמיעו את צליל ה${label}`}
-                      className="w-9 h-9 shrink-0 rounded-lg bg-bg-primary text-text-primary hover:bg-bg-hover flex items-center justify-center disabled:opacity-30"
-                    >
-                      {playing === slot ? <Square className="w-3.5 h-3.5" /> : <Play className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {s.choice === 'custom' && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="flex-1 min-w-0 truncate text-text-secondary" dir="ltr">
-                        {s.customName || 'קובץ שהועלה'}
-                      </span>
-                      <button
-                        onClick={() => pickSoundFile(slot)}
-                        disabled={uploading === slot}
-                        className="flex items-center gap-1 text-accent hover:underline disabled:opacity-50"
-                      >
-                        {uploading === slot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                        החליפו קובץ
-                      </button>
-                    </div>
-                  )}
-                  {uploading === slot && s.choice !== 'custom' && (
-                    <div className="flex items-center gap-1 text-xs text-text-secondary">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> מעלים…
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </section>
+          {hintsSection}
+          {!wide && soundsSection}
         </div>
         </div>
 
