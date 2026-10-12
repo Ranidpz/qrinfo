@@ -82,8 +82,9 @@ export async function POST(request: NextRequest) {
       }
       const codeDoc = await getAdminDb().collection('codes').doc(codeId).get();
       const codeData = codeDoc.data();
+      // Q.Games media items have type 'minigames'
       const hasQGames = Array.isArray(codeData?.media) &&
-        codeData.media.some((m: { type?: string }) => m?.type === 'qgames');
+        codeData.media.some((m: { type?: string; qgamesConfig?: unknown }) => m?.type === 'minigames' || !!m?.qgamesConfig);
       if (!codeData?.ownerId || !hasQGames) {
         return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
       }

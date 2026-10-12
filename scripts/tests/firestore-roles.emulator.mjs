@@ -60,10 +60,10 @@ test('first registration permits only own free profile with bound email and base
  await assertFails(setDoc(doc(db,'users','someone-else'),profile('new@example.invalid')));
  await assertSucceeds(setDoc(ref,profile('new@example.invalid')));
 });
-test('email, storageLimit and createdAt cannot be forged or deleted; ordinary profile/storage accounting remains compatible',async()=>{
+test('only displayName/updatedAt are self-editable; storage and message quotas are server-only',async()=>{
  const ref=doc(client(),'users','alice');
- for(const change of [{email:'other@example.invalid'},{storageLimit:1e12},{createdAt:serverTimestamp()},{email:deleteField()},{storageLimit:deleteField()}])await assertFails(updateDoc(ref,change));
- await assertSucceeds(updateDoc(ref,{displayName:'Updated',storageUsed:120,updatedAt:serverTimestamp()}));
+ for(const change of [{email:'other@example.invalid'},{storageLimit:1e12},{createdAt:serverTimestamp()},{email:deleteField()},{storageLimit:deleteField()},{storageUsed:1},{storageUsed:deleteField()},{messageQuota:{limit:1e6,used:0}},{plan:'pro'}])await assertFails(updateDoc(ref,change));
+ await assertSucceeds(updateDoc(ref,{displayName:'Updated',updatedAt:serverTimestamp()}));
  assert.equal((await getDoc(ref)).data().role,'free');
 });
 test('delete/recreate and batched promotion plus foreign code update are denied atomically',async()=>{
