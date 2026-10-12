@@ -61,7 +61,7 @@ stress-test/results/
 .cursor/skills/
 
 # Preview dev server build dir (separate instance)
-.next-preview/
+.next-*/
 
 # git worktrees created by tooling (never commit)
 .claude/worktrees/
