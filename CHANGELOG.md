@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.27.12] - 2026-10-12
+
+- Framed viewer (TVzone signage): `PWAInstallBanner` never shows when `isFramed()` (new `src/lib/framed.ts`) - its 3s fallback timer showed it on screens - and the viewer skips the PWA service worker there.
+- 10 בול `useLocalCopy`: the logo/background CORS fetch uses `cache: 'no-store'`. The `<img>` loads the R2 URL first without CORS and R2 sends no `Vary: Origin` on that response, so the fetch reused the cached copy and failed with "No Access-Control-Allow-Origin" (every browser, framed or not) and the offline copy was never made. Rollback = revert this release commit.
+
 ## [1.27.11] - 2026-10-11
 
 - Align Fattal administration controls with existing site tokens: inset RTL select arrows, muted rounded fields, aligned checkboxes, spaced status/revoke actions and mobile stacking.

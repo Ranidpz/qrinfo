@@ -23,6 +23,7 @@ import TenBoolExperience from '@/components/viewer/tenbool/TenBoolExperience';
 import QGamesDisplay from '@/components/qgames/QGamesDisplay';
 import QGamesDisplayWidescreen from '@/components/qgames/QGamesDisplayWidescreen';
 import PWAInstallBanner from '@/components/viewer/PWAInstallBanner';
+import { isFramed } from '@/lib/framed';
 import LandingPageViewer from '@/components/viewer/LandingPageViewer';
 import { shouldShowLandingPage } from '@/lib/landingPage';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -1085,9 +1086,9 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
     setLoadMessage(viewerTranslations[browserLocale].loadingContent);
   }, []);
 
-  // Register service worker for PWA installation
+  // Register service worker for PWA installation (not when framed - nothing to install there)
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && !isFramed()) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
           console.log('[SW] Registered:', registration.scope);

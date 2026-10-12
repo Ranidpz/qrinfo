@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.11';
+export const APP_VERSION = '1.27.12';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.12', date: '2026-10-12', isNew: true, highlights: {
+    he: ['משחק שרץ בתוך נגן המסכים TVzone לא מציג יותר את פס "הוסיפו למסך הבית"', '10 בול: הלוגו נשמר בזיכרון כמו שצריך, כך שהוא נשאר על המסך גם כשהאינטרנט באולם נופל'],
+    en: ['A game running inside the TVzone signage player no longer shows the "add to home screen" strip', '10 Bool: the logo is now kept in memory as intended, so it stays on screen when the venue internet drops'],
+  } },
   { version: '1.27.11', date: '2026-10-11', isNew: true, highlights: {
     he: ['שיפור מסך עדכון חוברות: שדות וכפתורים מרווחים, התאמה לעברית ולנייד וזכירת הבעלים שנבחרו באותה לשונית, עם אימות מחדש'],
     en: ['Polish brochure administration with clearer fields and actions, Hebrew/mobile layouts, and remembered owner selection in the same tab with fresh verification'],

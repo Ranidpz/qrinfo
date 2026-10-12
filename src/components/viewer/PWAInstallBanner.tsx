@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Smartphone, Download, X, Share, MoreVertical } from 'lucide-react';
+import { isFramed } from '@/lib/framed';
 
 interface PWAInstallBannerProps {
   shortId: string;
@@ -47,8 +48,8 @@ export default function PWAInstallBanner({ shortId, enabled = true }: PWAInstall
 
   // Check if banner should be shown
   useEffect(() => {
-    // Don't show if already installed
-    if (isStandalone()) {
+    // Don't show if already installed, or when framed (a signage screen can't install anything)
+    if (isStandalone() || isFramed()) {
       return;
     }
 

@@ -127,13 +127,15 @@ type ShareStats = {
 // The logo and background image are read once into memory (a blob: URL), so the game keeps showing
 // them - and the share card keeps drawing them - when the venue's internet drops mid-event. Until
 // the copy is ready, or if the host doesn't allow it (CORS), the original URL is used as before.
+// no-store: the <img> already loaded this URL without CORS, and R2 sends no `Vary: Origin` on that
+// response - reusing the cached copy here fails the CORS check, so go to the network instead.
 function useLocalCopy(url?: string) {
   const [copy, setCopy] = useState<{ src: string; local: string } | null>(null);
   useEffect(() => {
     if (!url) return;
     let alive = true;
     let local = '';
-    fetch(url, { mode: 'cors' })
+    fetch(url, { mode: 'cors', cache: 'no-store' })
       .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
       .then((blob) => {
         if (!alive) return;
