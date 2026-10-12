@@ -103,19 +103,27 @@ interface Real3DFlipBookOptions {
 }
 
 // Helper function to load scripts dynamically
+// One promise per script: a second caller (effect re-run, remount) must WAIT for the same load,
+// not resolve early — otherwise flipbook.min.js can run before jQuery and never attach $.fn.flipBook,
+// leaving the booklet stuck on "Loading document…".
+const scriptLoads = new Map<string, Promise<void>>();
+
 function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
-    }
+  const existing = scriptLoads.get(src);
+  if (existing) return existing;
+  const promise = new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
     script.src = src;
-    script.async = true;
+    script.async = false; // keep execution order (jQuery before flipbook)
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+    script.onerror = () => {
+      scriptLoads.delete(src);
+      reject(new Error(`Failed to load script: ${src}`));
+    };
     document.body.appendChild(script);
   });
+  scriptLoads.set(src, promise);
+  return promise;
 }
 
 // Generate page flip sound using Web Audio API (for MultiPDFViewer fallback)
