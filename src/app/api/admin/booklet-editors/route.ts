@@ -33,9 +33,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const snap = await getAdminDb().collection(BOOKLET_EDITORS_COLLECTION).where('codeId', '==', codeId).get();
+    const code = (await getAdminDb().collection('codes').doc(codeId).get()).data();
     const editors = snap.docs
       .map((doc) => doc.data())
-      .filter((grant) => !grant.revokedAt)
+      .filter((grant) => !grant.revokedAt && grant.ownerId === code?.ownerId)
       .map((grant) => ({
         uid: grant.uid,
         email: grant.email || '',
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
     const grant = {
       codeId,
       uid: target.id,
+      ownerId: String(code.ownerId || ''),
       email: String(targetData.email || email),
       name: String(targetData.displayName || ''),
       grantedBy: auth.uid,

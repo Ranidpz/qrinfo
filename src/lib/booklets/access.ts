@@ -25,11 +25,14 @@ export interface BookletAccess {
   ownerId: string;
 }
 
-/** Active (not revoked) grant for `uid` on `codeId`? */
-export async function hasBookletGrant(codeId: string, uid: string): Promise<boolean> {
+/**
+ * Active (not revoked) grant for `uid` on `codeId`, given under the CURRENT owner —
+ * an ownership transfer silently ends every grant made for the previous owner.
+ */
+export async function hasBookletGrant(codeId: string, uid: string, ownerId: string): Promise<boolean> {
   const grant = await getAdminDb().collection(BOOKLET_EDITORS_COLLECTION).doc(bookletGrantId(codeId, uid)).get();
   const data = grant.data();
-  return !!data && data.codeId === codeId && data.uid === uid && !data.revokedAt;
+  return !!data && data.codeId === codeId && data.uid === uid && !data.revokedAt && !!ownerId && data.ownerId === ownerId;
 }
 
 /**
@@ -64,8 +67,12 @@ export async function requireBookletAccess(
 
   if (ownerId && ownerId === uid) return { actor: { ...identity, via: 'owner' }, ownerId };
   if (user.role === 'super_admin') return { actor: { ...identity, via: 'super_admin' }, ownerId };
+  // Existing full-edit collaborators keep replacing PDFs as before.
+  if (Array.isArray(code.collaborators) && code.collaborators.includes(uid)) {
+    return { actor: { ...identity, via: 'collaborator' }, ownerId };
+  }
 
-  if (hasPdfMedia(code.media) && await hasBookletGrant(codeId, uid)) {
+  if (hasPdfMedia(code.media) && await hasBookletGrant(codeId, uid, ownerId)) {
     return { actor: { ...identity, via: 'editor' }, ownerId };
   }
 

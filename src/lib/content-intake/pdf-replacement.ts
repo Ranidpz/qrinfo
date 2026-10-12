@@ -26,7 +26,7 @@ export interface PdfReplacementInput {
 }
 
 /** Who replaced a booklet file — recorded in `codes/{id}/pdfHistory`. */
-export type PdfActorVia = 'owner' | 'super_admin' | 'editor' | 'intake';
+export type PdfActorVia = 'owner' | 'collaborator' | 'super_admin' | 'editor' | 'intake';
 
 export interface PdfActor {
   uid: string | null;
@@ -38,6 +38,8 @@ export interface PdfActor {
 /** Everything needed to put a stored file back on a media item. */
 export interface PdfFileSnapshot {
   url: string;
+  type?: string;
+  uploadedBy?: string;
   filename?: string;
   title?: string;
   size: number;
@@ -71,6 +73,8 @@ export const PDF_HISTORY_COLLECTION = 'pdfHistory';
 export function snapshotPdfMedia(media: CodeMedia): PdfFileSnapshot {
   return compactRecord({
     url: String(media.url || ''),
+    type: media.type,
+    uploadedBy: media.uploadedBy,
     filename: media.filename,
     title: media.title,
     size: Number(media.size || 0),
@@ -176,6 +180,7 @@ export async function replaceCodePdfWithBuffer(
   let codeTitle = '';
   let updatedAt = '';
   let oldUrl: string | undefined;
+  let oldKept = false;
   let storageDelta = uploaded.size;
   let updatedMediaForResponse: Record<string, unknown> | null = null;
   const history = options.history;
@@ -184,6 +189,7 @@ export async function replaceCodePdfWithBuffer(
 
   try {
     await db.runTransaction(async (transaction) => {
+      purgeUrls.length = 0; // the callback may be retried
       const freshCodeDoc = await transaction.get(codeRef);
       const userRef = db.collection('users').doc(ownerId);
       const userDoc = await transaction.get(userRef);
@@ -276,13 +282,14 @@ export async function replaceCodePdfWithBuffer(
       }
 
       oldUrl = oldMedia?.url;
+      oldKept = !!history && oldMedia?.type === 'pdf';
       updatedMediaForResponse = serializeMedia(newMedia);
 
       if (historyRef && history) {
-        const liveUrls = new Set(media.map((item) => item.url).filter(Boolean));
+        // Never delete a file that is live on this code or that this entry keeps for restore.
+        const liveUrls = new Set([...media.map((item) => item.url), oldMedia?.url].filter(Boolean));
         for (const entry of keptEntries) {
           const kept = entry.data().previous as (PdfFileSnapshot & { purgeOnNext?: boolean }) | undefined;
-          // Never delete a file that is (again) live on this code.
           if (kept?.url && kept.purgeOnNext !== false && !liveUrls.has(kept.url)) purgeUrls.push(kept.url);
           transaction.update(entry.ref, {
             'previous.retained': false,
@@ -296,8 +303,9 @@ export async function replaceCodePdfWithBuffer(
           actor: compactRecord({ ...history.actor }),
           source: input.source || 'api',
           next: snapshotPdfMedia(newMedia as CodeMedia),
+          // Only a PDF can be put back on a PDF item; anything else is logged, not kept.
           previous: oldMedia?.url
-            ? { ...snapshotPdfMedia(oldMedia), retained: true, purgeOnNext: input.deleteOld !== false }
+            ? { ...snapshotPdfMedia(oldMedia), retained: oldMedia.type === 'pdf', purgeOnNext: input.deleteOld !== false }
             : null,
         });
       }
@@ -329,7 +337,7 @@ export async function replaceCodePdfWithBuffer(
 
   let oldDeleteWarning: string | undefined;
   // With history the previous file is kept for one restore instead of deleted now.
-  if (!history && input.deleteOld !== false && oldUrl && oldUrl !== uploaded.url) {
+  if (!oldKept && input.deleteOld !== false && oldUrl && oldUrl !== uploaded.url) {
     try {
       await deleteStoredObjectByUrl(oldUrl);
     } catch (error) {

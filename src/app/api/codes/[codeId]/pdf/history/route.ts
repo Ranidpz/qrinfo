@@ -12,7 +12,8 @@ export async function GET(
   try {
     const access = await requireBookletAccess(request, codeId);
     if ('response' in access) return access.response;
-    return NextResponse.json({ entries: await listPdfHistory(codeId) });
+    const entries = await listPdfHistory(codeId, { redactEmails: access.actor.via === 'editor' });
+    return NextResponse.json({ entries });
   } catch (error) {
     console.error('[pdf-history] list failed:', error);
     return NextResponse.json({ error: 'Failed to load history' }, { status: 500 });

@@ -13,13 +13,16 @@ export async function GET(request: NextRequest) {
   try {
     const db = getAdminDb();
     const grants = await db.collection(BOOKLET_EDITORS_COLLECTION).where('uid', '==', uid).get();
-    const codeIds = grants.docs.map((doc) => doc.data()).filter((g) => !g.revokedAt).map((g) => String(g.codeId));
+    const active = grants.docs.map((doc) => doc.data()).filter((g) => !g.revokedAt);
+    const grantOwner = new Map(active.map((g) => [String(g.codeId), String(g.ownerId || '')]));
+    const codeIds = [...grantOwner.keys()];
     if (codeIds.length === 0) return NextResponse.json({ booklets: [] });
 
     const docs = await db.getAll(...codeIds.map((id) => db.collection('codes').doc(id)));
     const booklets = docs.flatMap((doc) => {
       const data = doc.data();
-      if (!data) return [];
+      // A grant ends when the booklet changes owner (same rule as requireBookletAccess).
+      if (!data || !data.ownerId || data.ownerId !== grantOwner.get(doc.id)) return [];
       const pdfs = (Array.isArray(data.media) ? data.media : [])
         .filter((m: { type?: string }) => m?.type === 'pdf')
         .map((m: Record<string, unknown>) => ({

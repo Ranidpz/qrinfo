@@ -22,6 +22,7 @@ interface PdfHistoryModalProps {
 
 const VIA_KEY: Record<PdfActorVia, string> = {
   owner: 'viaOwner',
+  collaborator: 'viaCollaborator',
   super_admin: 'viaSuperAdmin',
   editor: 'viaEditor',
   intake: 'viaIntake',

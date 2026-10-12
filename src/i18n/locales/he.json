@@ -2092,6 +2092,7 @@
     "actionRevoke": "ביטול הרשאת עדכון",
     "by": "על ידי {name}",
     "viaOwner": "בעלים",
+    "viaCollaborator": "שותף עריכה",
     "viaSuperAdmin": "מנהל־על",
     "viaEditor": "עורך חוברות",
     "viaIntake": "קליטה אוטומטית",

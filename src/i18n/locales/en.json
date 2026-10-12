@@ -2091,6 +2091,7 @@
     "actionRevoke": "Update access revoked",
     "by": "by {name}",
     "viaOwner": "Owner",
+    "viaCollaborator": "Collaborator",
     "viaSuperAdmin": "Super admin",
     "viaEditor": "Booklet editor",
     "viaIntake": "Automatic intake",

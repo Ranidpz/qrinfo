@@ -58,7 +58,11 @@ function fileSummary(file: KeptSnapshot | null | undefined) {
   return { filename: file.filename || file.title, size: Number(file.size || 0), pageCount: file.pageCount };
 }
 
-export async function listPdfHistory(codeId: string, limit = 50): Promise<PdfHistoryEntry[]> {
+/** `redactEmails`: booklet editors see names only, never other people's email addresses. */
+export async function listPdfHistory(codeId: string, options: { redactEmails?: boolean; limit?: number } = {}): Promise<PdfHistoryEntry[]> {
+  const { redactEmails = false, limit = 50 } = options;
+  const redact = <T extends { email?: string } | null | undefined>(who: T): T =>
+    who && redactEmails ? ({ ...who, email: undefined } as T) : who;
   const codeRef = getAdminDb().collection('codes').doc(codeId);
   const [codeDoc, snap] = await Promise.all([
     codeRef.get(),
@@ -77,11 +81,11 @@ export async function listPdfHistory(codeId: string, limit = 50): Promise<PdfHis
       id: doc.id,
       action: data.action,
       at: toIso(data.at),
-      actor: (data.actor as PdfActor) || null,
+      actor: redact((data.actor as PdfActor) || null),
       mediaId: data.mediaId,
       next: fileSummary(next),
       previous: previous?.url ? { ...fileSummary(previous)!, retained: !!previous.retained } : null,
-      target: data.target || null,
+      target: redact(data.target || null),
       canRestore,
     };
   });
@@ -109,7 +113,9 @@ export async function restorePdfVersion(codeId: string, eventId: string, actor: 
     const event = eventDoc.data() || {};
     const kept = event.previous as KeptSnapshot | null | undefined;
     const next = event.next as KeptSnapshot | null | undefined;
-    if (!kept?.retained || !kept.url || !next?.url) throw new PdfHistoryError('not_restorable', 409);
+    if (!kept?.retained || !kept.url || !next?.url || (kept.type && kept.type !== 'pdf')) {
+      throw new PdfHistoryError('not_restorable', 409);
+    }
 
     const media = Array.isArray(code.media) ? ([...code.media] as MediaItem[]) : [];
     const index = media.findIndex((item) => item.id === event.mediaId);
@@ -121,8 +127,11 @@ export async function restorePdfVersion(codeId: string, eventId: string, actor: 
     const userRef = db.collection('users').doc(ownerId);
     const userDoc = await transaction.get(userRef);
     const owner = userDoc.data() || {};
+    // Same rule as a replacement: only files uploaded by the owner count in their storage.
+    const keptUploadedBy = kept.uploadedBy || ownerId;
     const currentSizeForOwner = current.uploadedBy === ownerId ? Number(current.size || 0) : 0;
-    const storageDelta = Number(kept.size || 0) - currentSizeForOwner;
+    const keptSizeForOwner = keptUploadedBy === ownerId ? Number(kept.size || 0) : 0;
+    const storageDelta = keptSizeForOwner - currentSizeForOwner;
     const limit = Number(owner.storageLimit || 0);
     if (storageDelta > 0 && limit > 0 && Number(owner.storageUsed || 0) + storageDelta > limit) {
       throw new PdfHistoryError('quota', 409);
@@ -137,7 +146,7 @@ export async function restorePdfVersion(codeId: string, eventId: string, actor: 
     }
     restored.url = kept.url;
     restored.size = Number(kept.size || 0);
-    restored.uploadedBy = ownerId;
+    restored.uploadedBy = keptUploadedBy;
     media[index] = restored;
 
     transaction.update(codeRef, { media, updatedAt: FieldValue.serverTimestamp() });

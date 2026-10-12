@@ -119,14 +119,15 @@ function seedBooklet() {
 
 test('access: owner, super admin and active editor only; revoke and non-booklets refuse', async () => {
   globalThis.__db = createFakeDb({
-    'codes/c1': { ownerId: 'owner-1', media: [{ id: 'm1', type: 'pdf' }] },
+    'codes/c1': { ownerId: 'owner-1', collaborators: ['collab-1'], media: [{ id: 'm1', type: 'pdf' }] },
     'codes/c2': { ownerId: 'owner-1', media: [{ id: 'x', type: 'image' }] },
     'users/owner-1': { role: 'free' },
     'users/admin-1': { role: 'super_admin' },
     'users/editor-1': { role: 'free', email: 'ed@playzone.test' },
     'users/other-1': { role: 'producer' },
-    'bookletEditors/c1__editor-1': { codeId: 'c1', uid: 'editor-1', revokedAt: null },
-    'bookletEditors/c2__editor-1': { codeId: 'c2', uid: 'editor-1', revokedAt: null },
+    'users/collab-1': { role: 'free' },
+    'bookletEditors/c1__editor-1': { codeId: 'c1', uid: 'editor-1', ownerId: 'owner-1', revokedAt: null },
+    'bookletEditors/c2__editor-1': { codeId: 'c2', uid: 'editor-1', ownerId: 'owner-1', revokedAt: null },
   });
   const { requireBookletAccess } = await loadTs('../../src/lib/booklets/access.ts', {
     'next/server': stub('export const NextResponse={json:(v,i)=>({status:i?.status??200,body:v})};'),
@@ -139,10 +140,15 @@ test('access: owner, super admin and active editor only; revoke and non-booklets
   const ed = await as('editor-1');
   assert.equal(ed.actor.via, 'editor');
   assert.equal(ed.actor.email, 'ed@playzone.test');
+  assert.equal((await as('collab-1')).actor.via, 'collaborator', 'existing collaborators keep working');
   assert.equal((await as('other-1')).response.status, 403);
   assert.equal((await as(undefined)).response.status, 401);
   assert.equal((await as('editor-1', 'c2')).response.status, 403, 'grant on a code without a PDF is useless');
   assert.equal((await as('editor-1', 'missing')).response.status, 404);
+  globalThis.__db.store.get('codes/c1').ownerId = 'new-owner';
+  assert.equal((await as('editor-1')).response.status, 403, 'ownership transfer ends the grant');
+  globalThis.__db.store.get('codes/c1').ownerId = 'owner-1';
+  assert.equal((await as('editor-1')).actor.via, 'editor');
   globalThis.__db.store.get('bookletEditors/c1__editor-1').revokedAt = 'SERVER_TS';
   assert.equal((await as('editor-1')).response.status, 403, 'revoke is immediate');
 });
@@ -257,4 +263,37 @@ test('PDF route: editors upload only over an existing item, with forced source a
   globalThis.__access = { response: new Response('{}', { status: 403 }) };
   assert.equal((await POST(form(true), params)).status, 403);
   assert.equal(globalThis.__routeCalls.length, 1);
+});
+
+test('a stale save that puts the kept file back live never lets the next replace delete it', async () => {
+  globalThis.__db = seedBooklet();
+  const replacement = await loadReplacement();
+  const { listPdfHistory, restorePdfVersion } = await loadHistory(replacement);
+  const options = { expectedOwnerId: 'owner-1', history: { actor: editor }, existingPdfOnly: true, targetOnlyConflictCheck: true };
+  await replacement.replaceCodePdfWithBuffer('c1', { ...pdf('c.pdf'), mediaId: 'm1' }, options); // original → v1, original kept
+  // Owner's stale code page writes the old media array back: original is live again.
+  globalThis.__db.store.get('codes/c1').media[0].url = 'https://media.test/original.pdf';
+  await replacement.replaceCodePdfWithBuffer('c1', { ...pdf('d.pdf'), mediaId: 'm1' }, options); // original → v2
+  assert.ok(!globalThis.__deleted.includes('https://media.test/original.pdf'), 'the file now kept for restore survives');
+  const latest = (await listPdfHistory('c1'))[0];
+  assert.equal(latest.canRestore, true);
+  await restorePdfVersion('c1', latest.id, editor);
+  assert.equal(globalThis.__db.store.get('codes/c1').media[0].url, 'https://media.test/original.pdf');
+});
+
+test('a non-PDF previous file is deleted, never offered for restore; editors see no emails', async () => {
+  globalThis.__db = createFakeDb({
+    'codes/c1': { ownerId: 'owner-1', media: [{ id: 'm1', type: 'image', url: 'https://media.test/a.jpg', size: 5, uploadedBy: 'owner-1' }] },
+    'users/owner-1': { storageUsed: 5, storageLimit: 0 },
+  });
+  const replacement = await loadReplacement();
+  const { listPdfHistory, restorePdfVersion } = await loadHistory(replacement);
+  const owner = { uid: 'owner-1', via: 'owner', email: 'owner@client.test', name: 'Owner' };
+  await replacement.replaceCodePdfWithBuffer('c1', { ...pdf('x.pdf'), mediaId: 'm1', replaceNonPdf: true }, { expectedOwnerId: 'owner-1', history: { actor: owner }, targetOnlyConflictCheck: true });
+  assert.deepEqual(globalThis.__deleted, ['https://media.test/a.jpg']);
+  const [entry] = await listPdfHistory('c1', { redactEmails: true });
+  assert.equal(entry.canRestore, false);
+  assert.equal(entry.actor.email, undefined);
+  assert.equal(entry.actor.name, 'Owner');
+  await assert.rejects(restorePdfVersion('c1', entry.id, editor), /not_restorable/);
 });

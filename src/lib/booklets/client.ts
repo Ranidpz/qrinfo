@@ -3,7 +3,7 @@ import { fetchWithAuth, getAuthHeader } from '@/lib/fetchWithAuth';
 // Client calls for booklet PDF replacement, history/restore and booklet-editor grants.
 // Every PDF→PDF replacement goes through the server route so it is recorded and restorable.
 
-export type PdfActorVia = 'owner' | 'super_admin' | 'editor' | 'intake';
+export type PdfActorVia = 'owner' | 'collaborator' | 'super_admin' | 'editor' | 'intake';
 
 export interface PdfHistoryEntry {
   id: string;
