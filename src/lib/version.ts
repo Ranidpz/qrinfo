@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.13';
+export const APP_VERSION = '1.27.14';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.14', date: '2026-10-12', isNew: true, highlights: {
+    he: ['10 בול: מסך ההגדרות רחב יותר והתצוגה המקדימה נשארת מול העיניים בזמן שמשנים הגדרות', 'גופן, סוג רקע וכל הצבעים מסודרים בשורות קומפקטיות, והחצים ברשימות הנפתחות יושבים נכון בעברית'],
+    en: ['10 Bool: a wider settings screen where the preview stays in view while you change settings', 'Font, background type and all colours sit on compact rows, and dropdown arrows sit correctly in Hebrew'],
+  } },
   { version: '1.27.13', date: '2026-10-12', isNew: true, highlights: {
     he: ['10 בול: צליל שהעליתם והשמעתם בעורך מתנגן גם במשחק עצמו, באותו דפדפן'],
     en: ['10 Bool: an uploaded sound you previewed in the editor now also plays in the game, in the same browser'],

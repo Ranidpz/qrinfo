@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.27.14] - 2026-10-12
+
+- 10 בול settings modal (`TenBoolModal`): `lg:max-w-5xl` two-column layout with the preview pinned beside the settings; on narrow screens the preview stays on top (capped at 30dvh) and only the settings scroll. Logo + size slider first in "מראה", font + background type on one row, the whole palette on one row (compact `ColorField` tiles).
+- New `.select-input` class in `globals.css`: custom RTL-safe select arrow with padding, used by every select in the modal. Rollback = revert this release commit.
+
 ## [1.27.13] - 2026-10-12
 
 - 10 בול sounds: the Web Audio preload fetch uses `cache: 'no-store'` (same trap as `useLocalCopy` in 1.27.12). The editor's `new Audio(url)` preview caches the R2 file without CORS headers, so the game's fetch failed and that sound stayed silent in the owner's browser. Reproduced on prod with a temporary R2 mp3: preview → plain fetch "Failed to fetch"; `no-store` → 200 + decoded. Rollback = revert this release commit.

@@ -234,7 +234,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
         role="dialog"
         aria-modal="true"
         aria-labelledby="tenbool-modal-title"
-        className="relative bg-bg-primary border border-border rounded-2xl w-full max-w-xl max-h-[94dvh] flex flex-col shadow-2xl overflow-hidden"
+        className="relative bg-bg-primary border border-border rounded-2xl w-full max-w-xl lg:max-w-5xl max-h-[94dvh] flex flex-col shadow-2xl overflow-hidden"
         onDragEnter={(e) => {
           if (!e.dataTransfer.types.includes('Files')) return;
           e.preventDefault();
@@ -291,10 +291,11 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-6">
-          {/* Live preview of the big screen */}
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        {/* Live preview of the big screen - stays in view while the settings scroll under/beside it */}
+        <div className="shrink-0 px-4 sm:px-5 py-3 border-b border-border lg:w-[55%] lg:p-6 lg:border-b-0 lg:border-e lg:flex lg:items-center">
           <div
-            className="relative aspect-video w-full rounded-xl overflow-hidden border border-border flex flex-col items-center justify-center gap-1"
+            className="relative aspect-video w-full mx-auto max-w-[calc(30dvh*16/9)] lg:max-w-none rounded-xl overflow-hidden border border-border flex flex-col items-center justify-center gap-1"
             style={{
               backgroundColor: fx.neon ? fx.spaceTo : bg,
               backgroundImage: !fx.neon && config.backgroundImageUrl ? `url("${config.backgroundImageUrl}")` : undefined,
@@ -357,7 +358,9 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
               {comp.phone ? 'געו במסך כדי להתחיל' : 'לחצו על הבאזר כדי להתחיל'}
             </div>
           </div>
+        </div>
 
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 space-y-6">
           {/* How people play: the buzzer on the big screen, or everyone on their phone + a live leaderboard */}
           <section className="space-y-2" aria-labelledby="tenbool-mode">
             <h3 id="tenbool-mode" className="text-sm font-semibold text-text-primary">
@@ -479,81 +482,6 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
               מראה
             </h3>
 
-            <label className="flex items-center justify-between gap-3">
-              <span className="text-sm text-text-secondary">גופן</span>
-              <select
-                value={font.id}
-                onChange={(e) => update({ fontId: e.target.value as TenBoolFontId })}
-                className="input !w-44 !py-2"
-              >
-                {TENBOOL_FONTS.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex items-center justify-between gap-3">
-              <span className="text-sm text-text-secondary">סוג רקע</span>
-              <select
-                value={fx.neon ? 'neon' : 'plain'}
-                onChange={(e) => update({ backgroundStyle: e.target.value as 'plain' | 'neon' })}
-                className="input !w-44 !py-2"
-              >
-                <option value="plain">צבע או תמונה</option>
-                <option value="neon">חלל ניאון (מונפש)</option>
-              </select>
-            </label>
-
-            {fx.neon ? (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <ColorField label="ניאון 1" value={fx.neonFrom} onChange={(v) => update({ neonFrom: v })} />
-                  <ColorField label="ניאון 2" value={fx.neonTo} onChange={(v) => update({ neonTo: v })} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <ColorField label="רקע במרכז" value={fx.spaceFrom} onChange={(v) => update({ spaceFrom: v })} />
-                  <ColorField label="רקע בקצוות" value={fx.spaceTo} onChange={(v) => update({ spaceTo: v })} />
-                </div>
-                <SwitchRow
-                  label="כוכבים"
-                  hint="כוכבים עדינים שמופיעים ונעלמים ברקע"
-                  checked={fx.neonStars}
-                  onChange={(v) => update({ neonStars: v })}
-                />
-              </>
-            ) : null}
-
-            <div className="grid grid-cols-2 gap-3">
-              {!fx.neon && <ColorField label="צבע רקע" value={bg} onChange={(v) => update({ backgroundColor: v })} />}
-              <ColorField label="צבע טקסט" value={fg} onChange={(v) => update({ textColor: v })} />
-            </div>
-
-            <div className={`flex items-center justify-between gap-3 ${fx.neon ? 'hidden' : ''}`}>
-              <span className="text-sm text-text-secondary">תמונת רקע</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={uploading === 'image'}
-                  className="btn btn-secondary !py-2 !px-3 text-sm"
-                >
-                  {uploading === 'image' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-                  {config.backgroundImageUrl ? 'החליפו' : 'העלו תמונה'}
-                </button>
-                {config.backgroundImageUrl && (
-                  <button
-                    onClick={() => update({ backgroundImageUrl: undefined })}
-                    aria-label="הסירו את תמונת הרקע"
-                    title="הסירו את תמונת הרקע"
-                    className="p-2 rounded-lg text-text-secondary hover:bg-bg-hover hover:text-danger"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
             <div className="rounded-xl bg-bg-secondary px-3 py-2.5 space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm text-text-secondary">לוגו מעל הטיימר</span>
@@ -596,6 +524,80 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                 <p className="text-xs text-text-secondary">אפשר גם לגרור קובץ PNG לכל מקום בחלון</p>
               )}
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="space-y-1">
+                <span className="block text-xs text-text-secondary">גופן</span>
+                <select
+                  value={font.id}
+                  onChange={(e) => update({ fontId: e.target.value as TenBoolFontId })}
+                  className="input select-input !py-2"
+                >
+                  {TENBOOL_FONTS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="block text-xs text-text-secondary">סוג רקע</span>
+                <select
+                  value={fx.neon ? 'neon' : 'plain'}
+                  onChange={(e) => update({ backgroundStyle: e.target.value as 'plain' | 'neon' })}
+                  className="input select-input !py-2"
+                >
+                  <option value="plain">צבע או תמונה</option>
+                  <option value="neon">חלל ניאון (מונפש)</option>
+                </select>
+              </label>
+            </div>
+
+            {fx.neon ? (
+              <>
+                <div className="grid grid-cols-5 gap-2">
+                  <ColorField label="ניאון 1" value={fx.neonFrom} onChange={(v) => update({ neonFrom: v })} />
+                  <ColorField label="ניאון 2" value={fx.neonTo} onChange={(v) => update({ neonTo: v })} />
+                  <ColorField label="מרכז" value={fx.spaceFrom} onChange={(v) => update({ spaceFrom: v })} />
+                  <ColorField label="קצוות" value={fx.spaceTo} onChange={(v) => update({ spaceTo: v })} />
+                  <ColorField label="טקסט" value={fg} onChange={(v) => update({ textColor: v })} />
+                </div>
+                <SwitchRow
+                  label="כוכבים"
+                  hint="כוכבים עדינים שמופיעים ונעלמים ברקע"
+                  checked={fx.neonStars}
+                  onChange={(v) => update({ neonStars: v })}
+                />
+              </>
+            ) : (
+              <div className="grid grid-cols-[1fr_1fr_2fr] gap-2">
+                <ColorField label="רקע" value={bg} onChange={(v) => update({ backgroundColor: v })} />
+                <ColorField label="טקסט" value={fg} onChange={(v) => update({ textColor: v })} />
+                <div className="flex flex-col items-center justify-center gap-1 rounded-xl bg-bg-secondary p-2">
+                  <span className="text-xs text-text-secondary">תמונת רקע</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploading === 'image'}
+                      className="btn btn-secondary !py-1.5 !px-3 text-sm"
+                    >
+                      {uploading === 'image' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                      {config.backgroundImageUrl ? 'החליפו' : 'העלו'}
+                    </button>
+                    {config.backgroundImageUrl && (
+                      <button
+                        onClick={() => update({ backgroundImageUrl: undefined })}
+                        aria-label="הסירו את תמונת הרקע"
+                        title="הסירו את תמונת הרקע"
+                        className="p-1.5 rounded-lg text-text-secondary hover:bg-bg-hover hover:text-danger"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Scoreboard */}
@@ -619,7 +621,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
               <select
                 value={fx.board}
                 onChange={(e) => update({ board: e.target.value as TenBoolBoard })}
-                className="input !w-48 !py-2 !bg-bg-primary"
+                className="input select-input !w-48 !py-2 !bg-bg-primary"
               >
                 {TENBOOL_BOARDS.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -702,7 +704,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
                       id={selectId}
                       value={s.choice}
                       onChange={(e) => onChoice(slot, e.target.value as TenBoolSoundChoice)}
-                      className="input !w-36 sm:!w-40 !py-2 !bg-bg-primary"
+                      className="input select-input !w-36 sm:!w-40 !py-2 !bg-bg-primary"
                     >
                       {Object.entries(TENBOOL_SOUND_LIBRARY).map(([id, snd]) => (
                         <option key={id} value={id}>
@@ -745,6 +747,7 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
               );
             })}
           </section>
+        </div>
         </div>
 
         {/* Decision row */}
@@ -814,19 +817,14 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <label className="flex items-center justify-between gap-2 rounded-xl bg-bg-secondary px-3 py-2">
-      <span className="text-sm text-text-secondary whitespace-nowrap">{label}</span>
-      <span className="flex items-center gap-2">
-        <span className="hidden sm:inline text-xs text-text-secondary tabular-nums" dir="ltr">
-          {value.toUpperCase()}
-        </span>
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent p-0"
-        />
-      </span>
+    <label className="flex flex-col items-center gap-1 rounded-xl bg-bg-secondary p-2 min-w-0" title={value.toUpperCase()}>
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 w-full cursor-pointer rounded border border-border bg-transparent p-0"
+      />
+      <span className="w-full text-center text-xs text-text-secondary truncate">{label}</span>
     </label>
   );
 }

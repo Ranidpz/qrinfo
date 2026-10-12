@@ -171,6 +171,21 @@ body {
   color: var(--text-secondary);
 }
 
+/* A select whose arrow sits inside the field with breathing room on the correct side (RTL too).
+   The native arrow is hugged against the edge and lands on the wrong side in Hebrew. */
+select.select-input {
+  appearance: none;
+  padding-inline-end: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  cursor: pointer;
+}
+
+[dir="rtl"] select.select-input {
+  background-position: left 0.75rem center;
+}
+
 /* Storage bar animation */
 @keyframes storageGradient {
   0% { background-position: 0% 50%; }
