@@ -6,7 +6,7 @@ import { maskPhoneNumber } from '@/lib/phone-utils';
 import { authorizeScanner } from '@/lib/qtag/scannerAuth.server';
 
 // The scanner polls this every few seconds; several door phones may share one venue IP.
-const SCANNER_LIST_LIMIT = { maxRequests: 120, windowMs: 60 * 1000 };
+const SCANNER_LIST_LIMIT = { maxRequests: 600, windowMs: 60 * 1000 };
 
 function toMillis(value: unknown): number | null {
   return value instanceof Timestamp ? value.toMillis() : null;

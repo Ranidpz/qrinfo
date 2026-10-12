@@ -168,10 +168,11 @@ export async function DELETE(request: NextRequest) {
     // Only the code owner can delete, and only files stored in this code's folder.
     const auth = await requireCodeOwner(request, codeId);
     if (isAuthError(auth)) return auth.response;
+    const codeOwnerId = (await getAdminDb().collection('codes').doc(codeId).get()).data()?.ownerId as string | undefined;
 
     for (const url of [imageUrl, thumbnailUrl].filter(Boolean)) {
       const key = getStoredObjectKey(url);
-      if (!key || !keyBelongsToCode(key, codeId)) {
+      if (!key || !keyBelongsToCode(key, codeId, codeOwnerId)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }

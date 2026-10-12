@@ -40,10 +40,12 @@ service cloud.firestore {
 
       // Owner, collaborators, or admin can update
       // Special case: owner can transfer ownership to another user
+      // Collaborators edit content but can never change who owns or co-owns the code.
       allow update: if request.auth != null && (
         resource.data.ownerId == request.auth.uid ||
-        request.auth.uid in resource.data.collaborators ||
-        isAdmin()
+        isAdmin() ||
+        (request.auth.uid in resource.data.get('collaborators', []) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'collaborators']))
       ) || isViewIncrement() || isGalleryUpdate();
 
       // Only owner or admin can delete

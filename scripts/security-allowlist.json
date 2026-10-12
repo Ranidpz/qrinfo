@@ -63,8 +63,7 @@
   ],
   "_secretFields_reason": "token/photographerToken/scannerPin are split into codes/{id}/private by db.ts; accessToken is stripped from public pages (judge flow not implemented); qrToken/sessionToken live in owner-only/locked subcollections, not on the code doc; the rest are not secrets (pinned, cropping).",
   "clientSdkInApi": {
-    "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience (see unguardedRoutes)",
-    "src/app/api/qchallenge/leaderboard/route.ts": "FOLLOW-UP: hidden experience, public read only",
-    "src/app/api/qchallenge/register/route.ts": "FOLLOW-UP: hidden experience (see unguardedRoutes)"
+    "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience — Firestore still via client SDK (RTDB moved to src/lib/server/qchallenge-rtdb)",
+    "src/app/api/qchallenge/register/route.ts": "FOLLOW-UP: hidden experience — Firestore still via client SDK (RTDB moved to src/lib/server/qchallenge-rtdb)"
   }
 }

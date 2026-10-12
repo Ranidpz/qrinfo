@@ -40,6 +40,8 @@ export function splitMediaSecrets<T extends AnyMedia>(media: T[]): { media: T[];
   const cleaned = media.map((item) => {
     if (!item || typeof item !== 'object') return item;
     const m = item as unknown as MediaRecord;
+    // No id = nowhere to store the secret privately; leave it in place rather than lose it.
+    if (!m.id) return item;
     let next: MediaRecord = m;
     for (const [secretKey, configKey, field] of SECRET_FIELDS) {
       const config = next[configKey] as AnyConfig | undefined;

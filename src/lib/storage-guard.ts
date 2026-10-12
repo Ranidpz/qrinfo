@@ -14,6 +14,9 @@ import { getR2Config, getR2KeyFromUrl, getR2ObjectSizeByKey, isR2Url } from '@/l
  * Every object key we write starts with the owner's uid: `{uid}/{codeId|folder}/...`.
  */
 
+// Our R2 custom domain (also hard-coded in media-storage.ts isManagedStorageUrl).
+const OWN_R2_DOMAIN = 'theq-media.playzones.app';
+
 /** Hostname of OUR Vercel Blob store, derived from the read/write token (`vercel_blob_rw_<storeId>_...`). */
 export function getOwnBlobHostname(): string | null {
   const override = process.env.BLOB_PUBLIC_HOSTNAME?.trim();
@@ -43,7 +46,7 @@ export function isOwnStorageUrl(url: string): boolean {
   } catch {
     return false;
   }
-  if (hostname === getOwnBlobHostname() || hostname === getOwnR2Hostname()) return true;
+  if (hostname === getOwnBlobHostname() || hostname === getOwnR2Hostname() || hostname === OWN_R2_DOMAIN) return true;
   // Older stores that still hold live files (comma-separated hostnames).
   const extra = (process.env.EXTRA_STORAGE_HOSTNAMES || '')
     .split(',')
@@ -95,7 +98,11 @@ export async function canDeleteStoredObject(uid: string, key: string): Promise<b
     try {
       const code = await getAdminDb().collection('codes').doc(second).get();
       const data = code.data();
-      if (data && (data.ownerId === uid || (Array.isArray(data.collaborators) && data.collaborators.includes(uid)))) {
+      // The key must really be that code's folder: `{code owner}/{codeId}/...` (or a legacy
+      // `{qvote|avatars}/{codeId}/...`). Otherwise anyone could create a code whose id equals
+      // some folder name and claim other users' files through it.
+      const isCodeFolder = !!data && (first === data.ownerId || first === 'qvote' || first === 'avatars');
+      if (isCodeFolder && (data!.ownerId === uid || (Array.isArray(data!.collaborators) && data!.collaborators.includes(uid)))) {
         return true;
       }
     } catch {
@@ -162,9 +169,9 @@ export async function checkStorageQuota(
 ): Promise<{ ok: boolean; used: number; limit: number }> {
   const snap = await getAdminDb().collection('users').doc(uid).get();
   const data = snap.data() || {};
-  const used = Number(data.storageUsed) || 0;
+  const used = Math.max(0, Number(data.storageUsed) || 0);
   const limit = Number(data.storageLimit) || 0;
-  if (data.role === 'super_admin') return { ok: true, used, limit };
+  if (data.role === 'super_admin') return { ok: true, used: Math.max(0, used), limit };
   return { ok: limit > 0 && used + bytes <= limit, used, limit };
 }
 
@@ -173,25 +180,17 @@ export async function adjustStorageUsed(uid: string, delta: number): Promise<voi
   if (!uid || !delta || !Number.isFinite(delta)) return;
   const ref = getAdminDb().collection('users').doc(uid);
 
-  if (delta > 0) {
-    await ref.set({ storageUsed: FieldValue.increment(delta) }, { merge: true });
-    return;
-  }
-
-  await getAdminDb().runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists) return;
-    const used = Number(snap.data()?.storageUsed) || 0;
-    tx.update(ref, { storageUsed: Math.max(0, used + delta) });
-  });
+  // Plain increments (no transaction): parallel bulk deletes must not contend and fail.
+  // A counter that dips below zero is read as zero by checkStorageQuota.
+  await ref.set({ storageUsed: FieldValue.increment(delta) }, { merge: true });
 }
 
 /**
  * Does `key` live in `codeId`'s folder? Covers `{owner}/{codeId}/...` and the legacy
  * `{qvote|avatars}/{codeId}/...` layouts.
  */
-export function keyBelongsToCode(key: string, codeId: string, ownerId?: string): boolean {
+export function keyBelongsToCode(key: string, codeId: string, ownerId: string | undefined): boolean {
   const [first, second] = key.split('/');
   if (second !== codeId) return false;
-  return first === 'qvote' || first === 'avatars' || !ownerId || first === ownerId;
+  return first === 'qvote' || first === 'avatars' || (!!ownerId && first === ownerId);
 }

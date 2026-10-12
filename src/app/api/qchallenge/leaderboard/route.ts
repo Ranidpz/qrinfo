@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   getQChallengeLeaderboard,
   getQChallengeStats,
-} from '@/lib/qchallenge-realtime';
+} from '@/lib/server/qchallenge-rtdb';
 import { QChallengeLeaderboardEntry } from '@/types/qchallenge';
 
 export async function GET(request: Request) {

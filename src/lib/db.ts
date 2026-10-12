@@ -526,14 +526,12 @@ export async function saveCodeSecrets(codeId: string, secrets: CodeSecretsMap): 
  * keep them (e.g. the raffle big-screen token). Non-owners / missing doc → code unchanged.
  */
 export async function hydrateCodeSecrets<T extends { id: string; media: MediaItem[] }>(code: T): Promise<T> {
-  try {
-    const snap = await getDoc(codeSecretsRef(code.id));
-    const secrets = snap.data()?.media as CodeSecretsMap | undefined;
-    if (!secrets) return code;
-    return { ...code, media: mergeMediaSecrets(code.media, secrets) };
-  } catch {
-    return code;
-  }
+  // Errors propagate on purpose: an editor opened WITHOUT its secrets would mint a new raffle
+  // token / photographer link on save and break the live link.
+  const snap = await getDoc(codeSecretsRef(code.id));
+  const secrets = snap.data()?.media as CodeSecretsMap | undefined;
+  if (!secrets) return code;
+  return { ...code, media: mergeMediaSecrets(code.media, secrets) };
 }
 
 // Delete QR code

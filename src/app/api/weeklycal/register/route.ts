@@ -453,7 +453,8 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      registrations,
+      // visitorId is the key to cancel a registration — never hand out other people's
+      registrations: registrations.map(({ visitorId: _visitorId, ...reg }) => reg),
       countsByCell,
       confirmationsByCell,
       userRegistrations,

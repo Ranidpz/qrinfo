@@ -16,7 +16,7 @@ import {
   addRecentCompletion,
   recalculateRanks,
   getPlayerRank,
-} from '@/lib/qchallenge-realtime';
+} from '@/lib/server/qchallenge-rtdb';
 import { finishPlayer } from '@/lib/qchallenge';
 
 export async function POST(request: Request) {

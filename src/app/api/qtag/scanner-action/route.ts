@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
     if (!access.ok) {
       return NextResponse.json({ error: access.error, code: access.code }, { status: access.status });
     }
+    // A scanner without a PIN is open to anyone with the link: door operations only, no deletes.
+    if (action === 'delete' && access.access === 'open') {
+      return NextResponse.json({ error: 'Set a scanner PIN or sign in to delete guests', code: 'PIN_REQUIRED' }, { status: 403 });
+    }
 
     // --- quick-add: create walk-in guest (immediately marked as arrived) ---
     if (action === 'quick-add') {

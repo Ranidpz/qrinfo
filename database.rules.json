@@ -4,14 +4,42 @@
       "$codeId": {
         ".read": true,
         ".write": "!data.exists()",
-        ".validate": "newData.hasChildren(['status', 'lastUpdated'])"
+        ".validate": "newData.hasChildren(['status', 'lastUpdated']) && newData.child('status').val() === 'registration'",
+        "stats": {
+          "$stat": {
+            ".validate": "newData.isNumber() && ($stat === 'lastUpdated' || newData.val() === 0)"
+          }
+        },
+        "lastUpdated": {
+          ".validate": "newData.isNumber()"
+        },
+        "status": {
+          ".validate": "newData.isString()"
+        },
+        "$other": {
+          ".validate": "false"
+        }
       }
     },
     "qstage": {
       "$codeId": {
         ".read": true,
         ".write": "!data.exists()",
-        ".validate": "newData.hasChildren(['status', 'lastUpdated'])"
+        ".validate": "newData.hasChildren(['status', 'lastUpdated']) && newData.child('status').val() === 'standby'",
+        "stats": {
+          "$stat": {
+            ".validate": "newData.isNumber() && ($stat === 'lastUpdated' || newData.val() === 0)"
+          }
+        },
+        "lastUpdated": {
+          ".validate": "newData.isNumber()"
+        },
+        "status": {
+          ".validate": "newData.isString()"
+        },
+        "$other": {
+          ".validate": "false"
+        }
       }
     },
     "qchallenge": {
@@ -24,7 +52,21 @@
       "$codeId": {
         ".read": true,
         ".write": "!data.exists()",
-        ".validate": "newData.hasChildren(['status', 'lastUpdated'])"
+        ".validate": "newData.hasChildren(['status', 'lastUpdated']) && newData.child('status').val() === 'registration'",
+        "stats": {
+          "$stat": {
+            ".validate": "newData.isNumber() && ($stat === 'lastUpdated' || newData.val() === 0)"
+          }
+        },
+        "lastUpdated": {
+          ".validate": "newData.isNumber()"
+        },
+        "status": {
+          ".validate": "newData.isString()"
+        },
+        "$other": {
+          ".validate": "false"
+        }
       }
     },
     "qgames": {
@@ -47,11 +89,15 @@
         },
         "viewers": {
           ".write": true,
-          ".indexOn": ["joinedAt"]
+          ".indexOn": [
+            "joinedAt"
+          ]
         },
         "chat": {
           ".write": true,
-          ".indexOn": ["sentAt"],
+          ".indexOn": [
+            "sentAt"
+          ],
           "$messageId": {
             ".validate": "newData.hasChildren(['senderId', 'senderNickname', 'text', 'sentAt', 'phraseType']) && newData.child('text').isString() && newData.child('text').val().length <= 200 && newData.child('senderNickname').isString() && newData.child('senderNickname').val().length <= 30 && newData.child('senderId').isString() && newData.child('sentAt').isNumber() && newData.child('phraseType').isString()"
           }

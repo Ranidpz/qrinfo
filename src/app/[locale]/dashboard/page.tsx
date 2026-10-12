@@ -2532,9 +2532,14 @@ export default function DashboardPage() {
                 setEditingWeeklyCalCode(code);
                 setWeeklyCalModalOpen(true);
               } : code.media[0]?.type === 'qtag' ? async () => {
-                // The scanner PIN lives in the owner-only private doc — load it before editing.
-                setEditingQTagCode(await hydrateCodeSecrets(code));
-                setQtagModalOpen(true);
+                // The scanner PIN lives in the owner-only private doc — load it before editing
+                // (never open the editor without it: saving would clear the PIN).
+                try {
+                  setEditingQTagCode(await hydrateCodeSecrets(code));
+                  setQtagModalOpen(true);
+                } catch (err) {
+                  console.error('Failed to load Q.Tag settings:', err);
+                }
               } : undefined}
             />
           ))}

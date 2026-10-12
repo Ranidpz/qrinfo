@@ -140,17 +140,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Server-side storage quota (players' selfies count toward the owner but never block a live game)
-    if (!anonymousAvatar) {
-      const quota = await checkStorageQuota(userId, file.size);
-      if (!quota.ok) {
-        return NextResponse.json(
-          { error: 'Storage limit reached', code: 'STORAGE_LIMIT', used: quota.used, limit: quota.limit },
-          { status: 413 }
-        );
-      }
-    }
-
     const timestamp = Date.now();
     let extension = isPdfUpload ? 'pdf' : file.name.split('.').pop() || 'bin';
     const randomSuffix = Math.random().toString(36).substring(7);
@@ -219,6 +208,19 @@ export async function POST(request: NextRequest) {
     const uploadBuffer = Buffer.isBuffer(uploadData)
       ? uploadData
       : Buffer.from(await uploadData.arrayBuffer());
+    // Server-side storage quota, on the size actually stored (after resize/WebP conversion).
+    // Anonymous Q.Games selfies (≤1MB, players) are neither blocked nor counted — a stranger
+    // must not be able to fill an owner's quota.
+    if (!anonymousAvatar) {
+      const quota = await checkStorageQuota(userId, uploadBuffer.length);
+      if (!quota.ok) {
+        return NextResponse.json(
+          { error: 'Storage limit reached', code: 'STORAGE_LIMIT', used: quota.used, limit: quota.limit },
+          { status: 413 }
+        );
+      }
+    }
+
     const contentType = getUploadContentType(file, mediaType, extension);
     const storageKey = buildMediaStorageKey(
       filename.split('/').slice(0, -1),
@@ -240,7 +242,7 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      await adjustStorageUsed(userId, uploaded.size);
+      if (!anonymousAvatar) await adjustStorageUsed(userId, uploaded.size);
     } catch (storageErr) {
       console.error('Failed to update storageUsed:', storageErr);
     }

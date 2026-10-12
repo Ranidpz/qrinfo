@@ -9,7 +9,7 @@ import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
  */
 export async function POST(request: NextRequest) {
   try {
-    const rateLimit = checkRateLimit(`qvote-my-votes:${getClientIp(request)}`, RATE_LIMITS.API);
+    const rateLimit = checkRateLimit(`qvote-my-votes:${getClientIp(request)}`, RATE_LIMITS.GAME);
     if (!rateLimit.success) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }

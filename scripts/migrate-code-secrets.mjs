@@ -67,6 +67,7 @@ for (const codeDoc of codes.docs) {
     const toStore = {};
 
     const cleaned = freshMedia.map((m) => {
+      if (!m?.id) return m; // no id → can't key the private copy; leave it
       let next = m;
       for (const [secretKey, configKey, field] of SECRET_FIELDS) {
         const config = next?.[configKey];

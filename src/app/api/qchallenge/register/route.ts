@@ -11,7 +11,7 @@ import {
   initQChallengeSession,
   qchallengeSessionExists,
   incrementTotalPlayers,
-} from '@/lib/qchallenge-realtime';
+} from '@/lib/server/qchallenge-rtdb';
 import { canPlayerPlay } from '@/lib/qchallenge';
 
 export async function POST(request: Request) {

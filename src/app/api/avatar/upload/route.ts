@@ -160,9 +160,10 @@ export async function DELETE(request: NextRequest) {
     // Only the code owner can delete, and only avatars stored in this code's folder.
     const auth = await requireCodeOwner(request, codeId);
     if (isAuthError(auth)) return auth.response;
+    const codeOwnerId = (await getAdminDb().collection('codes').doc(codeId).get()).data()?.ownerId as string | undefined;
 
     const key = getStoredObjectKey(url);
-    if (!key || !key.includes('/avatars/') || !keyBelongsToCode(key, codeId)) {
+    if (!key || !key.includes('/avatars/') || !keyBelongsToCode(key, codeId, codeOwnerId)) {
       return NextResponse.json({ error: 'Invalid avatar URL' }, { status: 400 });
     }
 
