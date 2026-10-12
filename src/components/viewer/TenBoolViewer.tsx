@@ -448,7 +448,9 @@ export default function TenBoolViewer({
     SOUND_SLOTS.forEach(async (name, i) => {
       if (!urls[i]) return; // silent slot
       try {
-        const res = await fetch(urls[i]);
+        // Same cache trap as useLocalCopy: an uploaded sound the owner previewed in the editor is cached
+        // without CORS headers, and reusing it would leave the game silent
+        const res = await fetch(urls[i], { cache: 'no-store' });
         audio.buffers[name] = await ctx.decodeAudioData(await res.arrayBuffer());
       } catch {
         // A missing sound must never break the game

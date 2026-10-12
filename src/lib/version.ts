@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.12';
+export const APP_VERSION = '1.27.13';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.13', date: '2026-10-12', isNew: true, highlights: {
+    he: ['10 בול: צליל שהעליתם והשמעתם בעורך מתנגן גם במשחק עצמו, באותו דפדפן'],
+    en: ['10 Bool: an uploaded sound you previewed in the editor now also plays in the game, in the same browser'],
+  } },
   { version: '1.27.12', date: '2026-10-12', isNew: true, highlights: {
     he: ['משחק שרץ בתוך נגן המסכים TVzone לא מציג יותר את פס "הוסיפו למסך הבית"', '10 בול: הלוגו נשמר בזיכרון כמו שצריך, כך שהוא נשאר על המסך גם כשהאינטרנט באולם נופל'],
     en: ['A game running inside the TVzone signage player no longer shows the "add to home screen" strip', '10 Bool: the logo is now kept in memory as intended, so it stays on screen when the venue internet drops'],
