@@ -17,8 +17,9 @@ export async function GET() {
       region: process.env.VERCEL_REGION || 'local',
     });
   } catch (error) {
+    console.error('Health check failed:', error);
     return NextResponse.json(
-      { status: 'error', error: String(error), latencyMs: Date.now() - start },
+      { status: 'error', latencyMs: Date.now() - start },
       { status: 500 }
     );
   }

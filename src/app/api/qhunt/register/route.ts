@@ -251,10 +251,8 @@ export async function POST(request: Request) {
     } as QHuntRegistrationResult);
   } catch (error) {
     console.error('Error registering player:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Error details:', errorMessage);
     return NextResponse.json(
-      { success: false, error: `Registration error: ${errorMessage}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

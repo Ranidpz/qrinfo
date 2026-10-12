@@ -206,9 +206,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Verify OTP error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to verify code', details: errorMessage },
+      { error: 'Failed to verify code' },
       { status: 500 }
     );
   }

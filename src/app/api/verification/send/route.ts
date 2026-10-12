@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: 'Failed to send verification code', errorCode: 'SEND_FAILED', details: result.error },
+        { error: 'Failed to send verification code', errorCode: 'SEND_FAILED' },
         { status: 500 }
       );
     }
@@ -274,9 +274,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Send OTP error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to send verification code', details: errorMessage },
+      { error: 'Failed to send verification code' },
       { status: 500 }
     );
   }

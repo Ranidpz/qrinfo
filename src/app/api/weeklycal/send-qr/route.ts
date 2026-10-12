@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     if (!sendResult.success) {
       console.error('[WeeklyCal SendQR] Failed to send WhatsApp:', sendResult.error);
       return NextResponse.json(
-        { error: 'Failed to send message', errorCode: 'SEND_FAILED', details: sendResult.error },
+        { error: 'Failed to send message', errorCode: 'SEND_FAILED' },
         { status: 500 }
       );
     }

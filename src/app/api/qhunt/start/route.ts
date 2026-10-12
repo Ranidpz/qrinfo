@@ -207,9 +207,8 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error starting game:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: `Start error: ${errorMessage}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

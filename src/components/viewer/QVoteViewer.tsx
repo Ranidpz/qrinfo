@@ -395,7 +395,11 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         // Check if session is not expired (basic check - server will validate)
         if (session.sessionToken && session.phone) {
           // Verify session is still valid via API
-          fetch(`/api/verification/status?codeId=${codeId}&phone=${encodeURIComponent(session.phone)}&sessionToken=${session.sessionToken}`)
+          fetch('/api/verification/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codeId, phone: session.phone, sessionToken: session.sessionToken }),
+          })
             .then(res => res.json())
             .then(data => {
               if (data.sessionValid && data.votesRemaining > 0) {

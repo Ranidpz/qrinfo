@@ -6,8 +6,10 @@ import { QGamesScheduleSlot } from '@/types/qgames';
 export async function GET(request: NextRequest) {
   try {
     // Verify cron secret
+    // Fail closed: with CRON_SECRET unset, "Bearer undefined" must not be accepted.
+    const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.get('Authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

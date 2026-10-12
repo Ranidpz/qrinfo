@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { normalizePhoneNumber } from '@/lib/phone-utils';
 
-// GET: Check verification status for a phone
-export async function GET(request: NextRequest) {
+// POST: Check verification status for a phone (POST so phones never land in URL/access logs)
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const codeId = searchParams.get('codeId');
-    const phone = searchParams.get('phone');
-    const sessionToken = searchParams.get('sessionToken');
+    const body = await request.json().catch(() => ({}));
+    const codeId = typeof body.codeId === 'string' ? body.codeId : null;
+    const phone = typeof body.phone === 'string' ? body.phone : null;
+    const sessionToken = typeof body.sessionToken === 'string' ? body.sessionToken : null;
 
     // Validate required fields
     if (!codeId || !phone) {
@@ -63,9 +63,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Verification status error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to check verification status', details: errorMessage },
+      { error: 'Failed to check verification status' },
       { status: 500 }
     );
   }
