@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  setDoc,
-  query,
-  where,
-  serverTimestamp,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { maskPhoneNumber } from '@/lib/phone-utils';
 import crypto from 'crypto';
+
+// cellRegistrations holds phones + QR tokens: Admin SDK only (rules deny clients).
+function registrationsCol(codeId: string) {
+  return getAdminDb().collection('codes').doc(codeId).collection('cellRegistrations');
+}
 
 // Generate cryptographically secure QR token for check-in
 function generateQRToken(): string {
@@ -26,14 +19,6 @@ function generateQRToken(): string {
 // POST: Register or unregister for a cell
 export async function POST(request: NextRequest) {
   try {
-    // Check if db is available
-    if (!db) {
-      console.error('WeeklyCal RSVP: Firestore db not initialized');
-      return NextResponse.json(
-        { error: 'Database not available' },
-        { status: 500 }
-      );
-    }
 
     // Rate limiting
     const clientIp = getClientIp(request);
@@ -81,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     if (!codeId || !cellId || !hasDateContext || !visitorId || !action) {
       return NextResponse.json(
-        { error: 'Missing required fields', details: { codeId, cellId, weekStartDate, boothDate, boothId, visitorId, action } },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
@@ -102,12 +87,12 @@ export async function POST(request: NextRequest) {
     console.log('WeeklyCal RSVP: Creating doc ref for', registrationId, isBoothMode ? '(booth mode)' : '(weekly mode)');
 
     try {
-      const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
+      const registrationRef = registrationsCol(codeId).doc(registrationId);
 
       if (action === 'register') {
         // Get all registrations for this cell to check capacity and phone uniqueness
-        const registrationsRef = collection(db, 'codes', codeId, 'cellRegistrations');
-        const snapshot = await getDocs(registrationsRef);
+        const registrationsRef = registrationsCol(codeId);
+        const snapshot = await registrationsRef.get();
 
         // Filter registrations for this cell and context
         const cellRegistrations = snapshot.docs.filter(docSnap => {
@@ -217,7 +202,7 @@ export async function POST(request: NextRequest) {
           nickname: nickname || null,
           phone: phone || null,  // Store phone for uniqueness check
           count: Math.max(1, Math.min(10, count)), // Limit between 1-10
-          registeredAt: serverTimestamp(),
+          registeredAt: FieldValue.serverTimestamp(),
           // Avatar/Profile
           avatarUrl: avatarUrl || null,
           avatarType: avatarType || 'none',
@@ -236,7 +221,7 @@ export async function POST(request: NextRequest) {
           registrationData.weekStartDate = weekStartDate;
         }
 
-        await setDoc(registrationRef, registrationData);
+        await registrationRef.set(registrationData);
         console.log('WeeklyCal RSVP: Registration saved with qrToken:', qrToken);
 
         // Create qrTokenMappings for fast check-in lookup (using admin SDK)
@@ -262,7 +247,7 @@ export async function POST(request: NextRequest) {
     } catch (writeError) {
       console.error('WeeklyCal RSVP: Firestore write error:', writeError);
       return NextResponse.json(
-        { error: 'Failed to write to database', details: String(writeError) },
+        { error: 'Failed to write to database' },
         { status: 500 }
       );
     }
@@ -271,8 +256,8 @@ export async function POST(request: NextRequest) {
     let totalAttendees = 0;
     try {
       console.log('WeeklyCal RSVP: Fetching updated counts');
-      const registrationsRef = collection(db, 'codes', codeId, 'cellRegistrations');
-      const snapshot = await getDocs(registrationsRef);
+      const registrationsRef = registrationsCol(codeId);
+      const snapshot = await registrationsRef.get();
 
       // Filter by cellId and context (weekStartDate or boothDate+boothId) and sum counts
       snapshot.docs.forEach(docSnap => {
@@ -298,9 +283,9 @@ export async function POST(request: NextRequest) {
     let responseRegistrationId: string | undefined;
     if (action === 'register') {
       try {
-        const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
-        const regDoc = await getDoc(registrationRef);
-        if (regDoc.exists()) {
+        const registrationRef = registrationsCol(codeId).doc(registrationId);
+        const regDoc = await registrationRef.get();
+        if (regDoc.exists) {
           responseQrToken = regDoc.data()?.qrToken;
           responseRegistrationId = regDoc.id;
         }
@@ -329,14 +314,6 @@ export async function POST(request: NextRequest) {
 // GET: Get registrations for a cell or all cells
 export async function GET(request: NextRequest) {
   try {
-    // Check if db is available
-    if (!db) {
-      console.error('WeeklyCal GET: Firestore db not initialized');
-      return NextResponse.json(
-        { error: 'Database not available' },
-        { status: 500 }
-      );
-    }
 
     const { searchParams } = new URL(request.url);
     const codeId = searchParams.get('codeId');
@@ -352,8 +329,8 @@ export async function GET(request: NextRequest) {
 
       // Need to search across all codes if codeId not provided
       if (codeId) {
-        const registrationsRef = collection(db, 'codes', codeId, 'cellRegistrations');
-        const snapshot = await getDocs(registrationsRef);
+        const registrationsRef = registrationsCol(codeId);
+        const snapshot = await registrationsRef.get();
 
         const registration = snapshot.docs.find(docSnap =>
           docSnap.data().qrToken === qrToken
@@ -411,8 +388,8 @@ export async function GET(request: NextRequest) {
 
     // Get all registrations for the code (simple query, filter in code)
     console.log('WeeklyCal GET: Fetching registrations for code:', codeId);
-    const registrationsRef = collection(db, 'codes', codeId, 'cellRegistrations');
-    const snapshot = await getDocs(registrationsRef);
+    const registrationsRef = registrationsCol(codeId);
+    const snapshot = await registrationsRef.get();
     console.log('WeeklyCal GET: Found', snapshot.docs.length, 'registrations');
 
     // Filter and map registrations
@@ -495,12 +472,6 @@ export async function GET(request: NextRequest) {
 // PATCH: Update registration (admin only - name, count)
 export async function PATCH(request: NextRequest) {
   try {
-    if (!db) {
-      return NextResponse.json(
-        { error: 'Database not available' },
-        { status: 500 }
-      );
-    }
 
     const body = await request.json();
     const { codeId, registrationId, nickname, count } = body;
@@ -516,10 +487,10 @@ export async function PATCH(request: NextRequest) {
     const auth = await requireCodeOwner(request, codeId);
     if (isAuthError(auth)) return auth.response;
 
-    const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
-    const regDoc = await getDoc(registrationRef);
+    const registrationRef = registrationsCol(codeId).doc(registrationId);
+    const regDoc = await registrationRef.get();
 
-    if (!regDoc.exists()) {
+    if (!regDoc.exists) {
       return NextResponse.json(
         { error: 'Registration not found' },
         { status: 404 }
@@ -531,7 +502,7 @@ export async function PATCH(request: NextRequest) {
     if (nickname !== undefined) updates.nickname = nickname;
     if (count !== undefined) updates.count = Math.max(1, Math.min(10, count));
 
-    await setDoc(registrationRef, updates, { merge: true });
+    await registrationRef.set(updates, { merge: true });
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -546,12 +517,6 @@ export async function PATCH(request: NextRequest) {
 // DELETE: Remove registration (admin only)
 export async function DELETE(request: NextRequest) {
   try {
-    if (!db) {
-      return NextResponse.json(
-        { error: 'Database not available' },
-        { status: 500 }
-      );
-    }
 
     // Accept both URL params and body
     const { searchParams } = new URL(request.url);
@@ -580,10 +545,10 @@ export async function DELETE(request: NextRequest) {
     const auth = await requireCodeOwner(request, codeId);
     if (isAuthError(auth)) return auth.response;
 
-    const registrationRef = doc(db, 'codes', codeId, 'cellRegistrations', registrationId);
-    const regDoc = await getDoc(registrationRef);
+    const registrationRef = registrationsCol(codeId).doc(registrationId);
+    const regDoc = await registrationRef.get();
 
-    if (!regDoc.exists()) {
+    if (!regDoc.exists) {
       return NextResponse.json(
         { error: 'Registration not found' },
         { status: 404 }

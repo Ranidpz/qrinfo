@@ -65,10 +65,17 @@ service cloud.firestore {
         );
       }
 
+      // Owner-only secrets (raffle token, photographer token, scanner PIN) — kept off the
+      // world-readable code doc. API routes read them through the Admin SDK.
+      match /private/{docId} {
+        allow read, write: if isCodeOwnerOrAdmin(codeId);
+      }
+
       // Q.Vote Votes subcollection
       match /votes/{voteId} {
-        // Anyone can read votes (to check if already voted)
-        allow read: if true;
+        // Votes carry voters' phones: owner/admin only. Voters read their own
+        // through /api/qvote/my-votes.
+        allow read: if isCodeOwnerOrAdmin(codeId);
         // Votes must go through API route (Admin SDK) to enforce rate limiting and verification
         allow create: if false;
         // Only admin can update/delete votes
@@ -77,19 +84,10 @@ service cloud.firestore {
 
       // Weekly Calendar RSVP registrations subcollection
       match /cellRegistrations/{registrationId} {
-        // Anyone can read registrations (for calendar display)
-        allow read: if true;
-        // Anyone can create a registration (anonymous RSVP)
-        allow create: if true;
-        // User can update their own registration (visitorId must match) or owner/admin can manage
-        allow update: if
-          request.resource.data.visitorId == resource.data.visitorId ||
-          (request.auth != null && (
-            get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
-            isAdmin()
-          ));
-        // Deletes only via Admin SDK (API route validates ownership)
-        allow delete: if false;
+        // Phones + QR tokens: owner/admin read only (analytics). The public calendar reads
+        // masked data through /api/weeklycal/register; all writes go through the Admin SDK.
+        allow read: if isCodeOwnerOrAdmin(codeId);
+        allow create, update, delete: if false;
       }
 
       // Q.Hunt Players subcollection
@@ -109,7 +107,9 @@ service cloud.firestore {
 
       // Q.Tag Guests subcollection (all writes via Admin SDK / API routes)
       match /qtagGuests/{guestId} {
-        allow read: if true;
+        // Phones + QR tokens: owner/collaborator/admin only. The door scanner (PIN) reads
+        // through /api/qtag/scanner-guests.
+        allow read: if isCodeOwnerOrAdmin(codeId);
         allow create, update, delete: if false;
       }
 
@@ -345,6 +345,16 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
+    // Owner, collaborator or super admin of codes/{codeId}
+    function isCodeOwnerOrAdmin(codeId) {
+      let code = get(/databases/$(database)/documents/codes/$(codeId)).data;
+      return request.auth != null && (
+        code.ownerId == request.auth.uid ||
+        request.auth.uid in code.get('collaborators', []) ||
+        isAdmin()
+      );
     }
 
     // Helper function to check if this is just a view count increment

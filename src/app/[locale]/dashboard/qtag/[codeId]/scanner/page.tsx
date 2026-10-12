@@ -3,10 +3,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import { Virtuoso } from 'react-virtuoso';
-import { useQTagGuests } from '@/hooks/useQTagGuests';
+import { useQTagScannerGuests } from '@/hooks/useQTagScannerGuests';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Html5Qrcode } from 'html5-qrcode';
 import {
@@ -190,7 +189,7 @@ export default function QTagScannerPage() {
   const [pinValue, setPinValue] = useState('');
   const [pinError, setPinError] = useState(false);
   const [pinUnlocked, setPinUnlocked] = useState(false);
-  const expectedPinRef = useRef<string>('');
+  const pinRef = useRef<string>('');
 
   // Scanner state
   const [scannerState, setScannerState] = useState<ScannerState>('scanning');
@@ -208,8 +207,27 @@ export default function QTagScannerPage() {
   const [scannerReady, setScannerReady] = useState(false);
   const processingRef = useRef(false);
 
-  // Guest list state (real-time via shared hook)
-  const { guests, stats, loading: loadingGuests } = useQTagGuests(codeId);
+  // Authorized scanner request: the owner's token when signed in, plus the PIN the user typed.
+  // The PIN itself is never sent to this page — the server checks it.
+  const scannerFetch = useCallback(async (url: string, body: Record<string, unknown>) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    try {
+      await auth.authStateReady();
+      const token = await auth.currentUser?.getIdToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch { /* anonymous staff device */ }
+    return fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ codeId, scannerPin: pinRef.current || undefined, ...body }),
+    });
+  }, [codeId]);
+
+  // Guest list state (polled from the server — the guests collection holds phones)
+  const { guests, stats, loading: loadingGuests, refresh: refreshGuests } = useQTagScannerGuests(
+    !!pinUnlocked,
+    () => scannerFetch('/api/qtag/scanner-guests', {})
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
@@ -331,51 +349,59 @@ export default function QTagScannerPage() {
     setScannerRestartKey(k => k + 1);
   }, []);
 
-  // Fetch scanner PIN from code document
+  // Ask the server whether this device may open the scanner (owner token, or a PIN is needed)
   useEffect(() => {
-    if (!db || !codeId) return;
+    if (!codeId) return;
 
-    const fetchPin = async () => {
+    const checkAccess = async () => {
       try {
-        const codeDoc = await getDoc(doc(db, 'codes', codeId));
-        if (codeDoc.exists()) {
-          const data = codeDoc.data();
-          // Extract shortId for registration QR
+        const res = await scannerFetch('/api/qtag/scanner-guests', {});
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
           if (data.shortId) setShortId(data.shortId);
-          // scannerPin is inside the media item's qtagConfig
-          const media = data.media || [];
-          const qtagMedia = media.find((m: { qtagConfig?: unknown }) => m.qtagConfig);
-          const pin = qtagMedia?.qtagConfig?.scannerPin;
-          if (pin && pin.trim()) {
-            expectedPinRef.current = pin.trim();
-            setPinRequired(true);
-          } else {
-            setPinRequired(false);
-            setPinUnlocked(true);
-          }
-        } else {
           setPinRequired(false);
           setPinUnlocked(true);
+        } else if (res.status === 403 && (data.code === 'PIN_REQUIRED' || data.code === 'PIN_INVALID')) {
+          setPinRequired(true);
+        } else {
+          console.error('[QTag] Scanner access check failed:', res.status);
+          setPinRequired(true);
         }
       } catch (err) {
-        console.error('[QTag] Failed to fetch scanner PIN:', err);
-        // On error, allow access (don't block scanner)
-        setPinRequired(false);
-        setPinUnlocked(true);
+        console.error('[QTag] Scanner access check error:', err);
+        setPinRequired(true);
       }
     };
 
-    fetchPin();
-  }, [codeId]);
+    checkAccess();
+  }, [codeId, scannerFetch]);
 
-  // Handle PIN submission
-  const handlePinSubmit = () => {
-    if (pinValue.trim() === expectedPinRef.current) {
-      setPinUnlocked(true);
-      setPinError(false);
-    } else {
+  // Handle PIN submission — verified by the server
+  const [pinChecking, setPinChecking] = useState(false);
+  const handlePinSubmit = async () => {
+    const entered = pinValue.trim();
+    if (!entered || pinChecking) return;
+    setPinChecking(true);
+    try {
+      const res = await fetch('/api/qtag/scanner-guests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, scannerPin: entered }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        pinRef.current = entered;
+        if (data.shortId) setShortId(data.shortId);
+        setPinUnlocked(true);
+        setPinError(false);
+      } else {
+        setPinError(true);
+        setPinValue('');
+      }
+    } catch {
       setPinError(true);
-      setPinValue('');
+    } finally {
+      setPinChecking(false);
     }
   };
 
@@ -485,6 +511,7 @@ export default function QTagScannerPage() {
 
       setScanResult(data);
       setScannerState('result');
+      refreshGuests();
       autoResetScanner(4000);
     } catch {
       setScannerState('error');
@@ -528,18 +555,13 @@ export default function QTagScannerPage() {
 
     setUndoingCheckin(true);
     try {
-      const res = await fetch('/api/qtag/scanner-action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codeId,
-          action: 'undo-checkin',
-          scannerPin: expectedPinRef.current || undefined,
-          guestId: scanResult.guest.id,
-        }),
+      const res = await scannerFetch('/api/qtag/scanner-action', {
+        action: 'undo-checkin',
+        guestId: scanResult.guest.id,
       });
 
       if (res.ok) {
+        refreshGuests();
         // Reset scanner immediately
         setScannerState('scanning');
         setScanResult(null);
@@ -558,25 +580,22 @@ export default function QTagScannerPage() {
     }
   };
 
-  // Toggle arrival status via public checkin endpoint (no auth needed - works on any device)
+  // Toggle arrival status by guest id (authorized like every scanner action)
   const togglingRef = useRef(false);
   const toggleArrival = useCallback(async (guest: QTagGuest) => {
-    if (togglingRef.current || !guest.qrToken) return;
+    if (togglingRef.current) return;
     togglingRef.current = true;
     setTogglingGuestId(guest.id);
-    const action = guest.status === 'arrived' ? 'undo' : 'checkin';
+    const action = guest.status === 'arrived' ? 'undo-checkin' : 'checkin';
     try {
-      const res = await fetch('/api/qtag/checkin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qrToken: guest.qrToken, action }),
-      });
+      const res = await scannerFetch('/api/qtag/scanner-action', { action, guestId: guest.id });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         console.error('[QTag] Toggle failed:', res.status, data);
         setToggleErrorGuestId(guest.id);
         setTimeout(() => setToggleErrorGuestId(null), 2000);
       }
+      refreshGuests();
     } catch (err) {
       console.error('[QTag] Toggle error:', err);
       setToggleErrorGuestId(guest.id);
@@ -585,7 +604,7 @@ export default function QTagScannerPage() {
       togglingRef.current = false;
       setTogglingGuestId(null);
     }
-  }, []);
+  }, [scannerFetch, refreshGuests]);
 
   // Delete guest
   const handleDeleteClick = useCallback((guest: QTagGuest) => {
@@ -596,27 +615,22 @@ export default function QTagScannerPage() {
     if (!confirmDeleteGuest) return;
     setDeletingGuestId(confirmDeleteGuest.id);
     try {
-      const res = await fetch('/api/qtag/scanner-action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codeId,
-          action: 'delete',
-          scannerPin: expectedPinRef.current || undefined,
-          guestId: confirmDeleteGuest.id,
-        }),
+      const res = await scannerFetch('/api/qtag/scanner-action', {
+        action: 'delete',
+        guestId: confirmDeleteGuest.id,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         console.error('[QTag] Delete failed:', res.status, data);
       }
+      refreshGuests();
     } catch (err) {
       console.error('[QTag] Delete error:', err);
     } finally {
       setDeletingGuestId(null);
       setConfirmDeleteGuest(null);
     }
-  }, [codeId, confirmDeleteGuest]);
+  }, [confirmDeleteGuest, scannerFetch, refreshGuests]);
 
   // Export to Excel (client-side generation)
   const handleExport = () => {
@@ -652,16 +666,10 @@ export default function QTagScannerPage() {
     setQuickAddLoading(true);
     setQuickAddError(null);
     try {
-      const res = await fetch('/api/qtag/scanner-action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codeId,
-          action: 'quick-add',
-          scannerPin: expectedPinRef.current || undefined,
-          name: quickAddName.trim() || undefined,
-          plusOneCount: quickAddPlusOne,
-        }),
+      const res = await scannerFetch('/api/qtag/scanner-action', {
+        action: 'quick-add',
+        name: quickAddName.trim() || undefined,
+        plusOneCount: quickAddPlusOne,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -669,6 +677,7 @@ export default function QTagScannerPage() {
         return;
       }
       // Success - reset and close
+      refreshGuests();
       setShowQuickAdd(false);
       setQuickAddName('');
       setQuickAddPlusOne(0);
@@ -1048,7 +1057,7 @@ export default function QTagScannerPage() {
             )}
             <button
               onClick={handlePinSubmit}
-              disabled={!pinValue.trim()}
+              disabled={!pinValue.trim() || pinChecking}
               className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm font-assistant transition-all disabled:opacity-40 disabled:hover:bg-blue-600"
             >
               {t('qtagPinSubmit')}

@@ -27,7 +27,7 @@ function parseGuestDoc(docId: string, data: Record<string, unknown>): QTagGuest 
   };
 }
 
-function computeStats(guests: QTagGuest[]): QTagStats {
+export function computeQTagStats(guests: QTagGuest[]): QTagStats {
   let totalRegistered = 0;
   let totalGuests = 0;
   let totalArrived = 0;
@@ -87,7 +87,7 @@ export function useQTagGuests(codeId: string | null, enabled = true) {
         .sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime());
 
       setGuests(sorted);
-      setStats(computeStats(sorted));
+      setStats(computeQTagStats(sorted));
       setLoading(false);
     });
 

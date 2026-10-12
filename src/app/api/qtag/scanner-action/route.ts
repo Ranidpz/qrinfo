@@ -3,47 +3,10 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import crypto from 'crypto';
+import { authorizeScanner } from '@/lib/qtag/scannerAuth.server';
 
 // Scanner-specific rate limits
 const SCANNER_ACTION_LIMIT = { maxRequests: 30, windowMs: 60 * 1000 };
-const SCANNER_PIN_FAIL_LIMIT = { maxRequests: 10, windowMs: 5 * 60 * 1000 };
-
-/**
- * Verify scanner PIN for the given code.
- * If the code has a PIN configured, the request must include a matching PIN.
- * If no PIN configured, allow access (same security as the scanner page itself).
- */
-async function verifyScannerPin(
-  db: FirebaseFirestore.Firestore,
-  codeId: string,
-  scannerPin: string | undefined,
-  clientIp: string
-): Promise<{ error: string; status: number } | { success: true }> {
-  const codeDoc = await db.collection('codes').doc(codeId).get();
-  if (!codeDoc.exists) {
-    return { error: 'Code not found', status: 404 };
-  }
-
-  const data = codeDoc.data()!;
-  const media = data.media || [];
-  const qtagMedia = media.find((m: { qtagConfig?: unknown }) => m.qtagConfig);
-  const expectedPin = qtagMedia?.qtagConfig?.scannerPin?.trim();
-
-  if (expectedPin) {
-    if (!scannerPin || scannerPin.trim() !== expectedPin) {
-      const failLimit = checkRateLimit(
-        `scanner-pin-fail:${clientIp}`,
-        SCANNER_PIN_FAIL_LIMIT
-      );
-      if (!failLimit.success) {
-        return { error: 'Too many failed attempts', status: 429 };
-      }
-      return { error: 'Invalid scanner PIN', status: 403 };
-    }
-  }
-
-  return { success: true };
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,18 +29,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['quick-add', 'undo-checkin', 'delete'].includes(action)) {
+    if (!['quick-add', 'checkin', 'undo-checkin', 'delete'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
     const db = getAdminDb();
 
-    const pinResult = await verifyScannerPin(db, codeId, scannerPin, clientIp);
-    if ('error' in pinResult) {
-      return NextResponse.json(
-        { error: pinResult.error },
-        { status: pinResult.status }
-      );
+    const access = await authorizeScanner(request, codeId, scannerPin, clientIp);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error, code: access.code }, { status: access.status });
     }
 
     // --- quick-add: create walk-in guest (immediately marked as arrived) ---
@@ -150,6 +110,48 @@ export async function POST(request: NextRequest) {
 
       await batch.commit();
       return NextResponse.json({ success: true, guestId: guestRef.id });
+    }
+
+    // --- checkin: mark a guest from the list as arrived (by id — the scanner never sees QR tokens) ---
+    if (action === 'checkin') {
+      const { guestId } = body;
+      if (!guestId) {
+        return NextResponse.json({ error: 'guestId is required' }, { status: 400 });
+      }
+
+      const guestRef = db.collection('codes').doc(codeId)
+        .collection('qtagGuests').doc(guestId);
+
+      await db.runTransaction(async (transaction) => {
+        const statsRef = db.collection('codes').doc(codeId)
+          .collection('qtagStats').doc('current');
+
+        const [freshDoc, statsDoc] = await Promise.all([
+          transaction.get(guestRef),
+          transaction.get(statsRef),
+        ]);
+
+        if (!freshDoc.exists) return;
+        const freshData = freshDoc.data()!;
+        if (freshData.status === 'arrived') return;
+
+        transaction.update(guestRef, {
+          status: 'arrived',
+          arrivedAt: FieldValue.serverTimestamp(),
+          arrivedMarkedBy: 'scanner',
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        if (statsDoc.exists) {
+          transaction.update(statsRef, {
+            totalArrived: FieldValue.increment(1),
+            totalArrivedGuests: FieldValue.increment(1 + (freshData.plusOneCount || 0)),
+            lastUpdated: FieldValue.serverTimestamp(),
+          });
+        }
+      });
+
+      return NextResponse.json({ success: true });
     }
 
     // --- undo-checkin: revert arrival status back to registered ---

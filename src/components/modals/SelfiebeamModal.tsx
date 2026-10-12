@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { saveCodeSecrets } from '@/lib/db';
 import {
   X, FileText, Trash2, Loader2, Camera, Users, Pipette, Building2,
   Palette, Settings as SettingsIcon, Images, ShieldCheck, Monitor, Smartphone, ImagePlus, Zap, Copy, Check,
@@ -245,7 +246,7 @@ export default function SelfiebeamModal({
     { key: 'settings', label: t('selfiebeamTabSettings'), icon: SettingsIcon },
   ];
 
-  // Photographer link: an unguessable handle (not a secret) that unlocks unlimited uploads
+  // Photographer link: an unguessable token (kept in the owner-only private doc) that unlocks unlimited uploads
   // for staff while the public link stays capped. Persisted to Firestore the moment the toggle
   // flips (when editing an existing code) so the link works immediately — no Save needed.
   const togglePhotographerLink = async (enabled: boolean) => {
@@ -260,20 +261,23 @@ export default function SelfiebeamModal({
       const media = (snap.data()?.media || []) as Array<{ id: string; type?: string; selfiebeamContent?: SelfiebeamContent }>;
       // Target the edited media item by id; if the id wasn't passed (some open paths don't set
       // it), fall back to every selfiebeam item so the token still saves.
-      let touched = 0;
-      const nextMedia = media.map((m) => {
-        const isTarget = mediaId ? m.id === mediaId : m.type === 'selfiebeam';
-        if (isTarget && m.selfiebeamContent) {
-          touched++;
-          return { ...m, selfiebeamContent: { ...m.selfiebeamContent, photographerToken: token } };
-        }
-        return m;
-      });
-      if (!touched) {
+      const targets = media.filter((m) => (mediaId ? m.id === mediaId : m.type === 'selfiebeam') && m.selfiebeamContent);
+      if (targets.length === 0) {
         console.warn('Photographer token: no selfiebeam media item matched — will persist on Save.');
         return;
       }
-      await updateDoc(ref, { media: nextMedia });
+      // The token lives in the owner-only private doc, never on the public code doc.
+      await saveCodeSecrets(codeId, Object.fromEntries(targets.map((m) => [m.id, { photographerToken: token }])));
+      // Drop a legacy copy still sitting on the public doc.
+      if (targets.some((m) => m.selfiebeamContent?.photographerToken !== undefined)) {
+        const targetIds = new Set(targets.map((m) => m.id));
+        const nextMedia = media.map((m) => {
+          if (!targetIds.has(m.id) || !m.selfiebeamContent) return m;
+          const { photographerToken: _legacy, ...rest } = m.selfiebeamContent;
+          return { ...m, selfiebeamContent: rest };
+        });
+        await updateDoc(ref, { media: nextMedia });
+      }
     } catch (err) {
       console.error('Failed to persist photographer token:', err);
     }

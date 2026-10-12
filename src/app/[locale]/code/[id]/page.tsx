@@ -53,7 +53,7 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getAllFolders, getUserFolders, createQRCode, getSiblingCodes } from '@/lib/db';
+import { getQRCode, updateQRCode, deleteQRCode, canEditCode, canDeleteCode, updateUserStorage, getAllFolders, getUserFolders, createQRCode, getSiblingCodes, hydrateCodeSecrets } from '@/lib/db';
 import { ICON_PATHS } from '@/lib/iconPaths';
 import { subscribeToCodeViews } from '@/lib/analytics';
 import { QRCode as QRCodeType, MediaItem, MediaSchedule, Folder, CodeWidgets, RiddleContent, SelfiebeamContent, QRSign, LandingPageConfig, StorageProvider } from '@/types';
@@ -517,7 +517,9 @@ export default function CodeEditPage({ params }: PageProps) {
           return;
         }
 
-        setCode(codeData);
+        // Owner editors see the secrets (raffle token, photographer link, scanner PIN)
+        // that are kept off the public code doc.
+        setCode(await hydrateCodeSecrets(codeData));
         setTitle(codeData.title);
 
         setFolder(null);

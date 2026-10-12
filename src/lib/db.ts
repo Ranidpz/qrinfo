@@ -5,6 +5,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  setDoc,
   deleteDoc,
   query,
   where,
@@ -15,6 +16,13 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { isSafeLinkUrl } from '@/lib/safeUrl';
+import {
+  CODE_SECRETS_COLLECTION,
+  CODE_SECRETS_DOC,
+  mergeMediaSecrets,
+  splitMediaSecrets,
+  type CodeSecretsMap,
+} from '@/lib/codeSecrets';
 import { db } from './firebase';
 import {
   QRCode,
@@ -83,14 +91,18 @@ export async function createQRCode(
     scale: 1.0,
   };
 
+  const now = Date.now();
+  const mediaWithIds = media.map((m, index) => ({ ...m, id: `media_${now}_${index}` }));
+  // Secrets (raffle token, photographer token, scanner PIN) go to the owner-only private doc.
+  const { media: publicMedia, secrets } = splitMediaSecrets(mediaWithIds);
+
   const codeData: Record<string, unknown> = {
     shortId,
     ownerId,
     collaborators: [],
     title,
-    media: media.map((m, index) => ({
+    media: publicMedia.map((m) => ({
       ...m,
-      id: `media_${Date.now()}_${index}`,
       createdAt: Timestamp.now(),
     })),
     widgets: {
@@ -108,6 +120,7 @@ export async function createQRCode(
   }
 
   const docRef = await addDoc(collection(db, 'codes'), codeData);
+  await saveCodeSecrets(docRef.id, secrets);
 
   return {
     id: docRef.id,
@@ -115,9 +128,8 @@ export async function createQRCode(
     ownerId,
     collaborators: [],
     title,
-    media: media.map((m, index) => ({
+    media: mediaWithIds.map((m) => ({
       ...m,
-      id: `media_${Date.now()}_${index}`,
       createdAt: new Date(),
     })) as MediaItem[],
     widgets: {
@@ -483,14 +495,51 @@ export async function updateQRCode(
     });
   }
 
+  // Secrets go to the owner-only private doc first, so the public doc never holds them
+  // and a failed secret write never silently drops one.
+  if (processedUpdates.media) {
+    const { media: publicMedia, secrets } = splitMediaSecrets(processedUpdates.media);
+    await saveCodeSecrets(id, secrets);
+    processedUpdates.media = publicMedia;
+  }
+
   await updateDoc(doc(db, 'codes', id), {
     ...removeUndefined(processedUpdates),
     updatedAt: serverTimestamp(),
   });
 }
 
+// ============ CODE SECRETS (owner-only private doc) ============
+
+function codeSecretsRef(codeId: string) {
+  return doc(db, 'codes', codeId, CODE_SECRETS_COLLECTION, CODE_SECRETS_DOC);
+}
+
+/** Merge per-media secrets into codes/{id}/private/secrets. No-op when there is nothing to store. */
+export async function saveCodeSecrets(codeId: string, secrets: CodeSecretsMap): Promise<void> {
+  if (Object.keys(secrets).length === 0) return;
+  await setDoc(codeSecretsRef(codeId), { media: secrets }, { merge: true });
+}
+
+/**
+ * Owner screens: put the stored secrets back into the media configs so editors show and
+ * keep them (e.g. the raffle big-screen token). Non-owners / missing doc → code unchanged.
+ */
+export async function hydrateCodeSecrets<T extends { id: string; media: MediaItem[] }>(code: T): Promise<T> {
+  try {
+    const snap = await getDoc(codeSecretsRef(code.id));
+    const secrets = snap.data()?.media as CodeSecretsMap | undefined;
+    if (!secrets) return code;
+    return { ...code, media: mergeMediaSecrets(code.media as unknown as Array<Record<string, unknown> & { id?: string }>, secrets) as unknown as MediaItem[] };
+  } catch {
+    return code;
+  }
+}
+
 // Delete QR code
 export async function deleteQRCode(id: string): Promise<void> {
+  // Private secrets doc first — its rule checks ownership through the parent code doc.
+  await deleteDoc(codeSecretsRef(id)).catch(() => {});
   await deleteDoc(doc(db, 'codes', id));
 }
 

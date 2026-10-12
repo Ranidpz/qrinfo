@@ -38,7 +38,7 @@ import { QGamesConfig } from '@/types/qgames';
 import { QTagConfig } from '@/types/qtag';
 import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
+import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, hydrateCodeSecrets, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -2531,8 +2531,9 @@ export default function DashboardPage() {
               onEdit={code.media[0]?.type === 'weeklycal' ? () => {
                 setEditingWeeklyCalCode(code);
                 setWeeklyCalModalOpen(true);
-              } : code.media[0]?.type === 'qtag' ? () => {
-                setEditingQTagCode(code);
+              } : code.media[0]?.type === 'qtag' ? async () => {
+                // The scanner PIN lives in the owner-only private doc — load it before editing.
+                setEditingQTagCode(await hydrateCodeSecrets(code));
                 setQtagModalOpen(true);
               } : undefined}
             />

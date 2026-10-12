@@ -321,31 +321,31 @@ export async function hasVoted(
   return docSnap.exists();
 }
 
-// Get all votes by a voter in a specific round
+// Get all votes by a voter in a specific round.
+// Server route: the votes subcollection holds voters' phones and is no longer client-readable.
 export async function getVoterVotes(
   codeId: string,
   voterId: string,
   round: VoteRound
 ): Promise<Vote[]> {
-  const q = query(
-    collection(db, 'codes', codeId, 'votes'),
-    where('voterId', '==', voterId),
-    where('round', '==', round)
-  );
-
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      codeId: data.codeId,
-      categoryId: data.categoryId,
-      candidateId: data.candidateId,
-      voterId: data.voterId,
-      round: data.round,
-      createdAt: data.createdAt?.toDate() || new Date(),
-    };
+  const res = await fetch('/api/qvote/my-votes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeId, voterId, round }),
   });
+  if (!res.ok) throw new Error(`Failed to load votes (${res.status})`);
+  const data = (await res.json()) as {
+    votes: Array<{ id: string; categoryId: string | null; candidateId: string; round: VoteRound; createdAt: number | null }>;
+  };
+  return data.votes.map((v) => ({
+    id: v.id,
+    codeId,
+    ...(v.categoryId ? { categoryId: v.categoryId } : {}),
+    candidateId: v.candidateId,
+    voterId,
+    round: v.round,
+    createdAt: v.createdAt ? new Date(v.createdAt) : new Date(),
+  }));
 }
 
 // Submit votes (atomic transaction)
