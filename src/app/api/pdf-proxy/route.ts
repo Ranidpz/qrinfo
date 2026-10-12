@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isOwnStorageUrl } from '@/lib/storage-guard';
+
+const PDF_SIGNATURE = Buffer.from('%PDF-');
 
 // Use Node.js runtime for better compatibility with fetch and large files
 export const runtime = 'nodejs';
@@ -17,91 +20,48 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const pdfUrl = searchParams.get('url');
 
-  // Quick test mode - if test=1, return a simple response
-  if (searchParams.get('test') === '1') {
-    return NextResponse.json({ status: 'ok', pdfUrl: pdfUrl?.substring(0, 50) });
-  }
-
-  console.log('[PDF Proxy] Request received:', { pdfUrl: pdfUrl?.substring(0, 100) });
-
   if (!pdfUrl) {
-    console.log('[PDF Proxy] Missing url parameter');
     return NextResponse.json(
       { error: 'Missing url parameter' },
       { status: 400 }
     );
   }
 
-  // Validate URL - only allow configured storage URLs for security
-  const allowedDomains = [
-    'public.blob.vercel-storage.com',
-    'blob.vercel-storage.com',
-  ];
-  const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
-  const r2PublicHostname = r2PublicUrl ? safeHostname(r2PublicUrl) : null;
-
-  let validatedUrl: URL;
-  try {
-    validatedUrl = new URL(pdfUrl);
-    const isAllowed =
-      allowedDomains.some(domain => validatedUrl.hostname.endsWith(domain)) ||
-      (r2PublicHostname !== null && validatedUrl.hostname === r2PublicHostname);
-
-    if (!isAllowed) {
-      console.log('[PDF Proxy] Domain not allowed:', validatedUrl.hostname);
-      return NextResponse.json(
-        { error: 'URL domain not allowed', hostname: validatedUrl.hostname },
-        { status: 403 }
-      );
-    }
-    console.log('[PDF Proxy] Domain validated:', validatedUrl.hostname);
-  } catch {
-    console.log('[PDF Proxy] Invalid URL');
-    return NextResponse.json(
-      { error: 'Invalid URL' },
-      { status: 400 }
-    );
+  // Only our own Blob store and our own R2 domain — never an arbitrary blob store or host.
+  if (!isOwnStorageUrl(pdfUrl)) {
+    return NextResponse.json({ error: 'URL not allowed' }, { status: 403 });
   }
 
   try {
-    console.log('[PDF Proxy] Fetching PDF from:', pdfUrl);
-
-    // Simple fetch without range for now to test basic connectivity
     const response = await fetch(pdfUrl, {
       method: 'GET',
-      headers: {
-        'Accept': '*/*',
-      },
-    });
-
-    console.log('[PDF Proxy] Fetch response:', {
-      status: response.status,
-      statusText: response.statusText,
-      contentType: response.headers.get('content-type'),
-      contentLength: response.headers.get('content-length'),
+      headers: { 'Accept': 'application/pdf' },
+      redirect: 'error',
     });
 
     if (!response.ok) {
-      const errorBody = await response.text().catch(() => '');
-      console.log('[PDF Proxy] Fetch failed:', response.status, response.statusText, errorBody);
+      console.log('[PDF Proxy] Fetch failed:', response.status);
       return NextResponse.json(
-        {
-          error: `Failed to fetch PDF: ${response.status}`,
-        },
-        { status: response.status }
+        { error: `Failed to fetch PDF: ${response.status}` },
+        { status: response.status === 404 ? 404 : 502 }
       );
     }
 
-    // Get the PDF data
     const pdfData = await response.arrayBuffer();
-    console.log('[PDF Proxy] PDF data received:', pdfData.byteLength, 'bytes');
 
-    // Return the PDF with proper headers
+    // Serve only real PDFs: the bytes must carry the %PDF- signature near the start.
+    const head = Buffer.from(pdfData.slice(0, Math.min(pdfData.byteLength, 1024)));
+    if (!head.includes(PDF_SIGNATURE)) {
+      return NextResponse.json({ error: 'Not a PDF' }, { status: 415 });
+    }
+
     return new NextResponse(pdfData, {
       status: 200,
       headers: {
-        'Content-Type': response.headers.get('content-type') || 'application/pdf',
+        // Always PDF, whatever the origin claimed — the proxy never serves HTML/SVG on our domain.
+        'Content-Type': 'application/pdf',
         'Content-Length': pdfData.byteLength.toString(),
+        'X-Content-Type-Options': 'nosniff',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': '*',
@@ -109,23 +69,11 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error('[PDF Proxy] Error:', errorMessage, errorStack);
+    console.error('[PDF Proxy] Error:', error);
     return NextResponse.json(
-      {
-        error: 'Failed to fetch PDF',
-      },
+      { error: 'Failed to fetch PDF' },
       { status: 500 }
     );
-  }
-}
-
-function safeHostname(url: string): string | null {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return null;
   }
 }
 

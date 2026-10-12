@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, Fragment, useMemo } from 'react';
+import { sanitizeRichText } from '@/lib/sanitizeRichText';
 import {
   X,
   Calendar,
@@ -3615,7 +3616,7 @@ export default function WeeklyCalendarModal({
                           className="text-sm leading-relaxed [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:ps-4 [&_ol]:list-decimal [&_ol]:ps-4 [&_hr]:my-3 [&_p]:mb-2"
                           style={{ color: config.notes?.textColor || '#1f2937' }}
                           dangerouslySetInnerHTML={{
-                            __html: config.notes?.content || `<p style="opacity: 0.5">${isRTL ? 'התוכן יופיע כאן...' : 'Content will appear here...'}</p>`,
+                            __html: sanitizeRichText(config.notes?.content) || `<p style="opacity: 0.5">${isRTL ? 'התוכן יופיע כאן...' : 'Content will appear here...'}</p>`,
                           }}
                         />
                       </div>

@@ -14,6 +14,7 @@ import {
   Timestamp,
   runTransaction,
 } from 'firebase/firestore';
+import { isSafeLinkUrl } from '@/lib/safeUrl';
 import { db } from './firebase';
 import {
   QRCode,
@@ -53,6 +54,15 @@ export function generateShortId(length: number = 6): string {
 
 // ============ QR CODES ============
 
+// Link media are navigated to by the public viewer — refuse javascript:/data: and friends.
+function assertSafeLinkMedia(media: Array<{ type?: string; url?: string }> | undefined): void {
+  for (const m of media || []) {
+    if (m?.type === 'link' && !isSafeLinkUrl(m.url)) {
+      throw new Error('Invalid link URL: only http(s), tel, mailto, sms and whatsapp links are allowed');
+    }
+  }
+}
+
 // Create a new QR code
 export async function createQRCode(
   ownerId: string,
@@ -60,6 +70,7 @@ export async function createQRCode(
   media: Omit<MediaItem, 'id' | 'createdAt'>[],
   folderId?: string | null
 ): Promise<QRCode> {
+  assertSafeLinkMedia(media);
   const shortId = generateShortId();
 
   // Default QR sign with theQ logo
@@ -420,6 +431,7 @@ export async function updateQRCode(
   // Convert media createdAt to Firestore Timestamp if present and remove undefined values
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const processedUpdates: Record<string, any> = { ...updates };
+  assertSafeLinkMedia(updates.media);
   if (processedUpdates.media) {
     processedUpdates.media = processedUpdates.media.map((m: MediaItem) => {
       const mediaItem = {

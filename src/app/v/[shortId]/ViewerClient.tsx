@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
+import { isSafeLinkUrl } from '@/lib/safeUrl';
 import dynamic from 'next/dynamic';
 import { ChevronLeft, ChevronRight, ExternalLink, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { MediaItem, CodeWidgets, LinkSource, LandingPageConfig, DEFAULT_LANDING_PAGE_CONFIG, PDFFlipbookSettings } from '@/types';
@@ -665,7 +666,7 @@ const MultiPDFViewer = memo(({
                       }}
                     />
                     {/* PDF Link Annotations */}
-                    {page.annotations.map((annotation, idx) => (
+                    {page.annotations.filter((annotation) => isSafeLinkUrl(annotation.url)).map((annotation, idx) => (
                       <a
                         key={idx}
                         href={annotation.url}
@@ -1180,6 +1181,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   // Redirect for link-type media (external links like wa.me refuse iframe embedding)
   useEffect(() => {
     if (isLink && currentMedia?.url) {
+      // Never navigate to a non-web scheme (javascript:, data:, …) even if one got stored.
+      if (!isSafeLinkUrl(currentMedia.url)) return;
       // Track the link click before redirecting
       trackLinkClick(currentMedia.url, 'link');
       // Small delay to ensure analytics is tracked, then redirect

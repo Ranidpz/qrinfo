@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { sanitizeRichText } from '@/lib/sanitizeRichText';
+import { isSafeLinkUrl } from '@/lib/safeUrl';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { EffectCards } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
@@ -896,7 +898,7 @@ export default function WeeklyCalendarViewer({
 
                         {cell.linkUrl && (
                           <a
-                            href={cell.linkUrl}
+                            href={isSafeLinkUrl(cell.linkUrl) ? cell.linkUrl : undefined}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -1874,7 +1876,7 @@ export default function WeeklyCalendarViewer({
                                 {/* Link Button */}
                                 {cell.linkUrl && (
                                   <a
-                                    href={cell.linkUrl}
+                                    href={isSafeLinkUrl(cell.linkUrl) ? cell.linkUrl : undefined}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
@@ -2376,7 +2378,7 @@ export default function WeeklyCalendarViewer({
                   dir={isRTL ? 'rtl' : 'ltr'}
                   className="prose prose-sm max-w-none [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-3 [&_ul]:list-disc [&_ul]:ps-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:ps-5 [&_ol]:my-2 [&_li]:mb-1 [&_hr]:my-4 [&_p]:mb-2 [&_strong]:font-bold"
                   style={{ color: config.notes?.textColor || '#1f2937' }}
-                  dangerouslySetInnerHTML={{ __html: config.notes?.content || '' }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichText(config.notes?.content) }}
                 />
               </div>
 

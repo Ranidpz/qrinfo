@@ -43,7 +43,13 @@ export function isOwnStorageUrl(url: string): boolean {
   } catch {
     return false;
   }
-  return hostname === getOwnBlobHostname() || hostname === getOwnR2Hostname();
+  if (hostname === getOwnBlobHostname() || hostname === getOwnR2Hostname()) return true;
+  // Older stores that still hold live files (comma-separated hostnames).
+  const extra = (process.env.EXTRA_STORAGE_HOSTNAMES || '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+  return extra.includes(hostname);
 }
 
 /**
