@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { normalizePhoneNumber } from '@/lib/phone-utils';
 import { verifyOTPCode, generateSessionToken, isExpired, getExpiryTime } from '@/lib/verification';
@@ -7,6 +8,11 @@ import { FieldValue } from 'firebase-admin/firestore';
 // POST: Verify OTP code
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(`verification-verify:${getClientIp(request)}`, RATE_LIMITS.VERIFY);
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const { codeId, phone, code } = await request.json();
 
     // Validate required fields

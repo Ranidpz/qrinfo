@@ -130,4 +130,9 @@ export const RATE_LIMITS = {
   CHECKIN: { maxRequests: 120, windowMs: 60 * 1000 },
   // Checkin failures: 20 failed lookups per 5 minutes (prevents brute-force)
   CHECKIN_FAIL: { maxRequests: 20, windowMs: 5 * 60 * 1000 },
+  // Public game endpoints (Q.Hunt / Q.Stage): a whole crowd can share one venue IP, so this
+  // only stops floods — per-player limits live in the game logic
+  GAME: { maxRequests: 600, windowMs: 60 * 1000 },
+  // OTP verification / status checks (attempt counters protect the code itself)
+  VERIFY: { maxRequests: 60, windowMs: 60 * 1000 },
 };

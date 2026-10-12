@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { normalizePhoneNumber } from '@/lib/phone-utils';
 
 // POST: Check verification status for a phone (POST so phones never land in URL/access logs)
 export async function POST(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(`verification-status:${getClientIp(request)}`, RATE_LIMITS.VERIFY);
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const body = await request.json().catch(() => ({}));
     const codeId = typeof body.codeId === 'string' ? body.codeId : null;
     const phone = typeof body.phone === 'string' ? body.phone : null;

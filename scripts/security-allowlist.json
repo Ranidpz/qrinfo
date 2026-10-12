@@ -1,0 +1,70 @@
+{
+  "_readme": "Exceptions for scripts/security-check.mjs. Every entry needs a reason. 'FOLLOW-UP' = known weakness kept for compatibility, tracked in docs/SECURITY_RULES.md (open items).",
+  "unguardedRoutes": {
+    "src/app/api/content-intake/fattal/cloud/[operation]/route.ts": "Fattal cloud agent: own cloud-policy auth inside src/lib/content-intake (do not refactor — live hotel booklets)",
+    "src/app/api/health/route.ts": "liveness probe, returns no data",
+    "src/app/api/version/route.ts": "public build version for the update banner",
+    "src/app/api/og/route.tsx": "public Open Graph image (edge), no data access",
+    "src/app/api/og/qgames/route.tsx": "public Open Graph image, reads only a player's public selfie",
+    "src/app/api/og/qtag/route.tsx": "public Open Graph image (edge), no data access",
+    "src/app/api/og/tenbool/route.tsx": "public Open Graph image (edge), no data access",
+    "src/app/api/pdf-proxy/route.ts": "public booklet proxy: own storage hosts only, PDF-only response; no per-IP limit because hotel guests share one IP",
+    "src/app/api/lobby/winners/route.ts": "public lobby display, read-only public winners list",
+    "src/app/api/tenbool/claim/route.ts": "10 בול player-token auth (src/lib/tenbool); crowds share a venue IP, attempts counted server-side",
+    "src/app/api/tenbool/me/route.ts": "10 בול player-token auth",
+    "src/app/api/tenbool/name/route.ts": "10 בול player-token auth",
+    "src/app/api/tenbool/result/route.ts": "10 בול player-token auth; timing judged server-side",
+    "src/app/api/tenbool/round/route.ts": "10 בול player-token auth; rounds counted server-side",
+    "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience, pre-existing client-SDK route (broken in prod); move to Admin SDK + rate limit before enabling",
+    "src/app/api/qchallenge/leaderboard/route.ts": "FOLLOW-UP: hidden experience, read-only public leaderboard",
+    "src/app/api/qchallenge/register/route.ts": "FOLLOW-UP: hidden experience, pre-existing client-SDK route (broken in prod)"
+  },
+  "rawHtml": {
+    "src/app/layout.tsx": "static inline theme script, no user input"
+  },
+  "openFirestoreWrites": [
+    "/candidates/{candidateId}",
+    "/qhunt_players/{playerId}",
+    "/qhunt_scans/{scanId}",
+    "/viewLogs/{logId}",
+    "/linkClicks/{clickId}",
+    "/visitorProgress/{progressId}",
+    "/pendingPacks/{packId}",
+    "/packOpenings/{openingId}"
+  ],
+  "_openFirestoreWrites_reason": "FOLLOW-UP: legacy anonymous flows still written by the client SDK — Q.Vote self-registration (candidates), Q.Hunt legacy lib, analytics logs, gamification/packs. Move each behind an API route + Admin SDK, then remove it from this list.",
+  "openRtdbWrites": [
+    "/qgames/$codeId/stats",
+    "/qgames/$codeId/queue",
+    "/qgames/$codeId/matches",
+    "/qgames/$codeId/memoryRooms",
+    "/qgames/$codeId/froggerRooms",
+    "/qgames/$codeId/viewers",
+    "/qgames/$codeId/chat",
+    "/qgames/$codeId/chatBans"
+  ],
+  "_openRtdbWrites_reason": "Q.Games peer-to-peer state written by anonymous players (no Firebase auth). Leaderboard/records are server-only. FOLLOW-UP: anonymous auth + per-player validation.",
+  "errorText": {
+    "src/app/api/content-intake/fattal/cloud/[operation]/route.ts": "returns only CloudIntakeError messages (controlled, no stack) — Fattal agent contract",
+    "src/app/api/content-intake/fattal/report/route.ts": "returns only two known messages from an allowlist"
+  },
+  "secretFields": [
+    "src/lib/raffle/types.ts#token",
+    "src/types/index.ts#photographerToken",
+    "src/types/qtag.ts#scannerPin",
+    "src/types/index.ts#pinned",
+    "src/types/index.ts#minPinnedOnScreen",
+    "src/types/qvote.ts#enableCropping",
+    "src/types/qchallenge.ts#sessionToken",
+    "src/types/qstage.ts#accessToken",
+    "src/types/qtag.ts#qrToken",
+    "src/types/weeklycal.ts#qrToken",
+    "src/types/verification.ts#sessionToken"
+  ],
+  "_secretFields_reason": "token/photographerToken/scannerPin are split into codes/{id}/private by db.ts; accessToken is stripped from public pages (judge flow not implemented); qrToken/sessionToken live in owner-only/locked subcollections, not on the code doc; the rest are not secrets (pinned, cropping).",
+  "clientSdkInApi": {
+    "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience (see unguardedRoutes)",
+    "src/app/api/qchallenge/leaderboard/route.ts": "FOLLOW-UP: hidden experience, public read only",
+    "src/app/api/qchallenge/register/route.ts": "FOLLOW-UP: hidden experience (see unguardedRoutes)"
+  }
+}

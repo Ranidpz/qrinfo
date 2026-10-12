@@ -1,6 +1,6 @@
 ---
 description: Security check, update documentation, commit all changes, and push to main
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git check-ignore:*), Bash(git remote:*), Bash(git remote add:*), Bash(git init:*), Bash(cat:*), Bash(grep:*), Bash(find:*), Read, Edit, Write, Glob, Grep, AskUserQuestion
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git check-ignore:*), Bash(git remote:*), Bash(git remote add:*), Bash(git init:*), Bash(cat:*), Bash(grep:*), Bash(find:*), Bash(npm run security:check:*), Bash(npx tsc:*), Read, Edit, Write, Glob, Grep, AskUserQuestion
 ---
 
 # Secure Push to Main
@@ -28,6 +28,14 @@ If remote EXISTS:
 - Continue with security checks
 
 ## CRITICAL: Security Checks First
+
+### 0. Run the automated guard (MUST pass — never push on failure)
+Run `npm run security:check` and `npx tsc --noEmit -p .`.
+If security:check fails, FIX the code following `docs/SECURITY_RULES.md`. Only add an entry to
+`scripts/security-allowlist.json` when the exception is deliberate, with a written reason — and
+mention every new allowlist entry to the user in the security report.
+Any change to `firestore.rules` / `database.rules.json` must be tested on `qrinfo-dev` first and
+deployed to BOTH projects only with the user's explicit OK.
 
 Before ANY commit, perform these security checks:
 

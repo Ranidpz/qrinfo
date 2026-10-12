@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import {
   QHuntConfig,
@@ -10,6 +11,11 @@ import {
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = checkRateLimit(`qhunt-register:${getClientIp(request)}`, RATE_LIMITS.GAME);
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const body = await request.json();
 
     const {

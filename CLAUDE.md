@@ -34,11 +34,14 @@ import { fetchWithAuth } from '@/lib/fetchWithAuth';
 const res = await fetchWithAuth('/api/some-endpoint?codeId=xxx');
 ```
 
-### Secrets, storage, RTDB (phase-0 security model)
-- Per-media secrets (raffle `token`, Selfie Beam `photographerToken`, Q.Tag `scannerPin`) live in `codes/{id}/private/secrets` (owner/collaborator/admin rule), NOT on the public code doc. `db.ts` `createQRCode`/`updateQRCode` split them off on every save; owner editors load them with `hydrateCodeSecrets`; servers read `resolveMediaSecret` (private first, legacy on-doc fallback). Client code never compares a secret — it asks an API (`/api/selfiebeam/photographer`, `/api/qtag/scanner-guests`, raffle routes). Public pages pass media through `stripSecretsForPublic`. Migration: `scripts/migrate-code-secrets.mjs`.
-- `users.storageUsed` is server-only (`src/lib/storage-guard.ts`, used by `/api/upload` + `/api/gallery`); `/api/upload` takes the uid from the Bearer token (use `fetchWithAuth`) and enforces the quota. `updateUserStorage` is a no-op.
-- API routes that write RTDB must use `src/lib/server/*-rtdb.ts` (Admin SDK) — the client SDK on the server is unauthenticated and `database.rules.json` denies it.
-- `qtagGuests`, `votes`, `cellRegistrations`, `messageLogs` are owner/admin reads only; public flows go through API routes (masked phones).
+### Security non-negotiables (full contract + templates: `docs/SECURITY_RULES.md`)
+- Participant data → Admin-SDK subcollection behind a store module, rules `if false`. Server code never uses the client SDK (RTDB: `src/lib/server/*-rtdb.ts`).
+- No secrets on `codes/{id}` (world-readable): add them to `SECRET_FIELDS` in `src/lib/codeSecrets.ts` → `codes/{id}/private/secrets`; the browser never compares a secret.
+- Owner routes `requireCodeOwner` + client `fetchWithAuth`; public routes rate limit + validate input + derive ownerId from the code; generic errors only.
+- Paid WhatsApp/SMS only via `src/lib/messaging/paidSend.ts`; uploads only via `/api/upload` (token uid + server quota, `src/lib/storage-guard.ts`).
+- HTML only via `sanitizeRichText`/DOMPurify; user URLs only via `isSafeLinkUrl`; phones masked; no phones/tokens in logs.
+- `npm run security:check` must pass (run by `/push`); exceptions only in `scripts/security-allowlist.json` with a reason.
+- Rules: test on `qrinfo-dev`, deploy both projects only with Rani's OK. Never touch Fattal intake auth (`/api/content-intake/**`, `/api/codes/[codeId]/pdf`).
 
 ### Locked collections (ALL client writes = `if false`, Admin SDK only)
 `votes`, `verifiedVoters`, `verificationCodes`, `rateLimits`, `qtagGuests`, `qtagStats`, `cellRegistrations` (delete)

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -8,6 +9,11 @@ import { Timestamp } from 'firebase-admin/firestore';
  */
 export async function GET(request: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(`weeklycal-participant:${getClientIp(request)}`, RATE_LIMITS.VERIFY);
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
 

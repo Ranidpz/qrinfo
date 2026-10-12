@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { stripSecretsForPublic } from '@/lib/codeSecrets';
 
 // GET /api/codes/[codeId] - Get code data
@@ -9,11 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ codeId: string }> }
 ) {
   try {
-    if (!db) {
-      return NextResponse.json(
-        { error: 'Database not available' },
-        { status: 500 }
-      );
+    const rateLimit = checkRateLimit(`code-read:${getClientIp(request)}`, RATE_LIMITS.API);
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
     const { codeId } = await params;
@@ -25,17 +23,16 @@ export async function GET(
       );
     }
 
-    const codeRef = doc(db, 'codes', codeId);
-    const codeSnap = await getDoc(codeRef);
+    const codeSnap = await getAdminDb().collection('codes').doc(codeId).get();
 
-    if (!codeSnap.exists()) {
+    if (!codeSnap.exists) {
       return NextResponse.json(
         { error: 'Code not found' },
         { status: 404 }
       );
     }
 
-    const data = codeSnap.data();
+    const data = codeSnap.data()!;
 
     return NextResponse.json({
       code: {

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[QTag TestWhatsApp] Error:', error);
     return NextResponse.json(
-      { error: 'Test failed', message: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Test failed' },
       { status: 500 }
     );
   }
