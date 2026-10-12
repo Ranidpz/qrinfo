@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.16';
+export const APP_VERSION = '1.27.17';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.17', date: '2026-10-12', isNew: true, highlights: {
+    he: ['10 בול: שכפול המשחק ישירות מחלון ההגדרות — בוחרים שם, מאשרים, ומשחק זהה נוצר עם קישור וקוד משלו'],
+    en: ['10 Bool: duplicate the game straight from its settings — pick a name, confirm, and an identical game is created with its own link and code'],
+  } },
   { version: '1.27.16', date: '2026-10-12', isNew: true, highlights: {
     he: ['שדרוג אבטחה מקיף: טלפונים של אורחים, מצביעים ונרשמים נגישים רק לבעלי הקוד, וקודי PIN וקישורי צוות נשמרים במקום פרטי', 'קבצים אפשר למחוק רק עם הרשאה, ונפח האחסון נבדק בשרת', 'הודעות וואטסאפ בתשלום מוגנות מפני שימוש לרעה', 'חוברות נטענות בצורה יציבה יותר'],
     en: ['Major security upgrade: guest, voter and registrant phones are visible only to the code owner, and scanner PINs and staff links are stored privately', 'Files can be deleted only with permission, and storage is checked on the server', 'Paid WhatsApp messages are protected against abuse', 'Booklets load more reliably'],

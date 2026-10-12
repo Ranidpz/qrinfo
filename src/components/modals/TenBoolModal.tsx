@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, Copy, ExternalLink, ImagePlus, Loader2, Monitor, Play, RotateCcw, Smartphone, Square, Timer, Trash2, Upload, Users, X } from 'lucide-react';
+import { Check, Copy, CopyPlus, ExternalLink, ImagePlus, Loader2, Monitor, Play, RotateCcw, Smartphone, Square, Timer, Trash2, Upload, Users, X } from 'lucide-react';
 import TenBoolPlayersPanel from '@/components/modals/TenBoolPlayersPanel';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { NEON_STYLE, NeonBackdrop, NeonRing } from '@/components/viewer/tenbool/NeonSpace';
@@ -49,6 +49,8 @@ interface Props {
   codeId: string;
   shortId: string;
   title?: string;
+  /** Creates a new code with everything copied, then navigates to it. Throws on failure. */
+  onDuplicate?: (title: string, config: TenBoolConfig) => Promise<void>;
 }
 
 function useFontStylesheet(family: string, id: string) {
@@ -63,7 +65,7 @@ function useFontStylesheet(family: string, id: string) {
   }, [family, id]);
 }
 
-export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, codeId, shortId, title }: Props) {
+export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, codeId, shortId, title, onDuplicate }: Props) {
   const [config, setConfig] = useState<TenBoolConfig>(initialConfig ?? {});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -74,6 +76,8 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
   const [playing, setPlaying] = useState<TenBoolSoundSlot | null>(null);
   const [showPlayers, setShowPlayers] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Duplicate flow: pick a name, then an explicit "are you sure" before anything is created
+  const [dup, setDup] = useState<{ step: 'name' | 'confirm'; name: string; busy: boolean; error: string | null } | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const soundInputRef = useRef<HTMLInputElement>(null);
@@ -220,6 +224,18 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
       setError('השמירה נכשלה, נסו שוב');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const runDuplicate = async () => {
+    if (!dup || !onDuplicate) return;
+    setDup({ ...dup, busy: true, error: null });
+    try {
+      stopPreview();
+      // The copy gets the settings as they are in the modal right now, saved or not
+      await onDuplicate(dup.name.trim(), JSON.parse(JSON.stringify(config)) as TenBoolConfig);
+    } catch {
+      setDup((d) => (d ? { ...d, busy: false, error: 'השכפול נכשל, נסו שוב' } : d));
     }
   };
 
@@ -800,8 +816,88 @@ export default function TenBoolModal({ isOpen, onClose, onSave, initialConfig, c
               <RotateCcw className="w-4 h-4" />
               ברירת מחדל
             </button>
+            {onDuplicate && (
+              <button
+                onClick={() => setDup({ step: 'name', name: `${title || '10 בול'} (עותק)`, busy: false, error: null })}
+                className="ms-auto flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+              >
+                <CopyPlus className="w-4 h-4" />
+                שכפלו
+              </button>
+            )}
           </div>
         </div>
+
+        {dup && (
+          <div
+            className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-4"
+            onClick={(e) => e.target === e.currentTarget && !dup.busy && setDup(null)}
+          >
+            <div role="alertdialog" aria-modal="true" aria-labelledby="tenbool-dup-title" className="w-full max-w-sm rounded-2xl border border-border bg-bg-primary p-5 space-y-4 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 shrink-0 rounded-full bg-accent/15 text-accent flex items-center justify-center">
+                  <CopyPlus className="w-5 h-5" />
+                </div>
+                <h3 id="tenbool-dup-title" className="font-semibold text-text-primary">
+                  {dup.step === 'name' ? 'שכפול המשחק' : 'לשכפל?'}
+                </h3>
+              </div>
+
+              {dup.step === 'name' ? (
+                <form
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (dup.name.trim()) setDup({ ...dup, step: 'confirm', error: null });
+                  }}
+                >
+                  <label className="block space-y-1.5">
+                    <span className="block text-sm text-text-secondary">שם לחוויה החדשה</span>
+                    <input
+                      autoFocus
+                      value={dup.name}
+                      onChange={(e) => setDup({ ...dup, name: e.target.value })}
+                      onFocus={(e) => e.target.select()}
+                      maxLength={120}
+                      className="input"
+                    />
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button type="submit" disabled={!dup.name.trim()} className="btn btn-primary flex-1">
+                      המשיכו
+                    </button>
+                    <button type="button" onClick={() => setDup(null)} className="btn btn-secondary flex-1">
+                      ביטול
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2 text-sm text-text-secondary">
+                    <p>
+                      ייווצר קוד חדש בשם <span className="font-semibold text-text-primary">{dup.name.trim()}</span>, עם כל ההגדרות כפי שהן מופיעות כאן עכשיו.
+                    </p>
+                    <p>השחקנים והתוצאות לא מועתקים — המשחק החדש מתחיל נקי, עם קישור וקוד QR משלו.</p>
+                  </div>
+                  {dup.error && (
+                    <p role="alert" className="text-sm text-danger">
+                      {dup.error}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => void runDuplicate()} disabled={dup.busy} className="btn btn-primary flex-1">
+                      {dup.busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CopyPlus className="w-4 h-4" />}
+                      {dup.busy ? 'משכפלים…' : 'כן, שכפלו'}
+                    </button>
+                    <button onClick={() => setDup({ ...dup, step: 'name', error: null })} disabled={dup.busy} className="btn btn-secondary flex-1">
+                      חזרה
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <input
           ref={soundInputRef}

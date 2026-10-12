@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.17] - 2026-10-12
+
+- 10 בול settings modal: "שכפלו" → name step (prefilled "<title> (עותק)") → explicit confirm (players/results not copied) → new code with the modal's current settings in the original's folder, then navigates to it. Code page duplicate logic is now `duplicateCode(opts)`; `handleDuplicate` behaviour unchanged. Rollback = revert this release commit.
+
 ## [1.27.15] - 2026-10-12
 
 - 10 בול settings modal: up to `min(96vw,1440px)` with a fixed 460px settings column; preview text in container units mirroring the game's vmin sizes; closeness bar in the flow under the prompt (no overlap on small previews); on wide screens the sounds section renders under the preview in two columns (`matchMedia`, single render keeps ids unique). Rollback = revert this release commit.
