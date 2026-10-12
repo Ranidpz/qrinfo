@@ -25,6 +25,64 @@ export interface PdfReplacementInput {
   workflow?: string;
 }
 
+/** Who replaced a booklet file — recorded in `codes/{id}/pdfHistory`. */
+export type PdfActorVia = 'owner' | 'super_admin' | 'editor' | 'intake';
+
+export interface PdfActor {
+  uid: string | null;
+  via: PdfActorVia;
+  email?: string;
+  name?: string;
+}
+
+/** Everything needed to put a stored file back on a media item. */
+export interface PdfFileSnapshot {
+  url: string;
+  filename?: string;
+  title?: string;
+  size: number;
+  pageCount?: number;
+  storageProvider?: string;
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
+  contentIntake?: Record<string, unknown>;
+}
+
+export interface PdfReplacementOptions {
+  expectedOwnerId?: string;
+  /**
+   * Record the replacement in `codes/{id}/pdfHistory` and keep the previous file for one
+   * restore instead of deleting it. The kept file is deleted on the NEXT replacement of
+   * the same media item (or never, when `deleteOld: false`).
+   */
+  history?: { actor: PdfActor };
+  /** Booklet editors: only an existing PDF media item, never a new item or a non-PDF. */
+  existingPdfOnly?: boolean;
+  /**
+   * Dashboard uploads: only the target media item must be unchanged since the upload began
+   * (viewer counters update the code doc all the time). Intake keeps the strict check.
+   */
+  targetOnlyConflictCheck?: boolean;
+}
+
+export const PDF_HISTORY_COLLECTION = 'pdfHistory';
+
+export function snapshotPdfMedia(media: CodeMedia): PdfFileSnapshot {
+  return compactRecord({
+    url: String(media.url || ''),
+    filename: media.filename,
+    title: media.title,
+    size: Number(media.size || 0),
+    pageCount: typeof media.pageCount === 'number' ? media.pageCount : undefined,
+    storageProvider: media.storageProvider,
+    storageKey: media.storageKey,
+    storageBucket: media.storageBucket,
+    contentType: media.contentType,
+    contentIntake: media.contentIntake,
+  }) as PdfFileSnapshot;
+}
+
 export interface PdfReplacementResult {
   codeId: string;
   codeTitle: string;
@@ -51,12 +109,18 @@ interface CodeMedia {
   filename?: string;
   pdfSettings?: unknown;
   createdAt?: unknown;
+  pageCount?: number;
+  storageProvider?: string;
+  storageKey?: string;
+  storageBucket?: string;
+  contentType?: string;
+  contentIntake?: Record<string, unknown>;
 }
 
 export async function replaceCodePdfWithBuffer(
   codeId: string,
   input: PdfReplacementInput,
-  options: { expectedOwnerId?: string } = {}
+  options: PdfReplacementOptions = {}
 ): Promise<PdfReplacementResult> {
   if (!isPdfInput(input)) {
     throw new Error('Only PDF files are supported');
@@ -80,6 +144,9 @@ export async function replaceCodePdfWithBuffer(
   if (options.expectedOwnerId && ownerId !== options.expectedOwnerId) {
     throw new Error('Code owner does not match Fattal owner');
   }
+
+  const initialMedia = Array.isArray(codeData.media) ? (codeData.media as CodeMedia[]) : [];
+  const initialTargetUrl = initialMedia[resolveReplaceIndex(initialMedia, input.mediaId)]?.url;
 
   const pageCount = await countPdfPages(input.buffer);
   const r2Key = buildStorageKey(
@@ -111,6 +178,9 @@ export async function replaceCodePdfWithBuffer(
   let oldUrl: string | undefined;
   let storageDelta = uploaded.size;
   let updatedMediaForResponse: Record<string, unknown> | null = null;
+  const history = options.history;
+  // Files kept by earlier history entries that this replacement supersedes.
+  const purgeUrls: string[] = [];
 
   try {
     await db.runTransaction(async (transaction) => {
@@ -126,7 +196,7 @@ export async function replaceCodePdfWithBuffer(
       if (freshCodeData.ownerId !== ownerId) {
         throw new Error('Code owner does not match Fattal owner');
       }
-      if (codeDoc.updateTime && freshCodeDoc.updateTime && !codeDoc.updateTime.isEqual(freshCodeDoc.updateTime)) {
+      if (!options.targetOnlyConflictCheck && codeDoc.updateTime && freshCodeDoc.updateTime && !codeDoc.updateTime.isEqual(freshCodeDoc.updateTime)) {
         throw new Error('Code changed during upload; preview again before retrying');
       }
       const media = Array.isArray(freshCodeData.media)
@@ -134,6 +204,9 @@ export async function replaceCodePdfWithBuffer(
         : [];
 
       const replaceIndex = resolveReplaceIndex(media, input.mediaId);
+      if (options.targetOnlyConflictCheck && media[replaceIndex]?.url !== initialTargetUrl) {
+        throw new Error('Code changed during upload; preview again before retrying');
+      }
       if (input.mediaId && replaceIndex < 0) {
         throw new Error('Target media not found');
       }
@@ -142,6 +215,17 @@ export async function replaceCodePdfWithBuffer(
       if (oldMedia && oldMedia.type !== 'pdf' && !input.replaceNonPdf) {
         throw new Error('Target media is not a PDF');
       }
+      if (options.existingPdfOnly && (!oldMedia || oldMedia.type !== 'pdf')) {
+        throw new Error(oldMedia ? 'Target media is not a PDF' : 'Target media not found');
+      }
+
+      // Reads must precede writes: load the history entries still holding a kept file.
+      const historyRef = history ? codeRef.collection(PDF_HISTORY_COLLECTION) : null;
+      const keptEntries = historyRef && oldMedia?.id
+        ? (await transaction.get(
+            historyRef.where('mediaId', '==', oldMedia.id).where('previous.retained', '==', true)
+          )).docs
+        : [];
 
       const oldSizeForOwner = oldMedia?.uploadedBy === ownerId
         ? Number(oldMedia.size || 0)
@@ -194,6 +278,30 @@ export async function replaceCodePdfWithBuffer(
       oldUrl = oldMedia?.url;
       updatedMediaForResponse = serializeMedia(newMedia);
 
+      if (historyRef && history) {
+        const liveUrls = new Set(media.map((item) => item.url).filter(Boolean));
+        for (const entry of keptEntries) {
+          const kept = entry.data().previous as (PdfFileSnapshot & { purgeOnNext?: boolean }) | undefined;
+          // Never delete a file that is (again) live on this code.
+          if (kept?.url && kept.purgeOnNext !== false && !liveUrls.has(kept.url)) purgeUrls.push(kept.url);
+          transaction.update(entry.ref, {
+            'previous.retained': false,
+            'previous.supersededAt': now,
+          });
+        }
+        transaction.set(historyRef.doc(), {
+          action: 'replace',
+          mediaId: newMedia.id,
+          at: now,
+          actor: compactRecord({ ...history.actor }),
+          source: input.source || 'api',
+          next: snapshotPdfMedia(newMedia as CodeMedia),
+          previous: oldMedia?.url
+            ? { ...snapshotPdfMedia(oldMedia), retained: true, purgeOnNext: input.deleteOld !== false }
+            : null,
+        });
+      }
+
       transaction.update(codeRef, {
         media,
         updatedAt: FieldValue.serverTimestamp(),
@@ -213,8 +321,15 @@ export async function replaceCodePdfWithBuffer(
     throw error;
   }
 
+  for (const url of purgeUrls) {
+    await deleteStoredObjectByUrl(url).catch((error) => {
+      console.error('[PDF R2] Failed to delete superseded kept PDF:', error);
+    });
+  }
+
   let oldDeleteWarning: string | undefined;
-  if (input.deleteOld !== false && oldUrl && oldUrl !== uploaded.url) {
+  // With history the previous file is kept for one restore instead of deleted now.
+  if (!history && input.deleteOld !== false && oldUrl && oldUrl !== uploaded.url) {
     try {
       await deleteStoredObjectByUrl(oldUrl);
     } catch (error) {

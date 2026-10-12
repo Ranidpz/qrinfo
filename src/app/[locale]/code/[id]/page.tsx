@@ -50,6 +50,8 @@ import {
   Trophy,
   Tag,
   Download,
+  History,
+  UserCog,
 } from 'lucide-react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -118,6 +120,9 @@ import QGamesModal from '@/components/modals/QGamesModal';
 import QTagModal from '@/components/modals/QTagModal';
 import QTagGuestsModal from '@/components/modals/QTagGuestsModal';
 import PDFSettingsModal, { DEFAULT_PDF_SETTINGS, PDFFlipbookSettings } from '@/components/editor/PDFSettingsModal';
+import PdfHistoryModal from '@/components/booklets/PdfHistoryModal';
+import BookletEditorsModal from '@/components/booklets/BookletEditorsModal';
+import { isPdfFile, uploadBookletPdf } from '@/lib/booklets/client';
 import { shouldShowLandingPage } from '@/lib/landingPage';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { clsx } from 'clsx';
@@ -301,6 +306,7 @@ export default function CodeEditPage({ params }: PageProps) {
   const tCommon = useTranslations('common');
   const tErrors = useTranslations('errors');
   const tUploader = useTranslations('uploader');
+  const tBooklets = useTranslations('booklets');
   const tMedia = useTranslations('media');
   const tModals = useTranslations('modals');
   const locale = useLocale();
@@ -438,6 +444,10 @@ export default function CodeEditPage({ params }: PageProps) {
 
   // Landing page modal state
   const [landingPageModalOpen, setLandingPageModalOpen] = useState(false);
+
+  // Booklet file history (restore) and super-admin PDF-editor access
+  const [pdfHistoryOpen, setPdfHistoryOpen] = useState(false);
+  const [bookletEditorsOpen, setBookletEditorsOpen] = useState(false);
 
   // PDF settings modal state
   const [pdfSettingsModal, setPdfSettingsModal] = useState<{ isOpen: boolean; mediaId: string | null }>({
@@ -1489,6 +1499,14 @@ export default function CodeEditPage({ params }: PageProps) {
     }
   };
 
+  /** Merge a media item returned by a booklet server route into local state. */
+  const applyServerMedia = (mediaId: string, updated: Record<string, unknown>) => {
+    setCode((prev) => prev ? {
+      ...prev,
+      media: prev.media.map((m) => (m.id === mediaId ? { ...m, ...updated, createdAt: m.createdAt } as MediaItem : m)),
+    } : null);
+  };
+
   const handleReplaceMedia = async (mediaId: string, file: File) => {
     if (!code || !user) return;
 
@@ -1496,6 +1514,14 @@ export default function CodeEditPage({ params }: PageProps) {
     try {
       const oldMedia = code.media.find((m) => m.id === mediaId);
       if (!oldMedia) return;
+
+      // PDF over PDF goes through the server: it records who replaced the booklet and keeps
+      // the previous file for a restore (see /api/codes/[codeId]/pdf).
+      if (oldMedia.type === 'pdf' && isPdfFile(file)) {
+        const updated = await uploadBookletPdf(code.id, mediaId, file);
+        applyServerMedia(mediaId, updated);
+        return;
+      }
 
       // Upload new file
       const formData = new FormData();
@@ -4555,6 +4581,32 @@ export default function CodeEditPage({ params }: PageProps) {
                     </Tooltip>
                   )}
 
+                  {/* Booklet file history + restore */}
+                  {media.type === 'pdf' && (
+                    <Tooltip text={tBooklets('historyButton')}>
+                      <button
+                        onClick={() => setPdfHistoryOpen(true)}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary transition-colors"
+                        aria-label={tBooklets('historyButton')}
+                      >
+                        <History className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Super admin: who else may replace this booklet's PDF */}
+                  {media.type === 'pdf' && user?.role === 'super_admin' && (
+                    <Tooltip text={tBooklets('editorsButton')}>
+                      <button
+                        onClick={() => setBookletEditorsOpen(true)}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-yellow-500 transition-colors"
+                        aria-label={tBooklets('editorsButton')}
+                      >
+                        <UserCog className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
                   {/* Link Settings button - for link-type media */}
                   {media.type === 'link' && (
                     <Tooltip text={locale === 'he' ? 'עריכת קישור' : 'Edit Link'}>
@@ -4704,6 +4756,28 @@ export default function CodeEditPage({ params }: PageProps) {
       />
 
       {/* PDF settings modal */}
+      {code && (
+        <>
+          <PdfHistoryModal
+            isOpen={pdfHistoryOpen}
+            codeId={code.id}
+            title={code.title}
+            onClose={() => setPdfHistoryOpen(false)}
+            onRestored={(updated) => {
+              if (typeof updated.id === 'string') applyServerMedia(updated.id, updated);
+            }}
+          />
+          {user?.role === 'super_admin' && (
+            <BookletEditorsModal
+              isOpen={bookletEditorsOpen}
+              codeId={code.id}
+              title={code.title}
+              onClose={() => setBookletEditorsOpen(false)}
+            />
+          )}
+        </>
+      )}
+
       <PDFSettingsModal
         isOpen={pdfSettingsModal.isOpen}
         onClose={() => setPdfSettingsModal({ isOpen: false, mediaId: null })}

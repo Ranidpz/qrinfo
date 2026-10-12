@@ -40,6 +40,8 @@ import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, hydrateCodeSecrets, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
+import { isPdfFile, uploadBookletPdf } from '@/lib/booklets/client';
+import SharedBookletsSection from '@/components/booklets/SharedBookletsSection';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
 
@@ -1439,6 +1441,37 @@ export default function DashboardPage() {
   const handleReplaceFile = async (codeId: string, code: QRCodeType, file: File) => {
     if (!user) return;
 
+    // PDF over PDF goes through the server: it records who replaced the booklet and keeps
+    // the previous file for a restore (see /api/codes/[codeId]/pdf).
+    const currentPdf = code.media[0];
+    if (currentPdf?.type === 'pdf' && isPdfFile(file)) {
+      try {
+        setUploadProgress({ codeId, progress: 0 });
+        const updated = await uploadBookletPdf(codeId, currentPdf.id, file, (progress) => setUploadProgress({ codeId, progress }));
+        setUploadProgress(null);
+        setCodes((prev) =>
+          prev.map((c) =>
+            c.id === codeId
+              ? {
+                  ...c,
+                  media: c.media.map((m) => (m.id === currentPdf.id ? { ...m, ...updated, createdAt: m.createdAt } as typeof m : m)),
+                  updatedAt: new Date(),
+                }
+              : c
+          )
+        );
+        await refreshUser();
+        setReplaceStatus({ codeId, status: 'success' });
+        setTimeout(() => setReplaceStatus(null), 3000);
+      } catch (error) {
+        console.error('Error replacing PDF:', error);
+        setUploadProgress(null);
+        setReplaceStatus({ codeId, status: 'error' });
+        setTimeout(() => setReplaceStatus(null), 3000);
+      }
+      return;
+    }
+
     try {
       // Show upload progress immediately
       setUploadProgress({ codeId, progress: 0 });
@@ -2132,6 +2165,9 @@ export default function DashboardPage() {
         </div>
       </div>
       )}
+
+      {/* Booklets a super admin let this user update (renders nothing without grants) */}
+      {user && user.role !== 'super_admin' && !currentFolderId && <SharedBookletsSection />}
 
       {/* Upload Section - Collapsible (only for logged in users) */}
       {user ? (

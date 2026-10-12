@@ -73,6 +73,12 @@ service cloud.firestore {
         allow read, write: if isCodeOwnerOrAdmin(codeId);
       }
 
+      // Booklet file history (who replaced the PDF + the kept previous file).
+      // Server only: /api/codes/[codeId]/pdf/history and /restore.
+      match /pdfHistory/{entryId} {
+        allow read, write: if false;
+      }
+
       // Q.Vote Votes subcollection
       match /votes/{voteId} {
         // Votes carry voters' phones: owner/admin only. Voters read their own
@@ -199,6 +205,12 @@ service cloud.firestore {
     }
 
     // ViewLogs collection - IMPORTANT: Allow anyone to create (for anonymous QR scanning)
+    // Booklet editors: super-admin grants to replace one booklet's PDF without ownership.
+    // Server only: /api/admin/booklet-editors, /api/booklet-editor/booklets.
+    match /bookletEditors/{grantId} {
+      allow read, write: if false;
+    }
+
     match /viewLogs/{logId} {
       // Anyone can create a view log (when scanning QR code)
       allow create: if true;
