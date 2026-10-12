@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getQRCodeByShortId } from '@/lib/db';
+import { getRaffleContextByShortId, raffleTokenValid } from '@/lib/raffle/server';
 import RaffleClient from './RaffleClient';
 
 export const dynamic = 'force-dynamic';
@@ -17,14 +17,11 @@ export default async function RafflePage({
   const { shortId } = await params;
   const { token = '' } = await searchParams;
 
-  const code = await getQRCodeByShortId(shortId);
-  if (!code) notFound();
+  const ctx = await getRaffleContextByShortId(shortId);
+  if (!ctx) notFound();
 
-  const media = code.media?.find((m) => m.type === 'raffle');
-  if (!media || !media.raffleConfig) notFound();
-
-  const config = media.raffleConfig;
-  const authorized = !!config.token && token === config.token;
+  const config = ctx.config;
+  const authorized = raffleTokenValid(config, token);
 
   // Never expose the secret token to the client.
   const { token: _secret, ...publicConfig } = config;
@@ -33,7 +30,7 @@ export default async function RafflePage({
   return (
     <RaffleClient
       config={publicConfig}
-      codeId={code.id}
+      codeId={ctx.codeId}
       token={token}
       authorized={authorized}
     />

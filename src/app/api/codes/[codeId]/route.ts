@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { stripSecretsForPublic } from '@/lib/codeSecrets';
 
 // GET /api/codes/[codeId] - Get code data
 export async function GET(
@@ -41,7 +42,7 @@ export async function GET(
         id: codeSnap.id,
         shortId: data.shortId,
         title: data.title,
-        media: data.media,
+        media: stripSecretsForPublic(data.media || []),
         config: data.config,
         createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
         updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,

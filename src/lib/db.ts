@@ -530,7 +530,7 @@ export async function hydrateCodeSecrets<T extends { id: string; media: MediaIte
     const snap = await getDoc(codeSecretsRef(code.id));
     const secrets = snap.data()?.media as CodeSecretsMap | undefined;
     if (!secrets) return code;
-    return { ...code, media: mergeMediaSecrets(code.media as unknown as Array<Record<string, unknown> & { id?: string }>, secrets) as unknown as MediaItem[] };
+    return { ...code, media: mergeMediaSecrets(code.media, secrets) };
   } catch {
     return code;
   }

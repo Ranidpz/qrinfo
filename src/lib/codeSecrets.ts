@@ -23,7 +23,8 @@ export interface MediaSecrets {
 
 export type CodeSecretsMap = Record<string, MediaSecrets>;
 
-type AnyMedia = Record<string, unknown> & { id?: string };
+type AnyMedia = { id?: string };
+type MediaRecord = Record<string, unknown> & { id?: string };
 type AnyConfig = Record<string, unknown>;
 
 // Where each secret lives inside a media item: [secret key, config key, field in config]
@@ -36,9 +37,10 @@ const SECRET_FIELDS: Array<[keyof MediaSecrets, string, string]> = [
 /** Remove secrets from media items. Only DEFINED values are returned, so an absent field never wipes a stored secret. */
 export function splitMediaSecrets<T extends AnyMedia>(media: T[]): { media: T[]; secrets: CodeSecretsMap } {
   const secrets: CodeSecretsMap = {};
-  const cleaned = media.map((m) => {
-    if (!m || typeof m !== 'object') return m;
-    let next: T = m;
+  const cleaned = media.map((item) => {
+    if (!item || typeof item !== 'object') return item;
+    const m = item as unknown as MediaRecord;
+    let next: MediaRecord = m;
     for (const [secretKey, configKey, field] of SECRET_FIELDS) {
       const config = next[configKey] as AnyConfig | undefined;
       if (!config || typeof config !== 'object' || !(field in config)) continue;
@@ -49,7 +51,7 @@ export function splitMediaSecrets<T extends AnyMedia>(media: T[]): { media: T[];
         secrets[m.id] = { ...secrets[m.id], [secretKey]: value };
       }
     }
-    return next;
+    return next as unknown as T;
   });
   return { media: cleaned, secrets };
 }
@@ -57,17 +59,17 @@ export function splitMediaSecrets<T extends AnyMedia>(media: T[]): { media: T[];
 /** Put stored secrets back into media configs (owner screens). Legacy on-doc values are kept when nothing is stored. */
 export function mergeMediaSecrets<T extends AnyMedia>(media: T[], secrets: CodeSecretsMap | undefined): T[] {
   if (!secrets) return media;
-  return media.map((m) => {
-    const s = m?.id ? secrets[m.id] : undefined;
-    if (!s) return m;
-    let next: T = m;
+  return media.map((item) => {
+    const s = item?.id ? secrets[item.id] : undefined;
+    if (!s) return item;
+    let next = item as unknown as MediaRecord;
     for (const [secretKey, configKey, field] of SECRET_FIELDS) {
       const value = s[secretKey];
       const config = next[configKey] as AnyConfig | undefined;
       if (value === undefined || !config || typeof config !== 'object') continue;
       next = { ...next, [configKey]: { ...config, [field]: value } };
     }
-    return next;
+    return next as unknown as T;
   });
 }
 
@@ -76,10 +78,11 @@ export function mergeMediaSecrets<T extends AnyMedia>(media: T[], secrets: CodeS
  * Use on every server-rendered public page that passes media to the client.
  */
 export function stripSecretsForPublic<T extends AnyMedia>(media: T[]): T[] {
-  return splitMediaSecrets(media).media.map((m) => {
+  return splitMediaSecrets(media).media.map((item) => {
+    const m = item as unknown as MediaRecord;
     const qstage = m?.qstageConfig as AnyConfig | undefined;
     const judges = qstage?.judges;
-    if (!Array.isArray(judges)) return m;
+    if (!Array.isArray(judges)) return item;
     return {
       ...m,
       qstageConfig: {
@@ -89,7 +92,7 @@ export function stripSecretsForPublic<T extends AnyMedia>(media: T[]): T[] {
           return rest;
         }),
       },
-    };
+    } as unknown as T;
   });
 }
 
@@ -97,6 +100,6 @@ export function stripSecretsForPublic<T extends AnyMedia>(media: T[]): T[] {
 export function legacyMediaSecret(media: AnyMedia | undefined, key: keyof MediaSecrets): string | undefined {
   const entry = SECRET_FIELDS.find(([k]) => k === key);
   if (!media || !entry) return undefined;
-  const value = (media[entry[1]] as AnyConfig | undefined)?.[entry[2]];
+  const value = ((media as MediaRecord)[entry[1]] as AnyConfig | undefined)?.[entry[2]];
   return typeof value === 'string' ? value : undefined;
 }

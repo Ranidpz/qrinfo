@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, runTransaction } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { QStageVote, QStageStats, QStageVoter, QStageConfig } from '@/types/qstage';
 import {
   addVoteToLive,
   triggerSuccessEvent,
   recordThresholdCrossing,
-} from '@/lib/qstage-realtime';
+} from '@/lib/server/qstage-rtdb';
 
 export async function POST(request: Request) {
   try {
@@ -18,10 +17,12 @@ export async function POST(request: Request) {
       voteType,
       avatarType,
       avatarValue,
-      isJudge = false,
-      judgeId,
-      weight = 1,
     } = body;
+
+    // Judge voting isn't implemented (no judge-token check exists), so a client can never
+    // claim judge status or a weight — every vote counts once.
+    const isJudge = false;
+    const weight = 1;
 
     // Validate required fields
     if (!codeId || !visitorId || !voteType || !avatarType || !avatarValue) {
@@ -40,10 +41,11 @@ export async function POST(request: Request) {
     }
 
     // Check if code exists and get config
-    const codeRef = doc(db, 'codes', codeId);
-    const codeDoc = await getDoc(codeRef);
+    const db = getAdminDb();
+    const codeRef = db.collection('codes').doc(codeId);
+    const codeDoc = await codeRef.get();
 
-    if (!codeDoc.exists()) {
+    if (!codeDoc.exists) {
       return NextResponse.json(
         { error: 'Code not found' },
         { status: 404 }
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
     }
 
     // Find QStage media item
-    const codeData = codeDoc.data();
+    const codeData = codeDoc.data()!;
     const qstageMedia = codeData.media?.find(
       (m: { type: string }) => m.type === 'qstage'
     );
@@ -74,10 +76,10 @@ export async function POST(request: Request) {
     }
 
     // Check for existing vote
-    const voteRef = doc(db, 'codes', codeId, 'qstage_votes', visitorId);
-    const existingVote = await getDoc(voteRef);
+    const voteRef = codeRef.collection('qstage_votes').doc(String(visitorId));
+    const existingVote = await voteRef.get();
 
-    if (existingVote.exists()) {
+    if (existingVote.exists) {
       return NextResponse.json(
         { error: 'Already voted' },
         { status: 400 }
@@ -91,13 +93,12 @@ export async function POST(request: Request) {
       avatarType,
       avatarValue,
       isJudge,
-      judgeId: isJudge ? judgeId : undefined,
       weight,
       votedAt: Date.now(),
     };
 
     // Save vote to Firestore
-    await setDoc(voteRef, vote);
+    await voteRef.set(vote);
 
     // Create voter object for real-time display
     const voter: QStageVoter = {
@@ -119,11 +120,13 @@ export async function POST(request: Request) {
     }
 
     // Update stats in Firestore (denormalized for fast reads)
-    await runTransaction(db, async (transaction) => {
+    let crossedSuccess = false;
+    let crossedThreshold: number | null = null;
+    await db.runTransaction(async (transaction) => {
       const codeSnap = await transaction.get(codeRef);
-      if (!codeSnap.exists()) return;
+      if (!codeSnap.exists) return;
 
-      const data = codeSnap.data();
+      const data = codeSnap.data()!;
       const mediaIndex = data.media?.findIndex(
         (m: { type: string }) => m.type === 'qstage'
       );
@@ -170,27 +173,33 @@ export async function POST(request: Request) {
       const successThreshold = config.successThreshold || 65;
       const thresholds = config.thresholds || [];
 
-      // Check if we crossed success threshold
-      if (prevLikePercent < successThreshold && newLikePercent >= successThreshold) {
-        try {
-          await triggerSuccessEvent(codeId);
-        } catch (e) {
-          console.error('Error triggering success:', e);
-        }
-      }
+      // Check if we crossed success threshold (RTDB events fire after the transaction commits)
+      crossedSuccess = prevLikePercent < successThreshold && newLikePercent >= successThreshold;
 
       // Check for other threshold crossings
+      crossedThreshold = null;
       for (const threshold of thresholds) {
         if (prevLikePercent < threshold.percentage && newLikePercent >= threshold.percentage) {
-          try {
-            await recordThresholdCrossing(codeId, threshold.percentage);
-          } catch (e) {
-            console.error('Error recording threshold:', e);
-          }
+          crossedThreshold = threshold.percentage;
           break; // Only record highest crossed threshold
         }
       }
     });
+
+    if (crossedSuccess) {
+      try {
+        await triggerSuccessEvent(codeId);
+      } catch (e) {
+        console.error('Error triggering success:', e);
+      }
+    }
+    if (crossedThreshold !== null) {
+      try {
+        await recordThresholdCrossing(codeId, crossedThreshold);
+      } catch (e) {
+        console.error('Error recording threshold:', e);
+      }
+    }
 
     return NextResponse.json({
       success: true,

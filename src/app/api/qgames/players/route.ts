@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
-import { removeFromLeaderboard, recalculateLeaderboardRanks } from '@/lib/qgames-realtime';
+import { removeFromLeaderboard, recalculateLeaderboardRanks } from '@/lib/server/qgames-rtdb';
 
 export async function GET(request: NextRequest | Request) {
   try {

@@ -26,7 +26,7 @@ import {
   deleteFroggerRoom,
   getGameRecord,
   updateGameRecord,
-} from '@/lib/qgames-realtime';
+} from '@/lib/server/qgames-rtdb';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {

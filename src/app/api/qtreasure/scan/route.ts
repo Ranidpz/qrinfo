@@ -6,7 +6,7 @@ import {
   recalculateTreasureRanks,
   addRecentCompletion,
   trimRecentCompletions,
-} from '@/lib/qtreasure-realtime';
+} from '@/lib/server/qtreasure-rtdb';
 import { checkRateLimit, getClientIp, validateOrigin, RATE_LIMITS } from '@/lib/rateLimit';
 import {
   getTreasureCodeConfig,

@@ -1,5 +1,6 @@
 import { getAdminDb } from '@/lib/firebase-admin';
 import type { RaffleConfig } from '@/lib/raffle/types';
+import { resolveMediaSecret, secretsEqual } from '@/lib/codeSecrets.server';
 
 // Server-only helpers for the raffle experience (Admin SDK).
 // Participants/winners live in Firestore subcollections under the code:
@@ -44,19 +45,28 @@ export async function getRaffleContext(codeId: string): Promise<RaffleContext | 
     (m) => m.type === 'raffle'
   );
   if (!media) return null;
+  const config = (media.raffleConfig as RaffleConfig) || ({} as RaffleConfig);
+  // The big-screen token lives in the owner-only private doc (legacy: on the config).
+  const token = await resolveMediaSecret(codeId, media, 'raffleToken');
   return {
     codeId,
     ownerId: String(data.ownerId || ''),
     mediaId: String(media.id || ''),
-    config: (media.raffleConfig as RaffleConfig) || ({} as RaffleConfig),
+    config: { ...config, token },
   };
+}
+
+/** Raffle context by the public shortId (big-screen page). */
+export async function getRaffleContextByShortId(shortId: string): Promise<RaffleContext | null> {
+  const snap = await getAdminDb().collection('codes').where('shortId', '==', shortId).limit(1).get();
+  const docSnap = snap.docs[0];
+  if (!docSnap) return null;
+  return getRaffleContext(docSnap.id);
 }
 
 // Constant-time-ish token check for the public big-screen link.
 export function raffleTokenValid(config: RaffleConfig, token: string | null): boolean {
-  if (!config.token) return false;
-  if (!token) return false;
-  return token === config.token;
+  return secretsEqual(config.token, token);
 }
 
 export function participantsCol(codeId: string) {

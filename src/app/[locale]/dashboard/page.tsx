@@ -725,7 +725,7 @@ export default function DashboardPage() {
     if (!user) return;
     try {
       const raffleTitle = name?.trim() || 'הגרלה';
-      const token = `tkn_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+      const token = `tkn_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
       const newCode = await createQRCode(
         user.id,
         raffleTitle,

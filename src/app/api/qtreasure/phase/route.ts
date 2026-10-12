@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { QTreasurePhase } from '@/types/qtreasure';
-import { updateTreasureStatus, resetTreasureRealtimeSession } from '@/lib/qtreasure-realtime';
+import { updateTreasureStatus, resetTreasureRealtimeSession } from '@/lib/server/qtreasure-rtdb';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { patchTreasureConfig, resetTreasureSession } from '@/lib/qtreasure/store';
 

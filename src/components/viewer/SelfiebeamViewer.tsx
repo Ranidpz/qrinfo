@@ -134,9 +134,8 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   const [locale, setLocale] = useState<'he' | 'en'>('he');
   const t = uploadTranslations[locale];
 
-  // Photographer-link token: from the URL (?pk=...) or remembered on this device.
-  const [pkParam, setPkParam] = useState<string | null>(null);
-  const [storedPk, setStoredPk] = useState<string | null>(null);
+  // Photographer mode — set once the server confirms the ?pk= token (or the one remembered here).
+  const [photographerMode, setPhotographerMode] = useState(false);
 
   // In-app browser (WhatsApp/Instagram/Facebook) gate: these browsers isolate localStorage and
   // break camera/upload, so a link tapped inside WhatsApp fails. Nudge the user to reopen in the
@@ -148,18 +147,34 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   useEffect(() => {
     setLocale(getBrowserLocale());
     setInAppBrowser(isInAppBrowser());
+    // Photographer link: the token is checked by the server (it is not on the public doc).
+    // A valid token is remembered on this device so an installed PWA (which may launch
+    // without the ?pk= param) still opens in photographer mode.
+    let fromUrl: string | null = null;
+    let stored: string | null = null;
+    const key = codeId ? `pk_${codeId}` : null;
     try {
-      const fromUrl = new URLSearchParams(window.location.search).get('pk');
-      setPkParam(fromUrl);
-      const key = codeId ? `pk_${codeId}` : null;
-      if (key) {
-        // Remember a valid token on this device so an installed PWA (which may launch without
-        // the ?pk= param) still opens in photographer mode.
-        if (fromUrl && fromUrl === content.photographerToken) localStorage.setItem(key, fromUrl);
-        setStoredPk(localStorage.getItem(key));
-      }
+      fromUrl = new URLSearchParams(window.location.search).get('pk');
+      stored = key ? localStorage.getItem(key) : null;
     } catch {
       // ignore — no query string / storage unavailable
+    }
+    const candidate = fromUrl || stored;
+    if (codeId && candidate) {
+      fetch('/api/selfiebeam/photographer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, pk: candidate }),
+      })
+        .then((r) => r.json())
+        .then((data: { ok?: boolean }) => {
+          setPhotographerMode(!!data.ok);
+          try {
+            if (key && data.ok) localStorage.setItem(key, candidate);
+            else if (key && stored && !data.ok) localStorage.removeItem(key);
+          } catch { /* storage unavailable */ }
+        })
+        .catch(() => { /* offline — stay in public mode */ });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -189,10 +204,7 @@ export default function SelfiebeamViewer({ content, codeId, shortId, ownerId }: 
   };
 
   // Photographer mode is unlocked via the staff link `/v/{shortId}?pk={photographerToken}` —
-  // either in the URL, or remembered on this device (for the installed PWA).
-  const photographerMode =
-    !!content.photographerToken &&
-    (pkParam === content.photographerToken || storedPk === content.photographerToken);
+  // either in the URL, or remembered on this device (for the installed PWA); verified server-side.
 
   // Where to remember "my uploads": a field photographer needs them to survive refresh AND
   // tab-close, so use localStorage in photographer mode. The public link uses sessionStorage so

@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { stripSecretsForPublic } from '@/lib/codeSecrets';
 import { getQRCodeByShortId } from '@/lib/db';
 import { getAdminDb } from '@/lib/firebase-admin';
 import ViewerClient from './ViewerClient';
@@ -89,11 +90,10 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
     }
 
     if (!redirectTarget && code) {
-      // Raffle codes open the dedicated big-screen page (with the link token).
-      const raffleMedia = code.media.find((m) => m.type === 'raffle');
-      if (raffleMedia) {
-        const tok = raffleMedia.raffleConfig?.token || '';
-        raffleRedirect = `/raffle/${code.shortId}${tok ? `?token=${encodeURIComponent(tok)}` : ''}`;
+      // Raffle codes open the dedicated big-screen page. The token is NOT added here —
+      // anyone can open /v; the operator uses the token link, or is let in as the signed-in owner.
+      if (code.media.some((m) => m.type === 'raffle')) {
+        raffleRedirect = `/raffle/${code.shortId}`;
       }
 
       // Filter media by schedule
@@ -121,7 +121,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
 
       if (!raffleRedirect) return (
         <ViewerClient
-          media={activeMedia}
+          media={stripSecretsForPublic(activeMedia)}
           widgets={code.widgets}
           title={code.title}
           codeId={code.id}

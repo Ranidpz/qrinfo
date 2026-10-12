@@ -3,7 +3,7 @@ import {
   QTreasurePlayer,
   QTreasureRegistrationResult,
 } from '@/types/qtreasure';
-import { initTreasureSession, treasureSessionExists } from '@/lib/qtreasure-realtime';
+import { initTreasureSession, treasureSessionExists } from '@/lib/server/qtreasure-rtdb';
 import { checkRateLimit, getClientIp, validateOrigin, RATE_LIMITS } from '@/lib/rateLimit';
 import {
   getTreasureCodeConfig,

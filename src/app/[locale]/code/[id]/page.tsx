@@ -1987,7 +1987,7 @@ export default function CodeEditPage({ params }: PageProps) {
       token:
         existingToken ||
         config.token ||
-        `tkn_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`,
+        `tkn_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`,
     };
     let updatedMedia: MediaItem[];
     if (targetId) {
@@ -2152,7 +2152,7 @@ export default function CodeEditPage({ params }: PageProps) {
   ) => {
     if (!code || !user || winners.length === 0) return;
     const raffleTitle = `הגרלת הזוכים — ${code.title}`;
-    const token = `tkn_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+    const token = `tkn_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
     const newCode = await createQRCode(
       user.id,
       raffleTitle,

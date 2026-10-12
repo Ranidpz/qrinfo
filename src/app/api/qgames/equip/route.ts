@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { QGamesPlayer, QGamesPrizeType } from '@/types/qgames';
-import { updateLeaderboardEntry } from '@/lib/qgames-realtime';
+import { updateLeaderboardEntry } from '@/lib/server/qgames-rtdb';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
 const EQUIP_SLOTS: Record<QGamesPrizeType, keyof QGamesPlayer> = {

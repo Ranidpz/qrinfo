@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { incrementTreasurePlayersPlaying } from '@/lib/qtreasure-realtime';
+import { incrementTreasurePlayersPlaying } from '@/lib/server/qtreasure-rtdb';
 import { checkRateLimit, getClientIp, validateOrigin, RATE_LIMITS } from '@/lib/rateLimit';
 import {
   getTreasureCodeConfig,

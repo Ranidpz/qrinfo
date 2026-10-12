@@ -27,6 +27,32 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
   // the look on the big screen can't overwrite the owner's saved config.
   const [display, setDisplay] = useState<RaffleConfig>(config);
 
+  // Opened without the token link (e.g. via /v/{shortId})? A signed-in owner is let in by
+  // fetching the token; everyone else sees "unauthorized".
+  const [ownerCheck, setOwnerCheck] = useState<'checking' | 'denied'>(authorized ? 'denied' : 'checking');
+  useEffect(() => {
+    if (authorized) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchWithAuth(`/api/raffle/token?codeId=${encodeURIComponent(codeId)}`);
+        if (res.ok) {
+          const { token: ownerToken } = await res.json();
+          if (!cancelled && ownerToken) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('token', ownerToken);
+            window.location.replace(url.toString());
+            return;
+          }
+        }
+      } catch {
+        // not signed in
+      }
+      if (!cancelled) setOwnerCheck('denied');
+    })();
+    return () => { cancelled = true; };
+  }, [authorized, codeId]);
+
   const fetchNames = useCallback(async () => {
     try {
       const r = await fetch(
@@ -167,6 +193,9 @@ export default function RaffleClient({ config, codeId, token, authorized }: Raff
   const patchDisplay = (p: Partial<RaffleConfig>) => setDisplay((d) => ({ ...d, ...p }));
 
   if (!authorized) {
+    if (ownerCheck !== 'denied') {
+      return <div className="h-screen w-screen bg-black" />;
+    }
     return (
       <div
         dir="rtl"

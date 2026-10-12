@@ -3,41 +3,61 @@
     "qhunt": {
       "$codeId": {
         ".read": true,
-        ".write": true
+        ".write": "!data.exists()",
+        ".validate": "newData.hasChildren(['status', 'lastUpdated'])"
       }
     },
     "qstage": {
       "$codeId": {
         ".read": true,
-        ".write": true
+        ".write": "!data.exists()",
+        ".validate": "newData.hasChildren(['status', 'lastUpdated'])"
       }
     },
     "qchallenge": {
       "$codeId": {
         ".read": true,
-        ".write": true
+        ".write": false
       }
     },
     "qtreasure": {
       "$codeId": {
         ".read": true,
-        ".write": true
+        ".write": "!data.exists()",
+        ".validate": "newData.hasChildren(['status', 'lastUpdated'])"
       }
     },
     "qgames": {
       "$codeId": {
         ".read": true,
-        ".write": true,
+        "stats": {
+          ".write": true
+        },
+        "queue": {
+          ".write": true
+        },
+        "matches": {
+          ".write": true
+        },
+        "memoryRooms": {
+          ".write": true
+        },
+        "froggerRooms": {
+          ".write": true
+        },
         "viewers": {
+          ".write": true,
           ".indexOn": ["joinedAt"]
         },
         "chat": {
+          ".write": true,
           ".indexOn": ["sentAt"],
           "$messageId": {
             ".validate": "newData.hasChildren(['senderId', 'senderNickname', 'text', 'sentAt', 'phraseType']) && newData.child('text').isString() && newData.child('text').val().length <= 200 && newData.child('senderNickname').isString() && newData.child('senderNickname').val().length <= 30 && newData.child('senderId').isString() && newData.child('sentAt').isNumber() && newData.child('phraseType').isString()"
           }
         },
         "chatBans": {
+          ".write": true,
           "$visitorId": {
             ".validate": "newData.hasChildren(['visitorId', 'bannedAt']) && newData.child('bannedAt').isNumber() && newData.child('visitorId').isString() && newData.child('visitorId').val().length <= 50"
           }
