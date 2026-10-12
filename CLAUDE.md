@@ -34,6 +34,12 @@ import { fetchWithAuth } from '@/lib/fetchWithAuth';
 const res = await fetchWithAuth('/api/some-endpoint?codeId=xxx');
 ```
 
+### Secrets, storage, RTDB (phase-0 security model)
+- Per-media secrets (raffle `token`, Selfie Beam `photographerToken`, Q.Tag `scannerPin`) live in `codes/{id}/private/secrets` (owner/collaborator/admin rule), NOT on the public code doc. `db.ts` `createQRCode`/`updateQRCode` split them off on every save; owner editors load them with `hydrateCodeSecrets`; servers read `resolveMediaSecret` (private first, legacy on-doc fallback). Client code never compares a secret — it asks an API (`/api/selfiebeam/photographer`, `/api/qtag/scanner-guests`, raffle routes). Public pages pass media through `stripSecretsForPublic`. Migration: `scripts/migrate-code-secrets.mjs`.
+- `users.storageUsed` is server-only (`src/lib/storage-guard.ts`, used by `/api/upload` + `/api/gallery`); `/api/upload` takes the uid from the Bearer token (use `fetchWithAuth`) and enforces the quota. `updateUserStorage` is a no-op.
+- API routes that write RTDB must use `src/lib/server/*-rtdb.ts` (Admin SDK) — the client SDK on the server is unauthenticated and `database.rules.json` denies it.
+- `qtagGuests`, `votes`, `cellRegistrations`, `messageLogs` are owner/admin reads only; public flows go through API routes (masked phones).
+
 ### Locked collections (ALL client writes = `if false`, Admin SDK only)
 `votes`, `verifiedVoters`, `verificationCodes`, `rateLimits`, `qtagGuests`, `qtagStats`, `cellRegistrations` (delete)
 
