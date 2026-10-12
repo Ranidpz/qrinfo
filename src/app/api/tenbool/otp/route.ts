@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
 import { generateOTPCode, hashOTPCode, verifyOTPCode } from '@/lib/verification';
-import { sendOTP } from '@/lib/inforu';
+import { guardedSendOTP } from '@/lib/messaging/paidSend';
 import {
   bumpOtpAttempts,
   getAuthedPlayer,
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       }
       const otp = generateOTPCode(OTP_LENGTH);
       await saveOtp(ref, normalized, hashOTPCode(otp), Date.now() + OTP_EXPIRY_MS);
-      const sent = await sendOTP(normalized, otp, 'whatsapp', 'he');
+      const sent = await guardedSendOTP({ codeId, kind: 'tenbool-otp' }, normalized, otp, 'whatsapp', 'he');
       if (!sent.result.success) {
         return NextResponse.json({ error: 'Send failed', errorCode: 'SEND_FAILED' }, { status: 502 });
       }

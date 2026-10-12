@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
-import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
+import { normalizePhoneNumber, isValidIsraeliMobile, maskPhoneNumber } from '@/lib/phone-utils';
 import crypto from 'crypto';
-import { sendQTagQRWhatsApp } from '@/lib/qtag-whatsapp';
+import { guardedSendQTagQR, guardedSendOTP } from '@/lib/messaging/paidSend';
 import { generateOTPCode, hashOTPCode } from '@/lib/verification';
-import { sendOTP } from '@/lib/inforu';
 
 // Generate cryptographically secure QR token for check-in
 function generateQRToken(): string {
@@ -193,7 +192,8 @@ export async function POST(request: NextRequest) {
 
       // Send OTP via WhatsApp/SMS
       const locale = body.locale === 'en' ? 'en' : 'he';
-      const sendResult = await sendOTP(
+      const sendResult = await guardedSendOTP(
+        { codeId, kind: 'qtag-otp' },
         normalizedPhone,
         otp,
         config.verification.method || 'whatsapp',
@@ -269,9 +269,9 @@ export async function POST(request: NextRequest) {
 
     // Send QR link via WhatsApp (awaited so Vercel doesn't terminate before it completes)
     if (config.sendQrViaWhatsApp !== false) {
-      console.log(`[QTag Register] Sending QR WhatsApp: phone="${normalizedPhone}", shortId="${codeData.shortId}"`);
+      console.log(`[QTag Register] Sending QR WhatsApp: phone="${maskPhoneNumber(normalizedPhone)}", shortId="${codeData.shortId}"`);
       try {
-        const whatsappResult = await sendQTagQRWhatsApp({
+        const whatsappResult = await guardedSendQTagQR({ codeId, kind: 'qtag-qr' }, {
           codeId,
           guestId: guestRef.id,
           guestName: trimmedName,

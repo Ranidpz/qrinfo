@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { sendOTP, sendTemplateMessage, isINFORUConfigured } from '@/lib/inforu';
-import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
+import { isINFORUConfigured } from '@/lib/inforu';
+import { guardedSendOTP, guardedSendTemplate } from '@/lib/messaging/paidSend';
+import { normalizePhoneNumber, isValidIsraeliMobile, maskPhoneNumber } from '@/lib/phone-utils';
 import { generateOTPCode, hashOTPCode, getExpiryTime, verifyOTPCode } from '@/lib/verification';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Send OTP via WhatsApp/SMS
-      const sendResult = await sendOTP(normalizedPhone, otpCode, 'whatsapp', locale as 'he' | 'en');
+      const sendResult = await guardedSendOTP({ codeId, kind: 'weeklycal-otp' }, normalizedPhone, otpCode, 'whatsapp', locale as 'he' | 'en');
 
       if (!sendResult.result.success) {
         console.error('[WeeklyCal Verify] Failed to send OTP:', sendResult.result.error);
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
           });
 
           const regData = regDoc.data()!;
-          console.log('[WeeklyCal Verify] Registration verified:', regId, 'qrToken:', regData?.qrToken);
+          console.log('[WeeklyCal Verify] Registration verified:', regId, 'qrToken:', String(regData?.qrToken || '').slice(0, 4) + '…');
 
           // Create token mapping for easy lookup (avoids collection group query)
           if (regData?.qrToken) {
@@ -290,7 +291,8 @@ export async function POST(request: NextRequest) {
               landingUrl,               // [#5#] landing page URL
             ];
 
-            const sendResult = await sendTemplateMessage(
+            const sendResult = await guardedSendTemplate(
+              { codeId, kind: 'weeklycal-qr' },
               normalizedPhone,
               'booth_qr_code',
               templateParams,
@@ -298,7 +300,7 @@ export async function POST(request: NextRequest) {
             );
 
             if (sendResult.success) {
-              console.log('[WeeklyCal Verify] QR link sent to', normalizedPhone);
+              console.log('[WeeklyCal Verify] QR link sent to', maskPhoneNumber(normalizedPhone));
             } else {
               console.error('[WeeklyCal Verify] Failed to send QR link:', sendResult.error);
             }

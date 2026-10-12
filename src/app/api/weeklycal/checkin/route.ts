@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
             registrationId,
             createdAt: FieldValue.serverTimestamp(),
           });
-          console.log('[WeeklyCal Checkin] Created qrTokenMapping for', qrToken);
+          console.log('[WeeklyCal Checkin] Created qrTokenMapping for', String(qrToken).slice(0, 4) + '…');
         }
       }
     }

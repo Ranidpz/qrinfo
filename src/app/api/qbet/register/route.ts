@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, validateOrigin, RATE_LIMITS } from '@/lib/rateLimit';
 import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
 import { generateOTPCode, hashOTPCode } from '@/lib/verification';
-import { sendOTP } from '@/lib/inforu';
+import { guardedSendOTP } from '@/lib/messaging/paidSend';
 import { getEntry, upsertRegistration } from '@/lib/qbet/store';
 import { loadQBetConfig, isValidCodeId } from '@/lib/qbet/server';
 import { isBettingLocked } from '@/lib/qbet/types';
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       otpExpiresAt,
     });
 
-    const sendResult = await sendOTP(normalizedPhone, otp, 'whatsapp', locale);
+    const sendResult = await guardedSendOTP({ codeId, kind: 'qbet-otp' }, normalizedPhone, otp, 'whatsapp', locale);
     if (!sendResult.result.success) {
       return NextResponse.json(
         { error: 'Failed to send verification code', errorCode: 'SEND_FAILED' },

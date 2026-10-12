@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { maskPhoneNumber } from '@/lib/phone-utils';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { sendTemplateMessage, isINFORUConfigured } from '@/lib/inforu';
+import { isINFORUConfigured } from '@/lib/inforu';
+import { guardedSendTemplate } from '@/lib/messaging/paidSend';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest) {
       landingUrl,                   // [#5#] landing page URL
     ];
 
-    const sendResult = await sendTemplateMessage(
+    const sendResult = await guardedSendTemplate({ codeId, kind: 'weeklycal-qr', ownerTriggered: true }, 
       registration.phone,
       'booth_qr_code',
       templateParams,
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[WeeklyCal SendQR] QR link sent successfully to', registration.phone);
+    console.log('[WeeklyCal SendQR] QR link sent successfully to', maskPhoneNumber(registration.phone));
 
     return NextResponse.json({
       success: true,

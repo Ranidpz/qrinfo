@@ -10,10 +10,11 @@
  */
 
 import { isINFORUConfigured } from '@/lib/inforu';
+import { maskPhoneNumber } from '@/lib/phone-utils';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
-interface SendQTagQRParams {
+export interface SendQTagQRParams {
   codeId: string;
   guestId: string;
   guestName: string;
@@ -59,7 +60,7 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
   }
 
   // Log raw params for debugging
-  console.log(`[QTag WhatsApp] Raw params: guestPhone="${params.guestPhone}", shortId="${params.shortId}", guestName="${params.guestName}", eventName="${params.eventName}"`);
+  console.log(`[QTag WhatsApp] Raw params: guestPhone="${maskPhoneNumber(params.guestPhone)}", shortId="${params.shortId}", eventName="${params.eventName}"`);
 
   // Format phone number
   let formattedPhone = params.guestPhone.replace(/\D/g, '');
@@ -69,14 +70,14 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
 
   // Block placeholder/test phones
   if (BLOCKED_PHONES.includes(formattedPhone) || BLOCKED_PHONES.includes(params.guestPhone)) {
-    console.error(`[QTag WhatsApp] BLOCKED: phone "${params.guestPhone}" → "${formattedPhone}" is a placeholder/test number`);
+    console.error(`[QTag WhatsApp] BLOCKED: phone "${maskPhoneNumber(params.guestPhone)}" → "${maskPhoneNumber(formattedPhone)}" is a placeholder/test number`);
     return { success: false, error: 'Invalid phone: placeholder number detected' };
   }
 
   // URL button suffix only — the template base URL is already https://qr.playzones.app/v/
   const qrLinkSuffix = `${params.shortId}?token=${params.qrToken}`;
 
-  console.log(`[QTag WhatsApp] Sending to ${formattedPhone}, template=${QTAG_TEMPLATE_ID}, suffix=${qrLinkSuffix.slice(0, 30)}...`);
+  console.log(`[QTag WhatsApp] Sending to ${maskPhoneNumber(formattedPhone)}, template=${QTAG_TEMPLATE_ID}, suffix=${qrLinkSuffix.slice(0, 12)}...`);
 
   try {
     const payload = {
@@ -108,7 +109,7 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
     console.log(`[QTag WhatsApp] INFORU response: status=${response.status}, body=${responseText}`);
 
     if (!response.ok) {
-      console.error(`[QTag WhatsApp] API error: ${response.status} | Phone: ${formattedPhone} | Response: ${responseText}`);
+      console.error(`[QTag WhatsApp] API error: ${response.status} | Phone: ${maskPhoneNumber(formattedPhone)} | Response: ${responseText}`);
       const truncated = responseText.slice(0, 300);
       return { success: false, error: `API error: ${response.status} | ${truncated}` };
     }
@@ -130,12 +131,12 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
           qrSentAt: FieldValue.serverTimestamp(),
         });
 
-      console.log(`[QTag WhatsApp] SUCCESS: QR link sent to ${formattedPhone} for event "${params.eventName}", RequestId=${result.RequestId}`);
+      console.log(`[QTag WhatsApp] SUCCESS: QR link sent to ${maskPhoneNumber(formattedPhone)} for event "${params.eventName}", RequestId=${result.RequestId}`);
       return { success: true, requestId: result.RequestId, statusId: result.StatusId };
     }
 
     const errorMessage = result.StatusDescription || result.DetailedDescription || 'Unknown error';
-    console.error(`[QTag WhatsApp] Failed: StatusId=${result.StatusId}, ${errorMessage}, Phone=${formattedPhone}`);
+    console.error(`[QTag WhatsApp] Failed: StatusId=${result.StatusId}, ${errorMessage}, Phone=${maskPhoneNumber(formattedPhone)}`);
     return { success: false, error: errorMessage, statusId: result.StatusId };
   } catch (error) {
     console.error('[QTag WhatsApp] Error:', error);

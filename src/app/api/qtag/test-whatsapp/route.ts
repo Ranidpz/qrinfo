@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { sendQTagQRWhatsApp } from '@/lib/qtag-whatsapp';
+import { guardedSendQTagQR } from '@/lib/messaging/paidSend';
 
 /**
  * Admin diagnostic endpoint: Test WhatsApp QR delivery for a specific guest.
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Send
-    const result = await sendQTagQRWhatsApp(params);
+    const result = await guardedSendQTagQR({ codeId, kind: 'qtag-qr-test', ownerTriggered: true }, params);
 
     return NextResponse.json({
       diagnostics,

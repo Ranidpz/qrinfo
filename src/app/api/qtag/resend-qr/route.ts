@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { sendQTagQRWhatsApp } from '@/lib/qtag-whatsapp';
+import { guardedSendQTagQR } from '@/lib/messaging/paidSend';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
-import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
+import { normalizePhoneNumber, isValidIsraeliMobile, maskPhoneNumber } from '@/lib/phone-utils';
 
 /**
  * Public endpoint: Resend QR code link via WhatsApp to a registered guest
@@ -79,11 +79,11 @@ export async function POST(request: NextRequest) {
     const guest = guestDoc.data();
 
     // Send QR via WhatsApp (awaited so Vercel doesn't terminate before it completes)
-    console.log(`[QTag ResendQR] Guest found: name="${guest.name}", phone="${guest.phone}", qrToken="${guest.qrToken?.slice(0, 4)}...", shortId="${codeData.shortId}"`);
+    console.log(`[QTag ResendQR] Guest found: phone="${maskPhoneNumber(guest.phone)}", qrToken="${guest.qrToken?.slice(0, 4)}...", shortId="${codeData.shortId}"`);
     let whatsappSent = false;
     let whatsappError: string | undefined;
     try {
-      const result = await sendQTagQRWhatsApp({
+      const result = await guardedSendQTagQR({ codeId, kind: 'qtag-qr-resend' }, {
         codeId,
         guestId: guestDoc.id,
         guestName: guest.name,

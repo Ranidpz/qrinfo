@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { sendOTP, isINFORUConfigured } from '@/lib/inforu';
+import { isINFORUConfigured } from '@/lib/inforu';
+import { guardedSendOTP } from '@/lib/messaging/paidSend';
 import { normalizePhoneNumber, isValidIsraeliMobile } from '@/lib/phone-utils';
 import { generateOTPCode, hashOTPCode, getExpiryTime } from '@/lib/verification';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -206,7 +207,9 @@ export async function POST(request: NextRequest) {
     const expiresAt = getExpiryTime(expiryMinutes);
 
     // Send OTP via INFORU
-    const { result, methodUsed } = await sendOTP(
+    // Guarded send: durable anti-abuse caps + quota counting + messageLogs in one place
+    const { result, methodUsed } = await guardedSendOTP(
+      { codeId, kind: 'qvote-otp' },
       normalizedPhone,
       otpCode,
       verificationConfig.method || 'whatsapp',
@@ -214,18 +217,6 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.success) {
-      // Log failed attempt
-      await db.collection('messageLogs').add({
-        userId: ownerId,
-        codeId,
-        phone: normalizedPhone,
-        method: methodUsed,
-        status: 'failed',
-        errorMessage: result.error,
-        cost: 0,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-
       return NextResponse.json(
         { error: 'Failed to send verification code', errorCode: 'SEND_FAILED' },
         { status: 500 }
@@ -246,21 +237,7 @@ export async function POST(request: NextRequest) {
       expiresAt: expiresAt,
     });
 
-    // Decrement quota and log message
-    await db.collection('users').doc(ownerId).update({
-      'messageQuota.used': FieldValue.increment(1),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    await db.collection('messageLogs').add({
-      userId: ownerId,
-      codeId,
-      phone: normalizedPhone,
-      method: methodUsed,
-      status: 'sent',
-      cost: 1,
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    // Quota and message log are recorded by guardedSendOTP
 
     const newRemaining = quota.limit - quota.used - 1;
 

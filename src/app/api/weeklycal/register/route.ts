@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           });
 
           if (existingPhoneReg) {
-            console.log('WeeklyCal RSVP: Phone already registered', phone);
+            console.log('WeeklyCal RSVP: Phone already registered', maskPhoneNumber(phone));
             return NextResponse.json(
               {
                 error: 'Phone already registered',
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
         const qrToken = generateQRToken();
 
         // Register for the cell with count (number of attendees)
-        console.log('WeeklyCal RSVP: Registering with count', count, 'qrToken:', qrToken);
+        console.log('WeeklyCal RSVP: Registering with count', count, 'qrToken:', String(qrToken || '').slice(0, 4) + '…');
         const registrationData: Record<string, unknown> = {
           codeId,
           cellId,
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
         }
 
         await registrationRef.set(registrationData);
-        console.log('WeeklyCal RSVP: Registration saved with qrToken:', qrToken);
+        console.log('WeeklyCal RSVP: Registration saved with qrToken:', String(qrToken).slice(0, 4) + '…');
 
         // Create qrTokenMappings for fast check-in lookup (using admin SDK)
         try {
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
             registrationId,
             createdAt: FieldValue.serverTimestamp(),
           });
-          console.log('WeeklyCal RSVP: Created qrTokenMapping for', qrToken);
+          console.log('WeeklyCal RSVP: Created qrTokenMapping for', String(qrToken).slice(0, 4) + '…');
         } catch (mappingError) {
           // Don't fail registration if mapping creation fails
           console.error('WeeklyCal RSVP: Failed to create qrTokenMapping:', mappingError);
@@ -325,7 +325,7 @@ export async function GET(request: NextRequest) {
 
     // If token is provided, find registration by qrToken (for landing page / check-in)
     if (qrToken) {
-      console.log('WeeklyCal GET: Finding registration by token:', qrToken);
+      console.log('WeeklyCal GET: Finding registration by token:', String(qrToken).slice(0, 4) + '…');
 
       // Need to search across all codes if codeId not provided
       if (codeId) {
@@ -561,7 +561,7 @@ export async function DELETE(request: NextRequest) {
       try {
         // Use admin API for token mapping deletion
         // For now, just log - token mappings are cleaned up lazily
-        console.log('WeeklyCal DELETE: Registration had qrToken:', regData.qrToken);
+        console.log('WeeklyCal DELETE: Registration had qrToken:', String(regData.qrToken).slice(0, 4) + '…');
       } catch (e) {
         console.error('WeeklyCal DELETE: Error cleaning token mapping:', e);
       }

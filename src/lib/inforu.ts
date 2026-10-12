@@ -4,6 +4,7 @@
  */
 
 import type { INFORUSendResult, VerificationMethod } from '@/types/verification';
+import { maskPhoneNumber } from '@/lib/phone-utils';
 
 // Environment variables
 const INFORU_API_USER = process.env.INFORU_API_USER;
@@ -54,7 +55,7 @@ export async function sendWhatsAppOTP(
     formattedPhone = '972' + formattedPhone.substring(1); // Convert 05X to 9725X
   }
 
-  console.log(`[INFORU] Sending WhatsApp OTP to ${formattedPhone} using template ${templateId}`);
+  console.log(`[INFORU] Sending WhatsApp OTP to ${maskPhoneNumber(formattedPhone)} using template ${templateId}`);
 
   try {
     validateConfig();
@@ -150,7 +151,7 @@ export async function sendSMSOTP(
     formattedPhone = '972' + formattedPhone.substring(1);
   }
 
-  console.log(`[INFORU] Sending SMS OTP to ${formattedPhone}`);
+  console.log(`[INFORU] Sending SMS OTP to ${maskPhoneNumber(formattedPhone)}`);
 
   try {
     validateConfig();
@@ -229,7 +230,7 @@ export async function sendTemplateMessage(
     formattedPhone = '972' + formattedPhone.substring(1);
   }
 
-  console.log(`[INFORU] Sending template message "${templateName}" to ${formattedPhone}`);
+  console.log(`[INFORU] Sending template message "${templateName}" to ${maskPhoneNumber(formattedPhone)}`);
 
   // Get template ID from environment or use template name directly
   const templateIdEnvVar = `INFORU_TEMPLATE_${templateName.toUpperCase()}`;

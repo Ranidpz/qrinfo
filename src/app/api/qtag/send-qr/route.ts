@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
-import { sendQTagQRWhatsApp } from '@/lib/qtag-whatsapp';
+import { guardedSendQTagQR } from '@/lib/messaging/paidSend';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 /**
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await sendQTagQRWhatsApp({
+    const result = await guardedSendQTagQR({ codeId, kind: 'qtag-qr', ownerTriggered: true }, {
       codeId,
       guestId,
       guestName: guest.name,
