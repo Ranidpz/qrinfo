@@ -12,7 +12,7 @@ export interface PdfHistoryEntry {
   actor: { uid: string | null; via: PdfActorVia; email?: string; name?: string } | null;
   mediaId?: string;
   next?: { filename?: string; size: number; pageCount?: number } | null;
-  previous?: { filename?: string; size: number; pageCount?: number; retained: boolean } | null;
+  previous?: { filename?: string; size: number; pageCount?: number; retained: boolean; restored?: boolean } | null;
   target?: { email?: string; name?: string } | null;
   canRestore: boolean;
 }

@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.17';
+export const APP_VERSION = '1.27.18';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.18', date: '2026-10-13', isNew: true, highlights: {
+    he: ['חוברות PDF: מנהל־על יכול לתת למשתמש נוסף הרשאה לעדכן את הקובץ של חוברות נבחרות, בלי להעביר בעלות', 'בכל החלפת PDF הקובץ הקודם נשמר, ואפשר לשחזר אותו בלחיצה מתוך "היסטוריית גרסאות"', 'היומן מראה מי החליף כל קובץ ומתי'],
+    en: ['PDF booklets: a super admin can let another user update the file of chosen booklets, without transferring ownership', 'Every PDF replacement keeps the previous file, restorable in one click from "Version history"', 'The history shows who replaced each file and when'],
+  } },
   { version: '1.27.17', date: '2026-10-12', isNew: true, highlights: {
     he: ['10 בול: שכפול המשחק ישירות מחלון ההגדרות — בוחרים שם, מאשרים, ומשחק זהה נוצר עם קישור וקוד משלו'],
     en: ['10 Bool: duplicate the game straight from its settings — pick a name, confirm, and an identical game is created with its own link and code'],

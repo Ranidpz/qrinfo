@@ -2101,6 +2101,7 @@
     "forUser": "עבור {name}",
     "previousKept": "נשמר לשחזור",
     "previousGone": "כבר לא שמור",
+    "previousRestored": "חזר לתצוגה",
     "restore": "שחזרו קובץ זה",
     "restoreConfirm": "לשחזר את הקובץ הקודם? הקובץ שמוצג עכשיו יישמר, ותוכלו לחזור אליו.",
     "restored": "הקובץ הקודם שוחזר",

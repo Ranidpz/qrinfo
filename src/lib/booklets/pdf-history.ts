@@ -30,7 +30,7 @@ interface MediaItem extends Record<string, unknown> {
   uploadedBy?: string;
 }
 
-type KeptSnapshot = PdfFileSnapshot & { retained?: boolean; purgeOnNext?: boolean };
+type KeptSnapshot = PdfFileSnapshot & { retained?: boolean; purgeOnNext?: boolean; restoredAt?: unknown };
 
 export interface PdfHistoryEntry {
   id: string;
@@ -39,7 +39,7 @@ export interface PdfHistoryEntry {
   actor: PdfActor | null;
   mediaId?: string;
   next?: { filename?: string; size: number; pageCount?: number } | null;
-  previous?: { filename?: string; size: number; pageCount?: number; retained: boolean } | null;
+  previous?: { filename?: string; size: number; pageCount?: number; retained: boolean; restored: boolean } | null;
   target?: { email?: string; name?: string } | null;
   canRestore: boolean;
 }
@@ -84,7 +84,7 @@ export async function listPdfHistory(codeId: string, options: { redactEmails?: b
       actor: redact((data.actor as PdfActor) || null),
       mediaId: data.mediaId,
       next: fileSummary(next),
-      previous: previous?.url ? { ...fileSummary(previous)!, retained: !!previous.retained } : null,
+      previous: previous?.url ? { ...fileSummary(previous)!, retained: !!previous.retained, restored: !!previous.restoredAt } : null,
       target: redact(data.target || null),
       canRestore,
     };

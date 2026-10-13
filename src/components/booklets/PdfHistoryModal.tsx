@@ -156,7 +156,7 @@ export default function PdfHistoryModal({ isOpen, codeId, title, onClose, onRest
                       <div className="text-xs">
                         <span className="text-text-secondary">{t('previousFile')}: </span>
                         <bdi className="text-text-primary">{entry.previous.filename}</bdi>
-                        <span className="text-text-secondary"> · {entry.previous.retained ? t('previousKept') : t('previousGone')}</span>
+                        <span className="text-text-secondary"> · {entry.previous.retained ? t('previousKept') : entry.previous.restored ? t('previousRestored') : t('previousGone')}</span>
                       </div>
                     )}
 

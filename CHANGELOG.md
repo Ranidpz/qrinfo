@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.27.18] - 2026-10-13
+
+- Booklet editors: super admin grants/revokes PDF-update access per booklet (`bookletEditors/{codeId}__{uid}`, server only, bound to the current owner; code page → UserCog). Editors get a "חוברות לעדכון" dashboard section and can only replace / view history / restore via `/api/codes/[codeId]/pdf` (+ `/history`, `/restore`) behind `requireBookletAccess`.
+- Every dashboard/code-page/editor PDF→PDF replacement now goes through the server route: recorded in `codes/{id}/pdfHistory` (actor, files, SHA-256), previous PDF kept for one restore, identical re-upload refused, concurrent replacement refused. Intake-key auth unchanged (it also records history and keeps the old file one cycle); Fattal `commit` route unchanged. No rules deploy required (new collections are default-deny; explicit `if false` added). Rollback = revert this release commit.
+
 ## [1.27.17] - 2026-10-12
 
 - 10 בול settings modal: "שכפלו" → name step (prefilled "<title> (עותק)") → explicit confirm (players/results not copied) → new code with the modal's current settings in the original's folder, then navigates to it. Code page duplicate logic is now `duplicateCode(opts)`; `handleDuplicate` behaviour unchanged. Rollback = revert this release commit.
