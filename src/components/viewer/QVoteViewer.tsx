@@ -85,7 +85,7 @@ const translations = {
     photoUpload: 'העלו תמונה',
     addPhoto: 'הוסיפו תמונה',
     removePhoto: 'הסירו תמונה',
-    submit: 'שלח',
+    submit: 'שליחה',
     required: 'חובה',
     uploading: 'מעלה...',
     yourSelections: 'הבחירות שלי',
@@ -1365,6 +1365,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
             )}
           </div>
         </div>
+        {/* XP popups, points sheet, pack reveal (this screen is an early return) */}
+        <QVoteXpLayer xp={xpState} locale={locale} />
       </div>
     );
   }

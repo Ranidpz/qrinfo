@@ -201,6 +201,7 @@ export default function PackOpeningModal({
               prizeName={locale === 'he' ? opening.prizeName : opening.prizeNameEn}
               rarity={opening.prizeRarity}
               imageUrl={opening.prizeImageUrl}
+              locale={locale}
             />
 
             {/* Claim button */}
@@ -277,10 +278,12 @@ function PrizeCard({
   prizeName,
   rarity,
   imageUrl,
+  locale = 'he',
 }: {
   prizeName: string;
   rarity: PrizeRarity;
   imageUrl?: string;
+  locale?: 'he' | 'en';
 }) {
   const config = RARITY_CONFIG[rarity];
 
@@ -302,7 +305,7 @@ function PrizeCard({
         className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm font-bold"
         style={{ backgroundColor: config.color, color: 'white' }}
       >
-        {config.emoji} {config.nameEn}
+        {config.emoji} {locale === 'he' ? config.name : config.nameEn}
       </div>
 
       {/* Prize image or emoji */}

@@ -66,8 +66,13 @@ export async function createCandidate(
     candidateData
   );
 
-  // Update stats
-  await updateQVoteStats(codeId, { totalCandidates: increment(1) });
+  // Update stats. Best effort: a self-registering participant may not write the
+  // code doc (rules), and the candidate is already saved — never fail the registration on it.
+  try {
+    await updateQVoteStats(codeId, { totalCandidates: increment(1) });
+  } catch (error) {
+    console.warn('[createCandidate] stats update skipped:', error);
+  }
 
   return {
     id: docRef.id,
