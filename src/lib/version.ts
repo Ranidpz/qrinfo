@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.28.1';
+export const APP_VERSION = '1.29.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.29.0', date: '2026-10-13', isNew: true, highlights: {
+    he: ['Q.Vote: חיתוך תמונות בהעלאה — מי שנרשמים כמועמדים, וגם אתם בדף המועמדים, ממרכזים את התמונה בריבוע בדיוק כמו בכרטיס ההצבעה', 'Q.Vote: נקודות וחבילות פרסים — כל הצבעה מזכה ב־XP, ובכל פעם שעוברים את הסף נפתחת חבילה עם פרס מהרשימה שלכם (נדירות, סיכוי ומלאי)', 'רשימת זוכים בהגדרות ההצבעה, והזוכים מציגים לצוות מסך עם קוד אישי', 'תיקון: מועמדים שנרשמו בעצמם קיבלו הודעת שגיאה למרות שההרשמה נקלטה'],
+    en: ['Q.Vote: crop on upload — candidates registering, and you on the candidates page, frame the photo in a square exactly as on the voting card', 'Q.Vote: points and prize packs — every vote earns XP, and each time voters pass the threshold they open a pack with a prize from your list (rarity, chance and stock)', 'A winners list in the vote settings; winners show the staff a screen with a personal code', 'Fix: self-registered candidates saw an error even though their registration went through'],
+  } },
   { version: '1.28.1', date: '2026-10-13', isNew: true, highlights: {
     he: ['Q.Hunt: תמונת הרקע והלוגו נשמרים, כפתורי השלבים עובדים, ו"מינימום קודים לסיום" ומתג הצלילים פועלים באמת', 'Q.Vote: שמירת ההגדרות כבר לא מוחקת את תזמון השלבים, שלב הצבעה מתוזמן נפתח גם בשרת, ושדות חובה בטופס נבדקים', 'Q.Tag: אורח שביטל משחרר את המקום ולא נכנס בסריקה, קוד ה-PIN נדרש גם בסריקת QR, ומתג "הפעל סורק" נאכף', 'הגרלה: הוסר מצב התצוגה "טלפונים" — במסך ההגרלה מוצגים תמיד שמות'],
     en: ['Q.Hunt: background image and logo are saved, phase buttons work, and "minimum codes to finish" and the sound toggle really apply', 'Q.Vote: saving settings no longer wipes phase schedules, a scheduled voting phase opens on the server too, and required form fields are checked', 'Q.Tag: a guest who cancels frees the spot and is refused at the door, the scanner PIN is required for QR check-in too, and "Enable scanner" is enforced', 'Raffle: the "phones" display mode was removed — the live screen always shows names'],
