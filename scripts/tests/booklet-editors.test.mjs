@@ -315,3 +315,52 @@ test('double submit of the same file and a concurrent replacement are both refus
   } finally { delete globalThis.__onUpload; }
   assert.equal(globalThis.__db.store.get('codes/c1').media[0].url, 'https://media.test/other.pdf');
 });
+
+test('admin bulk grant: one email, many booklets — owner / non-booklet skipped, repeat is idempotent', async () => {
+  globalThis.__db = createFakeDb({
+    'codes/b1': { ownerId: 'fattal', shortId: 's1', title: 'B1', media: [{ id: 'm', type: 'pdf' }] },
+    'codes/b2': { ownerId: 'fattal', shortId: 's2', title: 'B2', media: [{ id: 'm', type: 'pdf' }] },
+    'codes/own': { ownerId: 'geva', shortId: 's3', title: 'Own', media: [{ id: 'm', type: 'pdf' }] },
+    'codes/img': { ownerId: 'fattal', shortId: 's4', title: 'Img', media: [{ id: 'm', type: 'image' }] },
+    'users/geva': { email: 'geva@e.playzones.app', displayName: 'Geva', role: 'free' },
+    'users/boss': { email: 'boss@x.test', role: 'super_admin' },
+    'users/fattal': { email: 'owner@fattal.test' },
+  });
+  globalThis.__audit = [];
+  const { GET, POST } = await loadTs('../../src/app/api/admin/booklet-editors/route.ts', {
+    'next/server': stub('export const NextResponse={json:(v,i)=>new Response(JSON.stringify(v),{status:i?.status??200})};'),
+    'firebase-admin/firestore': FIRESTORE_STUB,
+    '@/lib/auth': stub('export const requireSuperAdmin=async(r)=>r.headers.get("x-uid")==="boss"?{uid:"boss"}:{response:new Response("{}",{status:403})}; export const isAuthError=(r)=>"response" in r;'),
+    '@/lib/firebase-admin': stub('export const getAdminDb=()=>globalThis.__db;'),
+    '@/lib/booklets/access': stub('export const BOOKLET_EDITORS_COLLECTION="bookletEditors"; export const bookletGrantId=(c,u)=>`${c}__${u}`; export const hasPdfMedia=(m)=>Array.isArray(m)&&m.some(i=>i?.type==="pdf");'),
+    '@/lib/booklets/pdf-history': stub('export const recordAccessChange=async(...a)=>{globalThis.__audit.push(a)};'),
+  });
+  globalThis.__db.collection = ((orig) => (name) => ({ ...orig(name), select: () => orig(name) }))(globalThis.__db.collection);
+  const req = (method, body, uid = 'boss', url = 'https://x.test/api/admin/booklet-editors') => {
+    const r = new Request(url, { method, headers: { 'x-uid': uid, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    r.nextUrl = new URL(url);
+    return r;
+  };
+  const grant = (codeIds, email = 'geva@e.playzones.app', uid) => POST(req('POST', { codeIds, email }, uid));
+
+  assert.equal((await grant(['b1'], undefined, 'geva')).status, 403, 'super admin only');
+  assert.equal((await grant(['b1', '../x'])).status, 400);
+  assert.equal((await grant(['b1'], 'boss@x.test')).status, 400, 'no grants to super admins');
+  assert.equal((await grant(['b1'], 'nobody@x.test')).status, 404);
+
+  const res = await (await grant(['b1', 'b2', 'own', 'img', 'gone'])).json();
+  assert.deepEqual(Object.fromEntries(res.results.map((r) => [r.codeId, r.status])),
+    { b1: 'granted', b2: 'granted', own: 'owner', img: 'not_a_booklet', gone: 'not_found' });
+  assert.equal(globalThis.__db.store.get('bookletEditors/b1__geva').ownerId, 'fattal');
+  assert.equal(globalThis.__audit.length, 2, 'one audit line per real grant');
+
+  const again = await (await grant(['b1', 'b2'])).json();
+  assert.deepEqual(again.results.map((r) => r.status), ['already', 'already']);
+  assert.equal(globalThis.__audit.length, 2);
+
+  const list = await (await GET(req('GET'))).json();
+  const b1 = list.booklets.find((b) => b.codeId === 'b1');
+  assert.equal(b1.ownerEmail, 'owner@fattal.test');
+  assert.deepEqual(b1.editors.map((e) => e.email), ['geva@e.playzones.app']);
+  assert.ok(!list.booklets.some((b) => b.codeId === 'img'), 'only codes with a PDF are listed');
+});

@@ -315,6 +315,7 @@
     "whatIsQ": "מה זה The Q?",
     "costumeCompetition": "תחרות תחפושות",
     "experiences": "חוויות The Q",
+    "bookletEditors": "הרשאות חוברות",
     "userManagement": "ניהול משתמשים",
     "qtag": "Q.Tag",
     "qOrder": "Q.Order",
@@ -2136,6 +2137,17 @@
     "replaceConfirm": "הקובץ הנוכחי יוחלף בקובץ החדש וייראה מיד לכל מי שסורק את הקוד. הקובץ הקודם יישמר לשחזור.",
     "currentFile": "הקובץ הנוכחי",
     "replaceButton": "החליפו",
-    "updated": "עודכן {date}"
+    "updated": "עודכן {date}",
+    "bulkTitle": "הרשאות עדכון חוברות",
+    "bulkHint": "סמנו חוברות, הקלידו כתובת מייל של משתמש רשום, והעניקו לו הרשאה לעדכן את קובץ ה־PDF בכולן. הבעלות לא משתנה.",
+    "bulkSelected": "נבחרו {count}",
+    "bulkGrant": "הענקת הרשאה ל־{count} חוברות",
+    "bulkSearch": "חיפוש לפי שם חוברת, בעלים או מייל",
+    "bulkSelectAll": "סמנו את כל המוצגות ({count})",
+    "bulkEmpty": "לא נמצאו חוברות",
+    "bulkOwner": "בעלים",
+    "bulkSelectFirst": "סמנו קודם לפחות חוברת אחת.",
+    "bulkEmailFirst": "הקלידו את כתובת המייל של המשתמש.",
+    "bulkResult": "הוענקה הרשאה ל־{granted} חוברות. {already} כבר היו עם הרשאה, {skipped} דולגו."
   }
 }

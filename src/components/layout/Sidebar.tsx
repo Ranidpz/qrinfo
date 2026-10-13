@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart, Package, Smartphone, CreditCard, TrendingUp, HelpCircle, Drama, Bot, Sparkles } from 'lucide-react';
+import { Home, Users, X, BarChart3, Moon, Sun, LogOut, User, LogIn, Bell, Plus, Trash2, QrCode, Ticket, ShoppingCart, Package, Smartphone, CreditCard, TrendingUp, HelpCircle, Drama, Bot, Sparkles, BookOpen } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
@@ -70,6 +70,7 @@ const navItems: NavItem[] = [
   { href: '/qtag', icon: Ticket, labelKey: 'qtag', dividerBefore: true },
   { href: '#qorder', icon: ShoppingCart, labelKey: 'qOrder', badge: 'comingSoon', disabled: true },
   { href: '/admin/users', icon: Users, labelKey: 'userManagement', roles: ['super_admin'], dividerBefore: true },
+  { href: '/admin/booklet-editors', icon: BookOpen, labelKey: 'bookletEditors', roles: ['super_admin'] },
 ];
 
 export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, user, onSignOut, direction = 'rtl' }: SidebarProps) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.27.19] - 2026-10-13
+
+- Super-admin screen `/admin/booklet-editors` (sidebar "הרשאות חוברות"): every code with a PDF, its owner and active editors; select many + one email → `POST /api/admin/booklet-editors {codeIds,email}` (≤100, per-booklet result: granted / already / owner / not_a_booklet / not_found; idempotent); revoke per tag. `GET` without `codeId` lists all booklets (Admin SDK scan with `select`). Rollback = revert this release commit.
+
 ## [1.27.18] - 2026-10-13
 
 - Booklet editors: super admin grants/revokes PDF-update access per booklet (`bookletEditors/{codeId}__{uid}`, server only, bound to the current owner; code page → UserCog). Editors get a "חוברות לעדכון" dashboard section and can only replace / view history / restore via `/api/codes/[codeId]/pdf` (+ `/history`, `/restore`) behind `requireBookletAccess`.

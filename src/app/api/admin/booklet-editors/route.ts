@@ -24,50 +24,104 @@ async function superAdminActor(uid: string) {
   };
 }
 
+// Booklets per request in a bulk grant (the admin screen grants to many at once).
+const MAX_BULK = 100;
+
+function serializeGrant(grant: FirebaseFirestore.DocumentData) {
+  return {
+    uid: grant.uid,
+    email: grant.email || '',
+    name: grant.name || '',
+    grantedAt: grant.grantedAt?.toDate?.()?.toISOString() || null,
+    grantedByEmail: grant.grantedByEmail || '',
+  };
+}
+
+/** A grant counts only while it is not revoked and was made under the current owner. */
+function isActiveGrant(grant: FirebaseFirestore.DocumentData, ownerId: unknown) {
+  return !grant.revokedAt && !!ownerId && grant.ownerId === ownerId;
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireSuperAdmin(request);
   if (isAuthError(auth)) return auth.response;
 
-  const codeId = request.nextUrl.searchParams.get('codeId') || '';
-  if (!CODE_ID.test(codeId)) return NextResponse.json({ error: 'Bad request' }, { status: 400 });
+  const db = getAdminDb();
+  const codeId = request.nextUrl.searchParams.get('codeId');
 
   try {
-    const snap = await getAdminDb().collection(BOOKLET_EDITORS_COLLECTION).where('codeId', '==', codeId).get();
-    const code = (await getAdminDb().collection('codes').doc(codeId).get()).data();
-    const editors = snap.docs
-      .map((doc) => doc.data())
-      .filter((grant) => !grant.revokedAt && grant.ownerId === code?.ownerId)
-      .map((grant) => ({
-        uid: grant.uid,
-        email: grant.email || '',
-        name: grant.name || '',
-        grantedAt: grant.grantedAt?.toDate?.()?.toISOString() || null,
-        grantedByEmail: grant.grantedByEmail || '',
-      }));
-    return NextResponse.json({ editors });
+    // One booklet: its editors.
+    if (codeId !== null) {
+      if (!CODE_ID.test(codeId)) return NextResponse.json({ error: 'Bad request' }, { status: 400 });
+      const [snap, codeDoc] = await Promise.all([
+        db.collection(BOOKLET_EDITORS_COLLECTION).where('codeId', '==', codeId).get(),
+        db.collection('codes').doc(codeId).get(),
+      ]);
+      const ownerId = codeDoc.data()?.ownerId;
+      const editors = snap.docs.map((doc) => doc.data()).filter((g) => isActiveGrant(g, ownerId)).map(serializeGrant);
+      return NextResponse.json({ editors });
+    }
+
+    // Every booklet (code with a PDF), with its owner and active editors — for the bulk screen.
+    const [codesSnap, grantsSnap] = await Promise.all([
+      db.collection('codes').select('title', 'shortId', 'ownerId', 'media', 'updatedAt').get(),
+      db.collection(BOOKLET_EDITORS_COLLECTION).get(),
+    ]);
+    const booklets = codesSnap.docs
+      .map((doc) => ({ id: doc.id, data: doc.data() }))
+      .filter(({ data }) => hasPdfMedia(data.media));
+
+    const ownerIds = [...new Set(booklets.map(({ data }) => String(data.ownerId || '')).filter(Boolean))];
+    const ownerDocs = ownerIds.length ? await db.getAll(...ownerIds.map((id) => db.collection('users').doc(id))) : [];
+    const owners = new Map(ownerDocs.map((doc) => [doc.id, doc.data() || {}]));
+
+    const grantsByCode = new Map<string, FirebaseFirestore.DocumentData[]>();
+    for (const doc of grantsSnap.docs) {
+      const grant = doc.data();
+      const list = grantsByCode.get(grant.codeId) || [];
+      list.push(grant);
+      grantsByCode.set(grant.codeId, list);
+    }
+
+    return NextResponse.json({
+      booklets: booklets.map(({ id, data }) => {
+        const owner = owners.get(String(data.ownerId || '')) || {};
+        return {
+          codeId: id,
+          shortId: String(data.shortId || ''),
+          title: String(data.title || ''),
+          ownerEmail: String(owner.email || ''),
+          ownerName: String(owner.displayName || ''),
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || null,
+          editors: (grantsByCode.get(id) || []).filter((g) => isActiveGrant(g, data.ownerId)).map(serializeGrant),
+        };
+      }),
+    });
   } catch (error) {
     console.error('[booklet-editors] list failed:', error);
     return NextResponse.json({ error: 'Failed to load editors' }, { status: 500 });
   }
 }
 
+type GrantResult = 'granted' | 'already' | 'not_found' | 'not_a_booklet' | 'owner';
+
 export async function POST(request: NextRequest) {
   const auth = await requireSuperAdmin(request);
   if (isAuthError(auth)) return auth.response;
 
   const body = await request.json().catch(() => ({}));
-  const codeId = typeof body?.codeId === 'string' ? body.codeId : '';
+  // `codeIds` (bulk screen) or a single `codeId` (code page).
+  const rawIds: unknown[] = Array.isArray(body?.codeIds) ? body.codeIds : [body?.codeId];
+  const codeIds = [...new Set(rawIds.filter((id): id is string => typeof id === 'string' && CODE_ID.test(id)))];
   const email = typeof body?.email === 'string' ? body.email.trim() : '';
-  if (!CODE_ID.test(codeId) || !email || email.length > 254 || !email.includes('@')) {
+  if (codeIds.length === 0 || codeIds.length !== rawIds.length || codeIds.length > MAX_BULK
+    || !email || email.length > 254 || !email.includes('@')) {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });
   }
+  const single = !Array.isArray(body?.codeIds);
 
   try {
     const db = getAdminDb();
-    const code = (await db.collection('codes').doc(codeId).get()).data();
-    if (!code) return NextResponse.json({ error: 'Code not found' }, { status: 404 });
-    if (!hasPdfMedia(code.media)) return NextResponse.json({ error: 'not_a_booklet' }, { status: 400 });
-
     const users = db.collection('users');
     let match = await users.where('email', '==', email).limit(1).get();
     if (match.empty && email !== email.toLowerCase()) {
@@ -77,26 +131,46 @@ export async function POST(request: NextRequest) {
 
     const target = match.docs[0];
     const targetData = target.data();
-    if (target.id === code.ownerId) return NextResponse.json({ error: 'already_owner' }, { status: 400 });
     if (targetData.role === 'super_admin') return NextResponse.json({ error: 'already_admin' }, { status: 400 });
 
     const actor = await superAdminActor(auth.uid);
-    const grant = {
-      codeId,
-      uid: target.id,
-      ownerId: String(code.ownerId || ''),
-      email: String(targetData.email || email),
-      name: String(targetData.displayName || ''),
-      grantedBy: auth.uid,
-      grantedByEmail: actor.email || '',
-      grantedAt: FieldValue.serverTimestamp(),
-      revokedAt: null,
-      revokedBy: null,
-    };
-    await db.collection(BOOKLET_EDITORS_COLLECTION).doc(bookletGrantId(codeId, target.id)).set(grant);
-    await recordAccessChange(codeId, 'grant', actor, { uid: target.id, email: grant.email, name: grant.name || undefined });
+    const editor = { uid: target.id, email: String(targetData.email || email), name: String(targetData.displayName || '') };
+    const codeDocs = await db.getAll(...codeIds.map((id) => db.collection('codes').doc(id)));
+    const grantDocs = await db.getAll(...codeIds.map((id) => db.collection(BOOKLET_EDITORS_COLLECTION).doc(bookletGrantId(id, target.id))));
 
-    return NextResponse.json({ success: true, editor: { uid: target.id, email: grant.email, name: grant.name } });
+    const results: { codeId: string; status: GrantResult }[] = [];
+    for (let i = 0; i < codeIds.length; i++) {
+      const codeId = codeIds[i];
+      const code = codeDocs[i].data();
+      if (!code) { results.push({ codeId, status: 'not_found' }); continue; }
+      if (!hasPdfMedia(code.media)) { results.push({ codeId, status: 'not_a_booklet' }); continue; }
+      if (target.id === code.ownerId) { results.push({ codeId, status: 'owner' }); continue; }
+      const existing = grantDocs[i].data();
+      if (existing && isActiveGrant(existing, code.ownerId)) { results.push({ codeId, status: 'already' }); continue; }
+
+      await grantDocs[i].ref.set({
+        codeId,
+        uid: target.id,
+        ownerId: String(code.ownerId || ''),
+        email: editor.email,
+        name: editor.name,
+        grantedBy: auth.uid,
+        grantedByEmail: actor.email || '',
+        grantedAt: FieldValue.serverTimestamp(),
+        revokedAt: null,
+        revokedBy: null,
+      });
+      await recordAccessChange(codeId, 'grant', actor, { uid: target.id, email: editor.email, name: editor.name || undefined });
+      results.push({ codeId, status: 'granted' });
+    }
+
+    if (single) {
+      const status = results[0].status;
+      if (status === 'not_found') return NextResponse.json({ error: 'Code not found' }, { status: 404 });
+      if (status === 'not_a_booklet') return NextResponse.json({ error: 'not_a_booklet' }, { status: 400 });
+      if (status === 'owner') return NextResponse.json({ error: 'already_owner' }, { status: 400 });
+    }
+    return NextResponse.json({ success: true, editor, results });
   } catch (error) {
     console.error('[booklet-editors] grant failed:', error);
     return NextResponse.json({ error: 'Failed to grant access' }, { status: 500 });
