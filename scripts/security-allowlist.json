@@ -4,6 +4,7 @@
     "src/app/api/content-intake/fattal/cloud/[operation]/route.ts": "Fattal cloud agent: own cloud-policy auth inside src/lib/content-intake (do not refactor — live hotel booklets)",
     "src/app/api/health/route.ts": "liveness probe, returns no data",
     "src/app/api/version/route.ts": "public build version for the update banner",
+    "src/app/api/auth/bootstrap/route.ts": "verifies the Firebase ID token itself (needs the decoded sign-in provider); idempotent create of the caller's own profile only",
     "src/app/api/og/route.tsx": "public Open Graph image (edge), no data access",
     "src/app/api/og/qgames/route.tsx": "public Open Graph image, reads only a player's public selfie",
     "src/app/api/og/qtag/route.tsx": "public Open Graph image (edge), no data access",

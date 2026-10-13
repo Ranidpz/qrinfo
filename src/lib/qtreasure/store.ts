@@ -4,7 +4,7 @@
  * This is the single seam through which all treasure player/scan reads and writes
  * flow from the API routes. Keeping it thin and isolated means a future migration
  * of the high-volume game-session data (players/scans/leaderboard) to another
- * backend (e.g. Supabase) is a contained change rather than a rewrite. Config +
+ * backend is a contained change rather than a rewrite. Config +
  * ownership stay in Firestore either way.
  *
  * All writes go through the Admin SDK so they bypass the (now locked) client

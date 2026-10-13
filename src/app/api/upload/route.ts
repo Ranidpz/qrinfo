@@ -5,7 +5,7 @@ import {
   deleteStoredObjectByUrl,
   uploadStoredObject,
 } from '@/lib/media-storage';
-import { verifyAuthToken } from '@/lib/auth';
+import { verifyAuthToken, requireApprovedUser } from '@/lib/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 import {
   adjustStorageUsed,
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     let userId: string;
     let anonymousAvatar = false;
     if (request.headers.get('Authorization')) {
-      const authResult = await verifyAuthToken(request);
+      const authResult = await requireApprovedUser(request);
       if ('error' in authResult) return authResult.error;
       userId = authResult.uid;
     } else {

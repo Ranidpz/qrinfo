@@ -54,11 +54,34 @@ test('ordinary authenticated user cannot change own role via update, merge, repl
  }
  await assertFails(updateDoc(ref,{role:deleteField()}));
 });
-test('first registration permits only own free profile with bound email and baseline storage',async()=>{
+test('browsers never create profiles: /api/auth/bootstrap (Admin SDK) owns registration and the pending status',async()=>{
  const db=client('new'),ref=doc(db,'users','new');
- for(const change of [{role:'super_admin'},{role:'producer'},{email:'other@example.invalid'},{storageLimit:1e12},{storageUsed:-1},{admin:true}])await assertFails(setDoc(ref,{...profile('new@example.invalid'),...change}));
+ for(const change of [{},{status:'approved'},{status:'pending'},{role:'super_admin'},{role:'producer'},{email:'other@example.invalid'},{storageLimit:1e12},{storageUsed:-1},{admin:true}])await assertFails(setDoc(ref,{...profile('new@example.invalid'),...change}));
  await assertFails(setDoc(doc(db,'users','someone-else'),profile('new@example.invalid')));
- await assertSucceeds(setDoc(ref,profile('new@example.invalid')));
+});
+test('approval gate: pending/rejected users cannot create codes or folders, approved and pre-gate users can',async()=>{
+ await env.withSecurityRulesDisabled(async context=>{
+  const db=context.firestore();
+  await setDoc(doc(db,'users','pending'),{...profile('pending@example.invalid'),status:'pending'});
+  await setDoc(doc(db,'users','rejected'),{...profile('rejected@example.invalid'),status:'rejected'});
+  await setDoc(doc(db,'users','approved'),{...profile('approved@example.invalid'),status:'approved'});
+ });
+ for(const uid of ['pending','rejected']){
+  const db=client(uid);
+  await assertFails(setDoc(doc(db,'codes',`${uid}-code`),{ownerId:uid,collaborators:[],name:'X'}));
+  await assertFails(setDoc(doc(db,'folders',`${uid}-folder`),{ownerId:uid,name:'X'}));
+  await assertFails(updateDoc(doc(db,'users',uid),{status:'approved'}));
+  await assertFails(updateDoc(doc(db,'users',uid),{status:deleteField()}));
+ }
+ for(const uid of ['approved','alice']){
+  const db=client(uid);
+  await assertSucceeds(setDoc(doc(db,'codes',`${uid}-code`),{ownerId:uid,collaborators:[],name:'X'}));
+  await assertSucceeds(setDoc(doc(db,'folders',`${uid}-folder`),{ownerId:uid,name:'X'}));
+ }
+ await assertFails(setDoc(doc(client('unprovisioned'),'codes','orphan-code'),{ownerId:'unprovisioned',collaborators:[],name:'X'}));
+ await assertSucceeds(updateDoc(doc(client('root'),'users','pending'),{status:'approved'}));
+ await assertFails(getDoc(doc(client('approved'),'loginCodes','any')));
+ await assertFails(setDoc(doc(client('approved'),'loginCodes','any'),{codeHash:'x'}));
 });
 test('only displayName/updatedAt are self-editable; storage and message quotas are server-only',async()=>{
  const ref=doc(client(),'users','alice');
@@ -91,6 +114,6 @@ test('denied promotion cannot turn actual server super-admin or foreign-owner gu
 test('email claims and forged role claims never bootstrap administrator documents',async()=>{
  const db=client('unprovisioned',{email:'root@example.invalid',role:'super_admin'});
  await assertFails(setDoc(doc(db,'users','unprovisioned'),profile('root@example.invalid','super_admin')));
- await assertSucceeds(setDoc(doc(db,'users','unprovisioned'),profile('root@example.invalid')));
+ await assertFails(setDoc(doc(db,'users','unprovisioned'),profile('root@example.invalid')));
  globalThis.rulesAuthFixture.uid='unprovisioned';assert.equal((await auth.requireSuperAdmin(request())).response.status,403);
 });

@@ -93,7 +93,7 @@ function RaffleDemo() {
   );
 
   // Demo draw: pick a random eligible participant, decrement quantity, record
-  // the winner. In Phase 2 this becomes an atomic server call to Supabase.
+  // the winner. The live raffle does this atomically server-side (Firestore, Admin SDK).
   const onRequestDraw = useCallback((): RaffleWinner | null => {
     const pool = participants.filter((p) => p.remaining > 0);
     if (pool.length === 0) return null;

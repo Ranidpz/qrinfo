@@ -5,7 +5,7 @@ import { fetchWithAuth, getAuthHeader } from '@/lib/fetchWithAuth';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import Image from 'next/image';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban, QrCode, Vote, Gamepad2, Tag, Crosshair, Trophy, Camera, CalendarDays, Cloud, ScrollText, Map, Sparkles, MessageCircle, MapPin, Link as LinkIcon2 } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban, QrCode, Vote, Gamepad2, Tag, Crosshair, Trophy, Camera, CalendarDays, Cloud, ScrollText, Map, Sparkles, MessageCircle, MapPin, Link as LinkIcon2, FileKey } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -40,6 +40,10 @@ import { WeeklyCalendarConfig } from '@/types/weeklycal';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQRCode, updateUserStorage, updateQRCode, hydrateCodeSecrets, getAllUsers, transferCodeOwnership, getUserFolders, getAllFolders, createFolder, updateFolder, deleteFolder, moveCodeToFolder } from '@/lib/db';
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
+import { isPdfFile, uploadBookletPdf } from '@/lib/booklets/client';
+import SharedBookletsSection from '@/components/booklets/SharedBookletsSection';
+import BookletEditorsModal from '@/components/booklets/BookletEditorsModal';
+import BookletEditorsBulkModal from '@/components/booklets/BookletEditorsBulkModal';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
 
@@ -82,10 +86,11 @@ function pendingUploadStorageMetadata(uploadData: UploadResponse) {
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading, refreshUser, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, refreshUser } = useAuth();
   const locale = useLocale() as 'he' | 'en';
   const t = useTranslations('dashboard');
   const tCommon = useTranslations('common');
+  const tBooklets = useTranslations('booklets');
   const tAuth = useTranslations('auth');
   const tModals = useTranslations('modals');
   const tErrors = useTranslations('errors');
@@ -115,6 +120,8 @@ export default function DashboardPage() {
   const [views24h, setViews24h] = useState<Record<string, number>>({});
   const [totalViews, setTotalViews] = useState<Record<string, number>>({});
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [bookletEditorsCode, setBookletEditorsCode] = useState<QRCodeType | null>(null);
+  const [folderEditorsOpen, setFolderEditorsOpen] = useState(false);
   const [currentFolderId, updateCurrentFolderId] = useState<string | null>(searchParams.get('folder'));
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingCodeId, setDraggingCodeId] = useState<string | null>(null);
@@ -138,7 +145,6 @@ export default function DashboardPage() {
     return false;
   });
   const [heroHidden, setHeroHidden] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [riddleModalOpen, setRiddleModalOpen] = useState(false);
   const [addingRiddle, setAddingRiddle] = useState(false);
   const [wordCloudModalOpen, setWordCloudModalOpen] = useState(false);
@@ -215,21 +221,21 @@ export default function DashboardPage() {
   }, [searchParams]);
 
   // ?create=tenbool from the 10 בול landing page: open the create panel on that tab (read once,
-  // the uploader takes it as its initial tab). A guest is asked to sign in first - the param stays
-  // in the URL meanwhile, so this runs again once the user exists.
+  // the uploader takes it as its initial tab). A guest is sent to the login page first, which
+  // returns here with the param, so this runs again once the user exists.
   const [createTab] = useState(() => (searchParams.get('create') === 'tenbool' ? ('tenbool' as const) : undefined));
   const uploadSectionRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (searchParams.get('create') !== 'tenbool' || authLoading) return;
     if (!user) {
-      setShowLoginModal(true);
+      // Guests sign in on the login page, then come straight back here.
+      router.push(`/login?next=${encodeURIComponent('/dashboard?create=tenbool')}`);
       return;
     }
-    setShowLoginModal(false);
     setUploadSectionCollapsed(false);
     window.history.replaceState({}, '', window.location.pathname);
     requestAnimationFrame(() => uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  }, [searchParams, user, authLoading]);
+  }, [searchParams, user, authLoading, router]);
 
   // Load user's codes, folders and owner names (or global codes for guests)
   useEffect(() => {
@@ -752,7 +758,7 @@ export default function DashboardPage() {
 
   // Create a new code with a QBet ("ניחוש") experience, then open it in the
   // editor (where the owner uploads the poster, picks the teams and later
-  // publishes the final result). Participant data lives in Supabase.
+  // publishes the final result). Participant data lives in Firestore (codes/{id}/qbetEntries).
   const handleCreateQBet = async (name?: string) => {
     if (!user) return;
     try {
@@ -1459,6 +1465,37 @@ export default function DashboardPage() {
   const handleReplaceFile = async (codeId: string, code: QRCodeType, file: File) => {
     if (!user) return;
 
+    // PDF over PDF goes through the server: it records who replaced the booklet and keeps
+    // the previous file for a restore (see /api/codes/[codeId]/pdf).
+    const currentPdf = code.media[0];
+    if (currentPdf?.type === 'pdf' && isPdfFile(file)) {
+      try {
+        setUploadProgress({ codeId, progress: 0 });
+        const updated = await uploadBookletPdf(codeId, currentPdf.id, file, (progress) => setUploadProgress({ codeId, progress }));
+        setUploadProgress(null);
+        setCodes((prev) =>
+          prev.map((c) =>
+            c.id === codeId
+              ? {
+                  ...c,
+                  media: c.media.map((m) => (m.id === currentPdf.id ? { ...m, ...updated, createdAt: m.createdAt } as typeof m : m)),
+                  updatedAt: new Date(),
+                }
+              : c
+          )
+        );
+        await refreshUser();
+        setReplaceStatus({ codeId, status: 'success' });
+        setTimeout(() => setReplaceStatus(null), 3000);
+      } catch (error) {
+        console.error('Error replacing PDF:', error);
+        setUploadProgress(null);
+        setReplaceStatus({ codeId, status: 'error' });
+        setTimeout(() => setReplaceStatus(null), 3000);
+      }
+      return;
+    }
+
     try {
       // Show upload progress immediately
       setUploadProgress({ codeId, progress: 0 });
@@ -1909,6 +1946,9 @@ export default function DashboardPage() {
 
   // Get current folder for header
   const currentFolder = currentFolderId ? folders.find((f) => f.id === currentFolderId) : null;
+  const folderBooklets = currentFolderId
+    ? codes.filter((c) => c.folderId === currentFolderId && c.media.some((m) => m.type === 'pdf'))
+    : [];
 
   const filteredCodes = codes.filter((code) => {
     const codeWithFolder = code as QRCodeType & { folderId?: string };
@@ -2153,6 +2193,9 @@ export default function DashboardPage() {
       </div>
       )}
 
+      {/* Booklets a super admin let this user update (renders nothing without grants) */}
+      {user && user.role !== 'super_admin' && !currentFolderId && <SharedBookletsSection />}
+
       {/* Upload Section - Collapsible (only for logged in users) */}
       {user ? (
         <div ref={uploadSectionRef} className="bg-bg-card border border-border rounded-xl overflow-hidden scroll-mt-20">
@@ -2323,6 +2366,17 @@ export default function DashboardPage() {
               </div>
               <p className="text-sm text-text-secondary">{filteredCodes.length} {t('codes')}</p>
             </div>
+            {/* Super admin: PDF-update access for every booklet in this folder */}
+            {user?.role === 'super_admin' && folderBooklets.length > 0 && (
+              <button
+                onClick={() => setFolderEditorsOpen(true)}
+                className="p-2 rounded-lg text-yellow-500 hover:bg-yellow-500/10 transition-colors"
+                title={tBooklets('folderEditorsButton')}
+                aria-label={tBooklets('folderEditorsButton')}
+              >
+                <FileKey className="w-5 h-5" />
+              </button>
+            )}
             {/* Route Settings Button */}
             <button
               onClick={() => setShowFolderRouteSettings(true)}
@@ -2539,6 +2593,7 @@ export default function DashboardPage() {
               onCopy={() => handleCopyLink(code.shortId)}
               onTitleChange={(newTitle) => handleTitleChange(code.id, newTitle)}
               onTransferOwnership={() => setTransferModal({ isOpen: true, code })}
+              onManageBookletEditors={code.media.some((m) => m.type === 'pdf') ? () => setBookletEditorsCode(code) : undefined}
               onDuplicate={() => handleDuplicateCode(code)}
               onToggleGlobal={() => handleToggleGlobal(code)}
               onDragStart={() => setDraggingCodeId(code.id)}
@@ -2592,6 +2647,24 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
+      )}
+
+      {/* Booklet PDF-update access (super admin): one booklet, or every booklet in the open folder */}
+      {user?.role === 'super_admin' && (
+        <>
+          <BookletEditorsModal
+            isOpen={!!bookletEditorsCode}
+            codeId={bookletEditorsCode?.id || ''}
+            title={bookletEditorsCode?.title}
+            onClose={() => setBookletEditorsCode(null)}
+          />
+          <BookletEditorsBulkModal
+            isOpen={folderEditorsOpen}
+            title={currentFolder?.name}
+            booklets={folderBooklets.map((c) => ({ codeId: c.id, title: c.title }))}
+            onClose={() => setFolderEditorsOpen(false)}
+          />
+        </>
       )}
 
       {/* Delete Confirmation Modal */}
@@ -2653,57 +2726,6 @@ export default function DashboardPage() {
           used={user?.storageUsed || 0}
           limit={user?.storageLimit || 25 * 1024 * 1024}
         />
-      )}
-
-      {/* Login Modal for guests */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-bg-card border border-border rounded-xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-text-primary mb-2 text-center">{tAuth('signInModalTitle')}</h3>
-            <p className="text-text-secondary mb-6 text-center text-sm">
-              {tAuth('signInModalDescription')}
-            </p>
-
-            <button
-              onClick={async () => {
-                try {
-                  await signInWithGoogle();
-                  setShowLoginModal(false);
-                } catch (error) {
-                  console.error('Login error:', error);
-                }
-              }}
-              className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white hover:bg-gray-50 text-gray-800 font-medium rounded-lg border border-gray-300 transition-colors mb-4"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              {tAuth('signInWithGoogle')}
-            </button>
-
-            <button
-              onClick={() => setShowLoginModal(false)}
-              className="w-full py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
-            >
-              {tCommon('cancel')}
-            </button>
-          </div>
-        </div>
       )}
 
       {/* Riddle Modal */}

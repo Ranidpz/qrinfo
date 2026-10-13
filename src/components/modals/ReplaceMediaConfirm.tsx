@@ -82,7 +82,7 @@ export default function ReplaceMediaConfirm({
                   {getMediaIcon(currentMediaType)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-text-secondary">{t('replaceMediaCurrent')}</p>
+                  <p className="text-xs text-text-secondary">{t(currentMediaType === 'pdf' && /\.pdf$/i.test(newFileName || '') ? 'replaceMediaCurrentKept' : 'replaceMediaCurrent')}</p>
                   <p className="text-sm text-text-primary truncate" dir="ltr">
                     {currentFileName}
                   </p>

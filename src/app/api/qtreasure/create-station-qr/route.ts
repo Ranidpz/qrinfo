@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { verifyAuthToken } from '@/lib/auth';
+import { requireApprovedUser } from '@/lib/auth';
 import { FieldValue } from 'firebase-admin/firestore';
 
 // Generate a unique short ID for QR codes
@@ -19,7 +19,7 @@ function generateShortId(length: number = 6): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
+    const authResult = await requireApprovedUser(request);
     if ('error' in authResult) return authResult.error;
 
     const body = await request.json();

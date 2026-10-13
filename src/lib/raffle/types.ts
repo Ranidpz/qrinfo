@@ -1,6 +1,6 @@
 // Raffle ("הגרלה") experience — shared types.
 // Phase 1 is an isolated front-end demo; the same types are reused in Phase 2
-// when participants/winners move to Supabase (server-side only).
+// for participants/winners stored server-side in Firestore (Admin SDK only).
 
 export type RaffleDisplayMode = 'names' | 'phones';
 export type RaffleBackgroundType = 'color' | 'image' | 'video' | 'gradient';

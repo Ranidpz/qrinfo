@@ -9,6 +9,17 @@ import AccessibilityButton from '@/components/legal/AccessibilityButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { clsx } from 'clsx';
 import { isLandingPathname, isPublicSsrPathname } from '@/lib/landing/site';
+import ApprovalGate from '@/components/auth/ApprovalGate';
+import { isApprovedStatus } from '@/lib/auth/approval';
+
+// App areas a signed-in but not-yet-approved user can't use. Marketing pages,
+// the guide, legal pages and login stay open to everyone.
+const GATED_SECTIONS = ['dashboard', 'code', 'analytics', 'admin', 'content-intake', 'qtag'];
+
+function isGatedPathname(pathname: string | null): boolean {
+  const section = pathname?.split('/')[2]; // /{locale}/{section}/...
+  return !!section && GATED_SECTIONS.includes(section);
+}
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -61,7 +72,11 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
         // Desktop: margin for sidebar
         isRTL ? "md:mr-64" : "md:ml-64"
       )}>
-        <div className="p-4 sm:p-6">{children}</div>
+        <div className="p-4 sm:p-6">
+          {user && !isApprovedStatus(user.status) && isGatedPathname(pathname)
+            ? <ApprovalGate user={user} />
+            : children}
+        </div>
       </main>
 
       {/* Legal components - only show for logged in users (dashboard area) */}

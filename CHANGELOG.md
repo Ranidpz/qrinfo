@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.28.0] - 2026-10-13
+
+- Passwordless login next to Google: one field (email / Israeli mobile) → 6-digit code. Email via Resend (`notifications@playzone.co.il`) also carries a Firebase email-link minted server-side (`generateSignInWithEmailLink`; Email-link provider enabled on qrinfo-dev + qrinfo-905c9). WhatsApp via `guardedSendOTP` (pseudo code `platform-login`). `/api/auth/otp/send|verify` → `createCustomToken` → `signInWithCustomToken`; email resolves to the existing Google uid. Codes in `loginCodes` (salted hash, 10 min, single use, 5 tries → 30 min lock); Firestore rate limits per identity / IP + global daily caps (`LOGIN_WHATSAPP_DAILY_CAP` 300, `LOGIN_EMAIL_DAILY_CAP` 1000), fail closed.
+- Approval gate for ALL new signups: profiles are created only by `/api/auth/bootstrap` with `status:'pending'` (absent status = pre-gate account = approved). Pending users get `ApprovalGate` (name + business → `/api/auth/request-approval` emails info@ → waiting screen + WhatsApp) on dashboard/code/analytics/admin/content-intake/qtag. Rules: client `users` create removed, `codes`/`folders` create require `isApprovedUser()`, `loginCodes` locked; `requireApprovedUser` on upload + station QR. Admin approves/rejects in `/admin/users` (`/api/admin/users/approval`, approval email once).
+- Every sign-in button routes to `/login` (sidebar used to call Google directly; dashboard `?create=tenbool` guest modal replaced by `/login?next=`). Legacy `/login` page → redirect.
+- **Deploy order:** code first, then `firestore.rules` to BOTH projects (old bundles can no longer create user docs). Rollback = revert this release commit + redeploy the previous rules.
+
+## [1.27.20] - 2026-10-13
+
+- Booklet editors UI moved into the dashboard (Rani: the separate screen was a mess): `FileKey` button on each PDF card next to transfer ownership (`BookletEditorsModal`) and in the folder header (`BookletEditorsBulkModal`, the folder's booklets pre-ticked, one email → bulk grant). Removed `/admin/booklet-editors` and its sidebar link; the bulk API is unchanged.
+- `.input` moved into `@layer components` in `globals.css`: unlayered, its padding beat Tailwind utilities, so `ps-10`/`pe-10` next to search icons (and `py-1`, `px-2` …) never applied — the magnifier sat on the text in every Hebrew search field. Rollback = revert this release commit.
+
+## [1.27.19] - 2026-10-13
+
+- Super-admin screen `/admin/booklet-editors` (sidebar "הרשאות חוברות"): every code with a PDF, its owner and active editors; select many + one email → `POST /api/admin/booklet-editors {codeIds,email}` (≤100, per-booklet result: granted / already / owner / not_a_booklet / not_found; idempotent); revoke per tag. `GET` without `codeId` lists all booklets (Admin SDK scan with `select`). Rollback = revert this release commit.
+
+## [1.27.18] - 2026-10-13
+
+- Booklet editors: super admin grants/revokes PDF-update access per booklet (`bookletEditors/{codeId}__{uid}`, server only, bound to the current owner; code page → UserCog). Editors get a "חוברות לעדכון" dashboard section and can only replace / view history / restore via `/api/codes/[codeId]/pdf` (+ `/history`, `/restore`) behind `requireBookletAccess`.
+- Every dashboard/code-page/editor PDF→PDF replacement now goes through the server route: recorded in `codes/{id}/pdfHistory` (actor, files, SHA-256), previous PDF kept for one restore, identical re-upload refused, concurrent replacement refused. Intake-key auth unchanged (it also records history and keeps the old file one cycle); Fattal `commit` route unchanged. No rules deploy required (new collections are default-deny; explicit `if false` added). Rollback = revert this release commit.
+
+## [1.27.17] - 2026-10-12
+
+- 10 בול settings modal: "שכפלו" → name step (prefilled "<title> (עותק)") → explicit confirm (players/results not copied) → new code with the modal's current settings in the original's folder, then navigates to it. Code page duplicate logic is now `duplicateCode(opts)`; `handleDuplicate` behaviour unchanged. Rollback = revert this release commit.
+
 ## [1.27.15] - 2026-10-12
 
 - 10 בול settings modal: up to `min(96vw,1440px)` with a fixed 460px settings column; preview text in container units mirroring the game's vmin sizes; closeness bar in the flow under the prompt (no overlap on small previews); on wide screens the sounds section renders under the preview in two columns (`matchMedia`, single render keeps ids unique). Rollback = revert this release commit.
