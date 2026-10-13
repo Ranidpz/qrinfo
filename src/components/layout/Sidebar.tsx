@@ -8,7 +8,6 @@ import { useTranslations, useLocale } from 'next-intl';
 import { clsx } from 'clsx';
 import { APP_VERSION, getLatestUpdate } from '@/lib/version';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { getNotifications, createNotification, deleteNotification, updateNotification, createVersionNotification } from '@/lib/db';
 import { Notification } from '@/types';
 import { intlLocales, type Locale } from '@/i18n/config';
@@ -77,7 +76,6 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
   const router = useRouter();
   const locale = useLocale() as Locale;
   const { theme, toggleTheme } = useTheme();
-  const { signInWithGoogle } = useAuth();
   const isRTL = direction === 'rtl';
 
   // Translations
@@ -401,18 +399,10 @@ export default function Sidebar({ isOpen, onClose, userRole = 'free', userId, us
             <div className="mb-4">
               <button
                 onClick={() => {
-                  // Check if terms already accepted
-                  const termsAccepted = localStorage.getItem('terms_accepted') === 'true';
-                  if (termsAccepted) {
-                    // Sign in directly
-                    signInWithGoogle()
-                      .then(() => onClose())
-                      .catch((error) => console.error('Login error:', error));
-                  } else {
-                    // Redirect to login page for terms acceptance
-                    router.push('/login');
-                    onClose();
-                  }
+                  // Always the login page: it offers Google AND the email/WhatsApp code,
+                  // and explains the invite-only waitlist.
+                  router.push('/login');
+                  onClose();
                 }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors"
               >

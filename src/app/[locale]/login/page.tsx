@@ -8,6 +8,17 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import PasswordlessLogin from '@/components/auth/PasswordlessLogin';
 
+// Where to go after signing in: an internal ?next= path (e.g. back to a "create" link), else the dashboard.
+function afterLoginPath(): string {
+  try {
+    const next = new URLSearchParams(window.location.search).get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\')) return next;
+  } catch {
+    // ignore
+  }
+  return '/dashboard';
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
@@ -33,7 +44,7 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/dashboard');
+      router.push(afterLoginPath());
     }
   }, [user, authLoading, router]);
 
@@ -49,7 +60,7 @@ export default function LoginPage() {
 
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      router.push(afterLoginPath());
     } catch (err) {
       console.error(err);
       setError(tAuth('signInError'));
@@ -69,7 +80,7 @@ export default function LoginPage() {
 
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      router.push(afterLoginPath());
     } catch (err) {
       console.error(err);
       setError(tAuth('signInError'));
