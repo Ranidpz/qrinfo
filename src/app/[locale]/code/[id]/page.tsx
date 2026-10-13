@@ -1012,108 +1012,124 @@ export default function CodeEditPage({ params }: PageProps) {
     URL.revokeObjectURL(url);
   };
 
-  const handleDuplicate = async () => {
+  // Throws on failure - callers decide how to report it. `opts` comes from the 10 בול modal's duplicate:
+  // its chosen name, the config as shown in the modal (saved or not), and the original's folder.
+  const duplicateCode = async (opts?: { title?: string; tenboolConfig?: TenBoolConfig; folderId?: string }) => {
     if (!code || !user) return;
 
-    try {
-      // Create new code with same media references (no actual file copy)
-      // Copy all media properties to preserve settings like pdfSettings
-      const newCode = await createQRCode(
-        user.id,
-        `${code.title} ${t('duplicateSuffix')}`,
-        code.media.map((m) => {
-          const mediaData: Record<string, unknown> = {
-            url: m.url,
-            type: m.type,
-            size: 0, // Don't count storage again since it's same file
-            order: m.order,
-            uploadedBy: user.id,
-          };
-          // Copy all optional properties if they exist
-          if (m.filename) mediaData.filename = m.filename;
-          if (m.title) mediaData.title = m.title;
-          if (m.pageCount) mediaData.pageCount = m.pageCount;
-          if (m.pdfSettings) mediaData.pdfSettings = m.pdfSettings;
-          if (m.schedule) mediaData.schedule = m.schedule;
-          if (m.linkUrl) mediaData.linkUrl = m.linkUrl;
-          if (m.linkTitle) mediaData.linkTitle = m.linkTitle;
-          if (m.riddleContent) mediaData.riddleContent = m.riddleContent;
-          if (m.selfiebeamContent) mediaData.selfiebeamContent = m.selfiebeamContent;
-          // Deep copy Q.Vote config but reset stats (votes are NOT copied)
-          if (m.qvoteConfig) {
-            mediaData.qvoteConfig = removeUndefined({
-              ...m.qvoteConfig,
-              categories: m.qvoteConfig.categories ? m.qvoteConfig.categories.map((c) => removeUndefined({ ...c })) : [],
-              formFields: m.qvoteConfig.formFields ? m.qvoteConfig.formFields.map((f) => removeUndefined({ ...f })) : [],
-              verification: m.qvoteConfig.verification ? removeUndefined({ ...m.qvoteConfig.verification }) : undefined,
-              // Reset stats to zero for the duplicate
-              stats: {
-                totalCandidates: 0,
-                approvedCandidates: 0,
-                totalVoters: 0,
-                totalVotes: 0,
-                finalsVoters: 0,
-                finalsVotes: 0,
-                lastUpdated: new Date(),
-              },
-              // Reset phase to registration for fresh start
-              currentPhase: 'registration',
-            });
-          }
-          if (m.weeklycalConfig) mediaData.weeklycalConfig = m.weeklycalConfig;
-          // Raffle: copy config but reset the live winners list on duplicate
-          if (m.raffleConfig) mediaData.raffleConfig = removeUndefined({ ...m.raffleConfig });
-          if (m.tenboolConfig) mediaData.tenboolConfig = removeUndefined({ ...m.tenboolConfig });
-          if (m.qtagConfig) mediaData.qtagConfig = removeUndefined({
-            ...m.qtagConfig,
-            branding: removeUndefined({ ...m.qtagConfig.branding, colors: { ...m.qtagConfig.branding.colors } }),
-            verification: removeUndefined({ ...m.qtagConfig.verification }),
-            stats: { totalRegistered: 0, totalGuests: 0, totalArrived: 0, totalArrivedGuests: 0 },
+    // Create new code with same media references (no actual file copy)
+    // Copy all media properties to preserve settings like pdfSettings
+    const newCode = await createQRCode(
+      user.id,
+      opts?.title || `${code.title} ${t('duplicateSuffix')}`,
+      code.media.map((m) => {
+        const mediaData: Record<string, unknown> = {
+          url: m.url,
+          type: m.type,
+          size: 0, // Don't count storage again since it's same file
+          order: m.order,
+          uploadedBy: user.id,
+        };
+        // Copy all optional properties if they exist
+        if (m.filename) mediaData.filename = m.filename;
+        if (m.title) mediaData.title = m.title;
+        if (m.pageCount) mediaData.pageCount = m.pageCount;
+        if (m.pdfSettings) mediaData.pdfSettings = m.pdfSettings;
+        if (m.schedule) mediaData.schedule = m.schedule;
+        if (m.linkUrl) mediaData.linkUrl = m.linkUrl;
+        if (m.linkTitle) mediaData.linkTitle = m.linkTitle;
+        if (m.riddleContent) mediaData.riddleContent = m.riddleContent;
+        if (m.selfiebeamContent) mediaData.selfiebeamContent = m.selfiebeamContent;
+        // Deep copy Q.Vote config but reset stats (votes are NOT copied)
+        if (m.qvoteConfig) {
+          mediaData.qvoteConfig = removeUndefined({
+            ...m.qvoteConfig,
+            categories: m.qvoteConfig.categories ? m.qvoteConfig.categories.map((c) => removeUndefined({ ...c })) : [],
+            formFields: m.qvoteConfig.formFields ? m.qvoteConfig.formFields.map((f) => removeUndefined({ ...f })) : [],
+            verification: m.qvoteConfig.verification ? removeUndefined({ ...m.qvoteConfig.verification }) : undefined,
+            // Reset stats to zero for the duplicate
+            stats: {
+              totalCandidates: 0,
+              approvedCandidates: 0,
+              totalVoters: 0,
+              totalVotes: 0,
+              finalsVoters: 0,
+              finalsVotes: 0,
+              lastUpdated: new Date(),
+            },
+            // Reset phase to registration for fresh start
             currentPhase: 'registration',
           });
-          return mediaData as Omit<MediaItem, 'id' | 'createdAt'>;
-        })
-      );
-
-      // If this is a Q.Vote code, copy candidates too (without votes)
-      const hasQVote = code.media.some((m) => m.type === 'qvote');
-      if (hasQVote) {
-        try {
-          // Get all candidates from original code
-          const originalCandidates = await getCandidates(code.id);
-
-          if (originalCandidates.length > 0) {
-            // Prepare candidates for bulk creation (reset vote counts)
-            const candidatesToCopy = originalCandidates.map((c) => ({
-              name: c.name,
-              formData: c.formData || {},
-              photos: c.photos || [],
-              categoryId: c.categoryId,
-              categoryIds: c.categoryIds || [],
-              source: c.source,
-              isApproved: c.isApproved,
-              isFinalist: false, // Reset finalist status
-              isHidden: c.isHidden,
-              displayOrder: c.displayOrder,
-              visitorId: c.visitorId,
-            }));
-
-            // Create candidates in the new code
-            const result = await bulkCreateCandidates(newCode.id, candidatesToCopy);
-            console.log(`Duplicated ${result.success} candidates to new code ${newCode.id}`);
-          }
-        } catch (candidateError) {
-          console.error('Error copying candidates:', candidateError);
-          // Don't fail the entire operation if candidates fail to copy
         }
-      }
+        if (m.weeklycalConfig) mediaData.weeklycalConfig = m.weeklycalConfig;
+        // Raffle: copy config but reset the live winners list on duplicate
+        if (m.raffleConfig) mediaData.raffleConfig = removeUndefined({ ...m.raffleConfig });
+        if (m.type === 'tenbool' && opts?.tenboolConfig) mediaData.tenboolConfig = removeUndefined({ ...opts.tenboolConfig });
+        else if (m.tenboolConfig) mediaData.tenboolConfig = removeUndefined({ ...m.tenboolConfig });
+        if (m.qtagConfig) mediaData.qtagConfig = removeUndefined({
+          ...m.qtagConfig,
+          branding: removeUndefined({ ...m.qtagConfig.branding, colors: { ...m.qtagConfig.branding.colors } }),
+          verification: removeUndefined({ ...m.qtagConfig.verification }),
+          stats: { totalRegistered: 0, totalGuests: 0, totalArrived: 0, totalArrivedGuests: 0 },
+          currentPhase: 'registration',
+        });
+        return mediaData as Omit<MediaItem, 'id' | 'createdAt'>;
+      }),
+      opts?.folderId
+    );
 
-      // Navigate to the new code
-      router.push(`/code/${newCode.id}`);
+    // If this is a Q.Vote code, copy candidates too (without votes)
+    const hasQVote = code.media.some((m) => m.type === 'qvote');
+    if (hasQVote) {
+      try {
+        // Get all candidates from original code
+        const originalCandidates = await getCandidates(code.id);
+
+        if (originalCandidates.length > 0) {
+          // Prepare candidates for bulk creation (reset vote counts)
+          const candidatesToCopy = originalCandidates.map((c) => ({
+            name: c.name,
+            formData: c.formData || {},
+            photos: c.photos || [],
+            categoryId: c.categoryId,
+            categoryIds: c.categoryIds || [],
+            source: c.source,
+            isApproved: c.isApproved,
+            isFinalist: false, // Reset finalist status
+            isHidden: c.isHidden,
+            displayOrder: c.displayOrder,
+            visitorId: c.visitorId,
+          }));
+
+          // Create candidates in the new code
+          const result = await bulkCreateCandidates(newCode.id, candidatesToCopy);
+          console.log(`Duplicated ${result.success} candidates to new code ${newCode.id}`);
+        }
+      } catch (candidateError) {
+        console.error('Error copying candidates:', candidateError);
+        // Don't fail the entire operation if candidates fail to copy
+      }
+    }
+
+    // Navigate to the new code
+    router.push(`/code/${newCode.id}`);
+  };
+
+  const handleDuplicate = async () => {
+    try {
+      await duplicateCode();
     } catch (error) {
       console.error('Error duplicating code:', error);
       alert(tErrors('duplicateError'));
     }
+  };
+
+  // 10 בול modal: errors propagate so the modal's confirm dialog can show them
+  const handleDuplicateTenBool = async (title: string, tenboolConfig: TenBoolConfig) => {
+    await duplicateCode({ title, tenboolConfig, folderId: code?.folderId });
+    // Same route, new id: close it so the copy's page doesn't open with this modal still up
+    setTenboolModalOpen(false);
+    setEditingTenBoolId(null);
   };
 
   // Create separate experience from a single media item
@@ -4980,6 +4996,7 @@ export default function CodeEditPage({ params }: PageProps) {
         codeId={code.id}
         shortId={code.shortId}
         title={code.title}
+        onDuplicate={handleDuplicateTenBool}
       />
 
       <QBetModal
