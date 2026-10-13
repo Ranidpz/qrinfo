@@ -142,3 +142,31 @@ export function bookletErrorKey(error: unknown): string {
   if (error instanceof BookletApiError && error.status === 413) return 'tooLarge';
   return 'errorGeneric';
 }
+
+export interface AdminBooklet {
+  codeId: string;
+  shortId: string;
+  title: string;
+  ownerEmail: string;
+  ownerName: string;
+  updatedAt: string | null;
+  editors: BookletEditor[];
+}
+
+export type BulkGrantStatus = 'granted' | 'already' | 'not_found' | 'not_a_booklet' | 'owner';
+
+/** Super admin: every booklet with its owner and active editors. */
+export async function fetchAllBooklets(): Promise<AdminBooklet[]> {
+  const res = await fetchWithAuth('/api/admin/booklet-editors');
+  return (await readJson<{ booklets: AdminBooklet[] }>(res)).booklets;
+}
+
+/** Super admin: grant one user PDF-update access to many booklets at once. */
+export async function grantBookletEditorBulk(codeIds: string[], email: string) {
+  const res = await fetchWithAuth('/api/admin/booklet-editors', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codeIds, email }),
+  });
+  return readJson<{ editor: BookletEditor; results: { codeId: string; status: BulkGrantStatus }[] }>(res);
+}

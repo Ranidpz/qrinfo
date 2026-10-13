@@ -5,7 +5,7 @@ import { fetchWithAuth, getAuthHeader } from '@/lib/fetchWithAuth';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import Image from 'next/image';
-import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban, QrCode, Vote, Gamepad2, Tag, Crosshair, Trophy, Camera, CalendarDays, Cloud, ScrollText, Map, Sparkles, MessageCircle, MapPin, Link as LinkIcon2 } from 'lucide-react';
+import { Search, Plus, LayoutGrid, List, Loader2, FolderPlus, ArrowLeft, Folder as FolderIcon, Home, Edit2, Check, X, ChevronDown, ChevronUp, Upload, Route, Settings, Gift, Printer, CalendarClock, Ban, QrCode, Vote, Gamepad2, Tag, Crosshair, Trophy, Camera, CalendarDays, Cloud, ScrollText, Map, Sparkles, MessageCircle, MapPin, Link as LinkIcon2, FileKey } from 'lucide-react';
 import StorageBar from '@/components/layout/StorageBar';
 import MediaUploader from '@/components/code/MediaUploader';
 import CodeCard from '@/components/code/CodeCard';
@@ -42,6 +42,8 @@ import { getUserQRCodes, getGlobalQRCodes, getAllQRCodes, createQRCode, deleteQR
 import { subscribeToCodeViews, subscribeToTotalViews } from '@/lib/analytics';
 import { isPdfFile, uploadBookletPdf } from '@/lib/booklets/client';
 import SharedBookletsSection from '@/components/booklets/SharedBookletsSection';
+import BookletEditorsModal from '@/components/booklets/BookletEditorsModal';
+import BookletEditorsBulkModal from '@/components/booklets/BookletEditorsBulkModal';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
 
@@ -88,6 +90,7 @@ export default function DashboardPage() {
   const locale = useLocale() as 'he' | 'en';
   const t = useTranslations('dashboard');
   const tCommon = useTranslations('common');
+  const tBooklets = useTranslations('booklets');
   const tAuth = useTranslations('auth');
   const tModals = useTranslations('modals');
   const tErrors = useTranslations('errors');
@@ -117,6 +120,8 @@ export default function DashboardPage() {
   const [views24h, setViews24h] = useState<Record<string, number>>({});
   const [totalViews, setTotalViews] = useState<Record<string, number>>({});
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [bookletEditorsCode, setBookletEditorsCode] = useState<QRCodeType | null>(null);
+  const [folderEditorsOpen, setFolderEditorsOpen] = useState(false);
   const [currentFolderId, updateCurrentFolderId] = useState<string | null>(searchParams.get('folder'));
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [draggingCodeId, setDraggingCodeId] = useState<string | null>(null);
@@ -1921,6 +1926,9 @@ export default function DashboardPage() {
 
   // Get current folder for header
   const currentFolder = currentFolderId ? folders.find((f) => f.id === currentFolderId) : null;
+  const folderBooklets = currentFolderId
+    ? codes.filter((c) => c.folderId === currentFolderId && c.media.some((m) => m.type === 'pdf'))
+    : [];
 
   const filteredCodes = codes.filter((code) => {
     const codeWithFolder = code as QRCodeType & { folderId?: string };
@@ -2338,6 +2346,17 @@ export default function DashboardPage() {
               </div>
               <p className="text-sm text-text-secondary">{filteredCodes.length} {t('codes')}</p>
             </div>
+            {/* Super admin: PDF-update access for every booklet in this folder */}
+            {user?.role === 'super_admin' && folderBooklets.length > 0 && (
+              <button
+                onClick={() => setFolderEditorsOpen(true)}
+                className="p-2 rounded-lg text-yellow-500 hover:bg-yellow-500/10 transition-colors"
+                title={tBooklets('folderEditorsButton')}
+                aria-label={tBooklets('folderEditorsButton')}
+              >
+                <FileKey className="w-5 h-5" />
+              </button>
+            )}
             {/* Route Settings Button */}
             <button
               onClick={() => setShowFolderRouteSettings(true)}
@@ -2554,6 +2573,7 @@ export default function DashboardPage() {
               onCopy={() => handleCopyLink(code.shortId)}
               onTitleChange={(newTitle) => handleTitleChange(code.id, newTitle)}
               onTransferOwnership={() => setTransferModal({ isOpen: true, code })}
+              onManageBookletEditors={code.media.some((m) => m.type === 'pdf') ? () => setBookletEditorsCode(code) : undefined}
               onDuplicate={() => handleDuplicateCode(code)}
               onToggleGlobal={() => handleToggleGlobal(code)}
               onDragStart={() => setDraggingCodeId(code.id)}
@@ -2607,6 +2627,24 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
+      )}
+
+      {/* Booklet PDF-update access (super admin): one booklet, or every booklet in the open folder */}
+      {user?.role === 'super_admin' && (
+        <>
+          <BookletEditorsModal
+            isOpen={!!bookletEditorsCode}
+            codeId={bookletEditorsCode?.id || ''}
+            title={bookletEditorsCode?.title}
+            onClose={() => setBookletEditorsCode(null)}
+          />
+          <BookletEditorsBulkModal
+            isOpen={folderEditorsOpen}
+            title={currentFolder?.name}
+            booklets={folderBooklets.map((c) => ({ codeId: c.id, title: c.title }))}
+            onClose={() => setFolderEditorsOpen(false)}
+          />
+        </>
       )}
 
       {/* Delete Confirmation Modal */}

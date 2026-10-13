@@ -2148,7 +2148,14 @@
     "replaceConfirm": "The current file will be replaced and the new one shows immediately to everyone who scans the code. The previous file is kept for restore.",
     "currentFile": "Current file",
     "replaceButton": "Replace",
-    "updated": "Updated {date}"
+    "updated": "Updated {date}",
+    "folderEditorsButton": "PDF update access for every booklet in this folder",
+    "bulkHint": "The folder's booklets are ticked. Enter a registered user's email and they can update the PDF of all of them. Ownership does not change.",
+    "bulkGrant": "Grant access to {count} booklets",
+    "bulkSelectAll": "Select all shown ({count})",
+    "bulkSelectFirst": "Select at least one booklet first.",
+    "bulkEmailFirst": "Enter the user's email.",
+    "bulkResult": "Access granted to {granted} booklets. {already} already had access, {skipped} skipped."
   },
   "gate": {
     "inviteOnlyTitle": "Invite-only for now",

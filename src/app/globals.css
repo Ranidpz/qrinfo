@@ -151,24 +151,28 @@ body {
 }
 
 /* Input styles */
-.input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  transition: border-color 0.2s ease;
-}
+/* In the components layer so utilities on the same element (ps-10 next to a search icon, py-1, …)
+   win — unlayered, this padding silently overrode them and icons sat on top of the text. */
+@layer components {
+  .input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: border-color 0.2s ease;
+  }
 
-.input:focus {
-  border-color: var(--accent);
-  outline: none;
-}
+  .input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
 
-.input::placeholder {
-  color: var(--text-secondary);
+  .input::placeholder {
+    color: var(--text-secondary);
+  }
 }
 
 /* A select whose arrow sits inside the field with breathing room on the correct side (RTL too).
