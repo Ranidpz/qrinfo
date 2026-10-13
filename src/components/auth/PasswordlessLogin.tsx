@@ -59,11 +59,16 @@ export default function PasswordlessLogin({ onBusyChange }: { onBusyChange?: (bu
   const [resendAt, setResendAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const submitted = useRef<string | null>(null);
+  // An email-link oobCode is single-use: a second concurrent attempt (React dev
+  // double-mount) fails with auth/email-already-in-use after the first succeeded.
+  const linkStarted = useRef(false);
 
   useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
 
   // --- Email-link landing ---
   const finishEmailLink = useCallback(async (email: string) => {
+    if (linkStarted.current) return;
+    linkStarted.current = true;
     setStep('link-working');
     setError(null);
     try {
@@ -72,8 +77,10 @@ export default function PasswordlessLogin({ onBusyChange }: { onBusyChange?: (bu
       // Drop the one-time code from the address bar / history.
       window.history.replaceState(null, '', window.location.pathname);
     } catch (err) {
-      console.error('[Login] email link failed:', err);
       window.history.replaceState(null, '', window.location.pathname);
+      if (auth.currentUser) return; // already signed in — the link did its job
+      console.error('[Login] email link failed:', err);
+      linkStarted.current = false; // the user may type the right email and retry
       setError(t('linkFailed'));
       setStep('identify');
     }

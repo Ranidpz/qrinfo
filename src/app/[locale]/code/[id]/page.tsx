@@ -2066,7 +2066,7 @@ export default function CodeEditPage({ params }: PageProps) {
   };
 
   // Handler for adding/editing the QBet ("ניחוש") experience. Participant data
-  // lives in Supabase (via /api/qbet/*); here we only persist the config —
+  // lives in Firestore (via /api/qbet/*); here we only persist the config —
   // uploading the landing poster first when a new file was picked. Returns the
   // saved config so the modal adopts the final image URL (save-and-stay-open).
   // Errors are rethrown so the modal can show a save-failed message.

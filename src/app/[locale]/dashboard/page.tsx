@@ -754,7 +754,7 @@ export default function DashboardPage() {
 
   // Create a new code with a QBet ("ניחוש") experience, then open it in the
   // editor (where the owner uploads the poster, picks the teams and later
-  // publishes the final result). Participant data lives in Supabase.
+  // publishes the final result). Participant data lives in Firestore (codes/{id}/qbetEntries).
   const handleCreateQBet = async (name?: string) => {
     if (!user) return;
     try {
