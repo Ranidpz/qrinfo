@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { deleteStoredObjectByUrl } from '@/lib/server-storage';
@@ -49,6 +50,7 @@ export interface PdfFileSnapshot {
   storageBucket?: string;
   contentType?: string;
   contentIntake?: Record<string, unknown>;
+  sha256?: string;
 }
 
 export interface PdfReplacementOptions {
@@ -66,6 +68,9 @@ export interface PdfReplacementOptions {
    * (viewer counters update the code doc all the time). Intake keeps the strict check.
    */
   targetOnlyConflictCheck?: boolean;
+  /** Refuse a file identical to the one already live (a double submit would otherwise
+   *  push the real previous version out of the one kept restore slot). Needs `history`. */
+  rejectDuplicate?: boolean;
 }
 
 export const PDF_HISTORY_COLLECTION = 'pdfHistory';
@@ -152,6 +157,7 @@ export async function replaceCodePdfWithBuffer(
   const initialMedia = Array.isArray(codeData.media) ? (codeData.media as CodeMedia[]) : [];
   const initialTargetUrl = initialMedia[resolveReplaceIndex(initialMedia, input.mediaId)]?.url;
 
+  const sha256 = createHash('sha256').update(input.buffer).digest('hex');
   const pageCount = await countPdfPages(input.buffer);
   const r2Key = buildStorageKey(
     [ownerId, codeId, 'booklets'],
@@ -232,6 +238,12 @@ export async function replaceCodePdfWithBuffer(
             historyRef.where('mediaId', '==', oldMedia.id).where('previous.retained', '==', true)
           )).docs
         : [];
+      // The tracked entry that put the current file live tells us its hash.
+      const liveEntry = keptEntries.find((entry) => entry.data().next?.url === oldMedia?.url);
+      const liveSha = liveEntry?.data().next?.sha256 as string | undefined;
+      if (options.rejectDuplicate && liveSha && liveSha === sha256) {
+        throw new Error('Duplicate PDF');
+      }
 
       const oldSizeForOwner = oldMedia?.uploadedBy === ownerId
         ? Number(oldMedia.size || 0)
@@ -302,10 +314,10 @@ export async function replaceCodePdfWithBuffer(
           at: now,
           actor: compactRecord({ ...history.actor }),
           source: input.source || 'api',
-          next: snapshotPdfMedia(newMedia as CodeMedia),
+          next: { ...snapshotPdfMedia(newMedia as CodeMedia), sha256 },
           // Only a PDF can be put back on a PDF item; anything else is logged, not kept.
           previous: oldMedia?.url
-            ? { ...snapshotPdfMedia(oldMedia), retained: oldMedia.type === 'pdf', purgeOnNext: input.deleteOld !== false }
+            ? { ...snapshotPdfMedia(oldMedia), ...(liveSha ? { sha256: liveSha } : {}), retained: oldMedia.type === 'pdf', purgeOnNext: input.deleteOld !== false }
             : null,
         });
       }

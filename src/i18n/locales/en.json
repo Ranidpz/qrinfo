@@ -2107,6 +2107,7 @@
     "errorGeneric": "Something went wrong. Please try again.",
     "errorConflict": "The booklet changed in the meantime. Refresh the page and try again.",
     "errorQuota": "The booklet owner's account is out of storage.",
+    "errorDuplicate": "This exact file is already live, so nothing was replaced.",
     "errorBusy": "An automatic booklet update is running. Try again in a few minutes.",
     "editorsButton": "PDF update access",
     "editorsTitle": "PDF update access",

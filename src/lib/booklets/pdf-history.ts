@@ -160,8 +160,8 @@ export async function restorePdfVersion(codeId: string, eventId: string, actor: 
       at: now,
       actor: compact(actor),
       restoredFromEventId: eventId,
-      next: snapshotPdfMedia(restored),
-      previous: { ...displaced, retained: true, purgeOnNext: true },
+      next: { ...snapshotPdfMedia(restored), ...(kept.sha256 ? { sha256: kept.sha256 } : {}) },
+      previous: { ...displaced, ...(next.sha256 ? { sha256: next.sha256 } : {}), retained: true, purgeOnNext: true },
     });
 
     return { media: restored, storageDelta };

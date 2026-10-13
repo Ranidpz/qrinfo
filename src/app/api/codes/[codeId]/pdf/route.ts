@@ -88,13 +88,14 @@ export async function POST(
       history: { actor },
       existingPdfOnly: isEditor,
       targetOnlyConflictCheck: !integrationAuth,
+      rejectDuplicate: !integrationAuth,
     });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     console.error('[PDF R2] Replacement error:', error);
     const message = error instanceof Error ? error.message : '';
     const inputErrors = ['Only PDF files are supported', 'PDF exceeds 25MB limit', 'Target media not found', 'Target media is not a PDF'];
-    const conflicts = ['Storage quota exceeded', 'Target has a pending cloud replacement', 'Code changed during upload; preview again before retrying'];
+    const conflicts = ['Duplicate PDF', 'Storage quota exceeded', 'Target has a pending cloud replacement', 'Code changed during upload; preview again before retrying'];
     return NextResponse.json(
       { error: inputErrors.includes(message) || conflicts.includes(message) ? message : 'Failed to replace PDF' },
       { status: conflicts.includes(message) ? 409 : inputErrors.includes(message) ? 400 : 500 }

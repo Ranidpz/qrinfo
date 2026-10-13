@@ -93,7 +93,7 @@ async function loadReplacement() {
     'firebase-admin/firestore': FIRESTORE_STUB,
     '@/lib/firebase-admin': stub('export const getAdminDb=()=>globalThis.__db;'),
     '@/lib/server-storage': stub('export const deleteStoredObjectByUrl=async(url)=>{globalThis.__deleted.push(url)};'),
-    '@/lib/r2-storage': stub('export const buildStorageKey=()=>"key"; export const buildUniqueFilename=(n)=>n; export const R2_STORAGE_PROVIDER="cloudflare-r2"; export const uploadBufferToR2=async({key})=>{const n=++globalThis.__uploads; return {url:`https://media.test/v${n}.pdf`,size:100*n,key:`k${n}`,bucket:"b",provider:"cloudflare-r2",contentType:"application/pdf"}};'),
+    '@/lib/r2-storage': stub('export const buildStorageKey=()=>"key"; export const buildUniqueFilename=(n)=>n; export const R2_STORAGE_PROVIDER="cloudflare-r2"; export const uploadBufferToR2=async({key})=>{globalThis.__onUpload?.(); const n=++globalThis.__uploads; return {url:`https://media.test/v${n}.pdf`,size:100*n,key:`k${n}`,bucket:"b",provider:"cloudflare-r2",contentType:"application/pdf"}};'),
     'pdfjs-dist/legacy/build/pdf.mjs': stub('export const getDocument=()=>({promise:Promise.resolve({numPages:3,destroy:async()=>{}})});'),
   });
 }
@@ -296,4 +296,22 @@ test('a non-PDF previous file is deleted, never offered for restore; editors see
   assert.equal(entry.actor.email, undefined);
   assert.equal(entry.actor.name, 'Owner');
   await assert.rejects(restorePdfVersion('c1', entry.id, editor), /not_restorable/);
+});
+
+test('double submit of the same file and a concurrent replacement are both refused', async () => {
+  globalThis.__db = seedBooklet();
+  const { replaceCodePdfWithBuffer } = await loadReplacement();
+  const options = { expectedOwnerId: 'owner-1', history: { actor: editor }, existingPdfOnly: true, targetOnlyConflictCheck: true, rejectDuplicate: true };
+  const same = { buffer: Buffer.from('%PDF-1.7\nsame bytes'), filename: 'a.pdf', contentType: 'application/pdf', mediaId: 'm1' };
+  await replaceCodePdfWithBuffer('c1', same, options);
+  await assert.rejects(replaceCodePdfWithBuffer('c1', { ...same, filename: 'a (1).pdf' }, options), /Duplicate PDF/);
+  assert.ok(!globalThis.__deleted.includes('https://media.test/original.pdf'), 'restore point to the real previous file survives');
+  assert.ok(globalThis.__deleted.includes('https://media.test/v2.pdf'), 'the refused upload is cleaned up');
+
+  // Another user's replacement lands while this upload is in flight.
+  globalThis.__onUpload = () => { globalThis.__db.store.get('codes/c1').media[0].url = 'https://media.test/other.pdf'; };
+  try {
+    await assert.rejects(replaceCodePdfWithBuffer('c1', { ...pdf('late.pdf'), mediaId: 'm1' }, options), /changed during upload/);
+  } finally { delete globalThis.__onUpload; }
+  assert.equal(globalThis.__db.store.get('codes/c1').media[0].url, 'https://media.test/other.pdf');
 });

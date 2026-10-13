@@ -135,6 +135,7 @@ export function bookletErrorKey(error: unknown): string {
   if (message === 'already_admin') return 'alreadyAdmin';
   if (message === 'not_a_booklet') return 'notBooklet';
   if (message === 'Only PDF files are supported' || message === 'Target media is not a PDF') return 'onlyPdf';
+  if (message === 'Duplicate PDF') return 'errorDuplicate';
   if (message === 'Storage quota exceeded' || message === 'quota') return 'errorQuota';
   if (message === 'Target has a pending cloud replacement' || message === 'busy') return 'errorBusy';
   if (error instanceof BookletApiError && error.status === 409) return 'errorConflict';
