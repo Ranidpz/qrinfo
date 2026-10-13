@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.28.0';
+export const APP_VERSION = '1.28.1';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.28.1', date: '2026-10-13', isNew: true, highlights: {
+    he: ['Q.Hunt: תמונת הרקע והלוגו נשמרים, כפתורי השלבים עובדים, ו"מינימום קודים לסיום" ומתג הצלילים פועלים באמת', 'Q.Vote: שמירת ההגדרות כבר לא מוחקת את תזמון השלבים, שלב הצבעה מתוזמן נפתח גם בשרת, ושדות חובה בטופס נבדקים', 'Q.Tag: אורח שביטל משחרר את המקום ולא נכנס בסריקה, קוד ה-PIN נדרש גם בסריקת QR, ומתג "הפעל סורק" נאכף', 'הגרלה: הוסר מצב התצוגה "טלפונים" — במסך ההגרלה מוצגים תמיד שמות'],
+    en: ['Q.Hunt: background image and logo are saved, phase buttons work, and "minimum codes to finish" and the sound toggle really apply', 'Q.Vote: saving settings no longer wipes phase schedules, a scheduled voting phase opens on the server too, and required form fields are checked', 'Q.Tag: a guest who cancels frees the spot and is refused at the door, the scanner PIN is required for QR check-in too, and "Enable scanner" is enforced', 'Raffle: the "phones" display mode was removed — the live screen always shows names'],
+  } },
   { version: '1.28.0', date: '2026-10-13', isNew: true, highlights: {
     he: ['כניסה בלי סיסמה: מקלידים מייל או מספר וואטסאפ ומקבלים קוד בן 6 ספרות. במייל יש גם כפתור כניסה בלחיצה אחת', 'The Q פתוחה כרגע בהזמנה בלבד: מצטרפים חדשים שולחים בקשה וממתינים לאישור, ועד אז רואים מסך המתנה עם קישור לוואטסאפ', 'מנהל־על: בניהול המשתמשים יש רשימת "ממתינים לאישור" עם אישור ודחייה, ובאישור נשלח למשתמש מייל', 'כל כפתורי ההתחברות באתר מובילים עכשיו לדף הכניסה'],
     en: ['Password-free sign-in: type an email or WhatsApp number and get a 6-digit code. The email also has a one-click sign-in button', 'The Q is invite-only for now: new members send a join request and see a waiting screen with a WhatsApp link until approved', 'Super admins: user management has a "Waiting for approval" list with approve / reject, and approval emails the user', 'Every sign-in button on the site now opens the login page'],
