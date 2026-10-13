@@ -14,6 +14,8 @@ import { ImagePositionEditor } from '@/components/image-preview';
 import QVoteVotingView from './qvote/QVoteVotingView';
 import QVoteResultsView from './qvote/QVoteResultsView';
 import PhoneVerificationModal from '../modals/PhoneVerificationModal';
+import { useQVoteXp, QVoteXpChip, QVoteXpLayer } from './qvote/QVoteXp';
+import { useCropStep, CROP_STEP_LABELS } from './useCropStep';
 
 interface QVoteViewerProps {
   config: QVoteConfig;
@@ -58,6 +60,9 @@ function candidatePhotoFromUpload(data: QVoteUploadData, order: number): Candida
     ...(data.thumbnailContentType ? { thumbnailContentType: data.thumbnailContentType } : {}),
   };
 }
+
+// Tablet mode: longest the reset waits for a voter who's looking at points / opening a pack
+const TABLET_XP_HOLD_MAX_MS = 45_000;
 
 // Translations
 const translations = {
@@ -200,6 +205,16 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const visitorId = getOrCreateVisitorId();
+
+  // Optional square-crop step before registration photos upload (config.enableCropping)
+  const cropEnabled = config.enableCropping === true;
+  const { crop, cropElement } = useCropStep(cropEnabled, CROP_STEP_LABELS[locale]);
+
+  // XP + packs (server-awarded per vote; see /api/qvote/vote)
+  const xpState = useQVoteXp({ codeId, voterId: visitorId, enabled: config.gamification?.enabled === true });
+  // Tablet mode holds its reset while the voter looks at points / opens a pack (capped, so a kiosk never sticks)
+  const xpHoldRef = useRef<{ busy: boolean; since: number | null }>({ busy: false, since: null });
+  xpHoldRef.current.busy = xpState.busy;
 
   // Compute hasVoted for current category
   const currentCategoryKey = selectedCategory || '_global';
@@ -645,6 +660,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         }
 
         if (result.success) {
+          xpState.onVoteReward(result.xp);
+
           // Mark this category as voted
           const categoryKey = selectedCategory || '_global';
           setVotedCategories(prev => ({ ...prev, [categoryKey]: true }));
@@ -826,6 +843,13 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
       countdownStartedRef.current = true;
 
       const timerId = setInterval(() => {
+        const hold = xpHoldRef.current;
+        if (hold.busy) {
+          hold.since = hold.since ?? Date.now();
+          if (Date.now() - hold.since < TABLET_XP_HOLD_MAX_MS) return;
+        } else {
+          hold.since = null;
+        }
         setTabletResetCountdown(prev => {
           if (prev === null || prev <= 1) {
             clearInterval(timerId);
@@ -853,12 +877,19 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
   }, [tabletResetCountdown]);
 
   // Handle photo selection for registration
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    const newFiles = Array.from(files).slice(0, 2 - photoFiles.length); // Max 2 photos for boomerang
-    setPhotoFiles(prev => [...prev, ...newFiles]);
+    const picked = Array.from(files).slice(0, 2 - photoFiles.length); // Max 2 photos for boomerang
+    e.target.value = ''; // let the same photo be picked again after a cancelled crop
+    // Crop step (when enabled) runs one photo at a time; a cancelled crop drops that photo
+    const newFiles: File[] = [];
+    for (const file of picked) {
+      const ready = await crop(file);
+      if (ready) newFiles.push(ready);
+    }
+    if (newFiles.length > 0) setPhotoFiles(prev => [...prev, ...newFiles].slice(0, 2));
   };
 
   const handleRemovePhoto = (index: number) => {
@@ -1235,6 +1266,13 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
               </div>
             )}
 
+            {/* XP chip (only once the voter has points) */}
+            {xpState.status && xpState.status.xp > 0 && (
+              <div className="flex justify-center">
+                <QVoteXpChip xp={xpState} locale={locale} />
+              </div>
+            )}
+
             {/* Title */}
             <h2 className="text-2xl font-bold text-center text-white drop-shadow-lg">
               {t.selectCategory}
@@ -1479,8 +1517,8 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
                         : 'center center',
                     }}
                   />
-                  {/* Position Button */}
-                  <button
+                  {/* Position Button (a cropped photo is already framed for the square card) */}
+                  {!cropEnabled && <button
                     onClick={() => {
                       setEditingPhotoIndex(index);
                       setTempPhotoPosition(photoPositions[index] || DEFAULT_IMAGE_POSITION);
@@ -1489,7 +1527,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
                     className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-sm"
                   >
                     <Move className="w-3 h-3" />
-                  </button>
+                  </button>}
                   {/* Delete Button */}
                   <button
                     onClick={() => handleRemovePhoto(index)}
@@ -1650,6 +1688,7 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
         onResetVote={handleResetVote}
         tabletResetCountdown={tabletResetCountdown}
         tabletResetDelay={config.tabletMode?.resetDelaySeconds || 5}
+        headerExtra={<QVoteXpChip xp={xpState} locale={locale} />}
         translations={{
           votingTitle: getLocalizedVotingTitle() || t.votingTitle,
           finalsTitle: t.finalsTitle,
@@ -1705,6 +1744,12 @@ export default function QVoteViewer({ config: initialConfig, codeId, mediaId, sh
     >
       {/* Phase Content */}
       {renderPhaseContent()}
+
+      {/* Square-crop step for registration photos */}
+      {cropElement}
+
+      {/* XP popups, points sheet, pack reveal */}
+      <QVoteXpLayer xp={xpState} locale={locale} />
 
       {/* Grace Period Countdown Timer - Animated bar from green to red */}
       {gracePeriodActive && (

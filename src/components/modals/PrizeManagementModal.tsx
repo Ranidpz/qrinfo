@@ -5,8 +5,20 @@ import { X, Plus, Trash2, Edit2, Gift, AlertCircle } from 'lucide-react';
 import { Prize, PrizeRarity, RARITY_CONFIG, DEFAULT_DROP_RATES } from '@/types';
 import { getRoutePrizes, createPrize, updatePrize, deletePrize } from '@/lib/db';
 
+/** Where the prize pool lives. Default = the route `prizes` collection (client SDK). */
+export interface PrizeStore {
+  list: () => Promise<Prize[]>;
+  create: (data: PrizeFormData) => Promise<void>;
+  update: (prizeId: string, data: PrizeFormData) => Promise<void>;
+  remove: (prizeId: string) => Promise<void>;
+}
+
 interface PrizeManagementModalProps {
   routeId: string;
+  /** Optional backing store — Q.Vote passes one that talks to /api/qvote/prizes. */
+  store?: PrizeStore;
+  /** Optional empty-state hint (defaults to the route wording). */
+  emptyHint?: string;
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
@@ -16,10 +28,10 @@ interface PrizeManagementModalProps {
 const translations = {
   he: {
     title: 'ניהול פרסים',
-    addPrize: 'הוסף פרס',
-    editPrize: 'ערוך פרס',
+    addPrize: 'הוסיפו פרס',
+    editPrize: 'עריכת פרס',
     noPrizes: 'אין פרסים',
-    addFirstPrize: 'הוסף את הפרס הראשון למסלול',
+    addFirstPrize: 'הוסיפו את הפרס הראשון למסלול',
     name: 'שם הפרס',
     nameEn: 'שם באנגלית',
     namePlaceholder: 'למשל: גלידה חינם',
@@ -30,9 +42,9 @@ const translations = {
     claimed: 'חולקו',
     remaining: 'נותרו',
     active: 'פעיל',
-    save: 'שמור',
+    save: 'שמירה',
     cancel: 'ביטול',
-    delete: 'מחק',
+    delete: 'מחיקה',
     deleteConfirm: 'האם למחוק את הפרס?',
     dropRateSum: 'סה"כ סיכויים',
     dropRateSumError: 'סכום הסיכויים צריך להיות 100%',
@@ -74,7 +86,7 @@ const translations = {
 
 const rarityOptions: PrizeRarity[] = ['common', 'rare', 'epic', 'legendary'];
 
-interface PrizeFormData {
+export interface PrizeFormData {
   name: string;
   nameEn: string;
   rarity: PrizeRarity;
@@ -94,6 +106,8 @@ const defaultFormData: PrizeFormData = {
 
 export default function PrizeManagementModal({
   routeId,
+  store,
+  emptyHint,
   isOpen,
   onClose,
   onUpdate,
@@ -120,7 +134,7 @@ export default function PrizeManagementModal({
   const loadPrizes = async () => {
     setLoading(true);
     try {
-      const data = await getRoutePrizes(routeId);
+      const data = store ? await store.list() : await getRoutePrizes(routeId);
       setPrizes(data);
     } catch (error) {
       console.error('Error loading prizes:', error);
@@ -154,9 +168,9 @@ export default function PrizeManagementModal({
     setSaving(true);
     try {
       if (editingPrize) {
-        await updatePrize(editingPrize.id, formData);
+        await (store ? store.update(editingPrize.id, formData) : updatePrize(editingPrize.id, formData));
       } else {
-        await createPrize(routeId, formData);
+        await (store ? store.create(formData) : createPrize(routeId, formData));
       }
       await loadPrizes();
       onUpdate();
@@ -171,7 +185,7 @@ export default function PrizeManagementModal({
 
   const handleDelete = async (prizeId: string) => {
     try {
-      await deletePrize(prizeId);
+      await (store ? store.remove(prizeId) : deletePrize(prizeId));
       await loadPrizes();
       onUpdate();
       setDeleteConfirm(null);
@@ -252,7 +266,7 @@ export default function PrizeManagementModal({
             <div className="text-center py-8 space-y-3">
               <Gift className="w-12 h-12 mx-auto text-text-secondary opacity-50" />
               <p className="text-text-secondary">{t.noPrizes}</p>
-              <p className="text-sm text-text-secondary opacity-70">{t.addFirstPrize}</p>
+              <p className="text-sm text-text-secondary opacity-70">{emptyHint || t.addFirstPrize}</p>
             </div>
           ) : (
             <div className="space-y-2">

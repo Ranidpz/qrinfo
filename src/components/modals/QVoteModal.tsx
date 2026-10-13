@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Vote, Loader2, Plus, Trash2, GripVertical, Pipette, ImageIcon, Settings, Sparkles, Palette, Eye, Shield, Upload, Phone, MessageSquare, Tablet, ChevronDown, Move } from 'lucide-react';
 import { ImagePositionEditor } from '@/components/image-preview';
 import MobilePreviewModal from './MobilePreviewModal';
+import QVotePrizesPanel from './QVotePrizesPanel';
 import { useTranslations, useLocale } from 'next-intl';
 import {
   QVoteConfig,
@@ -152,6 +153,8 @@ interface QVoteModalProps {
   loading?: boolean;
   initialConfig?: QVoteConfig;
   shortId?: string;
+  /** Existing code id — enables the pack prize pool (absent on the dashboard create flow). */
+  codeId?: string;
 }
 
 // Preset colors for branding (including glassmorphism dark colors)
@@ -168,6 +171,7 @@ export default function QVoteModal({
   loading = false,
   initialConfig,
   shortId,
+  codeId,
 }: QVoteModalProps) {
   const t = useTranslations('modals');
   const tCommon = useTranslations('common');
@@ -894,8 +898,10 @@ export default function QVoteModal({
                   />
 
                   <ToggleSetting
-                    label={isRTL ? 'אפשר חיתוך תמונות' : 'Enable image cropping'}
-                    description={isRTL ? 'אפשר למועמדים לחתוך תמונות בהעלאה' : 'Allow candidates to crop images on upload'}
+                    label={isRTL ? 'חיתוך תמונות בהעלאה' : 'Crop images on upload'}
+                    description={isRTL
+                      ? 'לפני ההעלאה ממרכזים את התמונה בריבוע, בדיוק כפי שתופיע בכרטיס ההצבעה (בהרשמה ובהוספת מועמדים)'
+                      : 'Before uploading, frame the photo in a square exactly as it will appear on the voting card (registration and adding candidates)'}
                     value={enableCropping}
                     onChange={setEnableCropping}
                   />
@@ -2064,8 +2070,10 @@ export default function QVoteModal({
                 </div>
 
                 <ToggleSetting
-                  label={isRTL ? 'הפעל מערכת XP' : 'Enable XP system'}
-                  description={isRTL ? 'מצביעים צוברים נקודות וזוכים בפרסים' : 'Voters earn points and win prizes'}
+                  label={isRTL ? 'הפעלת מערכת XP' : 'Enable XP system'}
+                  description={isRTL
+                    ? 'כל הצבעה מזכה בנקודות. בכל פעם שמצביעים עוברים את הסף הם מקבלים חבילה עם פרס מהרשימה שלכם.'
+                    : 'Every vote earns points. Each time voters pass the threshold they get a pack with a prize from your list.'}
                   value={gamificationEnabled}
                   onChange={setGamificationEnabled}
                 />
@@ -2098,7 +2106,14 @@ export default function QVoteModal({
                         max={1000}
                         className="input w-full"
                       />
+                      <p className="text-xs text-text-secondary">
+                        {isRTL
+                          ? `כל מועמד שנבחר = ${xpPerVote} XP. בהצבעה עם ${maxSelectionsPerVoter} בחירות אפשר לצבור עד ${xpPerVote * maxSelectionsPerVoter} XP בכל קטגוריה וסבב.`
+                          : `Each candidate picked = ${xpPerVote} XP. With ${maxSelectionsPerVoter} picks a voter earns up to ${xpPerVote * maxSelectionsPerVoter} XP per category and round.`}
+                      </p>
                     </div>
+
+                    <QVotePrizesPanel codeId={codeId} isRTL={isRTL} />
                   </div>
                 )}
               </div>

@@ -5166,6 +5166,7 @@ export default function CodeEditPage({ params }: PageProps) {
         onSave={handleSaveQVote}
         loading={addingQVote}
         initialConfig={editingQVoteId ? code?.media.find(m => m.id === editingQVoteId)?.qvoteConfig : undefined}
+        codeId={code?.id}
         shortId={code.shortId}
       />
 

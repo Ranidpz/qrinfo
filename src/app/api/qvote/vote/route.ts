@@ -4,6 +4,8 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { normalizePhoneNumber } from '@/lib/phone-utils';
 import crypto from 'crypto';
 import { QVoteConfig, getEffectiveQVotePhase } from '@/types/qvote';
+import { resolveGamification, voteSlotKey, isValidVoterId } from '@/lib/qvoteXp/logic';
+import { applyVoteXp, playerRef } from '@/lib/qvoteXp/store';
 
 // --- Config cache (per serverless instance, 30s TTL) ---
 const configCache = new Map<string, { data: Record<string, unknown>; expiresAt: number }>();
@@ -97,6 +99,9 @@ export async function POST(request: NextRequest) {
     const verificationConfig = qvoteConfig?.verification as Record<string, unknown> | undefined;
     const tabletModeConfig = qvoteConfig?.tabletMode as Record<string, unknown> | undefined;
     const isTabletMode = tabletModeConfig?.enabled === true;
+    // XP is awarded here, server-side, never trusted from the client
+    const gamification = resolveGamification(qvoteConfig?.gamification);
+    const awardXp = gamification.enabled && isValidVoterId(voterId);
 
     // --- Fix 4: Validate voting phase ---
     // Effective phase = stored phase, unless a scheduled phase start has passed (same rule the viewer uses)
@@ -271,6 +276,7 @@ export async function POST(request: NextRequest) {
 
     const duplicates: string[] = [];
     let votesSubmitted = 0;
+    let xpResult = null as { earned: number; xp: number; packsAvailable: number } | null;
 
     // Use a transaction to ensure atomicity
     // Performance: Use getAll() instead of sequential gets
@@ -283,7 +289,14 @@ export async function POST(request: NextRequest) {
       });
 
       const voteRefs = voteEntries.map(e => e.voteRef);
-      const voteSnaps = await transaction.getAll(...voteRefs);
+      const xpRef = awardXp ? playerRef(codeId, voterId) : null;
+      const snaps = await transaction.getAll(...voteRefs, ...(xpRef ? [xpRef] : []));
+      const voteSnaps = snaps.slice(0, voteRefs.length);
+      const playerSnap = xpRef ? snaps[voteRefs.length] : null;
+
+      // Transactions can retry — reset per attempt
+      duplicates.length = 0;
+      votesSubmitted = 0;
 
       // PHASE 2: Perform all writes
       voteEntries.forEach((entry, i) => {
@@ -318,6 +331,11 @@ export async function POST(request: NextRequest) {
 
         votesSubmitted++;
       });
+
+      // PHASE 3: XP for the votes just created (one payout per round + category)
+      xpResult = playerSnap
+        ? applyVoteXp(transaction, codeId, voterId, playerSnap, gamification, voteSlotKey(round, categoryId), votesSubmitted)
+        : null;
     });
 
     // --- Fix 3: Atomic stats update using dedicated stats document ---
@@ -350,6 +368,7 @@ export async function POST(request: NextRequest) {
       success: votesSubmitted > 0,
       votesSubmitted,
       duplicates,
+      ...(xpResult ? { xp: xpResult } : {}),
     });
   } catch (error) {
     console.error('Q.Vote submit vote error:', error);

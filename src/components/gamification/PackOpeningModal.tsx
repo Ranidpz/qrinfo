@@ -6,7 +6,12 @@ import { PendingPack, PackOpening, RARITY_CONFIG, PrizeRarity } from '@/types';
 import { claimPrize } from '@/lib/lottery';
 
 interface PackOpeningModalProps {
-  pendingPack: PendingPack;
+  /** Route packs: claimed client-side through lottery.claimPrize. */
+  pendingPack?: PendingPack;
+  /** Server-drawn packs (Q.Vote): resolves with the prize, or throws with a user-facing message. */
+  openPack?: () => Promise<PackOpening>;
+  /** Badge above the pack — defaults to the route reasons (level up / route complete). */
+  reasonLabel?: string;
   isOpen: boolean;
   onClose: () => void;
   onOpened: (opening: PackOpening) => void;
@@ -15,15 +20,15 @@ interface PackOpeningModalProps {
 
 const translations = {
   he: {
-    tapToOpen: 'הקש לפתיחה!',
-    opening: 'פותח...',
+    tapToOpen: 'הקישו לפתיחה!',
+    opening: 'פותחים...',
     congratulations: 'מזל טוב!',
-    youWon: 'זכית ב:',
-    claimPrize: 'קבל פרס',
+    youWon: 'זכיתם ב:',
+    claimPrize: 'קבלו את הפרס',
     error: 'שגיאה בפתיחת החבילה',
-    tryAgain: 'נסה שוב',
-    levelUp: 'עלית רמה!',
-    routeComplete: 'השלמת את המסלול!',
+    tryAgain: 'נסו שוב',
+    levelUp: 'עליתם רמה!',
+    routeComplete: 'השלמתם את המסלול!',
   },
   en: {
     tapToOpen: 'Tap to open!',
@@ -42,6 +47,8 @@ type Phase = 'idle' | 'shaking' | 'opening' | 'revealing' | 'complete' | 'error'
 
 export default function PackOpeningModal({
   pendingPack,
+  openPack,
+  reasonLabel,
   isOpen,
   onClose,
   onOpened,
@@ -74,7 +81,11 @@ export default function PackOpeningModal({
     setPhase('opening');
 
     try {
-      const result = await claimPrize(pendingPack.visitorId, pendingPack.id);
+      const result = openPack
+        ? await openPack()
+        : pendingPack
+          ? await claimPrize(pendingPack.visitorId, pendingPack.id)
+          : null;
 
       if (!result) {
         throw new Error('No prize available');
@@ -92,7 +103,7 @@ export default function PackOpeningModal({
       setError(err instanceof Error ? err.message : 'Unknown error');
       setPhase('error');
     }
-  }, [phase, pendingPack]);
+  }, [phase, pendingPack, openPack]);
 
   const handleComplete = () => {
     if (opening) {
@@ -103,7 +114,7 @@ export default function PackOpeningModal({
 
   if (!isOpen) return null;
 
-  const reasonText = pendingPack.reason === 'level_up' ? t.levelUp : t.routeComplete;
+  const reasonText = reasonLabel || (pendingPack?.reason === 'level_up' ? t.levelUp : t.routeComplete);
 
   return (
     <div

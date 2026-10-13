@@ -128,6 +128,16 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // Q.Vote XP + packs: voters' XP / opened packs and the producer's prize pool.
+      // FULLY locked — voters use /api/qvote/vote, /api/qvote/xp, /api/qvote/pack/open;
+      // owners use /api/qvote/prizes.
+      match /qvotePlayers/{voterId} {
+        allow read, write: if false;
+      }
+      match /qvotePrizes/{prizeId} {
+        allow read, write: if false;
+      }
+
       // 10 בול phone-mode players (phones + OTP state + attempts). FULLY locked —
       // players use /api/tenbool/*, the big screen reads /api/tenbool/board,
       // owners use /api/tenbool/admin.

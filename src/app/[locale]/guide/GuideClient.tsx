@@ -106,6 +106,8 @@ const categories: FAQCategory[] = [
       { questionKey: 'limitVotes', answerKey: 'limitVotesAnswer' },
       { questionKey: 'showResults', answerKey: 'showResultsAnswer' },
       { questionKey: 'qvoteBranding', answerKey: 'qvoteBrandingAnswer' },
+      { questionKey: 'qvoteCropping', answerKey: 'qvoteCroppingAnswer' },
+      { questionKey: 'qvoteXpPacks', answerKey: 'qvoteXpPacksAnswer' },
       { questionKey: 'disableLandingPage', answerKey: 'disableLandingPageAnswer' },
       { questionKey: 'requireRegistration', answerKey: 'requireRegistrationAnswer' },
       { questionKey: 'imagePositioning', answerKey: 'imagePositioningAnswer' },

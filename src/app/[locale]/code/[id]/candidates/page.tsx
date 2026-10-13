@@ -245,6 +245,7 @@ import QVoteModal from '@/components/modals/QVoteModal';
 import QVoteVotersModal from '@/components/modals/QVoteVotersModal';
 import { MediaItem } from '@/types';
 import { compressImage, createCompressedFile, formatBytes } from '@/lib/imageCompression';
+import { useCropStep, CROP_STEP_LABELS } from '@/components/viewer/useCropStep';
 
 type QVoteUploadData = {
   id: string;
@@ -292,6 +293,8 @@ export default function QVoteCandidatesPage() {
 
   const [code, setCode] = useState<{ title?: string; shortId?: string; ownerId?: string; media?: MediaItem[] } | null>(null);
   const [qvoteConfig, setQvoteConfig] = useState<QVoteConfig | null>(null);
+  // Square-crop step for single-photo uploads (config.enableCropping); bulk drops skip it
+  const { crop, cropElement } = useCropStep(qvoteConfig?.enableCropping === true, CROP_STEP_LABELS[isRTL ? 'he' : 'en']);
   const [qvoteMediaItem, setQvoteMediaItem] = useState<MediaItem | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1129,8 +1132,14 @@ export default function QVoteCandidatesPage() {
     cameraInputRef.current?.click();
   };
 
-  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+    if (!picked) return;
+    const slot = currentPhotoSlot;
+    const file = await crop(picked);
     if (!file) return;
 
     const reader = new FileReader();
@@ -1138,20 +1147,16 @@ export default function QVoteCandidatesPage() {
       const preview = event.target?.result as string;
       setManualPhotos((prev) => {
         const newPhotos = [...prev];
-        newPhotos[currentPhotoSlot] = file;
+        newPhotos[slot] = file;
         return newPhotos;
       });
       setManualPhotoPreviews((prev) => {
         const newPreviews = [...prev];
-        newPreviews[currentPhotoSlot] = preview;
+        newPreviews[slot] = preview;
         return newPreviews;
       });
     };
     reader.readAsDataURL(file);
-
-    if (cameraInputRef.current) {
-      cameraInputRef.current.value = '';
-    }
   };
 
   const resetManualAdd = () => {
@@ -1237,8 +1242,15 @@ export default function QVoteCandidatesPage() {
   };
 
   const handleEditPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !editingCandidate) return;
+    const picked = e.target.files?.[0];
+    if (!picked || !editingCandidate) return;
+    const file = await crop(picked);
+    if (!file) {
+      setEditingCandidate(null);
+      setEditPhotoIndex(0);
+      if (editPhotoInputRef.current) editPhotoInputRef.current.value = '';
+      return;
+    }
 
     setUpdating(editingCandidate.id);
     try {
@@ -1284,7 +1296,9 @@ export default function QVoteCandidatesPage() {
   };
 
   // Upload photo via drag-drop (for edit modal slots and card replacement)
-  const uploadPhotoFile = async (file: File): Promise<QVoteUploadData | null> => {
+  const uploadPhotoFile = async (picked: File): Promise<QVoteUploadData | null> => {
+    const file = await crop(picked);
+    if (!file) return null; // crop cancelled
     try {
       // Compress image before upload (target 300KB, max 1200px)
       const compressed = await compressImage(file, { maxSizeKB: 300, maxWidth: 1200, maxHeight: 1200 });
@@ -2925,6 +2939,7 @@ export default function QVoteCandidatesPage() {
           onClose={() => setShowSettingsModal(false)}
           initialConfig={qvoteConfig || undefined}
           shortId={code?.shortId}
+          codeId={codeId}
           onSave={async (config, landingImageFile?: File, logoFile?: File) => {
             try {
               let landingImageUrl: string | undefined;
@@ -3618,6 +3633,9 @@ export default function QVoteCandidatesPage() {
           onClose={() => setZoomImageUrl(null)}
         />
       )}
+
+      {/* Square-crop step for single-photo uploads */}
+      {cropElement}
     </div>
   );
 }
