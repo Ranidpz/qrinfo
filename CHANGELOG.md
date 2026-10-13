@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.0] - 2026-10-13
+
+- Passwordless login next to Google: one field (email / Israeli mobile) → 6-digit code. Email via Resend (`notifications@playzone.co.il`) also carries a Firebase email-link minted server-side (`generateSignInWithEmailLink`; Email-link provider enabled on qrinfo-dev + qrinfo-905c9). WhatsApp via `guardedSendOTP` (pseudo code `platform-login`). `/api/auth/otp/send|verify` → `createCustomToken` → `signInWithCustomToken`; email resolves to the existing Google uid. Codes in `loginCodes` (salted hash, 10 min, single use, 5 tries → 30 min lock); Firestore rate limits per identity / IP + global daily caps (`LOGIN_WHATSAPP_DAILY_CAP` 300, `LOGIN_EMAIL_DAILY_CAP` 1000), fail closed.
+- Approval gate for ALL new signups: profiles are created only by `/api/auth/bootstrap` with `status:'pending'` (absent status = pre-gate account = approved). Pending users get `ApprovalGate` (name + business → `/api/auth/request-approval` emails info@ → waiting screen + WhatsApp) on dashboard/code/analytics/admin/content-intake/qtag. Rules: client `users` create removed, `codes`/`folders` create require `isApprovedUser()`, `loginCodes` locked; `requireApprovedUser` on upload + station QR. Admin approves/rejects in `/admin/users` (`/api/admin/users/approval`, approval email once).
+- Every sign-in button routes to `/login` (sidebar used to call Google directly; dashboard `?create=tenbool` guest modal replaced by `/login?next=`). Legacy `/login` page → redirect.
+- **Deploy order:** code first, then `firestore.rules` to BOTH projects (old bundles can no longer create user docs). Rollback = revert this release commit + redeploy the previous rules.
+
 ## [1.27.20] - 2026-10-13
 
 - Booklet editors UI moved into the dashboard (Rani: the separate screen was a mess): `FileKey` button on each PDF card next to transfer ownership (`BookletEditorsModal`) and in the folder header (`BookletEditorsBulkModal`, the folder's booklets pre-ticked, one email → bulk grant). Removed `/admin/booklet-editors` and its sidebar link; the bulk API is unchanged.

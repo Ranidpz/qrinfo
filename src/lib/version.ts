@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.20';
+export const APP_VERSION = '1.28.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.28.0', date: '2026-10-13', isNew: true, highlights: {
+    he: ['כניסה בלי סיסמה: מקלידים מייל או מספר וואטסאפ ומקבלים קוד בן 6 ספרות. במייל יש גם כפתור כניסה בלחיצה אחת', 'The Q פתוחה כרגע בהזמנה בלבד: מצטרפים חדשים שולחים בקשה וממתינים לאישור, ועד אז רואים מסך המתנה עם קישור לוואטסאפ', 'מנהל־על: בניהול המשתמשים יש רשימת "ממתינים לאישור" עם אישור ודחייה, ובאישור נשלח למשתמש מייל', 'כל כפתורי ההתחברות באתר מובילים עכשיו לדף הכניסה'],
+    en: ['Password-free sign-in: type an email or WhatsApp number and get a 6-digit code. The email also has a one-click sign-in button', 'The Q is invite-only for now: new members send a join request and see a waiting screen with a WhatsApp link until approved', 'Super admins: user management has a "Waiting for approval" list with approve / reject, and approval emails the user', 'Every sign-in button on the site now opens the login page'],
+  } },
   { version: '1.27.20', date: '2026-10-13', isNew: true, highlights: {
     he: ['הרשאות עדכון חוברות עברו ללוח הבקרה: כפתור על כל כרטיס חוברת ליד העברת בעלות, וכפתור על התיקייה שמעניק הרשאה לכל החוברות שבה בבת אחת', 'תיקון: בשדות חיפוש בעברית אייקון הזכוכית המגדלת כבר לא יושב על הטקסט'],
     en: ['Booklet update access moved into the dashboard: a button on every booklet card next to transfer ownership, and a folder button that grants access to all its booklets at once', 'Fix: in Hebrew search fields the magnifier icon no longer sits on top of the text'],
