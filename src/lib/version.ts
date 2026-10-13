@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.16';
+export const APP_VERSION = '1.28.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,26 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.28.0', date: '2026-10-13', isNew: true, highlights: {
+    he: ['כניסה בלי סיסמה: מקלידים מייל או מספר וואטסאפ ומקבלים קוד בן 6 ספרות. במייל יש גם כפתור כניסה בלחיצה אחת', 'The Q פתוחה כרגע בהזמנה בלבד: מצטרפים חדשים שולחים בקשה וממתינים לאישור, ועד אז רואים מסך המתנה עם קישור לוואטסאפ', 'מנהל־על: בניהול המשתמשים יש רשימת "ממתינים לאישור" עם אישור ודחייה, ובאישור נשלח למשתמש מייל', 'כל כפתורי ההתחברות באתר מובילים עכשיו לדף הכניסה'],
+    en: ['Password-free sign-in: type an email or WhatsApp number and get a 6-digit code. The email also has a one-click sign-in button', 'The Q is invite-only for now: new members send a join request and see a waiting screen with a WhatsApp link until approved', 'Super admins: user management has a "Waiting for approval" list with approve / reject, and approval emails the user', 'Every sign-in button on the site now opens the login page'],
+  } },
+  { version: '1.27.20', date: '2026-10-13', isNew: true, highlights: {
+    he: ['הרשאות עדכון חוברות עברו ללוח הבקרה: כפתור על כל כרטיס חוברת ליד העברת בעלות, וכפתור על התיקייה שמעניק הרשאה לכל החוברות שבה בבת אחת', 'תיקון: בשדות חיפוש בעברית אייקון הזכוכית המגדלת כבר לא יושב על הטקסט'],
+    en: ['Booklet update access moved into the dashboard: a button on every booklet card next to transfer ownership, and a folder button that grants access to all its booklets at once', 'Fix: in Hebrew search fields the magnifier icon no longer sits on top of the text'],
+  } },
+  { version: '1.27.19', date: '2026-10-13', isNew: true, highlights: {
+    he: ['מסך "הרשאות חוברות" למנהל־על: מסמנים כמה חוברות, מקלידים מייל אחד, ומעניקים לו הרשאת עדכון בכולן בלחיצה', 'במסך רואים מי יכול לעדכן כל חוברת, ומבטלים הרשאה בלחיצה על התגית'],
+    en: ['"Booklet editors" screen for super admins: select several booklets, enter one email, and grant update access to all of them in one click', 'The screen shows who can update each booklet; revoke with a click on the tag'],
+  } },
+  { version: '1.27.18', date: '2026-10-13', isNew: true, highlights: {
+    he: ['חוברות PDF: מנהל־על יכול לתת למשתמש נוסף הרשאה לעדכן את הקובץ של חוברות נבחרות, בלי להעביר בעלות', 'בכל החלפת PDF הקובץ הקודם נשמר, ואפשר לשחזר אותו בלחיצה מתוך "היסטוריית גרסאות"', 'היומן מראה מי החליף כל קובץ ומתי'],
+    en: ['PDF booklets: a super admin can let another user update the file of chosen booklets, without transferring ownership', 'Every PDF replacement keeps the previous file, restorable in one click from "Version history"', 'The history shows who replaced each file and when'],
+  } },
+  { version: '1.27.17', date: '2026-10-12', isNew: true, highlights: {
+    he: ['10 בול: שכפול המשחק ישירות מחלון ההגדרות — בוחרים שם, מאשרים, ומשחק זהה נוצר עם קישור וקוד משלו'],
+    en: ['10 Bool: duplicate the game straight from its settings — pick a name, confirm, and an identical game is created with its own link and code'],
+  } },
   { version: '1.27.16', date: '2026-10-12', isNew: true, highlights: {
     he: ['שדרוג אבטחה מקיף: טלפונים של אורחים, מצביעים ונרשמים נגישים רק לבעלי הקוד, וקודי PIN וקישורי צוות נשמרים במקום פרטי', 'קבצים אפשר למחוק רק עם הרשאה, ונפח האחסון נבדק בשרת', 'הודעות וואטסאפ בתשלום מוגנות מפני שימוש לרעה', 'חוברות נטענות בצורה יציבה יותר'],
     en: ['Major security upgrade: guest, voter and registrant phones are visible only to the code owner, and scanner PINs and staff links are stored privately', 'Files can be deleted only with permission, and storage is checked on the server', 'Paid WhatsApp messages are protected against abuse', 'Booklets load more reliably'],

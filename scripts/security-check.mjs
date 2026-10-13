@@ -40,7 +40,7 @@ const read = (f) => readFileSync(f, 'utf8');
 const GUARDS = [
   'requireCodeOwner', 'requireSuperAdmin', 'verifyAuthToken', 'checkRateLimit', 'authorizeScanner',
   'hasValidServerApiKey', 'authenticateIntakeKey', 'raffleTokenValid', 'verifyObjectDeleteToken',
-  'CRON_SECRET', 'isValidOrigin', 'validateOrigin',
+  'CRON_SECRET', 'isValidOrigin', 'validateOrigin', 'requireBookletAccess', 'requireApprovedUser',
 ];
 for (const f of srcFiles.filter((f) => /src\/app\/api\/.*\/route\.tsx?$/.test(f))) {
   const r = rel(f);

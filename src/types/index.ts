@@ -313,6 +313,12 @@ export interface User {
   storageLimit: number; // bytes
   storageUsed: number;  // bytes
   messageQuota?: import('./verification').MessageQuota; // WhatsApp/SMS message quota
+  // Approval gate (absent status = approved: accounts from before the gate)
+  status?: import('@/lib/auth/approval').AccountStatus;
+  signupMethod?: import('@/lib/auth/approval').SignupMethod;
+  phone?: string;        // E.164, set for WhatsApp signups
+  businessName?: string;
+  approvalRequestedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

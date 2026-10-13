@@ -2,10 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import { X, Clock, BarChart3, RefreshCw } from 'lucide-react';
+import { X, Clock, BarChart3, RefreshCw, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
+import PasswordlessLogin from '@/components/auth/PasswordlessLogin';
+
+// Where to go after signing in: an internal ?next= path (e.g. back to a "create" link), else the dashboard.
+function afterLoginPath(): string {
+  try {
+    const next = new URLSearchParams(window.location.search).get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\')) return next;
+  } catch {
+    // ignore
+  }
+  return '/dashboard';
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,6 +32,8 @@ export default function LoginPage() {
   const tAuth = useTranslations('auth');
   const tTerms = useTranslations('terms');
   const tFeatures = useTranslations('features');
+  const tGate = useTranslations('gate');
+  const [codeBusy, setCodeBusy] = useState(false);
 
   // Check if user already accepted terms
   useEffect(() => {
@@ -30,7 +44,7 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/dashboard');
+      router.push(afterLoginPath());
     }
   }, [user, authLoading, router]);
 
@@ -46,7 +60,7 @@ export default function LoginPage() {
 
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      router.push(afterLoginPath());
     } catch (err) {
       console.error(err);
       setError(tAuth('signInError'));
@@ -66,7 +80,7 @@ export default function LoginPage() {
 
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      router.push(afterLoginPath());
     } catch (err) {
       console.error(err);
       setError(tAuth('signInError'));
@@ -130,6 +144,15 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <div className="card text-center">
+          {/* Invite-only waitlist note */}
+          <div className="mb-5 rounded-lg bg-accent/10 border border-accent/20 px-4 py-3 text-start">
+            <p className="flex items-center gap-2 text-sm font-semibold text-accent">
+              <Sparkles className="w-4 h-4 shrink-0" />
+              {tGate('inviteOnlyTitle')}
+            </p>
+            <p className="mt-1 text-xs text-text-secondary leading-relaxed">{tGate('inviteOnlyBody')}</p>
+          </div>
+
           {/* Error message */}
           {error && (
             <p className="text-sm text-danger bg-danger/10 py-2 rounded-lg mb-4">
@@ -140,7 +163,7 @@ export default function LoginPage() {
           {/* Google Sign In Button */}
           <button
             onClick={handleGoogleSignIn}
-            disabled={loading}
+            disabled={loading || codeBusy}
             className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white hover:bg-gray-50 text-gray-800 font-medium rounded-lg border border-gray-300 transition-colors disabled:opacity-50"
           >
             {loading ? (
@@ -171,8 +194,17 @@ export default function LoginPage() {
             )}
           </button>
 
+          {/* Email / WhatsApp code */}
+          <div className="my-5 flex items-center gap-3 text-xs text-text-secondary">
+            <span className="h-px flex-1 bg-border" />
+            {tGate('or')}
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <PasswordlessLogin onBusyChange={setCodeBusy} />
+
           {/* Info */}
-          <p className="mt-6 text-xs text-text-secondary">
+          <p className="mt-6 text-xs text-text-secondary">{tGate('alreadyMember')}</p>
+          <p className="mt-2 text-xs text-text-secondary">
             {tAuth('bySigningIn')}{' '}
             <button
               onClick={() => setShowTerms(true)}

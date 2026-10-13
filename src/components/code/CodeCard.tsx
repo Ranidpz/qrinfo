@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2, Instagram, Facebook, Dices, Timer } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2, Instagram, Facebook, Dices, Timer, FileKey } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -64,6 +64,8 @@ interface CodeCardProps {
   onCopy?: () => void;
   onTitleChange?: (newTitle: string) => void;
   onTransferOwnership?: () => void;
+  /** Super admin, PDF booklets: who else may replace the PDF (no ownership change). */
+  onManageBookletEditors?: () => void;
   onDuplicate?: () => void;
   onToggleGlobal?: () => void;
   onDragStart?: () => void;
@@ -169,6 +171,7 @@ export default function CodeCard({
   onCopy,
   onTitleChange,
   onTransferOwnership,
+  onManageBookletEditors,
   onDuplicate,
   onToggleGlobal,
   onDragStart,
@@ -179,6 +182,7 @@ export default function CodeCard({
 }: CodeCardProps) {
   const tMedia = useTranslations('media');
   const tCard = useTranslations('card');
+  const tBooklets = useTranslations('booklets');
   const locale = useLocale();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -1053,6 +1057,20 @@ export default function CodeCard({
                 title={tCard('transferOwnership')}
               >
                 <UserCog className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {isSuperAdmin && onManageBookletEditors && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onManageBookletEditors();
+                }}
+                className="p-1 rounded text-yellow-500 hover:bg-yellow-500/10 transition-colors"
+                title={tBooklets('editorsButton')}
+                aria-label={tBooklets('editorsButton')}
+              >
+                <FileKey className="w-3.5 h-3.5" />
               </button>
             )}
           </div>

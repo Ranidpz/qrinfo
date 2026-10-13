@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
-import { Search, Loader2, Shield, Crown, User as UserIcon } from 'lucide-react';
+import { Search, Loader2, Shield, Crown, User as UserIcon, Check, X, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
+import { formatPhoneForDisplay } from '@/lib/phone-utils';
+import { isApprovedStatus } from '@/lib/auth/approval';
 import { User, UserRole, STORAGE_LIMITS } from '@/types';
 import { clsx } from 'clsx';
 
@@ -31,6 +34,8 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Check if current user is super_admin
   useEffect(() => {
@@ -50,11 +55,16 @@ export default function AdminUsersPage() {
           const data = doc.data();
           usersData.push({
             id: doc.id,
-            email: data.email,
-            displayName: data.displayName,
+            email: data.email || '',
+            displayName: data.displayName || '',
             role: data.role as UserRole,
             storageLimit: data.storageLimit,
             storageUsed: data.storageUsed,
+            status: data.status,
+            signupMethod: data.signupMethod,
+            phone: data.phone,
+            businessName: data.businessName,
+            approvalRequestedAt: data.approvalRequestedAt?.toDate(),
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
           });
@@ -97,12 +107,48 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleApproval = async (userId: string, action: 'approve' | 'reject') => {
+    setReviewing(userId);
+    setNotice(null);
+    try {
+      const res = await fetchWithAuth('/api/admin/users/approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: userId, action, locale }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || String(res.status));
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: data.status } : u)));
+      if (action === 'approve') setNotice(data.emailed ? t('approvedEmailed') : t('approvedNoEmail'));
+    } catch (error) {
+      console.error('Error reviewing user:', error);
+      alert(t('approvalError'));
+    } finally {
+      setReviewing(null);
+    }
+  };
+
+  const contactOf = (u: User) => u.email || (u.phone ? formatPhoneForDisplay(u.phone) : '');
+
+  const METHOD_LABEL: Record<string, string> = {
+    google: t('methodGoogle'),
+    email: t('methodEmail'),
+    phone: t('methodPhone'),
+  };
+
+  // Requests first (newest request on top), then those who never sent details.
+  const awaiting = users
+    .filter((u) => !isApprovedStatus(u.status))
+    .sort((a, b) => (b.approvalRequestedAt?.getTime() ?? 0) - (a.approvalRequestedAt?.getTime() ?? 0));
+
   const filteredUsers = users.filter((u) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
       u.email.toLowerCase().includes(query) ||
-      u.displayName.toLowerCase().includes(query)
+      u.displayName.toLowerCase().includes(query) ||
+      (u.phone || '').includes(query.replace(/\D/g, '').replace(/^0/, '') || '~') ||
+      (u.businessName || '').toLowerCase().includes(query)
     );
   });
 
@@ -132,6 +178,55 @@ export default function AdminUsersPage() {
         </span>
       </div>
 
+      {/* Join requests waiting for approval */}
+      {awaiting.length > 0 && (
+        <section className="card p-4 space-y-3 border-accent/30">
+          <h2 className="flex items-center gap-2 font-semibold text-text-primary">
+            <Clock className="w-4 h-4 text-accent" />
+            {t('pendingTitle')}
+            <span className="text-xs font-medium text-accent bg-accent/10 rounded-full px-2 py-0.5">{awaiting.filter((u) => u.status !== 'rejected').length}</span>
+          </h2>
+          <ul className="divide-y divide-border">
+            {awaiting.map((u) => (
+              <li key={u.id} className="py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-text-primary truncate">
+                    {u.displayName || contactOf(u)}
+                    {u.businessName && <span className="text-text-secondary font-normal"> · {u.businessName}</span>}
+                  </p>
+                  <p className="text-sm text-text-secondary truncate" dir="ltr" style={{ textAlign: 'start' }}>{contactOf(u)}</p>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    {u.signupMethod && <span>{METHOD_LABEL[u.signupMethod]} · </span>}
+                    {u.status === 'rejected'
+                      ? <span className="text-danger">{t('statusRejected')}</span>
+                      : u.approvalRequestedAt
+                        ? <span>{t('requestedAt')}: {u.approvalRequestedAt.toLocaleString(locale === 'he' ? 'he-IL' : 'en-US', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                        : <span>{t('noRequestYet')}</span>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {reviewing === u.id ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-accent" />
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => handleApproval(u.id, 'approve')} className="btn btn-success px-4 py-2 text-sm">
+                        <Check className="w-4 h-4" /> {t('approve')}
+                      </button>
+                      {u.status !== 'rejected' && (
+                        <button type="button" onClick={() => handleApproval(u.id, 'reject')} className="btn btn-secondary px-4 py-2 text-sm">
+                          <X className="w-4 h-4" /> {t('reject')}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {notice && <p className="text-sm text-success" role="status">{notice}</p>}
+
       {/* Search */}
       <div className="relative w-full sm:max-w-md">
         <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
@@ -147,7 +242,7 @@ export default function AdminUsersPage() {
           {users.map((u) => (
             <option key={u.id} value={u.displayName} />
           ))}
-          {users.map((u) => (
+          {users.filter((u) => u.email).map((u) => (
             <option key={`email-${u.id}`} value={u.email} />
           ))}
         </datalist>
@@ -176,7 +271,7 @@ export default function AdminUsersPage() {
                       <span className="text-xs text-accent mr-2">{t('you')}</span>
                     )}
                   </p>
-                  <p className="text-sm text-text-secondary truncate">{u.email}</p>
+                  <p className="text-sm text-text-secondary truncate">{contactOf(u)}</p>
                 </div>
               </div>
 
@@ -272,7 +367,7 @@ export default function AdminUsersPage() {
                               <span className="text-xs text-accent mr-2">{t('you')}</span>
                             )}
                           </p>
-                          <p className="text-sm text-text-secondary">{u.email}</p>
+                          <p className="text-sm text-text-secondary">{contactOf(u)}</p>
                         </div>
                       </div>
                     </td>

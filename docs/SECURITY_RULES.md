@@ -117,6 +117,16 @@ Owner-triggered sends pass `ownerTriggered: true`. Owner-limit enforcement: `MES
 - No full phones, OTPs or tokens in `console.*` logs (mask / truncate to 4 chars).
 - `users/{uid}`: users can edit only `displayName`; quotas/roles are server/admin-only.
 
+## 8a. Delegated access (booklet editors)
+
+- Narrow delegation never goes through `collaborators` (that is full edit) or the code doc. Store the grant in a
+  locked top-level collection (`bookletEditors/{codeId}__{uid}`, rules `if false`), manage it from a
+  `requireSuperAdmin` route, and expose only the delegated action through a server route whose guard re-reads
+  the grant on every request (`requireBookletAccess`).
+- The delegated user writes nothing client-side: Firestore rules and `canDeleteStoredObject` keep denying them.
+  Files they upload are stored under the OWNER's key prefix and billed to the owner by the server.
+- Record the actor of every delegated change (`codes/{id}/pdfHistory`) and keep a restore path.
+
 ## 9. Rules changes and releases
 
 - Test `firestore.rules` / `database.rules.json` on `qrinfo-dev` first; deploy to BOTH projects together
