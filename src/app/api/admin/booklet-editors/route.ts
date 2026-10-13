@@ -132,6 +132,9 @@ export async function POST(request: NextRequest) {
     const target = match.docs[0];
     const targetData = target.data();
     if (targetData.role === 'super_admin') return NextResponse.json({ error: 'already_admin' }, { status: 400 });
+    if (targetData.status != null && targetData.status !== 'approved') {
+      return NextResponse.json({ error: 'not_approved' }, { status: 400 });
+    }
 
     const actor = await superAdminActor(auth.uid);
     const editor = { uid: target.id, email: String(targetData.email || email), name: String(targetData.displayName || '') };

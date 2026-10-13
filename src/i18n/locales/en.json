@@ -2137,6 +2137,7 @@
     "userNotFound": "No user with this email. They need to sign up first.",
     "alreadyOwner": "This user already owns the booklet.",
     "alreadyAdmin": "Super admins already have full access.",
+    "notApproved": "This user is not approved yet. Approve them in user management first.",
     "notBooklet": "This code has no PDF file.",
     "sharedTitle": "Booklets to update",
     "sharedHint": "Booklets whose PDF you were given access to update. The previous file is kept on every replacement.",

@@ -133,6 +133,7 @@ export function bookletErrorKey(error: unknown): string {
   if (message === 'user_not_found') return 'userNotFound';
   if (message === 'already_owner') return 'alreadyOwner';
   if (message === 'already_admin') return 'alreadyAdmin';
+  if (message === 'not_approved') return 'notApproved';
   if (message === 'not_a_booklet') return 'notBooklet';
   if (message === 'Only PDF files are supported' || message === 'Target media is not a PDF') return 'onlyPdf';
   if (message === 'Duplicate PDF') return 'errorDuplicate';

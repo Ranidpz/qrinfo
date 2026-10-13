@@ -72,7 +72,10 @@ export async function requireBookletAccess(
     return { actor: { ...identity, via: 'collaborator' }, ownerId };
   }
 
-  if (hasPdfMedia(code.media) && await hasBookletGrant(codeId, uid, ownerId)) {
+  // Editors must also hold an approved account (same rule as isApprovedStatus: no status =
+  // pre-gate account = approved), so rejecting a user ends their booklet access too.
+  const approved = user.status == null || user.status === 'approved';
+  if (approved && hasPdfMedia(code.media) && await hasBookletGrant(codeId, uid, ownerId)) {
     return { actor: { ...identity, via: 'editor' }, ownerId };
   }
 

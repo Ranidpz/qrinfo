@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.28.1';
+export const APP_VERSION = '1.28.2';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.28.2', date: '2026-10-13', isNew: true, highlights: {
+    he: ['אבטחה: הרשאת עדכון חוברות פועלת רק למשתמש מאושר, ומשתמש שנדחה מאבד אותה מיד'],
+    en: ['Security: booklet update access works only for an approved account, and a rejected user loses it immediately'],
+  } },
   { version: '1.28.1', date: '2026-10-13', isNew: true, highlights: {
     he: ['Q.Hunt: תמונת הרקע והלוגו נשמרים, כפתורי השלבים עובדים, ו"מינימום קודים לסיום" ומתג הצלילים פועלים באמת', 'Q.Vote: שמירת ההגדרות כבר לא מוחקת את תזמון השלבים, שלב הצבעה מתוזמן נפתח גם בשרת, ושדות חובה בטופס נבדקים', 'Q.Tag: אורח שביטל משחרר את המקום ולא נכנס בסריקה, קוד ה-PIN נדרש גם בסריקת QR, ומתג "הפעל סורק" נאכף', 'הגרלה: הוסר מצב התצוגה "טלפונים" — במסך ההגרלה מוצגים תמיד שמות'],
     en: ['Q.Hunt: background image and logo are saved, phase buttons work, and "minimum codes to finish" and the sound toggle really apply', 'Q.Vote: saving settings no longer wipes phase schedules, a scheduled voting phase opens on the server too, and required form fields are checked', 'Q.Tag: a guest who cancels frees the spot and is refused at the door, the scanner PIN is required for QR check-in too, and "Enable scanner" is enforced', 'Raffle: the "phones" display mode was removed — the live screen always shows names'],

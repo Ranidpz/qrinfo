@@ -149,6 +149,10 @@ test('access: owner, super admin and active editor only; revoke and non-booklets
   assert.equal((await as('editor-1')).response.status, 403, 'ownership transfer ends the grant');
   globalThis.__db.store.get('codes/c1').ownerId = 'owner-1';
   assert.equal((await as('editor-1')).actor.via, 'editor');
+  globalThis.__db.store.get('users/editor-1').status = 'rejected';
+  assert.equal((await as('editor-1')).response.status, 403, 'a rejected account loses booklet access');
+  globalThis.__db.store.get('users/editor-1').status = 'approved';
+  assert.equal((await as('editor-1')).actor.via, 'editor');
   globalThis.__db.store.get('bookletEditors/c1__editor-1').revokedAt = 'SERVER_TS';
   assert.equal((await as('editor-1')).response.status, 403, 'revoke is immediate');
 });
@@ -347,6 +351,8 @@ test('admin bulk grant: one email, many booklets — owner / non-booklet skipped
   assert.equal((await grant(['b1', '../x'])).status, 400);
   assert.equal((await grant(['b1'], 'boss@x.test')).status, 400, 'no grants to super admins');
   assert.equal((await grant(['b1'], 'nobody@x.test')).status, 404);
+  globalThis.__db.store.set('users/new', { email: 'new@x.test', status: 'pending' });
+  assert.equal((await (await grant(['b1'], 'new@x.test')).json()).error, 'not_approved');
 
   const res = await (await grant(['b1', 'b2', 'own', 'img', 'gone'])).json();
   assert.deepEqual(Object.fromEntries(res.results.map((r) => [r.codeId, r.status])),

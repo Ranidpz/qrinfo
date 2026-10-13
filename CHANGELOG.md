@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.28.2] - 2026-10-13
+
+- Booklet editors × approval gate (v1.28.0): `requireBookletAccess` honours a grant only for an approved account (no `status` = pre-gate = approved); bulk/single grant refuses unapproved targets (`not_approved`). Docs: `docs/BOOKLET_EDITORS.md`. Rollback = revert this release commit.
+
 ## [1.28.0] - 2026-10-13
 
 - Passwordless login next to Google: one field (email / Israeli mobile) → 6-digit code. Email via Resend (`notifications@playzone.co.il`) also carries a Firebase email-link minted server-side (`generateSignInWithEmailLink`; Email-link provider enabled on qrinfo-dev + qrinfo-905c9). WhatsApp via `guardedSendOTP` (pseudo code `platform-login`). `/api/auth/otp/send|verify` → `createCustomToken` → `signInWithCustomToken`; email resolves to the existing Google uid. Codes in `loginCodes` (salted hash, 10 min, single use, 5 tries → 30 min lock); Firestore rate limits per identity / IP + global daily caps (`LOGIN_WHATSAPP_DAILY_CAP` 300, `LOGIN_EMAIL_DAILY_CAP` 1000), fail closed.
