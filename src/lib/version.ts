@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.27.19';
+export const APP_VERSION = '1.27.20';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.27.20', date: '2026-10-13', isNew: true, highlights: {
+    he: ['הרשאות עדכון חוברות עברו ללוח הבקרה: כפתור על כל כרטיס חוברת ליד העברת בעלות, וכפתור על התיקייה שמעניק הרשאה לכל החוברות שבה בבת אחת', 'תיקון: בשדות חיפוש בעברית אייקון הזכוכית המגדלת כבר לא יושב על הטקסט'],
+    en: ['Booklet update access moved into the dashboard: a button on every booklet card next to transfer ownership, and a folder button that grants access to all its booklets at once', 'Fix: in Hebrew search fields the magnifier icon no longer sits on top of the text'],
+  } },
   { version: '1.27.19', date: '2026-10-13', isNew: true, highlights: {
     he: ['מסך "הרשאות חוברות" למנהל־על: מסמנים כמה חוברות, מקלידים מייל אחד, ומעניקים לו הרשאת עדכון בכולן בלחיצה', 'במסך רואים מי יכול לעדכן כל חוברת, ומבטלים הרשאה בלחיצה על התגית'],
     en: ['"Booklet editors" screen for super admins: select several booklets, enter one email, and grant update access to all of them in one click', 'The screen shows who can update each booklet; revoke with a click on the tag'],
