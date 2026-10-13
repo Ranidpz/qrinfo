@@ -40,8 +40,9 @@ export interface VoteXpReward {
 const translations = {
   he: {
     yourPoints: 'הנקודות שלכם',
-    howItWorks: 'כל הצבעה = {xp} XP · כל {threshold} XP = חבילת פרס',
-    toNextPack: 'עוד {n} XP לחבילה הבאה',
+    // \u2066…\u2069 isolate "50 XP" so it doesn't flip inside the RTL sentence
+    howItWorks: 'כל הצבעה = \u2066{xp} XP\u2069 · כל \u2066{threshold} XP\u2069 = חבילת פרס',
+    toNextPack: 'עוד \u2066{n} XP\u2069 לחבילה הבאה',
     openPack: 'פתחו חבילה',
     packsWaiting: '{n} חבילות מחכות לכם',
     noPrizesNow: 'אין כרגע פרסים זמינים — החבילות יחכו לכם כאן',
