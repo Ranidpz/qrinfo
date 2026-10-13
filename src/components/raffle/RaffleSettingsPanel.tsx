@@ -6,7 +6,6 @@ import {
   Upload,
   Palette,
   Type,
-  Eye,
   Repeat,
   Volume2,
   Download,
@@ -716,30 +715,8 @@ export default function RaffleSettingsPanel({
             )}
           </Section>
 
-          {/* Codes have no name/phone split — nothing to choose between. */}
-          <Section icon={<Eye size={15} />} title="מצב תצוגה" hidden={isCodes}>
-            <div className="grid grid-cols-2 gap-1.5">
-              {(['names', 'phones'] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => onConfigChange({ displayMode: m })}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    config.displayMode === m
-                      ? 'bg-amber-400 text-black'
-                      : 'bg-white/5 text-white/70 hover:bg-white/10'
-                  }`}
-                >
-                  {m === 'names' ? 'שמות' : 'טלפונים'}
-                </button>
-              ))}
-            </div>
-            {/* The live screen (/raffle/{shortId}) never receives phone numbers — say so */}
-            {config.displayMode === 'phones' && (
-              <p className="text-xs leading-relaxed text-white/40">
-                במסך ההגרלה עצמו יוצגו שמות בלבד, כדי שמספרי טלפון לא ייחשפו על המסך.
-              </p>
-            )}
-          </Section>
+          {/* Display mode (names/phones) is hidden: the live screen never receives phone
+              numbers, so 'phones' only ever affected the demo. Bring it back with phone-scan control. */}
           </div>
 
           <div className={grpCls('settings', 'grid')}>
