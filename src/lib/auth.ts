@@ -18,7 +18,7 @@ type AuthOutcome = AuthResult | AuthError;
 
 // --- Core helpers ---
 
-function getAdminAuth() {
+export function getAdminAuth() {
   const app = getAdminApp();
   return getAuth(app);
 }
@@ -78,6 +78,31 @@ export async function requireSuperAdmin(
   }
 
   return { uid, isOwner: false, isSuperAdmin: true };
+}
+
+/**
+ * Verify auth token + require an approved account.
+ * Use for routes that let a signed-in user create content not tied to a code they own.
+ */
+export async function requireApprovedUser(
+  request: NextRequest
+): Promise<{ uid: string } | { error: NextResponse }> {
+  const authResult = await verifyAuthToken(request);
+  if ('error' in authResult) return authResult;
+
+  // Same rule as isApprovedStatus (src/lib/auth/approval.ts): no status = pre-gate account = approved.
+  // Inlined so this module keeps no app imports (tests load it with stubbed deps).
+  const userDoc = await getAdminDb().collection('users').doc(authResult.uid).get();
+  const status = userDoc.data()?.status;
+  if (!userDoc.exists || (status != null && status !== 'approved')) {
+    return {
+      error: NextResponse.json(
+        { error: 'Account pending approval' },
+        { status: 403 }
+      ),
+    };
+  }
+  return authResult;
 }
 
 /**

@@ -5,18 +5,21 @@ import {
   User as FirebaseUser,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithCustomToken,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { User, UserRole, STORAGE_LIMITS } from '@/types';
+import { User, UserRole } from '@/types';
 
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  /** Exchange the token from /api/auth/otp/verify for a Firebase session. */
+  signInWithLoginToken: (token: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -39,11 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = userDoc.data();
         return {
           id: firebaseUser.uid,
-          email: firebaseUser.email || '',
+          email: firebaseUser.email || data.email || '',
           displayName: data.displayName || firebaseUser.displayName || '',
           role: data.role as UserRole,
           storageLimit: data.storageLimit,
           storageUsed: data.storageUsed,
+          status: data.status,
+          signupMethod: data.signupMethod,
+          phone: data.phone,
+          businessName: data.businessName,
+          approvalRequestedAt: data.approvalRequestedAt?.toDate(),
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
         };
@@ -56,55 +64,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Create user document in Firestore
-  const createUserDocument = async (
-    firebaseUser: FirebaseUser
-  ): Promise<User> => {
-    const displayName = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'משתמש';
+  // Load the profile, creating it server-side on first sign-in. Profiles are
+  // created only by /api/auth/bootstrap (it sets the approval status), never here.
+  const ensureUserData = async (firebaseUser: FirebaseUser): Promise<User | null> => {
+    const existing = await fetchUserData(firebaseUser);
+    if (existing) return existing;
 
-    // Browser registration never grants privileged roles. Existing administrators
-    // manage promotion after registration; existing user documents are unchanged.
-    const role: UserRole = 'free';
-
-    const userData = {
-      email: firebaseUser.email,
-      displayName,
-      role,
-      storageLimit: STORAGE_LIMITS[role],
-      storageUsed: 0,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-
-    // Notify admins about new user (non-blocking)
-    firebaseUser.getIdToken().then(token => {
-      fetch('/api/notify/new-user', {
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch('/api/auth/bootstrap', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          displayName,
-          email: firebaseUser.email,
-        }),
-      }).catch(() => {
-        console.warn('[Auth] Failed to send new user notification');
+        headers: { Authorization: `Bearer ${token}` },
       });
-    });
-
-    return {
-      id: firebaseUser.uid,
-      email: firebaseUser.email || '',
-      displayName,
-      role,
-      storageLimit: STORAGE_LIMITS[role],
-      storageUsed: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      if (!res.ok) {
+        console.error('[Auth] Profile bootstrap failed:', res.status);
+        return null;
+      }
+    } catch (error) {
+      console.error('[Auth] Profile bootstrap error:', error);
+      return null;
+    }
+    return fetchUserData(firebaseUser);
   };
 
   // Listen to auth state changes
@@ -113,14 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setFirebaseUser(firebaseUser);
 
       if (firebaseUser) {
-        let userData = await fetchUserData(firebaseUser);
-
-        // Create user document if it doesn't exist (first time login)
-        if (!userData) {
-          userData = await createUserDocument(firebaseUser);
-        }
-
-        setUser(userData);
+        setUser(await ensureUserData(firebaseUser));
       } else {
         setUser(null);
       }
@@ -134,15 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign in with Google
   const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, googleProvider);
+    setUser(await ensureUserData(result.user));
+  };
 
-    let userData = await fetchUserData(result.user);
-
-    // Create user document if it doesn't exist
-    if (!userData) {
-      userData = await createUserDocument(result.user);
-    }
-
-    setUser(userData);
+  const signInWithLoginToken = async (token: string) => {
+    const result = await signInWithCustomToken(auth, token);
+    setUser(await ensureUserData(result.user));
   };
 
   // Sign out
@@ -166,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         firebaseUser,
         loading,
         signInWithGoogle,
+        signInWithLoginToken,
         signOut,
         refreshUser,
       }}
