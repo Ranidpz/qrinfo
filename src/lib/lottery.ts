@@ -15,6 +15,7 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { pickWeightedPrize } from './prizeDraw';
 import type { Prize, PrizeRarity, PendingPack, PackOpening, Visitor } from '@/types';
 
 // Rarity order for fallback (from highest to lowest)
@@ -169,18 +170,8 @@ export async function claimPrize(
       throw new Error('No prizes available');
     }
 
-    // 4. Draw a prize
-    const totalWeight = availablePrizes.reduce((sum, p) => sum + p.dropRate, 0);
-    let random = Math.random() * totalWeight;
-    let selectedPrize = availablePrizes[0];
-
-    for (const prize of availablePrizes) {
-      random -= prize.dropRate;
-      if (random <= 0) {
-        selectedPrize = prize;
-        break;
-      }
-    }
+    // 4. Draw a prize (shared weighted draw — same one Q.Vote packs use)
+    let selectedPrize = pickWeightedPrize(availablePrizes) || availablePrizes[0];
 
     // 5. Verify prize is still available and increment claimed count
     const prizeRef = doc(db, 'prizes', selectedPrize.id);

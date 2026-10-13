@@ -444,6 +444,10 @@
 
       "qvoteBranding": "How do I customize Q.Vote branding?",
       "qvoteBrandingAnswer": "In Q.Vote settings, go to the \"Branding\" tab. You can set: logo, background image/color, primary colors, custom titles, and button styles. Make the voting experience match your event's look.",
+      "qvoteCropping": "How do I make candidate photos look right on the card?",
+      "qvoteCroppingAnswer": "In Q.Vote settings, on the \"Basic Settings\" tab, turn on \"Crop images on upload\". From then on, people registering as candidates — and you, when adding or replacing a photo on the candidates page — frame the photo in a square before it uploads, exactly as it will appear on the voting card. Bulk uploads of many photos at once skip the crop step.",
+      "qvoteXpPacks": "How do I give voters points and prizes?",
+      "qvoteXpPacksAnswer": "In Q.Vote settings, on the \"Advanced\" tab, turn on the \"XP system\". Every candidate picked in a vote earns points, and each time voters pass the threshold they get a pack. Use \"Pack prizes\" to add prizes with a rarity, drop chance and stock. Voters open the pack on their phone and show the staff their screen with their code; you see the winners list in the same place. Points count once per category and round, so changing a vote adds nothing. Resetting the votes also resets the points and returns the prizes to stock.",
       "disableLandingPage": "How do I disable the landing page?",
       "disableLandingPageAnswer": "In Q.Vote settings, toggle off \"Show Landing Page\". Voters will go directly to the voting screen instead of seeing a welcome page first. Useful for quick voting scenarios.",
       "requireRegistration": "Can I require voter registration?",

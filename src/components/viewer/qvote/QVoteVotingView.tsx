@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Check, ChevronLeft, Loader2, Vote, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { Candidate, QVoteConfig } from '@/types/qvote';
 import QVoteViewModeSelector, { ViewMode } from './QVoteViewModeSelector';
@@ -42,6 +42,8 @@ interface QVoteVotingViewProps {
   onResetVote?: () => void;
   tabletResetCountdown?: number | null;
   tabletResetDelay?: number;
+  /** Slot in the fixed header, before the Q logo (Q.Vote XP chip). */
+  headerExtra?: ReactNode;
   translations: {
     votingTitle: string;
     finalsTitle: string;
@@ -75,6 +77,7 @@ export default function QVoteVotingView({
   onResetVote,
   tabletResetCountdown,
   tabletResetDelay = 5,
+  headerExtra,
   translations: t,
 }: QVoteVotingViewProps) {
   const isRTL = locale === 'he';
@@ -244,6 +247,8 @@ export default function QVoteVotingView({
               </>
             )}
           </div>
+
+          {headerExtra}
 
           {/* Q Logo - Shows exit confirmation */}
           <button

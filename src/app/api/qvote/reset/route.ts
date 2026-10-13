@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resetAllVotesAdmin, deleteAllQVoteDataAdmin, recalculateStatsAdmin } from '@/lib/qvote-admin';
 import { getQRCodeByShortId } from '@/lib/db';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
+import { resetXpData } from '@/lib/qvoteXp/store';
 
 // POST: Reset Q.Vote data for a code
 // mode: 'reset_votes' = keep candidates, clear votes + stats
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
     if (mode === 'reset_votes') {
       console.log(`[QVote Reset] User ${auth.uid} resetting votes for code: ${actualCodeId}`);
       const result = await resetAllVotesAdmin(actualCodeId);
+      // XP/packs belong to the votes; prize stock comes back for the live run
+      await resetXpData(actualCodeId);
       console.log(`[QVote Reset] Successfully reset ${result.deletedVotes} votes for code: ${actualCodeId}`);
 
       return NextResponse.json({
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
     } else {
       console.log(`[QVote Reset] User ${auth.uid} deleting all data for code: ${actualCodeId}`);
       await deleteAllQVoteDataAdmin(actualCodeId);
+      await resetXpData(actualCodeId);
       await recalculateStatsAdmin(actualCodeId);
       console.log(`[QVote Reset] Successfully deleted all data for code: ${actualCodeId}`);
 
