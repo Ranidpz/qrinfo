@@ -83,6 +83,13 @@ const he = {
   mostActiveDept: 'הכי פעילה',
   photosShort: 'תמונות',
   onePhoto: 'תמונה אחת',
+  productionTeam: 'צוות ההפקה',
+  cheerChampions: 'אלופים!',
+  cheerMostPhotos: 'הכי מצלמים',
+  cheerAlready: 'כבר',
+  cheerKeepGoing: 'תמשיכו ככה!',
+  cheerChasing: '{a} רודפים אחרי',
+  cheerGap: 'רק {n} ❤️ הפרש',
   doubleTapHint: 'הקישו פעמיים על תמונה ללייק',
 } as const;
 
@@ -170,6 +177,13 @@ const en: SocialWallStrings = {
   mostActiveDept: 'Most active',
   photosShort: 'photos',
   onePhoto: '1 photo',
+  productionTeam: 'Production team',
+  cheerChampions: 'Champions!',
+  cheerMostPhotos: 'Most snaps',
+  cheerAlready: 'Already',
+  cheerKeepGoing: 'Keep it coming!',
+  cheerChasing: '{a} are chasing',
+  cheerGap: 'only {n} ❤️ behind',
   doubleTapHint: 'Double-tap a photo to like it',
 };
 

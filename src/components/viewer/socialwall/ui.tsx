@@ -57,6 +57,10 @@ export const SW_STYLE = `
 [dir="ltr"] .sw-bar { transform-origin: left; }
 @keyframes sw-hint { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.25); } 30% { transform: scale(1); } 45% { transform: scale(1.25); } 60% { transform: scale(1); } }
 .sw-hint-heart { animation: sw-hint 1.6s ease-in-out infinite; }
+@keyframes sw-gradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+.sw-gradient { background-size: 220% 220%; animation: sw-gradient 9s ease-in-out infinite; }
+@keyframes sw-pop-in { 0% { transform: scale(.3) rotate(-12deg); opacity: 0; } 60% { transform: scale(1.15) rotate(4deg); opacity: 1; } 100% { transform: none; } }
+.sw-pop-in { display: inline-block; animation: sw-pop-in .7s cubic-bezier(.2,.8,.2,1) .15s both; }
 .sw-particle { position: absolute; left: 50%; top: 50%; pointer-events: none; animation: sw-burst var(--d) cubic-bezier(.12,.75,.3,1) forwards; }
 @media (prefers-reduced-motion: reduce) {
   .sw-particle { display: none; }

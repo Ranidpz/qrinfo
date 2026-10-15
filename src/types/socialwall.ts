@@ -38,6 +38,70 @@ export interface SocialWallBranding {
   screenBackgroundColor?: string;
 }
 
+/** A "production team" cheer post. `text` may hold placeholders, see CHEER_PLACEHOLDERS. */
+export interface SocialWallCheer {
+  id: string;
+  text: string;
+  on: boolean;
+}
+
+export interface SocialWallCheersConfig {
+  enabled?: boolean;
+  /** A cheer post after every N photos in the feed */
+  every?: number;
+  /** Shown as the author of the cheer posts (default: צוות ההפקה) */
+  author?: string;
+  items?: SocialWallCheer[];
+}
+
+/** Live values a cheer line can use. A line whose placeholder has no value yet is skipped. */
+export const CHEER_PLACEHOLDERS = [
+  { key: '{hot}', he: 'המחלקה עם הכי הרבה לייקים', en: 'department with most likes' },
+  { key: '{hotLikes}', he: 'הלייקים שלה', en: 'its likes' },
+  { key: '{active}', he: 'המחלקה עם הכי הרבה תמונות', en: 'department with most photos' },
+  { key: '{activePhotos}', he: 'התמונות שלה', en: 'its photos' },
+  { key: '{second}', he: 'המחלקה במקום השני', en: 'second department' },
+  { key: '{gap}', he: 'הפרש הלייקים בין הראשונה לשנייה', en: 'likes gap first-second' },
+  { key: '{photos}', he: 'כל התמונות באירוע', en: 'all photos' },
+  { key: '{likes}', he: 'כל הלייקים באירוע', en: 'all likes' },
+] as const;
+
+export const DEFAULT_CHEERS: SocialWallCheer[] = [
+  { id: 'c1', on: true, text: '🔥 אלופים! {hot} מובילים עם {hotLikes} ❤️' },
+  { id: 'c2', on: true, text: '🤳 איפה הסלפי שלכם? מעלים עכשיו!' },
+  { id: 'c3', on: true, text: '📸 {active} הכי מצלמים היום: {activePhotos} תמונות' },
+  { id: 'c4', on: true, text: '💪 כבר {photos} תמונות באירוע! תמשיכו ככה' },
+  { id: 'c5', on: true, text: '🏁 {second} רודפים אחרי {hot}! רק {gap} ❤️ הפרש' },
+  { id: 'c6', on: true, text: '🙌 אנשים טובים. רגעים גדולים.' },
+  { id: 'c7', on: true, text: '❤️ {likes} לבבות, ועוד לא סיימנו' },
+  { id: 'c8', on: true, text: '🎉 כל תמונה שלכם מקדמת את המחלקה' },
+  { id: 'c9', on: true, text: '😍 שווה לייק? תנו לתמונה הכי טובה שראיתם היום' },
+  { id: 'c10', on: true, text: '🏆 מי תיקח את הגביע? המרוץ בעיצומו' },
+];
+
+export interface ResolvedCheers {
+  enabled: boolean;
+  every: number;
+  author: string;
+  items: SocialWallCheer[];
+}
+
+export function resolveCheers(raw: SocialWallCheersConfig | undefined): ResolvedCheers {
+  const items = Array.isArray(raw?.items)
+    ? raw!.items
+        .filter((c): c is SocialWallCheer => !!c && typeof c.text === 'string' && !!c.text.trim())
+        .slice(0, 30)
+        .map((c) => ({ id: String(c.id || ''), on: c.on !== false, text: c.text.slice(0, 120) }))
+    : DEFAULT_CHEERS;
+  const every = typeof raw?.every === 'number' && Number.isFinite(raw.every) ? Math.min(20, Math.max(2, Math.round(raw.every))) : 4;
+  return {
+    enabled: raw?.enabled !== false,
+    every,
+    author: typeof raw?.author === 'string' && raw.author.trim() ? raw.author.trim().slice(0, 40) : '',
+    items,
+  };
+}
+
 export interface SocialWallConfig {
   eventTitle?: string;
   locale?: 'he' | 'en';
@@ -52,6 +116,7 @@ export interface SocialWallConfig {
   maxPostsPerMember?: number;
   maxMembers?: number;
   branding?: SocialWallBranding;
+  cheers?: SocialWallCheersConfig;
   /** Big-screen link token — secret, stored in private/secrets. */
   screenToken?: string;
   /** On-site operator (moderation) link token — secret, stored in private/secrets. */

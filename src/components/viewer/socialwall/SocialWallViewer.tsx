@@ -12,6 +12,7 @@ import { realtimeDb } from '@/lib/firebase';
 import { compressImage } from '@/lib/imageCompression';
 import { isInAppBrowser, openCurrentUrlInBrowser } from '@/lib/inAppBrowser';
 import {
+  resolveCheers,
   resolveSocialWallConfig,
   type SocialWallConfig,
   type SocialWallGroup,
@@ -24,7 +25,7 @@ import Composer, { type ComposerResult } from './Composer';
 import JoinFlow, { ProfileForm } from './JoinFlow';
 import { useFeed } from './useFeed';
 import StaffView from './StaffView';
-import { Leaderboard, type GroupStat } from './Leaderboard';
+import { CheerPost, cheerValues, resolveCheer, type EventTotals, type GroupStat } from './Leaderboard';
 import { Avatar, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
 
 type Phase = 'boot' | 'welcome' | 'join' | 'profile' | 'app' | 'blocked';
@@ -277,17 +278,27 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   const { loadMore, addPost } = feed;
 
   // Department race card: whole-event photos + likes per department (server aggregate, cached)
+  const cheers = useMemo(() => resolveCheers(rawConfig?.cheers), [rawConfig?.cheers]);
   const [stats, setStats] = useState<GroupStat[]>([]);
+  const [totals, setTotals] = useState<EventTotals | null>(null);
   const statsAt = useRef(0);
   const loadStats = useCallback(async () => {
-    if (!session || !config.groups.length || Date.now() - statsAt.current < 10_000) return;
+    if (!session || !cheers.enabled || Date.now() - statsAt.current < 10_000) return;
     statsAt.current = Date.now();
     try {
-      setStats((await swApi.stats(codeId, session.session)).groups);
+      const res = await swApi.stats(codeId, session.session);
+      setStats(res.groups);
+      setTotals(res.totals || null);
     } catch {
-      /* the card just keeps its last numbers */
+      /* cheer posts keep their last numbers */
     }
-  }, [codeId, session, config.groups.length]);
+  }, [codeId, session, cheers.enabled]);
+  // The organizer's lines in order, with live values; lines waiting for a value are skipped
+  const cheerLines = useMemo(() => {
+    if (!cheers.enabled) return [];
+    const values = cheerValues(stats, totals, groupsById, locale);
+    return cheers.items.filter((c) => c.on).map((c) => resolveCheer(c.text, values)).filter((x): x is NonNullable<typeof x> => !!x);
+  }, [cheers, stats, totals, groupsById, locale]);
   useEffect(() => {
     if (phase !== 'app') return;
     void loadStats();
@@ -691,17 +702,15 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
                       hint={hintVisible && i === 0}
                       onHintDone={hintDone}
                     />
-                    {!group && (i === 3 || (i > 3 && (i - 3) % 10 === 0)) && (
-                      <Leaderboard
-                        stats={stats}
-                        groups={groupsById}
-                        t={t}
-                        locale={locale}
-                        onPick={(g) => {
-                          setGroup(g);
-                          scrollRef.current?.scrollTo({ top: 0 });
-                        }}
-                      />
+                    {!group && cheerLines.length > 0 && (i + 1) % cheers.every === 0 && (
+                      <div className="mt-2">
+                        <CheerPost
+                          slot={(i + 1) / cheers.every - 1}
+                          segments={cheerLines[((i + 1) / cheers.every - 1) % cheerLines.length]}
+                          author={cheers.author || t.productionTeam}
+                          t={t}
+                        />
+                      </div>
                     )}
                   </Fragment>
                 ))}

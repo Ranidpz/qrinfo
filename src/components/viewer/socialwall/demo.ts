@@ -157,7 +157,7 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
         g.likes += p.likeCount;
         by.set(p.groupId, g);
       }
-      return json({ groups: [...by.values()] });
+      return json({ groups: [...by.values()], totals: { posts: posts.length, likes: posts.reduce((n, p) => n + p.likeCount, 0) } });
     }
     if (route === 'posts' && method === 'GET') return json({ posts: posts.filter((p) => p.mine).map(view) });
     if (route === 'posts' && method === 'DELETE') {

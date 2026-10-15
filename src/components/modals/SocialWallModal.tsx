@@ -13,6 +13,10 @@ import {
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { compressImage } from '@/lib/imageCompression';
 import {
+  CHEER_PLACEHOLDERS,
+  DEFAULT_CHEERS,
+  resolveCheers,
+  type SocialWallCheersConfig,
   DEFAULT_SOCIALWALL_CONFIG,
   accessUsesAllowlist,
   type SocialWallAccess,
@@ -224,6 +228,87 @@ function GroupTagsEditor({ groups, onChange }: { groups: SocialWallGroup[]; onCh
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** "Production team" cheer posts: on/off, how often, the author name, and the lines themselves
+ *  (each can be switched off or edited; placeholder chips insert live values). */
+function CheersEditor({ value, onChange }: { value: SocialWallCheersConfig | undefined; onChange: (v: SocialWallCheersConfig) => void }) {
+  const r = resolveCheers(value);
+  const set = (patch: Partial<SocialWallCheersConfig>) => onChange({ enabled: r.enabled, every: r.every, author: r.author, items: r.items, ...patch });
+  const [focused, setFocused] = useState<string | null>(null);
+  const insert = (key: string) => {
+    const id = focused || r.items[r.items.length - 1]?.id;
+    if (!id) return;
+    set({ items: r.items.map((c) => (c.id === id ? { ...c, text: `${c.text} ${key}`.slice(0, 120) } : c)) });
+  };
+  return (
+    <div className="space-y-3">
+      <label className="flex items-center gap-2 text-sm font-medium text-text-primary">
+        <input type="checkbox" checked={r.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
+        להציג פוסטים צבעוניים של צוות ההפקה בין התמונות
+      </label>
+      {r.enabled && (
+        <>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <label className="flex items-center gap-2 text-text-secondary">
+              פוסט כל
+              <input type="number" min={2} max={20} value={r.every} onChange={(e) => set({ every: Number(e.target.value) })} className="input w-16 text-center" />
+              תמונות
+            </label>
+            <label className="flex items-center gap-2 text-text-secondary">
+              בשם
+              <input value={value?.author || ''} onChange={(e) => set({ author: e.target.value })} placeholder="צוות ההפקה" maxLength={40} className="input w-40" />
+            </label>
+          </div>
+          <div className="space-y-2">
+            {r.items.map((c, i) => (
+              <div key={c.id || i} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={c.on}
+                  onChange={(e) => set({ items: r.items.map((x) => (x === c ? { ...x, on: e.target.checked } : x)) })}
+                  aria-label="הפעלה"
+                />
+                <input
+                  value={c.text}
+                  onFocus={() => setFocused(c.id)}
+                  onChange={(e) => set({ items: r.items.map((x) => (x === c ? { ...x, text: e.target.value } : x)) })}
+                  maxLength={120}
+                  className={`input flex-1 text-sm ${c.on ? '' : 'opacity-50'}`}
+                />
+                <button type="button" onClick={() => set({ items: r.items.filter((x) => x !== c) })} className="h-9 w-9 shrink-0 rounded-lg text-danger hover:bg-danger/10 flex items-center justify-center" aria-label="מחיקה">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => set({ items: [...r.items, { id: `c${Date.now().toString(36)}`, on: true, text: '' }] })}
+              className="h-9 px-3 rounded-lg bg-bg-secondary text-sm font-medium text-text-primary flex items-center gap-1.5 hover:bg-bg-hover"
+            >
+              <Plus className="w-4 h-4" />
+              משפט חדש
+            </button>
+            <button type="button" onClick={() => set({ items: DEFAULT_CHEERS })} className="h-9 px-3 rounded-lg text-sm text-text-secondary hover:text-text-primary">
+              חזרה למשפטים המוצעים
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            <span className="text-xs text-text-secondary">ערכים חיים (לחיצה מוסיפה למשפט שנבחר). משפט שהערך שלו עוד לא קיים מחכה עד שיהיה.</span>
+            <div className="flex flex-wrap gap-1.5">
+              {CHEER_PLACEHOLDERS.map((p) => (
+                <button key={p.key} type="button" onClick={() => insert(p.key)} title={p.he} className="h-7 px-2.5 rounded-full border border-border text-xs text-text-secondary hover:border-accent hover:text-accent">
+                  {p.he}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -490,6 +575,10 @@ export default function SocialWallModal({ isOpen, onClose, onSave, initialConfig
                     );
                   })}
                 </div>
+              </Section>
+
+              <Section title="פוסטים של צוות ההפקה" hint="משפטי עידוד בכתב גדול על רקע צבעוני, לפי הסדר, בין התמונות בפיד">
+                <CheersEditor value={cfg.cheers} onChange={(v) => set('cheers', v)} />
               </Section>
 
               <Section title="הגבלות">

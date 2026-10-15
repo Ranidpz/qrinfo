@@ -573,6 +573,16 @@ export async function groupStats(codeId: string, groups: { id: string }[]) {
   );
 }
 
+/** All photos + likes in the feed (cheer posts' {photos} / {likes}). */
+export async function eventTotals(codeId: string) {
+  const snap = await postsCol(codeId)
+    .where('feedAt', '>=', 0)
+    .aggregate({ posts: AggregateField.count(), likes: AggregateField.sum('likeCount') })
+    .get();
+  const d = snap.data();
+  return { posts: d.posts || 0, likes: Math.max(0, d.likes || 0) };
+}
+
 // ---------------------------------------------------------------- moderation (operators)
 
 export type ModerationFilter = 'all' | 'pending' | 'hidden';
