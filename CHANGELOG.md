@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.28.7] - 2026-10-15
+
+- Social Wall DEMO update only (`/play/social-wall`): like counts count up from 0 the first time they scroll into view (`CountUp` in `src/components/viewer/socialwall/ui.tsx`, IntersectionObserver + rAF ease-out; later changes glide; reduced motion = plain number), also on the "my likes" total. Rollback = revert this release commit.
+
 ## [1.28.6] - 2026-10-15
 
 - Social Wall landing page `/[locale]/experiences/social-wall` (he+en, `ExperienceLanding` + `src/lib/landing/social-wall-content.ts`), live but UNLISTED: no `catalog.ts` entry (no site link, no sitemap row) and every create button goes to WhatsApp (`primaryCta: 'contact'`) until the full experience ships. Hero = CSS phone mock of the feed (`SocialWallHero`), demo = `/play/social-wall` in a phone frame loaded on tap (`SocialWallPreview`). Template additions are optional and leave 10 Bool unchanged (`heroVisual`, optional hero image, stats columns follow their count, Latin names keep the full stop at the end, external header CTA).
