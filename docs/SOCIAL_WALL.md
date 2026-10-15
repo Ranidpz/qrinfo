@@ -1,7 +1,32 @@
 # Social Wall — אפיון V1 (רשת חברתית פרטית לאירוע)
 
-> סטטוס: אפיון, טרם פותח. לקוח ראשון: ToMix (אגם), יום כיף ל-~250 עובדי KLA.
-> החלטה: **חוויה בתוך The Q** (`socialwall`), לא מוצר נפרד. עמוד נחיתה ב-`/experiences/social-wall` דרך `catalog.ts`.
+> סטטוס: **שלב 1 פותח** על `feature/social-wall` (לא ב-main, לא פרוס). לקוח ראשון: ToMix (אגם), יום כיף ל-~250 עובדי KLA.
+> החלטות של רני: **מוצר של The Q למכירה לחברות** (ימי כיף, פורים, אירועי חברה), כחוויה בתוך הפלטפורמה (`socialwall`).
+> **שלב 1 = רשת חברתית סגורה בטלפונים בלבד** (באירוע של KLA אין מסכים). מסך LED ומשחק "מי זה" (מנוע הסילואטה) = שלב 2.
+> עמוד נחיתה ב-`/experiences/social-wall` + רשומה ב-`catalog.ts` רק כשזה עולה לפרודקשן.
+
+## מה נבנה (מפת קבצים)
+
+| שכבה | קבצים |
+|---|---|
+| טיפוסים + ברירות מחדל | `src/types/socialwall.ts` (`resolveSocialWallConfig` לכל קריאה) |
+| כללים טהורים | `src/lib/socialwall/rules.ts` (בדיקות: `scripts/tests/socialwall-rules.test.mjs`) |
+| שרת | `src/lib/socialwall/store.ts` (Admin SDK), `images.ts` (sharp), `server.ts` (הרשאות) |
+| API | `src/app/api/socialwall/{join,me,posts,feed,like,moderate,control,members,allowlist,purge,screen}` |
+| טלפון | `src/components/viewer/socialwall/*` (נטען מ-`ViewerClient` לסוג `socialwall`) |
+| צוות בשטח | `/v/{shortId}#mod=<token>` → `StaffView.tsx` (הטוקן ב-fragment בלבד) |
+| דשבורד | טאב ב-`MediaUploader`, `handleCreateSocialWall` בדשבורד, `SocialWallModal` בעמוד הקוד בלבד |
+| ניהול | `src/components/socialwall/{ModerationPanel,AllowlistPanel}.tsx` |
+| בדיקה מקצה לקצה | `scripts/tests/socialwall.e2e.mjs` (45 בדיקות מול emulators, הוראות הרצה בראש הקובץ) |
+
+## לפני שחרור ל-main (רשימה)
+
+- [ ] `firestore.rules` (4 תת-אוספים `sw*` נעולים) + `database.rules.json` (`socialwall/$codeId` read-only) → בדיקה ב-`qrinfo-dev`, ואז שני הפרויקטים באישור רני
+- [ ] 3 אינדקסים של `swPosts` (status+createdAt, groupId+status+createdAt, memberId+createdAt) לשני הפרויקטים, **לוודא בקונסול**
+- [ ] `R2` מוגדר בפרודקשן (הקוד מעדיף R2 כשהוא מוגדר); בעל האירוע עם מכסת אחסון מספיקה (`checkStorageQuota`)
+- [ ] תבנית WhatsApp OTP הקיימת עובדת עם `kind: 'socialwall-otp'` (אותה `guardedSendOTP`)
+- [ ] חזרה גנרלית: iPhone ישן + Android + דפדפן וואטסאפ, העלאה ברשת חלשה, קישור צוות
+- [ ] עמוד נחיתה + `catalog.ts`, גרסה + changelog
 > כל מה שכאן כפוף ל-`docs/SECURITY_RULES.md`. איפה שהאפיון מחמיר יותר, האפיון קובע.
 
 ## 0. למה לא להרחיב את Q.Vote
@@ -33,15 +58,14 @@
 
 | בתוך V1 | V1.1 | V2 |
 |---|---|---|
-| כניסה ב-QR + קוד אירוע | אימות וואטסאפ / רשימת עובדים מ-HR | סינון תמונות אוטומטי (AI) |
+| כניסה ב-QR: פתוח / וואטסאפ / רשימת עובדים / שניהם | | סינון תמונות אוטומטי (AI) |
 | שם + מחלקה (מרשימה סגורה) | תגובות (עם מודרציה) | משימות צילום |
 | העלאת תמונה + כיתוב קצר | דיווח על פוסט | וידאו קצר |
 | פיד עם סינון לפי מחלקה | רגע הכתרת מחלקה עם קונפטי | קישורי תמונה חתומים (signed URLs) |
 | לייקים | | |
 | מחיקת פוסט שלי | | |
 | פאנל מודרציה + קישור מפעיל בשטח | | |
-| מסך LED: גריד, תגית מחלקה, לבבות, טבלת מחלקות | | |
-| כפתור חירום + מתגי סגירה | | |
+| מתג העלאות | מסך LED: גריד, תגית מחלקה, לבבות, טבלת מחלקות, פאנל נסתר (גודל קוביות, פינות, אפקטים, רקע — כמו `BeamControlPanel`), כפתור חירום (השרת כבר תומך: `/api/socialwall/screen`, `control.screen`) | משחק "מי זה" על התמונות (מנוע הסילואטה) |
 | ייצוא אלבום ל-HR + מחיקה אוטומטית | | |
 
 תגובות לא נכנסות ל-V1 בכוונה: הן החלק הכי מסוכן (טקסט חופשי מול חברה ציבורית) והכי יקר במודרציה.
@@ -122,7 +146,11 @@ match /swAudit/{d}   { allow read, write: if false; }
 
 ## 4. זהות וכניסה
 
-### 4.1 V1: קוד אירוע (`access: 'pin'`)
+> **עודכן:** בפועל נבנו ארבעה מצבים לבחירת הלקוח: `open` (שם + מחלקה), `whatsapp`, `allowlist`, `allowlist_whatsapp`.
+> קוד אירוע (PIN) לא נבנה. ברשימה בלי וואטסאפ, מי שיודע טלפון של עובד נכנס בשמו (כתוב בעורך). שם/מחלקה מהרשימה גוברים על מה שהוקלד.
+> סשן = `memberId.token` (24 בתים, נשמר רק hash, עד 3 מכשירים), ב-header `x-sw-session`.
+
+### 4.1 (היסטורי) קוד אירוע
 1. ה-QR מוביל ל-`/v/{shortId}#k=PIN`. הקוד יושב ב-fragment, שלא מגיע לשרת ולא נכנס ללוגים. אפשר גם להקליד ידנית.
 2. `POST /api/socialwall/join` עם `{codeId, pin, name, departmentId}`. השרת מאמת, יוצר member ומחזיר `{memberId, token}`. הטוקן הוא `randomBytes(32)`, ובמסד נשמר רק ה-hash שלו.
 3. הטלפון שומר את שניהם ב-`localStorage['sw_{codeId}']` ושולח `Authorization: Bearer {memberId}.{token}` בכל קריאה.

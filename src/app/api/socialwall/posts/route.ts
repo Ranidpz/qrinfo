@@ -59,6 +59,19 @@ export async function POST(request: NextRequest) {
     if (!control.uploads) throw new SocialWallError('UPLOADS_CLOSED', 409);
     const caption = cleanText(form.get('caption'), wall.config.captionMax, { multiline: true });
 
+    // A retry of a post that already landed (the response was lost): answer with it, before the
+    // pace check would refuse the retry as "too fast" and before paying for a second upload.
+    const already = await getPost(codeId, postId);
+    if (already && already.status !== 'deleted') {
+      if (already.memberId !== memberId) throw new SocialWallError('CONFLICT', 409);
+      return NextResponse.json({
+        success: true,
+        post: toFeedView(postId, already, { memberId, liked: new Set(member.likedPosts) }),
+        postsLeft: Math.max(0, wall.config.maxPostsPerMember - member.postCount),
+      });
+    }
+    if (already) throw new SocialWallError('CONFLICT', 409); // a deleted post's id is not reused
+
     // Cheap checks first (the transaction re-checks), so a refused post never costs an upload.
     assertCanPost(member, wall.config, Date.now());
 

@@ -391,7 +391,7 @@ export async function createPost(params: {
     const [memberSnap, postSnap] = await Promise.all([tx.get(memberRef), tx.get(postRef)]);
     if (postSnap.exists) {
       const existing = toPost(postSnap.data()!);
-      if (existing.memberId !== params.memberId) throw new SocialWallError('CONFLICT', 409);
+      if (existing.memberId !== params.memberId || existing.status === 'deleted') throw new SocialWallError('CONFLICT', 409);
       return { result: 'existing' as const, post: existing };
     }
     if (!memberSnap.exists) throw new SocialWallError('UNAUTHORIZED', 401);
