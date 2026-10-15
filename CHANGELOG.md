@@ -1,9 +1,13 @@
 # Changelog
 
-## [1.28.5] - 2026-10-15
+## [1.28.6] - 2026-10-15
 
 - Social Wall landing page `/[locale]/experiences/social-wall` (he+en, `ExperienceLanding` + `src/lib/landing/social-wall-content.ts`), live but UNLISTED: no `catalog.ts` entry (no site link, no sitemap row) and every create button goes to WhatsApp (`primaryCta: 'contact'`) until the full experience ships. Hero = CSS phone mock of the feed (`SocialWallHero`), demo = `/play/social-wall` in a phone frame loaded on tap (`SocialWallPreview`). Template additions are optional and leave 10 Bool unchanged (`heroVisual`, optional hero image, stats columns follow their count, Latin names keep the full stop at the end, external header CTA).
 - Social Wall participant app: Share tab in the bottom bar (`ShareSheet.tsx`) — big QR of `origin + pathname` (never the staff `#mod` hash), native share, copy link. In this release it reaches the demo only; the full experience stays on `feature/social-wall`. Rollback = revert this release commit.
+
+## [1.28.5] - 2026-10-15
+
+- Social Wall DEMO update only (`/play/social-wall`, same scope as 1.28.3/1.28.4): back button on the join screen (back to welcome), screens slide in from the side (`.sw-slide-fwd/back`, mirrored for RTL, 0.3s; session restore paints without a slide), full-screen confetti on join, slogan line now "הרשת החברתית הפרטית לאירועים" in the app, the page description and the OG image (`og.jpg?v=2` so WhatsApp refetches). Rollback = revert this release commit.
 
 ## [1.28.4] - 2026-10-15
 

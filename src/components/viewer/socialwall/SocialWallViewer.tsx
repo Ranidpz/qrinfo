@@ -7,7 +7,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ref as rtdbRef, onValue } from 'firebase/database';
-import { Heart, Home, Plus, QrCode, User, X, Pencil, Trash2, Camera, Lock, ExternalLink, ArrowUp } from 'lucide-react';
+import { Heart, Home, Plus, QrCode, User, X, Pencil, Trash2, Camera, Lock, ExternalLink, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { realtimeDb } from '@/lib/firebase';
 import { compressImage } from '@/lib/imageCompression';
 import { isInAppBrowser, openCurrentUrlInBrowser } from '@/lib/inAppBrowser';
@@ -27,7 +27,7 @@ import { useFeed } from './useFeed';
 import StaffView from './StaffView';
 import ShareSheet from './ShareSheet';
 import { CheerPost, cheerValues, resolveCheer, type EventTotals, type GroupStat } from './Leaderboard';
-import { Avatar, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
+import { Avatar, ConfettiBurst, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
 
 type Phase = 'boot' | 'welcome' | 'join' | 'profile' | 'app' | 'blocked';
 type Tab = 'feed' | 'me';
@@ -191,7 +191,20 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   const eventTitle = config.eventTitle || title || 'Social Wall';
   const groupsById = useMemo(() => new Map(config.groups.map((g) => [g.id, g])), [config.groups]);
 
-  const [phase, setPhase] = useState<Phase>('boot');
+  const [phase, setPhaseState] = useState<Phase>('boot');
+  // Which way the next screen slides in (none = first paint / session restore)
+  const [nav, setNav] = useState<'none' | 'fwd' | 'back'>('none');
+  const setPhase = useCallback((next: Phase, way: 'none' | 'fwd' | 'back' = 'fwd') => {
+    setNav(way);
+    setPhaseState(next);
+  }, []);
+  // Confetti over everything the moment someone joins (a counter so it replays)
+  const [celebrate, setCelebrate] = useState(0);
+  useEffect(() => {
+    if (!celebrate) return;
+    const id = setTimeout(() => setCelebrate(0), 1800);
+    return () => clearTimeout(id);
+  }, [celebrate]);
   const [session, setSession] = useState<StoredSession | null>(null);
   const [tab, setTab] = useState<Tab>('feed');
   const [group, setGroup] = useState<string | null>(null);
@@ -224,7 +237,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
     setInApp(isInAppBrowser());
     const stored = loadSession(codeId);
     if (!stored) {
-      setPhase('welcome');
+      setPhase('welcome', 'none');
       return;
     }
     setSession(stored);
@@ -236,17 +249,17 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
         saveSession(codeId, next);
         setPostsLeft(me.postsLeft);
         setUploadsOpen(me.control.uploads);
-        setPhase(me.needsProfile ? 'profile' : 'app');
+        setPhase(me.needsProfile ? 'profile' : 'app', 'none');
       })
       .catch((e) => {
-        if (e instanceof SwApiError && e.status === 403) setPhase('blocked');
+        if (e instanceof SwApiError && e.status === 403) setPhase('blocked', 'none');
         else if (e instanceof SwApiError && e.status === 401) {
           saveSession(codeId, null);
           setSession(null);
-          setPhase('welcome');
-        } else setPhase('app'); // offline / server hiccup: keep the member in, the feed retries
+          setPhase('welcome', 'none');
+        } else setPhase('app', 'none'); // offline / server hiccup: keep the member in, the feed retries
       });
-  }, [codeId]);
+  }, [codeId, setPhase]);
 
   // ---- live pulse + control (RTDB: a counter and two switches, no content)
   useEffect(() => {
@@ -267,16 +280,16 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   const onAuthError = useCallback(
     (e: SwApiError) => {
       if (e.status === 403 && e.code === 'BLOCKED') {
-        setPhase('blocked');
+        setPhase('blocked', 'none');
         return;
       }
       if (e.status === 401) {
         saveSession(codeId, null);
         setSession(null);
-        setPhase('welcome');
+        setPhase('welcome', 'none');
       }
     },
-    [codeId]
+    [codeId, setPhase]
   );
 
   const feed = useFeed({ codeId, session: phase === 'app' ? session?.session ?? null : null, group, rev, live, onAuthError });
@@ -408,6 +421,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
     const s = { session: res.session, memberId: res.memberId, name: res.name, groupId: res.groupId };
     saveSession(codeId, s);
     setSession(s);
+    setCelebrate((n) => n + 1);
     setPhase(res.needsProfile ? 'profile' : 'app');
     if (!res.needsProfile) {
       swApi.me(codeId, res.session).then((me) => setPostsLeft(me.postsLeft)).catch(() => {});
@@ -544,7 +558,20 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   const shell = (children: React.ReactNode) => (
     <div className="sw-root fixed inset-x-0 bottom-0 bg-white text-gray-900 overflow-hidden" style={themeStyle} dir={dir} lang={locale}>
       <style>{SW_STYLE}</style>
-      {children}
+      {/* keyed per screen so each one slides in; the confetti sits outside so it survives the switch */}
+      <div key={phase} className={`h-full ${nav === 'fwd' ? 'sw-slide-fwd' : nav === 'back' ? 'sw-slide-back' : ''}`}>
+        {children}
+      </div>
+      {celebrate > 0 && (
+        <div key={celebrate} className="fixed inset-0 z-[70] pointer-events-none" aria-hidden>
+          <div className="absolute inset-x-0 top-[38%] h-0">
+            <ConfettiBurst count={44} spread={200} />
+          </div>
+          <div className="absolute inset-x-0 top-[62%] h-0">
+            <ConfettiBurst count={30} spread={150} />
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -576,7 +603,17 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   if (phase === 'join' || phase === 'profile') {
     return shell(
       <div className="h-full overflow-y-auto sw-scroll">
-        <div className="min-h-full flex flex-col px-6 pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))]">
+        <div className="relative min-h-full flex flex-col px-6 pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))]">
+          {phase === 'join' && (
+            <button
+              type="button"
+              onClick={() => setPhase('welcome', 'back')}
+              aria-label={t.back}
+              className="absolute z-10 top-[max(16px,env(safe-area-inset-top))] start-3 w-11 h-11 flex items-center justify-center rounded-full bg-gray-100/90 text-gray-800 active:scale-95 active:bg-gray-200 transition-transform"
+            >
+              {dir === 'rtl' ? <ChevronRight className="w-6 h-6" /> : <ChevronLeft className="w-6 h-6" />}
+            </button>
+          )}
           <div className="flex justify-center pt-2 sw-enter">
             {config.branding.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
