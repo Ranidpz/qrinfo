@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.28.6] - 2026-10-15
+
+- Social Wall full experience in production for TESTING: API routes `/api/socialwall/*`, Admin-SDK store (`codes/{id}/sw{Members,Posts,Allowlist,Audit}`), dashboard tab + code-page editor, moderation/allowlist panels, staff link. Super-admin only: the dashboard tab and code-page button render for `super_admin`, and `loadSocialWall` answers 404 for any code whose owner is not a super admin (blocks hand-made codes from spending WhatsApp OTPs/storage). Photos go to R2 (as Selfie Beam). Rules: `firestore.rules` (4 locked `sw*` subcollections) + `database.rules.json` (`socialwall/$codeId` read-only) — deploy separately with Rani's OK; until the RTDB rule is live the feed polls every 5s. Additive only: no existing experience changed. Rollback = revert this release commit.
+
 ## [1.28.5] - 2026-10-15
 
 - Social Wall DEMO update only (`/play/social-wall`, same scope as 1.28.3/1.28.4): back button on the join screen (back to welcome), screens slide in from the side (`.sw-slide-fwd/back`, mirrored for RTL, 0.3s; session restore paints without a slide), full-screen confetti on join, slogan line now "הרשת החברתית הפרטית לאירועים" in the app, the page description and the OG image (`og.jpg?v=2` so WhatsApp refetches). Rollback = revert this release commit.

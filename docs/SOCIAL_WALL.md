@@ -1,31 +1,21 @@
 # Social Wall — אפיון V1 (רשת חברתית פרטית לאירוע)
 
-> סטטוס: **שלב 1 פותח** על `feature/social-wall` (לא ב-main, לא פרוס). לקוח ראשון: ToMix (אגם), יום כיף ל-~250 עובדי KLA.
+> סטטוס: **בפרודקשן לבדיקה מאז v1.28.6, ל-super_admin בלבד** (טאב בדשבורד, כפתור בעמוד הקוד, והשרת מחזיר 404 לקוד שבעליו אינו super_admin: `SOCIALWALL_OWNER_ROLES` ב-`store.ts`). לקוח ראשון: ToMix (אגם), יום כיף ל-~250 עובדי KLA.
 > החלטות של רני: **מוצר של The Q למכירה לחברות** (ימי כיף, פורים, אירועי חברה), כחוויה בתוך הפלטפורמה (`socialwall`).
 > **שלב 1 = רשת חברתית סגורה בטלפונים בלבד** (באירוע של KLA אין מסכים). מסך LED ומשחק "מי זה" (מנוע הסילואטה) = שלב 2.
 > עמוד נחיתה ב-`/experiences/social-wall` + רשומה ב-`catalog.ts` רק כשזה עולה לפרודקשן.
 
 ## מצב נוכחי והמשימות הבאות (העברה, 15.10.2026)
 
-**ב-main (פרודקשן, v1.28.3):** רק ההדמיה `/play/social-wall`: האפליקציה האמיתית על נתוני דמה (`demo.ts` מחליף את `fetch`/`XHR` בדפדפן, בלי Firestore או אחסון). הפיצ'ר המלא עדיין רק על הענף הזה.
+**ב-main (פרודקשן, v1.28.6):** ההדמיה `/play/social-wall`, והפיצ'ר המלא לבדיקה ל-super_admin בלבד. התמונות עולות ל-R2 (כמו Selfie Beam).
 
-**על הענף ועוד לא ב-main:** פלייסהולדר YOUR LOGO, פוטר "Powered by Playzone" כקישור ל-The Q, פוסטי "צוות ההפקה" (cheers), מרוץ מחלקות, רמז הקשה כפולה, סלוגן בכניסה ("מצטלמים. משתפים. מפרגנים." ומתחתיו "הרשת החברתית הפרטית של האירוע"), OTP של 6 ספרות + 10 טעויות לטלפון בשעה.
+**כללים:** `firestore.rules` + `database.rules.json` נפרסים בנפרד באישור רני (קודם `--project qrinfo-dev`, אחר כך `--project qrinfo-905c9`; ברירת המחדל ב-`.firebaserc` היא פרודקשן). עד שכלל ה-RTDB פרוס, הפיד מתרענן כל 5 שניות במקום עדכון חי.
 
 **סקירת אבטחה (15.10):** אין ממצאים ברמת ביטחון גבוהה. הממצא הגבולי היחיד, איפוס ניסיונות OTP בשליחה חוזרת, תוקן (ראו 4.0). במצב `allowlist` בלי וואטסאפ, מי שיודע טלפון של עובד נכנס בשמו. זו החלטה מודעת, והעורך מזהיר על כך.
 
 **משימות פתוחות:**
-1. **מיתוג תצוגת הלינק בוואטסאפ** ל-`/play/social-wall`. היום מוצגת התצוגה הכללית של The Q. צריך:
-   - תמונת OG בגודל 1200×630: אייקון Social Wall, קולאז' מתמונות הדמו, הסלוגן ו-"Powered by Playzone"
-   - אייקון (apple-touch, icon)
-   - `openGraph`, `twitter` ו-`icons` ב-`src/app/play/social-wall/page.tsx`, לפי הדוגמה של `/play/10-bool`
-
-   **שימו לב:** sharp/librsvg שובר עברית RTL (נבדק: הטקסט נחתך והפוך). מרנדרים HTML ב-Chromium של Playwright ומצלמים מסך. בקונטיינר יש רק DejaVu, כך שעדיף פונט עברי (Assistant/Heebo) אם אפשר להוריד אותו. Satori (`next/og`) לא תומך ב-RTL.
-2. **שחרור ההדמיה המעודכנת ל-main כ-v1.28.4** (הדמו בלבד, כמו ב-v1.28.3):
-   - worktree מ-`origin/main`, ומעתיקים אליו: `src/app/play/social-wall`, `src/components/viewer/socialwall`, `src/types/socialwall.ts`, `public/play/social-wall` ומה שהם מייבאים
-   - version, `package.json`, `CHANGELOG.md`
-   - `tsc`, `lint`, `security:check`, `build`
-   - push ל-main, ואז בדיקה ב-Vercel MCP
-3. **מערכת אמיתית לבדיקה בפרודקשן**: הפיצ'ר המלא ב-main, עם טאב בדשבורד שמוגבל ל-super_admin, פעולת "טעינת תמונות דמו" ופעולת "איפוס". פריסת הכללים ל-Firestore ול-RTDB בשני הפרויקטים **רק באישור רני**.
+1. ~~מיתוג תצוגת הלינק בוואטסאפ~~ ו-2. ~~שחרור ההדמיה~~ נעשו ב-v1.28.4/v1.28.5 (OG ב-`public/play/social-wall/og.jpg`, מרונדר ב-Chromium כי sharp ו-Satori שוברים עברית RTL).
+3. ~~מערכת אמיתית לבדיקה בפרודקשן~~ נעשה ב-v1.28.6 (רני: בלי טעינת דמו ובלי איפוס, אירוע אמיתי ריק; ההדמיה בלינק). נשאר: פריסת הכללים ובדיקה עם אנשים.
 4. **עמוד נחיתה** `/experiences/social-wall` לפי `docs/LANDING_PAGES_DESIGN_HE.md` ו-`ExperienceLanding`: הדמו כ-iframe ל-`/play/social-wall`, ורשומה ב-`catalog.ts` כשעולה.
 5. **שלב 2** (נדחה): מסך LED עם תפריט נסתר כמו `BeamControlPanel`, ומשחק "מי זה" על מנוע הסילואטה.
 
@@ -43,13 +33,13 @@
 | צוות בשטח | `/v/{shortId}#mod=<token>` → `StaffView.tsx` (הטוקן ב-fragment בלבד) |
 | דשבורד | טאב ב-`MediaUploader`, `handleCreateSocialWall` בדשבורד, `SocialWallModal` בעמוד הקוד בלבד |
 | ניהול | `src/components/socialwall/{ModerationPanel,AllowlistPanel}.tsx` |
-| בדיקה מקצה לקצה | `scripts/tests/socialwall.e2e.mjs` (45 בדיקות מול emulators, הוראות הרצה בראש הקובץ) |
+| בדיקה מקצה לקצה | `scripts/tests/socialwall.e2e.mjs` (49 בדיקות מול emulators, הוראות הרצה בראש הקובץ) |
 
 ## לפני שחרור ל-main (רשימה)
 
 - [ ] `firestore.rules` (4 תת-אוספים `sw*` נעולים) + `database.rules.json` (`socialwall/$codeId` read-only) → בדיקה ב-`qrinfo-dev`, ואז שני הפרויקטים באישור רני
 - אין אינדקסים מורכבים לפרוס: פוסט נמצא בפיד בדיוק כשיש לו `feedAt`, ובפיד המחלקה כשיש `gfeed.<groupId>` (אינדקס שדה בודד אוטומטי). בלי כלל ה-RTDB הטלפונים עוברים לרענון כל 5 שניות במקום עדכון חי.
-- [ ] `R2` מוגדר בפרודקשן (הקוד מעדיף R2 כשהוא מוגדר); בעל האירוע עם מכסת אחסון מספיקה (`checkStorageQuota`)
+- [x] `R2` מוגדר בפרודקשן (כמו Selfie Beam); בעל האירוע עם מכסת אחסון מספיקה (`checkStorageQuota`)
 - [ ] תבנית WhatsApp OTP הקיימת עובדת עם `kind: 'socialwall-otp'` (אותה `guardedSendOTP`)
 - [ ] חזרה גנרלית: iPhone ישן + Android + דפדפן וואטסאפ, העלאה ברשת חלשה, קישור צוות
 - [ ] עמוד נחיתה + `catalog.ts`, גרסה + changelog

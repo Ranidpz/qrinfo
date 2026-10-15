@@ -84,3 +84,6 @@ TheQ-connection*.json
 # Native SwiftPM build artifacts
 /tools/whatsapp-intake/macos/.build/
 /tools/whatsapp-intake/macos/.swiftpm/
+
+# logs
+*.log
