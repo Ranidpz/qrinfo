@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.28.4] - 2026-10-15
+
+- Social Wall DEMO update only (`/play/social-wall`, same scope as 1.28.3 — the experience, API and rules stay on `feature/social-wall`): "YOUR LOGO" placeholder, footer "Powered by Playzone" links to The Q, production-team cheer posts, department race, double-tap-to-like hint, welcome slogan "מצטלמים. משתפים. מפרגנים." + "הרשת החברתית הפרטית של האירוע". Branded WhatsApp/OG preview: `openGraph`/`twitter`/`icons` on the page, static `public/play/social-wall/og.jpg` (1200×630 collage of the demo photos, rendered in Chromium — sharp and Satori break Hebrew RTL) + `icon.png`/`apple-icon.png`. Rollback = revert this release commit.
+
 ## [1.28.3] - 2026-10-15
 
 - Social Wall DEMO only: `/play/social-wall` (noindex, outside [locale], middleware skips /play/) runs the real participant app (`src/components/viewer/socialwall/*`) against an in-memory stand-in for `/api/socialwall/*` (`demo.ts`, installed only by that page) — no code, Firestore or storage behind it; colleagues like and post on a timer, uploads stay in the browser. `?reset=1` = welcome screen again. The experience itself (API routes, store, dashboard tab, rules) is still on `feature/social-wall` and NOT released. Rollback = revert this release commit.

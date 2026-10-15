@@ -2265,7 +2265,8 @@ export default function DashboardPage() {
                   onQVoteCreate={(name) => { setPendingExperienceName(name); setQvoteModalOpen(true); }}
                   onRaffleCreate={handleCreateRaffle}
                   onQBetCreate={handleCreateQBet}
-                  onSocialWallCreate={handleCreateSocialWall}
+                  // Social Wall is in production testing: only super admins can create one (the server enforces the same in loadSocialWall)
+                  onSocialWallCreate={user?.role === 'super_admin' ? handleCreateSocialWall : undefined}
                   onTenBoolCreate={handleCreateTenBool}
                   onQStageCreate={(name) => { setPendingExperienceName(name); setQstageModalOpen(true); }}
                   onWeeklyCalendarCreate={(name) => { setPendingExperienceName(name); setWeeklyCalModalOpen(true); }}
