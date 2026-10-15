@@ -4,7 +4,7 @@
 // another one gets a new identity every render, React remounts it and its entrance animation
 // replays (the QBet "jumping flags" lesson).
 
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export const SW_STYLE = `
@@ -276,4 +276,67 @@ export function PostSkeleton() {
       </div>
     </div>
   );
+}
+
+/**
+ * A number that counts up from 0 the first time it scrolls into view, then glides to each new
+ * value (a like, a colleague's like). Reduced motion or no IntersectionObserver = plain number.
+ */
+export function CountUp({ value, locale, duration = 1100 }: { value: number; locale: string; duration?: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [active, setActive] = useState(false);
+  const [shown, setShown] = useState(0);
+  const shownRef = useRef(0);
+  const revealed = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (!el || still || typeof IntersectionObserver === 'undefined') {
+      revealed.current = true;
+      setActive(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setActive(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.9 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    const from = shownRef.current;
+    const to = Math.max(0, value);
+    const first = !revealed.current;
+    revealed.current = true;
+    if (from === to) return;
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (still) {
+      shownRef.current = to;
+      setShown(to);
+      return;
+    }
+    const ms = first ? duration : 450;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - start) / ms);
+      const eased = 1 - Math.pow(1 - k, 3);
+      const n = Math.round(from + (to - from) * eased);
+      shownRef.current = n;
+      setShown(n);
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, value, duration]);
+
+  return <span ref={ref}>{(active ? shown : 0).toLocaleString(locale)}</span>;
 }

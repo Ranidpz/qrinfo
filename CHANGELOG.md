@@ -1,8 +1,12 @@
 # Changelog
 
-## [1.28.7] - 2026-10-15
+## [1.28.8] - 2026-10-15
 
 - Social Wall full experience in production for TESTING: API routes `/api/socialwall/*`, Admin-SDK store (`codes/{id}/sw{Members,Posts,Allowlist,Audit}`), dashboard tab + code-page editor, moderation/allowlist panels, staff link. Super-admin only: the dashboard tab and code-page button render for `super_admin`, and `loadSocialWall` answers 404 for any code whose owner is not a super admin (blocks hand-made codes from spending WhatsApp OTPs/storage). Photos go to R2 (as Selfie Beam). Rules: `firestore.rules` (4 locked `sw*` subcollections) + `database.rules.json` (`socialwall/$codeId` read-only) — deploy separately with Rani's OK; until the RTDB rule is live the feed polls every 5s. Additive only: no existing experience changed. Rollback = revert this release commit.
+
+## [1.28.7] - 2026-10-15
+
+- Social Wall DEMO update only (`/play/social-wall`): like counts count up from 0 the first time they scroll into view (`CountUp` in `src/components/viewer/socialwall/ui.tsx`, IntersectionObserver + rAF ease-out; later changes glide; reduced motion = plain number), also on the "my likes" total. Rollback = revert this release commit.
 
 ## [1.28.6] - 2026-10-15
 
