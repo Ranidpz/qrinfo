@@ -60,9 +60,12 @@
     "src/types/qstage.ts#accessToken",
     "src/types/qtag.ts#qrToken",
     "src/types/weeklycal.ts#qrToken",
-    "src/types/verification.ts#sessionToken"
+    "src/types/verification.ts#sessionToken",
+    "src/types/socialwall.ts#screenToken",
+    "src/types/socialwall.ts#moderatorToken",
+    "src/types/socialwall.ts#pinned"
   ],
-  "_secretFields_reason": "token/photographerToken/scannerPin are split into codes/{id}/private by db.ts; accessToken is stripped from public pages (judge flow not implemented); qrToken/sessionToken live in owner-only/locked subcollections, not on the code doc; the rest are not secrets (pinned, cropping).",
+  "_secretFields_reason": "token/photographerToken/scannerPin/screenToken/moderatorToken (Social Wall) are split into codes/{id}/private by db.ts; accessToken is stripped from public pages (judge flow not implemented); qrToken/sessionToken live in owner-only/locked subcollections, not on the code doc; the rest are not secrets (pinned, cropping).",
   "clientSdkInApi": {
     "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience — Firestore still via client SDK (RTDB moved to src/lib/server/qchallenge-rtdb)",
     "src/app/api/qchallenge/register/route.ts": "FOLLOW-UP: hidden experience — Firestore still via client SDK (RTDB moved to src/lib/server/qchallenge-rtdb)"

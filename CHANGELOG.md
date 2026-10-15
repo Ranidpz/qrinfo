@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.28.3] - 2026-10-15
+
+- Social Wall DEMO only: `/play/social-wall` (noindex, outside [locale], middleware skips /play/) runs the real participant app (`src/components/viewer/socialwall/*`) against an in-memory stand-in for `/api/socialwall/*` (`demo.ts`, installed only by that page) — no code, Firestore or storage behind it; colleagues like and post on a timer, uploads stay in the browser. `?reset=1` = welcome screen again. The experience itself (API routes, store, dashboard tab, rules) is still on `feature/social-wall` and NOT released. Rollback = revert this release commit.
+
 ## [1.28.2] - 2026-10-13
 
 - Booklet editors × approval gate (v1.28.0): `requireBookletAccess` honours a grant only for an approved account (no `status` = pre-gate = approved); bulk/single grant refuses unapproved targets (`not_approved`). Docs: `docs/BOOKLET_EDITORS.md`. Rollback = revert this release commit.
