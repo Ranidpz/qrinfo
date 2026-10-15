@@ -36,6 +36,7 @@ import {
   Vote,
   Gift,
   Dices,
+  HeartHandshake,
   Timer,
   CalendarDays,
   Smartphone,
@@ -102,6 +103,8 @@ import QVoteModal from '@/components/modals/QVoteModal';
 import RaffleModal from '@/components/modals/RaffleModal';
 import { DEFAULT_RAFFLE_CONFIG, type RaffleConfig } from '@/lib/raffle/types';
 import QBetModal from '@/components/modals/QBetModal';
+import SocialWallModal, { prepareLogo, type SocialWallSaveFiles } from '@/components/modals/SocialWallModal';
+import type { SocialWallConfig } from '@/types/socialwall';
 import TenBoolModal from '@/components/modals/TenBoolModal';
 import type { TenBoolConfig } from '@/types/tenbool';
 import type { QBetConfig } from '@/lib/qbet/types';
@@ -392,6 +395,7 @@ export default function CodeEditPage({ params }: PageProps) {
   const [qbetModalOpen, setQbetModalOpen] = useState(false);
   const [editingQBetId, setEditingQBetId] = useState<string | null>(null);
   const [tenboolModalOpen, setTenboolModalOpen] = useState(false);
+  const [socialWallModalOpen, setSocialWallModalOpen] = useState(false);
   const [editingTenBoolId, setEditingTenBoolId] = useState<string | null>(null);
   const [addingQVote, setAddingQVote] = useState(false);
 
@@ -2184,6 +2188,107 @@ export default function CodeEditPage({ params }: PageProps) {
       }
     }
     return cfg;
+  };
+
+  // Social Wall: persist the config (members/posts live behind /api/socialwall/*). Uploads a new
+  // logo (transparent PNG) / cover first, frees replaced ones, returns the saved config so the
+  // modal adopts the final URLs (save-and-stay-open). Errors rethrow for the modal's message.
+  const handleSaveSocialWall = async (
+    config: SocialWallConfig,
+    files: SocialWallSaveFiles
+  ): Promise<SocialWallConfig | void> => {
+    if (!code || !user) return;
+    const existing = code.media.find((m) => m.type === 'socialwall');
+    const previous = existing?.socialWallConfig?.branding || {};
+    const cfg: SocialWallConfig = { ...config, branding: { ...config.branding } };
+    const prevSizes = existing?.socialWallConfig || {};
+    let logoSize = prevSizes.logoSize || 0;
+    let coverSize = prevSizes.coverSize || 0;
+    let storageDelta = 0;
+
+    const upload = async (blob: Blob, name: string) => {
+      const formData = new FormData();
+      formData.append('file', blob instanceof File ? blob : new File([blob], name, { type: blob.type || 'image/png' }));
+      formData.append('userId', user.id);
+      formData.append('codeId', code.id);
+      const res = await fetchWithAuth('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Social Wall image upload failed');
+      return (await res.json()) as { url: string; size?: number };
+    };
+    const remove = async (url: string) => {
+      try {
+        await fetchWithAuth('/api/upload', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+      } catch (error) {
+        console.error('Failed to delete Social Wall image:', error);
+      }
+    };
+
+    if (files.logoFile) {
+      const up = await upload(await prepareLogo(files.logoFile), 'logo.png');
+      cfg.branding!.logoUrl = up.url;
+      storageDelta += up.size || 0;
+      logoSize = up.size || 0;
+    }
+    if (files.coverFile) {
+      let body: Blob = files.coverFile;
+      try {
+        body = (await compressImage(files.coverFile, { maxSizeKB: 900, maxWidth: 1800, maxHeight: 1800 })).blob;
+      } catch {
+        /* send the original */
+      }
+      const up = await upload(body, 'cover.webp');
+      cfg.branding!.coverImageUrl = up.url;
+      storageDelta += up.size || 0;
+      coverSize = up.size || 0;
+    }
+    if (previous.logoUrl && previous.logoUrl !== cfg.branding!.logoUrl) {
+      await remove(previous.logoUrl);
+      storageDelta -= prevSizes.logoSize || 0;
+      if (!files.logoFile) logoSize = 0;
+    }
+    if (previous.coverImageUrl && previous.coverImageUrl !== cfg.branding!.coverImageUrl) {
+      await remove(previous.coverImageUrl);
+      storageDelta -= prevSizes.coverSize || 0;
+      if (!files.coverFile) coverSize = 0;
+    }
+    const stored: SocialWallConfig = { ...cfg, logoSize, coverSize };
+
+    let updatedMedia: MediaItem[];
+    if (existing) {
+      updatedMedia = code.media.map((m) =>
+        m.id === existing.id ? { ...m, title: cfg.eventTitle || m.title, socialWallConfig: stored } : m
+      );
+    } else {
+      const newMedia: MediaItem = {
+        id: `media_${Date.now()}`,
+        url: '',
+        type: 'socialwall',
+        size: 0,
+        order: code.media.length,
+        uploadedBy: user.id,
+        title: cfg.eventTitle || 'Social Wall',
+        socialWallConfig: stored,
+        createdAt: new Date(),
+      };
+      updatedMedia = [...code.media, newMedia];
+    }
+    const cleanedMedia = updatedMedia.map((m) =>
+      removeUndefined(m as unknown as Record<string, unknown>)
+    ) as unknown as MediaItem[];
+    await updateQRCode(code.id, { media: cleanedMedia });
+    setCode((prev) => (prev ? { ...prev, media: updatedMedia } : null));
+    if (storageDelta !== 0) {
+      try {
+        await updateUserStorage(user.id, storageDelta);
+      } catch (error) {
+        console.error('Failed to update storage usage:', error);
+      }
+    }
+    return stored;
   };
 
   // Spin the QBet winners into a SEPARATE raffle code (Fattal engine, untouched).
@@ -4046,6 +4151,16 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
 
+                {/* Social Wall Button */}
+                <Tooltip text="Social Wall">
+                  <button
+                    onClick={() => setSocialWallModalOpen(true)}
+                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                  >
+                    <HeartHandshake className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+
                 {/* Weekly Calendar Button */}
                 <Tooltip text={tMedia('weeklycal')}>
                   <button
@@ -4294,6 +4409,18 @@ export default function CodeEditPage({ params }: PageProps) {
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-500 to-rose-700">
                         <Timer className="w-6 h-6 text-white" />
                       </div>
+                    ) : media.type === 'socialwall' ? (
+                      media.socialWallConfig?.branding?.coverImageUrl ? (
+                        <img
+                          src={media.socialWallConfig.branding.coverImageUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-600 to-blue-600">
+                          <HeartHandshake className="w-6 h-6 text-white" />
+                        </div>
+                      )
                     ) : media.type === 'qbet' ? (
                       media.qbetConfig?.backgroundImageUrl ? (
                         <img
@@ -4473,6 +4600,18 @@ export default function CodeEditPage({ params }: PageProps) {
                           setEditingTenBoolId(media.id);
                           setTenboolModalOpen(true);
                         }}
+                        className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  )}
+
+                  {/* Edit button for socialwall */}
+                  {media.type === 'socialwall' && (
+                    <Tooltip text={t('edit')}>
+                      <button
+                        onClick={() => setSocialWallModalOpen(true)}
                         className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary"
                       >
                         <Pencil className="w-4 h-4" />
@@ -5065,6 +5204,16 @@ export default function CodeEditPage({ params }: PageProps) {
         shortId={code.shortId}
         title={code.title}
         onDuplicate={handleDuplicateTenBool}
+      />
+
+      <SocialWallModal
+        isOpen={socialWallModalOpen}
+        onClose={() => setSocialWallModalOpen(false)}
+        onSave={handleSaveSocialWall}
+        initialConfig={code?.media.find((m) => m.type === 'socialwall')?.socialWallConfig}
+        codeId={code.id}
+        shortId={code.shortId}
+        title={code.title}
       />
 
       <QBetModal

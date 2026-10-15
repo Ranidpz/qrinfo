@@ -18,6 +18,7 @@ import SelfiebeamModal from '@/components/modals/SelfiebeamModal';
 import QVoteModal from '@/components/modals/QVoteModal';
 import { DEFAULT_RAFFLE_CONFIG } from '@/lib/raffle/types';
 import { DEFAULT_QBET_CONFIG } from '@/lib/qbet/types';
+import { DEFAULT_SOCIALWALL_CONFIG } from '@/types/socialwall';
 import QStageModal from '@/components/modals/QStageModal';
 import QHuntModal from '@/components/modals/QHuntModal';
 import QTreasureModal from '@/components/modals/QTreasureModal';
@@ -752,6 +753,38 @@ export default function DashboardPage() {
       router.push(`/code/${newCode.id}`);
     } catch (error) {
       console.error('Error creating raffle:', error);
+      alert(tErrors('createCodeError'));
+    }
+  };
+
+  // Create a new code with a Social Wall (private event network) and open it in the editor, where
+  // the owner sets branding, departments and access. Tokens for the staff/screen links are minted
+  // now (CSPRNG) and split off to private/secrets by createQRCode — never on the public doc.
+  const handleCreateSocialWall = async (name?: string) => {
+    if (!user) return;
+    try {
+      const eventTitle = name?.trim() || 'Social Wall';
+      const token = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+      const newCode = await createQRCode(
+        user.id,
+        eventTitle,
+        [
+          {
+            url: '',
+            type: 'socialwall',
+            size: 0,
+            order: 0,
+            uploadedBy: user.id,
+            title: eventTitle,
+            socialWallConfig: { ...DEFAULT_SOCIALWALL_CONFIG, eventTitle, screenToken: token(), moderatorToken: token() },
+          },
+        ],
+        currentFolderId
+      );
+      setCodes((prev) => [newCode, ...prev]);
+      router.push(`/code/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating social wall:', error);
       alert(tErrors('createCodeError'));
     }
   };
@@ -2232,6 +2265,7 @@ export default function DashboardPage() {
                   onQVoteCreate={(name) => { setPendingExperienceName(name); setQvoteModalOpen(true); }}
                   onRaffleCreate={handleCreateRaffle}
                   onQBetCreate={handleCreateQBet}
+                  onSocialWallCreate={handleCreateSocialWall}
                   onTenBoolCreate={handleCreateTenBool}
                   onQStageCreate={(name) => { setPendingExperienceName(name); setQstageModalOpen(true); }}
                   onWeeklyCalendarCreate={(name) => { setPendingExperienceName(name); setWeeklyCalModalOpen(true); }}

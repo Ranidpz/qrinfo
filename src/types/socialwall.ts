@@ -58,6 +58,9 @@ export interface SocialWallConfig {
   moderatorToken?: string;
   eventEndsAt?: string;
   retentionDays?: number;
+  /** Bytes of the stored logo / cover (owner storage accounting on replace). */
+  logoSize?: number;
+  coverSize?: number;
 }
 
 export interface ResolvedSocialWallConfig {

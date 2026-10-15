@@ -23,6 +23,7 @@ import { PostCard, UploadCard, type LocalUpload } from './PostCard';
 import Composer, { type ComposerResult } from './Composer';
 import JoinFlow, { ProfileForm } from './JoinFlow';
 import { useFeed } from './useFeed';
+import StaffView from './StaffView';
 import { Avatar, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
 
 type Phase = 'boot' | 'welcome' | 'join' | 'profile' | 'app' | 'blocked';
@@ -160,7 +161,23 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 
 // ------------------------------------------------------------------ the app
 
-export default function SocialWallViewer({ codeId, title, config: rawConfig }: Props) {
+/** #mod=<token> on the URL = the on-site staff moderation link (fragment: never sent to the server). */
+function staffTokenFromHash(): string | null {
+  if (typeof window === 'undefined') return null;
+  const m = window.location.hash.match(/(?:^#|&)mod=([a-f0-9]{32})\b/);
+  return m ? m[1] : null;
+}
+
+export default function SocialWallViewer(props: Props) {
+  const [staffToken] = useState(staffTokenFromHash);
+  if (staffToken) {
+    const config = resolveSocialWallConfig(props.config);
+    return <StaffView codeId={props.codeId} token={staffToken} groups={config.groups} eventTitle={config.eventTitle || props.title || ''} />;
+  }
+  return <ParticipantApp {...props} />;
+}
+
+function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   const config = useMemo(() => resolveSocialWallConfig(rawConfig), [rawConfig]);
   const locale = config.locale;
   const t = socialWallStrings[locale];

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2, Instagram, Facebook, Dices, Timer, FileKey } from 'lucide-react';
+import { Trash2, RefreshCw, Globe, Copy, Image, Video, FileText, Eye, UserCog, User, Clock, Check, Files, Upload, Route, CheckCircle, XCircle, Pencil, Tag, Gift, Vote, Sparkles, Crosshair, Map as MapIcon, Trophy, Gamepad2, Instagram, Facebook, Dices, Timer, FileKey, HeartHandshake } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { clsx } from 'clsx';
 import { useTranslations, useLocale } from 'next-intl';
@@ -125,6 +125,7 @@ const EXPERIENCE_ICONS: Partial<
   raffle: { grad: 'from-amber-400 to-yellow-600', Icon: Gift },
   qbet: { grad: 'from-blue-600 via-indigo-600 to-red-500', Icon: Dices },
   tenbool: { grad: 'from-red-500 to-rose-700', Icon: Timer },
+  socialwall: { grad: 'from-violet-600 to-blue-600', Icon: HeartHandshake },
 };
 
 function ExperienceIcon({ type, big }: { type: MediaType; big?: boolean }) {
@@ -307,6 +308,7 @@ export default function CodeCard({
       case 'raffle': return 'הגרלה';
       case 'qbet': return 'ניחוש';
       case 'tenbool': return '10 בול';
+      case 'socialwall': return 'Social Wall';
       default: return tMedia('image');
     }
   };

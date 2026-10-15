@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift, Instagram, Facebook, Dices, Timer } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift, Instagram, Facebook, Dices, Timer, HeartHandshake } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -33,7 +33,7 @@ const linkModeOptions: { mode: LinkMode; icon: React.ReactNode; label: string; l
   { mode: 'payment', icon: <CreditCard className="w-4 h-4" />, label: 'תשלום', labelKey: 'linkModePayment' },
 ];
 
-export type UploaderTab = 'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qbet' | 'tenbool' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames';
+export type UploaderTab = 'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qbet' | 'tenbool' | 'socialwall' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames';
 
 interface MediaUploaderProps {
   onFileSelect: (file: File) => void;
@@ -44,6 +44,7 @@ interface MediaUploaderProps {
   onQVoteCreate?: (name: string) => void;
   onRaffleCreate?: (name: string) => void;
   onQBetCreate?: (name: string) => void;
+  onSocialWallCreate?: (name: string) => void;
   onTenBoolCreate?: (name: string) => void;
   onQStageCreate?: (name: string) => void;
   onWeeklyCalendarCreate?: (name: string) => void;
@@ -67,6 +68,7 @@ export default function MediaUploader({
   onQVoteCreate,
   onRaffleCreate,
   onQBetCreate,
+  onSocialWallCreate,
   onTenBoolCreate,
   onQStageCreate,
   onWeeklyCalendarCreate,
@@ -521,6 +523,7 @@ export default function MediaUploader({
           {onQVoteCreate && <TabButton tab="qvote" label="Q.Vote" icon={Vote} tooltip={t('tooltipQVote') || 'Create a voting experience'} />}
           {onRaffleCreate && <TabButton tab="raffle" label="הגרלה" icon={Gift} tooltip="הגרלת שמות על מסך ענק" />}
           {onQBetCreate && <TabButton tab="qbet" label="ניחוש" icon={Dices} tooltip="ניחוש תוצאת משחק עם אימות וואטסאפ" />}
+          {onSocialWallCreate && <TabButton tab="socialwall" label="Social Wall" icon={HeartHandshake} tooltip="רשת חברתית פרטית לאירוע: פיד תמונות, לייקים ומחלקות" />}
           {onTenBoolCreate && <TabButton tab="tenbool" label="10 בול" icon={Timer} tooltip="עצרו את הטיימר בדיוק על 10.00" />}
           {onQStageCreate && <TabButton tab="qstage" label="Q.Stage" icon={Sparkles} tooltip={t('tooltipQStage') || 'Live voting display for events'} />}
           {onQHuntCreate && <TabButton tab="qhunt" label="Q.Hunt" icon={Crosshair} tooltip={t('tooltipQHunt') || 'Real-time code hunting game'} />}
@@ -1119,6 +1122,28 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             צור ניחוש
+          </button>
+        </div>
+      ) : activeTab === 'socialwall' ? (
+        /* Social Wall (private event social network) creation */
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <HeartHandshake className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-start">
+              <h3 className="font-medium text-text-primary mb-1">Social Wall</h3>
+              <p className="text-xs text-text-secondary">
+                רשת חברתית סגורה לאירוע: נכנסים ב-QR בלי אפליקציה, מעלים תמונות, מתייגים מחלקה ועושים לייקים. כניסה פתוחה, בוואטסאפ או לפי רשימת עובדים.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleExperienceCreate(onSocialWallCreate)}
+            disabled={disabled || nameMissing}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            צור Social Wall
           </button>
         </div>
       ) : activeTab === 'tenbool' ? (
