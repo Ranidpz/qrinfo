@@ -25,6 +25,13 @@ export const SW_STYLE = `
 @keyframes sw-kenburns { from { transform: scale(1.06); } to { transform: scale(1.16) translateY(-2%); } }
 @keyframes sw-progress { from { background-position: 0 0; } to { background-position: 40px 0; } }
 .sw-root { -webkit-tap-highlight-color: transparent; }
+/* Screen changes: the next screen slides in from the side it lives on (mirrored for RTL) */
+@keyframes sw-slide { from { opacity: 0; transform: translateX(var(--sw-dx)); } to { opacity: 1; transform: none; } }
+.sw-slide-fwd, .sw-slide-back { animation: sw-slide .3s cubic-bezier(.2,.85,.25,1) both; }
+.sw-slide-fwd { --sw-dx: 34%; }
+.sw-slide-back { --sw-dx: -34%; }
+[dir="rtl"] .sw-slide-fwd { --sw-dx: -34%; }
+[dir="rtl"] .sw-slide-back { --sw-dx: 34%; }
 .sw-enter { animation: sw-fade-up .5s cubic-bezier(.2,.8,.2,1) both; }
 .sw-fade { animation: sw-fade .35s ease-out both; }
 .sw-scale-in { animation: sw-scale-in .32s cubic-bezier(.2,.8,.2,1) both; }
