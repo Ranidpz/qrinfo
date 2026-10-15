@@ -16,10 +16,13 @@ const PEOPLE: [string, string, string][] = [
   ['נועה פרץ', 'fin', 'והערב רק מתחיל 🎶'],
 ];
 const SIZES: [number, number][] = [[1200, 900], [1200, 900], [1200, 900], [1200, 900], [1200, 900]];
-// Colleagues who "post" while the demo is open — each needs its own photo (none spare yet).
-const LATER: [string, string, string, number][] = [];
+// Colleagues who "post" while the demo is open — each with its own photo: [name, group, caption, photo index, w, h].
+// The first lands 20s in, then one every 40s, so the "new photos" moment shows up early.
+const LATER: [string, string, string, number, number, number][] = [
+  ['עידו רז', 'rnd', 'ניצחנו 3-1 🏐 מי בא לגמר?', 5, 1200, 1499],
+];
 
-const photo = (i: number) => `/play/social-wall/p${(i % PEOPLE.length) + 1}.webp`;
+const photo = (i: number) => `/play/social-wall/p${i + 1}.webp`;
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const SESSION_ID = 'd'.repeat(32);
 
@@ -69,6 +72,7 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
 
   // Colleagues keep the feed alive: likes every few seconds, a new post now and then
   let nextLater = 0;
+  let laterStarted = false;
   setInterval(() => {
     const p = posts[Math.floor(Math.random() * Math.min(posts.length, 6))];
     if (p && !p.mine) {
@@ -76,9 +80,9 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
       p.updatedAt = Date.now();
     }
   }, 6000);
-  setInterval(() => {
+  const postLater = () => {
     if (nextLater >= LATER.length) return;
-    const [authorName, groupId, caption, i] = LATER[nextLater];
+    const [authorName, groupId, caption, i, width, height] = LATER[nextLater];
     posts.unshift({
       id: uuid(100 + nextLater),
       authorName,
@@ -86,14 +90,23 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
       caption,
       fullUrl: photo(i),
       cardUrl: photo(i),
-      width: 1200,
-      height: 900,
+      width,
+      height,
       likeCount: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
     nextLater++;
-  }, 40_000);
+  };
+  // Starts once the visitor is in (the first feed load), not while they read the welcome screen
+  const startLater = () => {
+    if (laterStarted) return;
+    laterStarted = true;
+    setTimeout(() => {
+      postLater();
+      setInterval(postLater, 40_000);
+    }, 20_000);
+  };
 
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
@@ -122,6 +135,7 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
       return json({ success: true, ...me, needsProfile: false });
     }
     if (route === 'feed') {
+      startLater();
       const now = Date.now();
       if (url.searchParams.has('since')) {
         const since = Number(url.searchParams.get('since'));
