@@ -11,6 +11,11 @@
 //
 // All four subcollections are `allow read, write: if false` in firestore.rules. Timestamps are
 // server-clock milliseconds (one clock for ordering, cursors and the screen delay).
+//
+// NO composite indexes (nothing to forget on deploy, same idea as 10 בול's rank fields): a post is
+// in the feed exactly when the numeric `feedAt` exists, and in its department's feed exactly when
+// `gfeed.<groupId>` exists — both are single-field orderBys Firestore indexes on its own. Every
+// status change goes through feedFields(); other lists filter one equality field and sort in memory.
 
 import crypto from 'crypto';
 import { FieldPath, FieldValue } from 'firebase-admin/firestore';
@@ -116,6 +121,14 @@ const phoneDigits = (phone: string) => phone.replace(/\D/g, '');
 /** Phone modes: one member per phone per event, so the doc id is derived from both. */
 export const phoneMemberId = (codeId: string, phone: string) =>
   crypto.createHash('sha256').update(`sw:${codeId}:${phoneDigits(phone)}`).digest('hex').slice(0, 32);
+
+/** The feed-membership fields for a post in `status` (see header). `remove` = delete them. */
+function feedFields(status: PostStatus, createdAt: number, groupId: string | null, remove: boolean) {
+  if (status === 'visible') {
+    return { feedAt: createdAt, gfeed: groupId ? { [groupId]: createdAt } : {} };
+  }
+  return remove ? { feedAt: FieldValue.delete(), gfeed: FieldValue.delete() } : {};
+}
 
 export function isValidCodeId(codeId: unknown): codeId is string {
   return typeof codeId === 'string' && /^[a-zA-Z0-9]{10,30}$/.test(codeId);
@@ -419,7 +432,7 @@ export async function createPost(params: {
       createdAt: now,
       updatedAt: now,
     };
-    tx.create(postRef, post);
+    tx.create(postRef, { ...post, ...feedFields(status, now, member.groupId, false) });
     tx.update(memberRef, { postCount: FieldValue.increment(1), lastPostAt: now, lastSeenAt: now });
     return { result: 'created' as const, post };
   });
@@ -448,6 +461,7 @@ export async function deletePostDoc(codeId: string, postId: string, actor: strin
       updatedAt: now,
       moderatedBy: actor,
       moderatedAt: now,
+      ...feedFields('deleted', post.createdAt, post.groupId, true),
     });
     return post;
   });
@@ -477,21 +491,30 @@ export async function setLike(codeId: string, memberId: string, postId: string, 
   return { changed, likeCount: Math.max(0, post.likeCount + (changed ? (on ? 1 : -1) : 0)) };
 }
 
+/** Cursor = the last post of the previous page. Its snapshot carries the implicit __name__
+ *  tie-break; if it has since left the feed, fall back to its timestamp. */
+async function cursorStart(codeId: string, cursor: { createdAt: number; id: string }, field: string | FieldPath) {
+  const snap = await postsCol(codeId).doc(cursor.id).get();
+  return snap.exists && snap.get(field) !== undefined ? snap : cursor.createdAt;
+}
+
 export async function listFeed(
   codeId: string,
   opts: { groupId?: string | null; cursor?: { createdAt: number; id: string } | null; limit?: number }
 ) {
-  let q = postsCol(codeId).where('status', '==', 'visible');
-  if (opts.groupId) q = postsCol(codeId).where('groupId', '==', opts.groupId).where('status', '==', 'visible');
-  q = q.orderBy('createdAt', 'desc').orderBy(FieldPath.documentId(), 'desc');
-  if (opts.cursor) q = q.startAfter(opts.cursor.createdAt, opts.cursor.id);
+  const field = opts.groupId ? new FieldPath('gfeed', opts.groupId) : 'feedAt';
+  let q = postsCol(codeId).orderBy(field, 'desc');
+  if (opts.cursor) q = q.startAfter(await cursorStart(codeId, opts.cursor, field));
   const snap = await q.limit(opts.limit || FEED_PAGE).get();
-  return snap.docs.map((d) => ({ id: d.id, post: toPost(d.data()) }));
+  return snap.docs.map((d) => ({ id: d.id, post: toPost(d.data()) })).filter(({ post }) => post.status === 'visible');
 }
 
 export async function listMine(codeId: string, memberId: string, limit = 60) {
-  const snap = await postsCol(codeId).where('memberId', '==', memberId).orderBy('createdAt', 'desc').limit(limit).get();
-  return snap.docs.map((d) => ({ id: d.id, post: toPost(d.data()) }));
+  const snap = await postsCol(codeId).where('memberId', '==', memberId).get();
+  return snap.docs
+    .map((d) => ({ id: d.id, post: toPost(d.data()) }))
+    .sort((a, b) => b.post.createdAt - a.post.createdAt)
+    .slice(0, limit);
 }
 
 /** Everything that changed after `since` (any status) — callers decide what a viewer may see. */
@@ -526,12 +549,8 @@ export function toScreenPost(
 }
 
 export async function listScreen(codeId: string) {
-  const snap = await postsCol(codeId)
-    .where('status', '==', 'visible')
-    .orderBy('createdAt', 'desc')
-    .limit(SCREEN_LIMIT)
-    .get();
-  return snap.docs.map((d) => ({ id: d.id, post: toPost(d.data()) }));
+  const snap = await postsCol(codeId).orderBy('feedAt', 'desc').limit(SCREEN_LIMIT).get();
+  return snap.docs.map((d) => ({ id: d.id, post: toPost(d.data()) })).filter(({ post }) => post.status === 'visible');
 }
 
 // ---------------------------------------------------------------- moderation (operators)
@@ -544,11 +563,17 @@ export async function listForModeration(
   cursor: { createdAt: number; id: string } | null,
   limit = 40
 ) {
-  let q: FirebaseFirestore.Query = postsCol(codeId);
-  q = filter === 'all' ? q.where('status', 'in', ['visible', 'pending', 'hidden']) : q.where('status', '==', filter);
-  q = q.orderBy('createdAt', 'desc').orderBy(FieldPath.documentId(), 'desc');
-  if (cursor) q = q.startAfter(cursor.createdAt, cursor.id);
+  if (filter !== 'all') {
+    // Pending / hidden queues are short: one equality query, newest first in memory, no paging.
+    const snap = await postsCol(codeId).where('status', '==', filter).limit(500).get();
+    return snap.docs
+      .map((d) => ({ id: d.id, post: toPost(d.data()) }))
+      .sort((a, b) => b.post.createdAt - a.post.createdAt);
+  }
+  let q = postsCol(codeId).orderBy('createdAt', 'desc');
+  if (cursor) q = q.startAfter(await cursorStart(codeId, cursor, 'createdAt'));
   const snap = await q.limit(limit).get();
+  // Tombstones are dropped here, so a page can come back a little short — the cursor still moves on.
   return snap.docs.map((d) => ({ id: d.id, post: toPost(d.data()) }));
 }
 
@@ -597,7 +622,9 @@ export async function moderatePost(codeId: string, postId: string, action: PostA
         patch.pinned = false;
         break;
     }
-    tx.update(ref, patch);
+    const nextStatus = patch.status ?? p.status;
+    const feed = nextStatus !== p.status ? feedFields(nextStatus, p.createdAt, p.groupId, true) : {};
+    tx.update(ref, { ...patch, ...feed });
   });
   await audit(codeId, { action: `post:${action}`, actor, postId });
   await bumpRev(codeId);
@@ -609,18 +636,22 @@ export async function blockMember(codeId: string, memberId: string, actor: strin
   const snap = await ref.get();
   if (!snap.exists) throw new SocialWallError('NOT_FOUND', 404);
   await ref.update({ status: 'blocked', sessionHashes: [] });
-  const posts = await postsCol(codeId).where('memberId', '==', memberId).where('status', 'in', ['visible', 'pending']).get();
+  const all = await postsCol(codeId).where('memberId', '==', memberId).get();
+  const docs = all.docs.filter((d) => ['visible', 'pending'].includes(d.get('status')));
   const now = Date.now();
-  for (let i = 0; i < posts.docs.length; i += 450) {
+  for (let i = 0; i < docs.length; i += 450) {
     const batch = db().batch();
-    posts.docs.slice(i, i + 450).forEach((d) =>
-      batch.update(d.ref, { status: 'hidden', pinned: false, updatedAt: now, moderatedBy: actor, moderatedAt: now })
+    docs.slice(i, i + 450).forEach((d) =>
+      batch.update(d.ref, {
+        status: 'hidden', pinned: false, updatedAt: now, moderatedBy: actor, moderatedAt: now,
+        ...feedFields('hidden', 0, null, true),
+      })
     );
     await batch.commit();
   }
-  await audit(codeId, { action: 'member:block', actor, memberId, detail: `${posts.size} posts hidden` });
+  await audit(codeId, { action: 'member:block', actor, memberId, detail: `${docs.length} posts hidden` });
   await bumpRev(codeId);
-  return posts.size;
+  return docs.length;
 }
 
 export async function unblockMember(codeId: string, memberId: string, actor: string) {

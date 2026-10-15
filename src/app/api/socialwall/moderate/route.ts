@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     const now = Date.now();
     const last = items[items.length - 1];
     return NextResponse.json({
-      posts: items.map(({ id, post }) => ({
+      posts: items.filter(({ post }) => post.status !== 'deleted').map(({ id, post }) => ({
         id,
         memberId: post.memberId,
         authorName: post.authorName,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         createdAt: post.createdAt,
         ...screenEligibility(post, wall.config, now),
       })),
-      nextCursor: items.length === PAGE && last ? encodeCursor(last.post.createdAt, last.id) : null,
+      nextCursor: filter === 'all' && items.length === PAGE && last ? encodeCursor(last.post.createdAt, last.id) : null,
       serverTime: now,
     });
   } catch (error) {

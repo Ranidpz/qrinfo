@@ -22,7 +22,7 @@
 ## לפני שחרור ל-main (רשימה)
 
 - [ ] `firestore.rules` (4 תת-אוספים `sw*` נעולים) + `database.rules.json` (`socialwall/$codeId` read-only) → בדיקה ב-`qrinfo-dev`, ואז שני הפרויקטים באישור רני
-- [ ] 3 אינדקסים של `swPosts` (status+createdAt, groupId+status+createdAt, memberId+createdAt) לשני הפרויקטים, **לוודא בקונסול**
+- אין אינדקסים מורכבים לפרוס: פוסט נמצא בפיד בדיוק כשיש לו `feedAt`, ובפיד המחלקה כשיש `gfeed.<groupId>` (אינדקס שדה בודד אוטומטי). בלי כלל ה-RTDB הטלפונים עוברים לרענון כל 5 שניות במקום עדכון חי.
 - [ ] `R2` מוגדר בפרודקשן (הקוד מעדיף R2 כשהוא מוגדר); בעל האירוע עם מכסת אחסון מספיקה (`checkStorageQuota`)
 - [ ] תבנית WhatsApp OTP הקיימת עובדת עם `kind: 'socialwall-otp'` (אותה `guardedSendOTP`)
 - [ ] חזרה גנרלית: iPhone ישן + Android + דפדפן וואטסאפ, העלאה ברשת חלשה, קישור צוות

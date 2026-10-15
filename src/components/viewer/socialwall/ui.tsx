@@ -4,7 +4,7 @@
 // another one gets a new identity every render, React remounts it and its entrance animation
 // replays (the QBet "jumping flags" lesson).
 
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export const SW_STYLE = `
@@ -47,7 +47,14 @@ export const SW_STYLE = `
 .sw-chips { scrollbar-width: none; }
 .sw-chips::-webkit-scrollbar { display: none; }
 .sw-img { transition: opacity .45s ease; }
+@keyframes sw-burst {
+  0% { transform: translate(-50%, -50%) scale(.3) rotate(0deg); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r)); opacity: 0; }
+}
+.sw-particle { position: absolute; left: 50%; top: 50%; pointer-events: none; animation: sw-burst var(--d) cubic-bezier(.12,.75,.3,1) forwards; }
 @media (prefers-reduced-motion: reduce) {
+  .sw-particle { display: none; }
   .sw-root *, .sw-root *::before, .sw-root *::after {
     animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important;
   }
@@ -180,6 +187,48 @@ export function PlayzoneMark({ size = 28 }: { size?: number }) {
         </defs>
       </svg>
     </div>
+  );
+}
+
+const BURST_COLORS = ['#ef4444', '#f43f5e', '#ec4899', 'var(--sw-primary)', 'var(--sw-secondary)', '#f59e0b'];
+
+/** Hearts + confetti flying out of a point (a like). Mount it keyed per like so it replays. */
+export function ConfettiBurst({ count = 18, spread = 90 }: { count?: number; spread?: number }) {
+  const parts = useMemo(
+    () =>
+      Array.from({ length: count }, (_, i) => {
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6;
+        const dist = spread * (0.55 + Math.random() * 0.6);
+        return {
+          x: `${Math.cos(angle) * dist}px`,
+          y: `${Math.sin(angle) * dist - spread * 0.25}px`,
+          r: `${Math.round((Math.random() - 0.5) * 540)}deg`,
+          d: `${650 + Math.round(Math.random() * 450)}ms`,
+          heart: i % 3 === 0,
+          size: 6 + Math.round(Math.random() * 6),
+          color: BURST_COLORS[i % BURST_COLORS.length],
+        };
+      }),
+    [count, spread]
+  );
+  return (
+    <span className="absolute inset-0 pointer-events-none" aria-hidden>
+      {parts.map((p, i) => (
+        <span
+          key={i}
+          className="sw-particle"
+          style={{ '--x': p.x, '--y': p.y, '--r': p.r, '--d': p.d } as React.CSSProperties}
+        >
+          {p.heart ? (
+            <svg width={p.size + 6} height={p.size + 6} viewBox="0 0 24 24" fill={p.color}>
+              <path d="M12 21s-7.5-4.6-10-9.3C.4 8.4 2.3 4.5 6 4.5c2.1 0 3.4 1.1 4.1 2.2h3.8C14.6 5.6 15.9 4.5 18 4.5c3.7 0 5.6 3.9 4 7.2C19.5 16.4 12 21 12 21z" />
+            </svg>
+          ) : (
+            <span className="block rounded-[2px]" style={{ width: p.size, height: p.size * 0.5, background: p.color }} />
+          )}
+        </span>
+      ))}
+    </span>
   );
 }
 

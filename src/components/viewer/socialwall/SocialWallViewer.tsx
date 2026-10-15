@@ -190,6 +190,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   const [tab, setTab] = useState<Tab>('feed');
   const [group, setGroup] = useState<string | null>(null);
   const [rev, setRev] = useState(0);
+  const [live, setLive] = useState(true);
   const [uploadsOpen, setUploadsOpen] = useState(true);
   const [postsLeft, setPostsLeft] = useState<number | null>(null);
   const [composer, setComposer] = useState<{ file: File | null } | null>(null);
@@ -243,11 +244,16 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   // ---- live pulse + control (RTDB: a counter and two switches, no content)
   useEffect(() => {
     if (phase !== 'app') return;
-    const unsub = onValue(rtdbRef(realtimeDb, `socialwall/${codeId}`), (snap) => {
-      const v = snap.val() || {};
-      setRev(typeof v.rev === 'number' ? v.rev : 0);
-      setUploadsOpen(v.control?.uploads !== false);
-    });
+    const unsub = onValue(
+      rtdbRef(realtimeDb, `socialwall/${codeId}`),
+      (snap) => {
+        const v = snap.val() || {};
+        setLive(true);
+        setRev(typeof v.rev === 'number' ? v.rev : 0);
+        setUploadsOpen(v.control?.uploads !== false);
+      },
+      () => setLive(false) // denied / blocked: the feed falls back to fast polling
+    );
     return () => unsub();
   }, [codeId, phase]);
 
@@ -266,7 +272,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
     [codeId]
   );
 
-  const feed = useFeed({ codeId, session: phase === 'app' ? session?.session ?? null : null, group, rev, onAuthError });
+  const feed = useFeed({ codeId, session: phase === 'app' ? session?.session ?? null : null, group, rev, live, onAuthError });
   const { loadMore, addPost } = feed;
 
   // "New photos" pill: someone else posted while this member is scrolled down the feed

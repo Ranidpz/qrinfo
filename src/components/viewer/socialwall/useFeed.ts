@@ -11,6 +11,8 @@ import { SwApiError, swApi } from './api';
 
 const MIN_DELTA_GAP_MS = 2500;
 const POLL_MS = 20_000;
+/** When the RTDB pulse can't connect (rules, a corporate firewall), the feed polls this often instead. */
+const FALLBACK_POLL_MS = 5_000;
 
 const byNewest = (a: SocialWallPostView, b: SocialWallPostView) => b.createdAt - a.createdAt || (a.id < b.id ? 1 : -1);
 
@@ -19,9 +21,11 @@ export function useFeed(params: {
   session: string | null;
   group: string | null;
   rev: number;
+  /** false = no live pulse: poll fast instead */
+  live: boolean;
   onAuthError: (error: SwApiError) => void;
 }) {
-  const { codeId, session, group, rev, onAuthError } = params;
+  const { codeId, session, group, rev, live, onAuthError } = params;
   const [posts, setPosts] = useState<SocialWallPostView[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -153,7 +157,7 @@ export function useFeed(params: {
     const tick = () => {
       if (document.visibilityState === 'visible') scheduleDelta();
     };
-    const interval = setInterval(tick, POLL_MS);
+    const interval = setInterval(tick, live ? POLL_MS : FALLBACK_POLL_MS);
     document.addEventListener('visibilitychange', tick);
     window.addEventListener('online', tick);
     return () => {
@@ -163,7 +167,7 @@ export function useFeed(params: {
       if (deltaTimer.current) clearTimeout(deltaTimer.current);
       deltaTimer.current = null;
     };
-  }, [scheduleDelta]);
+  }, [scheduleDelta, live]);
 
   const toggleLike = useCallback(
     async (post: SocialWallPostView, on: boolean) => {

@@ -125,6 +125,10 @@ assert.equal(steal.status, 409); ok("another member cannot reuse someone's postI
 r = await api(`/api/socialwall/feed?codeId=${A}`, { session: SB });
 assert.equal(r.data.posts.length, 1); assert.equal(r.data.posts[0].likedByMe, false); assert.equal(r.data.posts[0].mine, undefined);
 const t0 = r.data.serverTime; ok('member B sees the post');
+r = await api(`/api/socialwall/feed?codeId=${A}&group=rnd`, { session: SB });
+assert.equal(r.data.posts.length, 1);
+r = await api(`/api/socialwall/feed?codeId=${A}&group=hr`, { session: SB });
+assert.equal(r.data.posts.length, 0); ok('department filter (index-free gfeed field)');
 
 for (const on of [true, true]) {
   r = await api('/api/socialwall/like', { method: 'POST', session: SB, body: { codeId: A, postId: p1.postId, on } });

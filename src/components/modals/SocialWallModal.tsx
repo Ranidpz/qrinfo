@@ -141,6 +141,94 @@ function CopyRow({ label, value, onRegenerate }: { label: string; value: string;
   );
 }
 
+const GROUP_PRESETS = [
+  'שיווק', 'מכירות', 'פיתוח', 'R&D', 'משאבי אנוש', 'HR', 'תפעול', 'כספים', 'IT', 'הנהלה',
+  'שירות לקוחות', 'לוגיסטיקה', 'ייצור', 'רכש', 'QA', 'מוצר', 'משפטית', 'אדמיניסטרציה',
+];
+
+/** Departments as tags: the event's own (tap to rename, × to remove), ready-made ones to add in
+ *  one tap, and a field for a new one. Renaming keeps the id, so posts keep their department. */
+function GroupTagsEditor({ groups, onChange }: { groups: SocialWallGroup[]; onChange: (g: SocialWallGroup[]) => void }) {
+  const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState<string | null>(null);
+  const has = (label: string) => groups.some((g) => g.label.trim().toLowerCase() === label.trim().toLowerCase());
+  const add = (label: string) => {
+    const clean = label.trim().slice(0, 40);
+    if (!clean || has(clean)) return;
+    onChange([...groups, { id: newGroupId(), label: clean, color: GROUP_COLORS[groups.length % GROUP_COLORS.length] }]);
+  };
+  const presets = GROUP_PRESETS.filter((p) => !has(p));
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2 min-h-[40px] p-2 rounded-xl border border-border bg-bg-secondary/40">
+        {groups.length === 0 && <span className="text-sm text-text-secondary px-1 py-1.5">עוד אין מחלקות. בחרו מהרשימה למטה או הוסיפו חדשה.</span>}
+        {groups.map((g, i) =>
+          editing === g.id ? (
+            <input
+              key={g.id}
+              autoFocus
+              defaultValue={g.label}
+              maxLength={40}
+              className="input h-9 w-36 text-sm"
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                onChange(v ? groups.map((x) => (x.id === g.id ? { ...x, label: v } : x)) : groups);
+                setEditing(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                if (e.key === 'Escape') setEditing(null);
+              }}
+            />
+          ) : (
+            <span key={g.id} className="inline-flex items-center h-9 rounded-full ps-1.5 pe-1 gap-1 text-sm font-semibold text-white shadow-sm" style={{ background: g.color || GROUP_COLORS[i % GROUP_COLORS.length] }}>
+              <label className="relative w-5 h-5 rounded-full border-2 border-white/70 cursor-pointer overflow-hidden" title="צבע">
+                <input
+                  type="color"
+                  value={g.color || GROUP_COLORS[i % GROUP_COLORS.length]}
+                  onChange={(e) => onChange(groups.map((x) => (x.id === g.id ? { ...x, color: e.target.value } : x)))}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </label>
+              <button type="button" onClick={() => setEditing(g.id)} className="px-1" title="שינוי שם">{g.label}</button>
+              <button type="button" onClick={() => onChange(groups.filter((x) => x.id !== g.id))} className="w-6 h-6 rounded-full hover:bg-black/20 flex items-center justify-center" aria-label={`הסרת ${g.label}`}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          )
+        )}
+      </div>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add(draft);
+          setDraft('');
+        }}
+      >
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="מחלקה חדשה" maxLength={40} className="input flex-1" />
+        <button type="submit" disabled={!draft.trim()} className="h-10 px-4 rounded-lg bg-accent text-white text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40">
+          <Plus className="w-4 h-4" />
+          הוספה
+        </button>
+      </form>
+      {presets.length > 0 && (
+        <div className="space-y-1.5">
+          <span className="text-xs text-text-secondary">הוספה מהירה</span>
+          <div className="flex flex-wrap gap-1.5">
+            {presets.map((p) => (
+              <button key={p} type="button" onClick={() => add(p)} className="h-8 px-3 rounded-full border border-dashed border-border text-sm text-text-secondary hover:border-accent hover:text-accent flex items-center gap-1">
+                <Plus className="w-3 h-3" />
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SocialWallModal({ isOpen, onClose, onSave, initialConfig, codeId, shortId, title }: Props) {
   const [tab, setTab] = useState<Tab>('settings');
   const [cfg, setCfg] = useState<SocialWallConfig>(DEFAULT_SOCIALWALL_CONFIG);
@@ -351,36 +439,7 @@ export default function SocialWallModal({ isOpen, onClose, onSave, initialConfig
                   <span className="text-xs font-medium text-text-secondary">איך לקרוא לזה</span>
                   <input className="input w-full" value={cfg.groupLabel || ''} onChange={(e) => set('groupLabel', e.target.value)} placeholder="המחלקה שלך" maxLength={40} />
                 </label>
-                <div className="space-y-2">
-                  {groups.map((g, i) => (
-                    <div key={g.id} className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={g.color || GROUP_COLORS[i % GROUP_COLORS.length]}
-                        onChange={(e) => setGroups(groups.map((x) => (x.id === g.id ? { ...x, color: e.target.value } : x)))}
-                        className="w-9 h-9 rounded-lg cursor-pointer shrink-0"
-                        aria-label="צבע"
-                      />
-                      <input
-                        className="input flex-1"
-                        value={g.label}
-                        onChange={(e) => setGroups(groups.map((x) => (x.id === g.id ? { ...x, label: e.target.value } : x)))}
-                        maxLength={40}
-                      />
-                      <button type="button" onClick={() => setGroups(groups.filter((x) => x.id !== g.id))} className="h-10 w-10 shrink-0 rounded-lg text-danger hover:bg-danger/10 flex items-center justify-center" aria-label="מחיקה">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setGroups([...groups, { id: newGroupId(), label: '', color: GROUP_COLORS[groups.length % GROUP_COLORS.length] }])}
-                    className="h-10 px-4 rounded-lg bg-bg-secondary text-sm font-medium text-text-primary flex items-center gap-1.5 hover:bg-bg-hover"
-                  >
-                    <Plus className="w-4 h-4" />
-                    הוספת מחלקה
-                  </button>
-                </div>
+                <GroupTagsEditor groups={groups} onChange={setGroups} />
               </Section>
 
               <Section title="מי יכול להיכנס">

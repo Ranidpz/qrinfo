@@ -194,12 +194,23 @@ export function ModerationPanel({
 
   // Live: the same pulse the phones use
   useEffect(() => {
-    const unsub = onValue(rtdbRef(realtimeDb, `socialwall/${codeId}`), (snap) => {
-      const v = snap.val() || {};
-      setRev(typeof v.rev === 'number' ? v.rev : 0);
-      setUploadsOpen(v.control?.uploads !== false);
-    });
-    return () => unsub();
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const unsub = onValue(
+      rtdbRef(realtimeDb, `socialwall/${codeId}`),
+      (snap) => {
+        const v = snap.val() || {};
+        setRev(typeof v.rev === 'number' ? v.rev : 0);
+        setUploadsOpen(v.control?.uploads !== false);
+      },
+      // No live pulse (rules / firewall): refresh the queue every 8s instead
+      () => {
+        poll = setInterval(() => setRev((n) => n + 1), 8000);
+      }
+    );
+    return () => {
+      unsub();
+      if (poll) clearInterval(poll);
+    };
   }, [codeId]);
   const firstRev = useRef(true);
   useEffect(() => {
