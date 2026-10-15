@@ -254,5 +254,18 @@ await api('/api/socialwall/moderate', { method: 'POST', mod: MOD, body: { codeId
 r = await api(`/api/socialwall/feed?codeId=${C}`, { session: c2.data.session });
 assert.equal(r.data.posts.length, 1); ok('approved post appears');
 
+// ---------------------------------------------------------------- G: production-testing gate
+console.log('G. only a super admin\'s code runs a wall');
+const G = 'codeNotAdminOwn1';
+await db.doc('users/owner2').set({ role: 'producer', storageUsed: 0, storageLimit: 0 });
+await db.doc(`codes/${G}`).set({
+  ownerId: 'owner2', shortId: G.slice(0, 8), title: 'Hand-made wall',
+  media: [{ id: 'm1', type: 'socialwall', url: '', socialWallConfig: { access: 'open' } }],
+});
+r = await api('/api/socialwall/join', { method: 'POST', body: { codeId: G, action: 'open', name: 'דני כהן' } });
+assert.equal(r.status, 404); ok('non-super-admin owner: join = 404');
+r = await api(`/api/socialwall/feed?codeId=${G}`);
+assert.equal(r.status, 404); ok('non-super-admin owner: feed = 404');
+
 console.log(`\nALL ${passed} CHECKS PASSED`);
 process.exit(0);

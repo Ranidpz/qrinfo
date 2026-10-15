@@ -4151,15 +4151,17 @@ export default function CodeEditPage({ params }: PageProps) {
                   </button>
                 </Tooltip>
 
-                {/* Social Wall Button */}
-                <Tooltip text="Social Wall">
-                  <button
-                    onClick={() => setSocialWallModalOpen(true)}
-                    className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
-                  >
-                    <HeartHandshake className="w-4 h-4" />
-                  </button>
-                </Tooltip>
+                {/* Social Wall Button (production testing: super admins only, the server enforces it too) */}
+                {user?.role === 'super_admin' && (
+                  <Tooltip text="Social Wall">
+                    <button
+                      onClick={() => setSocialWallModalOpen(true)}
+                      className="p-2 rounded-lg bg-bg-secondary text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center"
+                    >
+                      <HeartHandshake className="w-4 h-4" />
+                    </button>
+                  </Tooltip>
+                )}
 
                 {/* Weekly Calendar Button */}
                 <Tooltip text={tMedia('weeklycal')}>
