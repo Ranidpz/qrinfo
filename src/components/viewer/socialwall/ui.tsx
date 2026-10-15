@@ -165,6 +165,24 @@ export function PoweredBy({ label }: { label: string }) {
   );
 }
 
+/** Playzone wordmark — shown wherever an event has no logo of its own yet. */
+export function PlayzoneMark({ size = 28 }: { size?: number }) {
+  return (
+    <div className="flex items-center gap-[0.22em] select-none text-gray-900" dir="ltr" style={{ fontSize: size }} aria-label="Playzone">
+      <span className="font-black tracking-tight leading-none">Playzone</span>
+      <svg width="0.62em" height="0.68em" viewBox="0 0 10 11" aria-hidden>
+        <path d="M0 0.8 L10 5.5 L0 10.2 Z" fill="url(#swpzmark)" />
+        <defs>
+          <linearGradient id="swpzmark" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#2563eb" />
+            <stop offset="1" stopColor="#7c3aed" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  );
+}
+
 export function Spinner({ className = '' }: { className?: string }) {
   return <Loader2 className={`animate-spin text-[var(--sw-primary)] ${className}`} />;
 }

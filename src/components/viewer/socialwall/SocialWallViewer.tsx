@@ -24,7 +24,7 @@ import Composer, { type ComposerResult } from './Composer';
 import JoinFlow, { ProfileForm } from './JoinFlow';
 import { useFeed } from './useFeed';
 import StaffView from './StaffView';
-import { Avatar, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
+import { Avatar, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
 
 type Phase = 'boot' | 'welcome' | 'join' | 'profile' | 'app' | 'blocked';
 type Tab = 'feed' | 'me';
@@ -51,7 +51,7 @@ function Welcome({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={b.logoUrl} alt={title} className="h-12 max-w-[70%] object-contain" />
         ) : (
-          <div className="text-2xl font-black tracking-tight text-gray-900">{title}</div>
+          <PlayzoneMark size={30} />
         )}
       </div>
       <div className="text-center mt-7 sw-enter" style={{ animationDelay: '80ms' }}>
@@ -511,7 +511,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={config.branding.logoUrl} alt={eventTitle} className="h-10 max-w-[60%] object-contain" />
             ) : (
-              <div className="text-xl font-black">{eventTitle}</div>
+              <PlayzoneMark size={24} />
             )}
           </div>
           <div className="mt-8 mb-7 sw-enter" style={{ animationDelay: '60ms' }}>
@@ -547,7 +547,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={config.branding.logoUrl} alt={eventTitle} className="h-8 max-w-[55%] object-contain" />
           ) : (
-            <div className="text-lg font-black truncate max-w-[60%]">{eventTitle}</div>
+            <PlayzoneMark size={21} />
           )}
           <button type="button" onClick={() => setTab('me')} aria-label={t.me} className="w-10 h-10 flex items-center justify-center">
             <Avatar name={myName || '?'} color={myGroup?.color} size={32} />
