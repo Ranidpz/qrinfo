@@ -717,7 +717,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
               </div>
             )}
             <div ref={sentinelRef} className="h-24 flex items-center justify-center">
-              {feed.loadingMore && <Spinner className="w-6 h-6" />}
+              {feed.loadingMore ? <Spinner className="w-6 h-6" /> : !feed.hasMore && feed.posts.length > 0 && <PoweredBy label={t.poweredBy} />}
             </div>
           </div>
         ) : (
@@ -765,6 +765,9 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
                 ))}
               </div>
             )}
+            <div className="py-6">
+              <PoweredBy label={t.poweredBy} />
+            </div>
           </div>
         )}
       </main>
