@@ -37,7 +37,7 @@ export function LandingShell({
   locale: Locale;
   slug?: string; // current page, so the language switch lands on the same page in the other language
   nav?: { label: string; href: string }[]; // in-page sections ('#id'): scrollspy nav, pills on phones
-  cta?: { label: string; href: string };
+  cta?: { label: string; href: string; external?: boolean }; // external = opens a new tab (WhatsApp)
   children: React.ReactNode;
 }) {
   const t = SHELL_TEXT[locale];
@@ -71,6 +71,7 @@ export function LandingShell({
             {cta && (
               <a
                 href={cta.href}
+                {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 className="ms-1 inline-flex min-h-10 items-center rounded-lg bg-accent px-4 font-semibold text-white transition-colors hover:bg-accent-hover"
               >
                 {cta.label}
