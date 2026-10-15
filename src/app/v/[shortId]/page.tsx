@@ -164,7 +164,7 @@ function getDescriptionByMediaType(mediaType: string): string {
     minigames: 'מוזמנים לשחק! 🎮',
     qbet: 'מנחשים את תוצאת המשחק ⚽',
     tenbool: 'עצרו את הטיימר בדיוק על 10.00 ⏱️',
-    socialwall: 'הרשת החברתית הפרטית של האירוע 📸',
+    socialwall: 'הרשת החברתית הפרטית לאירועים 📸',
   };
   return descriptions[mediaType] || 'תוכן QR דינמי';
 }
