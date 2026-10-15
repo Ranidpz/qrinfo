@@ -12,6 +12,7 @@ import ContactWidget from '@/components/viewer/ContactWidget';
 const RiddleViewer = dynamic(() => import('@/components/viewer/RiddleViewer'), { ssr: false });
 const SelfiebeamViewer = dynamic(() => import('@/components/viewer/SelfiebeamViewer'), { ssr: false });
 const QBetViewer = dynamic(() => import('@/components/viewer/QBetViewer'), { ssr: false });
+const SocialWallViewer = dynamic(() => import('@/components/viewer/socialwall/SocialWallViewer'), { ssr: false });
 import QVoteViewer from '@/components/viewer/QVoteViewer';
 import WeeklyCalendarViewer from '@/components/viewer/WeeklyCalendarViewer';
 import { QStageDisplay, QStageMobileVoter } from '@/components/qstage';
@@ -1172,6 +1173,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   const isMinigames = media.length === 1 && currentMedia?.type === 'minigames';
   const isQBet = media.length === 1 && currentMedia?.type === 'qbet';
   const isTenBool = media.length === 1 && currentMedia?.type === 'tenbool';
+  const isSocialWall = media.length === 1 && currentMedia?.type === 'socialwall';
 
   // Check if we need the mixed media swiper (multiple items with different types)
   const needsMixedSwiper = hasMultipleMedia && !isAllImages && !isAllPDFs;
@@ -1573,6 +1575,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
           <RiddleViewer content={currentMedia.riddleContent} codeId={codeId} shortId={shortId} ownerId={ownerId} folderId={folderId} />
         ) : isSelfiebeam && currentMedia.selfiebeamContent ? (
           <SelfiebeamViewer content={currentMedia.selfiebeamContent} codeId={codeId} shortId={shortId} ownerId={ownerId} />
+        ) : isSocialWall ? (
+          <SocialWallViewer codeId={codeId} shortId={shortId} title={title || currentMedia.title} config={currentMedia.socialWallConfig} />
         ) : isTenBool ? (
           <TenBoolExperience codeId={codeId} shortId={shortId} title={title || currentMedia.title} config={currentMedia.tenboolConfig} />
         ) : isQBet && currentMedia.qbetConfig ? (

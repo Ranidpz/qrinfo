@@ -1,0 +1,190 @@
+// Social Wall participant strings. /v pages have no next-intl locale, so the experience carries
+// its own dictionary (same approach as publicTranslations.ts). Keep he + en in step.
+
+const he = {
+  join: 'כניסה לרשת',
+  joinTitle: 'נעים להכיר',
+  joinSubtitle: 'רק עוד רגע ואתם בפנים',
+  yourName: 'השם שלך',
+  namePlaceholder: 'שם פרטי ומשפחה',
+  yourGroup: 'המחלקה שלך',
+  chooseGroup: 'בחרו מהרשימה',
+  phone: 'מספר טלפון',
+  phonePlaceholder: '050-0000000',
+  sendCode: 'שלחו לי קוד בוואטסאפ',
+  continue: 'המשך',
+  codeSentTo: 'שלחנו קוד בוואטסאפ ל-',
+  enterCode: 'הקלידו את הקוד',
+  verify: 'אימות',
+  resendIn: 'שליחה חוזרת בעוד',
+  resend: 'שלחו שוב',
+  changePhone: 'שינוי מספר',
+  seconds: 'שנ׳',
+  all: 'הכל',
+  feed: 'פיד',
+  upload: 'העלאה',
+  me: 'שלי',
+  newPhoto: 'תמונה חדשה',
+  choosePhoto: 'צלמו או בחרו תמונה',
+  choosePhotoHint: 'מהמצלמה או מהגלריה',
+  replacePhoto: 'החלפת תמונה',
+  captionPlaceholder: 'כתבו משהו (לא חובה)',
+  publish: 'פרסום',
+  publishing: 'מעלה…',
+  uploadFailed: 'ההעלאה נכשלה',
+  retry: 'נסו שוב',
+  discard: 'ביטול',
+  waitingApproval: 'ממתין לאישור',
+  likes: 'לייקים',
+  like: 'לייק',
+  emptyFeedTitle: 'עוד אין כאן תמונות',
+  emptyFeedText: 'תהיו הראשונים לשתף רגע מהאירוע',
+  emptyMineTitle: 'עוד לא העליתם תמונות',
+  emptyMineText: 'כל תמונה שתעלו תופיע כאן',
+  postsLeft: 'אפשר להעלות עוד',
+  photos: 'תמונות',
+  deletePost: 'מחיקת התמונה',
+  deleteConfirm: 'למחוק את התמונה? אי אפשר לשחזר.',
+  delete: 'מחיקה',
+  cancel: 'ביטול',
+  close: 'סגירה',
+  editProfile: 'עריכת פרטים',
+  save: 'שמירה',
+  uploadsClosed: 'ההעלאות סגורות כרגע',
+  blocked: 'הגישה שלך לרשת הוגבלה על ידי המארגנים',
+  notOnList: 'המספר לא מופיע ברשימת המוזמנים. פנו למארגנים.',
+  eventFull: 'הרשת מלאה. פנו למארגנים.',
+  wrongCode: 'הקוד שגוי',
+  attemptsLeft: 'ניסיונות נותרו',
+  codeExpired: 'הקוד פג תוקף, שלחו קוד חדש',
+  tooManyAttempts: 'יותר מדי ניסיונות. נסו שוב בעוד כמה דקות',
+  invalidPhone: 'מספר טלפון לא תקין',
+  invalidName: 'הקלידו שם (2 תווים לפחות)',
+  chooseGroupError: 'בחרו מחלקה',
+  postLimit: 'הגעתם למספר התמונות המקסימלי',
+  tooFast: 'רגע, אפשר להעלות שוב בעוד כמה שניות',
+  badImage: 'הקובץ הזה לא נראה כמו תמונה',
+  tooLarge: 'התמונה גדולה מדי',
+  storageFull: 'האחסון של האירוע מלא. פנו למארגנים.',
+  genericError: 'משהו השתבש. נסו שוב.',
+  offline: 'אין חיבור לאינטרנט',
+  sendFailed: 'לא הצלחנו לשלוח את הקוד. נסו שוב.',
+  inAppTitle: 'מומלץ לפתוח בדפדפן',
+  inAppText: 'בתוך וואטסאפ הכניסה לא נשמרת. פתחו בדפדפן כדי להישאר מחוברים.',
+  openInBrowser: 'פתיחה בדפדפן',
+  dismiss: 'הבנתי',
+  poweredBy: 'Powered by',
+  newPosts: 'תמונות חדשות',
+  loadMore: 'טוען…',
+  justNow: 'עכשיו',
+  privateEvent: 'רשת פרטית לאירוע',
+} as const;
+
+export type SocialWallStrings = { [K in keyof typeof he]: string };
+
+const en: SocialWallStrings = {
+  join: 'Join',
+  joinTitle: 'Nice to meet you',
+  joinSubtitle: 'One more step and you are in',
+  yourName: 'Your name',
+  namePlaceholder: 'First and last name',
+  yourGroup: 'Your department',
+  chooseGroup: 'Choose from the list',
+  phone: 'Phone number',
+  phonePlaceholder: '050-0000000',
+  sendCode: 'Send me a WhatsApp code',
+  continue: 'Continue',
+  codeSentTo: 'We sent a WhatsApp code to ',
+  enterCode: 'Enter the code',
+  verify: 'Verify',
+  resendIn: 'Resend in',
+  resend: 'Send again',
+  changePhone: 'Change number',
+  seconds: 's',
+  all: 'All',
+  feed: 'Feed',
+  upload: 'Upload',
+  me: 'Mine',
+  newPhoto: 'New photo',
+  choosePhoto: 'Take or choose a photo',
+  choosePhotoHint: 'From your camera or gallery',
+  replacePhoto: 'Change photo',
+  captionPlaceholder: 'Write something (optional)',
+  publish: 'Post',
+  publishing: 'Uploading…',
+  uploadFailed: 'Upload failed',
+  retry: 'Try again',
+  discard: 'Discard',
+  waitingApproval: 'Waiting for approval',
+  likes: 'likes',
+  like: 'Like',
+  emptyFeedTitle: 'No photos yet',
+  emptyFeedText: 'Be the first to share a moment',
+  emptyMineTitle: 'No photos from you yet',
+  emptyMineText: 'Every photo you post shows up here',
+  postsLeft: 'You can still post',
+  photos: 'photos',
+  deletePost: 'Delete photo',
+  deleteConfirm: 'Delete this photo? This cannot be undone.',
+  delete: 'Delete',
+  cancel: 'Cancel',
+  close: 'Close',
+  editProfile: 'Edit details',
+  save: 'Save',
+  uploadsClosed: 'Uploads are closed right now',
+  blocked: 'The organizers have limited your access',
+  notOnList: 'This number is not on the guest list. Please contact the organizers.',
+  eventFull: 'The network is full. Please contact the organizers.',
+  wrongCode: 'Wrong code',
+  attemptsLeft: 'attempts left',
+  codeExpired: 'The code expired — request a new one',
+  tooManyAttempts: 'Too many attempts. Try again in a few minutes',
+  invalidPhone: 'Invalid phone number',
+  invalidName: 'Enter a name (at least 2 characters)',
+  chooseGroupError: 'Choose a department',
+  postLimit: 'You reached the photo limit',
+  tooFast: 'Hold on — you can post again in a few seconds',
+  badImage: 'This file does not look like a photo',
+  tooLarge: 'The photo is too large',
+  storageFull: 'The event storage is full. Please contact the organizers.',
+  genericError: 'Something went wrong. Try again.',
+  offline: 'No internet connection',
+  sendFailed: 'Could not send the code. Try again.',
+  inAppTitle: 'Better in your browser',
+  inAppText: 'Inside WhatsApp you will not stay signed in. Open it in your browser.',
+  openInBrowser: 'Open in browser',
+  dismiss: 'Got it',
+  poweredBy: 'Powered by',
+  newPosts: 'New photos',
+  loadMore: 'Loading…',
+  justNow: 'now',
+  privateEvent: 'Private event network',
+};
+
+export const socialWallStrings: Record<'he' | 'en', SocialWallStrings> = { he, en };
+
+/** Error code from the API -> a sentence for the participant. */
+export function errorText(t: SocialWallStrings, code: string | undefined): string {
+  switch (code) {
+    case 'NOT_ON_LIST': return t.notOnList;
+    case 'EVENT_FULL': return t.eventFull;
+    case 'BLOCKED': return t.blocked;
+    case 'WRONG_CODE': return t.wrongCode;
+    case 'EXPIRED': return t.codeExpired;
+    case 'TOO_MANY_ATTEMPTS':
+    case 'RATE_LIMITED': return t.tooManyAttempts;
+    case 'INVALID_PHONE': return t.invalidPhone;
+    case 'INVALID_NAME': return t.invalidName;
+    case 'INVALID_GROUP': return t.chooseGroupError;
+    case 'POST_LIMIT': return t.postLimit;
+    case 'TOO_FAST': return t.tooFast;
+    case 'BAD_IMAGE':
+    case 'NO_FILE': return t.badImage;
+    case 'FILE_TOO_LARGE': return t.tooLarge;
+    case 'STORAGE_FULL': return t.storageFull;
+    case 'UPLOADS_CLOSED': return t.uploadsClosed;
+    case 'SEND_FAILED': return t.sendFailed;
+    case 'OFFLINE': return t.offline;
+    default: return t.genericError;
+  }
+}
