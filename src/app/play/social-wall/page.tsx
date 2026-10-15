@@ -10,8 +10,8 @@ import SocialWallDemo from './SocialWallDemo';
 // photos + slogan) and icons are static files in public/play/social-wall/, rendered in Chromium
 // (sharp/librsvg and Satori both break Hebrew RTL).
 const TITLE = 'Social Wall';
-const DESCRIPTION = 'מצטלמים. משתפים. מפרגנים. הרשת החברתית הפרטית של האירוע 📸';
-const OG_IMAGE = '/play/social-wall/og.jpg';
+const DESCRIPTION = 'מצטלמים. משתפים. מפרגנים. הרשת החברתית הפרטית לאירועים 📸';
+const OG_IMAGE = '/play/social-wall/og.jpg?v=2'; // bump when the image changes (WhatsApp caches it)
 
 export const metadata: Metadata = {
   title: TITLE,

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.28.5] - 2026-10-15
+
+- Social Wall DEMO update only (`/play/social-wall`, same scope as 1.28.3/1.28.4): back button on the join screen (back to welcome), screens slide in from the side (`.sw-slide-fwd/back`, mirrored for RTL, 0.3s; session restore paints without a slide), full-screen confetti on join, slogan line now "הרשת החברתית הפרטית לאירועים" in the app, the page description and the OG image (`og.jpg?v=2` so WhatsApp refetches). Rollback = revert this release commit.
+
 ## [1.28.4] - 2026-10-15
 
 - Social Wall DEMO update only (`/play/social-wall`, same scope as 1.28.3 — the experience, API and rules stay on `feature/social-wall`): "YOUR LOGO" placeholder, footer "Powered by Playzone" links to The Q, production-team cheer posts, department race, double-tap-to-like hint, welcome slogan "מצטלמים. משתפים. מפרגנים." + "הרשת החברתית הפרטית של האירוע". Branded WhatsApp/OG preview: `openGraph`/`twitter`/`icons` on the page, static `public/play/social-wall/og.jpg` (1200×630 collage of the demo photos, rendered in Chromium — sharp and Satori break Hebrew RTL) + `icon.png`/`apple-icon.png`. Rollback = revert this release commit.
