@@ -26,7 +26,9 @@
    - `tsc`, `lint`, `security:check`, `build`
    - push ל-main, ואז בדיקה ב-Vercel MCP
 3. **מערכת אמיתית לבדיקה בפרודקשן**: הפיצ'ר המלא ב-main, עם טאב בדשבורד שמוגבל ל-super_admin, פעולת "טעינת תמונות דמו" ופעולת "איפוס". פריסת הכללים ל-Firestore ול-RTDB בשני הפרויקטים **רק באישור רני**.
-4. **עמוד נחיתה** `/experiences/social-wall` לפי `docs/LANDING_PAGES_DESIGN_HE.md` ו-`ExperienceLanding`: הדמו כ-iframe ל-`/play/social-wall`, ורשומה ב-`catalog.ts` כשעולה.
+4. **עמוד נחיתה** `/experiences/social-wall` (נבנה על הענף `feature/social-wall-landing`, מ-main): עולה ל-main בלי רשומה ב-`catalog.ts`, כלומר בלי קישור מהאתר ובלי sitemap. כל כפתורי היצירה מובילים לוואטסאפ (`primaryCta: 'contact'`), ובמחירים המנוי מסומן "בקרוב". בשחרור המלא: מוסיפים רשומה לקטלוג, מוחקים את `primaryCta` ומחליפים את "בקרוב" ביצירה מהדשבורד.
+   - **לבדיקת העומס (בשיחה נפרדת):** בשאלות הנפוצות כתוב "מאות משתתפים ואלפי תמונות באירוע אחד", וזו הערכה. אחרי בדיקת עומס מעדכנים את המספר ב-`src/lib/landing/social-wall-content.ts` (בעברית ובאנגלית).
+   - **שיתוף בתוך האפליקציה:** בסרגל התחתון יש לשונית "שיתוף" (`ShareSheet.tsx`). היא מציגה QR גדול של קישור האירוע, כפתור שליחה דרך תפריט השיתוף של הטלפון והעתקת קישור. הקישור הוא `origin + pathname`, כלומר בלי query ובלי ה-`#mod` של הצוות.
 5. **שלב 2** (נדחה): מסך LED עם תפריט נסתר כמו `BeamControlPanel`, ומשחק "מי זה" על מנוע הסילואטה.
 
 **סביבת בדיקה:** emulators (Firestore 8088, RTDB 9000), `scripts/tests/socialwall-fake-blob.mjs` על 4555, ו-next dev מול ה-emulators. ההוראות בראש `scripts/tests/socialwall.e2e.mjs`. ה-proxy בקונטיינר חוסם את qr.playzones.app, ולכן בודקים דרך `web_fetch_vercel_url` על כתובת ה-deployment (צוות `team_f5PitV6FD2GsyqsjgInNN480`, פרויקט `prj_venQYMykGmX8b7Au5VwZ0g5rTdAo`).
