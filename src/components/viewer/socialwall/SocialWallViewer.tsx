@@ -27,7 +27,7 @@ import { useFeed } from './useFeed';
 import StaffView from './StaffView';
 import ShareSheet from './ShareSheet';
 import { CheerPost, cheerValues, resolveCheer, type EventTotals, type GroupStat } from './Leaderboard';
-import { Avatar, ConfettiBurst, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
+import { Avatar, ConfettiBurst, CountUp, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
 
 type Phase = 'boot' | 'welcome' | 'join' | 'profile' | 'app' | 'blocked';
 type Tab = 'feed' | 'me';
@@ -783,7 +783,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
                 <div className="text-xs text-gray-500">{t.photos}</div>
               </div>
               <div className="py-3 border-s border-gray-100">
-                <div className="text-2xl font-black tabular-nums">{mine ? mine.reduce((s, p) => s + p.likeCount, 0) : '–'}</div>
+                <div className="text-2xl font-black tabular-nums">{mine ? <CountUp value={mine.reduce((s, p) => s + p.likeCount, 0)} locale={locale} /> : '–'}</div>
                 <div className="text-xs text-gray-500">{t.likes}</div>
               </div>
             </div>

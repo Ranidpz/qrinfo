@@ -4,7 +4,7 @@ import { memo, useRef, useState } from 'react';
 import { Heart, MoreHorizontal, Clock3, RotateCw, Trash2, X } from 'lucide-react';
 import type { SocialWallGroup, SocialWallPostView } from '@/types/socialwall';
 import type { SocialWallStrings } from './i18n';
-import { Avatar, ConfettiBurst, timeAgo } from './ui';
+import { Avatar, ConfettiBurst, CountUp, timeAgo } from './ui';
 
 export interface LocalUpload {
   id: string; // = the postId sent to the server
@@ -164,7 +164,7 @@ function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index,
             />
             {pop > 0 && post.likedByMe && <ConfettiBurst key={`b${pop}`} count={16} spread={70} />}
           </button>
-          <span className="text-[15px] font-bold text-gray-900 tabular-nums">{post.likeCount.toLocaleString(locale)}</span>
+          <span className="text-[15px] font-bold text-gray-900 tabular-nums"><CountUp value={post.likeCount} locale={locale} /></span>
         </div>
         {post.caption && (
           <p className="mt-1 text-[15px] leading-snug text-gray-900 whitespace-pre-line break-words">
