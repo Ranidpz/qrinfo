@@ -78,9 +78,12 @@ function Welcome({
           <Camera className="w-5 h-5" />
           {t.join}
         </PrimaryButton>
-        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
-          <Lock className="w-3.5 h-3.5" />
-          {t.privateEvent}
+        <div className="pt-2 text-center">
+          <div className="text-[19px] font-black tracking-tight text-gray-900">{t.slogan}</div>
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-[13px] font-medium text-gray-500">
+            <Lock className="w-3.5 h-3.5" />
+            {t.privateNetwork}
+          </div>
         </div>
       </div>
       <div className="mt-5">

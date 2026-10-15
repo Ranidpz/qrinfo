@@ -60,6 +60,9 @@ export interface MemberDoc {
   otpExpiresAt: number | null;
   otpAttempts: number;
   otpLastSentAt: number | null;
+  /** Wrong codes across resends, counted from otpFailsSince (a resend doesn't clear it) */
+  otpFails: number;
+  otpFailsSince: number | null;
   postCount: number;
   lastPostAt: number | null;
   likedPosts: string[];
@@ -211,6 +214,8 @@ function toMember(data: FirebaseFirestore.DocumentData): MemberDoc {
     otpExpiresAt: data.otpExpiresAt ?? null,
     otpAttempts: data.otpAttempts || 0,
     otpLastSentAt: data.otpLastSentAt ?? null,
+    otpFails: data.otpFails || 0,
+    otpFailsSince: data.otpFailsSince ?? null,
     postCount: data.postCount || 0,
     lastPostAt: data.lastPostAt ?? null,
     likedPosts: Array.isArray(data.likedPosts) ? data.likedPosts : [],
@@ -340,8 +345,8 @@ export async function saveMemberOtp(
   );
 }
 
-export async function bumpOtpAttempts(codeId: string, phone: string, attempts: number) {
-  await membersCol(codeId).doc(phoneMemberId(codeId, phone)).update({ otpAttempts: attempts });
+export async function bumpOtpAttempts(codeId: string, phone: string, attempts: number, fails: number, failsSince: number) {
+  await membersCol(codeId).doc(phoneMemberId(codeId, phone)).update({ otpAttempts: attempts, otpFails: fails, otpFailsSince: failsSince });
 }
 
 // ---------------------------------------------------------------- posts

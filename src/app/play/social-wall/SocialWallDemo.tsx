@@ -23,7 +23,7 @@ const BASE: SocialWallConfig = {
     primaryColor: '#5b21b6',
     secondaryColor: '#2563eb',
     welcomeTitle: 'ברוכים הבאים\nליום הכיף שלנו!',
-    welcomeSubtitle: 'מצלמים. משתפים. מתחברים.',
+    welcomeSubtitle: 'כל הרגעים של היום, במקום אחד',
   },
 };
 

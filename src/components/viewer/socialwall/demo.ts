@@ -125,7 +125,7 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
     const body = init?.body && typeof init.body === 'string' ? JSON.parse(init.body) : {};
 
     if (route === 'join') {
-      if (body.action === 'send') return json({ success: true, codeLength: 4, cooldownSeconds: 30 });
+      if (body.action === 'send') return json({ success: true, codeLength: 6, cooldownSeconds: 30 });
       me = { name: body.name || me.name || 'אורח', groupId: body.groupId || null };
       return json({ success: true, session: `${SESSION_ID}.${'e'.repeat(48)}`, memberId: SESSION_ID, ...me, needsProfile: false });
     }

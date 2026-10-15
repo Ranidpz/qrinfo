@@ -5,6 +5,32 @@
 > **שלב 1 = רשת חברתית סגורה בטלפונים בלבד** (באירוע של KLA אין מסכים). מסך LED ומשחק "מי זה" (מנוע הסילואטה) = שלב 2.
 > עמוד נחיתה ב-`/experiences/social-wall` + רשומה ב-`catalog.ts` רק כשזה עולה לפרודקשן.
 
+## מצב נוכחי והמשימות הבאות (העברה, 15.10.2026)
+
+**ב-main (פרודקשן, v1.28.3):** רק ההדמיה `/play/social-wall`: האפליקציה האמיתית על נתוני דמה (`demo.ts` מחליף את `fetch`/`XHR` בדפדפן, בלי Firestore או אחסון). הפיצ'ר המלא עדיין רק על הענף הזה.
+
+**על הענף ועוד לא ב-main:** פלייסהולדר YOUR LOGO, פוטר "Powered by Playzone" כקישור ל-The Q, פוסטי "צוות ההפקה" (cheers), מרוץ מחלקות, רמז הקשה כפולה, סלוגן בכניסה ("מצטלמים. משתפים. מפרגנים." ומתחתיו "הרשת החברתית הפרטית של האירוע"), OTP של 6 ספרות + 10 טעויות לטלפון בשעה.
+
+**סקירת אבטחה (15.10):** אין ממצאים ברמת ביטחון גבוהה. הממצא הגבולי היחיד, איפוס ניסיונות OTP בשליחה חוזרת, תוקן (ראו 4.0). במצב `allowlist` בלי וואטסאפ, מי שיודע טלפון של עובד נכנס בשמו. זו החלטה מודעת, והעורך מזהיר על כך.
+
+**משימות פתוחות:**
+1. **מיתוג תצוגת הלינק בוואטסאפ** ל-`/play/social-wall`. היום מוצגת התצוגה הכללית של The Q. צריך:
+   - תמונת OG בגודל 1200×630: אייקון Social Wall, קולאז' מתמונות הדמו, הסלוגן ו-"Powered by Playzone"
+   - אייקון (apple-touch, icon)
+   - `openGraph`, `twitter` ו-`icons` ב-`src/app/play/social-wall/page.tsx`, לפי הדוגמה של `/play/10-bool`
+
+   **שימו לב:** sharp/librsvg שובר עברית RTL (נבדק: הטקסט נחתך והפוך). מרנדרים HTML ב-Chromium של Playwright ומצלמים מסך. בקונטיינר יש רק DejaVu, כך שעדיף פונט עברי (Assistant/Heebo) אם אפשר להוריד אותו. Satori (`next/og`) לא תומך ב-RTL.
+2. **שחרור ההדמיה המעודכנת ל-main כ-v1.28.4** (הדמו בלבד, כמו ב-v1.28.3):
+   - worktree מ-`origin/main`, ומעתיקים אליו: `src/app/play/social-wall`, `src/components/viewer/socialwall`, `src/types/socialwall.ts`, `public/play/social-wall` ומה שהם מייבאים
+   - version, `package.json`, `CHANGELOG.md`
+   - `tsc`, `lint`, `security:check`, `build`
+   - push ל-main, ואז בדיקה ב-Vercel MCP
+3. **מערכת אמיתית לבדיקה בפרודקשן**: הפיצ'ר המלא ב-main, עם טאב בדשבורד שמוגבל ל-super_admin, פעולת "טעינת תמונות דמו" ופעולת "איפוס". פריסת הכללים ל-Firestore ול-RTDB בשני הפרויקטים **רק באישור רני**.
+4. **עמוד נחיתה** `/experiences/social-wall` לפי `docs/LANDING_PAGES_DESIGN_HE.md` ו-`ExperienceLanding`: הדמו כ-iframe ל-`/play/social-wall`, ורשומה ב-`catalog.ts` כשעולה.
+5. **שלב 2** (נדחה): מסך LED עם תפריט נסתר כמו `BeamControlPanel`, ומשחק "מי זה" על מנוע הסילואטה.
+
+**סביבת בדיקה:** emulators (Firestore 8088, RTDB 9000), `scripts/tests/socialwall-fake-blob.mjs` על 4555, ו-next dev מול ה-emulators. ההוראות בראש `scripts/tests/socialwall.e2e.mjs`. ה-proxy בקונטיינר חוסם את qr.playzones.app, ולכן בודקים דרך `web_fetch_vercel_url` על כתובת ה-deployment (צוות `team_f5PitV6FD2GsyqsjgInNN480`, פרויקט `prj_venQYMykGmX8b7Au5VwZ0g5rTdAo`).
+
 ## מה נבנה (מפת קבצים)
 
 | שכבה | קבצים |
@@ -148,6 +174,7 @@ match /swAudit/{d}   { allow read, write: if false; }
 
 > **עודכן:** בפועל נבנו ארבעה מצבים לבחירת הלקוח: `open` (שם + מחלקה), `whatsapp`, `allowlist`, `allowlist_whatsapp`.
 > קוד אירוע (PIN) לא נבנה. ברשימה בלי וואטסאפ, מי שיודע טלפון של עובד נכנס בשמו (כתוב בעורך). שם/מחלקה מהרשימה גוברים על מה שהוקלד.
+> **4.0 OTP בוואטסאפ:** 6 ספרות, 5 דקות, 5 ניסיונות לקוד. בנוסף 10 טעויות לטלפון בשעה שלא מתאפסות בשליחה חוזרת (אחרת שליחה כל 45 שניות מאפשרת ניחוש בלי סוף).
 > סשן = `memberId.token` (24 בתים, נשמר רק hash, עד 3 מכשירים), ב-header `x-sw-session`.
 
 ### 4.1 (היסטורי) קוד אירוע

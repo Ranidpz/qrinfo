@@ -18,10 +18,14 @@ import {
 } from '@/lib/socialwall/store';
 import { JOIN_LIMIT, errorResponse, guardPublic, readJson } from '@/lib/socialwall/server';
 
-const OTP_LENGTH = 4;
+const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 45 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
+// A resend starts a fresh 5 tries for that code, so wrong codes are ALSO counted per phone across
+// resends — otherwise resending every 45s would allow unlimited guessing.
+const MAX_OTP_FAILS = 10;
+const OTP_FAILS_WINDOW_MS = 60 * 60 * 1000;
 
 // Public: join the event's social network. Four access modes (config.access):
 //   open                → action 'open'   {name, groupId}
@@ -108,9 +112,12 @@ export async function POST(request: NextRequest) {
       if (!member?.otpHash || !member.otpExpiresAt) throw new SocialWallError('NO_CODE', 409);
       if (member.status === 'blocked') throw new SocialWallError('BLOCKED', 403);
       if (Date.now() > member.otpExpiresAt) throw new SocialWallError('EXPIRED', 410);
-      if (member.otpAttempts >= MAX_OTP_ATTEMPTS) throw new SocialWallError('TOO_MANY_ATTEMPTS', 429);
+      const now = Date.now();
+      const windowOpen = !!member.otpFailsSince && now - member.otpFailsSince < OTP_FAILS_WINDOW_MS;
+      const fails = windowOpen ? member.otpFails : 0;
+      if (member.otpAttempts >= MAX_OTP_ATTEMPTS || fails >= MAX_OTP_FAILS) throw new SocialWallError('TOO_MANY_ATTEMPTS', 429);
       if (code.length !== OTP_LENGTH || !verifyOTPCode(code, member.otpHash)) {
-        await bumpOtpAttempts(codeId, phone, member.otpAttempts + 1);
+        await bumpOtpAttempts(codeId, phone, member.otpAttempts + 1, fails + 1, windowOpen ? member.otpFailsSince! : now);
         throw new SocialWallError('WRONG_CODE', 400, { attemptsLeft: MAX_OTP_ATTEMPTS - member.otpAttempts - 1 });
       }
       const { name, groupId } = await profile();

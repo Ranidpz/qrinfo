@@ -103,7 +103,7 @@ export default function JoinFlow({
   const [group, setGroup] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const [codeLength, setCodeLength] = useState(4);
+  const [codeLength, setCodeLength] = useState(6);
   const [cooldown, setCooldown] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,7 +156,7 @@ export default function JoinFlow({
       else if (!needsOtp) onJoined(await swApi.join({ ...base(), action: 'phone', phone }));
       else {
         const res = await swApi.join({ ...base(), action: 'send', phone });
-        setCodeLength(res.codeLength || 4);
+        setCodeLength(res.codeLength || 6);
         setCooldown(res.cooldownSeconds || 45);
         setCode('');
         setStep('code');
