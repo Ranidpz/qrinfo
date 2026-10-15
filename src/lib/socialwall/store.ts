@@ -139,12 +139,29 @@ export function isValidCodeId(codeId: unknown): codeId is string {
 
 // ---------------------------------------------------------------- code
 
+// Production testing gate: only a super admin's code runs a Social Wall, even one written straight
+// from the browser (the dashboard tab is super-admin only too). Otherwise any approved account could
+// spend paid WhatsApp OTPs and storage through a hand-made code. Drop this when the experience opens.
+const SOCIALWALL_OWNER_ROLES = new Set(['super_admin']);
+const roleCache = new Map<string, { ok: boolean; at: number }>();
+
+async function ownerMayRunSocialWall(ownerId: unknown): Promise<boolean> {
+  if (typeof ownerId !== 'string' || !ownerId) return false;
+  const hit = roleCache.get(ownerId);
+  if (hit && Date.now() - hit.at < 60_000) return hit.ok;
+  const snap = await getAdminDb().collection('users').doc(ownerId).get();
+  const ok = SOCIALWALL_OWNER_ROLES.has(snap.get('role'));
+  roleCache.set(ownerId, { ok, at: Date.now() });
+  return ok;
+}
+
 export async function loadSocialWall(codeId: string): Promise<LoadedSocialWall> {
   const doc = await codeRef(codeId).get();
   if (!doc.exists) throw new SocialWallError('NOT_FOUND', 404);
   const data = doc.data()!;
   const media = (data.media || []).find((m: { type?: string }) => m.type === 'socialwall');
   if (!media) throw new SocialWallError('NOT_FOUND', 404);
+  if (!(await ownerMayRunSocialWall(data.ownerId))) throw new SocialWallError('NOT_FOUND', 404);
   return {
     codeId,
     mediaId: media.id as string,
