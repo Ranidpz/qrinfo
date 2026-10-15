@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.28.2';
+export const APP_VERSION = '1.28.3';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.28.3', date: '2026-10-15', isNew: true, highlights: {
+    he: ['דף הדגמה חדש: Social Wall, הרשת החברתית הסגורה לאירוע. פיד תמונות, לייקים ומרוץ בין מחלקות, ישר מהטלפון'],
+    en: ['New demo page: Social Wall, the private social network for an event. A photo feed, likes and a department race, right from the phone'],
+  } },
   { version: '1.28.2', date: '2026-10-13', isNew: true, highlights: {
     he: ['אבטחה: הרשאת עדכון חוברות פועלת רק למשתמש מאושר, ומשתמש שנדחה מאבד אותה מיד'],
     en: ['Security: booklet update access works only for an approved account, and a rejected user loses it immediately'],
