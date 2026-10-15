@@ -30,6 +30,7 @@ export const MEDIA_TYPE_INFO: Record<MediaType, {
   raffle: { icon: 'Gift', labelHe: 'הגרלה', labelEn: 'Raffle' },
   qbet: { icon: 'Dices', labelHe: 'ניחוש', labelEn: 'Match Prediction' },
   tenbool: { icon: 'Timer', labelHe: '10 בול', labelEn: '10 Bool' },
+  socialwall: { icon: 'Heart', labelHe: 'סושיאל וול', labelEn: 'Social Wall' },
 };
 
 /**
@@ -112,6 +113,8 @@ function getMediaTitle(item: MediaItem, locale: 'he' | 'en'): string {
       return item.qtreasureConfig?.branding?.gameTitle || item.title || 'Q.Treasure';
     case 'qchallenge':
       return item.qchallengeConfig?.branding?.quizTitle || item.title || 'Q.Challenge';
+    case 'socialwall':
+      return item.socialWallConfig?.eventTitle || item.title || 'Social Wall';
     case 'qbet':
       return item.qbetConfig?.title || item.title || (isHe ? 'ניחוש' : 'Match Prediction');
     case 'pdf':

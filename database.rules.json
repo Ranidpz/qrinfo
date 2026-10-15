@@ -109,6 +109,12 @@
           }
         }
       }
+    },
+    "socialwall": {
+      "$codeId": {
+        ".read": true,
+        ".write": false
+      }
     }
   }
 }

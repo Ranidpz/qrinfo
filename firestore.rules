@@ -135,6 +135,23 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // Social Wall (private event network). Members (phones, OTP state, sessions), posts,
+      // the HR allowlist and the operator audit log are FULLY locked — members use
+      // /api/socialwall/*, operators /api/socialwall/moderate|control|members, owners
+      // /api/socialwall/allowlist|purge. The event is closed: nothing here is public.
+      match /swMembers/{memberId} {
+        allow read, write: if false;
+      }
+      match /swPosts/{postId} {
+        allow read, write: if false;
+      }
+      match /swAllowlist/{entryId} {
+        allow read, write: if false;
+      }
+      match /swAudit/{entryId} {
+        allow read, write: if false;
+      }
+
       // Q.Games Players subcollection (all writes via Admin SDK / API routes)
       match /qgames_players/{playerId} {
         allow read: if true;

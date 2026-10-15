@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle' | 'qbet' | 'tenbool';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle' | 'qbet' | 'tenbool' | 'socialwall';
 export type StorageProvider = 'vercel-blob' | 'cloudflare-r2';
 
 // Riddle content structure
@@ -207,6 +207,7 @@ export interface MediaItem {
   qgamesConfig?: import('./qgames').QGamesConfig; // Configuration for minigames type (1v1 mini games)
   raffleConfig?: import('./raffle').RaffleConfig; // Configuration for raffle type (big-screen draw)
   qbetConfig?: import('./qbet').QBetConfig; // Configuration for qbet type (match score betting; entries live in the codes/{id}/qbetEntries Firestore subcollection)
+  socialWallConfig?: import('./socialwall').SocialWallConfig; // Social Wall settings (members/posts live in Admin-only codes/{id}/sw* subcollections; screen/moderator tokens split to private/secrets)
   tenboolConfig?: import('./tenbool').TenBoolConfig; // "10 בול" look + sounds; absent = built-in defaults
   createdAt: Date;
 }

@@ -19,6 +19,8 @@ export interface MediaSecrets {
   raffleToken?: string;
   photographerToken?: string;
   scannerPin?: string;
+  socialWallScreenToken?: string;
+  socialWallModeratorToken?: string;
 }
 
 export type CodeSecretsMap = Record<string, MediaSecrets>;
@@ -32,6 +34,8 @@ const SECRET_FIELDS: Array<[keyof MediaSecrets, string, string]> = [
   ['raffleToken', 'raffleConfig', 'token'],
   ['photographerToken', 'selfiebeamContent', 'photographerToken'],
   ['scannerPin', 'qtagConfig', 'scannerPin'],
+  ['socialWallScreenToken', 'socialWallConfig', 'screenToken'],
+  ['socialWallModeratorToken', 'socialWallConfig', 'moderatorToken'],
 ];
 
 /** Remove secrets from media items. Only DEFINED values are returned, so an absent field never wipes a stored secret. */

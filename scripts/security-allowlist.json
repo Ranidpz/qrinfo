@@ -16,6 +16,10 @@
     "src/app/api/tenbool/name/route.ts": "10 בול player-token auth",
     "src/app/api/tenbool/result/route.ts": "10 בול player-token auth; timing judged server-side",
     "src/app/api/tenbool/round/route.ts": "10 בול player-token auth; rounds counted server-side",
+    "src/app/api/socialwall/feed/route.ts": "Social Wall member-session auth (x-sw-session, hashed tokens) + origin check + per-IP limit via guardPublic in src/lib/socialwall/server.ts; members only, the event is closed",
+    "src/app/api/socialwall/like/route.ts": "Social Wall member-session auth (x-sw-session, hashed tokens) + origin check + per-IP limit via guardPublic in src/lib/socialwall/server.ts; idempotent desired-state likes",
+    "src/app/api/socialwall/me/route.ts": "Social Wall member-session auth (x-sw-session, hashed tokens) + origin check + per-IP limit via guardPublic in src/lib/socialwall/server.ts; own profile only",
+    "src/app/api/socialwall/posts/route.ts": "Social Wall member-session auth (x-sw-session, hashed tokens) + origin check + per-IP limit via guardPublic in src/lib/socialwall/server.ts; per-member durable post cap + gap, server image re-encode + storage quota",
     "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience, pre-existing client-SDK route (broken in prod); move to Admin SDK + rate limit before enabling",
     "src/app/api/qchallenge/leaderboard/route.ts": "FOLLOW-UP: hidden experience, read-only public leaderboard",
     "src/app/api/qchallenge/register/route.ts": "FOLLOW-UP: hidden experience, pre-existing client-SDK route (broken in prod)"
@@ -60,9 +64,12 @@
     "src/types/qstage.ts#accessToken",
     "src/types/qtag.ts#qrToken",
     "src/types/weeklycal.ts#qrToken",
-    "src/types/verification.ts#sessionToken"
+    "src/types/verification.ts#sessionToken",
+    "src/types/socialwall.ts#screenToken",
+    "src/types/socialwall.ts#moderatorToken",
+    "src/types/socialwall.ts#pinned"
   ],
-  "_secretFields_reason": "token/photographerToken/scannerPin are split into codes/{id}/private by db.ts; accessToken is stripped from public pages (judge flow not implemented); qrToken/sessionToken live in owner-only/locked subcollections, not on the code doc; the rest are not secrets (pinned, cropping).",
+  "_secretFields_reason": "token/photographerToken/scannerPin/screenToken/moderatorToken (Social Wall) are split into codes/{id}/private by db.ts; accessToken is stripped from public pages (judge flow not implemented); qrToken/sessionToken live in owner-only/locked subcollections, not on the code doc; the rest are not secrets (pinned, cropping).",
   "clientSdkInApi": {
     "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience — Firestore still via client SDK (RTDB moved to src/lib/server/qchallenge-rtdb)",
     "src/app/api/qchallenge/register/route.ts": "FOLLOW-UP: hidden experience — Firestore still via client SDK (RTDB moved to src/lib/server/qchallenge-rtdb)"
