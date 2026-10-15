@@ -21,6 +21,7 @@ const SIZES: [number, number][] = [[1200, 900], [1200, 900], [1200, 900], [1200,
 const LATER: [string, string, string, number, number, number][] = [
   ['עידו רז', 'rnd', 'ניצחנו 3-1 🏐 מי בא לגמר?', 5, 1200, 1499],
   ['אלון שגב', 'mkt', 'קפה ראשון, אנרגיה לכל היום ☕', 6, 1200, 1499],
+  ['מאיה רוזן', 'ops', 'שף של צוות 👩‍🍳 מי רוצה שיפוד?', 7, 1200, 1499],
 ];
 
 const photo = (i: number) => `/play/social-wall/p${i + 1}.webp`;
