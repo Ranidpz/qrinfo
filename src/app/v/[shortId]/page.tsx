@@ -218,6 +218,8 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
       }
     } else if (primaryMediaType === 'tenbool') {
       ogImage = `${baseUrl}/api/og/tenbool`;
+    } else if (primaryMediaType === 'socialwall') {
+      ogImage = `${baseUrl}/play/social-wall/og.jpg`; // the branded collage the demo shares with
     } else {
       ogImage = `${baseUrl}/api/og`;
     }
@@ -235,8 +237,13 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
       },
       icons: {
         icon: '/favicon.svg',
-        // iPhone "Add to Home Screen" icon; 10 בול installs with its own stopwatch icon
-        apple: primaryMediaType === 'tenbool' ? '/api/og/tenbool?icon=180' : '/icons/apple-touch-icon.png',
+        // iPhone "Add to Home Screen" icon; 10 בול and Social Wall install with their own icons
+        apple:
+          primaryMediaType === 'tenbool'
+            ? '/api/og/tenbool?icon=180'
+            : primaryMediaType === 'socialwall'
+              ? '/play/social-wall/apple-icon.png'
+              : '/icons/apple-touch-icon.png',
       },
       openGraph: {
         title: ogTitle,
