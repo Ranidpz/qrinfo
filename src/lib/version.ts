@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.28.4';
+export const APP_VERSION = '1.28.5';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.28.5', date: '2026-10-15', isNew: true, highlights: {
+    he: ['עמוד חדש ל-Social Wall, והדגמה עם לשונית שיתוף: קוד QR של האירוע שאפשר להראות לחבר כדי שיסרוק'],
+    en: ['A new Social Wall page, and a Share tab in the demo: the event QR code, ready to show a friend to scan'],
+  } },
   { version: '1.28.4', date: '2026-10-15', isNew: true, highlights: {
     he: ['הדגמת Social Wall מעודכנת: מקום ללוגו שלכם, פוסטים של צוות ההפקה, מרוץ מחלקות, ותצוגה ממותגת כשמשתפים את הלינק בוואטסאפ'],
     en: ['Updated Social Wall demo: a spot for your logo, production-team posts, a department race, and a branded preview when the link is shared on WhatsApp'],

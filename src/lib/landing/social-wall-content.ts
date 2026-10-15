@@ -15,7 +15,7 @@ export const SOCIALWALL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     brandColor: '#f43f5e',
     primaryCta: 'contact',
     meta: {
-      title: 'Social Wall – הרשת החברתית הפרטית של האירוע | The Q',
+      title: 'Social Wall – הרשת החברתית הפרטית לאירועים | The Q',
       description:
         'אינסטגרם פרטי לאירוע אחד: העובדים סורקים QR, מעלים תמונות, נותנים לייקים ומתחרים בין מחלקות. בלי אפליקציה, עם מודרציה ומחיקה בסוף האירוע.',
       ogAlt: 'Social Wall – מצטלמים. משתפים. מפרגנים.',
@@ -24,7 +24,7 @@ export const SOCIALWALL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     nav: { how: 'איך זה עובד', ways: 'מה יש בפנים', pricing: 'מחירים', cta: 'דברו איתנו' },
     hero: {
       eyebrow: 'לאירועי חברה',
-      tagline: ['מצטלמים. משתפים. מפרגנים.', 'הרשת החברתית הפרטית של האירוע.'],
+      tagline: ['מצטלמים. משתפים. מפרגנים.', 'הרשת החברתית הפרטית לאירועים.'],
       lead: 'אינסטגרם משלכם ליום אחד. העובדים סורקים QR, מעלים תמונות ונותנים לייקים, ורק מי שבאירוע רואה.',
       ctaPrimary: 'דברו איתנו',
       ctaSecondary: 'התנסו עכשיו',
@@ -136,7 +136,7 @@ export const SOCIALWALL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     brandColor: '#f43f5e',
     primaryCta: 'contact',
     meta: {
-      title: 'Social Wall – A Private Social Network for Your Event | The Q',
+      title: 'Social Wall – The Private Social Network for Events | The Q',
       description:
         'A private Instagram for one event: employees scan a QR code, post photos, like and compete by department. No app, with moderation and deletion after the event.',
       ogAlt: 'Social Wall – Snap. Share. Cheer.',
@@ -145,7 +145,7 @@ export const SOCIALWALL_CONTENT: Record<Locale, ExperienceLandingContent> = {
     nav: { how: 'How it works', ways: 'What’s inside', pricing: 'Pricing', cta: 'Talk to us' },
     hero: {
       eyebrow: 'For company events',
-      tagline: ['Snap. Share. Cheer.', 'The event’s private social network.'],
+      tagline: ['Snap. Share. Cheer.', 'The private social network for events.'],
       lead: 'Your own Instagram for one day. Employees scan a QR code, post photos and like each other’s, and only people at the event can see it.',
       ctaPrimary: 'Talk to us',
       ctaSecondary: 'Try it now',
