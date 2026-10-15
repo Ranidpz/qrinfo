@@ -67,7 +67,8 @@ function ScanCode() {
 function BigName({ name, color }: { name: string; color: string }) {
   const i = name.lastIndexOf(' ');
   return (
-    <span className="block text-6xl font-black leading-none tracking-tight sm:text-7xl lg:text-8xl">
+    // dir="auto": a Latin name ("Social Wall") keeps its full stop at the end on a Hebrew page
+    <span dir="auto" className="block text-6xl font-black leading-none tracking-tight sm:text-7xl lg:text-8xl">
       {i > 0 ? name.slice(0, i + 1) : ''}
       <span style={{ color }}>{i > 0 ? name.slice(i + 1) : name}.</span>
     </span>
@@ -82,6 +83,7 @@ export default function ExperienceLanding({
   demo,
   playHref,
   entityJsonLd,
+  heroVisual,
 }: {
   locale: Locale;
   slug: string;
@@ -90,10 +92,14 @@ export default function ExperienceLanding({
   demo: React.ReactNode;
   playHref: string; // full-screen demo
   entityJsonLd: Record<string, unknown>; // the experience itself (VideoGame / WebApplication / ...)
+  heroVisual?: React.ReactNode; // drawn in place of the hero photo (e.g. a phone mock)
 }) {
-  const create = createHref(locale, experience);
   const pageUrl = landingUrl(locale, slug);
   const wa = (text: string) => `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(text)}`;
+  // "Create your own" -> the dashboard, or WhatsApp while the experience isn't in the dashboard yet
+  const contactOnly = c.primaryCta === 'contact';
+  const create = contactOnly ? wa(c.pricing.whatsappText) : createHref(locale, experience);
+  const createProps = contactOnly ? { href: create, target: '_blank', rel: 'noopener noreferrer' } : { href: create };
   const mail = `mailto:${CONTACT.email}?subject=${encodeURIComponent(c.pricing.emailSubject)}`;
 
   const jsonLd = [
@@ -123,17 +129,24 @@ export default function ExperienceLanding({
         { label: c.nav.ways, href: '#ways' },
         { label: c.nav.pricing, href: '#pricing' },
       ]}
-      cta={{ label: c.nav.cta, href: create }}
+      cta={{ label: c.nav.cta, href: create, external: contactOnly }}
     >
       <JsonLd data={jsonLd} />
       <main>
         {/* ---------- Hero: full photo, text on its dark side; on phones the photo sits on top ---------- */}
         <section className={`relative overflow-hidden ${DARK} text-white`}>
-          <div className="relative aspect-[16/10] lg:absolute lg:inset-0 lg:aspect-auto">
-            <Photo image={c.hero.image} sizes="100vw" priority />
-            <div className="absolute inset-0 hidden bg-gradient-to-l from-[#0f1419] via-[#0f1419]/75 to-transparent lg:block" />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0f1419] to-transparent lg:hidden" />
-          </div>
+          {heroVisual ? (
+            // left half on desktop (the text keeps the right side, as with a photo), on top on phones
+            <div className="relative h-[26rem] sm:h-[30rem] lg:absolute lg:inset-y-0 lg:left-0 lg:h-auto lg:w-1/2">{heroVisual}</div>
+          ) : (
+            c.hero.image && (
+              <div className="relative aspect-[16/10] lg:absolute lg:inset-0 lg:aspect-auto">
+                <Photo image={c.hero.image} sizes="100vw" priority />
+                <div className="absolute inset-0 hidden bg-gradient-to-l from-[#0f1419] via-[#0f1419]/75 to-transparent lg:block" />
+                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0f1419] to-transparent lg:hidden" />
+              </div>
+            )
+          )}
           <div className="relative mx-auto max-w-6xl px-4 pb-10 pt-2 sm:px-6 lg:py-24">
             {/* ml-auto (not ms-auto): the photo's dark side is on the right in both languages */}
             <div className="lg:ml-auto lg:w-[48%]">
@@ -165,7 +178,7 @@ export default function ExperienceLanding({
                 <a href="#demo" className={primaryBtn}>
                   {c.hero.ctaSecondary}
                 </a>
-                <a href={create} className={outlineDark}>
+                <a {...createProps} className={outlineDark}>
                   {c.hero.ctaPrimary}
                 </a>
               </div>
@@ -181,7 +194,7 @@ export default function ExperienceLanding({
           </div>
           {c.hero.stats && (
             <div className="relative border-t border-white/10 bg-[#1a1f2e]">
-              <dl className="mx-auto grid max-w-4xl grid-cols-4 gap-2 px-4 py-4 text-center sm:px-6">
+              <dl className="mx-auto grid max-w-4xl gap-2 px-4 py-4 text-center sm:px-6" style={{ gridTemplateColumns: `repeat(${c.hero.stats.length}, minmax(0, 1fr))` }}>
                 {c.hero.stats.map((s) => (
                   <div key={s.label} className="flex flex-col-reverse items-center gap-0.5 sm:flex-row-reverse sm:justify-center sm:gap-2">
                     <dt className="text-xs text-white/60 sm:text-sm">{s.label}</dt>
@@ -359,11 +372,12 @@ export default function ExperienceLanding({
                     ))}
                   </ul>
                   {plan.cta.kind === 'create' ? (
-                    <a href={create} className={`mt-7 ${outlineLight}`}>
+                    <a {...createProps} className={`mt-7 ${outlineLight}`}>
                       {plan.cta.label}
                     </a>
                   ) : (
-                    <a href={wa(c.pricing.whatsappText)} target="_blank" rel="noopener noreferrer" className={`mt-7 ${primaryBtn}`}>
+                    // one filled button per section: only the highlighted plan's contact is filled
+                    <a href={wa(c.pricing.whatsappText)} target="_blank" rel="noopener noreferrer" className={`mt-7 ${plan.highlight ? primaryBtn : outlineLight}`}>
                       <WhatsAppIcon className="h-5 w-5" />
                       {plan.cta.label}
                     </a>
@@ -480,7 +494,7 @@ export default function ExperienceLanding({
             <h2 className="text-4xl font-black tracking-tight sm:text-5xl">{c.final.title}</h2>
             <p className="mt-4 text-lg text-white/70">{c.final.text}</p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <a href={create} className={primaryBtn}>
+              <a {...createProps} className={primaryBtn}>
                 {c.final.cta}
               </a>
               <a href={playHref} target="_blank" rel="noopener" className={outlineDark}>
