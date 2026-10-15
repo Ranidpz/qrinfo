@@ -7,26 +7,19 @@ import type { SocialWallPostView } from '@/types/socialwall';
 
 export const DEMO_CODE_ID = 'socialwalldemo01';
 
+// Realistic photos only (public/play/social-wall/p1-p5.webp). Add a row + a pN.webp to grow the feed.
 const PEOPLE: [string, string, string][] = [
   ['דניאל כהן', 'hr', 'צוות מנצח! 😍'],
-  ['מעיין לוי', 'rnd', 'אין כמו לעבוד עם אנשים כאלה 💙'],
+  ['מעיין לוי', 'mkt', 'הפסקה קטנה מול הים 🌊'],
   ['שרון לוי', 'ops', 'רטובים, מאושרים, צוות 🛶'],
   ['איתי ברק', 'rnd', 'הפסקת צהריים בטעם של עוד 😋'],
-  ['נועה פרץ', 'ops', 'מי אמר שתפעול לא יודעים לחגוג?'],
-  ['רוני אדרי', 'fin', 'הכספים בשטח 🌴'],
-  ['גיל שמש', 'mgmt', 'גאה בכל אחד ואחת מכם'],
-  ['שירה מזרחי', 'mkt', 'שיווק במיטבו 📸'],
-  ['עומר דהן', 'ops', ''],
-  ['ליאור כץ', 'hr', 'רגעים קטנים, זיכרונות גדולים'],
+  ['נועה פרץ', 'fin', 'והערב רק מתחיל 🎶'],
 ];
-const SIZES: [number, number][] = [[1200, 900], [1200, 900], [1200, 900], [1200, 900], [960, 630], [960, 826], [960, 688], [960, 546], [960, 529], [960, 569]];
-const LATER: [string, string, string][] = [
-  ['יעל אברהם', 'fin', 'רגע לפני הפעילות הבאה!'],
-  ['תום גולן', 'rnd', 'R&D on tour ✌️'],
-  ['הדר שלום', 'mgmt', 'תודה לכולם על יום מושלם'],
-];
+const SIZES: [number, number][] = [[1200, 900], [1200, 900], [1200, 900], [1200, 900], [1200, 900]];
+// Colleagues who "post" while the demo is open — each needs its own photo (none spare yet).
+const LATER: [string, string, string, number][] = [];
 
-const photo = (i: number) => `/play/social-wall/p${(i % 10) + 1}.webp`;
+const photo = (i: number) => `/play/social-wall/p${(i % PEOPLE.length) + 1}.webp`;
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const SESSION_ID = 'd'.repeat(32);
 
@@ -66,9 +59,9 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
     cardUrl: photo(i),
     width: SIZES[i][0],
     height: SIZES[i][1],
-    likeCount: [124, 87, 56, 42, 39, 33, 28, 21, 17, 12][i],
+    likeCount: [124, 87, 56, 42, 39][i] ?? 10,
     likedByMe: false,
-    createdAt: start - (i * 9 + 4) * 60_000,
+    createdAt: start - (i * 11 + 4) * 60_000,
     updatedAt: start,
   }));
   const liked = new Set<string>();
@@ -85,8 +78,7 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
   }, 6000);
   setInterval(() => {
     if (nextLater >= LATER.length) return;
-    const [authorName, groupId, caption] = LATER[nextLater];
-    const i = nextLater + 3;
+    const [authorName, groupId, caption, i] = LATER[nextLater];
     posts.unshift({
       id: uuid(100 + nextLater),
       authorName,
@@ -94,8 +86,8 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
       caption,
       fullUrl: photo(i),
       cardUrl: photo(i),
-      width: SIZES[i % 10][0],
-      height: SIZES[i % 10][1],
+      width: 1200,
+      height: 900,
       likeCount: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
