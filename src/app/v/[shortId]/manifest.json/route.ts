@@ -19,9 +19,14 @@ export async function GET(
     const themeColor = qvoteMedia?.qvoteConfig?.branding?.colors?.buttonBackground || '#3b82f6';
     const backgroundColor = qvoteMedia?.qvoteConfig?.branding?.colors?.background || '#ffffff';
 
-    // Android / desktop install icon: 10 בול gets its stopwatch, everything else the Q
-    const isTenBool = code?.media?.[0]?.type === 'tenbool';
-    const icon = (px: number) => (isTenBool ? `/api/og/tenbool?icon=${px}` : `/icons/icon-${px}x${px}.png`);
+    // Android / desktop install icon: 10 בול gets its stopwatch, Social Wall its own icon, everything else the Q
+    const primaryType = code?.media?.[0]?.type;
+    const icon = (px: number) =>
+      primaryType === 'tenbool'
+        ? `/api/og/tenbool?icon=${px}`
+        : primaryType === 'socialwall'
+          ? px === 192 ? '/play/social-wall/icon-192.png' : '/play/social-wall/icon.png'
+          : `/icons/icon-${px}x${px}.png`;
 
     const manifest = {
       name: code?.title || 'QR Experience',
