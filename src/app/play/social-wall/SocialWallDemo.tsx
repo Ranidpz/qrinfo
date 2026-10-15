@@ -18,11 +18,12 @@ const BASE: SocialWallConfig = {
   ],
   captionMax: 120,
   branding: {
+    logoUrl: '/play/social-wall/your-logo.svg', // the customer's logo goes here
     coverImageUrl: '/play/social-wall/cover.webp',
     primaryColor: '#5b21b6',
     secondaryColor: '#2563eb',
     welcomeTitle: 'ברוכים הבאים\nליום הכיף שלנו!',
-    welcomeSubtitle: 'מצלמים. משתפים. מתחברים.',
+    welcomeSubtitle: 'כל הרגעים של היום, במקום אחד',
   },
 };
 

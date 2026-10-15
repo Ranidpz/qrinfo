@@ -78,9 +78,12 @@ function Welcome({
           <Camera className="w-5 h-5" />
           {t.join}
         </PrimaryButton>
-        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
-          <Lock className="w-3.5 h-3.5" />
-          {t.privateEvent}
+        <div className="pt-2 text-center">
+          <div className="text-[19px] font-black tracking-tight text-gray-900">{t.slogan}</div>
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-[13px] font-medium text-gray-500">
+            <Lock className="w-3.5 h-3.5" />
+            {t.privateNetwork}
+          </div>
         </div>
       </div>
       <div className="mt-5">
@@ -717,7 +720,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
               </div>
             )}
             <div ref={sentinelRef} className="h-24 flex items-center justify-center">
-              {feed.loadingMore && <Spinner className="w-6 h-6" />}
+              {feed.loadingMore ? <Spinner className="w-6 h-6" /> : !feed.hasMore && feed.posts.length > 0 && <PoweredBy label={t.poweredBy} />}
             </div>
           </div>
         ) : (
@@ -765,6 +768,9 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
                 ))}
               </div>
             )}
+            <div className="py-6">
+              <PoweredBy label={t.poweredBy} />
+            </div>
           </div>
         )}
       </main>

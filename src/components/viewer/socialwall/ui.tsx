@@ -163,9 +163,16 @@ export function Field({ label, children, error, group = false }: { label: string
 export const inputClass =
   'w-full min-h-[50px] rounded-xl bg-gray-50 border border-gray-200 px-4 text-[17px] text-gray-900 placeholder:text-gray-400 outline-none focus:bg-white focus:border-[var(--sw-primary)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--sw-primary)_15%,transparent)] transition';
 
+/** "Powered by Playzone" — a link to The Q (new tab, so the event stays open). */
 export function PoweredBy({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 select-none" dir="ltr">
+    <a
+      href="/"
+      target="_blank"
+      rel="noopener"
+      className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 select-none min-h-[32px] hover:text-gray-600 transition-colors"
+      dir="ltr"
+    >
       <span>{label}</span>
       <span className="font-bold text-gray-600 tracking-tight">Playzone</span>
       <svg width="10" height="11" viewBox="0 0 10 11" aria-hidden>
@@ -177,7 +184,7 @@ export function PoweredBy({ label }: { label: string }) {
           </linearGradient>
         </defs>
       </svg>
-    </div>
+    </a>
   );
 }
 
