@@ -114,6 +114,11 @@ export const swApi = {
       likeCount: number;
     }>,
 
+  stats: (codeId: string, session: string) =>
+    request(`/api/socialwall/stats?codeId=${encodeURIComponent(codeId)}`, { session }) as Promise<{
+      groups: { id: string; posts: number; likes: number }[];
+    }>,
+
   deletePost: (codeId: string, session: string, postId: string) =>
     withRetry(() => request('/api/socialwall/posts', { ...json({ codeId, postId }), method: 'DELETE', session })),
 };

@@ -5,7 +5,7 @@
 // posting and "my photos". Live updates ride the RTDB rev pulse (src/lib/socialwall/store.ts).
 // Root is `fixed inset-0` under the PWA banner (iOS Safari's toolbar covers the bottom of 100vh).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ref as rtdbRef, onValue } from 'firebase/database';
 import { Heart, Home, Plus, User, X, Pencil, Trash2, Camera, Lock, ExternalLink, ArrowUp } from 'lucide-react';
 import { realtimeDb } from '@/lib/firebase';
@@ -24,6 +24,7 @@ import Composer, { type ComposerResult } from './Composer';
 import JoinFlow, { ProfileForm } from './JoinFlow';
 import { useFeed } from './useFeed';
 import StaffView from './StaffView';
+import { Leaderboard, type GroupStat } from './Leaderboard';
 import { Avatar, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
 
 type Phase = 'boot' | 'welcome' | 'join' | 'profile' | 'app' | 'blocked';
@@ -274,6 +275,52 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
 
   const feed = useFeed({ codeId, session: phase === 'app' ? session?.session ?? null : null, group, rev, live, onAuthError });
   const { loadMore, addPost } = feed;
+
+  // Department race card: whole-event photos + likes per department (server aggregate, cached)
+  const [stats, setStats] = useState<GroupStat[]>([]);
+  const statsAt = useRef(0);
+  const loadStats = useCallback(async () => {
+    if (!session || !config.groups.length || Date.now() - statsAt.current < 10_000) return;
+    statsAt.current = Date.now();
+    try {
+      setStats((await swApi.stats(codeId, session.session)).groups);
+    } catch {
+      /* the card just keeps its last numbers */
+    }
+  }, [codeId, session, config.groups.length]);
+  useEffect(() => {
+    if (phase !== 'app') return;
+    void loadStats();
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') void loadStats();
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [phase, loadStats, rev]);
+
+  // One-time "double-tap to like" hint on the first post (until the first like, or 8s)
+  const hintKey = `sw_hint_dt_${codeId}`;
+  const [dtHint, setDtHint] = useState(false);
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(hintKey)) setDtHint(true);
+    } catch {
+      /* private mode: no hint */
+    }
+  }, [hintKey]);
+  const hintDone = useCallback(() => {
+    setDtHint(false);
+    try {
+      localStorage.setItem(hintKey, '1');
+    } catch {
+      /* ignore */
+    }
+  }, [hintKey]);
+  const hintVisible = dtHint && phase === 'app' && tab === 'feed' && feed.posts.length > 0;
+  useEffect(() => {
+    if (!hintVisible) return;
+    const id = setTimeout(hintDone, 8000);
+    return () => clearTimeout(id);
+  }, [hintVisible, hintDone]);
 
   // "New photos" pill: someone else posted while this member is scrolled down the feed
   const [newPill, setNewPill] = useState(false);
@@ -631,17 +678,32 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
             ) : (
               <div className="space-y-2">
                 {feed.posts.map((p, i) => (
-                  <PostCard
-                    key={p.id}
-                    post={p}
-                    index={i}
-                    group={p.groupId ? groupsById.get(p.groupId) : undefined}
-                    t={t}
-                    locale={locale}
-                    onLike={onLike}
-                    onOpen={onOpen}
-                    onDelete={onAskDelete}
-                  />
+                  <Fragment key={p.id}>
+                    <PostCard
+                      post={p}
+                      index={i}
+                      group={p.groupId ? groupsById.get(p.groupId) : undefined}
+                      t={t}
+                      locale={locale}
+                      onLike={onLike}
+                      onOpen={onOpen}
+                      onDelete={onAskDelete}
+                      hint={hintVisible && i === 0}
+                      onHintDone={hintDone}
+                    />
+                    {!group && (i === 3 || (i > 3 && (i - 3) % 10 === 0)) && (
+                      <Leaderboard
+                        stats={stats}
+                        groups={groupsById}
+                        t={t}
+                        locale={locale}
+                        onPick={(g) => {
+                          setGroup(g);
+                          scrollRef.current?.scrollTo({ top: 0 });
+                        }}
+                      />
+                    )}
+                  </Fragment>
                 ))}
               </div>
             )}

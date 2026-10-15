@@ -78,6 +78,12 @@ const he = {
   loadMore: 'טוען…',
   justNow: 'עכשיו',
   privateEvent: 'רשת פרטית לאירוע',
+  deptRace: 'מרוץ המחלקות',
+  hottestDept: 'המחלקה הכי חמה',
+  mostActiveDept: 'הכי פעילה',
+  photosShort: 'תמונות',
+  onePhoto: 'תמונה אחת',
+  doubleTapHint: 'הקישו פעמיים על תמונה ללייק',
 } as const;
 
 export type SocialWallStrings = { [K in keyof typeof he]: string };
@@ -159,6 +165,12 @@ const en: SocialWallStrings = {
   loadMore: 'Loading…',
   justNow: 'now',
   privateEvent: 'Private event network',
+  deptRace: 'Department race',
+  hottestDept: 'Hottest department',
+  mostActiveDept: 'Most active',
+  photosShort: 'photos',
+  onePhoto: '1 photo',
+  doubleTapHint: 'Double-tap a photo to like it',
 };
 
 export const socialWallStrings: Record<'he' | 'en', SocialWallStrings> = { he, en };

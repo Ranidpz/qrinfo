@@ -52,6 +52,11 @@ export const SW_STYLE = `
   70% { opacity: 1; }
   100% { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1) rotate(var(--r)); opacity: 0; }
 }
+@keyframes sw-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.sw-bar { transform-origin: right; animation: sw-bar .9s cubic-bezier(.2,.8,.2,1) both; }
+[dir="ltr"] .sw-bar { transform-origin: left; }
+@keyframes sw-hint { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.25); } 30% { transform: scale(1); } 45% { transform: scale(1.25); } 60% { transform: scale(1); } }
+.sw-hint-heart { animation: sw-hint 1.6s ease-in-out infinite; }
 .sw-particle { position: absolute; left: 50%; top: 50%; pointer-events: none; animation: sw-burst var(--d) cubic-bezier(.12,.75,.3,1) forwards; }
 @media (prefers-reduced-motion: reduce) {
   .sw-particle { display: none; }

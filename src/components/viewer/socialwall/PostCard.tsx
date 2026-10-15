@@ -36,9 +36,12 @@ interface Props {
   onOpen: (post: SocialWallPostView) => void;
   onDelete?: (post: SocialWallPostView) => void;
   index: number;
+  /** One-time "double-tap to like" hint on the first post */
+  hint?: boolean;
+  onHintDone?: () => void;
 }
 
-function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index }: Props) {
+function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index, hint, onHintDone }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [burst, setBurst] = useState(0);
   const [pop, setPop] = useState(0);
@@ -48,6 +51,7 @@ function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index 
 
   const like = (on: boolean) => {
     if (on) setPop((n) => n + 1);
+    if (on && hint) onHintDone?.();
     onLike(post, on);
   };
 
@@ -57,6 +61,7 @@ function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index 
       if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
       lastTap.current = 0;
       setBurst((n) => n + 1);
+      if (hint) onHintDone?.();
       if (!post.likedByMe) like(true);
       return;
     }
@@ -125,6 +130,14 @@ function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index 
           <div key={burst} className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <Heart className="w-28 h-28 text-white fill-white drop-shadow-[0_4px_24px_rgba(0,0,0,.35)] sw-heart" />
             <ConfettiBurst count={30} spread={150} />
+          </div>
+        )}
+        {hint && !burst && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none sw-fade">
+            <div className="flex items-center gap-2 rounded-full bg-black/55 backdrop-blur px-4 py-2.5 text-white text-sm font-bold shadow-xl">
+              <Heart className="w-5 h-5 fill-[#ef4444] text-[#ef4444] sw-hint-heart" />
+              {t.doubleTapHint}
+            </div>
           </div>
         )}
         {post.status === 'pending' && (

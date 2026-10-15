@@ -19,6 +19,7 @@
     "src/app/api/socialwall/feed/route.ts": "Social Wall member-session auth (x-sw-session, hashed tokens) + origin check + per-IP limit via guardPublic in src/lib/socialwall/server.ts; members only, the event is closed",
     "src/app/api/socialwall/like/route.ts": "Social Wall member-session auth (x-sw-session, hashed tokens) + origin check + per-IP limit via guardPublic in src/lib/socialwall/server.ts; idempotent desired-state likes",
     "src/app/api/socialwall/me/route.ts": "Social Wall member-session auth (x-sw-session, hashed tokens) + origin check + per-IP limit via guardPublic in src/lib/socialwall/server.ts; own profile only",
+    "src/app/api/socialwall/stats/route.ts": "Social Wall member-session auth (x-sw-session) + origin check + per-IP limit via guardPublic; aggregate counts only, cached per code",
     "src/app/api/socialwall/posts/route.ts": "Social Wall member-session auth (x-sw-session, hashed tokens) + origin check + per-IP limit via guardPublic in src/lib/socialwall/server.ts; per-member durable post cap + gap, server image re-encode + storage quota",
     "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience, pre-existing client-SDK route (broken in prod); move to Admin SDK + rate limit before enabling",
     "src/app/api/qchallenge/leaderboard/route.ts": "FOLLOW-UP: hidden experience, read-only public leaderboard",

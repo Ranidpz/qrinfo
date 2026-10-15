@@ -148,6 +148,17 @@ export function installSocialWallDemo(opts: { reset: boolean }) {
       const g = url.searchParams.get('group');
       return json({ posts: posts.filter((p) => !g || p.groupId === g).map(view), nextCursor: null, serverTime: now - 1500 });
     }
+    if (route === 'stats') {
+      const by = new Map<string, { id: string; posts: number; likes: number }>();
+      for (const p of posts) {
+        if (!p.groupId) continue;
+        const g = by.get(p.groupId) || { id: p.groupId, posts: 0, likes: 0 };
+        g.posts += 1;
+        g.likes += p.likeCount;
+        by.set(p.groupId, g);
+      }
+      return json({ groups: [...by.values()] });
+    }
     if (route === 'posts' && method === 'GET') return json({ posts: posts.filter((p) => p.mine).map(view) });
     if (route === 'posts' && method === 'DELETE') {
       const i = posts.findIndex((p) => p.id === body.postId);

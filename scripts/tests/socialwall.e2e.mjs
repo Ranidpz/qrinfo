@@ -145,6 +145,11 @@ const crowd = await Promise.all(Array.from({ length: 12 }, (_, i) => api('/api/s
 await Promise.all(crowd.map((c) => api('/api/socialwall/like', { method: 'POST', session: c.data.session, body: { codeId: A, postId: p1.postId, on: true } })));
 const postDoc = (await db.doc(`codes/${A}/swPosts/${p1.postId}`).get()).data();
 assert.equal(postDoc.likeCount, 13); ok('13 concurrent likes = 13 (no lost updates)');
+r = await api(`/api/socialwall/stats?codeId=${A}`, { session: SB });
+assert.deepEqual(r.data.groups.find((g) => g.id === 'rnd'), { id: 'rnd', posts: 1, likes: 13 });
+assert.deepEqual(r.data.groups.find((g) => g.id === 'hr'), { id: 'hr', posts: 0, likes: 0 });
+r = await api(`/api/socialwall/stats?codeId=${A}`);
+assert.equal(r.status, 401); ok('department stats: members only, photos + likes per department');
 
 r = await api(`/api/socialwall/feed?codeId=${A}&since=${t0}`, { session: SB });
 assert.equal(r.data.posts[0].likeCount, 13); assert.equal(r.data.posts[0].likedByMe, true); ok('delta carries new like count + likedByMe');

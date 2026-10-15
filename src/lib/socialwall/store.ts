@@ -18,7 +18,7 @@
 // status change goes through feedFields(); other lists filter one equality field and sort in memory.
 
 import crypto from 'crypto';
-import { FieldPath, FieldValue } from 'firebase-admin/firestore';
+import { AggregateField, FieldPath, FieldValue } from 'firebase-admin/firestore';
 import { ServerValue } from 'firebase-admin/database';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import {
@@ -551,6 +551,26 @@ export function toScreenPost(
 export async function listScreen(codeId: string) {
   const snap = await postsCol(codeId).orderBy('feedAt', 'desc').limit(SCREEN_LIMIT).get();
   return snap.docs.map((d) => ({ id: d.id, post: toPost(d.data()) })).filter(({ post }) => post.status === 'visible');
+}
+
+// ---------------------------------------------------------------- department stats
+
+/**
+ * Photos + likes per department over the whole event (the feed's "hottest department" card and,
+ * later, the wall). One aggregate per group on its index-free `gfeed.<groupId>` field — billed
+ * per 1000 index entries, so it stays cheap; the route caches it for a few seconds per code.
+ */
+export async function groupStats(codeId: string, groups: { id: string }[]) {
+  return Promise.all(
+    groups.map(async (g) => {
+      const snap = await postsCol(codeId)
+        .where(new FieldPath('gfeed', g.id), '>=', 0)
+        .aggregate({ posts: AggregateField.count(), likes: AggregateField.sum('likeCount') })
+        .get();
+      const d = snap.data();
+      return { id: g.id, posts: d.posts || 0, likes: Math.max(0, d.likes || 0) };
+    })
+  );
 }
 
 // ---------------------------------------------------------------- moderation (operators)
