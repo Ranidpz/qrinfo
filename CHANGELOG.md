@@ -1,8 +1,13 @@
 # Changelog
 
-## [1.28.6] - 2026-10-15
+## [1.28.7] - 2026-10-15
 
 - Social Wall full experience in production for TESTING: API routes `/api/socialwall/*`, Admin-SDK store (`codes/{id}/sw{Members,Posts,Allowlist,Audit}`), dashboard tab + code-page editor, moderation/allowlist panels, staff link. Super-admin only: the dashboard tab and code-page button render for `super_admin`, and `loadSocialWall` answers 404 for any code whose owner is not a super admin (blocks hand-made codes from spending WhatsApp OTPs/storage). Photos go to R2 (as Selfie Beam). Rules: `firestore.rules` (4 locked `sw*` subcollections) + `database.rules.json` (`socialwall/$codeId` read-only) — deploy separately with Rani's OK; until the RTDB rule is live the feed polls every 5s. Additive only: no existing experience changed. Rollback = revert this release commit.
+
+## [1.28.6] - 2026-10-15
+
+- Social Wall landing page `/[locale]/experiences/social-wall` (he+en, `ExperienceLanding` + `src/lib/landing/social-wall-content.ts`), live but UNLISTED: no `catalog.ts` entry (no site link, no sitemap row) and every create button goes to WhatsApp (`primaryCta: 'contact'`) until the full experience ships. Hero = CSS phone mock of the feed (`SocialWallHero`), demo = `/play/social-wall` in a phone frame loaded on tap (`SocialWallPreview`). Template additions are optional and leave 10 Bool unchanged (`heroVisual`, optional hero image, stats columns follow their count, Latin names keep the full stop at the end, external header CTA).
+- Social Wall participant app: Share tab in the bottom bar (`ShareSheet.tsx`) — big QR of `origin + pathname` (never the staff `#mod` hash), native share, copy link. In this release it reaches the demo only; the full experience stays on `feature/social-wall`. Rollback = revert this release commit.
 
 ## [1.28.5] - 2026-10-15
 

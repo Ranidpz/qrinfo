@@ -7,7 +7,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ref as rtdbRef, onValue } from 'firebase/database';
-import { Heart, Home, Plus, User, X, Pencil, Trash2, Camera, Lock, ExternalLink, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, Home, Plus, QrCode, User, X, Pencil, Trash2, Camera, Lock, ExternalLink, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { realtimeDb } from '@/lib/firebase';
 import { compressImage } from '@/lib/imageCompression';
 import { isInAppBrowser, openCurrentUrlInBrowser } from '@/lib/inAppBrowser';
@@ -25,6 +25,7 @@ import Composer, { type ComposerResult } from './Composer';
 import JoinFlow, { ProfileForm } from './JoinFlow';
 import { useFeed } from './useFeed';
 import StaffView from './StaffView';
+import ShareSheet from './ShareSheet';
 import { CheerPost, cheerValues, resolveCheer, type EventTotals, type GroupStat } from './Leaderboard';
 import { Avatar, ConfettiBurst, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
 
@@ -216,6 +217,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   const [lightbox, setLightbox] = useState<SocialWallPostView | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<SocialWallPostView | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [inApp, setInApp] = useState(false);
   const [inAppDismissed, setInAppDismissed] = useState(false);
@@ -375,7 +377,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   }, [loadMore, tab]);
 
   // ---- Android back button closes overlays instead of leaving the app
-  const overlayOpen = !!lightbox || !!composer || !!confirmDelete || editingProfile;
+  const overlayOpen = !!lightbox || !!composer || !!confirmDelete || editingProfile || sharing;
   useEffect(() => {
     if (!overlayOpen) return;
     history.pushState({ sw: true }, '');
@@ -384,6 +386,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
       setComposer(null);
       setConfirmDelete(null);
       setEditingProfile(false);
+      setSharing(false);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -395,6 +398,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
       setComposer(null);
       setConfirmDelete(null);
       setEditingProfile(false);
+      setSharing(false);
     }
   }, []);
 
@@ -814,7 +818,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
 
       {/* Bottom navigation */}
       <nav className="shrink-0 bg-white/95 backdrop-blur border-t border-gray-100 pb-[env(safe-area-inset-bottom)] z-20">
-        <div className="h-16 max-w-[560px] mx-auto grid grid-cols-3 items-center">
+        <div className="h-16 max-w-[560px] mx-auto grid grid-cols-4 items-center">
           <button
             type="button"
             onClick={() => {
@@ -825,6 +829,14 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
           >
             <Home className="w-6 h-6" strokeWidth={tab === 'feed' ? 2.6 : 2} />
             <span className="text-[11px] font-semibold">{t.feed}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSharing(true)}
+            className="flex flex-col items-center gap-0.5 min-h-[48px] justify-center text-gray-500"
+          >
+            <QrCode className="w-6 h-6" strokeWidth={2} />
+            <span className="text-[11px] font-semibold">{t.share}</span>
           </button>
           <div className="flex justify-center">
             <button
@@ -865,6 +877,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
       {confirmDelete && (
         <ConfirmDialog text={t.deleteConfirm} confirm={t.delete} cancel={t.cancel} onConfirm={doDelete} onCancel={closeOverlay} />
       )}
+      {sharing && <ShareSheet t={t} eventTitle={eventTitle} onClose={closeOverlay} onCopied={() => showToast(t.linkCopied)} />}
       {editingProfile && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/50 sw-fade" onClick={closeOverlay} />

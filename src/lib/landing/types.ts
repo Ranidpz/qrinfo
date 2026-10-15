@@ -24,6 +24,9 @@ export interface ExperienceLandingContent {
   // The experience's OWN colour (10 בול = gold): only its name and its numbers. Every action and
   // icon on the page uses the system accent instead.
   brandColor: string;
+  // Where "create your own" goes: the dashboard (default), or WhatsApp while the experience can't
+  // be created from the dashboard yet (Social Wall before its release)
+  primaryCta?: 'create' | 'contact';
   meta: { title: string; description: string; ogAlt: string; keywords: string[] };
   nav: { how: string; ways: string; pricing: string; cta: string };
   hero: {
@@ -33,7 +36,7 @@ export interface ExperienceLandingContent {
     ctaPrimary: string; // create your own
     ctaSecondary: string; // opens the full-screen demo
     chips: string[];
-    image: LandingImage;
+    image?: LandingImage; // the hero photo; a page can pass a `heroVisual` instead
     stats?: { value: string; label: string }[];
   };
   demo: { title: string; text: string };
