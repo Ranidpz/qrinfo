@@ -39,9 +39,11 @@ interface Props {
   /** One-time "double-tap to like" hint on the first post */
   hint?: boolean;
   onHintDone?: () => void;
+  /** Hold the like count-up while something covers the feed */
+  countPaused?: boolean;
 }
 
-function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index, hint, onHintDone }: Props) {
+function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index, hint, onHintDone, countPaused }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [burst, setBurst] = useState(0);
   const [pop, setPop] = useState(0);
@@ -164,7 +166,7 @@ function PostCardImpl({ post, group, t, locale, onLike, onOpen, onDelete, index,
             />
             {pop > 0 && post.likedByMe && <ConfettiBurst key={`b${pop}`} count={16} spread={70} />}
           </button>
-          <span className="text-[15px] font-bold text-gray-900 tabular-nums"><CountUp value={post.likeCount} locale={locale} /></span>
+          <span className="text-[15px] font-bold text-gray-900 tabular-nums"><CountUp value={post.likeCount} locale={locale} paused={countPaused} /></span>
         </div>
         {post.caption && (
           <p className="mt-1 text-[15px] leading-snug text-gray-900 whitespace-pre-line break-words">

@@ -7,12 +7,13 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ref as rtdbRef, onValue } from 'firebase/database';
-import { Heart, Home, Plus, QrCode, User, X, Pencil, Trash2, Camera, Lock, ExternalLink, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, Home, Plus, QrCode, User, X, Pencil, Trash2, Camera, Lock, ExternalLink, ArrowUp, ChevronLeft } from 'lucide-react';
 import { realtimeDb } from '@/lib/firebase';
 import { compressImage } from '@/lib/imageCompression';
 import { isInAppBrowser, openCurrentUrlInBrowser } from '@/lib/inAppBrowser';
 import {
   resolveCheers,
+  resolveGuide,
   resolveSocialWallConfig,
   type SocialWallConfig,
   type SocialWallGroup,
@@ -26,6 +27,7 @@ import JoinFlow, { ProfileForm } from './JoinFlow';
 import { useFeed } from './useFeed';
 import StaffView from './StaffView';
 import ShareSheet from './ShareSheet';
+import GuideSheet from './GuideSheet';
 import { CheerPost, cheerValues, resolveCheer, type EventTotals, type GroupStat } from './Leaderboard';
 import { Avatar, ConfettiBurst, CountUp, PlayzoneMark, PoweredBy, PostSkeleton, PrimaryButton, SW_STYLE, Spinner, SecondaryButton } from './ui';
 
@@ -192,12 +194,33 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   const groupsById = useMemo(() => new Map(config.groups.map((g) => [g.id, g])), [config.groups]);
 
   const [phase, setPhaseState] = useState<Phase>('boot');
-  // Which way the next screen slides in (none = first paint / session restore)
-  const [nav, setNav] = useState<'none' | 'fwd' | 'back'>('none');
+  // Screen changes push like a page: the old screen stays mounted while it slides away and the
+  // new one slides over it (fwd = in from the right, back = the page slides off to the right).
+  // 'none' = first paint / session restore / auth errors, no motion.
+  const phaseRef = useRef<Phase>('boot');
+  const [leaving, setLeaving] = useState<{ phase: Phase; way: 'fwd' | 'back' } | null>(null);
   const setPhase = useCallback((next: Phase, way: 'none' | 'fwd' | 'back' = 'fwd') => {
-    setNav(way);
+    const prev = phaseRef.current;
+    if (prev === next) return;
+    phaseRef.current = next;
+    setLeaving(way !== 'none' && prev !== 'boot' ? { phase: prev, way } : null);
     setPhaseState(next);
   }, []);
+  useEffect(() => {
+    if (!leaving) return;
+    const id = setTimeout(() => setLeaving(null), 420);
+    return () => clearTimeout(id);
+  }, [leaving]);
+  // "How it works" card: once, right after joining, when the feed is on screen
+  const guideCfg = resolveGuide(rawConfig?.guide);
+  // pending (joined, feed still sliding in) → open → none. While not 'none' the feed holds its
+  // like count-ups and the double-tap hint, so they play when the participant actually sees them.
+  const [guide, setGuide] = useState<'none' | 'pending' | 'open'>('none');
+  useEffect(() => {
+    if (phase !== 'app' || guide !== 'pending') return;
+    const id = setTimeout(() => setGuide('open'), 450);
+    return () => clearTimeout(id);
+  }, [phase, guide]);
   // Confetti over everything the moment someone joins (a counter so it replays)
   const [celebrate, setCelebrate] = useState(0);
   useEffect(() => {
@@ -344,7 +367,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
       /* ignore */
     }
   }, [hintKey]);
-  const hintVisible = dtHint && phase === 'app' && tab === 'feed' && feed.posts.length > 0;
+  const hintVisible = dtHint && phase === 'app' && guide === 'none' && tab === 'feed' && feed.posts.length > 0;
   useEffect(() => {
     if (!hintVisible) return;
     const id = setTimeout(hintDone, 8000);
@@ -422,6 +445,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
     saveSession(codeId, s);
     setSession(s);
     setCelebrate((n) => n + 1);
+    if (guideCfg.enabled) setGuide('pending');
     setPhase(res.needsProfile ? 'profile' : 'app');
     if (!res.needsProfile) {
       swApi.me(codeId, res.session).then((me) => setPostsLeft(me.postsLeft)).catch(() => {});
@@ -555,36 +579,25 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
 
   // ------------------------------------------------------------------ render
 
-  const shell = (children: React.ReactNode) => (
-    <div className="sw-root fixed inset-x-0 bottom-0 bg-white text-gray-900 overflow-hidden" style={themeStyle} dir={dir} lang={locale}>
-      <style>{SW_STYLE}</style>
-      {/* keyed per screen so each one slides in; the confetti sits outside so it survives the switch */}
-      <div key={phase} className={`h-full ${nav === 'fwd' ? 'sw-slide-fwd' : nav === 'back' ? 'sw-slide-back' : ''}`}>
-        {children}
-      </div>
-      {celebrate > 0 && (
-        <div key={celebrate} className="fixed inset-0 z-[70] pointer-events-none" aria-hidden>
-          <div className="absolute inset-x-0 top-[38%] h-0">
-            <ConfettiBurst count={44} spread={200} />
-          </div>
-          <div className="absolute inset-x-0 top-[62%] h-0">
-            <ConfettiBurst count={30} spread={150} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const myName = session?.name || '';
+  const myGroup = session?.groupId ? groupsById.get(session.groupId) : undefined;
+  const goHome = () => {
+    setGroup(null);
+    setTab('feed');
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-  if (phase === 'boot') {
-    return shell(
+  const screenFor = (p: Phase): React.ReactNode => {
+  if (p === 'boot') {
+    return (
       <div className="h-full flex items-center justify-center">
         <Spinner className="w-8 h-8" />
       </div>
     );
   }
 
-  if (phase === 'blocked') {
-    return shell(
+  if (p === 'blocked') {
+    return (
       <div className="h-full flex flex-col items-center justify-center text-center px-8 gap-4">
         <Lock className="w-12 h-12 text-gray-400" />
         <p className="text-lg font-semibold text-gray-800">{t.blocked}</p>
@@ -592,41 +605,43 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
     );
   }
 
-  if (phase === 'welcome') {
-    return shell(
+  if (p === 'welcome') {
+    return (
       <div className="h-full overflow-y-auto sw-scroll">
         <Welcome config={config} t={t} title={eventTitle} onStart={() => setPhase('join')} />
       </div>
     );
   }
 
-  if (phase === 'join' || phase === 'profile') {
-    return shell(
+  if (p === 'join' || p === 'profile') {
+    return (
       <div className="h-full overflow-y-auto sw-scroll">
         <div className="relative min-h-full flex flex-col px-6 pt-[max(24px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))]">
-          {phase === 'join' && (
+          {p === 'join' && (
             <button
               type="button"
               onClick={() => setPhase('welcome', 'back')}
               aria-label={t.back}
-              className="absolute z-10 top-[max(16px,env(safe-area-inset-top))] start-3 w-11 h-11 flex items-center justify-center rounded-full bg-gray-100/90 text-gray-800 active:scale-95 active:bg-gray-200 transition-transform"
+              className="absolute z-10 top-[max(16px,env(safe-area-inset-top))] left-3 w-11 h-11 flex items-center justify-center rounded-full bg-gray-100/90 text-gray-800 active:scale-95 active:bg-gray-200 transition-transform"
             >
-              {dir === 'rtl' ? <ChevronRight className="w-6 h-6" /> : <ChevronLeft className="w-6 h-6" />}
+              <ChevronLeft className="w-6 h-6" />
             </button>
           )}
           <div className="flex justify-center pt-2 sw-enter">
-            {config.branding.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={config.branding.logoUrl} alt={eventTitle} className="h-10 max-w-[60%] object-contain" />
-            ) : (
-              <PlayzoneMark size={24} />
-            )}
+            <button type="button" onClick={() => p === 'join' && setPhase('welcome', 'back')} aria-label={eventTitle} className="max-w-[60%] flex justify-center">
+              {config.branding.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={config.branding.logoUrl} alt={eventTitle} className="h-10 max-w-full object-contain" />
+              ) : (
+                <PlayzoneMark size={24} />
+              )}
+            </button>
           </div>
           <div className="mt-8 mb-7 sw-enter" style={{ animationDelay: '60ms' }}>
             <h1 className="text-[26px] font-black text-gray-900">{t.joinTitle}</h1>
             <p className="mt-1 text-gray-500">{t.joinSubtitle}</p>
           </div>
-          {phase === 'join' ? (
+          {p === 'join' ? (
             <JoinFlow codeId={codeId} config={config} t={t} dir={dir} onJoined={onJoined} />
           ) : (
             <ProfileForm config={config} t={t} initialName={session?.name || ''} initialGroup={session?.groupId || null} onSave={saveProfile} saveLabel={t.continue} />
@@ -640,23 +655,22 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
   }
 
   // ---- the app
-  const myName = session?.name || '';
-  const myGroup = session?.groupId ? groupsById.get(session.groupId) : undefined;
-
-  return shell(
+  return (
     <div className="h-full flex flex-col">
       <input ref={pickerRef} type="file" accept="image/*" className="hidden" onChange={onPickerChange} />
 
       {/* Top bar */}
       <header className="shrink-0 bg-white/95 backdrop-blur border-b border-gray-100 pt-[env(safe-area-inset-top)] z-20">
-        <div className="h-14 flex items-center justify-between px-4">
-          <div className="w-10" />
-          {config.branding.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={config.branding.logoUrl} alt={eventTitle} className="h-8 max-w-[55%] object-contain" />
-          ) : (
-            <PlayzoneMark size={21} />
-          )}
+        {/* logo pinned left, profile right — in both languages (Rani) */}
+        <div dir="ltr" className="h-14 flex items-center justify-between gap-3 px-4">
+          <button type="button" onClick={goHome} aria-label={eventTitle} className="h-11 min-w-0 max-w-[60%] flex items-center">
+            {config.branding.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={config.branding.logoUrl} alt={eventTitle} className="h-8 max-w-full object-contain object-left" />
+            ) : (
+              <PlayzoneMark size={21} />
+            )}
+          </button>
           <button type="button" onClick={() => setTab('me')} aria-label={t.me} className="w-10 h-10 flex items-center justify-center">
             <Avatar name={myName || '?'} color={myGroup?.color} size={32} />
           </button>
@@ -745,6 +759,7 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
                       onDelete={onAskDelete}
                       hint={hintVisible && i === 0}
                       onHintDone={hintDone}
+                      countPaused={guide !== 'none'}
                     />
                     {!group && cheerLines.length > 0 && (i + 1) % cheers.every === 0 && (
                       <div className="mt-2">
@@ -895,6 +910,34 @@ function ParticipantApp({ codeId, title, config: rawConfig }: Props) {
       {toast && (
         <div className="fixed inset-x-0 bottom-24 z-[70] flex justify-center px-6 pointer-events-none">
           <div className="rounded-full bg-gray-900 text-white text-sm font-semibold px-5 py-3 shadow-xl sw-scale-in">{toast}</div>
+        </div>
+      )}
+    </div>
+  );
+  };
+
+  const motion = (role: 'in' | 'out') => (leaving ? `sw-${role}-${leaving.way}` : '');
+  return (
+    <div className="sw-root fixed inset-x-0 bottom-0 bg-white text-gray-900 overflow-hidden" style={themeStyle} dir={dir} lang={locale}>
+      <style>{SW_STYLE}</style>
+      {/* same keys before and after a change, so neither screen remounts mid-slide */}
+      {leaving && (
+        <div key={`screen-${leaving.phase}`} className={`sw-screen ${motion('out')}`} aria-hidden>
+          {screenFor(leaving.phase)}
+        </div>
+      )}
+      <div key={`screen-${phase}`} className={`sw-screen ${motion('in')}`}>
+        {screenFor(phase)}
+      </div>
+      {guide === 'open' && phase === 'app' && <GuideSheet t={t} prizes={guideCfg.prizes} onClose={() => setGuide('none')} />}
+      {celebrate > 0 && (
+        <div key={celebrate} className="fixed inset-0 z-[70] pointer-events-none" aria-hidden>
+          <div className="absolute inset-x-0 top-[38%] h-0">
+            <ConfettiBurst count={44} spread={200} />
+          </div>
+          <div className="absolute inset-x-0 top-[62%] h-0">
+            <ConfettiBurst count={30} spread={150} />
+          </div>
         </div>
       )}
     </div>

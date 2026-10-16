@@ -43,7 +43,6 @@ export default function ShareSheet({ t, eventTitle, onClose, onCopied }: { t: So
             <X className="w-6 h-6" />
           </button>
         </div>
-        <p className="text-sm text-gray-500">{t.shareText}</p>
         <div className="mt-5 flex justify-center">
           <div className="rounded-3xl border border-gray-100 p-4 shadow-sm">
             {url ? <QRCodeSVG value={url} size={220} level="M" marginSize={0} /> : <div className="w-[220px] h-[220px]" />}
