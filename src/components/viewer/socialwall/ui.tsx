@@ -25,13 +25,25 @@ export const SW_STYLE = `
 @keyframes sw-kenburns { from { transform: scale(1.06); } to { transform: scale(1.16) translateY(-2%); } }
 @keyframes sw-progress { from { background-position: 0 0; } to { background-position: 40px 0; } }
 .sw-root { -webkit-tap-highlight-color: transparent; }
-/* Screen changes: the next screen slides in from the side it lives on (mirrored for RTL) */
-@keyframes sw-slide { from { opacity: 0; transform: translateX(var(--sw-dx)); } to { opacity: 1; transform: none; } }
-.sw-slide-fwd, .sw-slide-back { animation: sw-slide .3s cubic-bezier(.2,.85,.25,1) both; }
-.sw-slide-fwd { --sw-dx: 34%; }
-.sw-slide-back { --sw-dx: -34%; }
-[dir="rtl"] .sw-slide-fwd { --sw-dx: -34%; }
-[dir="rtl"] .sw-slide-back { --sw-dx: 34%; }
+/* Screen changes push like pages (physical directions in both languages, Rani): forward = the new
+   screen comes in from the right over the old one, back = the page slides off to the right and the
+   previous one comes back from under it. */
+.sw-screen { position: absolute; inset: 0; background: #fff; }
+@keyframes sw-in-fwd { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes sw-out-fwd { from { transform: none; } to { transform: translateX(-28%); } }
+@keyframes sw-in-back { from { transform: translateX(-28%); } to { transform: none; } }
+@keyframes sw-out-back { from { transform: none; } to { transform: translateX(100%); } }
+@keyframes sw-dim-on { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sw-dim-off { from { opacity: 1; } to { opacity: 0; } }
+.sw-in-fwd, .sw-out-fwd, .sw-in-back, .sw-out-back { animation-duration: .38s; animation-timing-function: cubic-bezier(.32,.72,0,1); animation-fill-mode: both; pointer-events: none; }
+.sw-in-fwd { animation-name: sw-in-fwd; z-index: 2; box-shadow: -12px 0 32px rgba(0,0,0,.14); }
+.sw-out-fwd { animation-name: sw-out-fwd; z-index: 1; }
+.sw-in-back { animation-name: sw-in-back; z-index: 1; }
+.sw-out-back { animation-name: sw-out-back; z-index: 2; box-shadow: -12px 0 32px rgba(0,0,0,.14); }
+.sw-out-fwd::after, .sw-in-back::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.1); pointer-events: none; animation: sw-dim-on .38s ease both; }
+.sw-in-back::after { animation-name: sw-dim-off; }
+.sw-in-fwd .sw-enter, .sw-out-fwd .sw-enter, .sw-in-back .sw-enter, .sw-out-back .sw-enter,
+.sw-in-fwd .sw-scale-in, .sw-in-back .sw-scale-in { animation: none; }
 .sw-enter { animation: sw-fade-up .5s cubic-bezier(.2,.8,.2,1) both; }
 .sw-fade { animation: sw-fade .35s ease-out both; }
 .sw-scale-in { animation: sw-scale-in .32s cubic-bezier(.2,.8,.2,1) both; }
@@ -282,14 +294,17 @@ export function PostSkeleton() {
  * A number that counts up from 0 the first time it scrolls into view, then glides to each new
  * value (a like, a colleague's like). Reduced motion or no IntersectionObserver = plain number.
  */
-export function CountUp({ value, locale, duration = 1100 }: { value: number; locale: string; duration?: number }) {
+export function CountUp({ value, locale, duration = 1400, paused = false }: { value: number; locale: string; duration?: number; paused?: boolean }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [active, setActive] = useState(false);
   const [shown, setShown] = useState(0);
+  const [popped, setPopped] = useState(false);
   const shownRef = useRef(0);
   const revealed = useRef(false);
 
+  // paused = something covers the feed (the post-join guide): count only once it's seen
   useEffect(() => {
+    if (paused || active) return;
     const el = ref.current;
     const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (!el || still || typeof IntersectionObserver === 'undefined') {
@@ -304,11 +319,12 @@ export function CountUp({ value, locale, duration = 1100 }: { value: number; loc
           io.disconnect();
         }
       },
-      { threshold: 0.9 }
+      // start only once the number is well inside the screen (not at the very bottom edge)
+      { threshold: 1, rootMargin: '0px 0px -18% 0px' }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [paused, active]);
 
   useEffect(() => {
     if (!active) return;
@@ -324,19 +340,25 @@ export function CountUp({ value, locale, duration = 1100 }: { value: number; loc
       return;
     }
     const ms = first ? duration : 450;
-    const start = performance.now();
+    // a beat at 0 first, so the count is seen starting
+    const start = performance.now() + (first ? 220 : 0);
     let raf = 0;
     const tick = (now: number) => {
-      const k = Math.min(1, (now - start) / ms);
+      const k = Math.max(0, Math.min(1, (now - start) / ms));
       const eased = 1 - Math.pow(1 - k, 3);
       const n = Math.round(from + (to - from) * eased);
       shownRef.current = n;
       setShown(n);
       if (k < 1) raf = requestAnimationFrame(tick);
+      else if (first) setPopped(true);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [active, value, duration]);
 
-  return <span ref={ref}>{(active ? shown : 0).toLocaleString(locale)}</span>;
+  return (
+    <span ref={ref} className={`inline-block ${popped ? 'sw-pop' : ''}`}>
+      {(active ? shown : 0).toLocaleString(locale)}
+    </span>
+  );
 }

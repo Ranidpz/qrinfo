@@ -17,6 +17,7 @@ const BASE: SocialWallConfig = {
     { id: 'mgmt', label: 'הנהלה', color: '#0891b2' },
   ],
   captionMax: 120,
+  guide: { prizes: true },
   branding: {
     logoUrl: '/play/social-wall/your-logo.svg', // the customer's logo goes here
     coverImageUrl: '/play/social-wall/cover.webp',

@@ -581,6 +581,21 @@ export default function SocialWallModal({ isOpen, onClose, onSave, initialConfig
                 <CheersEditor value={cfg.cheers} onChange={(v) => set('cheers', v)} />
               </Section>
 
+              <Section title="הסבר קצר אחרי ההרשמה" hint="כרטיס שקופץ פעם אחת אחרי הכניסה: לבחור תמונות בקפידה, לפרגן בלבבות, לשתף חברים, ולהיות ביחד">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                    <input type="checkbox" checked={cfg.guide?.enabled !== false} onChange={(e) => set('guide', { ...cfg.guide, enabled: e.target.checked })} />
+                    להציג את ההסבר למשתתפים חדשים
+                  </label>
+                  {cfg.guide?.enabled !== false && (
+                    <label className="flex items-center gap-2 text-sm text-text-secondary">
+                      <input type="checkbox" checked={cfg.guide?.prizes === true} onChange={(e) => set('guide', { ...cfg.guide, prizes: e.target.checked })} />
+                      יש פרסים לתמונות המובילות (מוסיף שורה &quot;התמונות המובילות זוכות בפרסים&quot;)
+                    </label>
+                  )}
+                </div>
+              </Section>
+
               <Section title="הגבלות">
                 <div className="grid grid-cols-3 gap-3">
                   <label className="space-y-1">

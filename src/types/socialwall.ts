@@ -117,6 +117,8 @@ export interface SocialWallConfig {
   maxMembers?: number;
   branding?: SocialWallBranding;
   cheers?: SocialWallCheersConfig;
+  /** "How it works" card shown once, right after joining. Absent = shown, no prizes line. */
+  guide?: SocialWallGuideConfig;
   /** Big-screen link token — secret, stored in private/secrets. */
   screenToken?: string;
   /** On-site operator (moderation) link token — secret, stored in private/secrets. */
@@ -196,6 +198,16 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
  * The config every reader uses. The owner writes the raw config from the editor, so the
  * server treats it as untrusted: enums fall back, numbers are clamped, groups are capped.
  */
+export interface SocialWallGuideConfig {
+  enabled?: boolean;
+  /** Adds "the top photos win prizes" — only when the organizer actually gives prizes. */
+  prizes?: boolean;
+}
+
+export function resolveGuide(g: SocialWallGuideConfig | undefined): { enabled: boolean; prizes: boolean } {
+  return { enabled: g?.enabled !== false, prizes: g?.prizes === true };
+}
+
 export function resolveSocialWallConfig(raw: SocialWallConfig | undefined | null): ResolvedSocialWallConfig {
   const c = raw || {};
   const groups = Array.isArray(c.groups)

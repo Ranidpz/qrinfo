@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.28.9] - 2026-10-16
+
+- Social Wall (demo + experience): one-time "how it works" card after joining (`GuideSheet.tsx`; `config.guide` — absent = shown, `prizes` adds "top photos win prizes"; editor toggles), screens push like pages in physical directions (both stay mounted during the 0.38s slide), join back button on the left, logo taps go home, app header logo left / profile right, like count-up starts only well inside the screen and waits while the guide covers the feed, share sheet without the redundant subtitle. No data/rules change. Rollback = revert this release commit.
+
 ## [1.28.8] - 2026-10-15
 
 - Social Wall full experience in production for TESTING: API routes `/api/socialwall/*`, Admin-SDK store (`codes/{id}/sw{Members,Posts,Allowlist,Audit}`), dashboard tab + code-page editor, moderation/allowlist panels, staff link. Super-admin only: the dashboard tab and code-page button render for `super_admin`, and `loadSocialWall` answers 404 for any code whose owner is not a super admin (blocks hand-made codes from spending WhatsApp OTPs/storage). Photos go to R2 (as Selfie Beam). Rules: `firestore.rules` (4 locked `sw*` subcollections) + `database.rules.json` (`socialwall/$codeId` read-only) — deploy separately with Rani's OK; until the RTDB rule is live the feed polls every 5s. Additive only: no existing experience changed. Rollback = revert this release commit.
