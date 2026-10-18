@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.28.9';
+export const APP_VERSION = '1.28.10';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.28.10', date: '2026-10-18', isNew: true, highlights: {
+    he: ['Social Wall: לינק של אירוע אמיתי משותף בוואטסאפ עם התצוגה הממותגת, ונשמר למסך הבית עם אייקון משלו'],
+    en: ['Social Wall: real event links share on WhatsApp with the branded preview and install with their own icon'],
+  } },
   { version: '1.28.9', date: '2026-10-16', isNew: true, highlights: {
     he: ['Social Wall: כרטיס הסבר קצר אחרי ההרשמה, מעבר בין מסכים כמו דפדוף, לוגו משמאל ופרופיל מימין, וספירת לייקים שרואים אותה'],
     en: ['Social Wall: a short how-it-works card after joining, page-push screen transitions, logo left and profile right, and like counts you actually see count up'],
