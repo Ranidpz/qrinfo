@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.28.10] - 2026-10-18
+
+- Social Wall event links (`/v/{shortId}`): WhatsApp/OG preview uses the branded `public/play/social-wall/og.jpg`, description "הרשת החברתית הפרטית לאירועים", and the install icons are Social Wall's own (`apple-icon.png`, manifest `icon-192.png`/`icon.png`). Docs: `docs/SOCIAL_WALL.md` status. Rollback = revert this release commit.
+
 ## [1.28.9] - 2026-10-16
 
 - Social Wall (demo + experience): one-time "how it works" card after joining (`GuideSheet.tsx`; `config.guide` — absent = shown, `prizes` adds "top photos win prizes"; editor toggles), screens push like pages in physical directions (both stay mounted during the 0.38s slide), join back button on the left, logo taps go home, app header logo left / profile right, like count-up starts only well inside the screen and waits while the guide covers the feed, share sheet without the redundant subtitle. No data/rules change. Rollback = revert this release commit.
