@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.28.10';
+export const APP_VERSION = '1.29.0';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.29.0', date: '2026-10-24', isNew: true, highlights: {
+    he: ['Q.Vote: חיתוך תמונות בהעלאה — מי שנרשמים כמועמדים, וגם אתם בדף המועמדים, ממרכזים את התמונה בריבוע בדיוק כמו בכרטיס ההצבעה', 'Q.Vote: נקודות וחבילות פרסים — כל הצבעה מזכה ב־XP, ובכל פעם שעוברים את הסף נפתחת חבילה עם פרס מהרשימה שלכם (נדירות, סיכוי ומלאי)', 'רשימת זוכים בהגדרות ההצבעה, והזוכים מציגים לצוות מסך עם קוד אישי', 'תיקון: מועמדים שנרשמו בעצמם קיבלו הודעת שגיאה למרות שההרשמה נקלטה'],
+    en: ['Q.Vote: crop on upload — candidates registering, and you on the candidates page, frame the photo in a square exactly as on the voting card', 'Q.Vote: points and prize packs — every vote earns XP, and each time voters pass the threshold they open a pack with a prize from your list (rarity, chance and stock)', 'A winners list in the vote settings; winners show the staff a screen with a personal code', 'Fix: self-registered candidates saw an error even though their registration went through'],
+  } },
   { version: '1.28.10', date: '2026-10-18', isNew: true, highlights: {
     he: ['Social Wall: לינק של אירוע אמיתי משותף בוואטסאפ עם התצוגה הממותגת, ונשמר למסך הבית עם אייקון משלו'],
     en: ['Social Wall: real event links share on WhatsApp with the branded preview and install with their own icon'],
