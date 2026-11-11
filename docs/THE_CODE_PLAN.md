@@ -1,0 +1,166 @@
+# הקוד (The Code) — product + engineering plan
+
+Status: wave 1 in progress (engine, player demo, admin demo). Nothing released.
+Owner decisions were taken with Rani on 11.11.2026; this file is the source of truth
+for every session working on the feature. Internal slug: `thecode`.
+
+## 1. What it is
+
+A permanent, self-paced QR adventure for families in a physical venue (hotels first).
+Small 3D-printed gnomes (8–10 cm, screwed down, each with a fixed QR plate) stand
+around the venue, usually 2–3 side by side at one spot. Every gnome has two colours:
+body and hat. The system sends each family from gnome to gnome ("find the green gnome
+with the red hat near the piano"). At the right gnome the family gets a riddle about
+something in sight, taps the FIRST LETTER of the answer, and the letter drops into
+their collector. When all letters are collected they arrange them into a secret
+phrase, a virtual suitcase opens, and they score. Coming back later = a new suitcase
+with gnomes and riddles they have not seen.
+
+No app install, no AI at play time, no clock. Phone = scanner + one clear task.
+
+## 2. Decisions (do not re-open without Rani)
+
+- New standalone experience. Do NOT modify `qhunt` / `qtreasure` or reuse their data layer.
+- Firebase (Firestore, Admin SDK only, behind one store module) + media on R2. No Supabase.
+- QR = a gnome (a place). The letter belongs to the RIDDLE, not the gnome: a gnome's
+  riddle bank may yield different letters. One riddle per gnome is enough to launch.
+- Routing is per family and decided by the system; only the CURRENT target counts.
+  Any other gnome is a wrong scan ("נא נא, זה לא הגמד שלכם").
+- The family taps one letter on an in-app letter pad (adventure alphabet — never the
+  phone keyboard). Sound-alike letters (ק for כ) are accepted with a spelling tip; the
+  collector always gets the correct letter.
+- Wrong scans: first N per target are free (operator setting 1–3, default 1), then a
+  points penalty. Re-scanning the same wrong gnome never costs twice. Points never go
+  below 0; collected letters are never taken away.
+- No time competition. Points, suitcases, leaderboard, "hot player" streak (3 correct
+  in a row → ×2 until a mistake).
+- Identity: device-bound profile + short recovery code. WhatsApp OTP of a parent is an
+  operator toggle (later phase; existing INFORU flow). Nickname + emoji only — no
+  selfie, no full name.
+- Several profiles on one phone (siblings) with a quick switcher.
+- A disabled gnome/riddle mid-run is swapped for another source of the same letter;
+  if none exists the letter is GIFTED (no points). A run must always be completable.
+- When a family has no fresh content left: say so honestly ("פתחתם את כל המזוודות").
+  Never invent content, never replay solved riddles for points.
+- Presenter videos do not exist yet: text + animation everywhere, video is an optional
+  layer on named triggers (`TheCodeTrigger`).
+- Prize: the win is recorded and shown on screen/phone. Reception redemption UI later.
+- Gaming feel is a requirement: huge count-up numbers, green +N, red −N, letter pop,
+  confetti, hot-streak badge, short sounds with a mute toggle, one task per screen.
+
+## 3. Model (see `src/types/thecode.ts`)
+
+- `TheCodeConfig` — public, on the code's media item. Spots, gnomes, phrases, rules.
+  NEVER riddles or answers (code docs are world-readable).
+- `TheCodeRiddle` — locked collection (answers). `letter` = first letter of `answerWord`.
+- `TheCodePlayer` — locked collection. Holds the whole state incl. the current
+  `TheCodeRun` (a saved plan: one slot per phrase letter → gnome + riddle), so every
+  action is ONE transaction on ONE document.
+- Letter rules live in `src/lib/thecode/letters.ts` (final forms, niqqud, sound-alikes,
+  display). Everything uses them; nobody re-implements letter logic.
+
+## 4. Engine rules (pure functions, `src/lib/thecode/engine.ts`)
+
+Build a run (`buildRun`):
+1. Candidate phrases = active, valid, not yet opened by this player.
+2. A phrase is playable for a player if a matching exists: every phrase letter (repeats
+   are separate slots) ↔ a DISTINCT active gnome (active spot) that has a published
+   riddle with that letter which the player has NOT solved. Bipartite matching.
+3. Preferences, in order: gnomes the player never found → spread over many spots →
+   random. If the first scanned gnome can supply a letter, it is slot one, already active.
+4. No playable phrase → `allDone`. Never start a run that cannot be finished.
+5. Randomness is injected (`rng`) so tests are deterministic; the server passes crypto.
+
+Play:
+- `nextTarget` picks a pending slot, preferring a different spot from the last one.
+  Once shown, the target is saved and survives closing the phone.
+- `scan` → `riddle` | `wrongGnome` | `alreadySolved` | `gnomeAsleep` | `allDone` | `paused`.
+- `answer` → `correct` (points, letter, streak, next target or `arranging`) | `wrong`
+  (streak reset; after `freeWrongAnswers` → penalty + cooldown) | `cooldown`.
+- `hint` → next location/riddle hint; first is free, then `hintCost`; breaks the streak.
+- `repairRun` runs before every action: swaps or gifts slots whose gnome, spot or
+  riddle is no longer usable, and re-targets if the target died.
+- `arrange` checks the arrangement against the phrase; `openSuitcase` awards the bonus.
+
+Validation (`validateAdventure`) returns `TheCodeIssue[]`; publish is blocked on any
+`error`. It also reports how many fresh suitcases one family can open.
+
+## 5. Edge cases and their handling
+
+Scanning
+- First scan on a new device → register → run built around that gnome.
+- Camera scans open a NEW tab every time → all state is server-side, keyed by the
+  device profile; nothing important lives in memory.
+- In-app browsers (WhatsApp/Instagram scanners) isolate storage → detect
+  (`src/lib/inAppBrowser.ts`) and ask to open in the real browser.
+- Cleared storage / new phone → "יש לי קוד" on the register screen (recovery code).
+- Two phones on one profile → both act on one doc in transactions; UI refetches on focus.
+- Siblings on one phone → profile switcher; a scan acts for the active profile.
+- Double tap / refresh / re-scan of the target → idempotent, same riddle, no double points.
+- Re-scan of a gnome solved earlier in the run → "כבר פתרתם אותי", no penalty.
+- Inactive gnome → "הגמד הזה ישן"; if it was the target → repair.
+- Unknown/foreign code → friendly not-found. Paused adventure / outside
+  `activeHours` → "המשחק בהפסקה", state untouched.
+- A photographed QR can be opened remotely. Accepted for the MVP: the riddle still
+  needs someone on site; revisit only if abuse shows up.
+- Weak network: the answer is never awarded locally. Failed submit keeps the choice
+  and offers retry; the server dedupes.
+
+Content
+- Phrase letters with no source → cannot publish; operator sees "חסרה חידה לאות ס׳".
+- Repeated letters need distinct gnomes → handled by the matching.
+- Final forms, niqqud, spaces, punctuation → `letters.ts`. Digits / other alphabet in a
+  phrase → `PHRASE_INVALID_CHARS`.
+- Answer starting with a sound-alike letter → warning to the operator, not an error.
+- Two identical colour combos at one spot → error (the target would be ambiguous).
+- Red/green pair at one spot → warning (colour-blind children). The on-screen target
+  always shows the drawn gnome AND the colour names in words.
+- Riddle edited so its letter changes while in live runs → those slots are repaired.
+- Gnome moved to another spot → QR is permanent; only the config changes.
+- All gnomes at one spot / spots without hints → warnings.
+
+Scoring and abuse
+- Brute-forcing a letter: penalty + cooldown after `freeWrongAnswers`.
+- Random scanning: wrong-scan penalty after the free ones.
+- Forged requests: player id + secret token; every rule enforced server-side.
+- Hotel Wi-Fi = one public IP → rate limits are per player, IP limits generous.
+- Offensive family names on a lobby screen → blocklist at registration + operator can
+  hide a player from the board.
+
+Privacy (minors)
+- Nickname + emoji only. Phone only if the operator turns verification on (parent's).
+- Locked collections (read + write `if false`), like `qbetEntries`.
+- Auto-delete profiles after `retentionDays` of inactivity.
+
+Operations
+- "Setup mode": the operator walks the venue, scans each gnome in place → marks
+  `verifiedOnSite` and proves there is reception at that spot.
+- Silent gnome (no scans for days) → flagged as probably missing.
+- Hard riddle (many wrong answers / hints) → flagged for rewriting.
+- Leaderboard: this week + all time (hotel guests rotate).
+- Video never blocks the game: muted autoplay, tap for sound, always skippable.
+
+## 6. Phases
+
+Wave 1 (parallel, one branch each off `feature/thecode`, disjoint files):
+- A. Engine + tests — `src/lib/thecode/engine.ts`, `scripts/tests/thecode-*.test.mjs`.
+- B. Player clickable demo — `src/app/play/the-code/page.tsx`,
+  `src/components/thecode/player/**`, `src/components/thecode/GnomeFigure.tsx`.
+- C. Admin clickable demo — `src/app/play/the-code/admin/page.tsx`,
+  `src/components/thecode/admin/**`.
+Demos run on sample data with NO server, for Rani's and the hotel's approval.
+
+Wave 2 (after Rani approves the demos): store + API + Firestore rules (both projects),
+`/g/{code}` gnome route, wiring both UIs to the real engine, dashboard integration
+(`MediaType`, `db.ts` whitelist, create flow), lobby leaderboard.
+
+Wave 3: presenter trigger layer, WhatsApp toggle, pilot on `qrinfo-dev`, release.
+
+## 7. Working rules for every session
+
+- Branch off `feature/thecode`; commit to your own branch; never push, merge, deploy or
+  touch `main`. Stay inside your file list. Do not edit shared files
+  (`src/types/thecode.ts`, `src/lib/thecode/letters.ts`) — report needed changes instead.
+- All user-facing Hebrew is plural (סרקו / מצאו). Hebrew is RTL. Replies to Rani are
+  in Hebrew only.
+- No `require()`. `@/*` → `./src/*`. Follow `CLAUDE.md`.
