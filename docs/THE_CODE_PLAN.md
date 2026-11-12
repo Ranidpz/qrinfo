@@ -266,8 +266,7 @@ client but their Admin SDK points at PRODUCTION, so the game cannot work there a
 write would land in production data (verified 12.11.2026).
 
 Before opening the feature to operators (each needs Rani's explicit OK):
-1. Deploy `firestore.rules` to both projects (new locked paths, §8). Until then the paths
-   are default-deny (no rule matches them) — safe, but not explicit.
+1. DONE 12.11.2026 — `firestore.rules` of main deployed to both projects (live == main).
 2. Firestore TTL policy on collection group `thecodePlayers`, field `expireAt`.
 3. Remove the super-admin gate on the uploader tab (`dashboard/page.tsx`,
    `onTheCodeCreate`) + a real changelog entry.
@@ -275,8 +274,11 @@ Before opening the feature to operators (each needs Rani's explicit OK):
    seated in a DARK gnome — the white margin around the QR is only 1 mm.
 
 Product follow-ups:
-- Limit the colour palette per adventure to the filaments the operator really has
-  (Rani prints with black, white, purple, blue, green, yellow — no red/orange).
+- DONE v1.29.2 — colours an operator may choose = the supplier's filaments
+  (`THECODE_PALETTE` in the engine): indoor black, white, blue, purple, yellow, red, brown,
+  green; outdoor spots (`TheCodeSpot.outdoor`) black + grey. Orange is legacy.
+- DONE v1.29.2 — riddle bank (`src/lib/thecode/riddleBank.ts`, 122 riddles) with a picker
+  per gnome and a one-click fill with preview (`planBankFill`).
 - On-site setup scan from the operator's phone, English UI strings, presenter videos,
   WhatsApp verification, reception redemption (wave 3).
 - Deleting a code does not yet remove its `thecode*` data and gnome-code index.

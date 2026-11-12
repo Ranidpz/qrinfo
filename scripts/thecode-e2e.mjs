@@ -78,11 +78,13 @@ const SPOTS = ['הבריכה', 'הלובי', 'חדר האוכל', 'הגינה'].
   name,
   hints: [`חפשו באזור של ${name}`, `ממש ליד ${name}`, `הביטו למטה, ליד ${name}`],
   isActive: true,
+  // The pool is outdoors: its gnomes (1, 5, 9) may only be black / grey.
+  ...(i === 0 ? { outdoor: true } : {}),
 }));
 const COLORS = [
-  ['red', 'blue'], ['blue', 'yellow'], ['black', 'white'],
-  ['green', 'black'], ['purple', 'brown'], ['yellow', 'red'],
-  ['white', 'purple'], ['brown', 'blue'], ['blue', 'black'],
+  ['black', 'grey'], ['blue', 'yellow'], ['black', 'white'],
+  ['green', 'black'], ['grey', 'black'], ['yellow', 'red'],
+  ['white', 'purple'], ['brown', 'blue'], ['grey', 'grey'],
   ['yellow', 'purple'], ['black', 'brown'], ['white', 'blue'],
 ];
 const ANSWERS = ['גשר', 'מזרקה', 'מנורה', 'דלת', 'חלון', 'כיסא', 'יונה', 'ורד', 'לוח', 'מפה', 'כובע', 'חבל'];
@@ -167,6 +169,11 @@ async function main() {
   check('server derived every riddle letter', riddles.every((x) => x.letter === lettersOf(x.answerWord)[0]));
   const errors = (r.json.issues || []).filter((i) => i.severity === 'error');
   check('no blocking issues in the sample adventure', errors.length === 0, JSON.stringify(errors));
+  const colourIssues = (r.json.issues || []).filter((i) => i.code === 'GNOME_COLOR_UNAVAILABLE');
+  check('every gnome is in a colour that is printed for its spot', colourIssues.length === 0, JSON.stringify(colourIssues));
+  check('the outdoor flag of a spot is saved (and only where it is set)',
+    r.json.config?.spots?.[0]?.outdoor === true && r.json.config.spots.slice(1).every((sp) => sp.outdoor === undefined));
+  check('grey gnomes are accepted', r.json.config?.gnomes?.[0]?.hatColor === 'grey');
 
   r = await http('PUT', '/api/thecode/admin', { token: idToken, body: { codeId, baseVersion: 0, config, riddles } });
   check('stale version → 409 conflict', r.status === 409 && r.json?.error === 'conflict', `status ${r.status}`);
