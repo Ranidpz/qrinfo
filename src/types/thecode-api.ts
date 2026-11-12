@@ -174,7 +174,9 @@ export type TheCodePlayResponse =
 // =================================================================
 
 export type TheCodeGnomeLookupResponse =
-  | { ok: true; codeId: string; shortId: string; title: string; language: TheCodeLanguage }
+  | { ok: true; codeId: string; shortId: string; title: string; language: TheCodeLanguage;
+      /** The scanned gnome itself — it is standing in front of the family anyway. */
+      gnome: TheCodeGnomeView }
   | { ok: false; error: 'notFound' };
 
 // =================================================================
