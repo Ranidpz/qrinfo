@@ -56,6 +56,7 @@
   },
   "secretFields": [
     "src/lib/raffle/types.ts#token",
+    "src/types/thecode-api.ts#token",
     "src/types/index.ts#photographerToken",
     "src/types/qtag.ts#scannerPin",
     "src/types/index.ts#pinned",
@@ -70,7 +71,7 @@
     "src/types/socialwall.ts#moderatorToken",
     "src/types/socialwall.ts#pinned"
   ],
-  "_secretFields_reason": "token/photographerToken/scannerPin/screenToken/moderatorToken (Social Wall) are split into codes/{id}/private by db.ts; accessToken is stripped from public pages (judge flow not implemented); qrToken/sessionToken live in owner-only/locked subcollections, not on the code doc; the rest are not secrets (pinned, cropping).",
+  "_secretFields_reason": "thecode-api token is the per-device player token returned once to that device (only its sha256 is stored, in the locked thecodePlayers subcollection); token/photographerToken/scannerPin/screenToken/moderatorToken (Social Wall) are split into codes/{id}/private by db.ts; accessToken is stripped from public pages (judge flow not implemented); qrToken/sessionToken live in owner-only/locked subcollections, not on the code doc; the rest are not secrets (pinned, cropping).",
   "clientSdkInApi": {
     "src/app/api/qchallenge/answer/route.ts": "FOLLOW-UP: hidden experience — Firestore still via client SDK (RTDB moved to src/lib/server/qchallenge-rtdb)",
     "src/app/api/qchallenge/register/route.ts": "FOLLOW-UP: hidden experience — Firestore still via client SDK (RTDB moved to src/lib/server/qchallenge-rtdb)"

@@ -14,7 +14,7 @@ import { isApprovedStatus } from '@/lib/auth/approval';
 
 // App areas a signed-in but not-yet-approved user can't use. Marketing pages,
 // the guide, legal pages and login stay open to everyone.
-const GATED_SECTIONS = ['dashboard', 'code', 'analytics', 'admin', 'content-intake', 'qtag'];
+const GATED_SECTIONS = ['dashboard', 'code', 'analytics', 'admin', 'content-intake', 'qtag', 'thecode'];
 
 function isGatedPathname(pathname: string | null): boolean {
   const section = pathname?.split('/')[2]; // /{locale}/{section}/...
@@ -38,7 +38,9 @@ export default function ClientLayout({ children, locale, direction }: ClientLayo
     pathname?.includes('/costume-competition') ||
     isLandingPathname(pathname) ||
     pathname?.includes('/checkin') ||
-    pathname?.includes('/scanner');
+    pathname?.includes('/scanner') ||
+    // "הקוד" operator admin: its own full-screen shell (gates approval itself)
+    pathname?.split('/')[2] === 'thecode';
 
   // Update html element with lang and dir attributes
   useEffect(() => {
