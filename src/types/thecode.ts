@@ -151,6 +151,9 @@ export interface TheCodeConfig {
   presenterVideos?: Partial<Record<TheCodeTrigger, string[]>>;
   /** Venue look of the opening screen; mirrored to the public stub on every save. */
   branding?: TheCodeBranding;
+  /** "איך משחקים" — the operator's own short rules, one line each (max 8 × 160).
+   *  Absent / empty = the default built from `rules` (src/lib/thecode/howToPlay.ts). */
+  howToPlay?: string[];
   retentionDays: number;            // Player data auto-delete after inactivity
 }
 

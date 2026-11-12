@@ -42,6 +42,7 @@ import {
   openSuitcase,
   repairRun,
   requestHint,
+  resolveRules,
   scanGnome,
   startNewRun,
   validateAdventure,
@@ -52,6 +53,7 @@ import { BASE62, MANUAL_CODE_LENGTH, QR_SLUG_LENGTH, RECOVERY_CODE_LENGTH, UNAMB
 import { normalizeEmoji, normalizeFamilyName } from './server/names';
 import { takeRate, type TheCodeRateWindow } from './server/rate';
 import { buildSnapshot, gnomeView, type TheCodeAdventureData } from './server/snapshot';
+import { resolveHowToPlay } from './howToPlay';
 import { addWeekDelta, DEFAULT_WEEK_TIME_ZONE, weekKey, type TheCodeWeeks } from './server/week';
 
 /** Venue zone for active hours + weekly boards (one venue = one zone for now). */
@@ -445,6 +447,7 @@ export async function lookupGnome(raw: unknown): Promise<TheCodeGnomeLookupRespo
     language: adv.config.language,
     gnome: gnomeView(gnome),
     ...(adv.config.branding ? { branding: adv.config.branding } : {}),
+    howToPlay: resolveHowToPlay(adv.config, resolveRules(adv.config.rules)),
   };
 }
 

@@ -27,6 +27,7 @@ import {
   visibleLocationHints,
 } from '../engine';
 import { phraseLetters, phraseWordLengths } from '../letters';
+import { resolveHowToPlay } from '../howToPlay';
 
 export interface TheCodeAdventureData {
   config: TheCodeConfig;
@@ -154,6 +155,7 @@ export function buildSnapshot(
       open: isAdventureOpen(config, now, timeZone),
       hotMultiplier: rules.hotMultiplier,
       ...(config.branding ? { branding: config.branding } : {}),
+      howToPlay: resolveHowToPlay(config, rules),
     },
     player: player ? playerView(player, rules.hotStreakAt) : null,
     run: player ? runView(player, adv, now) : null,

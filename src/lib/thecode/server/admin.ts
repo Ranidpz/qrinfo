@@ -23,6 +23,7 @@ import type {
 } from '@/types/thecode';
 import { DEFAULT_THECODE_RULES, resolveRules } from '../engine';
 import { letterOfAnswer } from '../letters';
+import { HOW_TO_PLAY_LIMITS } from '../howToPlay';
 
 export const THECODE_LIMITS = {
   spots: 60,
@@ -287,6 +288,13 @@ export function normalizeAdventure(
         if (urls.length) pv[t] = urls;
       }
       if (Object.keys(pv).length) config.presenterVideos = pv;
+    }
+    if (Array.isArray(c.howToPlay)) {
+      const lines = c.howToPlay
+        .map((v) => line(v, HOW_TO_PLAY_LIMITS.line))
+        .filter(Boolean)
+        .slice(0, HOW_TO_PLAY_LIMITS.lines);
+      if (lines.length) config.howToPlay = lines;
     }
     if (isObj(c.branding)) {
       const branding: TheCodeBranding = {};
