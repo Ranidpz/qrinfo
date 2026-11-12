@@ -4,7 +4,9 @@ Status: wave 1 DONE and merged into `feature/thecode` (engine + 36 tests, player
 operator demo — Rani approved both demos on 12.11.2026). Wave 2 DONE and merged (server, live player + in-page scanner, live operator admin +
 dashboard). End-to-end verified on `qrinfo-dev` 12.11.2026: `node scripts/thecode-e2e.mjs`
 (55 checks against a running dev server; refuses any project but `qrinfo-dev`).
-Nothing pushed, nothing released. Open items: §9.
+Code released to `main` as v1.29.1 on 12.11.2026 (Rani's decision: no one uses the feature
+yet, so it is tested on production) — HIDDEN: the create tab shows for super admins only.
+Open items: §9.
 Owner decisions were taken with Rani on 11.11.2026; this file is the source of truth
 for every session working on the feature. Internal slug: `thecode`.
 
@@ -259,11 +261,18 @@ More edge cases closed in wave 2
 Not verified yet: a real phone camera, a real paper print, the dashboard create flow and
 the operator admin under a real login (the e2e drives the admin API with a test owner).
 
-Before release (each needs Rani's explicit OK):
-1. Deploy `firestore.rules` to both projects (new locked paths, §8).
+Why production and not a preview: Vercel preview deployments read `qrinfo-dev` on the
+client but their Admin SDK points at PRODUCTION, so the game cannot work there and any
+write would land in production data (verified 12.11.2026).
+
+Before opening the feature to operators (each needs Rani's explicit OK):
+1. Deploy `firestore.rules` to both projects (new locked paths, §8). Until then the paths
+   are default-deny (no rule matches them) — safe, but not explicit.
 2. Firestore TTL policy on collection group `thecodePlayers`, field `expireAt`.
-3. Version bump + changelog, push to `main`.
-4. The uploader tab is visible to super admins only until then.
+3. Remove the super-admin gate on the uploader tab (`dashboard/page.tsx`,
+   `onTheCodeCreate`) + a real changelog entry.
+4. First paper print of the 36 × 42 mm gnome sticker: measure the QR (34 mm) and scan it
+   seated in a DARK gnome — the white margin around the QR is only 1 mm.
 
 Product follow-ups:
 - Limit the colour palette per adventure to the filaments the operator really has
