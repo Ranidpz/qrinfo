@@ -10,6 +10,7 @@
 import type {
   TheCodeAdminPlayer,
   TheCodeAnswerOutcome,
+  TheCodeBranding,
   TheCodeColor,
   TheCodeConfig,
   TheCodeGnomeStats,
@@ -125,6 +126,8 @@ export interface TheCodeSnapshot {
     /** false = paused, draft or outside active hours → "המשחק בהפסקה". */
     open: boolean;
     hotMultiplier: number;
+    /** Venue look of the opening (register / log in) screen. */
+    branding?: TheCodeBranding;
   };
   player: TheCodePlayerView | null;
   run: TheCodeRunView | null;
@@ -176,7 +179,9 @@ export type TheCodePlayResponse =
 export type TheCodeGnomeLookupResponse =
   | { ok: true; codeId: string; shortId: string; title: string; language: TheCodeLanguage;
       /** The scanned gnome itself — it is standing in front of the family anyway. */
-      gnome: TheCodeGnomeView }
+      gnome: TheCodeGnomeView;
+      /** Venue look of the opening screen, so /g/{code} is branded from the first paint. */
+      branding?: TheCodeBranding }
   | { ok: false; error: 'notFound' };
 
 // =================================================================

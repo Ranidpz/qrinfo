@@ -160,7 +160,15 @@ async function main() {
   check('admin GET: new adventure, version 0', r.status === 200 && r.json?.version === 0, `status ${r.status}`);
   const baseConfig = r.json.config;
 
-  const draft = { ...baseConfig, title: 'הקוד — בדיקת מערכת', status: 'draft', spots: SPOTS, gnomes: GNOMES, phrases: PHRASES };
+  const BRANDING = {
+    backgroundUrl: 'https://example.com/thecode-e2e/lobby.webp',
+    logoUrl: 'https://example.com/thecode-e2e/logo.png',
+    welcomeText: 'ברוכים הבאים למלון הבדיקות',
+  };
+  const draft = {
+    ...baseConfig, title: 'הקוד — בדיקת מערכת', status: 'draft', spots: SPOTS, gnomes: GNOMES, phrases: PHRASES,
+    branding: { ...BRANDING, logoUrl: BRANDING.logoUrl, junk: 'dropped', backgroundUrl: BRANDING.backgroundUrl },
+  };
   r = await http('PUT', '/api/thecode/admin', { token: idToken, body: { codeId, baseVersion: 0, config: draft, riddles: RIDDLES } });
   check('admin PUT: draft saved, version 1', r.status === 200 && r.json?.ok && r.json.version === 1, `status ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`);
   let config = r.json.config;
@@ -196,6 +204,8 @@ async function main() {
   };
   r = await play(null, { type: 'state' });
   check('draft adventure is closed for players', r.json?.ok && r.json.snapshot.adventure.open === false);
+  check('venue branding reaches a visitor without a profile', JSON.stringify(r.json?.snapshot?.adventure?.branding) === JSON.stringify(BRANDING),
+    JSON.stringify(r.json?.snapshot?.adventure?.branding));
 
   r = await http('PUT', '/api/thecode/admin', { token: idToken, body: { codeId, baseVersion: 1, config: { ...config, status: 'published' }, riddles } });
   check('published, version 2', r.status === 200 && r.json?.version === 2, `status ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`);
@@ -208,6 +218,8 @@ async function main() {
   const codeDoc = (await codeRef.get()).data();
   const stub = codeDoc.media[0].thecodeConfig;
   check('public stub synced to published', stub?.status === 'published');
+  check('public stub carries the venue branding (and nothing else new)',
+    JSON.stringify(stub?.branding) === JSON.stringify(BRANDING) && Object.keys(stub).sort().join() === 'branding,language,status,title');
   const publicJson = JSON.stringify(codeDoc);
   check('the public code doc holds no phrase and no answer', !publicJson.includes('גמד חכם') && !publicJson.includes('מזרקה'));
   const idx = await db.collection('thecodeGnomeCodes').where('codeId', '==', codeId).get();
@@ -215,6 +227,7 @@ async function main() {
 
   r = await http('GET', `/api/thecode/gnome?code=${config.gnomes[0].code}`);
   check('gnome lookup by QR slug', r.json?.ok && r.json.codeId === codeId && r.json.shortId === shortId && r.json.gnome?.number === 1);
+  check('gnome lookup carries the venue branding', r.json?.branding?.logoUrl === BRANDING.logoUrl && r.json.branding.backgroundUrl === BRANDING.backgroundUrl);
   r = await http('GET', `/api/thecode/gnome?code=${config.gnomes[1].manualCode.toLowerCase()}`);
   check('gnome lookup by manual code, lower case', r.json?.ok && r.json.gnome?.number === 2);
   r = await http('GET', '/api/thecode/gnome?code=nosuchcode123');

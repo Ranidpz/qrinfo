@@ -444,6 +444,7 @@ export async function lookupGnome(raw: unknown): Promise<TheCodeGnomeLookupRespo
     title: adv.config.title,
     language: adv.config.language,
     gnome: gnomeView(gnome),
+    ...(adv.config.branding ? { branding: adv.config.branding } : {}),
   };
 }
 

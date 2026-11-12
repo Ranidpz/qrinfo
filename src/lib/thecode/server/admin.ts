@@ -14,6 +14,7 @@ import type {
   TheCodeConfig,
   TheCodeGnome,
   TheCodePhrase,
+  TheCodeBranding,
   TheCodePublicConfig,
   TheCodeRiddle,
   TheCodeRules,
@@ -38,6 +39,7 @@ export const THECODE_LIMITS = {
   phraseText: 60,
   url: 1000,
   videosPerTrigger: 5,
+  welcomeText: 140,
 } as const;
 
 /** Every colour a stored gnome may have (the choosable subset: THECODE_PALETTE in the engine). */
@@ -66,8 +68,12 @@ export function defaultTheCodeConfig(title = 'הקוד'): TheCodeConfig {
 }
 
 /** The world-readable stub kept on the code doc's media item. */
-export function toPublicConfig(config: Pick<TheCodeConfig, 'title' | 'status' | 'language'>): TheCodePublicConfig {
-  return { title: config.title, status: config.status, language: config.language };
+export function toPublicConfig(
+  config: Pick<TheCodeConfig, 'title' | 'status' | 'language' | 'branding'>
+): TheCodePublicConfig {
+  const out: TheCodePublicConfig = { title: config.title, status: config.status, language: config.language };
+  if (config.branding) out.branding = config.branding;
+  return out;
 }
 
 // ----------------------------------------------------------------- primitives
@@ -281,6 +287,16 @@ export function normalizeAdventure(
         if (urls.length) pv[t] = urls;
       }
       if (Object.keys(pv).length) config.presenterVideos = pv;
+    }
+    if (isObj(c.branding)) {
+      const branding: TheCodeBranding = {};
+      const background = url(c.branding.backgroundUrl);
+      if (background) branding.backgroundUrl = background;
+      const logo = url(c.branding.logoUrl);
+      if (logo) branding.logoUrl = logo;
+      const welcome = line(c.branding.welcomeText, THECODE_LIMITS.welcomeText);
+      if (welcome) branding.welcomeText = welcome;
+      if (Object.keys(branding).length) config.branding = branding;
     }
     return { ok: true, config, riddles, newGnomeIds, droppedRiddles };
   } catch (e) {

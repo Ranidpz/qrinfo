@@ -89,6 +89,42 @@ function assertNoLeak(snap, adv, { allowRiddleIds = [], phraseOpen = false } = {
   return json;
 }
 
+// ------------------------------------------------------------------ venue branding
+
+test('branding: only https urls and a short text survive; it is mirrored to the public stub and the snapshot', () => {
+  const base = { status: 'draft', title: 'מלון', language: 'he', spots: [], gnomes: [], phrases: [], rules: {} };
+  const none = A.normalizeAdventure(base, [], null);
+  assert.equal(none.config.branding, undefined);
+  assert.deepEqual(Object.keys(A.toPublicConfig(none.config)).sort(), ['language', 'status', 'title']);
+
+  const dirty = A.normalizeAdventure({
+    ...base,
+    branding: {
+      backgroundUrl: ' https://cdn.example.com/a b.jpg',
+      logoUrl: 'https://cdn.example.com/logo.png',
+      welcomeText: `  ברוכים   הבאים\nלמלון ${'x'.repeat(300)}`,
+      secret: 'nope',
+    },
+  }, [], null);
+  assert.equal(dirty.ok, true);
+  assert.deepEqual(Object.keys(dirty.config.branding).sort(), ['logoUrl', 'welcomeText']);
+  assert.equal(dirty.config.branding.logoUrl, 'https://cdn.example.com/logo.png');
+  assert.ok(dirty.config.branding.welcomeText.startsWith('ברוכים הבאים למלון'));
+  assert.ok(dirty.config.branding.welcomeText.length <= 140);
+
+  for (const bad of ['http://cdn.example.com/x.png', 'javascript:alert(1)', 'data:image/png;base64,AAAA', '//cdn/x.png', 42]) {
+    const r = A.normalizeAdventure({ ...base, branding: { logoUrl: bad } }, [], null);
+    assert.equal(r.config.branding, undefined, String(bad));
+  }
+
+  const adv = fixture();
+  adv.config.branding = { backgroundUrl: 'https://cdn.example.com/bg.webp', logoUrl: 'https://cdn.example.com/logo.png' };
+  assert.deepEqual(A.toPublicConfig(adv.config).branding, adv.config.branding);
+  assert.deepEqual(S.buildSnapshot(adv, null, NOON).adventure.branding, adv.config.branding);
+  delete adv.config.branding;
+  assert.ok(!('branding' in S.buildSnapshot(adv, null, NOON).adventure));
+});
+
 // ------------------------------------------------------------------ snapshot
 
 test('snapshot: no secrets at any stage of a whole run; riddle only after the scan', () => {

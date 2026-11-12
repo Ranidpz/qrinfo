@@ -107,6 +107,20 @@ export type TheCodeTrigger =
   | 'ALL_DONE';
 
 /**
+ * The venue's own look for the OPENING screen (scan → register / log in). Public by
+ * nature: a family sees it before it has a name. Once the family is in, the game wears
+ * our own brand. All optional — without it the opening screen keeps the default look.
+ */
+export interface TheCodeBranding {
+  /** Full-bleed photo or graphic of the venue behind the opening screen (R2). */
+  backgroundUrl?: string;
+  /** The venue's logo; a transparent PNG looks best. */
+  logoUrl?: string;
+  /** One or two lines under the title. Absent = a default built from the title. */
+  welcomeText?: string;
+}
+
+/**
  * The ONLY part of an adventure that is world-readable: a stub on the code's media
  * item (`thecodeConfig`), kept in sync by the server on every admin save. Everything
  * else (spots, gnomes, phrases, rules, riddles) is server-only — see TheCodeConfig.
@@ -115,6 +129,7 @@ export interface TheCodePublicConfig {
   title: string;
   status: 'draft' | 'published' | 'paused';
   language: TheCodeLanguage;
+  branding?: TheCodeBranding;
 }
 
 /**
@@ -134,6 +149,8 @@ export interface TheCodeConfig {
   requirePhoneVerification: boolean;      // Operator toggle: parent WhatsApp OTP
   activeHours?: { from: string; to: string };  // "08:00"–"21:00", venue local time
   presenterVideos?: Partial<Record<TheCodeTrigger, string[]>>;
+  /** Venue look of the opening screen; mirrored to the public stub on every save. */
+  branding?: TheCodeBranding;
   retentionDays: number;            // Player data auto-delete after inactivity
 }
 

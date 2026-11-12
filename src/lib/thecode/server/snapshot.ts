@@ -153,6 +153,7 @@ export function buildSnapshot(
       language: config.language,
       open: isAdventureOpen(config, now, timeZone),
       hotMultiplier: rules.hotMultiplier,
+      ...(config.branding ? { branding: config.branding } : {}),
     },
     player: player ? playerView(player, rules.hotStreakAt) : null,
     run: player ? runView(player, adv, now) : null,
