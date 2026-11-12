@@ -1,8 +1,10 @@
 # הקוד (The Code) — product + engineering plan
 
 Status: wave 1 DONE and merged into `feature/thecode` (engine + 36 tests, player demo,
-operator demo — Rani approved both demos on 12.11.2026). Wave 2 in progress (§8).
-Nothing pushed, nothing released.
+operator demo — Rani approved both demos on 12.11.2026). Wave 2 DONE and merged (server, live player + in-page scanner, live operator admin +
+dashboard). End-to-end verified on `qrinfo-dev` 12.11.2026: `node scripts/thecode-e2e.mjs`
+(55 checks against a running dev server; refuses any project but `qrinfo-dev`).
+Nothing pushed, nothing released. Open items: §9.
 Owner decisions were taken with Rani on 11.11.2026; this file is the source of truth
 for every session working on the feature. Internal slug: `thecode`.
 
@@ -251,3 +253,22 @@ More edge cases closed in wave 2
   wrong scan 30, wrong answer 20, cooldown 12 s, arrange help 50).
 - Left for wave 3: on-site setup scan by the operator's phone, English UI strings,
   presenter videos, WhatsApp verification, reception redemption.
+
+## 9. Open items after wave 2 (12.11.2026)
+
+Not verified yet: a real phone camera, a real paper print, the dashboard create flow and
+the operator admin under a real login (the e2e drives the admin API with a test owner).
+
+Before release (each needs Rani's explicit OK):
+1. Deploy `firestore.rules` to both projects (new locked paths, §8).
+2. Firestore TTL policy on collection group `thecodePlayers`, field `expireAt`.
+3. Version bump + changelog, push to `main`.
+4. The uploader tab is visible to super admins only until then.
+
+Product follow-ups:
+- Limit the colour palette per adventure to the filaments the operator really has
+  (Rani prints with black, white, purple, blue, green, yellow — no red/orange).
+- On-site setup scan from the operator's phone, English UI strings, presenter videos,
+  WhatsApp verification, reception redemption (wave 3).
+- Deleting a code does not yet remove its `thecode*` data and gnome-code index.
+- Server notes for integrators: `docs/THE_CODE_SERVER_NOTES.md`.

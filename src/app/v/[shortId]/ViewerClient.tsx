@@ -1277,7 +1277,8 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
   return (
     <div className="min-h-screen bg-black relative overflow-x-hidden overflow-y-auto animate-fadeIn">
       {/* PWA Install Banner */}
-      <PWAInstallBanner shortId={shortId} enabled={widgets?.pwaEncourage?.enabled !== false} />
+      {/* "הקוד" is one task per screen on a phone — no install banner on top of the game */}
+      <PWAInstallBanner shortId={shortId} enabled={widgets?.pwaEncourage?.enabled !== false && !isTheCode} />
 
       <style jsx global>{`
         @keyframes fadeIn {
