@@ -1,0 +1,196 @@
+/* הקוד — public guide. One night-sky column in the game's own look:
+   hero, the players part, the organizers part, then questions. Phone first. */
+
+.page {
+  --night: #0B1030;
+  --deep: #161E52;
+  --panel: rgba(255, 244, 218, 0.06);
+  --panel-strong: rgba(255, 244, 218, 0.10);
+  --line: rgba(255, 244, 218, 0.16);
+  --brass: #F4B740;
+  --brass-hi: #FFD978;
+  --brass-ink: #2A1600;
+  --cream: #FFF4DA;
+  --soft: rgba(255, 244, 218, 0.74);
+  --mint: #36E39A;
+  --coral: #FF7A8A;
+  --display: var(--tc-font-display), var(--font-assistant), "Arial Hebrew", Arial, sans-serif;
+  min-height: 100dvh;
+  background:
+    radial-gradient(900px 500px at 85% -10%, rgba(244, 183, 64, 0.10), transparent 60%),
+    var(--night);
+  color: var(--cream);
+  font-family: var(--font-assistant), "Arial Hebrew", Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.65;
+  color-scheme: dark;
+}
+
+.wrap {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-block: 40px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.page h1, .page h2, .page h3 {
+  font-family: var(--display);
+  font-weight: 400;
+  margin: 0;
+  text-wrap: balance;
+  line-height: 1.2;
+}
+.page h1 { font-size: clamp(44px, 9vw, 76px); color: var(--brass-hi); }
+.page h2 { font-size: clamp(28px, 5vw, 38px); }
+.page h3 { font-size: 21px; color: var(--brass-hi); }
+.page p { margin: 0; }
+.soft { color: var(--soft); }
+.eyebrow { font-size: 14px; font-weight: 700; letter-spacing: .06em; color: var(--brass); }
+
+.hero { display: flex; flex-direction: column; gap: 20px; align-items: flex-start; }
+.lead { font-size: clamp(19px, 3vw, 23px); max-width: 34em; }
+.parade { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
+.jump { display: flex; gap: 10px; flex-wrap: wrap; }
+.jump a {
+  color: var(--cream);
+  text-decoration: none;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 18px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--panel);
+}
+.jump a:hover, .jump a:focus-visible { border-color: var(--brass); outline: none; }
+
+.section { display: flex; flex-direction: column; gap: 22px; scroll-margin-top: 16px; }
+.head { display: flex; flex-direction: column; gap: 6px; }
+
+.steps {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px;
+}
+.steps li {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px; min-width: 0;
+}
+.num {
+  flex: none; width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-size: 21px;
+  background: var(--brass); color: var(--brass-ink);
+}
+.steps b { display: block; font-weight: 700; font-size: 18px; }
+.stepText { color: var(--soft); font-size: 16px; }
+
+.scene { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.spot {
+  background: var(--deep); border: 1px solid var(--line); border-radius: 22px; padding: 18px;
+  display: flex; flex-direction: column; gap: 14px; min-width: 0;
+}
+.row { display: flex; justify-content: space-around; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.who {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  padding: 10px 8px; border-radius: 16px; border: 2px dashed transparent; min-width: 96px;
+}
+.mine { border-color: var(--mint); background: rgba(54, 227, 154, 0.08); }
+.who small { font-size: 14.5px; color: var(--soft); line-height: 1.35; }
+.tag { font-size: 14px; font-weight: 700; border-radius: 999px; padding: 2px 12px; }
+.yes { background: var(--mint); color: #04321F; }
+.no { background: var(--panel-strong); color: var(--soft); }
+.phone {
+  background: var(--night); border: 2px solid var(--brass); border-radius: 26px; padding: 18px 16px;
+  display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; min-width: 0;
+}
+.hint {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 8px 12px; font-size: 16px; width: 100%;
+}
+.chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600;
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; background: var(--panel);
+}
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .5); flex: none; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 0; }
+.facts div { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; min-width: 0; }
+.facts dt {
+  font-family: var(--display); font-size: 30px; color: var(--brass-hi); line-height: 1.1;
+  font-variant-numeric: tabular-nums; direction: ltr; text-align: right;
+}
+.plus { color: var(--mint) !important; }
+.minus { color: var(--coral) !important; }
+.facts dd { margin: 4px 0 0; color: var(--soft); font-size: 16px; }
+
+.talk {
+  background: var(--deep); border: 1px solid var(--line); border-radius: 22px; padding: 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.bubble { max-width: 30em; border-radius: 18px; padding: 10px 16px; font-size: 18px; font-weight: 600; }
+.ask { background: var(--cream); color: #1B1F45; align-self: flex-start; border-bottom-right-radius: 4px; }
+.answer { background: var(--brass); color: var(--brass-ink); align-self: flex-end; border-bottom-left-radius: 4px; }
+
+.tips {
+  margin: 0; padding: 0; list-style: none;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 10px 28px;
+}
+.tips li { padding-inline-start: 20px; position: relative; }
+.tips li::before {
+  content: ""; position: absolute; inset-inline-start: 0; top: .62em;
+  width: 9px; height: 9px; border-radius: 50%; background: var(--brass);
+}
+
+.band { border-top: 1px solid var(--line); padding-top: 48px; }
+.blocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.blocks article {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 16px;
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.blocks p { color: var(--soft); font-size: 16px; }
+.auto {
+  background: var(--deep); border: 1px solid var(--line); border-radius: 22px; padding: 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+/* FAQ: native <details>, so it opens with one tap and needs no script. */
+.faq { display: flex; flex-direction: column; }
+.faq details { border-bottom: 1px solid var(--line); }
+.faq details:first-child { border-top: 1px solid var(--line); }
+.faq summary {
+  list-style: none; cursor: pointer; padding: 16px 0; min-height: 44px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 18px; font-weight: 700;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary:focus-visible { outline: 2px solid var(--brass); outline-offset: 4px; border-radius: 6px; }
+.faq summary::after {
+  content: "+"; flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700; color: var(--brass-hi); background: var(--panel-strong);
+}
+.faq details[open] summary::after { content: "−"; }
+.faq details p { color: var(--soft); max-width: 44em; padding-bottom: 16px; }
+
+.footer {
+  border-top: 1px solid var(--line); padding-top: 24px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  color: var(--soft); font-size: 15px;
+}
+.footer a { color: var(--brass-hi); text-decoration: none; font-weight: 600; }
+
+@media (max-width: 700px) {
+  .wrap { gap: 44px; padding-block: 28px 44px; }
+  .scene { grid-template-columns: 1fr; }
+  /* The three gnomes of one spot stay side by side on a phone, as they stand in real life. */
+  .spot { padding: 16px 12px; }
+  .row { flex-wrap: nowrap; gap: 4px; }
+  .who { flex: 1 1 0; min-width: 0; padding: 8px 4px; }
+  .tag { font-size: 12.5px; padding: 2px 8px; line-height: 1.35; }
+}

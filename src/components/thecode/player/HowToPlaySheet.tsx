@@ -4,8 +4,12 @@
 // Pure overlay: opening / closing it never touches the game state. The lines come from
 // the server (the operator's own, or the default built from the real rules) — shown as is.
 
+import Link from 'next/link';
 import { useEffect } from 'react';
 import { useSfx } from './ui';
+
+/** The public guide page (src/app/play/the-code/guide). */
+const GUIDE_URL = '/play/the-code/guide';
 
 interface Props {
   open: boolean;
@@ -54,7 +58,14 @@ export default function HowToPlaySheet({ open, lines, closeLabel, onClose }: Pro
             </li>
           ))}
         </ol>
-        <div className="shrink-0 px-5 pb-7 pt-3">
+        <div className="flex shrink-0 flex-col gap-2 px-5 pb-7 pt-3">
+          {/* Full guide in a new tab, so the game screen stays where it was. */}
+          <Link href={GUIDE_URL} target="_blank" rel="noopener"
+            className="flex min-h-[44px] items-center justify-center gap-1.5 text-base font-bold underline-offset-4 hover:underline"
+            style={{ color: 'var(--tc-brass-hi)' }}>
+            למדריך המלא
+            <span aria-hidden>←</span>
+          </Link>
           <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onClose}>{closeLabel}</button>
         </div>
       </div>

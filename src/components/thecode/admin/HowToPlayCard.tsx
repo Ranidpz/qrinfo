@@ -47,7 +47,7 @@ export default function HowToPlayCard({ state, actions }: Pick<ScreenProps, 'sta
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <BookOpenText size={20} className="text-accent" aria-hidden /> איך משחקים
           </h2>
-          <p className="mt-1 text-text-secondary">ההסבר הקצר שמשפחות פותחות מכל מסך במשחק.</p>
+          <p className="mt-1 text-text-secondary">ההסבר הקצר שקבוצות פותחות מכל מסך במשחק.</p>
         </div>
         {!draft && (
           <div className="flex flex-wrap gap-2">

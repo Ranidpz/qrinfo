@@ -60,7 +60,7 @@ export default function RegisterScreen(p: Props) {
         <CodeTitle small={!p.branding?.logoUrl} smaller={!!p.branding?.logoUrl} />
         <div className="tc-a-rise text-center">
           <h2 className="tc-display text-3xl">כבר שיחקתם אצלנו?</h2>
-          <p className="mt-2 text-lg" style={{ color: 'var(--tc-soft)' }}>הקלידו את קוד השחזור של המשפחה, והנקודות והמזוודות יחזרו אליכם.</p>
+          <p className="mt-2 text-lg" style={{ color: 'var(--tc-soft)' }}>הקלידו את קוד השחזור של הקבוצה, והנקודות והמזוודות יחזרו אליכם.</p>
         </div>
         <label className="block">
           <span className="sr-only">קוד שחזור</span>
@@ -79,10 +79,10 @@ export default function RegisterScreen(p: Props) {
         {p.recoverError && <p role="alert" className="tc-a-shake text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{p.recoverError}</p>}
         <button type="button" className="tc-btn tc-btn-primary w-full" disabled={code.replace(/[^A-Z0-9]/g, '').length < 4}
           onClick={() => { sfx('tap'); p.onRecover(code); }}>
-          שחזרו את המשפחה
+          שחזרו את הקבוצה
         </button>
         <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => p.onMode('new')}>
-          אנחנו משפחה חדשה
+          אנחנו קבוצה חדשה
         </button>
         <PoweredBy />
       </ScreenBody>
@@ -110,7 +110,7 @@ export default function RegisterScreen(p: Props) {
       <div className="tc-a-rise tc-delay-1">
         {p.firstGnome && <CodeTitle small={!logo} smaller={!!logo} />}
         <p className="mt-3 whitespace-pre-line text-center text-lg" style={{ color: branded ? 'var(--tc-cream)' : 'var(--tc-soft)', textShadow: branded ? '0 1px 8px rgba(0,0,0,.6)' : undefined }}>
-          {p.addingProfile ? 'עוד משפחה משחקת מהטלפון הזה? בחרו לה כינוי.' : (p.branding?.welcomeText?.trim() || `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`)}
+          {p.addingProfile ? 'עוד קבוצה משחקת מהטלפון הזה? בחרו לה כינוי.' : (p.branding?.welcomeText?.trim() || `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`)}
         </p>
       </div>
 

@@ -183,7 +183,7 @@ function reword(issue: TheCodeIssue, state: AdminState, phrases: Record<string, 
       out.message = `גמד ${gnome?.number} לא משויך למקום. בחרו לו מקום.`;
       break;
     case 'GNOME_WITHOUT_RIDDLE':
-      out.message = `לגמד ${gnome?.number} אין חידה מפורסמת, ולכן אף משפחה לא תגיע אליו.`;
+      out.message = `לגמד ${gnome?.number} אין חידה מפורסמת, ולכן אף קבוצה לא תגיע אליו.`;
       break;
     case 'GNOME_NOT_VERIFIED':
       out.message = `גמד ${gnome?.number} עוד לא נסרק במקום.`;
@@ -202,7 +202,7 @@ function reword(issue: TheCodeIssue, state: AdminState, phrases: Record<string, 
       break;
     }
     case 'SPOT_WITHOUT_HINT':
-      out.message = `למקום "${spot?.name}" אין רמזים, ומשפחות לא ימצאו אותו.`;
+      out.message = `למקום "${spot?.name}" אין רמזים, וקבוצות לא ימצאו אותו.`;
       break;
     case 'RIDDLE_AMBIGUOUS_LETTER':
       if (riddle && issue.letter) {
@@ -212,8 +212,8 @@ function reword(issue: TheCodeIssue, state: AdminState, phrases: Record<string, 
       break;
     case 'GNOMES_CLUSTERED':
       out.message = spot
-        ? `כמעט כל הגמדים עומדים ב"${spot.name}". פזרו אותם בכמה מקומות, כדי שמשפחות יסתובבו במלון.`
-        : 'כמעט כל הגמדים עומדים באותו מקום. פזרו אותם בכמה מקומות, כדי שמשפחות יסתובבו במלון.';
+        ? `כמעט כל הגמדים עומדים ב"${spot.name}". פזרו אותם בכמה מקומות, כדי שקבוצות יסתובבו בכל המתחם.`
+        : 'כמעט כל הגמדים עומדים באותו מקום. פזרו אותם בכמה מקומות, כדי שקבוצות יסתובבו בכל המתחם.';
       break;
     case 'FEW_FRESH_ROUNDS':
       // Reworded in buildAdventureReport (needs the letter stock).
@@ -256,7 +256,7 @@ export function buildAdventureReport(state: AdminState): AdventureReport {
     const short = letterStock.filter((l) => l.supply < l.demand).map((l) => letterLabel(l.letter));
     return {
       ...i,
-      message: `משפחה תוכל לפתוח רק ${n === 1 ? 'מזוודה אחת' : `${n} מזוודות`} ואז ייגמרו לה החידות.${short.length ? ` הוסיפו עוד חידות לאותיות ${short.join(', ')}.` : ' הוסיפו עוד חידות או משפטים.'}`,
+      message: `קבוצה תוכל לפתוח רק ${n === 1 ? 'מזוודה אחת' : `${n} מזוודות`} ואז ייגמרו לה החידות.${short.length ? ` הוסיפו עוד חידות לאותיות ${short.join(', ')}.` : ' הוסיפו עוד חידות או משפטים.'}`,
     };
   });
   const errors = issues.filter((i) => i.severity === 'error').length;

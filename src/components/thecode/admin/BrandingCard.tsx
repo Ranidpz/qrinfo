@@ -26,9 +26,9 @@ export default function BrandingCard({ state, actions, uploadImage }: Pick<Scree
 
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold">מיתוג המלון</h2>
+      <h2 className="text-lg font-semibold">מיתוג המקום</h2>
       <p className="mt-1 text-text-secondary">
-        המסך הראשון שמשפחה רואה אחרי שסרקה גמד הוא של המלון: תמונה, לוגו ומשפט פתיחה, ואז הרשמה. בתוך המשחק נשאר העיצוב שלנו.
+        המסך הראשון שקבוצה רואה אחרי שסרקה גמד הוא שלכם: תמונה, לוגו ומשפט פתיחה, ואז הרשמה. בתוך המשחק נשאר העיצוב שלנו.
       </p>
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -44,7 +44,7 @@ export default function BrandingCard({ state, actions, uploadImage }: Pick<Scree
 
           <div>
             <ImageDropZone
-              label="לוגו המלון"
+              label="הלוגו שלכם"
               emptyText="קובץ PNG עם רקע שקוף נראה הכי טוב. השקיפות נשמרת."
               aspect="aspect-[3/1] max-w-sm"
               fit="contain"
@@ -74,7 +74,7 @@ export default function BrandingCard({ state, actions, uploadImage }: Pick<Scree
         </div>
 
         <div className="flex flex-col items-center">
-          <span className="mb-2 text-sm font-medium text-text-secondary">כך המשפחות יראו את מסך הפתיחה</span>
+          <span className="mb-2 text-sm font-medium text-text-secondary">כך הקבוצות יראו את מסך הפתיחה</span>
           <PhonePreview branding={b} title={config.title} />
         </div>
       </div>

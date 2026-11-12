@@ -268,7 +268,7 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
           patchUi((u) => ({ ...u, registering: { mode: 'new', adding: u.registering?.adding ?? false, nameError: 'הכינוי הזה לא מתאים. בחרו כינוי אחר.' } }));
           break;
         case 'recoveryNotFound':
-          patchUi((u) => ({ ...u, registering: { mode: 'recover', adding: u.registering?.adding ?? false, recoverError: 'לא מצאנו משפחה עם הקוד הזה. בדקו אותו ונסו שוב.' } }));
+          patchUi((u) => ({ ...u, registering: { mode: 'recover', adding: u.registering?.adding ?? false, recoverError: 'לא מצאנו קבוצה עם הקוד הזה. בדקו אותו ונסו שוב.' } }));
           break;
         case 'rateLimited':
         case 'badRequest':

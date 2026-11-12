@@ -16,7 +16,7 @@ interface Props {
 export default function ProfileSheet({ open, profile, profiles, onClose, onSwitch, onAdd }: Props) {
   if (!open) return null;
   return (
-    <div className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="המשפחות בטלפון הזה">
+    <div className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="הקבוצות בטלפון הזה">
       <button type="button" aria-label="סגירה" className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="tc-a-rise relative rounded-t-[28px] px-5 pb-8 pt-3" style={{ background: 'linear-gradient(180deg,#1E2766,#141A48)', boxShadow: '0 -10px 40px rgba(0,0,0,.5)' }}>
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/25" aria-hidden />
@@ -39,7 +39,7 @@ export default function ProfileSheet({ open, profile, profiles, onClose, onSwitc
           })}
         </ul>
         <button type="button" className="tc-btn tc-btn-ghost mt-3 w-full" onClick={onAdd}>
-          <span aria-hidden>＋</span> משפחה נוספת בטלפון הזה
+          <span aria-hidden>＋</span> קבוצה נוספת בטלפון הזה
         </button>
         {profile && (
           <div className="mt-5 rounded-2xl px-4 py-3" style={{ background: 'rgba(0,0,0,.25)' }}>

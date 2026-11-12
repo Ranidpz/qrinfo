@@ -22,7 +22,7 @@ function foldWarnings(issues: TheCodeIssue[], gnomeNo: (id?: string) => number |
   const out: { key: string; message: string; issue: TheCodeIssue }[] = [];
   const fold: Partial<Record<TheCodeIssue['code'], (nums: string) => string>> = {
     GNOME_NOT_VERIFIED: (n) => `גמדים ${n} עוד לא נסרקו במקום.`,
-    GNOME_WITHOUT_RIDDLE: (n) => `לגמדים ${n} אין חידה מפורסמת, ולכן אף משפחה לא תגיע אליהם.`,
+    GNOME_WITHOUT_RIDDLE: (n) => `לגמדים ${n} אין חידה מפורסמת, ולכן אף קבוצה לא תגיע אליהם.`,
   };
   const groups = new Map<string, TheCodeIssue[]>();
   for (const i of issues) {
@@ -95,10 +95,10 @@ export default function OverviewScreen({
             </div>
             <div className="mt-1 text-text-secondary">
               {config.status === 'published'
-                ? 'משפחות יכולות לשחק עכשיו.'
+                ? 'קבוצות יכולות לשחק עכשיו.'
                 : config.status === 'paused'
-                ? 'משפחות שסורקות גמד רואות "המשחק בהפסקה". ההתקדמות שלהן נשמרת.'
-                : 'ההרפתקה עוד לא פתוחה למשפחות.'}
+                ? 'קבוצות שסורקות גמד רואות "המשחק בהפסקה". ההתקדמות שלהן נשמרת.'
+                : 'ההרפתקה עוד לא פתוחה לקבוצות.'}
             </div>
           </div>
           {config.status === 'published' ? (
@@ -112,7 +112,7 @@ export default function OverviewScreen({
         {config.status === 'published' && confirmPause && (
           <div className="mt-4 rounded-lg bg-warning/10 px-4 py-3 text-sm">
             <p className="text-amber-800 dark:text-amber-300">
-              להשהות את המשחק? משפחות שבאמצע מזוודה יראו &quot;המשחק בהפסקה&quot; כשיסרקו גמד. כל ההתקדמות שלהן נשמרת, והן ימשיכו מאותה נקודה כשתחדשו.
+              להשהות את המשחק? קבוצות שבאמצע מזוודה יראו &quot;המשחק בהפסקה&quot; כשיסרקו גמד. כל ההתקדמות שלהן נשמרת, והן ימשיכו מאותה נקודה כשתחדשו.
             </p>
             <div className="mt-3 flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setConfirmPause(false)}>ביטול</Button>
@@ -138,7 +138,7 @@ export default function OverviewScreen({
         {config.status === 'published' && !canPublish && (
           <div className="mt-4 flex items-center gap-2 text-sm text-danger">
             <CircleAlert size={16} aria-hidden />
-            יש שגיאות בתוכן. משפחות ימשיכו לשחק רק במשפטים התקינים.
+            יש שגיאות בתוכן. קבוצות ימשיכו לשחק רק במשפטים התקינים.
           </div>
         )}
       </Card>
@@ -153,8 +153,8 @@ export default function OverviewScreen({
         >
           <ImageIcon size={22} className="shrink-0 text-accent" aria-hidden />
           <span className="min-w-0 flex-1">
-            <span className="block font-medium">הוסיפו תמונה ולוגו של המלון למסך הפתיחה</span>
-            <span className="block text-sm text-text-secondary">משפחות רואות אותו מיד אחרי הסריקה הראשונה.</span>
+            <span className="block font-medium">הוסיפו תמונה ולוגו שלכם למסך הפתיחה</span>
+            <span className="block text-sm text-text-secondary">קבוצות רואות אותו מיד אחרי הסריקה הראשונה.</span>
           </span>
           <ChevronLeft size={16} className="shrink-0 text-accent" aria-hidden />
         </button>
@@ -229,7 +229,7 @@ export default function OverviewScreen({
           big
           icon={Luggage}
           value={report.freshSuitcases}
-          label="מזוודות חדשות למשפחה"
+          label="מזוודות חדשות לקבוצה"
           tone={report.freshSuitcases < 2 ? 'warning' : undefined}
           onClick={() => navigate({ tab: 'phrases' })}
         />
@@ -242,7 +242,7 @@ export default function OverviewScreen({
       <Card className="p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">בשטח</h2>
-          <span className="ms-auto text-sm text-text-secondary">{weekFamilies} משפחות שיחקו השבוע</span>
+          <span className="ms-auto text-sm text-text-secondary">{weekFamilies} קבוצות שיחקו השבוע</span>
           {refresh && (
             <button
               type="button"
@@ -273,11 +273,11 @@ export default function OverviewScreen({
 }
 
 const STEPS: { tab: AdminTab; title: string; text: string }[] = [
-  { tab: 'spots', title: 'מקומות', text: 'איפה במלון יעמדו הגמדים, עם רמזים שיובילו אליהם.' },
+  { tab: 'spots', title: 'מקומות', text: 'איפה במתחם יעמדו הגמדים, עם רמזים שיובילו אליהם.' },
   { tab: 'gnomes', title: 'גמדים', text: 'כמה גמדים בכל מקום, ובאילו צבעים.' },
   { tab: 'riddles', title: 'חידות', text: 'חידה לכל גמד, על משהו שרואים ממנו.' },
-  { tab: 'phrases', title: 'משפטים סודיים', text: 'המשפט שהמשפחות ירכיבו מהאותיות.' },
-  { tab: 'overview', title: 'פרסום', text: 'בדקו מוכנות ופרסמו — ומשפחות יכולות לשחק.' },
+  { tab: 'phrases', title: 'משפטים סודיים', text: 'המשפט שהקבוצות ירכיבו מהאותיות.' },
+  { tab: 'overview', title: 'פרסום', text: 'בדקו מוכנות ופרסמו — וקבוצות יכולות לשחק.' },
 ];
 
 /** Leads a brand-new operator through the order that works. Hidden once everything is done. */
@@ -298,7 +298,7 @@ function GettingStarted({ state, report, navigate }: Pick<ScreenProps, 'state' |
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">{fresh ? 'בואו נבנה את ההרפתקה' : 'ממשיכים לבנות'}</h2>
-      <p className="text-text-secondary">{fresh ? 'חמישה צעדים, בסדר הזה. אפשר לחזור ולשנות כל דבר בהמשך.' : 'זה מה שנשאר עד שמשפחות יוכלו לשחק.'}</p>
+      <p className="text-text-secondary">{fresh ? 'חמישה צעדים, בסדר הזה. אפשר לחזור ולשנות כל דבר בהמשך.' : 'זה מה שנשאר עד שקבוצות יוכלו לשחק.'}</p>
       <ol className="mt-4 space-y-2">
         {STEPS.map((st, i) => (
           <li key={st.title}>
@@ -335,10 +335,10 @@ function LinksCard({ links }: { links: NonNullable<ScreenProps['links']> }) {
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold">קישורים</h2>
-      <p className="text-text-secondary">הכתובות הקבועות של המשחק. שתפו אותן עם צוות המלון.</p>
+      <p className="text-text-secondary">הכתובות הקבועות של המשחק. שתפו אותן עם הצוות שלכם.</p>
       <div className="mt-4 space-y-3">
-        <LinkRow label="דף הבית של המשחק" hint="למשפחות שרוצות להמשיך או לראות את הלוח" url={links.game} />
-        <LinkRow label="לוח התוצאות למסך בלובי" hint="פתחו אותו בטלוויזיה של המלון" url={links.lobby} />
+        <LinkRow label="דף הבית של המשחק" hint="לקבוצות שרוצות להמשיך או לראות את הלוח" url={links.game} />
+        <LinkRow label="לוח התוצאות למסך גדול" hint="פתחו אותו בטלוויזיה או במקרן" url={links.lobby} />
       </div>
     </Card>
   );

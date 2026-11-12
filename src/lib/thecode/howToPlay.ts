@@ -12,7 +12,7 @@ export const HOW_TO_PLAY_LIMITS = { lines: 8, line: 160 } as const;
 export function defaultHowToPlay(rules: TheCodeRules, language: TheCodeLanguage = 'he'): string[] {
   if (language === 'en') {
     return [
-      'Gnomes are hiding around the hotel. Each one guards a letter of a secret phrase.',
+      'Gnomes are hiding all around you. Each one guards a letter of a secret phrase.',
       'The game sends you to one gnome at a time with a clue to where it stands. Look closely at the colours: only the right gnome counts.',
       'Scan the right gnome and you get a riddle. Tap the FIRST letter of the answer.',
       `Every correct letter is worth ${rules.pointsPerLetter} points. ${rules.hotStreakAt} in a row and you are on fire: points ×${rules.hotMultiplier}.`,
@@ -22,7 +22,7 @@ export function defaultHowToPlay(rules: TheCodeRules, language: TheCodeLanguage 
     ];
   }
   return [
-    'במלון מסתתרים גמדים. כל גמד שומר על אות אחת מתוך משפט סודי.',
+    'מסביבכם מסתתרים גמדים. כל גמד שומר על אות אחת מתוך משפט סודי.',
     'המשחק שולח אתכם לגמד אחד בכל פעם, עם רמז איפה הוא עומד. הסתכלו טוב על הצבעים — רק הגמד הנכון נחשב.',
     'סרקו את הגמד הנכון וקבלו חידה. הקישו על האות הראשונה של התשובה.',
     `כל אות נכונה שווה ${rules.pointsPerLetter} נקודות. ${rules.hotStreakAt} תשובות נכונות ברצף ואתם שחקנים חמים: הנקודות ×${rules.hotMultiplier}.`,

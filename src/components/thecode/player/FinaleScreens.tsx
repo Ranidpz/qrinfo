@@ -179,7 +179,7 @@ export function SuitcaseScreen({ suitcase, onNext }: { suitcase: SuitcaseView; o
       <div className="tc-a-stamp rounded-2xl border-4 px-5 py-2" style={{ borderColor: 'var(--tc-mint)', color: 'var(--tc-mint)', animationDelay: '2.2s' }}>
         <p className="tc-display text-2xl">✓ הזכייה נרשמה</p>
       </div>
-      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onNext}>לטבלת המשפחות</button>
+      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onNext}>לטבלת הקבוצות</button>
     </ScreenBody>
   );
 }
@@ -239,7 +239,7 @@ function Leaderboard({ rows, meOutside }: { rows: LeaderRowView[]; meOutside?: {
         <p className="mt-2 text-center" style={{ color: 'var(--tc-soft)' }}>אתם במקום <span className="tc-num">{meOutside.rank}</span></p>
       ) : null}
       {!rows.length && (
-        <p className="text-center text-lg" style={{ color: 'var(--tc-soft)' }}>עוד אין משפחות בטבלה. הנקודות הראשונות יכניסו אתכם אליה!</p>
+        <p className="text-center text-lg" style={{ color: 'var(--tc-soft)' }}>עוד אין קבוצות בטבלה. הנקודות הראשונות יכניסו אתכם אליה!</p>
       )}
     </div>
   );
@@ -319,7 +319,7 @@ export function SummaryScreen({ profile, summary, onNewSuitcase, onBoardScope }:
           <span aria-hidden>🧳</span> מזוודה חדשה
         </button>
       ) : (
-        <HintCard tone="brass" className="text-center">פתחתם את כל המזוודות של המלון. כל הכבוד!</HintCard>
+        <HintCard tone="brass" className="text-center">פתחתם את כל המזוודות. כל הכבוד!</HintCard>
       )}
     </ScreenBody>
   );

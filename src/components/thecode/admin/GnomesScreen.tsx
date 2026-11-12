@@ -271,7 +271,7 @@ function GnomeEditor({
             <>
               <span className="me-auto text-sm text-danger">
                 {riddles > 0
-                  ? `למחוק את הגמד ואת ${riddles === 1 ? 'החידה שלו' : `${riddles} החידות שלו`}? משפחות שנשלחו אליו יקבלו את האות מגמד אחר, והלוחית שלו תפסיק לעבוד.`
+                  ? `למחוק את הגמד ואת ${riddles === 1 ? 'החידה שלו' : `${riddles} החידות שלו`}? קבוצות שנשלחו אליו יקבלו את האות מגמד אחר, והלוחית שלו תפסיק לעבוד.`
                   : 'למחוק את הגמד? הלוחית שלו תפסיק לעבוד.'}
               </span>
               <Button variant="ghost" onClick={() => setConfirmDelete(false)}>ביטול</Button>
@@ -327,7 +327,7 @@ function GnomeEditor({
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
               <div className="font-medium">פעיל</div>
-              <div className="text-sm text-text-secondary">כבוי = שבור או חסר. משפחות באמצע משחק יקבלו את האות ממקום אחר.</div>
+              <div className="text-sm text-text-secondary">כבוי = שבור או חסר. קבוצות באמצע משחק יקבלו את האות ממקום אחר.</div>
             </div>
             <Toggle checked={g.isActive} onChange={(v) => onChange({ isActive: v })} label="פעיל" />
           </div>

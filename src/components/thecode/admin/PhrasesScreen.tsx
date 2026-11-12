@@ -41,8 +41,8 @@ export default function PhrasesScreen({ state, report, actions, navigate, target
             {report.freshSuitcases === 0
               ? 'עוד אין מזוודה שאפשר לפתוח.'
               : report.freshSuitcases === 1
-              ? 'משפחה יכולה לפתוח מזוודה חדשה אחת.'
-              : `משפחה יכולה לפתוח ${report.freshSuitcases} מזוודות חדשות, בלי לפתור חידה פעמיים.`}
+              ? 'קבוצה יכולה לפתוח מזוודה חדשה אחת.'
+              : `קבוצה יכולה לפתוח ${report.freshSuitcases} מזוודות חדשות, בלי לפתור חידה פעמיים.`}
           </span>
         }
         actions={
@@ -80,7 +80,7 @@ export default function PhrasesScreen({ state, report, actions, navigate, target
 
       <div className="mt-8 space-y-4">
         {phrases.length === 0 && (
-          <EmptyState icon={KeyRound} title="עוד אין משפטים" text="משפט סודי נועל מזוודה. משפחה אוספת את האותיות שלו מהגמדים ומסדרת אותן." />
+          <EmptyState icon={KeyRound} title="עוד אין משפטים" text="משפט סודי נועל מזוודה. קבוצה אוספת את האותיות שלו מהגמדים ומסדרת אותן." />
         )}
         {phrases.map((p) => (
           <PhraseCard
@@ -105,7 +105,7 @@ export default function PhrasesScreen({ state, report, actions, navigate, target
             <ChevronLeft size={16} className="ms-auto text-text-secondary transition-transform group-open:-rotate-90" aria-hidden />
           </summary>
           <div className="border-t border-border px-6 py-5">
-            <p className="mb-4 text-sm text-text-secondary">כמה פעמים כל אות מופיעה במשפטים הפעילים, מול כמה חידות מפורסמות נותנות אותה. כדי שמשפחה תחזור ותפתח עוד מזוודות, כדאי פי שניים חידות.</p>
+            <p className="mb-4 text-sm text-text-secondary">כמה פעמים כל אות מופיעה במשפטים הפעילים, מול כמה חידות מפורסמות נותנות אותה. כדי שקבוצה תחזור ותפתח עוד מזוודות, כדאי פי שניים חידות.</p>
             <div className="flex flex-wrap gap-4">
               {report.letterStock.map((l) => (
                 <button

@@ -1350,8 +1350,8 @@ export function analyzeAdventure(config: TheCodeConfig, riddles: TheCodeRiddle[]
       issues.push({
         severity: 'warning', code: 'GNOMES_CLUSTERED', spotId: topSpot, have: top, need: activeGnomes.length,
         message: he
-          ? `${top} מתוך ${activeGnomes.length} הגמדים עומדים ב"${name}" — פזרו אותם כדי שהמשפחות יסתובבו במקום`
-          : `${top} of ${activeGnomes.length} gnomes stand at "${name}" — spread them out so families explore the venue`,
+          ? `${top} מתוך ${activeGnomes.length} הגמדים עומדים ב"${name}" — פזרו אותם כדי שהקבוצות יסתובבו במקום`
+          : `${top} of ${activeGnomes.length} gnomes stand at "${name}" — spread them out so groups explore the venue`,
       });
     }
   }
@@ -1369,8 +1369,8 @@ export function analyzeAdventure(config: TheCodeConfig, riddles: TheCodeRiddle[]
           issues.push({
             severity: 'error', code: 'DUPLICATE_COLORS_AT_SPOT', spotId: spot.id, gnomeId: b.id,
             message: he
-              ? `ב"${spot.name}" גמדים ${pair} נראים זהים (${COLOR_NAMES_HE[a.bodyColor]} עם כובע ${COLOR_NAMES_HE[a.hatColor]}) — המשפחה לא תדע מי הנכון`
-              : `At "${spot.name}" gnomes ${pair} look identical — families cannot tell them apart`,
+              ? `ב"${spot.name}" גמדים ${pair} נראים זהים (${COLOR_NAMES_HE[a.bodyColor]} עם כובע ${COLOR_NAMES_HE[a.hatColor]}) — הקבוצה לא תדע מי הנכון`
+              : `At "${spot.name}" gnomes ${pair} look identical — groups cannot tell them apart`,
           });
         } else if (rg(a.bodyColor) === rg(b.bodyColor) && rg(a.hatColor) === rg(b.hatColor)) {
           issues.push({
@@ -1422,8 +1422,8 @@ export function analyzeAdventure(config: TheCodeConfig, riddles: TheCodeRiddle[]
     issues.push({
       severity: 'warning', code: 'FEW_FRESH_ROUNDS', have: freshSuitcases, need: FEW_FRESH_SUITCASES,
       message: he
-        ? `משפחה חדשה תוכל לפתוח רק ${freshSuitcases} מזוודות חדשות — הוסיפו חידות או ביטויים`
-        : `A new family can open only ${freshSuitcases} fresh suitcases — add riddles or phrases`,
+        ? `קבוצה חדשה תוכל לפתוח רק ${freshSuitcases} מזוודות חדשות — הוסיפו חידות או ביטויים`
+        : `A new group can open only ${freshSuitcases} fresh suitcases — add riddles or phrases`,
     });
   }
 

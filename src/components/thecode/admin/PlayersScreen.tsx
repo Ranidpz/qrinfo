@@ -27,8 +27,8 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
   return (
     <div className="mx-auto max-w-3xl">
       <ScreenHeader
-        title="משפחות"
-        summary={`${state.players.length} משפחות שיחקו${hidden ? `, ${hidden} מוסתרות מהלוח` : ''}. רק כינוי ואימוג׳י — בלי שמות מלאים ובלי טלפונים.`}
+        title="קבוצות"
+        summary={`${state.players.length} קבוצות שיחקו${hidden ? `, ${hidden} מוסתרות מהלוח` : ''}. רק כינוי ואימוג׳י — בלי שמות מלאים ובלי טלפונים.`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {refresh && (
@@ -44,15 +44,15 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
       {state.players.length > 0 && (
         <div className="relative mb-4">
           <Search size={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-secondary" aria-hidden />
-          <input className="input ps-9" placeholder="חפשו משפחה" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input className="input ps-9" placeholder="חפשו קבוצה" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       )}
 
       {list.length === 0 ? (
         <EmptyState
           icon={Trophy}
-          title={state.players.length ? (q ? 'לא נמצאה משפחה' : 'אף משפחה לא שיחקה השבוע') : 'עוד אף משפחה לא שיחקה'}
-          text={state.players.length ? undefined : 'אחרי שתפרסמו ומשפחות יסרקו את הגמד הראשון, הן יופיעו כאן.'}
+          title={state.players.length ? (q ? 'לא נמצאה קבוצה' : 'אף קבוצה לא שיחקה השבוע') : 'עוד אף קבוצה לא שיחקה'}
+          text={state.players.length ? undefined : 'אחרי שתפרסמו וקבוצות יסרקו את הגמד הראשון, הן יופיעו כאן.'}
         />
       ) : (
         <Card className="divide-y divide-border">
@@ -91,7 +91,7 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
                   <div className="flex shrink-0">
                     <IconButton icon={Pencil} label="שנו שם" onClick={() => setEditing(p.id)} />
                     <IconButton icon={p.hidden ? Eye : EyeOff} label={p.hidden ? 'הציגו בלוח' : 'הסתירו מהלוח'} onClick={() => actions.updatePlayer(p.id, { hidden: !p.hidden })} />
-                    <IconButton icon={Trash2} label="הסירו משפחה" onClick={() => setRemoving({ id: p.id, step: 1 })} />
+                    <IconButton icon={Trash2} label="הסירו קבוצה" onClick={() => setRemoving({ id: p.id, step: 1 })} />
                   </div>
                 )}
                 {removing?.id === p.id && (
@@ -99,7 +99,7 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
                     <div className="text-red-700 dark:text-red-400">
                       {removing.step === 1
                         ? `להסיר את "${p.familyName}"? הנקודות, המזוודות וההתקדמות שלה יימחקו.`
-                        : 'בטוחים? אי אפשר לבטל את זה, והמשפחה תצטרך להירשם מחדש.'}
+                        : 'בטוחים? אי אפשר לבטל את זה, והקבוצה תצטרך להירשם מחדש.'}
                     </div>
                     <div className="mt-2 flex justify-end gap-2">
                       <Button size="sm" variant="ghost" onClick={() => setRemoving(null)}>ביטול</Button>

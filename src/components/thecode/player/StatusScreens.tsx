@@ -21,12 +21,12 @@ export function AllDoneScreen({ profile, onSummary }: { profile: PlayerProfileVi
       </div>
       <h2 className="tc-display text-5xl leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>פתחתם את כל המזוודות!</h2>
       <p className="text-xl" style={{ color: 'var(--tc-soft)' }}>
-        אין כרגע מזוודות חדשות במלון. בביקור הבא יחכו לכם גמדים וחידות חדשים.
+        אין כרגע מזוודות חדשות. בפעם הבאה יחכו לכם גמדים וחידות חדשים.
       </p>
       {profile && (
         <div className="flex items-center gap-2 text-4xl"><StarCoin size={34} /><CountUp value={profile.points} /></div>
       )}
-      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onSummary}>לטבלת המשפחות</button>
+      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onSummary}>לטבלת הקבוצות</button>
     </ScreenBody>
   );
 }

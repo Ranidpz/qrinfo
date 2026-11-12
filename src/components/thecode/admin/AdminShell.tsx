@@ -27,7 +27,7 @@ const TABS: { id: AdminTab; label: string; icon: LucideIcon }[] = [
   { id: 'phrases', label: 'משפטים', icon: KeyRound },
   { id: 'print', label: 'הדפסה', icon: Printer },
   { id: 'setup', label: 'מצב התקנה', icon: ScanLine },
-  { id: 'players', label: 'משפחות', icon: Trophy },
+  { id: 'players', label: 'קבוצות', icon: Trophy },
   { id: 'settings', label: 'הגדרות', icon: Settings },
 ];
 

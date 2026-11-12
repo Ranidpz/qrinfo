@@ -55,7 +55,7 @@ function Header({ state, onProfiles, onMute, onHowTo }: { state: PlayerState; on
   const p = state.profile!;
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
-      <button type="button" className="tc-chip min-w-0 max-w-[40%] shrink" onClick={onProfiles} aria-label={`המשפחה: ${p.familyName}. החלפת משפחה וקוד שחזור`}>
+      <button type="button" className="tc-chip min-w-0 max-w-[40%] shrink" onClick={onProfiles} aria-label={`הקבוצה: ${p.familyName}. החלפת קבוצה וקוד שחזור`}>
         <span className="text-xl" aria-hidden>{p.emoji}</span>
         <span className="truncate">{p.familyName}</span>
         {state.profiles.length > 1 && <span aria-hidden className="text-xs opacity-70">▾</span>}

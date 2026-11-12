@@ -342,7 +342,7 @@ function RiddleCard({
           {(noLetter || wrongAlphabet) && (
             <div className="flex items-start gap-2 rounded-lg bg-danger/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
               <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden />
-              {noLetter ? `התשובה מתחילה ב־"${firstChar}", וזו לא אות. התחילו את התשובה באות.` : 'התשובה לא בשפת ההרפתקה, ואין את האות הזו על לוח המקשים של המשפחה.'}
+              {noLetter ? `התשובה מתחילה ב־"${firstChar}", וזו לא אות. התחילו את התשובה באות.` : 'התשובה לא בשפת ההרפתקה, ואין את האות הזו על לוח המקשים של הקבוצה.'}
             </div>
           )}
 
@@ -363,7 +363,7 @@ function RiddleCard({
 
           <ImageDropZone
             label="תמונה לחידה (לא חובה)"
-            emptyText="משפחות יראו אותה מעל החידה, למשל תקריב של החפץ."
+            emptyText="קבוצות יראו אותה מעל החידה, למשל תקריב של החפץ."
             aspect="aspect-[16/9] max-w-md"
             value={r.imageUrl}
             upload={uploadImage}
@@ -415,7 +415,7 @@ function RiddleCard({
                 <span><b className="tabular-nums">{stats.wrong}</b> טעו</span>
                 <span><b className="tabular-nums">{stats.hints}</b> ביקשו רמז</span>
               </div>
-              {hard && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">הרבה משפחות נתקעות כאן. נסו ניסוח פשוט יותר או רמז ראשון ברור יותר.</p>}
+              {hard && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">הרבה קבוצות נתקעות כאן. נסו ניסוח פשוט יותר או רמז ראשון ברור יותר.</p>}
             </div>
           )}
 
@@ -423,7 +423,7 @@ function RiddleCard({
             {confirmDelete ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-danger">
-                  {r.status === 'published' ? 'למחוק את החידה? משפחות שבאמצע מזוודה יקבלו את האות שלה מגמד אחר.' : 'למחוק את החידה?'}
+                  {r.status === 'published' ? 'למחוק את החידה? קבוצות שבאמצע מזוודה יקבלו את האות שלה מגמד אחר.' : 'למחוק את החידה?'}
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>ביטול</Button>
                 <Button size="sm" variant="danger" icon={Trash2} onClick={onDelete}>מחקו</Button>

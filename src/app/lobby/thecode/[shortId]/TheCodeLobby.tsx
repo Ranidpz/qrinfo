@@ -27,7 +27,7 @@ function Board({ rows }: { rows: TheCodeLeaderRow[] }) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
         <p className="tc-display text-[5vh]" style={{ color: 'var(--tc-brass-hi)' }}>הטבלה עוד ריקה</p>
-        <p className="text-[3vh]" style={{ color: 'var(--tc-soft)' }}>המשפחה הראשונה שתמצא גמד תופיע כאן</p>
+        <p className="text-[3vh]" style={{ color: 'var(--tc-soft)' }}>הקבוצה הראשונה שתמצא גמד תופיע כאן</p>
       </div>
     );
   }
@@ -118,7 +118,7 @@ export default function TheCodeLobby({ codeId, title }: { codeId: string | null;
                 ))}
               </div>
               <p className="tc-display text-[3.6vh] leading-tight">
-                מצאו גמד במלון, סרקו את הקוד שעליו והצטרפו למשחק!
+                מצאו גמד, סרקו את הקוד שעליו והצטרפו למשחק!
               </p>
             </footer>
           </>

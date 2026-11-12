@@ -26,10 +26,10 @@ export default function SettingsScreen({ state, actions, report, uploadImage }: 
       </div>
 
       <Section title="כללי">
-        <Field label="שם ההרפתקה" hint="מופיע למשפחות ובלוח התוצאות.">
+        <Field label="שם ההרפתקה" hint="מופיע לקבוצות ובלוח התוצאות.">
           <input className="input" value={config.title} onChange={(e) => actions.updateConfig({ title: e.target.value })} />
         </Field>
-        <Row label="שפת המשחק" hint="שפת לוח האותיות של המשפחות.">
+        <Row label="שפת המשחק" hint="שפת לוח האותיות של הקבוצות.">
           <Segmented label="שפת המשחק" value={config.language} onChange={(language) => actions.updateConfig({ language })} options={[{ value: 'he', label: 'עברית' }, { value: 'en', label: 'English' }]} />
         </Row>
         {config.language === 'en' && hebrewPhrases && (
@@ -79,7 +79,7 @@ export default function SettingsScreen({ state, actions, report, uploadImage }: 
       <Section title="שעות פעילות">
         <ToggleRow
           label="רק בשעות מסוימות"
-          hint="מחוץ לשעות משפחות רואות &quot;המשחק בהפסקה&quot;, וההתקדמות שלהן נשמרת."
+          hint="מחוץ לשעות קבוצות רואות &quot;המשחק בהפסקה&quot;, וההתקדמות שלהן נשמרת."
           checked={!!config.activeHours}
           onChange={(v) => actions.updateConfig({ activeHours: v ? { from: '08:00', to: '21:00' } : undefined })}
         />
@@ -98,11 +98,11 @@ export default function SettingsScreen({ state, actions, report, uploadImage }: 
       <Section title="פרטיות ואימות">
         <ToggleRow
           label="אימות הורה בוואטסאפ"
-          hint="משפחה מאשרת מספר טלפון של הורה לפני שמתחילה. בלי זה — רק כינוי ואימוג׳י."
+          hint="קבוצה מאשרת מספר טלפון של מבוגר אחראי לפני שמתחילה. בלי זה — רק כינוי ואימוג׳י."
           checked={config.requirePhoneVerification}
           onChange={(v) => actions.updateConfig({ requirePhoneVerification: v })}
         />
-        <Row label="מחיקת נתונים אוטומטית" hint="פרופיל של משפחה שלא שיחקה זמן רב יימחק.">
+        <Row label="מחיקת נתונים אוטומטית" hint="פרופיל של קבוצה שלא שיחקה זמן רב יימחק.">
           <NumberInput label="ימים" value={config.retentionDays} onChange={(n) => actions.updateConfig({ retentionDays: n })} min={7} max={365} suffix="ימים בלי משחק" />
         </Row>
       </Section>

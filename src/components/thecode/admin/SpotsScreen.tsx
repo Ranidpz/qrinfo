@@ -30,7 +30,7 @@ export default function SpotsScreen({ state, actions, navigate, target, uploadIm
     <div className="mx-auto max-w-5xl">
       <ScreenHeader
         title="מקומות"
-        summary={`${spots.length} מקומות במלון. בכל מקום עומדים 2–3 גמדים.`}
+        summary={`${spots.length} מקומות במתחם. בכל מקום עומדים 2–3 גמדים.`}
         actions={<Button variant="primary" icon={Plus} onClick={add}>הוסיפו מקום</Button>}
       />
 
@@ -133,7 +133,7 @@ function SpotEditor({
       </button>
 
       <div className="flex items-start gap-4">
-        <Field label="שם המקום" hint="רק אתם רואים את השם הזה. משפחות רואות את הרמזים." className="flex-1">
+        <Field label="שם המקום" hint="רק אתם רואים את השם הזה. קבוצות רואות את הרמזים." className="flex-1">
           <input className="input" value={spot.name} onChange={(e) => onChange({ name: e.target.value })} />
         </Field>
         <div className="flex flex-col items-center gap-1 pt-7">
@@ -165,8 +165,8 @@ function SpotEditor({
 
       <div className="mt-6 space-y-4">
         <div>
-          <h3 className="font-semibold">רמזים למשפחות</h3>
-          <p className="text-sm text-text-secondary">משפחה מקבלת קודם את רמז האזור, ואם צריך — רמז קרוב יותר ואז מדויק.</p>
+          <h3 className="font-semibold">רמזים לקבוצות</h3>
+          <p className="text-sm text-text-secondary">קבוצה מקבלת קודם את רמז האזור, ואם צריך — רמז קרוב יותר ואז מדויק.</p>
         </div>
         {HINT_LEVELS.map((h, i) => (
           <Field key={i} label={h.label}>

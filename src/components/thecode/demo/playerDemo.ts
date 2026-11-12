@@ -394,7 +394,7 @@ function homeScreen(p: DemoProfile): PlayerScreen {
 export function demoRegister(s0: DemoState, familyName: string, emoji: string): DemoState {
   const s = clone(s0);
   const firstGnomeId = s.registering?.firstGnomeId;
-  const player = newPlayer(s, familyName.trim() || 'המשפחה שלנו', emoji);
+  const player = newPlayer(s, familyName.trim() || 'הקבוצה שלנו', emoji);
   const p: DemoProfile = {
     player, screen: { kind: 'target' }, lastCorrect: null, pendingLetter: null,
     riddleWrongTick: 0, arrange: null, collected: [], lastSuitcase: null, ranksAtRunStart: {},

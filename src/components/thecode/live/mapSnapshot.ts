@@ -194,7 +194,7 @@ export function buildPlayerState(m: MapInput): PlayerState {
 
   const base: PlayerState = {
     screen: { kind: 'loading' },
-    venueName: s?.adventure.title || 'המלון',
+    venueName: s?.adventure.title || 'המקום',
     profile,
     profiles,
     collector: null,

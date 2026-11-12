@@ -2221,7 +2221,7 @@
   "thecode": {
     "tab": "The Code",
     "tooltip": "A gnome adventure for venues: scan, solve riddles, collect letters",
-    "description": "A permanent adventure for families: small gnomes with QR codes around the venue, a riddle at each one, and letters that build a secret phrase that opens a suitcase. No app.",
+    "description": "A permanent adventure for groups: small gnomes with QR codes around the venue, a riddle at each one, and letters that build a secret phrase that opens a suitcase. No app.",
     "create": "Create adventure",
     "openAdmin": "Manage the adventure",
     "openAdminHint": "Spots, gnomes, riddles, phrases and plate printing",
