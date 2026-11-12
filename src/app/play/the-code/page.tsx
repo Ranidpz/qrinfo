@@ -14,10 +14,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function TheCodeDemoPage() {
+export default async function TheCodeDemoPage({ searchParams }: { searchParams: Promise<{ brand?: string }> }) {
+  // ?brand=1 = the venue-branded opening screen on a bright photo, ?brand=2 on a dark one.
+  const { brand } = await searchParams;
   return (
     <div className={display.variable}>
-      <TheCodeDemo />
+      <TheCodeDemo brand={brand === '1' || brand === '2' ? brand : undefined} />
     </div>
   );
 }

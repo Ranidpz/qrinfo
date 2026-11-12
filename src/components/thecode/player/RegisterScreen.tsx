@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { describeGnome } from '@/components/thecode/GnomeFigure';
+import type { TheCodeBranding } from '@/types/thecode';
+import { BrandLogo, PoweredBy } from './Branding';
 import { GnomeStage, ScreenBody, useSfx } from './ui';
 import type { PlayerGnomeView } from './types';
 
@@ -9,6 +11,8 @@ const EMOJIS = ['🦁', '🐯', '🦊', '🐼', '🦉', '🐬', '🐙', '🦄', 
 const MAX_NAME = 20;
 
 interface Props {
+  /** The venue's look on the opening screen (photo behind is drawn by the player shell). */
+  branding?: TheCodeBranding | null;
   venueName: string;
   mode: 'new' | 'recover';
   firstGnome?: PlayerGnomeView;
@@ -25,9 +29,9 @@ interface Props {
 }
 
 /** The vault title, the one big typographic moment of the app. */
-export function CodeTitle({ small }: { small?: boolean }) {
+export function CodeTitle({ small, smaller }: { small?: boolean; smaller?: boolean }) {
   return (
-    <h1 className={`tc-display text-center leading-none ${small ? 'text-5xl' : 'text-7xl'}`}
+    <h1 className={`tc-display text-center leading-none ${smaller ? 'text-4xl' : small ? 'text-5xl' : 'text-7xl'}`}
       style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>
       הקוד
     </h1>
@@ -40,11 +44,14 @@ export default function RegisterScreen(p: Props) {
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [code, setCode] = useState('');
   const canGo = name.trim().length >= 2;
+  const logo = p.branding?.logoUrl;
+  const branded = !!(p.branding?.backgroundUrl || logo);
 
   if (p.mode === 'recover') {
     return (
       <ScreenBody className="items-stretch justify-center gap-6">
-        <CodeTitle small />
+        <BrandLogo url={p.branding?.logoUrl} name={p.venueName} />
+        <CodeTitle small={!p.branding?.logoUrl} smaller={!!p.branding?.logoUrl} />
         <div className="tc-a-rise text-center">
           <h2 className="tc-display text-3xl">כבר שיחקתם אצלנו?</h2>
           <p className="mt-2 text-lg" style={{ color: 'var(--tc-soft)' }}>הקלידו את קוד השחזור של המשפחה, והנקודות והמזוודות יחזרו אליכם.</p>
@@ -71,12 +78,14 @@ export default function RegisterScreen(p: Props) {
         <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => p.onMode('new')}>
           אנחנו משפחה חדשה
         </button>
+        <PoweredBy />
       </ScreenBody>
     );
   }
 
   return (
     <ScreenBody className="items-stretch gap-5">
+      {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} /></div>}
       {p.firstGnome ? (
         <div className="tc-a-rise mt-2 flex items-center gap-4">
           <GnomeStage gnome={p.firstGnome} size={84} />
@@ -85,14 +94,16 @@ export default function RegisterScreen(p: Props) {
             <p className="mt-1 text-base" style={{ color: 'var(--tc-soft)' }}>{describeGnome(p.firstGnome.bodyColor, p.firstGnome.hatColor)}</p>
           </div>
         </div>
+      ) : logo ? (
+        <CodeTitle smaller />
       ) : (
         <div className="mt-6"><CodeTitle /></div>
       )}
 
       <div className="tc-a-rise tc-delay-1">
-        {p.firstGnome && <CodeTitle small />}
-        <p className="mt-3 text-center text-lg" style={{ color: 'var(--tc-soft)' }}>
-          {p.addingProfile ? 'עוד משפחה משחקת מהטלפון הזה? בחרו לה כינוי.' : `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`}
+        {p.firstGnome && <CodeTitle small={!logo} smaller={!!logo} />}
+        <p className="mt-3 whitespace-pre-line text-center text-lg" style={{ color: branded ? 'var(--tc-cream)' : 'var(--tc-soft)', textShadow: branded ? '0 1px 8px rgba(0,0,0,.6)' : undefined }}>
+          {p.addingProfile ? 'עוד משפחה משחקת מהטלפון הזה? בחרו לה כינוי.' : (p.branding?.welcomeText?.trim() || `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`)}
         </p>
       </div>
 
@@ -145,6 +156,7 @@ export default function RegisterScreen(p: Props) {
             יש לנו קוד
           </button>
         )}
+        {!p.addingProfile && <PoweredBy />}
       </div>
     </ScreenBody>
   );

@@ -12,7 +12,7 @@ import {
   demoArrangeRemove, demoCaption, demoCloseScanner, demoOpenScanner, demoScanCode, demoContinue, demoJump, demoLocationHint, demoNewSuitcase, demoOpenSuitcase,
   demoPickLetter, demoRecover, demoRegister, demoRegisterMode, demoRiddleHint, demoScanSleeping, demoScanSolved,
   demoScanTarget, demoScanWrong, demoSetOverlay, demoShowSummary, demoSubmitLetter, demoSwitchProfile,
-  demoToggleMute, demoView, type DemoJump, type DemoState,
+  demoToggleMute, demoView, DEMO_BRANDINGS, type DemoJump, type DemoState,
 } from '@/components/thecode/demo/playerDemo';
 
 const JUMPS: { to: DemoJump; label: string }[] = [
@@ -88,7 +88,7 @@ function ControlPanel({ s, set }: { s: DemoState; set(next: (s: DemoState) => De
   );
 }
 
-export default function TheCodeDemo() {
+export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRANDINGS }) {
   const [s, setS] = useState<DemoState>(createDemoState);
   const [barOpen, setBarOpen] = useState(false);
   const set = (fn: (x: DemoState) => DemoState) => setS((prev) => fn(prev));
@@ -123,7 +123,7 @@ export default function TheCodeDemo() {
     };
   }, []);
 
-  const view = useMemo(() => demoView(s), [s]);
+  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null }), [s, brand]);
 
   return (
     <div className="min-h-[100dvh] bg-[#E9E6F2] md:flex md:items-center md:justify-center md:gap-10 md:p-5">

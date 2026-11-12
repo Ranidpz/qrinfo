@@ -6,6 +6,7 @@
 // the tiles placed on the arrange board, the open scanner, a failed request to retry.
 
 import { alphabetFor } from '@/lib/thecode/letters';
+import type { TheCodeBranding } from '@/types/thecode';
 import type { TheCodeGnomeView, TheCodeLeaderRow, TheCodeSnapshot } from '@/types/thecode-api';
 import type { StoredIdentity } from './identity';
 import type {
@@ -80,6 +81,8 @@ export interface MapInput {
   loaded: boolean;
   notFound: boolean;
   muted: boolean;
+  /** Branding known before the snapshot (from the /g lookup) — the snapshot's wins once it arrives. */
+  branding?: TheCodeBranding | null;
 }
 
 const gnomeView = (g: TheCodeGnomeView): PlayerGnomeView => ({
@@ -203,6 +206,7 @@ export function buildPlayerState(m: MapInput): PlayerState {
     storageWarning: !m.storageAvailable && !!profile,
     alphabet: alphabetFor(s?.adventure.language === 'en' ? 'en' : 'he'),
     muted: m.muted,
+    branding: s?.adventure.branding ?? m.branding ?? null,
   };
 
   if (ui.inAppGate) return { ...base, screen: { kind: 'inAppBrowser' } };

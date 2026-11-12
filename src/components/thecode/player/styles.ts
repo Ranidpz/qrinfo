@@ -4,6 +4,11 @@
 // Motion is transform/opacity only; prefers-reduced-motion switches it all off.
 
 export const THECODE_STYLE = `
+/* A phone app: on a wide window it is a centred column; the area around it stays calm. */
+.tc-frame { position: relative; display: flex; justify-content: center; height: 100%; width: 100%; overflow: hidden; background: #04061A; }
+.tc-frame-photo { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(28px) brightness(.3) saturate(1.05); }
+.tc-frame > .tc-root { max-width: 480px; }
+@media (min-width: 520px) { .tc-frame > .tc-root { box-shadow: 0 0 0 1px rgba(255,244,218,.08), 0 30px 90px rgba(0,0,0,.6); } }
 .tc-root {
   --tc-night: #0B1030;
   --tc-deep: #161E52;
@@ -99,6 +104,8 @@ export const THECODE_STYLE = `
 @keyframes tc-bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
 @keyframes tc-flicker { 0%,100% { transform: scale(1) rotate(-3deg) } 50% { transform: scale(1.12) rotate(3deg) } }
 @keyframes tc-pulse-ring { 0% { transform: scale(.8); opacity: .7 } 100% { transform: scale(1.6); opacity: 0 } }
+@keyframes tc-fade { from { opacity: 0 } to { opacity: 1 } }
+.tc-a-fade { animation: tc-fade .6s ease both; }
 @keyframes tc-spin-slow { to { transform: rotate(360deg) } }
 @keyframes tc-zzz { 0% { transform: translate(0,0) scale(.6); opacity: 0 } 30% { opacity: 1 } 100% { transform: translate(-26px,-46px) scale(1.2); opacity: 0 } }
 @keyframes tc-confetti { 0% { transform: translate3d(0,-10vh,0) rotate(0); opacity: 1 } 100% { transform: translate3d(var(--dx), 110vh, 0) rotate(var(--rot)); opacity: .9 } }
