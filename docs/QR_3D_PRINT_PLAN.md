@@ -317,8 +317,9 @@ What was decided while building:
   rectangular and round holes are decomposed (`slab()` in mesh.ts). Every piece is a closed
   shell (test: each edge used twice, both directions).
 - Text = built-in 5×7 block font (A–Z, a–z, 0–9, `. / - : ! ? #`) — the SAME rectangles draw the
-  preview and the geometry. Regular codes get a third option "הכתובת" (web address in 2 lines,
-  readable from the large size up; the standard size warns).
+  preview and the geometry. Under the code: הקוד's gnomes print their manual code (the game has a
+  screen to type it); a regular code has nowhere to type a code, so it offers only nothing / short
+  text (Rani 12.11 — a printed web address was tried and dropped).
 - Filaments in the file: **1 = black, 2 = white** (Rani's AMS slot order). Written into
   `Metadata/model_settings.config` per part; no `project_settings.config`, so Bambu keeps the
   user's own printer (H2D) + filament presets.

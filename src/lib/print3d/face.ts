@@ -60,10 +60,3 @@ export function faceDesign(w: number, h: number, matrix: QrMatrix, lines: string
   }
   return { w, h, layout, black, textCell, textTooSmall: textCell > 0 && textCell < MIN_TEXT_CELL };
 }
-
-/** Web address split for printing under the code: "qr.playzones.app" / "v/AbC123". */
-export function addressLines(url: string): string[] {
-  const bare = url.replace(/^https?:\/\//, '');
-  const i = bare.indexOf('/');
-  return i < 0 ? [bare] : [bare.slice(0, i), bare.slice(i + 1)];
-}

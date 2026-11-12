@@ -11,7 +11,7 @@ const { qrMatrix, decodes, mirrored } = await lib('matrix');
 const { PLAQUES, baseFor, perPlate } = await lib('presets');
 const { buildPlaque, buildBase } = await lib('build');
 const { buildJob, faceDecodes, FILAMENT_BLACK, FILAMENT_WHITE } = await lib('job');
-const { faceDesign, addressLines } = await lib('face');
+const { faceDesign } = await lib('face');
 
 const URL1 = 'https://qr.playzones.app/g/Dm0LobbyA1x9';
 
@@ -53,12 +53,10 @@ test('module and text sizes on the standard plaque match the gnome CAD', () => {
   assert.ok(d.textCell >= 0.6 && !d.textTooSmall);
 });
 
-test('web address fits a large plaque but is too small on the standard one', () => {
-  const m = qrMatrix('https://qr.playzones.app/v/dMo3Dq');
-  const lines = addressLines(m.url);
-  assert.deepEqual(lines, ['qr.playzones.app', 'v/dMo3Dq']);
-  assert.ok(faceDesign(37.1, 43.1, m, lines).textTooSmall);
-  assert.equal(faceDesign(60, 70, m, lines).textTooSmall, false);
+test('long custom text shrinks and warns on the standard plaque', () => {
+  const m = qrMatrix(URL1);
+  assert.equal(faceDesign(37.1, 43.1, m, ['SCAN ME']).textTooSmall, false);
+  assert.ok(faceDesign(37.1, 43.1, m, ['A VERY LONG LINE OF TEXT']).textTooSmall);
 });
 
 test('base: both mounts are closed, pocket depth = plaque thickness', () => {

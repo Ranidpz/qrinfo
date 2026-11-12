@@ -8,7 +8,7 @@
 export type Print3DShape = 'gnome' | 'base' | 'stand' | 'keychain';
 export type Print3DSize = 'standard' | 'large' | 'xl';
 export type Print3DMount = 'screws' | 'tape';
-export type Print3DText = 'none' | 'manual' | 'address' | 'custom';
+export type Print3DText = 'none' | 'manual' | 'custom';
 
 /** Peg / hole / screw positions are in FRONT-VIEW coordinates: mm from the plaque centre, x right, y up. */
 export type Point = { x: number; y: number };

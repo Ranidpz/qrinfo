@@ -12,7 +12,7 @@ import {
 import { Button, Pill, Segmented, Toggle, cx } from '@/components/thecode/admin/ui';
 import { decodes, qrMatrix } from '@/lib/print3d/matrix';
 import { instructionsFor } from '@/lib/print3d/instructions';
-import { addressLines, faceDesign } from '@/lib/print3d/face';
+import { faceDesign } from '@/lib/print3d/face';
 import { printableText } from '@/lib/print3d/font';
 import { buildJob, packForDownload } from '@/lib/print3d/job';
 import {
@@ -80,7 +80,7 @@ export default function Print3DModal({
   const allDecode = decodeResults.length ? decodeResults.every(Boolean) : null;
 
   const linesFor = (it: Print3DItem): string[] =>
-    textMode === 'manual' ? [it.manualCode ?? ''] : textMode === 'address' ? addressLines(it.url) : textMode === 'custom' ? [printableText(customText.trim()).slice(0, 12)] : [];
+    textMode === 'manual' ? [it.manualCode ?? ''] : textMode === 'custom' ? [printableText(customText.trim()).slice(0, 12)] : [];
   const lines = linesFor(item);
   const faceW = shape === 'keychain' ? KEYCHAIN.w : plaque.w;
   const faceH = shape === 'keychain' ? KEYCHAIN.h : plaque.h;
@@ -91,7 +91,7 @@ export default function Print3DModal({
     shape, module: layout.module, version: matrix.version, outdoor: outdoorCount > 0,
     verified: plaque.verified, decoded: allDecode, url: item.url,
   });
-  if (design.textTooSmall) checks.push({ tone: 'warn', text: textMode === 'address' ? 'הכתובת יוצאת קטנה מדי לקריאה בגודל הזה — בחרו לוחית גדולה' : 'הטקסט יוצא קטן מדי לקריאה — קצרו אותו או בחרו לוחית גדולה' });
+  if (design.textTooSmall) checks.push({ tone: 'warn', text: 'הטקסט יוצא קטן מדי לקריאה — קצרו אותו או בחרו לוחית גדולה' });
   const blocked = checks.some((c) => c.tone === 'bad');
 
   const download = () => {
@@ -241,7 +241,7 @@ export default function Print3DModal({
                 onChange={setTextMode}
                 options={[
                   { value: 'none', label: 'כלום' },
-                  ...(hasManual ? [{ value: 'manual' as Print3DText, label: 'הקוד הידני' }] : [{ value: 'address' as Print3DText, label: 'הכתובת' }]),
+                  ...(hasManual ? [{ value: 'manual' as Print3DText, label: 'הקוד הידני' }] : []),
                   { value: 'custom', label: 'טקסט קצר' },
                 ]}
               />
@@ -256,7 +256,6 @@ export default function Print3DModal({
                 />
               )}
               {textMode === 'manual' && <p className="text-sm text-text-secondary">משפחה שהמצלמה שלה לא עובדת מקלידה את הקוד הזה במשחק.</p>}
-              {textMode === 'address' && <p className="text-sm text-text-secondary">מי שלא מצליח לסרוק מקליד את הכתובת בדפדפן. בלוחית גדולה היא קריאה בנוחות.</p>}
               {textMode === 'custom' && <p className="text-sm text-text-secondary">אותיות באנגלית, ספרות וסימנים פשוטים. עברית תגיע בהמשך.</p>}
             </section>
 

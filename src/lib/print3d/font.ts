@@ -1,4 +1,4 @@
-// Block pixel font for text printed INTO a plaque (manual code, short text, web address, back number).
+// Block pixel font for text printed INTO a plaque (manual code, short text, back number).
 // Every glyph is 5 × 7 cells; a cell becomes a printed square, so the stroke width is one cell. At the
 // sizes we use a cell is 0.55–0.7 mm, wider than a 0.4 mm nozzle line → crisp, no thin strokes.
 // The same glyphs draw the on-screen preview AND the 3D geometry, so what you see is what prints.
