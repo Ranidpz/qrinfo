@@ -1,6 +1,8 @@
 # הקוד (The Code) — product + engineering plan
 
-Status: wave 1 in progress (engine, player demo, admin demo). Nothing released.
+Status: wave 1 DONE and merged into `feature/thecode` (engine + 36 tests, player demo,
+operator demo — Rani approved both demos on 12.11.2026). Wave 2 in progress (§8).
+Nothing pushed, nothing released.
 Owner decisions were taken with Rani on 11.11.2026; this file is the source of truth
 for every session working on the feature. Internal slug: `thecode`.
 
@@ -45,13 +47,21 @@ No app install, no AI at play time, no clock. Phone = scanner + one clear task.
 - Presenter videos do not exist yet: text + animation everywhere, video is an optional
   layer on named triggers (`TheCodeTrigger`).
 - Prize: the win is recorded and shown on screen/phone. Reception redemption UI later.
+- Scanning happens INSIDE the game page (a "סרקו גמד" button opens the camera in the
+  page — `html5-qrcode`, as in Q.Hunt). The phone's own camera also works: it opens
+  `/g/{code}`; a known device lands straight on the result, a new device registers
+  first and then continues with that gnome. A manual short code is the fallback.
+- Nothing secret is world-readable: the whole adventure (spots, gnomes, phrases,
+  rules, riddles) is server-only. The code doc carries only a public stub.
 - Gaming feel is a requirement: huge count-up numbers, green +N, red −N, letter pop,
   confetti, hot-streak badge, short sounds with a mute toggle, one task per screen.
 
 ## 3. Model (see `src/types/thecode.ts`)
 
-- `TheCodeConfig` — public, on the code's media item. Spots, gnomes, phrases, rules.
-  NEVER riddles or answers (code docs are world-readable).
+- `TheCodePublicConfig` — the only public part: `{title,status,language}` on the code's
+  media item (`thecodeConfig`).
+- `TheCodeConfig` — the full adventure (spots, gnomes, phrases, rules). SERVER-ONLY,
+  stored with the riddles in one locked doc. The phrases are the secret.
 - `TheCodeRiddle` — locked collection (answers). `letter` = first letter of `answerWord`.
 - `TheCodePlayer` — locked collection. Holds the whole state incl. the current
   `TheCodeRun` (a saved plan: one slot per phrase letter → gnome + riddle), so every
@@ -150,9 +160,11 @@ Wave 1 (parallel, one branch each off `feature/thecode`, disjoint files):
   `src/components/thecode/admin/**`.
 Demos run on sample data with NO server, for Rani's and the hotel's approval.
 
-Wave 2 (after Rani approves the demos): store + API + Firestore rules (both projects),
-`/g/{code}` gnome route, wiring both UIs to the real engine, dashboard integration
-(`MediaType`, `db.ts` whitelist, create flow), lobby leaderboard.
+Wave 2 (parallel, one branch each off `feature/thecode`, disjoint files — see §8):
+- S. Server: engine completion, store, API routes, Firestore rules, tests.
+- P. Player: in-page scanner, `/g/{code}`, `/v` viewer, live game on the API, big-screen board.
+- A. Operator: dashboard integration, live admin page, image drag-and-drop, real QR print.
+Then the plan owner merges, integrates and tests end to end on `qrinfo-dev`.
 
 Wave 3: presenter trigger layer, WhatsApp toggle, pilot on `qrinfo-dev`, release.
 
@@ -164,3 +176,78 @@ Wave 3: presenter trigger layer, WhatsApp toggle, pilot on `qrinfo-dev`, release
 - All user-facing Hebrew is plural (סרקו / מצאו). Hebrew is RTL. Replies to Rani are
   in Hebrew only.
 - No `require()`. `@/*` → `./src/*`. Follow `CLAUDE.md`.
+
+## 8. Wave 2 architecture (decided 12.11.2026)
+
+Wire contract: `src/types/thecode-api.ts` (types only; owned by the plan owner).
+
+Storage — Firestore, Admin SDK only, every path locked (`read, write: if false`):
+- `codes/{codeId}/thecode/adventure` — `{ version, config: TheCodeConfig, riddles:
+  TheCodeRiddle[], updatedAt }`. ONE doc = one read per action. Ceiling ≈ 1,500
+  riddles (1 MB); far above a venue's needs.
+- `codes/{codeId}/thecode/stats` — counters written with `FieldValue.increment`
+  (`gnomes.{id}.scans`, `gnomes.{id}.lastScanAt`, `riddles.{id}.correct|wrong|hints`).
+  Blind writes — never read inside the play transaction.
+- `codes/{codeId}/thecodePlayers/{playerId}` — `TheCodePlayer` + server fields:
+  `tokenHashes: string[]` (sha256, max 5 devices), `week: { '2026-W46': { points,
+  suitcases } }`, `originalName?`, `rate: { windowStart, count }`, `expireAt`
+  (Firestore TTL = lastSeenAt + retentionDays; the TTL policy is a release step).
+- `thecodeGnomeCodes/{code}` — `{ codeId, gnomeId }` for BOTH the QR slug and the
+  manual code (two docs per gnome). Makes `/g/{code}` a single read and guarantees
+  codes are globally unique. Created with create-if-absent; removed with the gnome.
+
+Player API — one route, `POST /api/thecode/play` (`TheCodePlayRequest`):
+1. origin check; resolve `scan` code → gnome (index doc, must belong to this codeId).
+2. ONE transaction: read adventure + player → engine function → write player
+   (+ blind stats increments). The response is always a full `TheCodeSnapshot` built
+   on the server + an optional `TheCodePlayEvent` for the animation.
+3. The snapshot never contains: answers, riddle letters, phrase text before the
+   suitcase opens, riddles of gnomes not yet scanned, unfound gnomes' colours.
+4. `serverNow` rides on every response; countdowns never trust the phone's clock.
+5. Per-player rate limit lives in the player doc (no extra reads): 60 actions/min.
+   Register / recover: Firestore-based per-IP limit, generous (hotel = one IP).
+6. Leaderboards need no composite index: all-time = `orderBy('points','desc')`;
+   weekly = `orderBy('week.<key>.points','desc')` (map sub-fields are auto-indexed,
+   docs without the key drop out). Week key = venue zone, week starts Sunday.
+
+Operator API — `/api/thecode/admin` (Bearer + `requireCodeOwner`):
+- GET loads everything (`TheCodeAdminLoadResponse`); a never-saved adventure returns
+  defaults with `version: 0`.
+- PUT saves the whole adventure with optimistic locking (`baseVersion`); the server
+  normalizes, re-derives riddle letters, maintains the gnome-code index and the public
+  stub on the code doc, and refuses to publish while `validateAdventure` has errors.
+- PATCH/DELETE `/players` — rename / hide / remove a family.
+- The admin UI keeps its in-memory reducer (instant UI) and persists with a debounced
+  PUT. A 409 means another tab saved → reload.
+
+Routes
+- `/g/{code}` (public, no locale; add `g/` to the middleware exclusion): resolves the
+  gnome → renders the game client with a pending scan.
+- `/v/{shortId}` → `TheCodeViewer`: the game home (resume, scanner, board).
+- `/lobby/thecode/{shortId}`: big-screen leaderboard for the venue's TV.
+- `/{locale}/thecode/{codeId}`: the operator's full-page admin (auth required).
+- `/play/the-code` + `/play/the-code/admin` stay as demos on sample data.
+
+More edge cases closed in wave 2
+- Phrase edited or deleted mid-run → the run carries `phraseText`; arranging and
+  opening use the snapshot, so a family is never stranded.
+- A riddle may be answered only after its gnome was scanned as the target
+  (`slot.scannedAt`) → no answering from the couch with forged requests.
+- Refresh / new tab after a scan keeps the riddle on screen (`scannedAt` is saved).
+- Collector order = `solvedAt`, never phrase order.
+- Arrange tray order is derived from the run id (stable across refreshes); paid help
+  positions are saved (`helpedPositions`).
+- Wrong full arrangement: the server answers only yes/no (no per-position leak).
+- Two tabs of the operator → optimistic locking. Two phones of one family → the
+  transaction + idempotent actions (`replayed`).
+- Adventure deleted / gnome removed → index doc gone → friendly "הגמד הזה כבר לא במשחק".
+- A draft (unpublished) adventure behaves as paused for players.
+- Family names: trimmed, ≤ 20 chars, control chars stripped, blocklist; emoji from the
+  fixed list; a family appears on the board only once it has points.
+- QR always encodes the PRODUCTION origin, even when printed from dev/preview.
+- Camera permission denied / no camera → manual code entry stays available.
+- In-app browsers (WhatsApp etc.): the existing gate (`src/lib/inAppBrowser.ts`).
+- Default rule values = the approved demo's (100 per letter, 500 suitcase, hint 20,
+  wrong scan 30, wrong answer 20, cooldown 12 s, arrange help 50).
+- Left for wave 3: on-site setup scan by the operator's phone, English UI strings,
+  presenter videos, WhatsApp verification, reception redemption.

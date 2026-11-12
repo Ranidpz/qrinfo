@@ -31,6 +31,7 @@ export const MEDIA_TYPE_INFO: Record<MediaType, {
   qbet: { icon: 'Dices', labelHe: 'ניחוש', labelEn: 'Match Prediction' },
   tenbool: { icon: 'Timer', labelHe: '10 בול', labelEn: '10 Bool' },
   socialwall: { icon: 'Heart', labelHe: 'סושיאל וול', labelEn: 'Social Wall' },
+  thecode: { icon: 'KeyRound', labelHe: 'הקוד', labelEn: 'The Code' },
 };
 
 /**
@@ -115,6 +116,8 @@ function getMediaTitle(item: MediaItem, locale: 'he' | 'en'): string {
       return item.qchallengeConfig?.branding?.quizTitle || item.title || 'Q.Challenge';
     case 'socialwall':
       return item.socialWallConfig?.eventTitle || item.title || 'Social Wall';
+    case 'thecode':
+      return item.thecodeConfig?.title || item.title || (isHe ? 'הקוד' : 'The Code');
     case 'qbet':
       return item.qbetConfig?.title || item.title || (isHe ? 'ניחוש' : 'Match Prediction');
     case 'pdf':

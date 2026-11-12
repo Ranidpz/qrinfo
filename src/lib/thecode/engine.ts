@@ -54,6 +54,7 @@ export const DEFAULT_THECODE_RULES: TheCodeRules = {
   freeWrongAnswers: 2,
   wrongAnswerPenalty: 3,
   answerCooldownSeconds: 10,
+  arrangeHelpCost: 10,
 };
 
 /** A phrase needs at least this many letters to be a suitcase. */
@@ -805,7 +806,7 @@ export function answerRiddle(
     // Double tap / retry → report the original award, change nothing.
     return {
       player: p,
-      outcome: { kind: 'correct', letter: slot0.letter, points: slot0.pointsEarned, hot: false, runState: run0.state },
+      outcome: { kind: 'correct', letter: slot0.letter, points: slot0.pointsEarned, hot: false, becameHot: false, runState: run0.state },
       repairs,
       replayed: true,
     };
@@ -855,7 +856,8 @@ export function answerRiddle(
   addUnique(p.foundGnomeIds, slot.gnomeId);
   retarget(run, idx, ctx.rng, spotOf(idx, slot.gnomeId));
 
-  const outcome: TheCodeAnswerOutcome = { kind: 'correct', letter: slot.letter, points, hot, runState: run.state };
+  const becameHot = !hot && p.streak >= rules.hotStreakAt;
+  const outcome: TheCodeAnswerOutcome = { kind: 'correct', letter: slot.letter, points, hot, becameHot, runState: run.state };
   if (match === 'soundAlike') outcome.spellingTip = spellingTipFor(slot.letter, ctx.config.language);
   return { player: p, outcome, repairs, replayed: false };
 }

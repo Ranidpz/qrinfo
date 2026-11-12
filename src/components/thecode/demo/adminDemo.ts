@@ -78,6 +78,7 @@ export const DEFAULT_RULES: TheCodeRules = {
   freeWrongAnswers: 2,
   wrongAnswerPenalty: 2,
   answerCooldownSeconds: 20,
+  arrangeHelpCost: 10,
 };
 
 const SPOTS: TheCodeSpot[] = [

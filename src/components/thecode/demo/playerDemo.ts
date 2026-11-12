@@ -138,6 +138,7 @@ export const DEMO_CONFIG: TheCodeConfig = {
     freeWrongAnswers: 2,
     wrongAnswerPenalty: 20,
     answerCooldownSeconds: 12,
+    arrangeHelpCost: 50,
   },
   requirePhoneVerification: false,
   retentionDays: 90,

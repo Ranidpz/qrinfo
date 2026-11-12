@@ -473,7 +473,7 @@ test('activeHours: venue time zone, overnight windows, malformed = always open',
 test('answer: correct = pointsPerLetter, letter collected, next target at another spot', () => {
   const { ctx, player } = startSmall();
   const r = E.answerRiddle(player, { letter: 'כ', slotIndex: 0 }, ctx);
-  assert.deepEqual(r.outcome, { kind: 'correct', letter: 'כ', points: 10, hot: false, runState: 'collecting' });
+  assert.deepEqual(r.outcome, { kind: 'correct', letter: 'כ', points: 10, hot: false, becameHot: false, runState: 'collecting' });
   assert.equal(r.player.points, 10);
   assert.equal(r.player.streak, 1);
   assert.equal(r.player.run.slots[0].status, 'solved');

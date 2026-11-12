@@ -2,7 +2,7 @@
 export type UserRole = 'super_admin' | 'producer' | 'free';
 
 // Media types
-export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle' | 'qbet' | 'tenbool' | 'socialwall';
+export type MediaType = 'image' | 'video' | 'pdf' | 'gif' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'weeklycal' | 'qstage' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames' | 'raffle' | 'qbet' | 'tenbool' | 'socialwall' | 'thecode';
 export type StorageProvider = 'vercel-blob' | 'cloudflare-r2';
 
 // Riddle content structure
@@ -209,6 +209,7 @@ export interface MediaItem {
   qbetConfig?: import('./qbet').QBetConfig; // Configuration for qbet type (match score betting; entries live in the codes/{id}/qbetEntries Firestore subcollection)
   socialWallConfig?: import('./socialwall').SocialWallConfig; // Social Wall settings (members/posts live in Admin-only codes/{id}/sw* subcollections; screen/moderator tokens split to private/secrets)
   tenboolConfig?: import('./tenbool').TenBoolConfig; // "10 בול" look + sounds; absent = built-in defaults
+  thecodeConfig?: import('./thecode').TheCodePublicConfig; // "הקוד" PUBLIC stub only (title/status/language); the adventure itself is Admin-only in codes/{id}/thecode/*
   createdAt: Date;
 }
 

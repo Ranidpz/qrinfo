@@ -88,6 +88,7 @@ export interface TheCodeRules {
   freeWrongAnswers: number;         // Wrong letters before penalty + cooldown kick in
   wrongAnswerPenalty: number;
   answerCooldownSeconds: number;    // Wait between attempts once past freeWrongAnswers
+  arrangeHelpCost: number;          // "Place one letter for us" while arranging the phrase
 }
 
 /** Presenter moments. Each may have several clips; text/animation is the fallback. */
@@ -97,8 +98,21 @@ export type TheCodeTrigger =
   | 'ALL_DONE';
 
 /**
- * Public adventure config — stored on the code's media item (`thecodeConfig`).
- * NEVER contains riddles or answers (codes are world-readable).
+ * The ONLY part of an adventure that is world-readable: a stub on the code's media
+ * item (`thecodeConfig`), kept in sync by the server on every admin save. Everything
+ * else (spots, gnomes, phrases, rules, riddles) is server-only — see TheCodeConfig.
+ */
+export interface TheCodePublicConfig {
+  title: string;
+  status: 'draft' | 'published' | 'paused';
+  language: TheCodeLanguage;
+}
+
+/**
+ * The full adventure config. SERVER-ONLY: lives in the locked doc
+ * `codes/{codeId}/thecode/adventure` together with the riddles, never on the code
+ * doc (code docs are world-readable, and the phrases ARE the secret). Players only
+ * ever see a `TheCodeSnapshot` (src/types/thecode-api.ts).
  */
 export interface TheCodeConfig {
   status: 'draft' | 'published' | 'paused';
@@ -132,12 +146,23 @@ export interface TheCodeSlot {
   wrongAnswers: number;
   lastWrongAnswerAt?: number;
   pointsEarned: number;
+  /** Set when the family scanned this slot's gnome as the target. The riddle is
+   *  only shown — and an answer only accepted — once this is set. */
+  scannedAt?: number;
+  /** When the letter was won/gifted. The collector lists letters in THIS order,
+   *  never in phrase order (positions would give the phrase away). */
+  solvedAt?: number;
 }
 
 /** One suitcase attempt: a saved, always-completable plan. */
 export interface TheCodeRun {
   id: string;
   phraseId: string;
+  /** Snapshot of the phrase text when the run was built. Arranging and opening use
+   *  THIS, so editing or deleting the phrase never strands a family mid-run. */
+  phraseText?: string;
+  /** Phrase positions revealed by the paid "place one for us" help. */
+  helpedPositions?: number[];
   slots: TheCodeSlot[];
   /** Slot the family is currently sent to; null once every slot is solved/gifted. */
   targetSlotIndex: number | null;
@@ -176,13 +201,21 @@ export type TheCodeScanOutcome =
   | { kind: 'alreadySolved' }                                    // Solved earlier this run
   | { kind: 'gnomeAsleep' }                                      // Inactive gnome
   | { kind: 'allDone' }                                          // Nothing new to play
-  | { kind: 'paused' };                                          // Adventure paused/closed
+  | { kind: 'paused' }                                           // Adventure paused/closed
+  | { kind: 'runStarted'; targetSlotIndex: number }              // New suitcase; this gnome is not in it → show the first target
+  | { kind: 'arranging' }                                        // All letters collected → go arrange
+  | { kind: 'unknownGnome' };                                    // Code is not a gnome of this adventure
 
 export type TheCodeAnswerOutcome =
-  | { kind: 'correct'; letter: string; points: number; hot: boolean; spellingTip?: string;
+  | { kind: 'correct'; letter: string; points: number; hot: boolean;
+      /** This answer made the family hot (the ×N moment). */
+      becameHot: boolean; spellingTip?: string;
+      /** 'arranging' = that was the last letter. */
       runState: TheCodeRun['state'] }
   | { kind: 'wrong'; penalty: number; cooldownUntil?: number; hintAvailable: boolean }
-  | { kind: 'cooldown'; cooldownUntil: number };
+  | { kind: 'cooldown'; cooldownUntil: number }
+  | { kind: 'paused' }
+  | { kind: 'noRiddle' };                                        // Nothing to answer (not scanned / not the target)
 
 /** Why an adventure (or one phrase) cannot be published — shown to the operator. */
 export interface TheCodeIssue {
@@ -199,6 +232,7 @@ export interface TheCodeIssue {
     | 'SPOT_WITHOUT_HINT'
     | 'RIDDLE_AMBIGUOUS_LETTER'    // answer starts with a sound-alike letter
     | 'GNOME_NOT_VERIFIED'
+    | 'GNOMES_CLUSTERED'           // (almost) every gnome stands at one spot
     | 'FEW_FRESH_ROUNDS';          // a family runs out of new content quickly
   message: string;                  // Operator-facing, in the adventure language
   phraseId?: string;
@@ -208,4 +242,37 @@ export interface TheCodeIssue {
   letter?: string;
   need?: number;
   have?: number;
+  /** PHRASE_LETTER_MISSING: riddles that WOULD supply the letter but are draft /
+   *  disabled / on a switched-off gnome — the operator's fastest fix. */
+  dormantRiddleIds?: string[];
+}
+
+// -----------------------------------------------------------------
+// Operator-only views (never sent to players)
+// -----------------------------------------------------------------
+
+export interface TheCodeGnomeStats {
+  scans: number;
+  lastScanAt?: number;
+}
+
+export interface TheCodeRiddleStats {
+  correct: number;
+  wrong: number;
+  hints: number;
+}
+
+/** What the operator sees of a family. Never a phone, never a token. */
+export interface TheCodeAdminPlayer {
+  id: string;
+  familyName: string;
+  /** The name the family registered with, kept when the operator renames it. */
+  originalName?: string;
+  emoji: string;
+  hidden: boolean;
+  points: number;
+  weekPoints: number;
+  suitcases: number;
+  weekSuitcases: number;
+  lastSeenAt: number;
 }
