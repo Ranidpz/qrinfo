@@ -1124,3 +1124,42 @@ export function demoCaption(s: DemoState): string {
   const g = gnomeById(id);
   return `המטרה: גמד ${g.number} — ${spotById(g.spotId).name}`;
 }
+
+// =================================================================
+// Venue branding samples (/play/the-code?brand=1 bright, ?brand=2 dark)
+// Drawn SVG data URIs — no external URLs, no files in /public.
+// =================================================================
+
+const svgUri = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+/** A bright midday pool — the hardest case for white text. */
+const BRIGHT_PHOTO = svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7EC8FF"/><stop offset="1" stop-color="#E6F6FF"/></linearGradient>
+<linearGradient id="pool" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4FD6F0"/><stop offset="1" stop-color="#14A3D6"/></linearGradient></defs>
+<rect width="390" height="844" fill="url(#sky)"/><circle cx="310" cy="110" r="46" fill="#FFF6B0"/>
+<rect x="0" y="300" width="390" height="190" fill="#F4E9D8"/>
+<g fill="#FFFFFF" stroke="#D9CBB4" stroke-width="2">${Array.from({ length: 6 }, (_, i) => `<rect x="${20 + i * 62}" y="${320 + (i % 2) * 6}" width="46" height="54" rx="4"/>`).join('')}</g>
+<rect x="0" y="490" width="390" height="354" fill="url(#pool)"/>
+<g stroke="#FFFFFF" stroke-opacity=".55" stroke-width="3" fill="none">${Array.from({ length: 8 }, (_, i) => `<path d="M0 ${540 + i * 38} q 48 -14 97 0 t 97 0 t 97 0 t 99 0"/>`).join('')}</g>
+<g fill="#2E7D32"><path d="M40 300 q 10 -110 4 -150 q 30 30 20 150z"/><path d="M350 300 q -6 -120 2 -170 q -34 40 -22 170z"/></g>
+</svg>`);
+
+/** A dark evening lobby with warm lamps. */
+const DARK_PHOTO = svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+<defs><radialGradient id="lamp" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFC56B" stop-opacity=".9"/><stop offset="1" stop-color="#FFC56B" stop-opacity="0"/></radialGradient></defs>
+<rect width="390" height="844" fill="#1A120C"/><rect y="560" width="390" height="284" fill="#2B1C12"/>
+<g fill="#3A2718">${Array.from({ length: 4 }, (_, i) => `<rect x="${20 + i * 95}" y="140" width="70" height="300" rx="35"/>`).join('')}</g>
+<circle cx="90" cy="230" r="120" fill="url(#lamp)"/><circle cx="300" cy="300" r="110" fill="url(#lamp)"/>
+<rect x="110" y="600" width="170" height="60" rx="18" fill="#5A3A22"/><rect x="120" y="580" width="150" height="34" rx="14" fill="#6E4A2C"/>
+</svg>`);
+
+const DEMO_LOGO = svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 96">
+<g fill="none" stroke="#1F3A5F" stroke-width="5" stroke-linecap="round"><path d="M20 70 q 30 -30 60 0 t 60 0 t 60 0"/></g>
+<circle cx="110" cy="30" r="16" fill="#F2A23A"/>
+<text x="110" y="92" text-anchor="middle" font-family="Georgia, serif" font-size="22" font-weight="700" fill="#1F3A5F" letter-spacing="3">CLIFF BEACH</text>
+</svg>`);
+
+export const DEMO_BRANDINGS = {
+  '1': { backgroundUrl: BRIGHT_PHOTO, logoUrl: DEMO_LOGO, welcomeText: 'ברוכים הבאים למלון חוף הצוק!\nהגמדים שלנו מחכים לכם בכל פינה.' },
+  '2': { backgroundUrl: DARK_PHOTO, logoUrl: DEMO_LOGO },
+} as const;

@@ -3,7 +3,7 @@
 // state comes from: today the local demo (src/components/thecode/demo/playerDemo.ts),
 // later the real API + engine. Keep it plain data — no functions, no classes.
 
-import type { TheCodeColor } from '@/types/thecode';
+import type { TheCodeBranding, TheCodeColor } from '@/types/thecode';
 
 export interface PlayerGnomeView {
   id: string;
@@ -169,6 +169,10 @@ export interface PlayerState {
   scanner?: ScannerView | null;
   /** The browser cannot store the family (private mode) — show the recovery code to write down. */
   storageWarning?: boolean;
+  /** The venue's look for the OPENING screen (register / recover / loading). Absent = the game's own look. */
+  branding?: TheCodeBranding | null;
+  /** "איך משחקים" lines from the server (operator's own or the default built from the rules). Absent = no button. */
+  howToPlay?: string[];
   /** Hebrew or English letter pad. */
   alphabet: string[];
   muted: boolean;

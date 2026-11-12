@@ -15,6 +15,8 @@ import { AlreadySolvedScreen, CorrectScreen, GnomeAsleepScreen, RiddleScreen, Ta
 import { ArrangeScreen, SuitcaseScreen, SummaryScreen } from './FinaleScreens';
 import { AllDoneScreen, InAppBrowserScreen, LoadingScreen, NetworkErrorScreen, NotFoundScreen, PausedScreen } from './StatusScreens';
 import ScannerScreen from './ScannerScreen';
+import { BrandBackdrop } from './Branding';
+import HowToPlaySheet, { HowToPlayButton } from './HowToPlaySheet';
 import type { PlayerCallbacks, PlayerScreen, PlayerState } from './types';
 
 const HOT_STREAK_AT = 3;
@@ -49,7 +51,7 @@ function MuteIcon({ muted }: { muted: boolean }) {
   );
 }
 
-function Header({ state, onProfiles, onMute }: { state: PlayerState; onProfiles(): void; onMute(): void }) {
+function Header({ state, onProfiles, onMute, onHowTo }: { state: PlayerState; onProfiles(): void; onMute(): void; onHowTo?(): void }) {
   const p = state.profile!;
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
@@ -62,6 +64,7 @@ function Header({ state, onProfiles, onMute }: { state: PlayerState; onProfiles(
         <HotBadge hot={p.hot} streak={Math.min(p.streak, HOT_STREAK_AT)} target={HOT_STREAK_AT} compact />
       </div>
       <ScoreCounter points={p.points} />
+      {onHowTo && <HowToPlayButton compact onClick={onHowTo} />}
       <button type="button" className="tc-chip w-11 justify-center !px-0" onClick={onMute} aria-label={state.muted ? 'הפעלת צלילים' : 'השתקת צלילים'} aria-pressed={state.muted}>
         <MuteIcon muted={state.muted} />
       </button>
@@ -69,12 +72,12 @@ function Header({ state, onProfiles, onMute }: { state: PlayerState; onProfiles(
   );
 }
 
-function ScreenSwitch({ state, cb }: { state: PlayerState; cb: PlayerCallbacks }) {
+function ScreenSwitch({ state, cb, onHowTo }: { state: PlayerState; cb: PlayerCallbacks; onHowTo?(): void }) {
   const s = state.screen;
   switch (s.kind) {
     case 'register':
       return (
-        <RegisterScreen venueName={state.venueName} mode={s.mode} firstGnome={s.firstGnome} recoverError={s.recoverError} nameError={s.nameError}
+        <RegisterScreen onHowToPlay={onHowTo} branding={state.branding} venueName={state.venueName} mode={s.mode} firstGnome={s.firstGnome} recoverError={s.recoverError} nameError={s.nameError}
           addingProfile={!!state.profile && !s.firstGnome}
           onRegister={cb.onRegister} onRecover={cb.onRecover} onMode={cb.onRegisterMode}
           onCancel={state.profile ? () => cb.onSwitchProfile(state.profile!.id) : undefined} />
@@ -84,7 +87,7 @@ function ScreenSwitch({ state, cb }: { state: PlayerState; cb: PlayerCallbacks }
     case 'scanner':
       return state.scanner ? <ScannerScreen scanner={state.scanner} onScanCode={cb.onScanCode} onClose={cb.onCloseScanner} /> : null;
     case 'loading':
-      return <LoadingScreen />;
+      return <LoadingScreen branding={state.branding} venueName={state.venueName} />;
     case 'notFound':
       return <NotFoundScreen title={s.title} text={s.text} />;
     case 'riddle':
@@ -118,6 +121,22 @@ function ScreenSwitch({ state, cb }: { state: PlayerState; cb: PlayerCallbacks }
   }
 }
 
+const HOWTO_SEEN_KEY = 'thecode_howto_seen';
+function readHowToSeen(): boolean {
+  try { return window.localStorage.getItem(HOWTO_SEEN_KEY) === '1'; } catch { return true; } // no storage → never nag
+}
+function writeHowToSeen() {
+  try { window.localStorage.setItem(HOWTO_SEEN_KEY, '1'); } catch { /* private mode */ }
+}
+
+/** Behind the column on a wide window: the venue photo, blurred and darkened (hidden if it fails). */
+function FramePhoto({ url }: { url: string }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (failed === url) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img aria-hidden src={url} alt="" decoding="async" className="tc-frame-photo" onError={() => setFailed(url)} />;
+}
+
 export default function TheCodePlayer({ state, callbacks }: { state: PlayerState; callbacks: PlayerCallbacks }) {
   // The switcher belongs to the family that opened it: any profile change closes it.
   const [sheetFor, setSheetFor] = useState<string | null>(null);
@@ -144,6 +163,27 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
 
   const showHeader = !!state.profile && !NO_HEADER.includes(state.screen.kind);
   const alarm = state.screen.kind === 'wrongGnome' && state.screen.penalty > 0;
+  // The venue's photo is the OPENING screen's (register / recover / loading); the game keeps our look.
+  const opening = state.screen.kind === 'register' || state.screen.kind === 'loading';
+  const brandPhoto = opening ? state.branding?.backgroundUrl : undefined;
+
+  // "איך משחקים": a pure overlay — the game underneath keeps its place.
+  const howToLines = state.howToPlay ?? [];
+  const [howToOpenState, setHowToOpen] = useState(false);
+  const howToShown = howToOpenState && howToLines.length > 0;
+  const howToOpen = howToLines.length ? () => setHowToOpen(true) : undefined;
+  const closeHowTo = useCallback(() => setHowToOpen(false), []);
+  // Once per device: right after the first family joins, show the rules once.
+  const kind = state.screen.kind;
+  const prevKind = useRef(kind);
+  useEffect(() => {
+    const was = prevKind.current;
+    prevKind.current = kind;
+    if (was !== 'register' || kind === 'register' || !state.profile || !howToLines.length) return;
+    if (readHowToSeen()) return;
+    writeHowToSeen();
+    setHowToOpen(true);
+  }, [kind, state.profile, howToLines.length]);
 
   const cb: PlayerCallbacks = {
     ...callbacks,
@@ -153,11 +193,15 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
 
   return (
     <SfxContext.Provider value={play}>
+      <div className="tc-frame">
+      <style>{THECODE_STYLE}</style>
+      {state.branding?.backgroundUrl && <FramePhoto url={state.branding.backgroundUrl} />}
       <div dir="rtl" lang="he" className={`tc-root flex flex-col ${alarm ? 'tc-alarm' : ''}`} onPointerDown={() => gameSfx().unlock()}>
-        <style>{THECODE_STYLE}</style>
         <div className="tc-stars" aria-hidden />
+        {/* Covers the stars once loaded; a broken photo simply leaves the night sky. */}
+        {brandPhoto && <BrandBackdrop url={brandPhoto} />}
         {showHeader && (
-          <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onMute={() => { callbacks.onToggleMute(); }} />
+          <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onMute={() => { callbacks.onToggleMute(); }} onHowTo={howToOpen} />
         )}
         {showHeader && state.storageWarning && state.profile && (
           <p role="note" className="relative z-20 mx-4 mb-1 rounded-xl px-3 py-1.5 text-center text-sm font-bold" style={{ background: 'rgba(255,138,43,.18)', color: 'var(--tc-brass-hi)' }}>
@@ -166,11 +210,14 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
         )}
         <main className="relative flex-1">
           <div key={key} className="tc-a-rise absolute inset-0">
-            <ScreenSwitch state={state} cb={cb} />
+            <ScreenSwitch state={state} cb={cb} onHowTo={howToOpen} />
           </div>
         </main>
         <ProfileSheet open={sheetOpen && showHeader} profile={state.profile} profiles={state.profiles}
           onClose={() => setSheetOpen(false)} onSwitch={cb.onSwitchProfile} onAdd={cb.onAddProfile} />
+        <HowToPlaySheet open={howToShown} lines={howToLines} onClose={closeHowTo}
+          closeLabel={opening ? 'הבנו, יוצאים לדרך' : 'חזרה למשחק'} />
+      </div>
       </div>
     </SfxContext.Provider>
   );

@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isInAppBrowser, openCurrentUrlInBrowser } from '@/lib/inAppBrowser';
 import { phraseLetters, phraseWordLengths } from '@/lib/thecode/letters';
+import type { TheCodeBranding } from '@/types/thecode';
 import type {
   TheCodeAuth,
   TheCodeGnomeView,
@@ -44,6 +45,10 @@ export interface UseTheCodeGameOptions {
   /** Called once the pending scan reached the server (→ replaceState to /v/{shortId}). */
   onPendingScanConsumed?(): void;
   transport?: TheCodePlayTransport;
+  /** Venue branding known before the first snapshot (the /g lookup). */
+  branding?: TheCodeBranding | null;
+  /** "איך משחקים" lines known before the first snapshot (the /g lookup). */
+  howToPlay?: string[];
   /** Leaderboard source (injectable for tests). */
   leaderboard?: typeof fetchLeaderboard;
 }
@@ -490,7 +495,9 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
     loaded,
     notFound,
     muted,
-  }), [snapshot, ui, identity, storageAvailable, clockOffset, busy, boards, pendingGnome, loaded, notFound, muted]);
+    branding: opts.branding,
+    howToPlay: opts.howToPlay,
+  }), [snapshot, ui, identity, storageAvailable, clockOffset, busy, boards, pendingGnome, loaded, notFound, muted, opts.branding, opts.howToPlay]);
 
   return { state, callbacks };
 }
