@@ -37,6 +37,11 @@ function normalize(config: TheCodeConfig, riddles: TheCodeRiddle[]) {
     };
     c.branding = b.backgroundUrl || b.logoUrl || b.welcomeText ? JSON.parse(JSON.stringify(b)) : undefined;
   }
+  // Like the server: one line each, ≤160 chars, ≤8 lines, empties dropped; nothing left → default.
+  if (c.howToPlay) {
+    const lines = c.howToPlay.map((l) => l.replace(/\s+/g, ' ').trim().slice(0, 160)).filter(Boolean).slice(0, 8);
+    c.howToPlay = lines.length ? lines : undefined;
+  }
   const r = clone(riddles).map((x) => ({ ...x, text: x.text.trim(), answerWord: x.answerWord.trim(), letter: letterOfAnswer(x.answerWord), hints: x.hints.map((h) => h.trim()).filter(Boolean) }));
   return { config: c, riddles: r };
 }

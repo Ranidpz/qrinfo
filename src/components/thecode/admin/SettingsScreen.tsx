@@ -5,6 +5,7 @@ import type { TheCodeRules } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { Card, Field, NumberInput, ScreenHeader, Segmented, ToggleRow } from './ui';
 import BrandingCard from './BrandingCard';
+import HowToPlayCard from './HowToPlayCard';
 
 export default function SettingsScreen({ state, actions, report, uploadImage }: ScreenProps) {
   const { config } = state;
@@ -18,6 +19,10 @@ export default function SettingsScreen({ state, actions, report, uploadImage }: 
 
       <div id="branding" className="scroll-mt-32">
         <BrandingCard state={state} actions={actions} uploadImage={uploadImage} />
+      </div>
+
+      <div id="how-to-play" className="scroll-mt-32">
+        <HowToPlayCard state={state} actions={actions} />
       </div>
 
       <Section title="כללי">

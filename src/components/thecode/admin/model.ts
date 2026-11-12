@@ -79,7 +79,7 @@ export interface NewGnomeSpec {
 }
 
 export type ConfigPatch = Partial<
-  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding'>
+  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding' | 'howToPlay'>
 >;
 
 /** Everything a screen may change. The demo implements it in memory; wave 2 → API calls. */
