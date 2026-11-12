@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { BookOpen, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { BookOpen, Check, ChevronDown, Sparkles, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome, TheCodeRiddle } from '@/types/thecode';
 import { alphabetFor, isAmbiguousLetter, letterOfAnswer, soundAlikes } from '@/lib/thecode/letters';
@@ -10,6 +10,11 @@ import { isRiddleTooHard, letterLabel } from './helpers';
 import { Button, Card, EmptyState, Field, LetterTile, Pill, ScreenHeader, Segmented, Toggle, cx } from './ui';
 import ImageDropZone from './ImageDropZone';
 import { BankFillButton, BankFillDialog, BankPickerDialog, addFromBank } from './BankDialogs';
+import { RIDDLE_TEMPLATES, TEMPLATE_BLANK } from './riddleTemplates';
+
+/** Riddles per gnome the organizer aims for (guidance only — not stored). */
+const TARGET_MIN = 2;
+const TARGET_MAX = 5;
 
 const STATUS_LABEL: Record<TheCodeRiddle['status'], string> = { draft: 'טיוטה', published: 'מפורסמת', disabled: 'מושבתת' };
 const STATUS_TONE: Record<TheCodeRiddle['status'], 'neutral' | 'success' | 'warning'> = { draft: 'neutral', published: 'success', disabled: 'warning' };
@@ -100,7 +105,7 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
     <div className="mx-auto max-w-5xl">
       <ScreenHeader
         title="חידות"
-        summary="כל גמד שואל חידה על משהו שרואים לידו. האות הראשונה של התשובה נכנסת לאוסף. לא יודעים מה לכתוב? יש מאגר של חידות מוכנות."
+        summary={`הסתובבו במקום שבו עומד הגמד וכתבו לו ${TARGET_MIN} עד ${TARGET_MAX} חידות על מה שרואים סביבו. אפשר גם שאלות ידע. האות הראשונה של התשובה נכנסת לאוסף.`}
         actions={<BankFillButton onClick={() => setFilling(true)} />}
       />
       {dialogs}
@@ -155,12 +160,13 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
                   {pub.length === 0 ? (
                     <Pill tone={g.isActive ? 'warning' : 'neutral'}>{mine.length ? 'רק טיוטה' : 'אין'}</Pill>
                   ) : (
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
                       {[...new Set(pub.map((r) => r.letter))].slice(0, 3).map((l) => (
                         <span key={l} className="inline-flex size-7 items-center justify-center rounded-md bg-bg-hover text-sm font-bold">{l}</span>
                       ))}
                     </div>
                   )}
+                  <RiddleCount n={pub.length} active={g.isActive} />
                 </button>
               );
             })}
@@ -174,9 +180,9 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
             <button type="button" onClick={() => setGnomeId(null)} className="-ms-2 mb-3 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm text-text-secondary hover:bg-bg-hover lg:hidden">
               <ChevronRight size={16} aria-hidden /> כל הגמדים
             </button>
-            <div className="mb-4 flex items-center gap-4">
+            <div className="mb-4 flex flex-wrap items-center gap-4">
               <GnomeFigure bodyColor={gnome.bodyColor} hatColor={gnome.hatColor} size={48} number={gnome.number} />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-[9rem] flex-1">
                 <div className="text-lg font-semibold">גמד {gnome.number}</div>
                 <div className="truncate text-sm text-text-secondary">{describeGnome(gnome.bodyColor, gnome.hatColor)} — {spotName(gnome)}</div>
               </div>
@@ -185,6 +191,7 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
                 <Button variant="primary" icon={Plus} onClick={() => addRiddle(gnome.id)}>הוסיפו חידה</Button>
               </div>
             </div>
+            <TargetLine n={bank.filter((r) => r.status === 'published').length} />
             {!gnome.isActive && (
               <div className="mb-4 rounded-lg bg-bg-hover px-3 py-2 text-sm text-text-secondary">הגמד כבוי, ולכן החידות שלו לא משתתפות כרגע במשחק.</div>
             )}
@@ -298,6 +305,7 @@ function RiddleCard({
   const ambiguous = !!letter && isAmbiguousLetter(letter);
   const hints = [0, 1, 2].map((i) => r.hints[i] || '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
   return (
     <Card className={cx(open && 'ring-2 ring-accent/30')}>
@@ -322,12 +330,26 @@ function RiddleCard({
         <div className="space-y-6 border-t border-border px-4 py-5">
           <Field label="החידה">
             <textarea
+              ref={textRef}
               className="input min-h-24 resize-y"
               value={r.text}
               placeholder="למשל: מה תלוי על הקיר מעל הדלפק ומראה לכם מתי ארוחת הבוקר?"
               onChange={(e) => onChange({ text: e.target.value })}
             />
           </Field>
+          <TemplateIdeas
+            onPick={(text) => {
+              onChange({ text });
+              // Put the cursor on the first blank so the organizer types the real detail straight away.
+              window.setTimeout(() => {
+                const el = textRef.current;
+                if (!el) return;
+                const at = text.indexOf(TEMPLATE_BLANK);
+                el.focus();
+                if (at >= 0) el.setSelectionRange(at, at + TEMPLATE_BLANK.length);
+              }, 0);
+            }}
+          />
 
           <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
             <Field label="התשובה" hint="מילה אחת. רק האות הראשונה שלה נאספת.">
@@ -435,5 +457,63 @@ function RiddleCard({
         </div>
       )}
     </Card>
+  );
+}
+
+/** Published riddles of a gnome against the 2–5 target; under 2 is gently flagged. */
+function RiddleCount({ n, active }: { n: number; active: boolean }) {
+  if (n === 0) return null;
+  const low = active && n < TARGET_MIN;
+  return (
+    <span
+      title={low ? `כדאי להוסיף — היעד ${TARGET_MIN} עד ${TARGET_MAX} חידות לגמד` : `${n} חידות מפורסמות`}
+      dir="ltr"
+      className={cx('shrink-0 text-xs tabular-nums', low ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-text-secondary')}
+    >
+      {n}/{TARGET_MIN}–{TARGET_MAX}
+    </span>
+  );
+}
+
+function TargetLine({ n }: { n: number }) {
+  const low = n < TARGET_MIN;
+  return (
+    <div className={cx('-mt-2 mb-4 text-sm', low ? 'text-amber-700 dark:text-amber-400' : 'text-text-secondary')}>
+      {n === 0 ? 'אין עדיין חידה מפורסמת' : n === 1 ? 'חידה מפורסמת אחת' : `${n} חידות מפורסמות`} · היעד {TARGET_MIN} עד {TARGET_MAX}
+      {low && ' — כדאי להוסיף'}
+    </div>
+  );
+}
+
+/** "רעיונות לחידה": observation templates; a tap fills the riddle text, the organizer completes it. */
+function TemplateIdeas({ onPick }: { onPick: (text: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="-mt-3">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-accent hover:bg-accent/10">
+        <Sparkles size={16} aria-hidden /> רעיונות לחידה
+        <ChevronDown size={14} className={cx('transition-transform', open && 'rotate-180')} aria-hidden />
+      </button>
+      {open && (
+        <div className="mt-2 rounded-xl bg-bg-secondary p-3">
+          <p className="mb-2 text-sm text-text-secondary">בחרו רעיון, השלימו את ה־{TEMPLATE_BLANK} במשהו שבאמת נמצא שם, וכתבו למטה את התשובה.</p>
+          <div className="flex flex-wrap gap-2">
+            {RIDDLE_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  onPick(t.text);
+                  setOpen(false);
+                }}
+                className="min-h-10 rounded-lg border border-border bg-bg-card px-3 py-2 text-start text-sm hover:border-accent/50 hover:bg-accent/5"
+              >
+                {t.text}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
