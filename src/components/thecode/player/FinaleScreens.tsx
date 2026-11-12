@@ -104,7 +104,7 @@ export function ArrangeScreen({ arrange: a, onPlace, onRemove, onHelp, onOpen }:
             })}
           </div>
           <button type="button" className="tc-btn tc-btn-ghost mt-auto w-full" onClick={() => { sfx('tap'); onHelp(); }}>
-            מקמו לי אות <span className="tc-num rounded-full bg-black/30 px-2 py-0.5 text-base" style={{ color: 'var(--tc-coral)' }}>−{a.helpCost}</span>
+            מקמו לנו אות <span className="tc-num rounded-full bg-black/30 px-2 py-0.5 text-base" style={{ color: 'var(--tc-coral)' }}>−{a.helpCost}</span>
           </button>
         </>
       )}
@@ -189,7 +189,7 @@ export function SuitcaseScreen({ suitcase, onNext }: { suitcase: SuitcaseView; o
 const ROW_H = 58;
 
 /** Weekly board: rows start at their old rank and slide to the new one. */
-function Leaderboard({ rows }: { rows: LeaderRowView[] }) {
+function Leaderboard({ rows, meOutside }: { rows: LeaderRowView[]; meOutside?: { rank: number; points: number } }) {
   const [settled, setSettled] = useState(false);
   const boardRef = useRef<HTMLOListElement>(null);
   // The rank change plays when the board scrolls into view, not while it is off-screen.
@@ -233,8 +233,13 @@ function Leaderboard({ rows }: { rows: LeaderRowView[] }) {
           );
         })}
       </ol>
-      {me >= shown.length && (
+      {me >= shown.length ? (
         <p className="mt-2 text-center" style={{ color: 'var(--tc-soft)' }}>אתם במקום {me + 1}</p>
+      ) : me < 0 && meOutside ? (
+        <p className="mt-2 text-center" style={{ color: 'var(--tc-soft)' }}>אתם במקום <span className="tc-num">{meOutside.rank}</span></p>
+      ) : null}
+      {!rows.length && (
+        <p className="text-center text-lg" style={{ color: 'var(--tc-soft)' }}>עוד אין משפחות בטבלה. הנקודות הראשונות יכניסו אתכם אליה!</p>
       )}
     </div>
   );
@@ -244,9 +249,13 @@ interface SummaryProps {
   profile: PlayerProfileView;
   summary: SummaryView;
   onNewSuitcase(): void;
+  onBoardScope?(scope: 'week' | 'all'): void;
 }
 
-export function SummaryScreen({ profile, summary, onNewSuitcase }: SummaryProps) {
+const SCOPES: { id: 'week' | 'all'; label: string }[] = [{ id: 'week', label: 'השבוע' }, { id: 'all', label: 'כל הזמנים' }];
+
+export function SummaryScreen({ profile, summary, onNewSuitcase, onBoardScope }: SummaryProps) {
+  const sfx = useSfx();
   const found = summary.album.filter((a) => a.found).length;
   const [pts, setPts] = useState(0);
   useEffect(() => {
@@ -287,8 +296,22 @@ export function SummaryScreen({ profile, summary, onNewSuitcase }: SummaryProps)
       </section>
 
       <section>
-        <h3 className="tc-display mb-3 text-2xl">הטבלה של השבוע</h3>
-        <Leaderboard rows={summary.leaderboard} />
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="tc-display text-2xl">{summary.boardScope === 'all' ? 'הטבלה של כל הזמנים' : 'הטבלה של השבוע'}</h3>
+          {summary.boardScope && onBoardScope && (
+            <div className="flex rounded-full p-1" style={{ background: 'rgba(0,0,0,.3)' }} role="group" aria-label="איזו טבלה">
+              {SCOPES.map((sc) => (
+                <button key={sc.id} type="button" aria-pressed={summary.boardScope === sc.id}
+                  onClick={() => { sfx('tap'); onBoardScope(sc.id); }}
+                  className="min-h-[40px] rounded-full px-3 text-sm font-bold transition-colors"
+                  style={summary.boardScope === sc.id ? { background: 'var(--tc-brass)', color: '#2A1600' } : { color: 'var(--tc-soft)' }}>
+                  {sc.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <Leaderboard key={summary.boardScope || 'week'} rows={summary.leaderboard} meOutside={summary.meOutside} />
       </section>
 
       {summary.canStartNew ? (

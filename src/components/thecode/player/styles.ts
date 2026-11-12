@@ -129,6 +129,10 @@ export const THECODE_STYLE = `
 .tc-glow { animation: tc-glow 1s ease-out 1s both; }
 .tc-rays { animation: tc-rays 14s linear infinite; }
 .tc-row-move { transition: transform .9s cubic-bezier(.3,.9,.3,1); }
+@keyframes tc-scanline { 0% { transform: translateY(0); opacity: .2 } 50% { opacity: 1 } 100% { transform: translateY(var(--tc-scan-h, 220px)); opacity: .2 } }
+.tc-scanline { animation: tc-scanline 2.2s ease-in-out infinite alternate; }
+@keyframes tc-spin { to { transform: rotate(360deg) } }
+.tc-spin { animation: tc-spin 1s linear infinite; }
 .tc-delay-1 { animation-delay: .08s } .tc-delay-2 { animation-delay: .16s } .tc-delay-3 { animation-delay: .24s } .tc-delay-4 { animation-delay: .32s }
 
 @media (prefers-reduced-motion: reduce) {

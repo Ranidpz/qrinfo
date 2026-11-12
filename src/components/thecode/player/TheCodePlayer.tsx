@@ -13,11 +13,12 @@ import RegisterScreen from './RegisterScreen';
 import ProfileSheet from './ProfileSheet';
 import { AlreadySolvedScreen, CorrectScreen, GnomeAsleepScreen, RiddleScreen, TargetScreen, WrongGnomeScreen } from './HuntScreens';
 import { ArrangeScreen, SuitcaseScreen, SummaryScreen } from './FinaleScreens';
-import { AllDoneScreen, InAppBrowserScreen, NetworkErrorScreen, PausedScreen } from './StatusScreens';
+import { AllDoneScreen, InAppBrowserScreen, LoadingScreen, NetworkErrorScreen, NotFoundScreen, PausedScreen } from './StatusScreens';
+import ScannerScreen from './ScannerScreen';
 import type { PlayerCallbacks, PlayerScreen, PlayerState } from './types';
 
 const HOT_STREAK_AT = 3;
-const NO_HEADER: PlayerScreen['kind'][] = ['register', 'inAppBrowser', 'networkError', 'paused'];
+const NO_HEADER: PlayerScreen['kind'][] = ['register', 'inAppBrowser', 'networkError', 'paused', 'loading', 'notFound'];
 
 function screenKey(s: PlayerScreen): string {
   if (s.kind === 'wrongGnome') return `wrong-${s.gnome.id}-${s.penalty}`;
@@ -73,13 +74,19 @@ function ScreenSwitch({ state, cb }: { state: PlayerState; cb: PlayerCallbacks }
   switch (s.kind) {
     case 'register':
       return (
-        <RegisterScreen venueName={state.venueName} mode={s.mode} firstGnome={s.firstGnome} recoverError={s.recoverError}
+        <RegisterScreen venueName={state.venueName} mode={s.mode} firstGnome={s.firstGnome} recoverError={s.recoverError} nameError={s.nameError}
           addingProfile={!!state.profile && !s.firstGnome}
           onRegister={cb.onRegister} onRecover={cb.onRecover} onMode={cb.onRegisterMode}
           onCancel={state.profile ? () => cb.onSwitchProfile(state.profile!.id) : undefined} />
       );
     case 'target':
-      return state.target ? <TargetScreen target={state.target} collector={state.collector} onHint={cb.onLocationHint} /> : null;
+      return state.target ? <TargetScreen target={state.target} collector={state.collector} onHint={cb.onLocationHint} onScan={cb.onOpenScanner} /> : null;
+    case 'scanner':
+      return state.scanner ? <ScannerScreen scanner={state.scanner} onScanCode={cb.onScanCode} onClose={cb.onCloseScanner} /> : null;
+    case 'loading':
+      return <LoadingScreen />;
+    case 'notFound':
+      return <NotFoundScreen title={s.title} text={s.text} />;
     case 'riddle':
       return state.riddle ? (
         <RiddleScreen riddle={state.riddle} alphabet={state.alphabet} onPick={cb.onPickLetter} onSubmit={cb.onSubmitLetter} onHint={cb.onRiddleHint} />
@@ -99,7 +106,7 @@ function ScreenSwitch({ state, cb }: { state: PlayerState; cb: PlayerCallbacks }
     case 'suitcase':
       return state.suitcase ? <SuitcaseScreen suitcase={state.suitcase} onNext={cb.onShowSummary} /> : null;
     case 'summary':
-      return state.profile && state.summary ? <SummaryScreen profile={state.profile} summary={state.summary} onNewSuitcase={cb.onNewSuitcase} /> : null;
+      return state.profile && state.summary ? <SummaryScreen profile={state.profile} summary={state.summary} onNewSuitcase={cb.onNewSuitcase} onBoardScope={cb.onBoardScope} /> : null;
     case 'allDone':
       return <AllDoneScreen profile={state.profile} onSummary={cb.onShowSummary} />;
     case 'paused':
@@ -107,7 +114,7 @@ function ScreenSwitch({ state, cb }: { state: PlayerState; cb: PlayerCallbacks }
     case 'inAppBrowser':
       return <InAppBrowserScreen onOpen={cb.onOpenInBrowser} onDismiss={cb.onDismissInAppBrowser} />;
     case 'networkError':
-      return <NetworkErrorScreen onRetry={cb.onRetry} />;
+      return <NetworkErrorScreen onRetry={cb.onRetry} problem={s.problem} retryInSeconds={s.retryInSeconds} />;
   }
 }
 
@@ -151,6 +158,11 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
         <div className="tc-stars" aria-hidden />
         {showHeader && (
           <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onMute={() => { callbacks.onToggleMute(); }} />
+        )}
+        {showHeader && state.storageWarning && state.profile && (
+          <p role="note" className="relative z-20 mx-4 mb-1 rounded-xl px-3 py-1.5 text-center text-sm font-bold" style={{ background: 'rgba(255,138,43,.18)', color: 'var(--tc-brass-hi)' }}>
+            הדפדפן לא שומר אתכם. רשמו את קוד השחזור: <span dir="ltr" className="tc-num">{state.profile.recoveryCode}</span>
+          </p>
         )}
         <main className="relative flex-1">
           <div key={key} className="tc-a-rise absolute inset-0">

@@ -13,6 +13,8 @@ interface Props {
   mode: 'new' | 'recover';
   firstGnome?: PlayerGnomeView;
   recoverError?: string;
+  /** The server refused the family name. */
+  nameError?: string;
   /** Adding a sibling from the switcher (not the first scan). */
   addingProfile: boolean;
   onRegister(familyName: string, emoji: string): void;
@@ -128,6 +130,7 @@ export default function RegisterScreen(p: Props) {
         </div>
       </fieldset>
 
+      {p.nameError && <p role="alert" className="tc-a-shake text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{p.nameError}</p>}
       <p className="text-center text-sm" style={{ color: 'var(--tc-soft)' }}>בלי שמות אמיתיים ובלי תמונות. רק כינוי וסמל.</p>
 
       <div className="mt-auto flex flex-col gap-3">
