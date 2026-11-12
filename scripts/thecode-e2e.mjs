@@ -204,6 +204,9 @@ async function main() {
   };
   r = await play(null, { type: 'state' });
   check('draft adventure is closed for players', r.json?.ok && r.json.snapshot.adventure.open === false);
+  check('how-to-play reaches a visitor without a profile, built from the rules',
+    Array.isArray(r.json?.snapshot?.adventure?.howToPlay) && r.json.snapshot.adventure.howToPlay.length >= 5
+      && r.json.snapshot.adventure.howToPlay.join(' ').includes(String(config.rules.pointsPerLetter)));
   check('venue branding reaches a visitor without a profile', JSON.stringify(r.json?.snapshot?.adventure?.branding) === JSON.stringify(BRANDING),
     JSON.stringify(r.json?.snapshot?.adventure?.branding));
 

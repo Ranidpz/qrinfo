@@ -18,7 +18,9 @@ async function urlOf(relativePath, replacements = {}) {
 }
 const lettersUrl = await urlOf('../../src/lib/thecode/letters.ts');
 const engineUrl = await urlOf('../../src/lib/thecode/engine.ts', { './letters': lettersUrl });
-const dep = { '../engine': engineUrl, '../letters': lettersUrl };
+const howToPlayUrl = await urlOf('../../src/lib/thecode/howToPlay.ts');
+const dep = { '../engine': engineUrl, '../letters': lettersUrl, '../howToPlay': howToPlayUrl };
+const H = await import(howToPlayUrl);
 const L = await import(lettersUrl);
 const E = await import(engineUrl);
 const S = await import(await urlOf('../../src/lib/thecode/server/snapshot.ts', dep));
@@ -123,6 +125,32 @@ test('branding: only https urls and a short text survive; it is mirrored to the 
   assert.deepEqual(S.buildSnapshot(adv, null, NOON).adventure.branding, adv.config.branding);
   delete adv.config.branding;
   assert.ok(!('branding' in S.buildSnapshot(adv, null, NOON).adventure));
+});
+
+// ------------------------------------------------------------------ how to play
+
+test('how to play: default from the real rules, operator lines win, cleaned and capped', () => {
+  const rules = { ...E.DEFAULT_THECODE_RULES, pointsPerLetter: 70, hintCost: 15, suitcaseBonus: 400 };
+  const he = H.defaultHowToPlay(rules, 'he');
+  assert.ok(he.length >= 5 && he.length <= H.HOW_TO_PLAY_LIMITS.lines);
+  const all = he.join(' ');
+  for (const n of ['70', '15', '400']) assert.ok(all.includes(n), `default mentions ${n}`);
+  assert.ok(he.every((l) => l.length <= H.HOW_TO_PLAY_LIMITS.line));
+  assert.ok(H.defaultHowToPlay(rules, 'en').join(' ').includes('70 points'));
+
+  const adv = fixture();
+  assert.deepEqual(S.buildSnapshot(adv, null, NOON).adventure.howToPlay, H.defaultHowToPlay(E.resolveRules(adv.config.rules), adv.config.language));
+
+  const base = { status: 'draft', title: 'מלון', language: 'he', spots: [], gnomes: [], phrases: [], rules: {} };
+  assert.equal(A.normalizeAdventure({ ...base, howToPlay: ['', '   '] }, [], null).config.howToPlay, undefined);
+  const own = A.normalizeAdventure({ ...base, howToPlay: ['  מחפשים   גמדים ', 42, '', ...Array.from({ length: 12 }, (_, i) => `שורה ${i} ${'א'.repeat(300)}`)] }, [], null);
+  assert.equal(own.config.howToPlay.length, H.HOW_TO_PLAY_LIMITS.lines);
+  assert.equal(own.config.howToPlay[0], 'מחפשים גמדים');
+  assert.ok(own.config.howToPlay.every((l) => typeof l === 'string' && l.length <= H.HOW_TO_PLAY_LIMITS.line));
+  adv.config.howToPlay = ['שורה אחת שלנו'];
+  assert.deepEqual(S.buildSnapshot(adv, null, NOON).adventure.howToPlay, ['שורה אחת שלנו']);
+  // Not on the public stub: it is served with the snapshot / lookup.
+  assert.ok(!('howToPlay' in A.toPublicConfig(adv.config)));
 });
 
 // ------------------------------------------------------------------ snapshot

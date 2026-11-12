@@ -128,6 +128,8 @@ export interface TheCodeSnapshot {
     hotMultiplier: number;
     /** Venue look of the opening (register / log in) screen. */
     branding?: TheCodeBranding;
+    /** "איך משחקים" — always filled (the operator's lines or the default from the rules). */
+    howToPlay: string[];
   };
   player: TheCodePlayerView | null;
   run: TheCodeRunView | null;
@@ -181,7 +183,9 @@ export type TheCodeGnomeLookupResponse =
       /** The scanned gnome itself — it is standing in front of the family anyway. */
       gnome: TheCodeGnomeView;
       /** Venue look of the opening screen, so /g/{code} is branded from the first paint. */
-      branding?: TheCodeBranding }
+      branding?: TheCodeBranding;
+      /** "איך משחקים", resolved like the snapshot's. */
+      howToPlay: string[] }
   | { ok: false; error: 'notFound' };
 
 // =================================================================
