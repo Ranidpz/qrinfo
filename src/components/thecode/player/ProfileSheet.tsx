@@ -2,6 +2,7 @@
 
 // Siblings on one phone: switch family, add one, see the recovery code.
 
+import { Avatar } from './Avatar';
 import type { PlayerProfileView } from './types';
 
 interface Props {
@@ -29,7 +30,7 @@ export default function ProfileSheet({ open, profile, profiles, onClose, onSwitc
                 <button type="button" onClick={() => onSwitch(p.id)} aria-current={isActive}
                   className="flex min-h-[60px] w-full items-center gap-3 rounded-2xl px-4 text-start transition-transform active:scale-[.98]"
                   style={isActive ? { background: 'rgba(244,183,64,.18)', boxShadow: 'inset 0 0 0 2px var(--tc-brass)' } : { background: 'var(--tc-panel)', boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }}>
-                  <span className="text-3xl" aria-hidden>{p.emoji}</span>
+                  <Avatar value={p.emoji} size={36} />
                   <span className="flex-1 text-xl font-bold">{p.familyName}</span>
                   <span className="tc-num text-lg" style={{ color: 'var(--tc-brass)' }}>{p.points.toLocaleString('en-US')}</span>
                   {isActive && <span aria-hidden className="text-xl" style={{ color: 'var(--tc-brass)' }}>✓</span>}

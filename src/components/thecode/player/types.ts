@@ -173,6 +173,8 @@ export interface PlayerState {
   branding?: TheCodeBranding | null;
   /** "איך משחקים" lines from the server (operator's own or the default built from the rules). Absent = no button. */
   howToPlay?: string[];
+  /** Offer a selfie as the team's symbol on the register screen (demo only, awaiting approval). */
+  selfieEnabled?: boolean;
   /** Hebrew or English letter pad. */
   alphabet: string[];
   muted: boolean;

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import { displayPhrase } from '@/lib/thecode/letters';
+import { Avatar } from './Avatar';
 import { Confetti, CountUp, HintCard, ScreenBody, Socket, StarCoin, Tile, useSfx } from './ui';
 import type { ArrangeView, LeaderRowView, PlayerProfileView, SuitcaseView, SummaryView } from './types';
 
@@ -225,7 +226,7 @@ function Leaderboard({ rows, meOutside }: { rows: LeaderRowView[]; meOutside?: {
                 zIndex: r.isMe ? 2 : 1,
               }}>
               <span className="tc-num w-7 text-center text-xl" style={{ color: i < 3 ? 'var(--tc-brass)' : 'var(--tc-soft)' }}>{i + 1}</span>
-              <span className="text-2xl" aria-hidden>{r.emoji}</span>
+              <Avatar value={r.emoji} size={32} />
               <span className="flex-1 truncate text-start text-lg font-bold">{r.familyName}</span>
               {r.isMe && climbed && settled && <span className="tc-a-pop text-sm font-black" style={{ color: 'var(--tc-mint)' }}>▲ {r.prevRank - i}</span>}
               <span className="tc-num text-lg">{r.points.toLocaleString('en-US')}</span>
@@ -265,7 +266,7 @@ export function SummaryScreen({ profile, summary, onNewSuitcase, onBoardScope }:
   return (
     <ScreenBody className="items-stretch gap-6">
       <div className="mt-2 text-center">
-        <p className="text-4xl" aria-hidden>{profile.emoji}</p>
+        <div className="flex justify-center"><Avatar value={profile.emoji} size={52} /></div>
         <h2 className="tc-display text-3xl">{profile.familyName}</h2>
       </div>
       <div className="grid grid-cols-2 gap-3">

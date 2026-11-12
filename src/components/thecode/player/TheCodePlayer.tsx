@@ -16,6 +16,7 @@ import { ArrangeScreen, SuitcaseScreen, SummaryScreen } from './FinaleScreens';
 import { AllDoneScreen, InAppBrowserScreen, LoadingScreen, NetworkErrorScreen, NotFoundScreen, PausedScreen } from './StatusScreens';
 import ScannerScreen from './ScannerScreen';
 import { BrandBackdrop } from './Branding';
+import { Avatar } from './Avatar';
 import HowToPlaySheet, { HowToPlayButton } from './HowToPlaySheet';
 import type { PlayerCallbacks, PlayerScreen, PlayerState } from './types';
 
@@ -56,7 +57,7 @@ function Header({ state, onProfiles, onMute, onHowTo }: { state: PlayerState; on
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
       <button type="button" className="tc-chip min-w-0 max-w-[40%] shrink" onClick={onProfiles} aria-label={`הקבוצה: ${p.familyName}. החלפת קבוצה וקוד שחזור`}>
-        <span className="text-xl" aria-hidden>{p.emoji}</span>
+        <Avatar value={p.emoji} size={26} />
         <span className="truncate">{p.familyName}</span>
         {state.profiles.length > 1 && <span aria-hidden className="text-xs opacity-70">▾</span>}
       </button>
@@ -77,7 +78,7 @@ function ScreenSwitch({ state, cb, onHowTo }: { state: PlayerState; cb: PlayerCa
   switch (s.kind) {
     case 'register':
       return (
-        <RegisterScreen onHowToPlay={onHowTo} branding={state.branding} venueName={state.venueName} mode={s.mode} firstGnome={s.firstGnome} recoverError={s.recoverError} nameError={s.nameError}
+        <RegisterScreen allowSelfie={state.selfieEnabled} onHowToPlay={onHowTo} branding={state.branding} venueName={state.venueName} mode={s.mode} firstGnome={s.firstGnome} recoverError={s.recoverError} nameError={s.nameError}
           addingProfile={!!state.profile && !s.firstGnome}
           onRegister={cb.onRegister} onRecover={cb.onRecover} onMode={cb.onRegisterMode}
           onCancel={state.profile ? () => cb.onSwitchProfile(state.profile!.id) : undefined} />

@@ -127,7 +127,7 @@ export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRAND
     };
   }, []);
 
-  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY }), [s, brand]);
+  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY, selfieEnabled: true }), [s, brand]);
 
   return (
     <div className="min-h-[100dvh] bg-[#E9E6F2] md:flex md:items-center md:justify-center md:gap-10 md:p-5">
