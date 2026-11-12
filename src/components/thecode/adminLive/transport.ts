@@ -13,6 +13,7 @@ import type {
   TheCodeAdminSaveResponse,
 } from '@/types/thecode-api';
 import { compressImage } from '@/lib/imageCompression';
+import type { UploadOptions } from '@/components/thecode/admin/model';
 
 export type LoadError = 'unauthorized' | 'forbidden' | 'notFound' | 'network' | 'server';
 
@@ -34,7 +35,7 @@ export interface TheCodeAdminTransport {
   patchPlayer(req: TheCodeAdminPlayerPatchRequest): Promise<PlayerResult>;
   deletePlayer(req: TheCodeAdminPlayerDeleteRequest): Promise<PlayerResult>;
   /** Compress + upload one image for this adventure; resolves to its public URL. */
-  uploadImage(codeId: string, file: File, onProgress: (fraction: number) => void): Promise<string>;
+  uploadImage(codeId: string, file: File, onProgress: (fraction: number) => void, opts?: UploadOptions): Promise<string>;
 }
 
 const ADMIN = '/api/thecode/admin';
@@ -134,8 +135,8 @@ export function createHttpTransport(): TheCodeAdminTransport {
       }
     },
 
-    async uploadImage(codeId, file, onProgress) {
-      const prepared = await prepareImage(file);
+    async uploadImage(codeId, file, onProgress, opts) {
+      const prepared = await prepareImage(file, opts);
       onProgress(0.05);
       const { getAuthHeader } = await import('@/lib/fetchWithAuth');
       const header = await getAuthHeader();
@@ -178,10 +179,18 @@ export function createHttpTransport(): TheCodeAdminTransport {
  * Client-side compression before upload (Vercel's 4.5 MB body cap — CLAUDE.md). GIFs keep their
  * animation and are sent as they are when small enough. Photos only — transparency is not kept.
  */
-export async function prepareImage(file: File): Promise<File> {
+export async function prepareImage(file: File, opts: UploadOptions = {}): Promise<File> {
   if (file.type === 'image/gif') {
     if (file.size <= 3.5 * 1024 * 1024) return file;
     throw new Error('gif too large');
+  }
+  if (opts.keepAlpha) {
+    // Logos: a reasonable PNG goes as it is (no re-encode at all); a huge one is scaled down
+    // and stays PNG (compressImage preserveAlpha = lossless PNG, transparency kept).
+    if (file.type === 'image/png' && file.size <= 1.5 * 1024 * 1024) return file;
+    const { blob } = await compressImage(file, { maxWidth: 1000, maxHeight: 1000, preserveAlpha: true });
+    const base = file.name.replace(/\.[^.]+$/, '') || 'logo';
+    return new File([blob], `${base}.png`, { type: 'image/png' });
   }
   const { blob, format } = await compressImage(file, {
     maxSizeKB: 450,

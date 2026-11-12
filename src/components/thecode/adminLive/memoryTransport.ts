@@ -27,6 +27,21 @@ function normalize(config: TheCodeConfig, riddles: TheCodeRiddle[]) {
   c.spots = c.spots.map((s) => ({ ...s, name: s.name.trim(), hints: s.hints.map((h) => h.trim()).filter(Boolean), safetyNote: trim(s.safetyNote) || undefined, outdoor: s.outdoor === true ? true : undefined }));
   c.phrases = c.phrases.map((p) => ({ ...p, text: p.text.trim() }));
   c.gnomes = c.gnomes.map((g) => ({ ...g, code: g.code || newGnomeCode(), manualCode: g.manualCode || newManualCode() }));
+  // Like the server: drop empty fields, one line of ≤140 chars, no branding when nothing is left.
+  // (URLs are not forced to https here — the fake upload returns blob: URLs.)
+  if (c.branding) {
+    const b = {
+      backgroundUrl: c.branding.backgroundUrl?.trim() || undefined,
+      logoUrl: c.branding.logoUrl?.trim() || undefined,
+      welcomeText: c.branding.welcomeText?.replace(/\s+/g, ' ').trim().slice(0, 140) || undefined,
+    };
+    c.branding = b.backgroundUrl || b.logoUrl || b.welcomeText ? JSON.parse(JSON.stringify(b)) : undefined;
+  }
+  // Like the server: one line each, ≤160 chars, ≤8 lines, empties dropped; nothing left → default.
+  if (c.howToPlay) {
+    const lines = c.howToPlay.map((l) => l.replace(/\s+/g, ' ').trim().slice(0, 160)).filter(Boolean).slice(0, 8);
+    c.howToPlay = lines.length ? lines : undefined;
+  }
   const r = clone(riddles).map((x) => ({ ...x, text: x.text.trim(), answerWord: x.answerWord.trim(), letter: letterOfAnswer(x.answerWord), hints: x.hints.map((h) => h.trim()).filter(Boolean) }));
   return { config: c, riddles: r };
 }

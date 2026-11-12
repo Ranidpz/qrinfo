@@ -3,7 +3,7 @@
 // (src/components/thecode/adminLive/useTheCodeAdmin.ts) run THIS code, so the UI reacts
 // instantly in both; the live hook only adds persistence around it.
 
-import type { TheCodeConfig, TheCodeGnome } from '@/types/thecode';
+import type { TheCodeBranding, TheCodeConfig, TheCodeGnome } from '@/types/thecode';
 import { letterOfAnswer } from '@/lib/thecode/letters';
 import type { AdminActions, AdminState } from './model';
 
@@ -43,6 +43,12 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
     setStatus: (status) => cfg((c) => ({ ...c, status })),
     updateConfig: (patch) => cfg((c) => ({ ...c, ...patch })),
     updateRules: (patch) => cfg((c) => ({ ...c, rules: { ...c.rules, ...patch } })),
+    updateBranding: (patch) =>
+      cfg((c) => {
+        const next: TheCodeBranding = { ...c.branding, ...patch };
+        for (const k of Object.keys(next) as (keyof TheCodeBranding)[]) if (!next[k]) delete next[k];
+        return { ...c, branding: Object.keys(next).length ? next : undefined };
+      }),
 
     addSpot: () => {
       const id = newEntityId('s');

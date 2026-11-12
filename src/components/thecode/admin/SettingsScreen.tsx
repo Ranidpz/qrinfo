@@ -4,8 +4,10 @@ import type { ReactNode } from 'react';
 import type { TheCodeRules } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { Card, Field, NumberInput, ScreenHeader, Segmented, ToggleRow } from './ui';
+import BrandingCard from './BrandingCard';
+import HowToPlayCard from './HowToPlayCard';
 
-export default function SettingsScreen({ state, actions, report }: ScreenProps) {
+export default function SettingsScreen({ state, actions, report, uploadImage }: ScreenProps) {
   const { config } = state;
   const r = config.rules;
   const rule = (key: keyof TheCodeRules) => (n: number) => actions.updateRules({ [key]: n });
@@ -14,6 +16,14 @@ export default function SettingsScreen({ state, actions, report }: ScreenProps) 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <ScreenHeader title="הגדרות" summary="השינויים נשמרים מיד." />
+
+      <div id="branding" className="scroll-mt-32">
+        <BrandingCard state={state} actions={actions} uploadImage={uploadImage} />
+      </div>
+
+      <div id="how-to-play" className="scroll-mt-32">
+        <HowToPlayCard state={state} actions={actions} />
+      </div>
 
       <Section title="כללי">
         <Field label="שם ההרפתקה" hint="מופיע למשפחות ובלוח התוצאות.">
