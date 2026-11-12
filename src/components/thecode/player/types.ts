@@ -116,13 +116,31 @@ export interface LeaderRowView {
 export interface SummaryView {
   album: AlbumEntryView[];
   leaderboard: LeaderRowView[];
+  /** Which board is shown. Absent = this week only, no toggle (the demo). */
+  boardScope?: 'week' | 'all';
+  /** The family's own place when it is outside the rows shown. */
+  meOutside?: { rank: number; points: number };
   /** False when every suitcase is open — the "new suitcase" button turns into the end state. */
   canStartNew: boolean;
 }
 
+/** The in-page scanner. `camera: false` = the demo's simulated viewfinder. */
+export interface ScannerView {
+  camera: boolean;
+  /** A message from the last scan attempt (e.g. a code that is not a gnome of this game). */
+  error: string | null;
+  /** A scan is being checked — the scanner waits. */
+  busy: boolean;
+}
+
+export type NetworkProblem = 'offline' | 'rateLimited' | 'server';
+
 export type PlayerScreen =
-  | { kind: 'register'; mode: 'new' | 'recover'; recoverError?: string; firstGnome?: PlayerGnomeView }
+  | { kind: 'register'; mode: 'new' | 'recover'; recoverError?: string; nameError?: string; firstGnome?: PlayerGnomeView }
+  | { kind: 'loading' }
+  | { kind: 'notFound'; title: string; text: string }
   | { kind: 'target' }
+  | { kind: 'scanner' }
   | { kind: 'riddle' }
   | { kind: 'correct' }
   | { kind: 'wrongGnome'; gnome: PlayerGnomeView; penalty: number; freeLeft: number }
@@ -134,7 +152,7 @@ export type PlayerScreen =
   | { kind: 'allDone' }
   | { kind: 'paused' }
   | { kind: 'inAppBrowser' }
-  | { kind: 'networkError' };
+  | { kind: 'networkError'; problem?: NetworkProblem; retryInSeconds?: number };
 
 export interface PlayerState {
   screen: PlayerScreen;
@@ -148,6 +166,9 @@ export interface PlayerState {
   arrange: ArrangeView | null;
   suitcase: SuitcaseView | null;
   summary: SummaryView | null;
+  scanner?: ScannerView | null;
+  /** The browser cannot store the family (private mode) — show the recovery code to write down. */
+  storageWarning?: boolean;
   /** Hebrew or English letter pad. */
   alphabet: string[];
   muted: boolean;
@@ -173,6 +194,13 @@ export interface PlayerCallbacks {
   onAddProfile(): void;
   onToggleMute(): void;
   onRetry(): void;
+  /** "סרקו גמד" — open the in-page scanner. */
+  onOpenScanner(): void;
+  onCloseScanner(): void;
+  /** A gnome code: the slug from a /g/{code} QR or the short code typed by hand. */
+  onScanCode(code: string): void;
+  /** Summary board: this week / all time. */
+  onBoardScope?(scope: 'week' | 'all'): void;
   onOpenInBrowser(): void;
   onDismissInAppBrowser(): void;
 }

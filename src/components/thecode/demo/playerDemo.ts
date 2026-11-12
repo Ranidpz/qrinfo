@@ -189,6 +189,8 @@ export interface DemoState {
   /** Registration in progress (first scan, or "add family" from the switcher). */
   registering: { mode: 'new' | 'recover'; firstGnomeId?: string; error?: string } | null;
   overlay: 'paused' | 'inAppBrowser' | 'networkError' | null;
+  /** Message on the scanner screen after a typed code that is no gnome. */
+  scannerError: string | null;
   muted: boolean;
   seq: number;
 }
@@ -212,6 +214,7 @@ export function createDemoState(): DemoState {
     activeId: null,
     registering: { mode: 'new', firstGnomeId: 'g2' },
     overlay: null,
+    scannerError: null,
     muted: false,
     seq: 1,
   };
@@ -461,6 +464,7 @@ export function demoRecover(s0: DemoState, code: string): DemoState {
 /** A camera scan of gnome `gnomeId` by the active family. */
 export function demoScan(s0: DemoState, gnomeId: string): DemoState {
   const s = clone(s0);
+  s.scannerError = null;
   if (s.overlay === 'paused') return s;
   const p = active(s);
   if (!p) {
@@ -735,6 +739,31 @@ export function demoToggleMute(s0: DemoState): DemoState {
   return { ...s0, muted: !s0.muted };
 }
 
+/** "סרקו גמד" on the target screen → the scanner (a simulated viewfinder in the demo). */
+export function demoOpenScanner(s0: DemoState): DemoState {
+  const s = clone(s0);
+  const p = active(s);
+  if (p) p.screen = { kind: 'scanner' };
+  s.scannerError = null;
+  return s;
+}
+
+export function demoCloseScanner(s0: DemoState): DemoState {
+  const s = clone(s0);
+  const p = active(s);
+  if (p) p.screen = homeScreen(p);
+  s.scannerError = null;
+  return s;
+}
+
+/** A code typed under the viewfinder (or a /g/{code} slug): the demo's gnomes are `demo-N` / `1NN`. */
+export function demoScanCode(s0: DemoState, code: string): DemoState {
+  const c = code.trim().toLowerCase();
+  const g = GNOMES.find((x) => x.code.toLowerCase() === c || x.manualCode.toLowerCase() === c);
+  if (!g) return { ...s0, scannerError: 'לא מצאנו גמד עם הקוד הזה. בדקו אותו ונסו שוב.' };
+  return demoScan({ ...s0, scannerError: null }, g.id);
+}
+
 export function demoSetOverlay(s0: DemoState, overlay: DemoState['overlay']): DemoState {
   return { ...s0, overlay };
 }
@@ -771,6 +800,7 @@ export function demoView(s: DemoState): PlayerState {
     arrange: null,
     suitcase: null,
     summary: null,
+    scanner: { camera: false, error: s.scannerError, busy: false },
     alphabet: HEBREW_LETTERS,
     muted: s.muted,
   };
@@ -969,7 +999,7 @@ function solveAllSlots(s0: DemoState): DemoState {
 }
 
 export type DemoJump =
-  | 'register' | 'recover' | 'target' | 'riddle' | 'correct' | 'soundAlike' | 'hot' | 'wrongLetters'
+  | 'register' | 'recover' | 'target' | 'scanner' | 'riddle' | 'correct' | 'soundAlike' | 'hot' | 'wrongLetters'
   | 'wrongGnomeFree' | 'wrongGnomePenalty' | 'alreadySolved' | 'gnomeAsleep' | 'arrange'
   | 'suitcase' | 'summary' | 'allDone' | 'paused' | 'inAppBrowser' | 'networkError';
 
@@ -984,6 +1014,8 @@ export function demoJump(s0: DemoState, to: DemoJump): DemoState {
       const t = ensureCollecting(s);
       return withScreen(t, { kind: 'target' });
     }
+    case 'scanner':
+      return demoOpenScanner(withScreen(ensureCollecting(s), { kind: 'target' }));
     case 'riddle':
       return demoScanTarget(withScreen(ensureCollecting(s), { kind: 'target' }));
     case 'correct':

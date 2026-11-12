@@ -3,7 +3,7 @@
 // Screens where the game cannot go on right now: nothing left, paused, wrong browser, offline.
 
 import { CountUp, HintCard, ScreenBody, StarCoin } from './ui';
-import type { PlayerProfileView } from './types';
+import type { NetworkProblem, PlayerProfileView } from './types';
 
 function BigIcon({ children }: { children: string }) {
   return <div className="tc-a-pop text-8xl leading-none" aria-hidden>{children}</div>;
@@ -59,13 +59,42 @@ export function InAppBrowserScreen({ onOpen, onDismiss }: { onOpen(): void; onDi
   );
 }
 
-export function NetworkErrorScreen({ onRetry }: { onRetry(): void }) {
+const NETWORK_TEXT: Record<NetworkProblem, { icon: string; title: string; text: string }> = {
+  offline: { icon: '📡', title: 'אין חיבור לאינטרנט', text: 'שום דבר לא אבד. הבחירה שלכם שמורה, ונשלח אותה ברגע שהחיבור יחזור.' },
+  rateLimited: { icon: '🐢', title: 'רגע, לאט לאט', text: 'הגמדים לא עומדים בקצב. נשמו רגע ונמשיך מאותו מקום.' },
+  server: { icon: '🛠️', title: 'משהו השתבש אצלנו', text: 'הבחירה שלכם שמורה. נסו שוב בעוד רגע.' },
+};
+
+export function NetworkErrorScreen({ onRetry, problem = 'offline', retryInSeconds }: { onRetry(): void; problem?: NetworkProblem; retryInSeconds?: number }) {
+  const t = NETWORK_TEXT[problem];
+  const waiting = !!retryInSeconds && retryInSeconds > 0;
   return (
     <ScreenBody className="items-center justify-center gap-5 text-center">
-      <BigIcon>📡</BigIcon>
-      <h2 className="tc-display text-4xl">אין חיבור לאינטרנט</h2>
-      <p className="text-xl" style={{ color: 'var(--tc-soft)' }}>שום דבר לא אבד. הבחירה שלכם שמורה, ונשלח אותה ברגע שהחיבור יחזור.</p>
-      <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onRetry}>נסו שוב</button>
+      <BigIcon>{t.icon}</BigIcon>
+      <h2 className="tc-display text-4xl">{t.title}</h2>
+      <p className="text-xl" style={{ color: 'var(--tc-soft)' }}>{t.text}</p>
+      <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onRetry} disabled={waiting}>
+        {waiting ? <>עוד <span className="tc-num">{retryInSeconds}</span> שניות</> : 'נסו שוב'}
+      </button>
+    </ScreenBody>
+  );
+}
+
+export function LoadingScreen() {
+  return (
+    <ScreenBody className="items-center justify-center gap-6 text-center">
+      <span aria-hidden className="tc-spin h-16 w-16 rounded-full border-[6px] border-white/15 border-t-[var(--tc-brass)]" />
+      <p className="tc-display text-2xl" style={{ color: 'var(--tc-soft)' }}>מעירים את הגמדים…</p>
+    </ScreenBody>
+  );
+}
+
+export function NotFoundScreen({ title, text }: { title: string; text: string }) {
+  return (
+    <ScreenBody className="items-center justify-center gap-5 text-center">
+      <BigIcon>🧭</BigIcon>
+      <h2 className="tc-display text-4xl leading-tight">{title}</h2>
+      <p className="text-xl" style={{ color: 'var(--tc-soft)' }}>{text}</p>
     </ScreenBody>
   );
 }

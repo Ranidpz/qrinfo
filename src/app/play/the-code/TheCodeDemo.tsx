@@ -9,7 +9,7 @@ import TheCodePlayer from '@/components/thecode/player/TheCodePlayer';
 import type { PlayerCallbacks } from '@/components/thecode/player/types';
 import {
   createDemoState, demoAddProfile, demoAnswerRight, demoAnswerWrong, demoArrangeHelp, demoArrangePlace,
-  demoArrangeRemove, demoCaption, demoContinue, demoJump, demoLocationHint, demoNewSuitcase, demoOpenSuitcase,
+  demoArrangeRemove, demoCaption, demoCloseScanner, demoOpenScanner, demoScanCode, demoContinue, demoJump, demoLocationHint, demoNewSuitcase, demoOpenSuitcase,
   demoPickLetter, demoRecover, demoRegister, demoRegisterMode, demoRiddleHint, demoScanSleeping, demoScanSolved,
   demoScanTarget, demoScanWrong, demoSetOverlay, demoShowSummary, demoSubmitLetter, demoSwitchProfile,
   demoToggleMute, demoView, type DemoJump, type DemoState,
@@ -19,6 +19,7 @@ const JUMPS: { to: DemoJump; label: string }[] = [
   { to: 'register', label: 'הרשמה' },
   { to: 'recover', label: 'יש לנו קוד' },
   { to: 'target', label: 'מסך מטרה' },
+  { to: 'scanner', label: 'סורק גמדים' },
   { to: 'riddle', label: 'חידה' },
   { to: 'correct', label: 'תשובה נכונה' },
   { to: 'soundAlike', label: 'כמעט (אות דומה)' },
@@ -67,7 +68,7 @@ function ControlPanel({ s, set }: { s: DemoState; set(next: (s: DemoState) => De
         <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">לא חלק מהמשחק</span>
       </div>
       {caption && <p className="mb-3 rounded-lg bg-slate-100 px-3 py-2 text-sm">{caption}</p>}
-      <Group title="מצלמה מדומה">
+      <Group title="מצלמה מדומה (גם כשהסורק פתוח)">
         <DemoButton strong onClick={() => set(demoScanTarget)}>סריקת הגמד הנכון</DemoButton>
         <DemoButton onClick={() => set(demoScanWrong)}>סריקת גמד לא נכון</DemoButton>
         <DemoButton onClick={() => set(demoScanSolved)}>סריקת גמד שנפתר</DemoButton>
@@ -113,6 +114,9 @@ export default function TheCodeDemo() {
       onAddProfile: on(demoAddProfile),
       onToggleMute: on(demoToggleMute),
       onRetry: on((x) => demoSetOverlay(x, null)),
+      onOpenScanner: on(demoOpenScanner),
+      onCloseScanner: on(demoCloseScanner),
+      onScanCode: (code) => setS((x) => demoScanCode(x, code)),
       // In the real app: openCurrentUrlInBrowser() from src/lib/inAppBrowser.ts.
       onOpenInBrowser: on((x) => demoSetOverlay(x, null)),
       onDismissInAppBrowser: on((x) => demoSetOverlay(x, null)),

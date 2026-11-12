@@ -24,15 +24,22 @@ function Cost({ amount }: { amount: number }) {
   return <span className="tc-num rounded-full bg-black/30 px-2 py-0.5 text-base" style={{ color: 'var(--tc-coral)' }}>−{amount}</span>;
 }
 
-function ScanPrompt() {
+function ScanIcon({ size = 28 }: { size?: number }) {
   return (
-    <div className="flex items-center justify-center gap-3 text-base" style={{ color: 'var(--tc-soft)' }}>
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-        <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
-        <rect x="8" y="8" width="8" height="8" rx="1" />
-      </svg>
-      מצאתם? סרקו את הקוד שעל הגמד במצלמה
-    </div>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+      <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
+      <rect x="8" y="8" width="8" height="8" rx="1" />
+    </svg>
+  );
+}
+
+/** The one big action of the hunt: open the camera inside the game page. */
+export function ScanButton({ onScan, label = 'סרקו גמד' }: { onScan(): void; label?: string }) {
+  const sfx = useSfx();
+  return (
+    <button type="button" className="tc-btn tc-btn-primary w-full text-2xl" onClick={() => { sfx('tap'); onScan(); }}>
+      <ScanIcon size={30} /> {label}
+    </button>
   );
 }
 
@@ -48,7 +55,7 @@ export function useNow(active: boolean) {
 
 // ------------------------------------------------ target
 
-export function TargetScreen({ target, collector, onHint }: { target: TargetView; collector: CollectorView | null; onHint(): void }) {
+export function TargetScreen({ target, collector, onHint, onScan }: { target: TargetView; collector: CollectorView | null; onHint(): void; onScan(): void }) {
   const sfx = useSfx();
   const g = target.gnome;
   const lastHint = target.hintsShown.length - 1;
@@ -83,7 +90,8 @@ export function TargetScreen({ target, collector, onHint }: { target: TargetView
       )}
 
       <div className="mt-auto flex w-full flex-col gap-4 pt-2">
-        <ScanPrompt />
+        <p className="text-center text-base" style={{ color: 'var(--tc-soft)' }}>מצאתם? סרקו את הקוד שעל הגמד</p>
+        <ScanButton onScan={onScan} />
         {collector && <Collector collector={collector} size={36} />}
       </div>
     </ScreenBody>
