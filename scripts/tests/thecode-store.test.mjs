@@ -96,8 +96,10 @@ export const getAdminDb = () => db;
 const fakeUrl = stub(fake);
 const lettersUrl = await urlOf('../../src/lib/thecode/letters.ts');
 const engineUrl = await urlOf('../../src/lib/thecode/engine.ts', { './letters': lettersUrl });
-const dep = { '../engine': engineUrl, '../letters': lettersUrl };
+const howToPlayUrl = await urlOf('../../src/lib/thecode/howToPlay.ts');
+const dep = { '../engine': engineUrl, '../letters': lettersUrl, '../howToPlay': howToPlayUrl };
 const store = await import(await urlOf('../../src/lib/thecode/store.ts', {
+  './howToPlay': howToPlayUrl,
   'firebase-admin/firestore': fakeUrl,
   '@/lib/firebase-admin': fakeUrl,
   './engine': engineUrl,
@@ -310,7 +312,9 @@ test('play: rate limit per player, paused draft, gnome lookup, hide / rename / d
   assert.equal(paused.snapshot.run, null);
 
   const look = await store.lookupGnome(saved.config.gnomes[2].manualCode.toLowerCase());
-  assert.deepEqual(look, { ok: true, codeId: CODE, shortId: 'sh0rt1', title: 'הקוד — מלון', language: 'he', gnome: { id: 'b1', number: 3, bodyColor: 'black', hatColor: 'white' } });
+  const { howToPlay, ...rest } = look;
+  assert.deepEqual(rest, { ok: true, codeId: CODE, shortId: 'sh0rt1', title: 'הקוד — מלון', language: 'he', gnome: { id: 'b1', number: 3, bodyColor: 'black', hatColor: 'white' } });
+  assert.ok(Array.isArray(howToPlay) && howToPlay.length >= 5, 'lookup carries the rules text');
   assert.deepEqual(await store.lookupGnome('nope1234'), { ok: false, error: 'notFound' });
 
   assert.deepEqual(await store.patchPlayer(CODE, auth.playerId, { familyName: 'שרמוטה' }), { ok: false, error: 'invalidName' });
