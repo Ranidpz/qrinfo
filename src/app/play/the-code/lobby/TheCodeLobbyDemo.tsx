@@ -15,7 +15,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import { Avatar } from '@/components/thecode/player/Avatar';
 import { THECODE_STYLE } from '@/components/thecode/player/styles';
-import { Confetti, CountUp } from '@/components/thecode/player/ui';
+import { CountUp, StarCoin } from '@/components/thecode/player/ui';
 
 // ------------------------------------------------ fake data
 
@@ -66,6 +66,8 @@ type Moment =
   | { kind: 'hot'; team: Team };
 
 const ROWS = 8;
+/** Event rhythm of the demo, one beat per tick (≈ a suitcase every 20 s). */
+const SCRIPT = ['letter', 'suitcase', 'letter', 'join', 'hot', 'letter', 'letter', 'suitcase', 'join', 'letter', 'hot', 'letter'] as const;
 const TICK_MS = 3800;
 const BANNER_MS = 3600;
 
@@ -110,6 +112,79 @@ function QrCard({ url }: { url: string }) {
   );
 }
 
+// ------------------------------------------------ gnome-world burst ("פוף")
+// A suitcase opening EXPLODES from the middle of the screen: gnome hats in every hat
+// colour, mushrooms, stars and coins fly up and out, spin, then fall with gravity.
+// A flash + shock ring sells the pop. Transform/opacity only; hidden under reduced motion.
+
+const HAT_COLORS = ['#E5484D', '#3B82F6', '#30A46C', '#F5C518', '#8E4EC6', '#F76B15', '#F4F4F5'];
+
+function GnomeHat({ color }: { color: string }) {
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 40 44" aria-hidden>
+      <path d="M20 2 C26 14 31 26 34 36 L6 36 C9 26 14 14 20 2 Z" fill={color} stroke="#11131A" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M14 14 C17 12 19 9 20 4" stroke="rgba(255,255,255,.45)" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+      <rect x="2" y="34" width="36" height="8" rx="4" fill="#FFF4DA" stroke="#11131A" strokeWidth="2.2" />
+    </svg>
+  );
+}
+
+type PieceKind = 'hat' | 'mushroom' | 'star' | 'coin';
+const BURST = Array.from({ length: 64 }, (_, i) => {
+  const r = (n: number) => {
+    const x = Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const angle = r(1) * Math.PI * 2;
+  const dist = 22 + r(2) * 34;                       // vmin
+  const kind: PieceKind = i % 8 < 4 ? 'hat' : i % 8 === 4 ? 'mushroom' : i % 8 === 5 || i % 8 === 6 ? 'star' : 'coin';
+  return {
+    kind,
+    color: HAT_COLORS[i % HAT_COLORS.length],
+    dx: `${Math.cos(angle) * dist}vmin`,
+    dy: `${Math.sin(angle) * dist * 0.8 - 14}vmin`,  // biased upward: a fountain, not a drop
+    fall: `${28 + r(3) * 30}vmin`,
+    rot: `${(r(4) - 0.5) * 900}deg`,
+    size: `${(kind === 'hat' ? 5.2 : 4.2) + r(5) * 2.6}vmin`,
+    delay: `${r(6) * 0.12}s`,
+    dur: `${1.9 + r(7) * 0.9}s`,
+  };
+});
+
+const BURST_STYLE = `
+@keyframes tcl-pop { 0% { transform: translate(-50%,-50%) translate(0,0) scale(.2) rotate(0); opacity: 0 }
+  8% { opacity: 1 }
+  38% { transform: translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(1.15) rotate(calc(var(--rot) * .5)); opacity: 1 }
+  100% { transform: translate(-50%,-50%) translate(calc(var(--dx) * 1.25), calc(var(--dy) + var(--fall))) scale(.9) rotate(var(--rot)); opacity: 0 } }
+@keyframes tcl-flash { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.3) } 15% { opacity: .95 } 100% { opacity: 0; transform: translate(-50%,-50%) scale(2.4) } }
+@keyframes tcl-ring { 0% { opacity: .9; transform: translate(-50%,-50%) scale(.2) } 100% { opacity: 0; transform: translate(-50%,-50%) scale(3.2) } }
+.tcl-piece { position: absolute; left: 50%; top: 50%; animation: tcl-pop var(--dur) cubic-bezier(.15,.75,.3,1) var(--delay) both; will-change: transform, opacity; }
+.tcl-flash { position: absolute; left: 50%; top: 50%; width: 40vmin; height: 40vmin; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255,240,190,.95), rgba(255,190,80,.5) 45%, rgba(255,190,80,0)); animation: tcl-flash .9s ease-out both; }
+.tcl-ring { position: absolute; left: 50%; top: 50%; width: 30vmin; height: 30vmin; border-radius: 50%; border: 1.2vmin solid rgba(255,217,120,.85); animation: tcl-ring 1s ease-out .05s both; }
+@media (prefers-reduced-motion: reduce) { .tcl-burst { display: none; } }
+`;
+
+function GnomeBurst({ burstKey }: { burstKey: number }) {
+  return (
+    <div key={burstKey} aria-hidden className="tcl-burst pointer-events-none absolute inset-0 z-30 overflow-hidden">
+      <span className="tcl-flash" />
+      <span className="tcl-ring" />
+      {BURST.map((p, i) => (
+        <span key={i} className="tcl-piece flex items-center justify-center"
+          style={{ width: p.size, height: p.size, fontSize: p.size, lineHeight: 1,
+            ['--dx' as string]: p.dx, ['--dy' as string]: p.dy, ['--fall' as string]: p.fall,
+            ['--rot' as string]: p.rot, ['--delay' as string]: p.delay, ['--dur' as string]: p.dur }}>
+          {p.kind === 'hat' ? <GnomeHat color={p.color} />
+            : p.kind === 'mushroom' ? <span style={{ fontSize: '0.85em' }}>🍄</span>
+              : p.kind === 'star' ? <span style={{ fontSize: '0.8em' }}>⭐</span>
+                : <StarCoin size={40} />}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ------------------------------------------------ screen
 
 export default function TheCodeLobbyDemo() {
@@ -122,6 +197,7 @@ export default function TheCodeLobbyDemo() {
   const seq = useRef(1);
   const teamsRef = useRef(teams);
   const joinIdx = useRef(0);
+  const tick = useRef(0);
 
   useEffect(() => {
     // The live screen links its own /v/{shortId}; the demo points at a sample code.
@@ -133,26 +209,27 @@ export default function TheCodeLobbyDemo() {
     const t = setInterval(() => {
       const before = teamsRef.current;
       let next = before.map((x) => ({ ...x }));
-      const r = Math.random();
+      // A fixed rhythm so a screen recording always catches every moment (teams stay random).
+      const beat = SCRIPT[tick.current++ % SCRIPT.length];
       const pick = () => next[Math.floor(Math.random() * next.length)];
       const moments: Moment[] = [];
       const deltas: Record<string, number> = {};
       const add = (team: Team, n: number) => { team.points += n; deltas[team.id] = n; };
 
-      if (r < 0.16 && joinIdx.current < JOINERS.length) {
+      if (beat === 'join' && joinIdx.current < JOINERS.length) {
         const j = JOINERS[joinIdx.current++];
         const team: Team = { ...j, points: 100, hot: false };
         next.push(team);
         deltas[team.id] = 100;
         moments.push({ kind: 'join', team });
-      } else if (r < 0.32) {
+      } else if (beat === 'suitcase') {
         // A lower team opens a suitcase: the big climb.
         const sorted = sortTeams(next);
         const targetId = sorted[Math.min(sorted.length - 1, 2 + Math.floor(Math.random() * 4))].id;
         const team = next.find((x) => x.id === targetId)!;
         add(team, 500 + (team.hot ? 200 : 100));
         moments.push({ kind: 'suitcase', team });
-      } else if (r < 0.46) {
+      } else if (beat === 'hot') {
         const cold = next.filter((x) => !x.hot);
         const team = cold.length ? cold[Math.floor(Math.random() * cold.length)] : pick();
         if (!team.hot) {
@@ -212,7 +289,8 @@ export default function TheCodeLobbyDemo() {
       <div dir="rtl" lang="he" className="tc-root flex flex-col px-[3.5vw] py-[4vh]">
         <style>{THECODE_STYLE}</style>
         <div className="tc-stars" aria-hidden />
-        {banner?.m.kind === 'suitcase' && <Confetti burstKey={banner.key} />}
+        <style>{BURST_STYLE}</style>
+        {banner?.m.kind === 'suitcase' && <GnomeBurst burstKey={banner.key} />}
 
         <header className="relative flex items-end justify-between">
           <div>
@@ -225,13 +303,13 @@ export default function TheCodeLobbyDemo() {
         </header>
 
         {/* live moment, one at a time */}
-        <div aria-live="polite" className="pointer-events-none absolute inset-x-0 top-[3vh] z-20 flex justify-center">
+        <div aria-live="polite" className="pointer-events-none absolute inset-x-0 top-[5.5vh] z-20 flex justify-center">
           {banner && <MomentBanner key={banner.key} m={banner.m} />}
         </div>
 
         <div className="relative mt-[3vh] flex min-h-0 flex-1 gap-[3vw]">
           {/* board */}
-          <ol className="relative flex-[1.55] overflow-hidden" style={{ height: `${ROWS * ROW_VH}vh` }} aria-label="טבלת הקבוצות">
+          <ol className="relative flex-[1.55] pt-[1.2vh]" style={{ height: `${ROWS * ROW_VH + 2.4}vh` }} aria-label="טבלת הקבוצות">
             {teams.map((t) => {
               const rank = ranks[t.id];
               const shown = rank < ROWS;
@@ -242,7 +320,8 @@ export default function TheCodeLobbyDemo() {
                   style={{
                     top: 0,
                     height: `${ROW_VH - 1.2}vh`,
-                    transform: `translateY(${rank * ROW_VH}vh) scale(${up ? 1.03 : 1})`,
+                    transform: `translateY(${rank * ROW_VH + 1.2}vh) scale(${up ? 1.03 : 1})`,
+                    visibility: shown ? 'visible' : 'hidden',
                     opacity: shown ? 1 : 0,
                     zIndex: up ? 3 : 1,
                     background: up
