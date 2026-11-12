@@ -1,4 +1,4 @@
-# הקוד (The Code) — product + engineering plan
+# קוד הגמדים (The Gnome Code, slug `thecode`; first called הקוד) — product + engineering plan
 
 Status: wave 1 DONE and merged into `feature/thecode` (engine + 36 tests, player demo,
 operator demo — Rani approved both demos on 12.11.2026). Wave 2 DONE and merged (server, live player + in-page scanner, live operator admin +
@@ -6,7 +6,9 @@ dashboard). End-to-end verified on `qrinfo-dev` 12.11.2026: `node scripts/thecod
 (55 checks against a running dev server; refuses any project but `qrinfo-dev`).
 Code released to `main` as v1.29.1 on 12.11.2026 (Rani's decision: no one uses the feature
 yet, so it is tested on production) — HIDDEN: the create tab shows for super admins only.
-Open items: §9.
+Since then on main: v1.29.2–1.29.5 (palette, riddle bank, venue branding, how-to-play,
+neutral group wording, public guide `/play/the-code/guide`, 3D-print plaques, riddle-writing
+guidance + templates, display name "קוד הגמדים" chosen by Rani 12.11.2026). Open items: §9.
 Owner decisions were taken with Rani on 11.11.2026; this file is the source of truth
 for every session working on the feature. Internal slug: `thecode`.
 
