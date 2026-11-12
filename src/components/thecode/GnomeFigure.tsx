@@ -15,12 +15,15 @@ export const THECODE_COLORS: Record<TheCodeColor, { hex: string; he: string; en:
   white: { hex: '#F4F4F5', he: 'לבן', en: 'white' },
   purple: { hex: '#8E4EC6', he: 'סגול', en: 'purple' },
   orange: { hex: '#F76B15', he: 'כתום', en: 'orange' },
+  grey: { hex: '#8B929C', he: 'אפור', en: 'grey' },
+  brown: { hex: '#8A5A33', he: 'חום', en: 'brown' },
 };
 
 /** Hat colour names in Hebrew are feminine (מצנפת אדומה). */
 const HAT_HE: Record<TheCodeColor, string> = {
   red: 'אדומה', blue: 'כחולה', green: 'ירוקה', yellow: 'צהובה',
   black: 'שחורה', white: 'לבנה', purple: 'סגולה', orange: 'כתומה',
+  grey: 'אפורה', brown: 'חומה',
 };
 
 /** Hebrew colour word for one part of the gnome ("ירוק" body, "אדומה" hat). */

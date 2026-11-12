@@ -17,12 +17,21 @@ export interface TheCodeSpot {
   /** Graded hints leading a family TO this spot: [zone, closer, exact]. 1–3 entries. */
   hints: string[];
   safetyNote?: string;          // Operator-only note ("near stairs — hold hands")
+  /** The spot is outdoors (sun, rain). Gnomes there are printed from the weather-proof
+   *  material, which comes in fewer colours — see THECODE_PALETTE in the engine. */
+  outdoor?: boolean;
   isActive: boolean;
 }
 
-/** Named colour from the fixed palette (hex + names: src/components/thecode/GnomeFigure.tsx). */
+/**
+ * Named colour (hex + names: src/components/thecode/GnomeFigure.tsx). This is every
+ * colour a stored gnome may HAVE; what an operator may CHOOSE today is narrower — the
+ * filaments the gnomes are really printed from: THECODE_PALETTE in the engine
+ * (indoor / outdoor). `orange` is legacy: still rendered, no longer offered.
+ */
 export type TheCodeColor =
-  | 'red' | 'blue' | 'green' | 'yellow' | 'black' | 'white' | 'purple' | 'orange';
+  | 'red' | 'blue' | 'green' | 'yellow' | 'black' | 'white' | 'purple' | 'orange'
+  | 'grey' | 'brown';
 
 /**
  * A physical gnome: a fixed QR that never changes. A gnome is a PLACE to ask a
@@ -233,6 +242,7 @@ export interface TheCodeIssue {
     | 'RIDDLE_AMBIGUOUS_LETTER'    // answer starts with a sound-alike letter
     | 'GNOME_NOT_VERIFIED'
     | 'GNOMES_CLUSTERED'           // (almost) every gnome stands at one spot
+    | 'GNOME_COLOR_UNAVAILABLE'    // a colour that is not printed for this kind of spot (indoor / outdoor)
     | 'FEW_FRESH_ROUNDS';          // a family runs out of new content quickly
   message: string;                  // Operator-facing, in the adventure language
   phraseId?: string;

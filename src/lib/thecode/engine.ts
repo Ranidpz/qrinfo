@@ -17,6 +17,7 @@
 
 import type {
   TheCodeAnswerOutcome,
+  TheCodeColor,
   TheCodeConfig,
   TheCodeGnome,
   TheCodeIssue,
@@ -1195,7 +1196,24 @@ export interface TheCodeAdventureReport {
 
 const COLOR_NAMES_HE: Record<string, string> = {
   red: 'אדום', blue: 'כחול', green: 'ירוק', yellow: 'צהוב', black: 'שחור', white: 'לבן', purple: 'סגול', orange: 'כתום',
+  grey: 'אפור', brown: 'חום',
 };
+
+/**
+ * The colours gnomes are really printed in TODAY (the supplier's filaments). Operators
+ * may only choose from these, so nobody designs a gnome that cannot be delivered.
+ * Outdoor spots use the weather-proof material, which comes in fewer colours.
+ * Buying a new filament = adding its colour here (and to TheCodeColor if it is new).
+ */
+export const THECODE_PALETTE: { indoor: TheCodeColor[]; outdoor: TheCodeColor[] } = {
+  indoor: ['black', 'white', 'blue', 'purple', 'yellow', 'red', 'brown', 'green'],
+  outdoor: ['black', 'grey'],
+};
+
+/** Colours an operator may choose for a gnome standing at this spot. */
+export function allowedGnomeColors(spot: Pick<TheCodeSpot, 'outdoor'> | null | undefined): TheCodeColor[] {
+  return spot?.outdoor ? THECODE_PALETTE.outdoor : THECODE_PALETTE.indoor;
+}
 
 /** Warn when at least this many active gnomes exist and this share stands at one spot. */
 const CLUSTER_MIN_GNOMES = 3;
@@ -1363,6 +1381,19 @@ export function analyzeAdventure(config: TheCodeConfig, riddles: TheCodeRiddle[]
           });
         }
       }
+    }
+    // ---- Colours that are not printed for this kind of spot
+    const allowed = allowedGnomeColors(spot);
+    for (const g of here) {
+      const bad = [g.bodyColor, g.hatColor].filter((c, i, list) => !allowed.includes(c) && list.indexOf(c) === i);
+      if (!bad.length) continue;
+      const names = allowed.map((c) => COLOR_NAMES_HE[c]).join(', ');
+      issues.push({
+        severity: 'warning', code: 'GNOME_COLOR_UNAVAILABLE', spotId: spot.id, gnomeId: g.id,
+        message: he
+          ? `${gnomeLabel(g)} ב"${spot.name}": ${bad.map((c) => COLOR_NAMES_HE[c]).join(' ו')} לא ${bad.length > 1 ? 'זמינים' : 'זמין'} להדפסה ${spot.outdoor ? 'לגמד שעומד בחוץ' : 'כרגע'} — בחרו מתוך: ${names}`
+          : `${gnomeLabel(g)} at "${spot.name}": ${bad.join(' and ')} cannot be printed ${spot.outdoor ? 'for an outdoor gnome' : 'right now'} — choose from: ${allowed.join(', ')}`,
+      });
     }
     if (spot.isActive && !(spot.hints || []).some((h) => h && h.trim())) {
       issues.push({

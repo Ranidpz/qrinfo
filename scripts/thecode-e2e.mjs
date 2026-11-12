@@ -81,9 +81,9 @@ const SPOTS = ['הבריכה', 'הלובי', 'חדר האוכל', 'הגינה'].
 }));
 const COLORS = [
   ['red', 'blue'], ['blue', 'yellow'], ['black', 'white'],
-  ['green', 'black'], ['purple', 'orange'], ['yellow', 'red'],
-  ['white', 'purple'], ['orange', 'blue'], ['blue', 'black'],
-  ['yellow', 'purple'], ['black', 'orange'], ['white', 'blue'],
+  ['green', 'black'], ['purple', 'brown'], ['yellow', 'red'],
+  ['white', 'purple'], ['brown', 'blue'], ['blue', 'black'],
+  ['yellow', 'purple'], ['black', 'brown'], ['white', 'blue'],
 ];
 const ANSWERS = ['גשר', 'מזרקה', 'מנורה', 'דלת', 'חלון', 'כיסא', 'יונה', 'ורד', 'לוח', 'מפה', 'כובע', 'חבל'];
 const GNOMES = ANSWERS.map((_, i) => ({

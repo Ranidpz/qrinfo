@@ -93,11 +93,11 @@ function playToEnd(player, ctx, { onStep } = {}) {
 
 /** 20 gnomes / 9 spots / 4 phrases, 3 riddles per gnome. */
 function bigFixture() {
-  const COLORS = ['red', 'blue', 'yellow', 'green', 'black', 'white', 'purple', 'orange'];
+  const COLORS = ['red', 'blue', 'yellow', 'green', 'black', 'white', 'purple', 'brown'];
   const spots = Array.from({ length: 9 }, (_, i) => spot(`s${i + 1}`));
   const gnomes = Array.from({ length: 20 }, (_, i) => {
     const body = COLORS[i % 8];
-    return gnome(`g${i + 1}`, i + 1, `s${(i % 9) + 1}`, body, body === 'orange' ? 'purple' : 'orange');
+    return gnome(`g${i + 1}`, i + 1, `s${(i % 9) + 1}`, body, body === 'brown' ? 'purple' : 'brown');
   });
   const phrases = [
     { id: 'ph1', text: 'נוף גנוסר', isActive: true },
@@ -938,4 +938,33 @@ test('validation: GNOMES_CLUSTERED warning and dormant riddles on a missing lett
   assert.deepEqual([...miss.dormantRiddleIds].sort(), ['s-dis', 's-draft', 's-off']);
   // Spread out → no warning.
   assert.ok(!E.validateAdventure(bigFixture().config, bigFixture().riddles).some((i) => i.code === 'GNOMES_CLUSTERED'));
+});
+
+test('palette: a gnome in a colour that is not printed for its spot is a warning, never an error', () => {
+  const { config, riddles } = bigFixture();
+  assert.deepEqual(E.allowedGnomeColors({ outdoor: true }), ['black', 'grey']);
+  assert.ok(E.allowedGnomeColors(undefined).includes('brown'));
+  assert.ok(!E.allowedGnomeColors({}).includes('orange'));
+  assert.ok(!E.allowedGnomeColors({}).includes('grey'));
+
+  // Indoor spot + legacy orange.
+  const legacy = structuredClone(config);
+  legacy.gnomes[0].hatColor = 'orange';
+  const a = E.validateAdventure(legacy, riddles).filter((i) => i.code === 'GNOME_COLOR_UNAVAILABLE');
+  assert.equal(a.length, 1);
+  assert.equal(a[0].severity, 'warning');
+  assert.equal(a[0].gnomeId, legacy.gnomes[0].id);
+  assert.ok(E.canPublish(E.validateAdventure(legacy, riddles)));
+
+  // The same spot turned outdoor: every gnome there that is not black/grey is flagged.
+  const outdoor = structuredClone(config);
+  const spotId = outdoor.gnomes[0].spotId;
+  outdoor.spots.find((s) => s.id === spotId).outdoor = true;
+  const here = outdoor.gnomes.filter((g) => g.spotId === spotId);
+  const b = E.validateAdventure(outdoor, riddles).filter((i) => i.code === 'GNOME_COLOR_UNAVAILABLE');
+  assert.equal(b.length, here.length);
+  here[0].bodyColor = 'black';
+  here[0].hatColor = 'grey';
+  const c = E.validateAdventure(outdoor, riddles).filter((i) => i.code === 'GNOME_COLOR_UNAVAILABLE');
+  assert.equal(c.length, here.length - 1);
 });

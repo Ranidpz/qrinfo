@@ -57,13 +57,13 @@ const SPOTS: TheCodeSpot[] = [
 type G = [number, string, TheCodeGnome['bodyColor'], TheCodeGnome['hatColor']];
 const GNOME_ROWS: G[] = [
   [1, 'piano', 'blue', 'yellow'], [2, 'piano', 'green', 'red'], [3, 'piano', 'purple', 'white'],
-  [4, 'pond', 'blue', 'yellow'], [5, 'pond', 'orange', 'green'],
-  [6, 'dining', 'purple', 'orange'], [7, 'dining', 'white', 'red'],
+  [4, 'pond', 'blue', 'yellow'], [5, 'pond', 'brown', 'green'],
+  [6, 'dining', 'purple', 'brown'], [7, 'dining', 'white', 'red'],
   [8, 'library', 'black', 'yellow'], [9, 'library', 'red', 'white'], [10, 'library', 'blue', 'green'],
   [11, 'elevator', 'yellow', 'black'], [12, 'elevator', 'green', 'blue'],
-  [13, 'terrace', 'white', 'blue'], [14, 'terrace', 'orange', 'purple'], [19, 'terrace', 'red', 'yellow'],
+  [13, 'terrace', 'white', 'blue'], [14, 'terrace', 'brown', 'purple'], [19, 'terrace', 'red', 'yellow'],
   [15, 'reception', 'purple', 'white'], [16, 'reception', 'blue', 'red'],
-  [17, 'herbs', 'yellow', 'green'], [18, 'herbs', 'black', 'orange'],
+  [17, 'herbs', 'yellow', 'green'], [18, 'herbs', 'black', 'brown'],
   [20, 'minigolf', 'green', 'purple'],
 ];
 

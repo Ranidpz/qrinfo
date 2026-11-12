@@ -40,7 +40,10 @@ export const THECODE_LIMITS = {
   videosPerTrigger: 5,
 } as const;
 
-export const THECODE_COLORS: TheCodeColor[] = ['red', 'blue', 'green', 'yellow', 'black', 'white', 'purple', 'orange'];
+/** Every colour a stored gnome may have (the choosable subset: THECODE_PALETTE in the engine). */
+export const THECODE_COLORS: TheCodeColor[] = [
+  'red', 'blue', 'green', 'yellow', 'black', 'white', 'purple', 'orange', 'grey', 'brown',
+];
 const TRIGGERS: TheCodeTrigger[] = [
   'WELCOME', 'START', 'NEW_CLUE', 'CORRECT', 'WRONG_ANSWER', 'HINT', 'WRONG_GNOME', 'HALFWAY',
   'CODE_READY', 'SUITCASE_OPEN', 'RETURN_PLAYER', 'ALL_DONE',
@@ -188,6 +191,7 @@ export function normalizeAdventure(
       if (photo) s.photoUrl = photo;
       const note = line(v.safetyNote, THECODE_LIMITS.safetyNote);
       if (note) s.safetyNote = note;
+      if (v.outdoor === true) s.outdoor = true;
       return s;
     });
     ids(spots, 'spots');
