@@ -57,9 +57,8 @@ matte on textured PEI), two-colour only in the first 2 layers. Sizes in mm.
 | Shape | Presets (outer W × H × thickness → QR side) | Mounting | Phase |
 |---|---|---|---|
 | **Gnome plaque** (הקוד) | 37.1 × 43.1 × 1.2 → QR 32.6 (2-module quiet zone inside) + 6 mm code band; 2 locating pegs on the back | clicks into the gnome socket 37.5 × 43.5 (0.2 play/side) | 2 |
-| **Flat plaque** | S 40 × 48 × 2 → QR 32 · M 60 × 70 × 2.4 → QR 50 · L 100 × 115 × 3 → QR 85 | none (glue / double-sided tape) | 2 (M only) → 4 |
-| **Flat plaque + screw holes** | same sizes, +10 mm band top and bottom with Ø 4.4 countersunk holes outside the code | 2 wood screws 3.5–4 mm | 4 |
-| **Table stand** | plaque M + a separate wedge foot (75°) with a 2.5 mm slot, both on the same plate | slide plaque into foot | 4 |
+| **Plaque + black base** (Rani, 12.11) | the same plaque (standard 37.1 × 43.1 · large 60 × 70 · XL 100 × 116) in a black base with a pocket + peg holes, 5 mm black frame | base: 2 hidden countersunk screws under the plaque, OR flat back for double-sided tape; plaque clicks in by its pegs | 2 (standard) → 3 |
+| **Table stand** | black wedge, leaning back 15°, with the same pocket + peg holes on its face | plaque clicks in | 4 |
 | **Keychain** | 30 × 40 × 2 → QR 25, 4 mm hole in a top tab | key ring | 4 (experimental) |
 
 Gnome-plaque numbers come from the hardware session (socket 37.5 × 43.5, plaque 1.2 thick, module
@@ -67,6 +66,21 @@ Gnome-plaque numbers come from the hardware session (socket 37.5 × 43.5, plaque
 comment "keep in sync with `hardware/thecode-gnomes`" (same convention as `G` in PrintScreen).
 Note from that session: gnomes printed before this have a 0.4 mm socket; a 1.2 mm plaque stands
 0.8 proud there → glue. New gnomes need `PAD_DEPTH 1.2` + the two peg holes.
+
+### 2.1 The black base (Rani's idea, 12.11.2026)
+ONE plaque fits everything — gnome socket, wall gnome, black base, stand — because they all carry
+the same pocket and the same two asymmetric peg holes. The base is single-colour black, printed
+pocket-up, no supports, so it can be black ASA outdoors (weather-proof) while only the plaque is
+white. Numbers (`baseFor()` in `src/lib/print3d/presets.ts`), standard size:
+- outer 47.5 × 53.5, corner r 3; pocket 37.5 × 43.5 × 1.2 (plaque + 0.2 play per side);
+  peg holes Ø3.3 × 2.0 at (−12, +14) and (+8, −14) from the centre (front view) — as the gnome CAD.
+- **screws**: thickness 4.2 (floor 3.0 under the pocket); two Ø4.4 holes with Ø8.6 countersinks at
+  (±11, +2) INSIDE the pocket → the plaque hides the screw heads (cleaner, harder to vandalise).
+- **tape**: thickness 3.6 (floor 2.4), flat back for strong double-sided tape.
+- Plaque held by its pegs (friction). Replaceable without tools; a drop of contact glue makes it
+  permanent. Base plates hold 25 standard bases (one colour → no prime tower).
+- Larger plaques get a scaled base (frame 13% of the width, pegs Ø4.0); only the standard size is
+  verified against a real socket — the UI says so.
 
 Rules every preset obeys (checked in code, shown as a warning, never silently "fixed"):
 - **Module ≥ 1.0 mm** (0.4 nozzle draws ≈ 0.42 lines; under 0.8 mm the black bleeds). Keychain at
@@ -211,7 +225,7 @@ Button label: **"הדפסה בתלת־ממד"** (icon `Box` from lucide) next to
 button. Opens `Print3DModal` (fixed positioning, per the repo lesson).
 
 Layout (RTL, Hebrew, plural form):
-1. **Shape** (segmented): לוחית לגמד · לוחית שטוחה · לוחית עם חורים · מעמד לשולחן · מחזיק מפתחות
+1. **Shape** (segmented): לוחית לגמד · לוחית + בסיס שחור · לוחית + מעמד · מחזיק מפתחות
    (only the shapes the surface allows — הקוד shows "לוחית לגמד" first).
 2. **Size** (S / M / L, with the real QR size in cm).
 3. **Text under the code** (none / manual code / short text) + **number on the back** (toggle).
@@ -286,6 +300,12 @@ Route `/play/print-3d` (like `/play/the-code/admin`), sample code + sample adven
 modal (§6): shapes, sizes, text, preview face / mirrored, layer diagram, batch line, instructions,
 warnings. The download button shows "בהדגמה". Rani screen-records and approves.
 Done when: Rani approves the flow and the wording.
+**Status 12.11.2026: BUILT** on branch `claude/qr-3d-print-plan-c85e0b` — `/play/print-3d`
+(`src/app/play/print-3d/*`, modal `src/components/print3d/Print3DModal.tsx`, previews
+`PlaquePreview.tsx`, pure `src/lib/print3d/{presets,matrix,instructions}.ts`). Two mock surfaces
+(code page panel, הקוד print screen with 6 sample gnomes incl. one outdoor). Real: QR matrix,
+sizes in mm, mirrored face, peg/hole/screw positions, plate counts, jsQR self-check per code.
+Off: the download button. Awaiting Rani's screen-recorded approval.
 
 **Phase 2 — one shape, one code, real file.**
 Spike first (§3: separation variants, Bambu `Metadata` keys, fflate vs store-zip). Then the pure
