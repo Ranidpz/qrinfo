@@ -156,9 +156,13 @@ function startSmall(over = {}, seed = 3) {
 // ================================================================== rules
 
 test('rules: defaults exported, operator values merged, junk falls back', () => {
-  assert.equal(E.DEFAULT_THECODE_RULES.pointsPerLetter, 10);
-  const r = E.resolveRules({ pointsPerLetter: 20, hintCost: -1, freeWrongScans: 'x' });
-  assert.equal(r.pointsPerLetter, 20);
+  assert.deepEqual(E.DEFAULT_THECODE_RULES, {
+    pointsPerLetter: 100, suitcaseBonus: 500, hotStreakAt: 3, hotMultiplier: 2, hintCost: 20,
+    freeWrongScans: 1, wrongScanPenalty: 30, freeWrongAnswers: 2, wrongAnswerPenalty: 20,
+    answerCooldownSeconds: 12, arrangeHelpCost: 50,
+  });
+  const r = E.resolveRules({ pointsPerLetter: 70, hintCost: -1, freeWrongScans: 'x' });
+  assert.equal(r.pointsPerLetter, 70);
   assert.equal(r.hintCost, E.DEFAULT_THECODE_RULES.hintCost);
   assert.equal(r.freeWrongScans, E.DEFAULT_THECODE_RULES.freeWrongScans);
   assert.deepEqual(E.resolveRules(undefined), E.DEFAULT_THECODE_RULES);
@@ -440,7 +444,7 @@ test('scan: inactive gnome / spot → gnomeAsleep; paused or closed hours → pa
   const { ctx, player } = startSmall();
   const cfgOff = { ...ctx.config, gnomes: ctx.config.gnomes.map((g) => (g.id === 'b2' ? { ...g, isActive: false } : g)) };
   assert.equal(E.scanGnome(player, 'b2', { ...ctx, config: cfgOff }).outcome.kind, 'gnomeAsleep');
-  assert.equal(E.scanGnome(player, 'nope', ctx).outcome.kind, 'gnomeAsleep');
+  assert.equal(E.scanGnome(player, 'nope', ctx).outcome.kind, 'unknownGnome', 'not a gnome of this adventure');
   const spotOff = { ...ctx.config, spots: ctx.config.spots.map((s) => (s.id === 'B' ? { ...s, isActive: false } : s)) };
   assert.equal(E.scanGnome(player, 'b2', { ...ctx, config: spotOff }).outcome.kind, 'gnomeAsleep');
 
@@ -473,8 +477,9 @@ test('activeHours: venue time zone, overnight windows, malformed = always open',
 test('answer: correct = pointsPerLetter, letter collected, next target at another spot', () => {
   const { ctx, player } = startSmall();
   const r = E.answerRiddle(player, { letter: 'כ', slotIndex: 0 }, ctx);
-  assert.deepEqual(r.outcome, { kind: 'correct', letter: 'כ', points: 10, hot: false, becameHot: false, runState: 'collecting' });
-  assert.equal(r.player.points, 10);
+  assert.deepEqual(r.outcome, { kind: 'correct', letter: 'כ', points: 100, hot: false, becameHot: false, runState: 'collecting' });
+  assert.equal(r.player.points, 100);
+  assert.equal(r.player.run.slots[0].solvedAt, NOON);
   assert.equal(r.player.streak, 1);
   assert.equal(r.player.run.slots[0].status, 'solved');
   assert.deepEqual(E.collectedLetters(r.player.run), [{ index: 0, letter: 'כ', gifted: false }]);
@@ -489,19 +494,20 @@ test('answer: hot streak — × multiplier once the streak reached hotStreakAt',
   const { ctx, player } = startSmall({ rules: { ...E.DEFAULT_THECODE_RULES, hotStreakAt: 2, hotMultiplier: 3 } });
   let p = { ...player, streak: 1 };
   let r = E.answerRiddle(p, { letter: 'כ', slotIndex: 0 }, ctx);
-  assert.deepEqual([r.outcome.points, r.outcome.hot], [10, false]);
+  assert.deepEqual([r.outcome.points, r.outcome.hot, r.outcome.becameHot], [100, false, true]);
   p = r.player; // streak 2 → hot from the next answer
   let t = p.run.slots[p.run.targetSlotIndex];
   p = E.scanGnome(p, t.gnomeId, ctx).player;
   r = E.answerRiddle(p, { letter: t.letter, slotIndex: t.index }, ctx);
-  assert.deepEqual([r.outcome.points, r.outcome.hot], [30, true]);
+  assert.deepEqual([r.outcome.points, r.outcome.hot, r.outcome.becameHot], [300, true, false]);
   // A mistake ends it.
   p = r.player;
   t = p.run.slots[p.run.targetSlotIndex];
+  p = E.scanGnome(p, t.gnomeId, ctx).player;
   p = E.answerRiddle(p, { letter: 'ש', slotIndex: t.index }, ctx).player;
   assert.equal(p.streak, 0);
   r = E.answerRiddle(p, { letter: t.letter, slotIndex: t.index }, ctx);
-  assert.deepEqual([r.outcome.points, r.outcome.hot, r.outcome.runState], [10, false, 'arranging']);
+  assert.deepEqual([r.outcome.points, r.outcome.hot, r.outcome.runState], [100, false, 'arranging']);
 });
 
 test('answer: sound-alike counts as correct, returns a spelling tip, stores the right letter', () => {
@@ -537,7 +543,7 @@ test('answer: wrong — free ones, then penalty + cooldown; cooldown blocks; poi
   assert.equal(r.player.points, 0);
   r = E.answerRiddle(r.player, { letter: 'כ', slotIndex: 0 }, { ...ctx, now: NOON + 20000 });
   assert.equal(r.outcome.kind, 'correct');
-  assert.equal(r.player.points, 10);
+  assert.equal(r.player.points, 100);
 });
 
 test('answer: double tap / retry never double-awards; collected letters are never removed', () => {
@@ -616,8 +622,8 @@ test('arrange + open: order checked, final forms / niqqud ignored, bonus once', 
   assert.equal(E.arrangeLetters(p, ['נ', 'ו', 'ף'], ctx).result.correct, true);
   const before = p.points;
   const open = E.openSuitcase(p, ['נ', 'וֹ', 'ף'], ctx);
-  assert.deepEqual(open.outcome, { kind: 'opened', bonus: 50, suitcasesOpened: 1, replayed: false });
-  assert.equal(open.player.points, before + 50);
+  assert.deepEqual(open.outcome, { kind: 'opened', bonus: 500, suitcasesOpened: 1, replayed: false });
+  assert.equal(open.player.points, before + 500);
   assert.deepEqual(open.player.openedPhraseIds, ['nof']);
   assert.deepEqual([...open.player.solvedRiddleIds].sort(), open.player.run.slots.map((s) => s.riddleId).sort());
   assert.deepEqual([...open.player.foundGnomeIds].sort(), open.player.run.slots.map((s) => s.gnomeId).sort());
@@ -634,6 +640,7 @@ test('repair: disabling the target gnome mid-run swaps to another source of the 
   let p = E.answerRiddle(player, { letter: 'כ', slotIndex: 0 }, ctx).player;
   // Force ל (slot 1) to be the target, sitting on b1 or a2.
   if (p.run.targetSlotIndex !== 1) {
+    p = E.scanGnome(p, 'c1', ctx).player;
     p = E.answerRiddle(p, { letter: 'ב', slotIndex: 2 }, ctx).player;
   }
   const lamed = p.run.slots[1];
@@ -775,4 +782,160 @@ test('stress: gnomes and riddles disabled at random mid-run — every run still 
     assert.equal(E.openSuitcase(p, L.phraseLetters(phrase.text), ctx()).outcome.kind, 'opened');
   }
   assert.ok(swapped > 0 && gifted > 0, `exercised both paths (swapped ${swapped}, gifted ${gifted})`);
+});
+
+// ================================================================== wave 2 additions
+
+/** Collect every letter of the small run, ending in 'arranging'. */
+function collectAll(player, ctx) {
+  let p = player;
+  while (p.run.state === 'collecting') {
+    const t = p.run.slots[p.run.targetSlotIndex];
+    p = E.scanGnome(p, t.gnomeId, ctx).player;
+    p = E.answerRiddle(p, { letter: t.letter, slotIndex: t.index }, ctx).player;
+  }
+  return p;
+}
+
+test('scannedAt: answers count only after the target gnome was scanned; re-scan keeps the first time', () => {
+  const { ctx, player } = startSmall();
+  assert.equal(player.run.slots[0].scannedAt, NOON, 'a run that starts at the scanned gnome is scanned');
+  const later = { ...ctx, now: NOON + 5000 };
+  assert.equal(E.scanGnome(player, 'a1', later).player.run.slots[0].scannedAt, NOON);
+  let p = E.answerRiddle(player, { letter: 'כ', slotIndex: 0 }, ctx).player;
+  const t = p.run.slots[p.run.targetSlotIndex];
+  assert.equal(t.scannedAt, undefined);
+  const couch = E.answerRiddle(p, { letter: t.letter, slotIndex: t.index }, ctx);
+  assert.equal(couch.outcome.kind, 'noRiddle', 'no answering from the couch');
+  assert.equal(couch.player.points, p.points);
+  p = E.scanGnome(p, t.gnomeId, later).player;
+  assert.equal(p.run.slots[t.index].scannedAt, NOON + 5000);
+  assert.equal(E.answerRiddle(p, { letter: t.letter, slotIndex: t.index }, later).outcome.kind, 'correct');
+  // A run that starts elsewhere (runStarted) is NOT scanned yet.
+  const { config, riddles } = smallFixture();
+  const r = E.scanGnome(newPlayer(), 'b2', ctxOf(config, riddles));
+  assert.equal(r.outcome.kind, 'runStarted');
+  assert.equal(r.player.run.slots[r.player.run.targetSlotIndex].scannedAt, undefined);
+});
+
+test('scannedAt: a repair that moves the target to another gnome clears it; gifts get solvedAt', () => {
+  const { ctx, player } = startSmall();
+  let p = E.answerRiddle(player, { letter: 'כ', slotIndex: 0 }, ctx).player;
+  if (p.run.targetSlotIndex !== 1) p = E.answerRiddle(E.scanGnome(p, 'c1', ctx).player, { letter: 'ב', slotIndex: 2 }, ctx).player;
+  const lamed = p.run.slots[1];
+  p = E.scanGnome(p, lamed.gnomeId, ctx).player;
+  assert.ok(p.run.slots[1].scannedAt);
+  const off = { ...ctx, now: NOON + 1000, config: { ...ctx.config, gnomes: ctx.config.gnomes.map((g) => (g.id === lamed.gnomeId ? { ...g, isActive: false } : g)) } };
+  const rep = E.repairRun(p, off);
+  assert.notEqual(rep.player.run.slots[1].gnomeId, lamed.gnomeId);
+  assert.equal(rep.player.run.slots[1].scannedAt, undefined);
+  assert.equal(E.answerRiddle(rep.player, { letter: 'ל', slotIndex: 1 }, off).outcome.kind, 'noRiddle');
+  // Gifted letters carry solvedAt (the collector order).
+  const { ctx: c2, player: p2 } = startSmall();
+  const q = E.answerRiddle(p2, { letter: 'כ', slotIndex: 0 }, c2).player;
+  const g = E.repairRun(q, { ...c2, now: NOON + 7, riddles: c2.riddles.map((r) => (r.id === 'rb' ? { ...r, status: 'disabled' } : r)) });
+  assert.equal(g.player.run.slots[2].status, 'gifted');
+  assert.equal(g.player.run.slots[2].solvedAt, NOON + 7);
+});
+
+test('phraseText: snapshot on the run; editing / deleting the phrase never strands a family', () => {
+  const { ctx, player } = startSmall();
+  assert.equal(player.run.phraseText, 'כלב');
+  const p = collectAll(player, ctx);
+  assert.equal(p.run.state, 'arranging');
+  const edited = { ...ctx, config: { ...ctx.config, phrases: [{ id: 'kelev', text: 'שמש', isActive: true }] } };
+  assert.equal(E.arrangeLetters(p, ['כ', 'ל', 'ב'], edited).result.correct, true);
+  const gone = { ...ctx, config: { ...ctx.config, phrases: [] } };
+  assert.equal(E.repairRun(p, gone).player, p, 'repair is fine without the phrase');
+  assert.equal(E.openSuitcase(p, ['כ', 'ל', 'ב'], gone).outcome.kind, 'opened');
+  // An old run without the snapshot: the live phrase, then the slot letters.
+  const old = { ...p, run: { ...p.run } };
+  delete old.run.phraseText;
+  assert.equal(E.runPhraseText(old.run, ctx.config), 'כלב');
+  assert.equal(E.runPhraseText(old.run, { phrases: [] }), 'כלב');
+  assert.equal(E.openSuitcase(old, ['כ', 'ל', 'ב'], gone).outcome.kind, 'opened');
+});
+
+test('arrangeHelp: fixes the next position for min(points, cost); no-op when not arranging', () => {
+  const { ctx, player } = startSmall();
+  assert.deepEqual(E.arrangeHelp(player, ctx).outcome, { kind: 'notReady' });
+  let p = { ...collectAll(player, ctx) };
+  p.points = 70;
+  const before = { ...p, run: p.run };
+  let r = E.arrangeHelp(p, ctx);
+  assert.deepEqual(r.outcome, { kind: 'helped', position: 0, letter: 'כ', cost: 50 });
+  assert.deepEqual(r.player.run.helpedPositions, [0]);
+  assert.equal(r.player.points, 20);
+  assert.equal(r.player.streak, before.streak, 'streak untouched');
+  assert.deepEqual(r.player.run.slots, before.run.slots, 'letters untouched');
+  r = E.arrangeHelp(r.player, ctx);
+  assert.deepEqual(r.outcome, { kind: 'helped', position: 1, letter: 'ל', cost: 20 });
+  assert.equal(r.player.points, 0);
+  r = E.arrangeHelp(r.player, ctx);
+  r = E.arrangeHelp(r.player, ctx);
+  assert.deepEqual(r.outcome, { kind: 'allFixed' });
+  assert.deepEqual(r.player.run.helpedPositions, [0, 1, 2]);
+  assert.equal(E.arrangeHelp(p, { ...ctx, config: { ...ctx.config, status: 'paused' } }).outcome.kind, 'paused');
+});
+
+test('arrangePool: stable per run id, a permutation of the letters, never the solved order', () => {
+  const { ctx, player } = startSmall();
+  const p = collectAll(player, ctx);
+  const a = E.arrangePool(p.run);
+  assert.deepEqual(a, E.arrangePool(structuredClone(p.run)));
+  assert.deepEqual([...a].sort(), ['ב', 'כ', 'ל'].sort());
+  for (let i = 0; i < 200; i++) {
+    const run = { ...p.run, id: `run-${i}` };
+    assert.notDeepEqual(E.arrangePool(run), ['כ', 'ל', 'ב'], `run-${i}`);
+  }
+  const same = { ...p.run, slots: p.run.slots.map((s) => ({ ...s, letter: 'א' })) };
+  assert.deepEqual(E.arrangePool(same), ['א', 'א', 'א'], 'identical letters have only one order');
+  assert.deepEqual(E.arrangePool({ ...p.run, slots: p.run.slots.map((s) => ({ ...s, status: 'pending' })) }), []);
+});
+
+test('startNewRun: only without a live run; allDone when nothing fresh; paused', () => {
+  const { config, riddles } = bigFixture();
+  const ctx = ctxOf(config, riddles, { seed: 4 });
+  const s = E.startNewRun(newPlayer(), ctx, { runId: 'r-1' });
+  assert.equal(s.outcome.kind, 'started');
+  assert.equal(s.player.run.id, 'r-1');
+  assert.equal(s.outcome.targetSlotIndex, s.player.run.targetSlotIndex);
+  assert.equal(s.player.run.slots[s.outcome.targetSlotIndex].scannedAt, undefined);
+  assert.equal(E.startNewRun(s.player, ctx).outcome.kind, 'busy');
+  assert.equal(E.startNewRun(newPlayer(), { ...ctx, config: { ...config, status: 'draft' } }).outcome.kind, 'paused');
+  let p = playToEnd(s.player, ctx);
+  assert.equal(E.hasFreshSuitcase(p, ctx), true);
+  for (let i = 0; i < 3; i++) p = playToEnd(E.startNewRun(p, ctx).player, ctx);
+  assert.equal(p.suitcasesOpened, 4);
+  assert.equal(E.hasFreshSuitcase(p, ctx), false);
+  const end = E.startNewRun(p, ctx);
+  assert.equal(end.outcome.kind, 'allDone');
+  assert.equal(end.player.run.state, 'opened');
+});
+
+test('validation: GNOMES_CLUSTERED warning and dormant riddles on a missing letter', () => {
+  const config = baseConfig({
+    spots: [spot('A'), spot('B')],
+    gnomes: [
+      gnome('a1', 1, 'A', 'red', 'blue'), gnome('a2', 2, 'A', 'blue', 'red'),
+      gnome('a3', 3, 'A', 'yellow', 'blue'), gnome('a4', 4, 'A', 'white', 'black'),
+      gnome('b1', 5, 'B', 'black', 'white', { isActive: false }),
+    ],
+    phrases: [{ id: 'sh', text: 'שלום', isActive: true }],
+  });
+  const riddles = [
+    riddle('s-draft', 'a1', 'שמש', { status: 'draft' }),
+    riddle('s-off', 'b1', 'שעון'),
+    riddle('s-dis', 'a2', 'שולחן', { status: 'disabled' }),
+    riddle('l', 'a2', 'לול'), riddle('v', 'a3', 'ורד'), riddle('m', 'a4', 'מים'),
+  ];
+  const issues = E.validateAdventure(config, riddles);
+  const cl = issues.find((i) => i.code === 'GNOMES_CLUSTERED');
+  assert.ok(cl, 'clustered');
+  assert.deepEqual([cl.severity, cl.spotId, cl.have, cl.need], ['warning', 'A', 4, 4]);
+  const miss = issues.find((i) => i.code === 'PHRASE_LETTER_MISSING');
+  assert.equal(miss.letter, 'ש');
+  assert.deepEqual([...miss.dormantRiddleIds].sort(), ['s-dis', 's-draft', 's-off']);
+  // Spread out → no warning.
+  assert.ok(!E.validateAdventure(bigFixture().config, bigFixture().riddles).some((i) => i.code === 'GNOMES_CLUSTERED'));
 });

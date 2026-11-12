@@ -128,6 +128,17 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // "הקוד" (thecode): the whole adventure (spots, gnomes, phrases = the secret, riddles
+      // with answers) + operator stats, and the families' state. FULLY locked — players use
+      // /api/thecode/play, operators /api/thecode/admin*. The code doc carries only the public
+      // stub (media[].thecodeConfig). See docs/THE_CODE_PLAN.md §8.
+      match /thecode/{docId} {
+        allow read, write: if false;
+      }
+      match /thecodePlayers/{playerId} {
+        allow read, write: if false;
+      }
+
       // Q.Vote XP + packs: voters' XP / opened packs and the producer's prize pool.
       // FULLY locked — voters use /api/qvote/vote, /api/qvote/xp, /api/qvote/pack/open;
       // owners use /api/qvote/prizes.
@@ -357,6 +368,12 @@ service cloud.firestore {
 
     // RateLimits collection (for OTP rate limiting)
     // All operations go through API routes using Admin SDK for security
+    // "הקוד" gnome-code index: QR slug / manual code → { codeId, gnomeId }. Admin SDK only
+    // (/api/thecode/gnome, /api/thecode/play, /api/thecode/admin keeps it in sync).
+    match /thecodeGnomeCodes/{code} {
+      allow read, write: if false;
+    }
+
     match /rateLimits/{limitId} {
       allow read: if false;
       allow write: if false;

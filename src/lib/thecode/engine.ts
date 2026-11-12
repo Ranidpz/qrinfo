@@ -39,22 +39,32 @@ import {
   soundAlikes,
 } from './letters';
 
+/** FNV-1a 32-bit — a stable seed from a string (run ids → arrange tray order). */
+export function hashSeed(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
 // =================================================================
-// Rules + constants
+// Rules + constants (defaults = the values Rani approved in the demo, 12.11.2026)
 // =================================================================
 
 export const DEFAULT_THECODE_RULES: TheCodeRules = {
-  pointsPerLetter: 10,
-  suitcaseBonus: 50,
+  pointsPerLetter: 100,
+  suitcaseBonus: 500,
   hotStreakAt: 3,
   hotMultiplier: 2,
-  hintCost: 5,
+  hintCost: 20,
   freeWrongScans: 1,
-  wrongScanPenalty: 5,
+  wrongScanPenalty: 30,
   freeWrongAnswers: 2,
-  wrongAnswerPenalty: 3,
-  answerCooldownSeconds: 10,
-  arrangeHelpCost: 10,
+  wrongAnswerPenalty: 20,
+  answerCooldownSeconds: 12,
+  arrangeHelpCost: 50,
 };
 
 /** A phrase needs at least this many letters to be a suitcase. */
@@ -373,6 +383,7 @@ function cloneRun(run: TheCodeRun): TheCodeRun {
     ...run,
     slots: run.slots.map((s) => ({ ...s })),
     wrongGnomeIdsOnTarget: [...(run.wrongGnomeIdsOnTarget || [])],
+    ...(run.helpedPositions ? { helpedPositions: [...run.helpedPositions] } : {}),
   };
 }
 
@@ -442,8 +453,12 @@ function setTarget(run: TheCodeRun, slotIndex: number | null): void {
  */
 function retarget(run: TheCodeRun, idx: Index, rng: () => number, prevSpotId?: string): void {
   const pending = run.slots.filter((s) => s.status === 'pending' || s.status === 'active');
-  // Any stale 'active' (an old target) goes back to pending before choosing.
-  for (const s of pending) s.status = 'pending';
+  // Any stale 'active' (an old target) goes back to pending before choosing; a slot
+  // that stops being the target must be scanned again before its riddle shows.
+  for (const s of pending) {
+    s.status = 'pending';
+    delete s.scannedAt;
+  }
   if (!pending.length) {
     run.targetSlotIndex = null;
     run.wrongGnomeIdsOnTarget = [];
@@ -522,6 +537,7 @@ export function buildRun(
   const run: TheCodeRun = {
     id: opts.runId || `run_${ctx.now.toString(36)}_${Math.floor(ctx.rng() * 1e9).toString(36)}`,
     phraseId: phrase.id,
+    phraseText: phrase.text,
     slots,
     targetSlotIndex: null,
     wrongGnomeIdsOnTarget: [],
@@ -638,6 +654,8 @@ export function repairRun(player: TheCodePlayer, ctx: TheCodeContext): TheCodeRe
         repairs.push({ slotIndex: slot.index, action: 'gifted', fromGnomeId: slot.gnomeId, fromRiddleId: slot.riddleId });
         slot.status = 'gifted';
         slot.pointsEarned = 0;
+        slot.solvedAt = ctx.now;
+        delete slot.scannedAt;
         return;
       }
       if (wasHealthy && g === slot.gnomeId) return; // untouched
@@ -649,6 +667,7 @@ export function repairRun(player: TheCodePlayer, ctx: TheCodeContext): TheCodeRe
         slotIndex: slot.index, action: 'swapped',
         fromGnomeId: slot.gnomeId, toGnomeId: g, fromRiddleId: slot.riddleId, toRiddleId: riddle.id,
       });
+      if (g !== slot.gnomeId) delete slot.scannedAt; // another gnome → scan it first
       slot.gnomeId = g;
       slot.riddleId = riddle.id;
       slot.riddleHintsUsed = 0;
@@ -676,17 +695,12 @@ export function repairRun(player: TheCodePlayer, ctx: TheCodeContext): TheCodeRe
 // Scan
 // =================================================================
 
-/** Engine scan outcomes: the contract's kinds + two the contract lacks (see report). */
-export type TheCodeEngineScanOutcome =
-  | TheCodeScanOutcome
-  /** A new run started at a gnome that has nothing for it — show the first target. */
-  | { kind: 'runStarted'; targetSlotIndex: number }
-  /** Every letter is collected — go arrange (scan of a gnome not in this run). */
-  | { kind: 'arranging' };
+/** Kept for older imports: the contract's outcome type now has every kind. */
+export type TheCodeEngineScanOutcome = TheCodeScanOutcome;
 
 export interface TheCodeScanResult {
   player: TheCodePlayer;
-  outcome: TheCodeEngineScanOutcome;
+  outcome: TheCodeScanOutcome;
   repairs: TheCodeRepair[];
 }
 
@@ -694,11 +708,26 @@ function touch(p: TheCodePlayer, now: number): TheCodePlayer {
   return p.lastSeenAt === now ? p : { ...p, lastSeenAt: now };
 }
 
+/** Mark the slot's gnome as scanned (idempotent: the first scan time is kept). */
+function markScanned(p: TheCodePlayer, slotIndex: number, now: number): TheCodePlayer {
+  const slot = p.run?.slots[slotIndex];
+  if (!slot || slot.scannedAt !== undefined) return p;
+  const next = clonePlayer(p);
+  next.run!.slots[slotIndex].scannedAt = now;
+  return next;
+}
+
 /**
- * A family scanned a gnome. Order: paused → repair → asleep → (new run) → target /
- * already solved / wrong gnome. Re-scanning the target is idempotent.
+ * A family scanned a gnome. Order: paused → repair → unknown → asleep → (new run) →
+ * target / already solved / wrong gnome. Re-scanning the target is idempotent.
+ * `opts.runId` names a run built by this scan (the server passes a crypto id).
  */
-export function scanGnome(player: TheCodePlayer, gnomeId: string, ctx: TheCodeContext): TheCodeScanResult {
+export function scanGnome(
+  player: TheCodePlayer,
+  gnomeId: string,
+  ctx: TheCodeContext,
+  opts: { runId?: string } = {}
+): TheCodeScanResult {
   if (!isAdventureOpen(ctx.config, ctx.now, ctx.timeZone)) {
     return { player, outcome: { kind: 'paused' }, repairs: [] };
   }
@@ -708,18 +737,20 @@ export function scanGnome(player: TheCodePlayer, gnomeId: string, ctx: TheCodeCo
   let p = touch(repaired.player, ctx.now);
   const repairs = repaired.repairs;
 
-  // Unknown or inactive gnome / spot. (Unknown codes are normally caught by the route.)
+  // Not a gnome of this adventure at all (deleted / foreign) vs. switched off.
+  if (!idx.gnomes.has(gnomeId)) return { player: p, outcome: { kind: 'unknownGnome' }, repairs };
   if (!isGnomeUsable(idx, gnomeId)) return { player: p, outcome: { kind: 'gnomeAsleep' }, repairs };
 
   let run = p.run;
   if (!run || run.state === 'opened') {
-    const built = buildRun(p, ctx, { firstGnomeId: gnomeId });
+    const built = buildRun(p, ctx, { firstGnomeId: gnomeId, runId: opts.runId });
     if (built.kind === 'allDone') return { player: p, outcome: { kind: 'allDone' }, repairs };
     p = { ...clonePlayer(p), run: built.run };
-    const outcome: TheCodeEngineScanOutcome = built.startsAtScannedGnome
-      ? { kind: 'riddle', slotIndex: built.run.targetSlotIndex! }
-      : { kind: 'runStarted', targetSlotIndex: built.run.targetSlotIndex! };
-    return { player: p, outcome, repairs };
+    if (built.startsAtScannedGnome) {
+      p = markScanned(p, built.run.targetSlotIndex!, ctx.now);
+      return { player: p, outcome: { kind: 'riddle', slotIndex: built.run.targetSlotIndex! }, repairs };
+    }
+    return { player: p, outcome: { kind: 'runStarted', targetSlotIndex: built.run.targetSlotIndex! }, repairs };
   }
 
   // Solved earlier in THIS run → no penalty.
@@ -732,6 +763,7 @@ export function scanGnome(player: TheCodePlayer, gnomeId: string, ctx: TheCodeCo
 
   const target = run.slots[run.targetSlotIndex];
   if (target.gnomeId === gnomeId) {
+    p = markScanned(p, target.index, ctx.now);
     return { player: p, outcome: { kind: 'riddle', slotIndex: target.index }, repairs };
   }
 
@@ -757,15 +789,12 @@ export function scanGnome(player: TheCodePlayer, gnomeId: string, ctx: TheCodeCo
 // Answer
 // =================================================================
 
-export type TheCodeEngineAnswerOutcome =
-  | TheCodeAnswerOutcome
-  | { kind: 'paused' }
-  /** No riddle is open for this slot (no run, arranging, or not the target). */
-  | { kind: 'noRiddle' };
+/** Kept for older imports: the contract's outcome type now has every kind. */
+export type TheCodeEngineAnswerOutcome = TheCodeAnswerOutcome;
 
 export interface TheCodeAnswerResult {
   player: TheCodePlayer;
-  outcome: TheCodeEngineAnswerOutcome;
+  outcome: TheCodeAnswerOutcome;
   repairs: TheCodeRepair[];
   /** True when this was a repeat of an already-solved slot (double tap / retry): nothing awarded. */
   replayed: boolean;
@@ -811,7 +840,9 @@ export function answerRiddle(
       replayed: true,
     };
   }
-  if (run0.state !== 'collecting' || slot0.index !== run0.targetSlotIndex || slot0.status !== 'active') {
+  // Only the target, and only once its gnome was scanned (no answering from the couch).
+  if (run0.state !== 'collecting' || slot0.index !== run0.targetSlotIndex || slot0.status !== 'active' ||
+      slot0.scannedAt === undefined) {
     return { player: p, outcome: { kind: 'noRiddle' }, repairs, replayed: false };
   }
 
@@ -851,6 +882,7 @@ export function answerRiddle(
   p.streak += 1;
   p.points += points;
   slot.status = 'solved';
+  slot.solvedAt = ctx.now;
   slot.pointsEarned += points;
   addUnique(p.solvedRiddleIds, slot.riddleId);
   addUnique(p.foundGnomeIds, slot.gnomeId);
@@ -966,14 +998,74 @@ export type TheCodeArrangeResult =
   | { kind: 'notReady' }
   | { kind: 'paused' };
 
+/**
+ * The phrase a run is locked with: the snapshot taken when the run was built, then
+ * the live phrase (runs from before the snapshot existed), then the slot letters in
+ * phrase order — so a deleted phrase can never strand a family.
+ */
+export function runPhraseText(run: TheCodeRun, config: Pick<TheCodeConfig, 'phrases'>): string {
+  if (run.phraseText) return run.phraseText;
+  const live = (config.phrases || []).find((ph) => ph.id === run.phraseId);
+  if (live?.text) return live.text;
+  return run.slots.slice().sort((a, b) => a.index - b.index).map((s) => s.letter).join('');
+}
+
 /** Check an arrangement without changing state (UI can call it on every move). */
 export function arrangeLetters(player: TheCodePlayer, arrangement: string[], ctx: TheCodeContext): TheCodeArrangeResult {
   if (!isAdventureOpen(ctx.config, ctx.now, ctx.timeZone)) return { kind: 'paused' };
   const run = player.run;
   if (!run || run.state !== 'arranging') return { kind: 'notReady' };
-  const phrase = ctx.config.phrases.find((ph) => ph.id === run.phraseId);
-  if (!phrase) return { kind: 'notReady' };
-  return { kind: 'checked', result: checkArrangement(phrase.text, arrangement) };
+  return { kind: 'checked', result: checkArrangement(runPhraseText(run, ctx.config), arrangement) };
+}
+
+/**
+ * The collected letters for the arrange tray, in a shuffled order that is derived
+ * from the run id — the same on every call / refresh. When the letters allow any
+ * other order, the solved (phrase) order is never returned.
+ */
+export function arrangePool(run: TheCodeRun): string[] {
+  const ordered = run.slots
+    .filter((s) => s.status === 'solved' || s.status === 'gifted')
+    .sort((a, b) => a.index - b.index)
+    .map((s) => s.letter);
+  if (ordered.length < 2) return ordered;
+  let pool = shuffle(ordered, createSeededRng(hashSeed(run.id || run.phraseId || 'run')));
+  // Rotating a sequence by one only gives itself back when every letter is the same.
+  if (pool.every((l, i) => l === ordered[i])) pool = [...pool.slice(1), pool[0]];
+  return pool;
+}
+
+export type TheCodeArrangeHelpOutcome =
+  | { kind: 'helped'; position: number; letter: string; cost: number }
+  /** Every position is already fixed. */
+  | { kind: 'allFixed' }
+  | { kind: 'notReady' }
+  | { kind: 'paused' };
+
+export interface TheCodeArrangeHelpResult {
+  player: TheCodePlayer;
+  outcome: TheCodeArrangeHelpOutcome;
+}
+
+/**
+ * Paid help while arranging ("מקמו לי אות"): fixes the first phrase position that
+ * is not fixed yet (saved in `run.helpedPositions`). Costs min(points,
+ * arrangeHelpCost); nothing else changes (streak, letters, other positions).
+ */
+export function arrangeHelp(player: TheCodePlayer, ctx: TheCodeContext): TheCodeArrangeHelpResult {
+  if (!isAdventureOpen(ctx.config, ctx.now, ctx.timeZone)) return { player, outcome: { kind: 'paused' } };
+  const run0 = player.run;
+  if (!run0 || run0.state !== 'arranging') return { player, outcome: { kind: 'notReady' } };
+  const letters = phraseLetters(runPhraseText(run0, ctx.config));
+  const helped = new Set(run0.helpedPositions || []);
+  const position = letters.findIndex((_, i) => !helped.has(i));
+  if (position < 0) return { player: touch(player, ctx.now), outcome: { kind: 'allFixed' } };
+  const rules = resolveRules(ctx.config.rules);
+  const p = clonePlayer(touch(player, ctx.now));
+  const cost = Math.min(p.points, rules.arrangeHelpCost);
+  p.points -= cost;
+  p.run!.helpedPositions = [...(run0.helpedPositions || []), position].sort((a, b) => a - b);
+  return { player: p, outcome: { kind: 'helped', position, letter: letters[position], cost } };
 }
 
 export type TheCodeOpenOutcome =
@@ -1000,9 +1092,7 @@ export function openSuitcase(player: TheCodePlayer, arrangement: string[], ctx: 
     return { player, outcome: { kind: 'opened', bonus: 0, suitcasesOpened: player.suitcasesOpened, replayed: true } };
   }
   if (!run0 || run0.state !== 'arranging') return { player, outcome: { kind: 'notReady' } };
-  const phrase = ctx.config.phrases.find((ph) => ph.id === run0.phraseId);
-  if (!phrase) return { player, outcome: { kind: 'notReady' } };
-  const result = checkArrangement(phrase.text, arrangement);
+  const result = checkArrangement(runPhraseText(run0, ctx.config), arrangement);
   if (!result.correct) return { player: touch(player, ctx.now), outcome: { kind: 'wrongOrder', result } };
 
   const p = clonePlayer(touch(player, ctx.now));
@@ -1020,6 +1110,51 @@ export function openSuitcase(player: TheCodePlayer, arrangement: string[], ctx: 
     addUnique(p.foundGnomeIds, s.gnomeId);
   }
   return { player: p, outcome: { kind: 'opened', bonus: rules.suitcaseBonus, suitcasesOpened: p.suitcasesOpened, replayed: false } };
+}
+
+export type TheCodeNewRunOutcome =
+  | { kind: 'started'; targetSlotIndex: number }
+  /** Nothing fresh left for this family ("פתחתם את כל המזוודות"). */
+  | { kind: 'allDone' }
+  /** A suitcase is still in progress — finish it first. */
+  | { kind: 'busy' }
+  | { kind: 'paused' };
+
+export interface TheCodeNewRunResult {
+  player: TheCodePlayer;
+  outcome: TheCodeNewRunOutcome;
+}
+
+/**
+ * "Next suitcase" from the summary screen (no gnome scanned): only when there is no
+ * run or the last one is opened. The first target is chosen like any other target.
+ */
+export function startNewRun(player: TheCodePlayer, ctx: TheCodeContext, opts: { runId?: string } = {}): TheCodeNewRunResult {
+  if (!isAdventureOpen(ctx.config, ctx.now, ctx.timeZone)) return { player, outcome: { kind: 'paused' } };
+  if (player.run && player.run.state !== 'opened') return { player: touch(player, ctx.now), outcome: { kind: 'busy' } };
+  const p0 = touch(player, ctx.now);
+  const built = buildRun(p0, ctx, { runId: opts.runId });
+  if (built.kind === 'allDone') return { player: p0, outcome: { kind: 'allDone' } };
+  const p = { ...clonePlayer(p0), run: built.run };
+  return { player: p, outcome: { kind: 'started', targetSlotIndex: built.run.targetSlotIndex! } };
+}
+
+/**
+ * Could this family start a fresh suitcase after the current one? (The current
+ * run's phrase and riddles count as used.) Pure feasibility — no state changes.
+ */
+export function hasFreshSuitcase(
+  player: Pick<TheCodePlayer, 'openedPhraseIds' | 'solvedRiddleIds' | 'foundGnomeIds' | 'run'>,
+  ctx: Pick<TheCodeContext, 'config' | 'riddles'>
+): boolean {
+  const run = player.run;
+  const view = {
+    openedPhraseIds: [...(player.openedPhraseIds || []), ...(run ? [run.phraseId] : [])],
+    solvedRiddleIds: [...(player.solvedRiddleIds || []), ...(run ? run.slots.map((s) => s.riddleId) : [])],
+    foundGnomeIds: player.foundGnomeIds || [],
+  };
+  const sim: TheCodeContext = { config: { ...ctx.config, status: 'published' }, riddles: ctx.riddles, now: 0, rng: createSeededRng(1) };
+  return buildRun(view, sim, { runId: 'probe' }).kind === 'run';
 }
 
 // =================================================================
@@ -1061,6 +1196,17 @@ export interface TheCodeAdventureReport {
 const COLOR_NAMES_HE: Record<string, string> = {
   red: 'אדום', blue: 'כחול', green: 'ירוק', yellow: 'צהוב', black: 'שחור', white: 'לבן', purple: 'סגול', orange: 'כתום',
 };
+
+/** Warn when at least this many active gnomes exist and this share stands at one spot. */
+const CLUSTER_MIN_GNOMES = 3;
+const CLUSTER_SHARE = 0.8;
+
+/** Riddles that WOULD give `letter` but are draft / disabled / on a switched-off gnome or spot. */
+function dormantRiddlesFor(letter: string, riddles: TheCodeRiddle[], idx: Index): string[] {
+  return (riddles || [])
+    .filter((r) => riddleLetter(r) === letter && (r.status !== 'published' || !isGnomeUsable(idx, r.gnomeId)))
+    .map((r) => r.id);
+}
 
 function phraseReport(phrase: TheCodePhrase, config: TheCodeConfig, idx: Index): TheCodePhraseReport {
   const letters = phraseLetters(phrase.text);
@@ -1140,6 +1286,7 @@ export function analyzeAdventure(config: TheCodeConfig, riddles: TheCodeRiddle[]
     for (const m of r.missing) {
       issues.push({
         severity: 'error', code: 'PHRASE_LETTER_MISSING', phraseId: r.phraseId, letter: m.letter, need: m.need, have: m.have,
+        dormantRiddleIds: dormantRiddlesFor(m.letter, riddles, idx),
         message: he
           ? `חסרה חידה לאות ${m.letter}׳ בביטוי "${r.text}" — צריך ${m.need} גמדים שונים עם חידה לאות הזו, יש ${m.have}`
           : `Missing riddle for letter ${m.letter} in "${r.text}" — need ${m.need} different gnomes, have ${m.have}`,
@@ -1170,6 +1317,23 @@ export function analyzeAdventure(config: TheCodeConfig, riddles: TheCodeRiddle[]
       issues.push({
         severity: 'warning', code: 'GNOME_NOT_VERIFIED', gnomeId: g.id,
         message: he ? `${gnomeLabel(g)} עוד לא נסרק במקום` : `${gnomeLabel(g)} was not scanned on site yet`,
+      });
+    }
+  }
+
+  // ---- Gnomes clustered: (almost) every active gnome stands at one spot
+  const activeGnomes = (config.gnomes || []).filter((g) => isGnomeUsable(idx, g.id));
+  if (activeGnomes.length >= CLUSTER_MIN_GNOMES) {
+    const perSpot = new Map<string, number>();
+    for (const g of activeGnomes) perSpot.set(g.spotId, (perSpot.get(g.spotId) || 0) + 1);
+    const [topSpot, top] = [...perSpot].sort((a, b) => b[1] - a[1])[0];
+    if (top / activeGnomes.length >= CLUSTER_SHARE) {
+      const name = idx.spots.get(topSpot)?.name || topSpot;
+      issues.push({
+        severity: 'warning', code: 'GNOMES_CLUSTERED', spotId: topSpot, have: top, need: activeGnomes.length,
+        message: he
+          ? `${top} מתוך ${activeGnomes.length} הגמדים עומדים ב"${name}" — פזרו אותם כדי שהמשפחות יסתובבו במקום`
+          : `${top} of ${activeGnomes.length} gnomes stand at "${name}" — spread them out so families explore the venue`,
       });
     }
   }
