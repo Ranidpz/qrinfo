@@ -131,7 +131,9 @@ import { shouldShowLandingPage } from '@/lib/landingPage';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { clsx } from 'clsx';
 import { compressImage, createCompressedFile } from '@/lib/imageCompression';
-import { Settings } from 'lucide-react';
+import { Settings, Box as BoxIcon } from 'lucide-react';
+import Print3DModal from '@/components/print3d/Print3DModal';
+import { SITE_URL } from '@/lib/landing/site';
 
 // Link type detection
 type LinkType = 'whatsapp' | 'phone' | 'sms' | 'email' | 'url';
@@ -441,6 +443,7 @@ export default function CodeEditPage({ params }: PageProps) {
 
   // Widget modals state
   const [qrSignModalOpen, setQrSignModalOpen] = useState(false);
+  const [print3dOpen, setPrint3dOpen] = useState(false); // super admin only for now (docs/QR_3D_PRINT_PLAN.md)
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [contactWidgetModal, setContactWidgetModal] = useState<{
     isOpen: boolean;
@@ -3733,6 +3736,33 @@ export default function CodeEditPage({ params }: PageProps) {
                   {t('printQR')}
                 </button>
               </div>
+
+              {/* 3D-printed plaque (Bambu .3mf, built in the browser) — super admin only while it is new */}
+              {user?.role === 'super_admin' && (
+                <>
+                  <button
+                    onClick={() => setPrint3dOpen(true)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-start transition-colors hover:bg-accent/15"
+                  >
+                    <BoxIcon className="w-5 h-5 text-accent" />
+                    <span>
+                      <span className="block font-medium text-accent">הדפסה בתלת־ממד</span>
+                      <span className="block text-sm text-text-secondary">לוחית קבועה לקיר, לשולחן או למפתחות</span>
+                    </span>
+                  </button>
+                  {print3dOpen && (
+                    <Print3DModal
+                      open
+                      onClose={() => setPrint3dOpen(false)}
+                      // always the production address — a plaque is forever, never a dev / preview host
+                      items={[{ id: code.id, number: 1, label: code.title, url: `${SITE_URL}/v/${code.shortId}` }]}
+                      title={code.title}
+                      shapes={['base', 'stand', 'keychain']}
+                      defaultShape="base"
+                    />
+                  )}
+                </>
+              )}
 
               {/* Share buttons */}
               <div className="space-y-2">
