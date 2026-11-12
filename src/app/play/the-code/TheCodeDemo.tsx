@@ -6,13 +6,14 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import TheCodePlayer from '@/components/thecode/player/TheCodePlayer';
+import { defaultHowToPlay } from '@/lib/thecode/howToPlay';
 import type { PlayerCallbacks } from '@/components/thecode/player/types';
 import {
   createDemoState, demoAddProfile, demoAnswerRight, demoAnswerWrong, demoArrangeHelp, demoArrangePlace,
   demoArrangeRemove, demoCaption, demoCloseScanner, demoOpenScanner, demoScanCode, demoContinue, demoJump, demoLocationHint, demoNewSuitcase, demoOpenSuitcase,
   demoPickLetter, demoRecover, demoRegister, demoRegisterMode, demoRiddleHint, demoScanSleeping, demoScanSolved,
   demoScanTarget, demoScanWrong, demoSetOverlay, demoShowSummary, demoSubmitLetter, demoSwitchProfile,
-  demoToggleMute, demoView, DEMO_BRANDINGS, type DemoJump, type DemoState,
+  demoToggleMute, demoView, DEMO_BRANDINGS, DEMO_CONFIG, type DemoJump, type DemoState,
 } from '@/components/thecode/demo/playerDemo';
 
 const JUMPS: { to: DemoJump; label: string }[] = [
@@ -88,6 +89,9 @@ function ControlPanel({ s, set }: { s: DemoState; set(next: (s: DemoState) => De
   );
 }
 
+// The real default text, built from the demo's own rules (the server does the same).
+const DEMO_HOW_TO_PLAY = defaultHowToPlay(DEMO_CONFIG.rules);
+
 export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRANDINGS }) {
   const [s, setS] = useState<DemoState>(createDemoState);
   const [barOpen, setBarOpen] = useState(false);
@@ -123,7 +127,7 @@ export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRAND
     };
   }, []);
 
-  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null }), [s, brand]);
+  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY }), [s, brand]);
 
   return (
     <div className="min-h-[100dvh] bg-[#E9E6F2] md:flex md:items-center md:justify-center md:gap-10 md:p-5">

@@ -47,6 +47,8 @@ export interface UseTheCodeGameOptions {
   transport?: TheCodePlayTransport;
   /** Venue branding known before the first snapshot (the /g lookup). */
   branding?: TheCodeBranding | null;
+  /** "איך משחקים" lines known before the first snapshot (the /g lookup). */
+  howToPlay?: string[];
   /** Leaderboard source (injectable for tests). */
   leaderboard?: typeof fetchLeaderboard;
 }
@@ -494,7 +496,8 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
     notFound,
     muted,
     branding: opts.branding,
-  }), [snapshot, ui, identity, storageAvailable, clockOffset, busy, boards, pendingGnome, loaded, notFound, muted, opts.branding]);
+    howToPlay: opts.howToPlay,
+  }), [snapshot, ui, identity, storageAvailable, clockOffset, busy, boards, pendingGnome, loaded, notFound, muted, opts.branding, opts.howToPlay]);
 
   return { state, callbacks };
 }

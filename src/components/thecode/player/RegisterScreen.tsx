@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeBranding } from '@/types/thecode';
 import { BrandLogo, PoweredBy } from './Branding';
+import { HowToPlayButton } from './HowToPlaySheet';
 import { GnomeStage, ScreenBody, useSfx } from './ui';
 import type { PlayerGnomeView } from './types';
 
@@ -24,6 +25,8 @@ interface Props {
   onRegister(familyName: string, emoji: string): void;
   onRecover(code: string): void;
   onMode(mode: 'new' | 'recover'): void;
+  /** Opens "איך משחקים" (absent = no button). */
+  onHowToPlay?(): void;
   /** Back out of "add a family" to the family that was playing. */
   onCancel?(): void;
 }
@@ -46,10 +49,13 @@ export default function RegisterScreen(p: Props) {
   const canGo = name.trim().length >= 2;
   const logo = p.branding?.logoUrl;
   const branded = !!(p.branding?.backgroundUrl || logo);
+  // Top corner, so it is on screen without scrolling and never competes with "יוצאים לדרך".
+  const howTo = p.onHowToPlay ? <div className="-mb-2 flex justify-end"><HowToPlayButton onClick={p.onHowToPlay} /></div> : null;
 
   if (p.mode === 'recover') {
     return (
       <ScreenBody className="items-stretch justify-center gap-6">
+        {howTo}
         <BrandLogo url={p.branding?.logoUrl} name={p.venueName} />
         <CodeTitle small={!p.branding?.logoUrl} smaller={!!p.branding?.logoUrl} />
         <div className="tc-a-rise text-center">
@@ -85,6 +91,7 @@ export default function RegisterScreen(p: Props) {
 
   return (
     <ScreenBody className="items-stretch gap-5">
+      {howTo}
       {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} /></div>}
       {p.firstGnome ? (
         <div className="tc-a-rise mt-2 flex items-center gap-4">

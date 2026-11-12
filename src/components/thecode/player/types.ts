@@ -171,6 +171,8 @@ export interface PlayerState {
   storageWarning?: boolean;
   /** The venue's look for the OPENING screen (register / recover / loading). Absent = the game's own look. */
   branding?: TheCodeBranding | null;
+  /** "איך משחקים" lines from the server (operator's own or the default built from the rules). Absent = no button. */
+  howToPlay?: string[];
   /** Hebrew or English letter pad. */
   alphabet: string[];
   muted: boolean;
