@@ -5,8 +5,9 @@
 
 import type { ReactNode } from 'react';
 import type { QrMatrix } from '@/lib/print3d/matrix';
+import { faceDesign } from '@/lib/print3d/face';
 import {
-  FILAMENTS, KEYCHAIN, PLATE, baseFor, faceLayout, plateSlots,
+  FILAMENTS, KEYCHAIN, PLATE, baseFor, plateSlots,
   type BaseSpec, type PlaqueSpec, type Print3DMount, type Print3DShape,
 } from '@/lib/print3d/presets';
 
@@ -17,44 +18,20 @@ const EDGE = '#9CA3AF';
 export interface FaceProps {
   matrix: QrMatrix;
   plaque: { w: number; h: number; cornerR: number };
-  text: string;
+  lines: string[];
   /** Mirror left↔right — the face as it lies on the print bed. */
   mirror?: boolean;
 }
 
-/** The plaque face (white body, black modules + text) as a <g> at 0,0 in mm. */
-function Face({ matrix, plaque, text, mirror }: FaceProps) {
-  const L = faceLayout(plaque.w, plaque.h, matrix.size);
-  const rects: ReactNode[] = [];
-  matrix.rows.forEach((row, r) => {
-    let c = 0;
-    while (c < row.length) {
-      if (!row[c]) { c++; continue; }
-      let e = c;
-      while (e < row.length && row[e]) e++;
-      rects.push(<rect key={`${r}-${c}`} x={L.qrX + c * L.module} y={L.qrY + r * L.module} width={(e - c) * L.module + 0.01} height={L.module + 0.01} />);
-      c = e;
-    }
-  });
+/** The plaque face (white body, black modules + text) as a <g> at 0,0 in mm — the same rectangles the file prints. */
+function Face({ matrix, plaque, lines, mirror }: FaceProps) {
+  const d = faceDesign(plaque.w, plaque.h, matrix, lines);
   return (
     <g transform={mirror ? `translate(${plaque.w} 0) scale(-1 1)` : undefined}>
       <rect width={plaque.w} height={plaque.h} rx={plaque.cornerR} fill={WHITE} stroke={EDGE} strokeWidth={0.15} />
-      <g fill={BLACK} shapeRendering="crispEdges">{rects}</g>
-      {text && L.textH >= 2 && (
-        <text
-          x={plaque.w / 2}
-          y={L.textY}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill={BLACK}
-          fontSize={L.textH / 0.72}
-          fontWeight={700}
-          fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-          letterSpacing={L.textH * 0.12}
-        >
-          {text}
-        </text>
-      )}
+      <g fill={BLACK} shapeRendering="crispEdges">
+        {d.black.map((r, i) => <rect key={i} x={r.x} y={r.y} width={r.w + 0.01} height={r.h + 0.01} />)}
+      </g>
     </g>
   );
 }
@@ -86,7 +63,7 @@ function Base({ base, plaque, showHoles }: { base: BaseSpec; plaque: PlaqueSpec;
 }
 
 /** Assembled, as people will see it on the wall / gnome / table. */
-export function AssembledView({ shape, matrix, plaque, mount, text }: { shape: Print3DShape; matrix: QrMatrix; plaque: PlaqueSpec; mount: Print3DMount; text: string }) {
+export function AssembledView({ shape, matrix, plaque, mount, lines }: { shape: Print3DShape; matrix: QrMatrix; plaque: PlaqueSpec; mount: Print3DMount; lines: string[] }) {
   if (shape === 'keychain') {
     const k = KEYCHAIN;
     const pad = 2;
@@ -94,7 +71,7 @@ export function AssembledView({ shape, matrix, plaque, mount, text }: { shape: P
       <svg viewBox={`${-pad} ${-k.tab - pad} ${k.w + 2 * pad} ${k.h + k.tab + 2 * pad}`} className="h-full w-full" role="img" aria-label="מחזיק מפתחות עם קוד">
         <rect x={k.w / 2 - 6} y={-k.tab} width={12} height={k.tab + 4} rx={4} fill={WHITE} stroke={EDGE} strokeWidth={0.15} />
         <circle cx={k.w / 2} cy={-k.tab / 2 + 0.5} r={k.holeD / 2} fill="#E5E7EB" stroke={EDGE} strokeWidth={0.15} />
-        <Face matrix={matrix} plaque={{ w: k.w, h: k.h, cornerR: k.cornerR }} text={text} />
+        <Face matrix={matrix} plaque={{ w: k.w, h: k.h, cornerR: k.cornerR }} lines={lines} />
       </svg>
     );
   }
@@ -103,7 +80,7 @@ export function AssembledView({ shape, matrix, plaque, mount, text }: { shape: P
     return (
       <svg viewBox={`${-pad} ${-pad} ${plaque.w + 2 * pad} ${plaque.h + 2 * pad}`} className="h-full w-full" role="img" aria-label="לוחית לגמד">
         <rect x={-pad + 0.6} y={-pad + 0.6} width={plaque.w + 2 * pad - 1.2} height={plaque.h + 2 * pad - 1.2} rx={1.5} fill="#3B82F6" opacity={0.25} />
-        <Face matrix={matrix} plaque={plaque} text={text} />
+        <Face matrix={matrix} plaque={plaque} lines={lines} />
       </svg>
     );
   }
@@ -114,14 +91,14 @@ export function AssembledView({ shape, matrix, plaque, mount, text }: { shape: P
     <svg viewBox={`-1 -1 ${base.w + 2} ${base.h + 2}`} className="h-full w-full" role="img" aria-label="לוחית על בסיס שחור">
       <Base base={base} plaque={plaque} showHoles={false} />
       <g transform={`translate(${ox} ${oy})`}>
-        <Face matrix={matrix} plaque={plaque} text={text} />
+        <Face matrix={matrix} plaque={plaque} lines={lines} />
       </g>
     </svg>
   );
 }
 
 /** What goes on the print bed: plaque face-down (mirrored) + its back, and the base pocket-up. */
-export function PrintedView({ shape, matrix, plaque, mount, text, number }: { shape: Print3DShape; matrix: QrMatrix; plaque: PlaqueSpec; mount: Print3DMount; text: string; number: number | null }) {
+export function PrintedView({ shape, matrix, plaque, mount, lines, number }: { shape: Print3DShape; matrix: QrMatrix; plaque: PlaqueSpec; mount: Print3DMount; lines: string[]; number: number | null }) {
   const isKey = shape === 'keychain';
   const p = isKey ? { ...plaque, w: KEYCHAIN.w, h: KEYCHAIN.h, cornerR: KEYCHAIN.cornerR, pegs: [] } : plaque;
   const base = shape === 'base' || shape === 'stand' ? baseFor(plaque, shape === 'stand' ? 'tape' : mount) : null;
@@ -134,7 +111,7 @@ export function PrintedView({ shape, matrix, plaque, mount, text, number }: { sh
     <svg viewBox={`-1 -1 ${w + 2} ${h + 2}`} className="h-full w-full" role="img" aria-label="כך זה מונח על פלטת ההדפסה">
       {/* right → left, the reading order: face, back, then the base */}
       <g transform={`translate(${w - p.w} 0)`}>
-        <Face matrix={matrix} plaque={p} text={text} mirror />
+        <Face matrix={matrix} plaque={p} lines={lines} mirror />
         <Label x={p.w / 2} y={p.h + 6}>הפנים, על הפלטה</Label>
       </g>
       <g transform={`translate(${w - 2 * p.w - gap} 0)`}>

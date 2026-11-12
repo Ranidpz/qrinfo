@@ -8,7 +8,7 @@
 export type Print3DShape = 'gnome' | 'base' | 'stand' | 'keychain';
 export type Print3DSize = 'standard' | 'large' | 'xl';
 export type Print3DMount = 'screws' | 'tape';
-export type Print3DText = 'none' | 'manual' | 'custom';
+export type Print3DText = 'none' | 'manual' | 'address' | 'custom';
 
 /** Peg / hole / screw positions are in FRONT-VIEW coordinates: mm from the plaque centre, x right, y up. */
 export type Point = { x: number; y: number };
@@ -40,7 +40,7 @@ export interface BaseSpec {
   pocketDepth: number;
   holeD: number;
   holeDepth: number;
-  /** Hidden countersunk screws under the plaque (mount 'screws' only). */
+  /** Hidden screws under the plaque, heads sunk in a recess (mount 'screws' only). */
   screws: Point[];
   screwD: number;
   screwHeadD: number;
@@ -57,8 +57,8 @@ const PLAY = 0.2;            // per side, plaque ↔ pocket
 const HOLE_D = 3.3;          // peg hole (Ø3.0 peg + play)
 const HOLE_DEPTH = 2.0;
 const SCREW_D = 4.4;         // 3.5–4 mm wood screws
-const SCREW_HEAD_D = 8.6;    // countersink
-const SCREW_FLOOR = 3.0;     // material under the pocket when screws are countersunk into it
+const SCREW_HEAD_D = 8.6;    // screw-head recess (counterbore)
+const SCREW_FLOOR = 3.6;     // material under the pocket: 2.4 screw-head recess + 1.2 under the head
 const TAPE_FLOOR = 2.4;
 
 /** Larger plaques keep the same layout, scaled; only the standard size was checked on a gnome. */
@@ -129,6 +129,8 @@ export interface FaceLayout {
   qrY: number;
   textY: number;       // centre line of the text band from the top, mm
   textH: number;       // cap height
+  bandTop: number;     // text band, from the top, mm
+  band: number;
 }
 
 /** Square QR across the full width (minus the quiet zone), text band under it. */
@@ -139,7 +141,7 @@ export function faceLayout(w: number, h: number, modules: number): FaceLayout {
   const qrY = qrX;
   const bandTop = qrY + qr + mod;             // one module of white under the code
   const band = Math.max(0, h - bandTop - 1);
-  return { modules, module: mod, qr, qrX, qrY, textY: round(bandTop + band / 2, 2), textH: round(Math.min(band * 0.8, w * 0.13), 1) };
+  return { modules, module: mod, qr, qrX, qrY, textY: round(bandTop + band / 2, 2), textH: round(Math.min(band * 0.8, w * 0.13), 1), bandTop: round(bandTop, 2), band: round(band, 2) };
 }
 
 // -------------------------------------------------------------------------------- plate (H2D)

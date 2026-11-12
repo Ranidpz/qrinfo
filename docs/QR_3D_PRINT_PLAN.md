@@ -74,8 +74,9 @@ pocket-up, no supports, so it can be black ASA outdoors (weather-proof) while on
 white. Numbers (`baseFor()` in `src/lib/print3d/presets.ts`), standard size:
 - outer 47.5 × 53.5, corner r 3; pocket 37.5 × 43.5 × 1.2 (plaque + 0.2 play per side);
   peg holes Ø3.3 × 2.0 at (−12, +14) and (+8, −14) from the centre (front view) — as the gnome CAD.
-- **screws**: thickness 4.2 (floor 3.0 under the pocket); two Ø4.4 holes with Ø8.6 countersinks at
-  (±11, +2) INSIDE the pocket → the plaque hides the screw heads (cleaner, harder to vandalise).
+- **screws**: thickness 4.8 (floor 3.6 under the pocket); two Ø4.4 holes with Ø8.6 × 2.4 mm
+  head recesses (counterbore — fits pan AND flat heads) at (±11, +2) INSIDE the pocket → the
+  plaque hides the screw heads (cleaner, harder to vandalise).
 - **tape**: thickness 3.6 (floor 2.4), flat back for strong double-sided tape.
 - Plaque held by its pegs (friction). Replaceable without tools; a drop of contact glue makes it
   permanent. Base plates hold 25 standard bases (one colour → no prime tower).
@@ -307,7 +308,30 @@ Done when: Rani approves the flow and the wording.
 sizes in mm, mirrored face, peg/hole/screw positions, plate counts, jsQR self-check per code.
 Off: the download button. Awaiting Rani's screen-recorded approval.
 
-**Phase 2 — one shape, one code, real file.**
+**Phase 2 — real file. Status 12.11.2026: BUILT** (Rani approved the demo the same day).
+Generator: `src/lib/print3d/{font,face,mesh,build,threemf,job}.ts`, test
+`node --test scripts/tests/print3d.test.mjs` (9 checks). Download is live in the modal; mounted on
+הקוד's PrintScreen ("לוחיות בתלת־ממד") and on the code page QR panel for `super_admin` only.
+What was decided while building:
+- No CSG library: every solid is a prism over a convex / star-shaped polygon; slabs with
+  rectangular and round holes are decomposed (`slab()` in mesh.ts). Every piece is a closed
+  shell (test: each edge used twice, both directions).
+- Text = built-in 5×7 block font (A–Z, a–z, 0–9, `. / - : ! ? #`) — the SAME rectangles draw the
+  preview and the geometry. Regular codes get a third option "הכתובת" (web address in 2 lines,
+  readable from the large size up; the standard size warns).
+- Filaments in the file: **1 = black, 2 = white** (Rani's AMS slot order). Written into
+  `Metadata/model_settings.config` per part; no `project_settings.config`, so Bambu keeps the
+  user's own printer (H2D) + filament presets.
+- Self-check: the black geometry is rasterised as seen from the face and decoded with jsQR,
+  AND the three finder squares must land top-left / top-right / bottom-left — jsQR happily
+  reads a MIRRORED code, so "it decodes" alone does not prove the face-down mirror is right.
+- Verified with the Bambu Studio 2.09 CLI (`--export-3mf`, own `--datadir`): file loads, every
+  part keeps its filament, 0 repaired edges / facets on plaques and bases, 41 plaques fit the
+  H2D plate (render with the H2D machine profile). CLI SLICING for H2D still fails on nozzle
+  mapping (same as the hardware session) → slice in the GUI. Not yet: a real print + scan.
+- Stand: the plaques print; the stand body file is still to do. Keychain prints (experimental).
+
+Original phase-2 brief:
 Spike first (§3: separation variants, Bambu `Metadata` keys, fflate vs store-zip). Then the pure
 library (§5) + tests (decode of generated geometry, mesh closed, zip opens, Bambu keys present).
 First shape: **gnome plaque** from PrintScreen for one gnome + **flat plaque M** on the code page.

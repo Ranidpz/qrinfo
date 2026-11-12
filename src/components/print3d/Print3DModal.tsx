@@ -1,19 +1,22 @@
 'use client';
 
 // "הדפסה בתלת־ממד" — one modal for every surface that prints a QR (plan: docs/QR_3D_PRINT_PLAN.md).
-// Phase 1 = DEMO: everything is computed for real (QR matrix, sizes, plates, scan self-check) but the
-// download button is off until Rani approves the screen; the .3mf generator comes after that.
+// The download builds Bambu-ready .3mf files IN THE BROWSER (src/lib/print3d/job.ts): plaques on H2D
+// plates with the filament of every part pre-assigned, plus black bases. Nothing goes to a server.
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle, Box, CheckCircle2, ChevronDown, Download, KeyRound, Layers, Presentation, Square, Tag, X, XCircle,
+  AlertTriangle, Box, CheckCircle2, ChevronDown, Download, KeyRound, Layers, Loader2, Presentation, Square, Tag, X, XCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { Button, Pill, Segmented, Toggle, cx } from '@/components/thecode/admin/ui';
 import { decodes, qrMatrix } from '@/lib/print3d/matrix';
 import { instructionsFor } from '@/lib/print3d/instructions';
+import { addressLines, faceDesign } from '@/lib/print3d/face';
+import { printableText } from '@/lib/print3d/font';
+import { buildJob, packForDownload } from '@/lib/print3d/job';
 import {
-  KEYCHAIN, PLAQUES, SHAPES, SIZE_LABEL, baseFor, checksFor, faceLayout, perPlate, standFor,
+  KEYCHAIN, PLAQUES, SHAPES, SIZE_LABEL, baseFor, checksFor, perPlate, standFor,
   type Check, type Print3DMount, type Print3DShape, type Print3DSize, type Print3DText,
 } from '@/lib/print3d/presets';
 import { AssembledView, PlateView, PrintedView, SideView } from './PlaquePreview';
@@ -59,6 +62,8 @@ export default function Print3DModal({
   const [view, setView] = useState<'seen' | 'printed' | 'side'>('seen');
   const [index, setIndex] = useState(0);
   const [howOpen, setHowOpen] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -74,16 +79,58 @@ export default function Print3DModal({
   const decodeResults = useMemo(() => (open ? items.map((i) => decodes(qrMatrix(i.url))) : []), [open, items]);
   const allDecode = decodeResults.length ? decodeResults.every(Boolean) : null;
 
-  const text = textMode === 'manual' ? item.manualCode ?? '' : textMode === 'custom' ? customText.trim().slice(0, 10) : '';
+  const linesFor = (it: Print3DItem): string[] =>
+    textMode === 'manual' ? [it.manualCode ?? ''] : textMode === 'address' ? addressLines(it.url) : textMode === 'custom' ? [printableText(customText.trim()).slice(0, 12)] : [];
+  const lines = linesFor(item);
   const faceW = shape === 'keychain' ? KEYCHAIN.w : plaque.w;
   const faceH = shape === 'keychain' ? KEYCHAIN.h : plaque.h;
-  const layout = faceLayout(faceW, faceH, matrix.size);
+  const design = faceDesign(faceW, faceH, matrix, lines);
+  const layout = design.layout;
   const outdoorCount = items.filter((i) => i.outdoor).length;
   const checks: Check[] = checksFor({
     shape, module: layout.module, version: matrix.version, outdoor: outdoorCount > 0,
     verified: plaque.verified, decoded: allDecode, url: item.url,
   });
+  if (design.textTooSmall) checks.push({ tone: 'warn', text: textMode === 'address' ? 'הכתובת יוצאת קטנה מדי לקריאה בגודל הזה — בחרו לוחית גדולה' : 'הטקסט יוצא קטן מדי לקריאה — קצרו אותו או בחרו לוחית גדולה' });
   const blocked = checks.some((c) => c.tone === 'bad');
+
+  const download = () => {
+    setBusy(true);
+    setResult(null);
+    // let the spinner paint before the (synchronous, ~1 s for a full plate) build
+    window.setTimeout(() => {
+      try {
+        const job = buildJob({
+          shape, size, mount, backNumber, title,
+          items: items.map((it) => ({ number: it.number, url: it.url, lines: linesFor(it), name: `#${it.number}${it.manualCode ? ` ${it.manualCode}` : ''}` })),
+        });
+        if (!job.files.length) {
+          setResult({ tone: 'bad', text: 'לא נוצר קובץ — אף קוד לא עבר את בדיקת הסריקה.' });
+          return;
+        }
+        const pack = packForDownload(job.files, 'qr-3d-print.zip');
+        const url = URL.createObjectURL(pack.blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = pack.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+        const plaquesN = job.files.filter((f) => f.kind === 'plaques').reduce((s, f) => s + f.pieces, 0);
+        const failed = job.failed.length ? ` ${job.failed.length} קודים לא עברו את בדיקת הסריקה ולא נכנסו: ${job.failed.join(', ')}.` : '';
+        setResult({
+          tone: job.failed.length ? 'bad' : 'ok',
+          text: `ירד ${job.files.length === 1 ? 'קובץ אחד' : `קובץ דחוס עם ${job.files.length} קבצים`}: ${plaquesN} לוחיות${job.files.some((f) => f.kind === 'bases') ? ' ובסיסים' : ''}.${failed}`,
+        });
+      } catch (e) {
+        console.error('print3d build failed', e);
+        setResult({ tone: 'bad', text: 'משהו השתבש בבניית הקובץ. נסו שוב.' });
+      } finally {
+        setBusy(false);
+      }
+    }, 30);
+  };
 
   // Plates: plaques are two-colour (prime tower), bases/stands one colour.
   const plaqueFoot = shape === 'keychain' ? { w: KEYCHAIN.w, h: KEYCHAIN.h + KEYCHAIN.tab } : { w: plaque.w, h: plaque.h };
@@ -109,7 +156,7 @@ export default function Print3DModal({
             <h2 className="text-lg font-semibold">הדפסה בתלת־ממד</h2>
             <p className="truncate text-sm text-text-secondary">{title}</p>
           </div>
-          {demo && <span className="hidden sm:block"><Pill tone="warning">הדגמה — שום קובץ לא יורד</Pill></span>}
+          {demo && <span className="hidden sm:block"><Pill tone="warning">הדגמה — קודים לדוגמה</Pill></span>}
           <button type="button" onClick={onClose} aria-label="סגירה" className="inline-flex size-10 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-hover">
             <X size={18} aria-hidden />
           </button>
@@ -194,7 +241,7 @@ export default function Print3DModal({
                 onChange={setTextMode}
                 options={[
                   { value: 'none', label: 'כלום' },
-                  ...(hasManual ? [{ value: 'manual' as Print3DText, label: 'הקוד הידני' }] : []),
+                  ...(hasManual ? [{ value: 'manual' as Print3DText, label: 'הקוד הידני' }] : [{ value: 'address' as Print3DText, label: 'הכתובת' }]),
                   { value: 'custom', label: 'טקסט קצר' },
                 ]}
               />
@@ -202,13 +249,15 @@ export default function Print3DModal({
                 <input
                   className="input mt-2 w-full"
                   dir="ltr"
-                  maxLength={10}
+                  maxLength={12}
                   value={customText}
-                  onChange={(e) => setCustomText(e.target.value.toUpperCase())}
+                  onChange={(e) => setCustomText(printableText(e.target.value))}
                   aria-label="טקסט מתחת לקוד"
                 />
               )}
               {textMode === 'manual' && <p className="text-sm text-text-secondary">משפחה שהמצלמה שלה לא עובדת מקלידה את הקוד הזה במשחק.</p>}
+              {textMode === 'address' && <p className="text-sm text-text-secondary">מי שלא מצליח לסרוק מקליד את הכתובת בדפדפן. בלוחית גדולה היא קריאה בנוחות.</p>}
+              {textMode === 'custom' && <p className="text-sm text-text-secondary">אותיות באנגלית, ספרות וסימנים פשוטים. עברית תגיע בהמשך.</p>}
             </section>
 
             <label className="flex items-center justify-between gap-3">
@@ -257,8 +306,8 @@ export default function Print3DModal({
             </div>
 
             <div className="flex h-72 items-center justify-center rounded-xl bg-[#E9EAEC] p-4 text-gray-600 sm:h-80 dark:bg-[#2A2D33] dark:text-gray-300">
-              {view === 'seen' && <AssembledView shape={shape} matrix={matrix} plaque={plaque} mount={mount} text={text} />}
-              {view === 'printed' && <PrintedView shape={shape} matrix={matrix} plaque={plaque} mount={mount} text={text} number={backNumber ? item.number : null} />}
+              {view === 'seen' && <AssembledView shape={shape} matrix={matrix} plaque={plaque} mount={mount} lines={lines} />}
+              {view === 'printed' && <PrintedView shape={shape} matrix={matrix} plaque={plaque} mount={mount} lines={lines} number={backNumber ? item.number : null} />}
               {view === 'side' && <SideView shape={shape} plaque={plaque} mount={mount} />}
             </div>
             <p className="text-sm text-text-secondary">
@@ -280,7 +329,7 @@ export default function Print3DModal({
                 <FileRow
                   icon={shape === 'stand' ? Presentation : Square}
                   title={`${shape === 'stand' ? 'מעמדים' : 'בסיסים'} — שחור בלבד`}
-                  text={`${n} ${n === 1 ? 'יחידה' : 'יחידות'}, ${plates(n, holderPer)} · עד ${holderPer} בפלטה`}
+                  text={shape === 'stand' ? 'קובץ המעמד יתווסף בשלב הבא. הלוחיות כבר מוכנות.' : `${n} ${n === 1 ? 'יחידה' : 'יחידות'}, ${plates(n, holderPer)} · עד ${holderPer} בפלטה`}
                   plate={<PlateView itemW={holderFoot.w} itemH={holderFoot.h} count={Math.min(n, holderPer)} twoColour={false} tone="base" />}
                 />
               )}
@@ -312,10 +361,14 @@ export default function Print3DModal({
 
         {/* footer */}
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-4 sm:px-6">
-          {demo && <span className="me-auto hidden text-sm text-text-secondary sm:block">בהדגמה הכפתור כבוי. הקובץ ייבנה אחרי שתאשרו את המסך.</span>}
+          {result ? (
+            <span className={cx('me-auto text-sm', result.tone === 'ok' ? 'text-green-700 dark:text-green-400' : 'text-danger')}>{result.text}</span>
+          ) : (
+            demo && <span className="me-auto hidden text-sm text-text-secondary sm:block">קודים לדוגמה — הלוחית נסרקת, אבל מובילה לדף שלא קיים.</span>
+          )}
           <Button onClick={onClose}>סגירה</Button>
-          <Button variant="primary" icon={Download} disabled={demo || blocked}>
-            הורידו קובץ לבמבו
+          <Button variant="primary" icon={busy ? Loader2 : Download} disabled={busy || blocked} onClick={download} className={busy ? '[&_svg]:animate-spin' : undefined}>
+            {busy ? 'בונים את הקובץ…' : 'הורידו קובץ לבמבו'}
           </Button>
         </div>
       </div>

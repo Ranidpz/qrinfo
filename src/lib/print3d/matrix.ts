@@ -42,6 +42,20 @@ export function decodes(m: QrMatrix): boolean {
             const i = (((r + q) * px + y) * w + (c + q) * px + x) * 4;
             data[i] = data[i + 1] = data[i + 2] = 0;
           }
-  const res = jsQR(data, w, w, { inversionAttempts: 'dontInvert' });
-  return res?.data === m.url;
+  return readsUpright(jsQR(data, w, w, { inversionAttempts: 'dontInvert' }), m.url);
+}
+
+type JsQrResult = ReturnType<typeof jsQR>;
+
+/**
+ * jsQR also reads a MIRRORED code (it retries transposed), so "it decodes" is not enough. Our check
+ * images are always drawn upright, so the three finder squares must land exactly top-left,
+ * top-right and bottom-left. A mirrored code reports them rotated (e.g. "top-left" on the right).
+ */
+export function readsUpright(res: JsQrResult, url: string): boolean {
+  if (!res || res.data !== url) return false;
+  const { topLeftFinderPattern: tl, topRightFinderPattern: tr, bottomLeftFinderPattern: bl } = res.location;
+  const span = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+  const tol = span * 0.1;
+  return tr.x - tl.x > span * 0.9 && Math.abs(tr.y - tl.y) < tol && bl.y - tl.y > span * 0.9 && Math.abs(bl.x - tl.x) < tol;
 }

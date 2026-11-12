@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { CircleAlert, Printer } from 'lucide-react';
+import { Box, CircleAlert, Printer } from 'lucide-react';
 import { THECODE_COLORS, describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { PUBLIC_ORIGIN, plateUrl } from './helpers';
 import { Button, Card, EmptyState, ScreenHeader, Segmented, Toggle } from './ui';
+import Print3DModal, { type Print3DItem } from '@/components/print3d/Print3DModal';
 
 /**
  * Print sheet of real stickers, sized in millimetres. The QR ALWAYS encodes the production
@@ -39,6 +40,7 @@ export default function PrintScreen({ state, navigate }: ScreenProps) {
   const [which, setWhich] = useState<'all' | 'unverified'>('all');
   const [spotId, setSpotId] = useState('');
   const [labels, setLabels] = useState(true);
+  const [print3d, setPrint3d] = useState(false);
 
   const list = [...gnomes]
     .filter((g) => (which === 'all' ? true : !g.verifiedOnSite))
@@ -46,6 +48,14 @@ export default function PrintScreen({ state, navigate }: ScreenProps) {
     .sort((a, b) => a.number - b.number);
   const pending = list.filter((g) => !g.code || !g.manualCode).length;
   const spotName = (id: string) => spots.find((s) => s.id === id)?.name || '';
+  // 3D plaques: only gnomes the server already gave a code (same rule as the stickers).
+  const items3d: Print3DItem[] = list
+    .filter((g) => g.code && g.manualCode)
+    .map((g) => ({
+      id: g.id, number: g.number, url: plateUrl(g.code), manualCode: g.manualCode,
+      label: `גמד ${g.number}${spotName(g.spotId) ? ` · ${spotName(g.spotId)}` : ''}`,
+      outdoor: Boolean(spots.find((s) => s.id === g.spotId)?.outdoor),
+    }));
 
   const perPage = size === 'gnome' ? G.perPage : 16;
   const pages: TheCodeGnome[][] = [];
@@ -53,6 +63,16 @@ export default function PrintScreen({ state, navigate }: ScreenProps) {
 
   return (
     <div className="mx-auto max-w-5xl">
+      {print3d && (
+        <Print3DModal
+          open
+          onClose={() => setPrint3d(false)}
+          items={items3d}
+          title={`${state.config.title || 'הקוד'} — ${items3d.length} גמדים`}
+          shapes={['gnome', 'base']}
+          defaultShape="gnome"
+        />
+      )}
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 10mm; }
@@ -76,7 +96,10 @@ export default function PrintScreen({ state, navigate }: ScreenProps) {
               <p className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
                 הדפיסו בגודל אמיתי — 100%, בלי &quot;התאמה לדף&quot;. אחרי ההדפסה מדדו בסרגל שהקוד יצא 3.4 ס״מ בדיוק.
               </p>
-              <Button variant="primary" icon={Printer} onClick={() => window.print()} disabled={!list.length}>הדפיסו</Button>
+              <div className="flex flex-wrap gap-2 sm:justify-end">
+                <Button icon={Box} onClick={() => setPrint3d(true)} disabled={!items3d.length}>לוחיות בתלת־ממד</Button>
+                <Button variant="primary" icon={Printer} onClick={() => window.print()} disabled={!list.length}>הדפיסו</Button>
+              </div>
             </div>
           }
         />
