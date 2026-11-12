@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Secular_One } from 'next/font/google';
-import Link from 'next/link';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import { DEFAULT_THECODE_RULES as R } from '@/lib/thecode/engine';
 import type { TheCodeColor } from '@/types/thecode';
@@ -15,10 +14,27 @@ import s from './guide.module.css';
 
 const display = Secular_One({ subsets: ['hebrew', 'latin'], weight: '400', variable: '--tc-font-display' });
 
+// The share card (WhatsApp, Facebook, LinkedIn…). Without its own openGraph the page inherited
+// the site-wide The Q card. Image = scripts/thecode-og-image.mjs (no text: rasterisers mangle
+// Hebrew). WhatsApp caches a card per URL — a changed card needs a new URL (e.g. ?v=2).
+const SHARE_TITLE = 'קוד הגמדים — המדריך';
+const SHARE_TEXT = 'איך משחקים במשחק החיפוש לקבוצות: מוצאים גמדים, פותרים חידות, אוספים אותיות ופותחים מזוודה סודית. וגם מה המארגנים מכינים.';
+const SHARE_IMAGE = '/play/the-code/guide-og.png';
+
 export const metadata: Metadata = {
-  title: 'קוד הגמדים — מדריך',
-  description: 'משחק חיפוש לקבוצות: מוצאים גמדים, פותרים חידות, אוספים אותיות ופותחים מזוודה סודית.',
+  title: { absolute: SHARE_TITLE },
+  description: SHARE_TEXT,
   robots: { index: false, follow: false },
+  openGraph: {
+    title: SHARE_TITLE,
+    description: SHARE_TEXT,
+    url: '/play/the-code/guide',
+    siteName: 'The Q',
+    locale: 'he_IL',
+    type: 'article',
+    images: [{ url: SHARE_IMAGE, width: 1200, height: 630, alt: 'חמישה גמדים צבעוניים' }],
+  },
+  twitter: { card: 'summary_large_image', title: SHARE_TITLE, description: SHARE_TEXT, images: [SHARE_IMAGE] },
 };
 
 const PARADE: Array<[TheCodeColor, TheCodeColor]> = [
@@ -214,7 +230,6 @@ export default function TheCodeGuidePage() {
 
         <footer className={s.footer}>
           <span>קוד הגמדים — חוויה של The Q</span>
-          <Link href="/play/the-code">לנסות את ההדגמה</Link>
         </footer>
       </main>
     </div>
