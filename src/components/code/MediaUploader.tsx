@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift, Instagram, Facebook, Dices, Timer, HeartHandshake } from 'lucide-react';
+import { Upload, Image, Video, FileText, Link, Cloud, Gamepad2, Camera, Vote, CalendarDays, MessageCircle, Phone, Mail, ChevronDown, MapPin, Heart, CreditCard, Star, Sparkles, Crosshair, Map, Trophy, Tag, Medal, Gift, Instagram, Facebook, Dices, Timer, HeartHandshake, Luggage } from 'lucide-react';
 import { useState, useRef, DragEvent } from 'react';
 import { clsx } from 'clsx';
 import { useTranslations } from 'next-intl';
@@ -33,7 +33,7 @@ const linkModeOptions: { mode: LinkMode; icon: React.ReactNode; label: string; l
   { mode: 'payment', icon: <CreditCard className="w-4 h-4" />, label: 'תשלום', labelKey: 'linkModePayment' },
 ];
 
-export type UploaderTab = 'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qbet' | 'tenbool' | 'socialwall' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames';
+export type UploaderTab = 'upload' | 'link' | 'riddle' | 'wordcloud' | 'selfiebeam' | 'qvote' | 'raffle' | 'qbet' | 'tenbool' | 'thecode' | 'socialwall' | 'qstage' | 'weeklycal' | 'qhunt' | 'qtreasure' | 'qchallenge' | 'qtag' | 'minigames';
 
 interface MediaUploaderProps {
   onFileSelect: (file: File) => void;
@@ -46,6 +46,7 @@ interface MediaUploaderProps {
   onQBetCreate?: (name: string) => void;
   onSocialWallCreate?: (name: string) => void;
   onTenBoolCreate?: (name: string) => void;
+  onTheCodeCreate?: (name: string) => void;
   onQStageCreate?: (name: string) => void;
   onWeeklyCalendarCreate?: (name: string) => void;
   onQHuntCreate?: (name: string) => void;
@@ -70,6 +71,7 @@ export default function MediaUploader({
   onQBetCreate,
   onSocialWallCreate,
   onTenBoolCreate,
+  onTheCodeCreate,
   onQStageCreate,
   onWeeklyCalendarCreate,
   onQHuntCreate,
@@ -110,6 +112,7 @@ export default function MediaUploader({
 
   const t = useTranslations('uploader');
   const tMedia = useTranslations('media');
+  const tTheCode = useTranslations('thecode');
 
   const handleDragOver = (e: DragEvent) => {
     e.preventDefault();
@@ -525,6 +528,7 @@ export default function MediaUploader({
           {onQBetCreate && <TabButton tab="qbet" label="ניחוש" icon={Dices} tooltip="ניחוש תוצאת משחק עם אימות וואטסאפ" />}
           {onSocialWallCreate && <TabButton tab="socialwall" label="Social Wall" icon={HeartHandshake} tooltip="רשת חברתית פרטית לאירוע: פיד תמונות, לייקים ומחלקות" />}
           {onTenBoolCreate && <TabButton tab="tenbool" label="10 בול" icon={Timer} tooltip="עצרו את הטיימר בדיוק על 10.00" />}
+          {onTheCodeCreate && <TabButton tab="thecode" label={tTheCode('tab')} icon={Luggage} tooltip={tTheCode('tooltip')} />}
           {onQStageCreate && <TabButton tab="qstage" label="Q.Stage" icon={Sparkles} tooltip={t('tooltipQStage') || 'Live voting display for events'} />}
           {onQHuntCreate && <TabButton tab="qhunt" label="Q.Hunt" icon={Crosshair} tooltip={t('tooltipQHunt') || 'Real-time code hunting game'} />}
           {onQTreasureCreate && <TabButton tab="qtreasure" label="מטמון" icon={Map} tooltip={t('tooltipQTreasure') || 'Treasure hunt with stations'} />}
@@ -1166,6 +1170,26 @@ export default function MediaUploader({
             className="btn btn-primary w-full disabled:opacity-50"
           >
             צור 10 בול
+          </button>
+        </div>
+      ) : activeTab === 'thecode' ? (
+        /* הקוד (gnome adventure) creation — creates the code at once and opens its admin page */
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 bg-bg-secondary rounded-xl">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-amber-500 flex items-center justify-center flex-shrink-0">
+              <Luggage className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-start">
+              <h3 className="font-medium text-text-primary mb-1">{tTheCode('tab')}</h3>
+              <p className="text-xs text-text-secondary">{tTheCode('description')}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleExperienceCreate(onTheCodeCreate)}
+            disabled={disabled || nameMissing}
+            className="btn btn-primary w-full disabled:opacity-50"
+          >
+            {tTheCode('create')}
           </button>
         </div>
       ) : activeTab === 'qstage' ? (

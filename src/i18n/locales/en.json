@@ -2217,5 +2217,22 @@
     "rejectedBody": "Want to talk about it? We're on WhatsApp, and you can also send the request again.",
     "sendAgain": "Send the request again",
     "signedInAs": "Signed in as"
+  },
+  "thecode": {
+    "tab": "The Code",
+    "tooltip": "A gnome adventure for venues: scan, solve riddles, collect letters",
+    "description": "A permanent adventure for families: small gnomes with QR codes around the venue, a riddle at each one, and letters that build a secret phrase that opens a suitcase. No app.",
+    "create": "Create adventure",
+    "openAdmin": "Manage the adventure",
+    "openAdminHint": "Spots, gnomes, riddles, phrases and plate printing",
+    "backToCode": "Back to the code",
+    "loading": "Loading…",
+    "notFoundTitle": "Code not found",
+    "notFoundText": "The code may have been deleted. Go back to the dashboard and pick another one.",
+    "toDashboard": "To the dashboard",
+    "notTheCodeTitle": "This is not a \"The Code\" code",
+    "notTheCodeText": "This code has no gnome adventure, so there is nothing to manage here.",
+    "errorTitle": "Something went wrong",
+    "errorText": "We could not check this code. Try again in a moment."
   }
 }

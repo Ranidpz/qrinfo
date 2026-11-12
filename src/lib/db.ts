@@ -491,6 +491,7 @@ export async function updateQRCode(
       if (m.qbetConfig) (mediaItem as Record<string, unknown>).qbetConfig = m.qbetConfig;
       if (m.socialWallConfig) (mediaItem as Record<string, unknown>).socialWallConfig = m.socialWallConfig;
       if (m.tenboolConfig) (mediaItem as Record<string, unknown>).tenboolConfig = m.tenboolConfig;
+      if (m.thecodeConfig) (mediaItem as Record<string, unknown>).thecodeConfig = m.thecodeConfig;
       if (m.pdfSettings) (mediaItem as Record<string, unknown>).pdfSettings = m.pdfSettings;
       return mediaItem;
     });

@@ -38,6 +38,7 @@ import {
   Dices,
   HeartHandshake,
   Timer,
+  Luggage,
   CalendarDays,
   Smartphone,
   LayoutGrid,
@@ -228,6 +229,7 @@ function getExperienceTypeLabel(
     case 'minigames': return 'Q.Games';
     case 'raffle': return he ? 'הגרלה' : 'Raffle';
     case 'tenbool': return he ? '10 בול' : '10 Bool';
+    case 'thecode': return he ? 'הקוד' : 'The Code';
     default: return String(type).toUpperCase();
   }
 }
@@ -312,6 +314,7 @@ export default function CodeEditPage({ params }: PageProps) {
   const tBooklets = useTranslations('booklets');
   const tMedia = useTranslations('media');
   const tModals = useTranslations('modals');
+  const tTheCode = useTranslations('thecode');
   const locale = useLocale();
   const { user, refreshUser } = useAuth();
   const qrRef = useRef<HTMLDivElement>(null);
@@ -4326,6 +4329,8 @@ export default function CodeEditPage({ params }: PageProps) {
                       } else if (media.type === 'tenbool') {
                         setEditingTenBoolId(media.id);
                         setTenboolModalOpen(true);
+                      } else if (media.type === 'thecode') {
+                        router.push(`/thecode/${code.id}`);
                       } else {
                         window.open(media.url, '_blank');
                       }
@@ -4411,6 +4416,10 @@ export default function CodeEditPage({ params }: PageProps) {
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-500 to-rose-700">
                         <Timer className="w-6 h-6 text-white" />
                       </div>
+                    ) : media.type === 'thecode' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-amber-500">
+                        <Luggage className="w-6 h-6 text-white" />
+                      </div>
                     ) : media.type === 'socialwall' ? (
                       media.socialWallConfig?.branding?.coverImageUrl ? (
                         <img
@@ -4465,6 +4474,7 @@ export default function CodeEditPage({ params }: PageProps) {
                           : media.type === 'qtreasure' ? 'Q.Treasure'
                           : media.type === 'qchallenge' ? 'Q.Challenge'
                           : media.type === 'minigames' ? 'Q.Games'
+                          : media.type === 'thecode' ? (media.thecodeConfig?.title || media.title || 'הקוד')
                           : media.type.toUpperCase()}
                       </span>
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-bg-primary text-text-secondary border border-border whitespace-nowrap">
@@ -4592,6 +4602,19 @@ export default function CodeEditPage({ params }: PageProps) {
                         <Pencil className="w-4 h-4" />
                       </button>
                     </Tooltip>
+                  )}
+
+                  {/* הקוד: the whole adventure is managed on its own full page */}
+                  {media.type === 'thecode' && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/thecode/${code.id}`)}
+                      title={tTheCode('openAdminHint')}
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-white hover:bg-accent/90"
+                    >
+                      <Settings className="w-4 h-4" />
+                      {tTheCode('openAdmin')}
+                    </button>
                   )}
 
                   {/* Edit button for 10 בול */}
@@ -4845,7 +4868,7 @@ export default function CodeEditPage({ params }: PageProps) {
                   )}
 
                   {/* Replace button - not for links, riddles, selfiebeams, weeklycal, qvote, qstage, qhunt, qtreasure, qchallenge, or minigames */}
-                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.type !== 'minigames' && media.type !== 'tenbool' && (
+                  {media.type !== 'link' && media.type !== 'riddle' && media.type !== 'selfiebeam' && media.type !== 'weeklycal' && media.type !== 'qvote' && media.type !== 'qtag' && media.type !== 'qstage' && media.type !== 'qhunt' && media.type !== 'qtreasure' && media.type !== 'qchallenge' && media.type !== 'minigames' && media.type !== 'tenbool' && media.type !== 'thecode' && (
                     <Tooltip text={t('replaceFile')}>
                       <label className="p-2 rounded-lg hover:bg-bg-hover text-text-secondary cursor-pointer">
                         {replacingMediaId === media.id ? (
@@ -4902,6 +4925,8 @@ export default function CodeEditPage({ params }: PageProps) {
                         media.type === 'tenbool'
                           ? // Phone mode: the code page opens the big screen's leaderboard (players scan its code)
                             `/v/${code.shortId}${media.tenboolConfig?.playMode === 'phone' ? '?screen=board' : ''}`
+                          : media.type === 'thecode'
+                          ? `/v/${code.shortId}` // no file (url: '') — the game home
                           : media.url
                       }
                       target="_blank"

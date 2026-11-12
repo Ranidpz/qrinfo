@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Eye, EyeOff, Luggage, Pencil, Search, Trophy, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Luggage, Pencil, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
 import type { AdminPlayer, ScreenProps } from './model';
 import { timeAgo } from './helpers';
-import { Card, EmptyState, IconButton, Pill, ScreenHeader, Segmented, cx } from './ui';
+import { Button, Card, EmptyState, IconButton, Pill, ScreenHeader, Segmented, cx } from './ui';
 
-export default function PlayersScreen({ state, actions, now }: ScreenProps) {
+export default function PlayersScreen({ state, actions, now, refresh }: ScreenProps) {
+  const [removing, setRemoving] = useState<{ id: string; step: 1 | 2 } | null>(null);
   const [period, setPeriod] = useState<'week' | 'all'>('week');
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
@@ -28,7 +29,16 @@ export default function PlayersScreen({ state, actions, now }: ScreenProps) {
       <ScreenHeader
         title="משפחות"
         summary={`${state.players.length} משפחות שיחקו${hidden ? `, ${hidden} מוסתרות מהלוח` : ''}. רק כינוי ואימוג׳י — בלי שמות מלאים ובלי טלפונים.`}
-        actions={<Segmented label="תקופה" value={period} onChange={setPeriod} options={[{ value: 'week', label: 'השבוע' }, { value: 'all', label: 'מאז ומעולם' }]} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {refresh && (
+              <Button icon={RefreshCw} onClick={refresh.run} disabled={refresh.busy} className={refresh.busy ? '[&_svg]:animate-spin' : ''}>
+                {refresh.busy ? 'מרעננים…' : 'רעננו'}
+              </Button>
+            )}
+            <Segmented label="תקופה" value={period} onChange={setPeriod} options={[{ value: 'week', label: 'השבוע' }, { value: 'all', label: 'מאז ומעולם' }]} />
+          </div>
+        }
       />
 
       {state.players.length > 0 && (
@@ -49,7 +59,7 @@ export default function PlayersScreen({ state, actions, now }: ScreenProps) {
           {list.map((p) => {
             const r = p.hidden ? null : ++rank;
             return (
-              <div key={p.id} className={cx('flex items-center gap-3 px-4 py-3', p.hidden && 'bg-bg-secondary')}>
+              <div key={p.id} className={cx('flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap', p.hidden && 'bg-bg-secondary')}>
                 <span className={cx('w-6 shrink-0 text-center font-semibold tabular-nums', r && r <= 3 ? 'text-accent' : 'text-text-secondary')}>{r ?? '–'}</span>
                 <span className={cx('text-2xl', p.hidden && 'opacity-40')} aria-hidden>{p.emoji}</span>
                 <div className="min-w-0 flex-1">
@@ -77,10 +87,38 @@ export default function PlayersScreen({ state, actions, now }: ScreenProps) {
                   )}
                 </div>
                 <span className="shrink-0 text-xl font-bold tabular-nums">{pts(p)}</span>
-                {editing !== p.id && (
+                {editing !== p.id && removing?.id !== p.id && (
                   <div className="flex shrink-0">
                     <IconButton icon={Pencil} label="שנו שם" onClick={() => setEditing(p.id)} />
                     <IconButton icon={p.hidden ? Eye : EyeOff} label={p.hidden ? 'הציגו בלוח' : 'הסתירו מהלוח'} onClick={() => actions.updatePlayer(p.id, { hidden: !p.hidden })} />
+                    <IconButton icon={Trash2} label="הסירו משפחה" onClick={() => setRemoving({ id: p.id, step: 1 })} />
+                  </div>
+                )}
+                {removing?.id === p.id && (
+                  <div className="basis-full rounded-lg bg-danger/5 px-3 py-2 text-sm sm:basis-auto">
+                    <div className="text-red-700 dark:text-red-400">
+                      {removing.step === 1
+                        ? `להסיר את "${p.familyName}"? הנקודות, המזוודות וההתקדמות שלה יימחקו.`
+                        : 'בטוחים? אי אפשר לבטל את זה, והמשפחה תצטרך להירשם מחדש.'}
+                    </div>
+                    <div className="mt-2 flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setRemoving(null)}>ביטול</Button>
+                      {removing.step === 1 ? (
+                        <Button size="sm" variant="danger" onClick={() => setRemoving({ id: p.id, step: 2 })}>הסירו</Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          icon={Trash2}
+                          onClick={() => {
+                            actions.deletePlayer(p.id);
+                            setRemoving(null);
+                          }}
+                        >
+                          כן, הסירו לתמיד
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

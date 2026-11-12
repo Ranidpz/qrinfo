@@ -265,7 +265,11 @@ function GnomeEditor({
         <>
           {confirmDelete ? (
             <>
-              <span className="me-auto text-sm text-danger">למחוק את הגמד ואת החידות שלו?</span>
+              <span className="me-auto text-sm text-danger">
+                {riddles > 0
+                  ? `למחוק את הגמד ואת ${riddles === 1 ? 'החידה שלו' : `${riddles} החידות שלו`}? משפחות שנשלחו אליו יקבלו את האות מגמד אחר, והלוחית שלו תפסיק לעבוד.`
+                  : 'למחוק את הגמד? הלוחית שלו תפסיק לעבוד.'}
+              </span>
               <Button variant="ghost" onClick={() => setConfirmDelete(false)}>ביטול</Button>
               <Button variant="danger" icon={Trash2} onClick={onDelete}>מחקו</Button>
             </>
@@ -284,9 +288,10 @@ function GnomeEditor({
           <div className="text-lg font-semibold">{describeGnome(g.bodyColor, g.hatColor)}</div>
           <div className="mt-2 space-y-1 text-sm text-text-secondary">
             <div>
-              קוד ידני: <span className="font-mono font-semibold text-text-primary" dir="ltr">{g.manualCode}</span>
+              קוד ידני:{' '}
+              {g.manualCode ? <span className="font-mono font-semibold text-text-primary" dir="ltr">{g.manualCode}</span> : <span>ממתין לשמירה</span>}
             </div>
-            <div className="truncate" dir="ltr">/g/{g.code}</div>
+            {g.code && <div className="truncate" dir="ltr">/g/{g.code}</div>}
           </div>
         </div>
       </div>

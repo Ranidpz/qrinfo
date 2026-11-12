@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ImagePlus, MapPin, Plus, ShieldAlert, Trash2, TriangleAlert } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Plus, ShieldAlert, Trash2, TriangleAlert } from 'lucide-react';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import type { TheCodeSpot } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { Button, Card, EmptyState, Field, Pill, ScreenHeader, Toggle, cx } from './ui';
+import ImageDropZone from './ImageDropZone';
 
 const HINT_LEVELS = [
   { label: 'רמז 1 — אזור', placeholder: 'למשל: בלובי, בצד של הספות' },
@@ -13,7 +14,7 @@ const HINT_LEVELS = [
   { label: 'רמז 3 — מדויק', placeholder: 'למשל: מאחורי הכורסה הירוקה' },
 ];
 
-export default function SpotsScreen({ state, actions, navigate, target }: ScreenProps) {
+export default function SpotsScreen({ state, actions, navigate, target, uploadImage }: ScreenProps) {
   const { spots, gnomes } = state.config;
   const [selectedId, setSelectedId] = useState<string | null>(target.spotId ?? null);
   useEffect(() => {
@@ -82,6 +83,7 @@ export default function SpotsScreen({ state, actions, navigate, target }: Screen
               }}
               onOpenGnome={(id) => navigate({ tab: 'gnomes', gnomeId: id })}
               onAddGnomes={() => navigate({ tab: 'gnomes', spotId: selected.id })}
+              uploadImage={uploadImage}
             />
           ) : (
             <div className="hidden items-center justify-center rounded-xl border border-dashed border-border p-12 text-text-secondary lg:flex">
@@ -102,6 +104,7 @@ function SpotEditor({
   onDelete,
   onOpenGnome,
   onAddGnomes,
+  uploadImage,
 }: {
   spot: TheCodeSpot;
   gnomes: ScreenProps['state']['config']['gnomes'];
@@ -110,8 +113,9 @@ function SpotEditor({
   onDelete: () => void;
   onOpenGnome: (id: string) => void;
   onAddGnomes: () => void;
+  uploadImage: ScreenProps['uploadImage'];
 }) {
-  const [photo, setPhoto] = useState<string | null>(spot.photoUrl || null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const hints = [0, 1, 2].map((i) => spot.hints[i] || '');
 
   const setHint = (i: number, v: string) => {
@@ -137,29 +141,14 @@ function SpotEditor({
         </div>
       </div>
 
-      {/* Photo placeholder — wave 2 uploads to R2 */}
       <div className="mt-6">
-        <span className="mb-1.5 block text-sm font-medium">תמונה של המקום</span>
-        <label className="flex aspect-[16/7] cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-bg-secondary text-text-secondary hover:bg-bg-hover">
-          {photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt="" className="size-full object-cover" />
-          ) : (
-            <span className="flex flex-col items-center gap-2 text-sm">
-              <ImagePlus size={24} aria-hidden />
-              העלו תמונה, כדי שכל הצוות יידע איפה הגמדים עומדים
-            </span>
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setPhoto(URL.createObjectURL(f));
-            }}
-          />
-        </label>
+        <ImageDropZone
+          label="תמונה של המקום"
+          emptyText="כדי שכל הצוות יידע איפה הגמדים עומדים. רק אתם רואים אותה."
+          value={spot.photoUrl}
+          upload={uploadImage}
+          onChange={(url) => onChange({ photoUrl: url })}
+        />
       </div>
 
       <div className="mt-6 space-y-4">
@@ -201,17 +190,20 @@ function SpotEditor({
         )}
       </div>
 
-      <div className="mt-8 flex justify-end border-t border-border pt-4">
-        <Button
-          variant="danger"
-          size="sm"
-          icon={Trash2}
-          disabled={gnomes.length > 0}
-          title={gnomes.length ? 'העבירו קודם את הגמדים למקום אחר' : undefined}
-          onClick={onDelete}
-        >
-          {gnomes.length ? 'כדי למחוק, העבירו קודם את הגמדים' : 'מחקו מקום'}
-        </Button>
+      <div className="mt-8 flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
+        {gnomes.length > 0 ? (
+          <span className="text-sm text-text-secondary">
+            כדי למחוק את המקום, העבירו קודם {gnomes.length === 1 ? 'את הגמד' : `את ${gnomes.length} הגמדים`} שעומדים בו למקום אחר — אחרת הם ייצאו מהמשחק.
+          </span>
+        ) : confirmDelete ? (
+          <>
+            <span className="me-auto text-sm text-danger">למחוק את &quot;{spot.name}&quot;? הרמזים והתמונה יימחקו.</span>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>ביטול</Button>
+            <Button size="sm" variant="danger" icon={Trash2} onClick={onDelete}>מחקו</Button>
+          </>
+        ) : (
+          <Button variant="danger" size="sm" icon={Trash2} onClick={() => setConfirmDelete(true)}>מחקו מקום</Button>
+        )}
       </div>
     </Card>
   );

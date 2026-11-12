@@ -1,10 +1,14 @@
 // הקוד — admin UI contract (TYPES ONLY).
-// Screens take these plain shapes as props. Today the demo (src/components/thecode/demo/adminDemo.ts)
-// fills them from memory; in wave 2 the same shapes come from the store/API and the real engine
-// (`validateAdventure` → TheCodeIssue[]), so the screens do not change.
+// Screens take these plain shapes as props. The demo (src/components/thecode/demo/adminDemo.ts)
+// fills them from sample data; the live admin (src/components/thecode/adminLive/*) from
+// /api/thecode/admin. Both mutate through admin/reducer.ts and build the report with
+// adminLive/report.ts (the real engine), so the screens do not know which one they run in.
 
 import type {
+  TheCodeAdminPlayer,
   TheCodeColor,
+  TheCodeGnomeStats,
+  TheCodeRiddleStats,
   TheCodeConfig,
   TheCodeGnome,
   TheCodeIssue,
@@ -14,32 +18,11 @@ import type {
   TheCodeSpot,
 } from '@/types/thecode';
 
-export interface GnomeStats {
-  scans: number;
-  lastScanAt?: number;
-  verifiedAt?: number;
-}
-
-export interface RiddleStats {
-  correct: number;
-  wrong: number;
-  hints: number;
-}
-
+/** Contract shape (src/types/thecode.ts) + a local-only `verifiedAt` set by setup mode. */
+export type GnomeStats = TheCodeGnomeStats & { verifiedAt?: number };
+export type RiddleStats = TheCodeRiddleStats;
 /** What the operator sees of a family. Never a phone, never a full name. */
-export interface AdminPlayer {
-  id: string;
-  familyName: string;
-  /** The name the family registered with, kept when the operator renames it. */
-  originalName?: string;
-  emoji: string;
-  hidden: boolean;
-  points: number;
-  weekPoints: number;
-  suitcases: number;
-  weekSuitcases: number;
-  lastSeenAt: number;
-}
+export type AdminPlayer = TheCodeAdminPlayer;
 
 export interface AdminState {
   config: TheCodeConfig;
@@ -124,6 +107,8 @@ export interface AdminActions {
   deletePhrase(id: string): void;
 
   updatePlayer(id: string, patch: Partial<Pick<AdminPlayer, 'familyName' | 'hidden'>>): void;
+  /** Remove a family for good (the screen asks twice first). */
+  deletePlayer(id: string): void;
 
   reset(): void;
 }
@@ -139,4 +124,26 @@ export interface ScreenProps {
   /** Live coverage for a phrase that is not saved yet (the "add phrase" box). */
   coverageOf: (text: string) => PhraseCoverage;
   now: number;
+  /** Uploads one (already validated) image and resolves to its public URL. */
+  uploadImage: ImageUploader;
+  /** Where this adventure lives; absent in the demo (no code yet). */
+  links?: AdminLinks;
+  /** Re-fetch stats + families from the server; absent in the demo. */
+  refresh?: AdminRefresh;
+}
+
+export interface AdminRefresh {
+  run: () => void;
+  busy: boolean;
+  /** When stats were last fetched (ms). */
+  at?: number;
+}
+
+export type ImageUploader = (file: File, onProgress: (fraction: number) => void) => Promise<string>;
+
+export interface AdminLinks {
+  /** Game home for families: production origin + /v/{shortId}. */
+  game: string;
+  /** Big-screen leaderboard for the venue's TV. */
+  lobby: string;
 }
