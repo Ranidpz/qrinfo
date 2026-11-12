@@ -68,8 +68,8 @@ export default function PrintScreen({ state, navigate }: ScreenProps) {
           title="הדפסת לוחיות"
           summary={
             size === 'gnome'
-              ? 'מדבקה בגודל 3.6 על 4.2 ס״מ שנכנסת בדיוק לשקע בגמד: קוד QR בגודל 3.4 ס״מ והקוד הידני מתחתיו.'
-              : 'מדבקה גדולה (4.5 על 6 ס״מ) עם מספר הגמד והצבעים. היא לא נכנסת לשקע בגמד.'
+              ? 'כל הגמדים, מכל המקומות, מודפסים יחד על אותם דפים — 20 בדף. כל מדבקה בגודל 3.6 על 4.2 ס״מ ונכנסת בדיוק לשקע בגמד: קוד QR בגודל 3.4 ס״מ והקוד הידני מתחתיו.'
+              : 'כל הגמדים, מכל המקומות, מודפסים יחד על אותם דפים. מדבקה גדולה (4.5 על 6 ס״מ) עם מספר הגמד והצבעים — היא לא נכנסת לשקע בגמד.'
           }
           actions={
             <div className="flex max-w-xs flex-col items-stretch gap-2 sm:items-end">
@@ -84,9 +84,9 @@ export default function PrintScreen({ state, navigate }: ScreenProps) {
           <Segmented label="גודל מדבקה" value={size} onChange={setSize} options={[{ value: 'gnome', label: 'לשקע בגמד' }, { value: 'large', label: 'גדולה' }]} />
           <Segmented label="אילו גמדים" value={which} onChange={setWhich} options={[{ value: 'all', label: 'כולם' }, { value: 'unverified', label: 'עוד לא הותקנו' }]} />
           <select className="input select-input w-auto min-w-48" value={spotId} onChange={(e) => setSpotId(e.target.value)} aria-label="מקום">
-            <option value="">כל המקומות</option>
+            <option value="">כל המקומות יחד</option>
             {spots.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>רק {s.name}</option>
             ))}
           </select>
           <label className="flex items-center gap-2 text-sm">

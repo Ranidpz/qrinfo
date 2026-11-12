@@ -7,6 +7,7 @@ import type { MissingLetter, PhraseCoverage, ScreenProps } from './model';
 import type { Navigate } from './nav';
 import { letterLabel } from './helpers';
 import { Button, Card, EmptyState, IconButton, LetterTile, Pill, ScreenHeader, Toggle, cx } from './ui';
+import { BankFillButton } from './BankDialogs';
 
 export default function PhrasesScreen({ state, report, actions, navigate, target, coverageOf }: ScreenProps) {
   const { phrases } = state.config;
@@ -43,6 +44,11 @@ export default function PhrasesScreen({ state, report, actions, navigate, target
               ? 'משפחה יכולה לפתוח מזוודה חדשה אחת.'
               : `משפחה יכולה לפתוח ${report.freshSuitcases} מזוודות חדשות, בלי לפתור חידה פעמיים.`}
           </span>
+        }
+        actions={
+          phrases.some((p) => p.isActive && (report.phrases[p.id]?.missing.length ?? 0) > 0) ? (
+            <BankFillButton onClick={() => navigate({ tab: 'riddles', fill: true })} />
+          ) : undefined
         }
       />
 

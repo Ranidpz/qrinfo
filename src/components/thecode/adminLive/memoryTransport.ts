@@ -24,7 +24,7 @@ const trim = (s: string | undefined) => (typeof s === 'string' ? s.trim() : s);
 function normalize(config: TheCodeConfig, riddles: TheCodeRiddle[]) {
   const c = clone(config);
   c.title = c.title.trim();
-  c.spots = c.spots.map((s) => ({ ...s, name: s.name.trim(), hints: s.hints.map((h) => h.trim()).filter(Boolean), safetyNote: trim(s.safetyNote) || undefined }));
+  c.spots = c.spots.map((s) => ({ ...s, name: s.name.trim(), hints: s.hints.map((h) => h.trim()).filter(Boolean), safetyNote: trim(s.safetyNote) || undefined, outdoor: s.outdoor === true ? true : undefined }));
   c.phrases = c.phrases.map((p) => ({ ...p, text: p.text.trim() }));
   c.gnomes = c.gnomes.map((g) => ({ ...g, code: g.code || newGnomeCode(), manualCode: g.manualCode || newManualCode() }));
   const r = clone(riddles).map((x) => ({ ...x, text: x.text.trim(), answerWord: x.answerWord.trim(), letter: letterOfAnswer(x.answerWord), hints: x.hints.map((h) => h.trim()).filter(Boolean) }));

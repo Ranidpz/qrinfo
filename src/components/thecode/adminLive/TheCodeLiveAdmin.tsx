@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useDeferredValue, useMemo, type ReactNode, type RefObject } from 'react';
+import { useCallback, useMemo, type ReactNode, type RefObject } from 'react';
 import { CircleAlert, CloudOff, Loader2, RefreshCw, Check } from 'lucide-react';
 import AdminShell from '@/components/thecode/admin/AdminShell';
 import type { AdminLinks } from '@/components/thecode/admin/model';
@@ -33,9 +33,9 @@ export default function TheCodeLiveAdmin({
 }) {
   const live = useTheCodeAdmin(codeId, { transport });
   const { state } = live;
-  // Typing stays instant; the engine report (it simulates whole runs) may lag a frame behind.
-  const deferred = useDeferredValue(state);
-  const report = useMemo(() => (deferred ? buildAdventureReport(deferred) : null), [deferred]);
+  // Computed in step with the state: screens look up report entries by the ids they render
+  // (a deferred report crashed the phrases screen on a just-added phrase).
+  const report = useMemo(() => (state ? buildAdventureReport(state) : null), [state]);
   const coverageOf = useCallback((text: string) => phraseCoverage(text, state!.config, state!.riddles), [state]);
 
   if (live.phase.kind === 'loading' || !state || !report) {

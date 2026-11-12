@@ -72,9 +72,18 @@ export function confusableColors(a: NewGnomeSpec, b: NewGnomeSpec): boolean {
   return redGreenBlind(a.bodyColor) === redGreenBlind(b.bodyColor) && redGreenBlind(a.hatColor) === redGreenBlind(b.hatColor);
 }
 
-/** Colour combos for a new batch: distinct from each other and from what already stands there. */
-export function suggestCombos(count: number, taken: NewGnomeSpec[], shuffle = false): NewGnomeSpec[] {
-  const colors: TheCodeColor[] = ['blue', 'yellow', 'red', 'purple', 'orange', 'white', 'black', 'green'];
+/** Preferred order for suggestions (most distinct first); only colours in `allowed` are used. */
+const SUGGEST_ORDER: TheCodeColor[] = ['blue', 'yellow', 'red', 'purple', 'white', 'black', 'green', 'brown', 'grey', 'orange'];
+
+/**
+ * Colour combos for a new batch: distinct from each other and from what already stands there,
+ * using only the colours the supplier can print for this spot (`allowed`). Two-tone looks come
+ * first; a one-colour gnome (body = hat) is the last resort, which matters outdoors where only
+ * black and grey exist (4 distinct looks at most). May return fewer than `count` — that IS the
+ * limit of what can stand at that spot.
+ */
+export function suggestCombos(count: number, taken: NewGnomeSpec[], shuffle = false, allowed?: TheCodeColor[]): NewGnomeSpec[] {
+  const colors = SUGGEST_ORDER.filter((c) => (allowed ? allowed.includes(c) : c !== 'orange'));
   if (shuffle) {
     for (let i = colors.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -83,15 +92,15 @@ export function suggestCombos(count: number, taken: NewGnomeSpec[], shuffle = fa
   }
   const out: NewGnomeSpec[] = [];
   const all = [...taken];
-  // Pass 1 spreads body colours (one per body), pass 2 fills whatever is left.
-  for (const spread of [true, false]) {
+  // Pass 1 spreads body colours (one per body), pass 2 fills two-tone leftovers, pass 3 one-colour.
+  for (const pass of ['spread', 'fill', 'solid'] as const) {
     for (const body of colors) {
       for (const hat of colors) {
         if (out.length >= count) return out;
-        if (body === hat) continue;
+        if ((body === hat) !== (pass === 'solid')) continue;
         const spec = { bodyColor: body, hatColor: hat };
         if (all.some((t) => comboKey(t) === comboKey(spec) || confusableColors(t, spec))) continue;
-        if (spread && out.some((o) => o.bodyColor === body || o.hatColor === hat)) continue;
+        if (pass === 'spread' && out.some((o) => o.bodyColor === body || o.hatColor === hat)) continue;
         out.push(spec);
         all.push(spec);
       }
