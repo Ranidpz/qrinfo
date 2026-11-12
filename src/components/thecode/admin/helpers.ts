@@ -2,6 +2,7 @@
 // No sample data and no state here (that lives in src/components/thecode/demo/adminDemo.ts).
 
 import type { TheCodeColor, TheCodeConfig, TheCodeGnome } from '@/types/thecode';
+import { SITE_URL } from '@/lib/landing/site';
 import type { GnomeStats, NewGnomeSpec, RiddleStats } from './model';
 
 /** "ס׳" for Hebrew, "S" for English. */
@@ -49,8 +50,17 @@ export function isRiddleTooHard(s: RiddleStats | undefined): boolean {
   return s.wrong / attempts > 0.55 || s.hints > s.correct * 1.2;
 }
 
-/** Demo QR target; wave 2 serves /g/{code}. */
-export const plateUrl = (code: string) => `https://qr.playzones.app/g/${code}`;
+/**
+ * Public links ALWAYS use the production origin — a plate printed from dev, a preview deploy
+ * or localhost must still open the real game (plan §8).
+ */
+export const PUBLIC_ORIGIN = SITE_URL;
+/** QR payload of a gnome plate. */
+export const plateUrl = (code: string) => `${PUBLIC_ORIGIN}/g/${encodeURIComponent(code)}`;
+/** Game home for families. */
+export const gameUrl = (shortId: string) => `${PUBLIC_ORIGIN}/v/${encodeURIComponent(shortId)}`;
+/** Big-screen leaderboard for the venue's TV. */
+export const lobbyUrl = (shortId: string) => `${PUBLIC_ORIGIN}/lobby/thecode/${encodeURIComponent(shortId)}`;
 
 export const comboKey = (g: { bodyColor: TheCodeColor; hatColor: TheCodeColor }) => `${g.bodyColor}/${g.hatColor}`;
 

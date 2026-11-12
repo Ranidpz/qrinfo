@@ -849,6 +849,37 @@ export default function DashboardPage() {
     }
   };
 
+  // Create a "הקוד" adventure at once and go straight to its full-page admin. The code doc only
+  // carries the PUBLIC stub (title/status/language); the adventure itself is server-only and is
+  // created on the admin page's first save (GET returns defaults with version 0).
+  const handleCreateTheCode = async (name?: string) => {
+    if (!user) return;
+    try {
+      const title = name?.trim() || 'הקוד';
+      const newCode = await createQRCode(
+        user.id,
+        title,
+        [
+          {
+            url: '',
+            type: 'thecode',
+            size: 0,
+            order: 0,
+            uploadedBy: user.id,
+            title,
+            thecodeConfig: { title, status: 'draft', language: 'he' },
+          },
+        ],
+        currentFolderId
+      );
+      setCodes((prev) => [newCode, ...prev]);
+      router.push(`/thecode/${newCode.id}`);
+    } catch (error) {
+      console.error('Error creating thecode:', error);
+      alert(tErrors('createCodeError'));
+    }
+  };
+
   const handleQStageCreate = async (config: QStageConfig) => {
     if (!user) return;
 
@@ -2268,6 +2299,8 @@ export default function DashboardPage() {
                   // Social Wall is in production testing: only super admins can create one (the server enforces the same in loadSocialWall)
                   onSocialWallCreate={user?.role === 'super_admin' ? handleCreateSocialWall : undefined}
                   onTenBoolCreate={handleCreateTenBool}
+                  // הקוד is not released yet: only super admins can create one while it is tested
+                  onTheCodeCreate={user?.role === 'super_admin' ? handleCreateTheCode : undefined}
                   onQStageCreate={(name) => { setPendingExperienceName(name); setQstageModalOpen(true); }}
                   onWeeklyCalendarCreate={(name) => { setPendingExperienceName(name); setWeeklyCalModalOpen(true); }}
                   onQHuntCreate={(name) => { setPendingExperienceName(name); setQhuntModalOpen(true); }}

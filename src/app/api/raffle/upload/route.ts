@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
     const kindRaw = (form.get('kind') as string | null) || 'image';
     const kind = ['image', 'video', 'audio'].includes(kindRaw) ? kindRaw : 'image';
     // Shared by the experiences that store assets the same way; only the folder name differs
-    const feature = form.get('feature') === 'tenbool' ? 'tenbool' : 'raffle';
+    const featureRaw = form.get('feature');
+    const feature = featureRaw === 'tenbool' || featureRaw === 'thecode' ? featureRaw : 'raffle';
 
     if (!codeId) {
       return NextResponse.json({ error: 'codeId is required' }, { status: 400 });

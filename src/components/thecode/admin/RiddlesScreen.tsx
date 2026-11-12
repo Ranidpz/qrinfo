@@ -1,18 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, ImagePlus, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome, TheCodeRiddle } from '@/types/thecode';
 import { alphabetFor, isAmbiguousLetter, letterOfAnswer, soundAlikes } from '@/lib/thecode/letters';
 import type { RiddleStats, ScreenProps } from './model';
 import { isRiddleTooHard, letterLabel } from './helpers';
 import { Button, Card, EmptyState, Field, LetterTile, Pill, ScreenHeader, Segmented, Toggle, cx } from './ui';
+import ImageDropZone from './ImageDropZone';
 
 const STATUS_LABEL: Record<TheCodeRiddle['status'], string> = { draft: 'טיוטה', published: 'מפורסמת', disabled: 'מושבתת' };
 const STATUS_TONE: Record<TheCodeRiddle['status'], 'neutral' | 'success' | 'warning'> = { draft: 'neutral', published: 'success', disabled: 'warning' };
 
-export default function RiddlesScreen({ state, actions, navigate, target }: ScreenProps) {
+export default function RiddlesScreen({ state, actions, navigate, target, uploadImage }: ScreenProps) {
   const { config, riddles, riddleStats } = state;
   const sorted = [...config.gnomes].sort((a, b) => a.number - b.number);
   const [gnomeId, setGnomeId] = useState<string | null>(target.gnomeId ?? null);
@@ -142,6 +143,7 @@ export default function RiddlesScreen({ state, actions, navigate, target }: Scre
                     onToggle={() => setOpenRiddle(openRiddle === r.id ? null : r.id)}
                     onChange={(patch) => actions.updateRiddle(r.id, patch)}
                     onDelete={() => actions.deleteRiddle(r.id)}
+                    uploadImage={uploadImage}
                   />
                 ))}
               </div>
@@ -212,7 +214,9 @@ function RiddleCard({
   onToggle,
   onChange,
   onDelete,
+  uploadImage,
 }: {
+  uploadImage: ScreenProps['uploadImage'];
   riddle: TheCodeRiddle;
   stats?: RiddleStats;
   language: 'he' | 'en';
@@ -292,13 +296,14 @@ function RiddleCard({
             </div>
           )}
 
-          <div>
-            <span className="mb-1.5 block text-sm font-medium">תמונה לחידה (לא חובה)</span>
-            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-4 text-sm text-text-secondary hover:bg-bg-hover">
-              <ImagePlus size={18} aria-hidden /> העלו תמונה
-              <input type="file" accept="image/*" className="sr-only" onChange={() => undefined} />
-            </label>
-          </div>
+          <ImageDropZone
+            label="תמונה לחידה (לא חובה)"
+            emptyText="משפחות יראו אותה מעל החידה, למשל תקריב של החפץ."
+            aspect="aspect-[16/9] max-w-md"
+            value={r.imageUrl}
+            upload={uploadImage}
+            onChange={(url) => onChange({ imageUrl: url })}
+          />
 
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -352,7 +357,9 @@ function RiddleCard({
           <div className="flex justify-end">
             {confirmDelete ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-danger">למחוק את החידה?</span>
+                <span className="text-sm text-danger">
+                  {r.status === 'published' ? 'למחוק את החידה? משפחות שבאמצע מזוודה יקבלו את האות שלה מגמד אחר.' : 'למחוק את החידה?'}
+                </span>
                 <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>ביטול</Button>
                 <Button size="sm" variant="danger" icon={Trash2} onClick={onDelete}>מחקו</Button>
               </div>

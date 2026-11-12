@@ -1,10 +1,7 @@
-// הקוד — operator demo: a sample venue + in-memory state + a local validator.
-// NO server, NO Firebase. Everything fake lives in this one file; the screens only see
-// the shapes in src/components/thecode/admin/model.ts.
-//
-// `validateAdventure` here is a stand-in for the engine's (src/lib/thecode/engine.ts,
-// wave 1 session A). It returns the same TheCodeIssue[] so it can be swapped 1:1; the
-// letter board / fresh-suitcase count around it are admin-only extras.
+// הקוד — operator demo: a sample venue, nothing else. NO server, NO Firebase.
+// The state transitions (admin/reducer.ts) and the readiness report (adminLive/report.ts,
+// built on the real engine) are shared with the live admin, so the demo behaves exactly
+// like the real thing — it just never saves.
 //
 // Sample data is deliberately imperfect so every warning is visible on first open:
 //  - phrase "סוד הגמדים" needs ס׳ — the only ס׳ riddle (gnome 16) is still a draft → error
@@ -13,55 +10,12 @@
 //  - gnome 13 has no riddle, gnome 17 is switched off, gnome 20 went silent
 //  - spot "חניון האופניים" has no hints; ל׳ and ו׳ have too few riddles → few fresh suitcases
 
-import type {
-  TheCodeColor,
-  TheCodeConfig,
-  TheCodeGnome,
-  TheCodeIssue,
-  TheCodePhrase,
-  TheCodeRiddle,
-  TheCodeRules,
-  TheCodeSpot,
-} from '@/types/thecode';
-import {
-  alphabetFor,
-  invalidPhraseChars,
-  isAmbiguousLetter,
-  letterOfAnswer,
-  phraseLetters,
-  phraseWordLengths,
-  soundAlikes,
-} from '@/lib/thecode/letters';
-import { describeGnome } from '@/components/thecode/GnomeFigure';
-import type {
-  AdminActions,
-  AdminPlayer,
-  AdminState,
-  AdventureReport,
-  CoverageLetter,
-  GnomeStats,
-  MissingLetter,
-  PhraseCoverage,
-  RiddleStats,
-} from '@/components/thecode/admin/model';
-import { comboKey, confusableColors, DAY, HOUR, letterLabel } from '@/components/thecode/admin/helpers';
-
-// ------------------------------------------------------------------
-// Small helpers the screens also use
-// ------------------------------------------------------------------
-
-function randomFrom(alphabet: string, len: number): string {
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  let out = '';
-  for (const b of bytes) out += alphabet[b % alphabet.length];
-  return out;
-}
-/** QR payload slug — crypto-random, permanent. */
-const newCode = () => randomFrom('abcdefghijkmnpqrstuvwxyz23456789', 16);
-/** Short code printed under the QR; no 0/O/1/I so it can be typed off a plate. */
-const newManualCode = () => randomFrom('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
-const newId = (p: string) => `${p}_${randomFrom('abcdefghijklmnopqrstuvwxyz0123456789', 8)}`;
+import type { TheCodeColor, TheCodeGnome, TheCodePhrase, TheCodeRiddle, TheCodeRules, TheCodeSpot } from '@/types/thecode';
+import { letterOfAnswer } from '@/lib/thecode/letters';
+import type { AdminActions, AdminPlayer, AdminState, GnomeStats, ImageUploader, RiddleStats } from '@/components/thecode/admin/model';
+import { DAY, HOUR } from '@/components/thecode/admin/helpers';
+import { createAdminActions, type AdminSetter } from '@/components/thecode/admin/reducer';
+import { buildAdventureReport, phraseCoverage } from '@/components/thecode/adminLive/report';
 
 // ------------------------------------------------------------------
 // Sample venue
@@ -270,373 +224,28 @@ export function createDemoState(now = Date.now()): AdminState {
 }
 
 // ------------------------------------------------------------------
-// Validation (stand-in for engine.validateAdventure)
+// Report + actions — the SAME code the live admin runs
 // ------------------------------------------------------------------
 
-interface Usable {
-  /** letter → gnome ids that can yield it (active gnome, active spot, published riddle). */
-  byLetter: Map<string, string[]>;
-  /** `${gnomeId}|${letter}` → number of published riddles (fresh-suitcase budget). */
-  budget: Map<string, number>;
+/** Readiness report from the real engine (adminLive/report.ts). */
+export const validateAdventure = buildAdventureReport;
+export { phraseCoverage };
+
+/** In-memory actions (admin/reducer.ts). New gnomes get local codes; reset = the sample venue. */
+export function createDemoActions(set: AdminSetter): AdminActions {
+  return createAdminActions(set, { localCodes: true, reset: () => set(() => createDemoState()) });
 }
 
-function usableSources(config: TheCodeConfig, riddles: TheCodeRiddle[]): Usable {
-  const spots = new Map(config.spots.map((s) => [s.id, s]));
-  const gnomes = new Map(config.gnomes.map((g) => [g.id, g]));
-  const alphabet = new Set(alphabetFor(config.language));
-  const byLetter = new Map<string, string[]>();
-  const budget = new Map<string, number>();
-  for (const r of riddles) {
-    if (r.status !== 'published' || !r.letter || !r.text.trim() || !alphabet.has(r.letter)) continue;
-    const g = gnomes.get(r.gnomeId);
-    if (!g || !g.isActive || !spots.get(g.spotId)?.isActive) continue;
-    const key = `${g.id}|${r.letter}`;
-    budget.set(key, (budget.get(key) || 0) + 1);
-    const list = byLetter.get(r.letter) || [];
-    if (!list.includes(g.id)) list.push(g.id);
-    byLetter.set(r.letter, list);
-  }
-  return { byLetter, budget };
-}
-
-/**
- * Max bipartite matching (Kuhn): phrase slots ↔ DISTINCT gnomes.
- * Returns the gnome per slot, or null for slots that could not be covered.
- */
-function matchSlots(letters: string[], candidates: (letter: string) => string[]): (string | null)[] {
-  const slotOf = new Map<string, number>(); // gnome → slot
-  const tryAssign = (slot: number, seen: Set<string>): boolean => {
-    for (const g of candidates(letters[slot])) {
-      if (seen.has(g)) continue;
-      seen.add(g);
-      const other = slotOf.get(g);
-      if (other === undefined || tryAssign(other, seen)) {
-        slotOf.set(g, slot);
-        return true;
+/** Demo image "upload": a local object URL after a short fake progress. */
+export const demoUploadImage: ImageUploader = (file, onProgress) =>
+  new Promise((resolve) => {
+    let f = 0;
+    const t = window.setInterval(() => {
+      f = Math.min(1, f + 0.25);
+      onProgress(f);
+      if (f >= 1) {
+        window.clearInterval(t);
+        resolve(URL.createObjectURL(file));
       }
-    }
-    return false;
-  };
-  for (let i = 0; i < letters.length; i++) tryAssign(i, new Set());
-  const out: (string | null)[] = letters.map(() => null);
-  for (const [g, slot] of slotOf) out[slot] = g;
-  return out;
-}
-
-export function phraseCoverage(text: string, config: TheCodeConfig, riddles: TheCodeRiddle[], usable = usableSources(config, riddles)): PhraseCoverage {
-  const letters = phraseLetters(text);
-  const wordLengths = phraseWordLengths(text);
-  const invalidChars = [...new Set(invalidPhraseChars(text, config.language))];
-  const assigned = matchSlots(letters, (l) => usable.byLetter.get(l) || []);
-
-  const board: CoverageLetter[] = [];
-  let w = 0;
-  let inWord = 0;
-  letters.forEach((letter, i) => {
-    while (wordLengths[w] !== undefined && inWord >= wordLengths[w]) {
-      w++;
-      inWord = 0;
-    }
-    board.push({ letter, wordIndex: w, ok: assigned[i] !== null, have: (usable.byLetter.get(letter) || []).length });
-    inWord++;
+    }, 120);
   });
-
-  const gnomes = new Map(config.gnomes.map((g) => [g.id, g]));
-  const spots = new Map(config.spots.map((s) => [s.id, s]));
-  const missing: MissingLetter[] = [];
-  for (const letter of [...new Set(letters)]) {
-    if (!board.some((b) => b.letter === letter && !b.ok)) continue;
-    const need = letters.filter((l) => l === letter).length;
-    const have = (usable.byLetter.get(letter) || []).length;
-    const dormant: MissingLetter['dormant'] = [];
-    for (const r of riddles) {
-      if (r.letter !== letter) continue;
-      const g = gnomes.get(r.gnomeId);
-      if (!g) continue;
-      const why =
-        r.status === 'draft' ? 'draft'
-        : r.status === 'disabled' ? 'disabled'
-        : !g.isActive ? 'gnomeOff'
-        : !spots.get(g.spotId)?.isActive ? 'spotOff'
-        : null;
-      if (why) dormant.push({ riddleId: r.id, gnomeId: g.id, gnomeNumber: g.number, why });
-    }
-    missing.push({ letter, need, have, shared: have >= need, dormant });
-  }
-
-  return {
-    letters: board,
-    wordLengths,
-    invalidChars,
-    tooShort: letters.length < 3,
-    missing,
-    playable: letters.length >= 3 && invalidChars.length === 0 && missing.length === 0,
-    hasFinalForms: /[ךםןףץ]/.test(text),
-  };
-}
-
-/** How many of these phrases ONE family can open in a row with no riddle repeated. */
-function countFreshSuitcases(phrases: string[][], usable: Usable): number {
-  const simulate = (order: string[][]): number => {
-    const left = new Map(usable.budget);
-    let opened = 0;
-    for (const letters of order) {
-      const assigned = matchSlots(letters, (l) =>
-        (usable.byLetter.get(l) || []).filter((g) => (left.get(`${g}|${l}`) || 0) > 0)
-      );
-      if (assigned.some((g) => g === null)) continue;
-      assigned.forEach((g, i) => {
-        const key = `${g}|${letters[i]}`;
-        left.set(key, (left.get(key) || 0) - 1);
-      });
-      opened++;
-    }
-    return opened;
-  };
-  if (phrases.length > 7) return simulate(phrases);
-  let best = 0;
-  const permute = (rest: string[][], acc: string[][]) => {
-    if (best === phrases.length) return;
-    if (!rest.length) {
-      best = Math.max(best, simulate(acc));
-      return;
-    }
-    rest.forEach((p, i) => permute([...rest.slice(0, i), ...rest.slice(i + 1)], [...acc, p]));
-  };
-  permute(phrases, []);
-  return best;
-}
-
-export const MIN_FRESH_SUITCASES = 2;
-
-export function validateAdventure(state: AdminState): AdventureReport {
-  const { config, riddles } = state;
-  const issues: TheCodeIssue[] = [];
-  const usable = usableSources(config, riddles);
-  const spotIds = new Set(config.spots.map((s) => s.id));
-  const phrases: Record<string, PhraseCoverage> = {};
-
-  // Phrases
-  const playableLetters: string[][] = [];
-  for (const p of config.phrases) {
-    const cov = phraseCoverage(p.text, config, riddles, usable);
-    phrases[p.id] = cov;
-    if (!p.isActive) continue;
-    if (cov.invalidChars.length) {
-      issues.push({
-        severity: 'error', code: 'PHRASE_INVALID_CHARS', phraseId: p.id,
-        message: `במשפט "${p.text}" יש תווים שאי אפשר לאסוף: ${cov.invalidChars.join(' ')}. השאירו רק אותיות ורווחים.`,
-      });
-    }
-    if (cov.tooShort) {
-      issues.push({ severity: 'error', code: 'PHRASE_TOO_SHORT', phraseId: p.id, message: `המשפט "${p.text}" קצר מדי — צריך לפחות 3 אותיות.` });
-    }
-    for (const m of cov.missing) {
-      const L = letterLabel(m.letter);
-      const draft = m.dormant.find((d) => d.why === 'draft');
-      const off = m.dormant.find((d) => d.why === 'gnomeOff' || d.why === 'spotOff');
-      let message: string;
-      if (draft) {
-        message = `חסרה חידה לאות ${L} — לגמד ${draft.gnomeNumber} יש חידה כזו בטיוטה. פרסמו אותה.`;
-      } else if (off) {
-        message = `חסרה חידה לאות ${L} — היא נמצאת אצל גמד ${off.gnomeNumber}, ש${off.why === 'gnomeOff' ? 'כבוי' : 'המקום שלו כבוי'}. הפעילו אותו או הוסיפו חידה לאות ${L} בגמד אחר.`;
-      } else if (m.shared) {
-        message = `לאות ${L} אין גמד פנוי — הגמדים שנותנים אותה כבר נותנים אות אחרת במשפט. הוסיפו חידה לאות ${L} בגמד נוסף.`;
-      } else if (m.need > 1 && m.have > 0) {
-        message = `האות ${L} מופיעה ${m.need} פעמים, ויש רק ${m.have === 1 ? 'גמד אחד' : `${m.have} גמדים`} שנותנים אותה. הוסיפו חידה לאות ${L} בגמד נוסף.`;
-      } else {
-        message = `חסרה חידה לאות ${L} — הוסיפו חידה שהתשובה שלה מתחילה ב־${m.letter}.`;
-      }
-      issues.push({ severity: 'error', code: 'PHRASE_LETTER_MISSING', phraseId: p.id, letter: m.letter, need: m.need, have: m.have, riddleId: draft?.riddleId, gnomeId: draft?.gnomeId, message: `"${p.text}": ${message}` });
-    }
-    if (cov.playable) playableLetters.push(phraseLetters(p.text));
-  }
-  if (!config.phrases.some((p) => p.isActive)) {
-    issues.push({ severity: 'error', code: 'NO_ACTIVE_PHRASE', message: 'אין משפט פעיל. הוסיפו משפט סודי אחד לפחות.' });
-  }
-
-  // Gnomes
-  for (const g of config.gnomes) {
-    if (!spotIds.has(g.spotId)) {
-      issues.push({ severity: 'error', code: 'GNOME_SPOT_MISSING', gnomeId: g.id, message: `גמד ${g.number} לא משויך למקום. בחרו לו מקום.` });
-    }
-    if (!g.isActive) continue;
-    if (!riddles.some((r) => r.gnomeId === g.id && r.status === 'published')) {
-      issues.push({ severity: 'warning', code: 'GNOME_WITHOUT_RIDDLE', gnomeId: g.id, message: `לגמד ${g.number} אין חידה מפורסמת, ולכן אף משפחה לא תגיע אליו.` });
-    }
-    if (!g.verifiedOnSite) {
-      issues.push({ severity: 'warning', code: 'GNOME_NOT_VERIFIED', gnomeId: g.id, message: `גמד ${g.number} עוד לא נסרק במקום.` });
-    }
-  }
-
-  // Spots
-  for (const s of config.spots) {
-    const here = config.gnomes.filter((g) => g.spotId === s.id && g.isActive);
-    if (s.isActive && here.length && !s.hints.some((h) => h.trim())) {
-      issues.push({ severity: 'warning', code: 'SPOT_WITHOUT_HINT', spotId: s.id, message: `למקום "${s.name}" אין רמזים, ומשפחות לא ימצאו אותו.` });
-    }
-    const seen = new Map<string, TheCodeGnome>();
-    for (const g of here) {
-      const twin = seen.get(comboKey(g));
-      if (twin) {
-        issues.push({
-          severity: 'error', code: 'DUPLICATE_COLORS_AT_SPOT', spotId: s.id, gnomeId: g.id,
-          message: `ב"${s.name}" גמדים ${twin.number} ו־${g.number} נראים אותו דבר (${describeGnome(g.bodyColor, g.hatColor)}). שנו צבעים או העבירו אחד מהם.`,
-        });
-      } else {
-        seen.set(comboKey(g), g);
-      }
-    }
-    for (let i = 0; i < here.length; i++) {
-      for (let j = i + 1; j < here.length; j++) {
-        if (confusableColors(here[i], here[j])) {
-          issues.push({
-            severity: 'warning', code: 'CONFUSABLE_COLORS_AT_SPOT', spotId: s.id, gnomeId: here[j].id,
-            message: `ב"${s.name}" גמדים ${here[i].number} ו־${here[j].number} נבדלים רק באדום וירוק — ילדים עיוורי צבעים יתבלבלו.`,
-          });
-        }
-      }
-    }
-  }
-
-  // Riddles
-  const gnomeNo = new Map(config.gnomes.map((g) => [g.id, g.number]));
-  for (const r of riddles) {
-    if (r.status !== 'published') continue;
-    if (r.letter && isAmbiguousLetter(r.letter) && !r.acceptSoundAlike) {
-      issues.push({
-        severity: 'warning', code: 'RIDDLE_AMBIGUOUS_LETTER', riddleId: r.id, gnomeId: r.gnomeId, letter: r.letter,
-        message: `התשובה "${r.answerWord}" (גמד ${gnomeNo.get(r.gnomeId)}) מתחילה ב־${letterLabel(r.letter)}, וילדים עלולים ללחוץ ${soundAlikes(r.letter).map(letterLabel).join(' או ')}. קבלו אות דומה בצליל או בחרו חפץ אחר.`,
-      });
-    }
-  }
-
-  // Fresh content for one family
-  const freshSuitcases = countFreshSuitcases(playableLetters, usable);
-  const demand = new Map<string, number>();
-  for (const letters of playableLetters) for (const l of letters) demand.set(l, (demand.get(l) || 0) + 1);
-  const supply = new Map<string, number>();
-  for (const [key, n] of usable.budget) {
-    const l = key.split('|')[1];
-    supply.set(l, (supply.get(l) || 0) + n);
-  }
-  const letterStock = [...demand]
-    .map(([letter, d]) => ({ letter, demand: d, supply: supply.get(letter) || 0 }))
-    .sort((a, b) => a.supply - a.demand - (b.supply - b.demand));
-  if (playableLetters.length && freshSuitcases < MIN_FRESH_SUITCASES) {
-    const short = [...demand].filter(([l, n]) => (supply.get(l) || 0) < n).map(([l]) => letterLabel(l));
-    issues.push({
-      severity: 'warning', code: 'FEW_FRESH_ROUNDS', have: freshSuitcases, need: MIN_FRESH_SUITCASES,
-      message: `משפחה תוכל לפתוח רק ${freshSuitcases === 1 ? 'מזוודה אחת' : `${freshSuitcases} מזוודות`} ואז ייגמרו לה החידות.${short.length ? ` הוסיפו עוד חידות לאותיות ${short.join(', ')}.` : ' הוסיפו עוד חידות או משפטים.'}`,
-    });
-  }
-
-  const errors = issues.filter((i) => i.severity === 'error').length;
-  return { issues, errors, warnings: issues.length - errors, freshSuitcases, phrases, letterStock };
-}
-
-// ------------------------------------------------------------------
-// In-memory actions
-// ------------------------------------------------------------------
-
-type Setter = (fn: (s: AdminState) => AdminState) => void;
-
-export function createDemoActions(set: Setter): AdminActions {
-  const cfg = (fn: (c: TheCodeConfig) => TheCodeConfig) => set((s) => ({ ...s, config: fn(s.config) }));
-  return {
-    setStatus: (status) => cfg((c) => ({ ...c, status })),
-    updateConfig: (patch) => cfg((c) => ({ ...c, ...patch })),
-    updateRules: (patch) => cfg((c) => ({ ...c, rules: { ...c.rules, ...patch } })),
-
-    addSpot: () => {
-      const id = newId('s');
-      cfg((c) => ({ ...c, spots: [...c.spots, { id, name: 'מקום חדש', hints: [], isActive: true }] }));
-      return id;
-    },
-    updateSpot: (id, patch) => cfg((c) => ({ ...c, spots: c.spots.map((s) => (s.id === id ? { ...s, ...patch } : s)) })),
-    deleteSpot: (id) => cfg((c) => ({ ...c, spots: c.spots.filter((s) => s.id !== id) })),
-
-    addGnomes: (spotId, specs) => {
-      const ids = specs.map(() => newId('g'));
-      set((s) => {
-        let next = Math.max(0, ...s.config.gnomes.map((g) => g.number)) + 1;
-        const fresh: TheCodeGnome[] = specs.map((spec, i) => ({
-          id: ids[i],
-          number: next++,
-          code: newCode(),
-          manualCode: newManualCode(),
-          spotId,
-          bodyColor: spec.bodyColor,
-          hatColor: spec.hatColor,
-          isActive: true,
-          verifiedOnSite: false,
-        }));
-        const stats = { ...s.gnomeStats };
-        for (const g of fresh) stats[g.id] = { scans: 0 };
-        return { ...s, config: { ...s.config, gnomes: [...s.config.gnomes, ...fresh] }, gnomeStats: stats };
-      });
-      return ids;
-    },
-    updateGnome: (id, patch) => cfg((c) => ({ ...c, gnomes: c.gnomes.map((g) => (g.id === id ? { ...g, ...patch } : g)) })),
-    deleteGnome: (id) =>
-      set((s) => ({
-        ...s,
-        config: { ...s.config, gnomes: s.config.gnomes.filter((g) => g.id !== id) },
-        riddles: s.riddles.filter((r) => r.gnomeId !== id),
-      })),
-    verifyGnome: (id) =>
-      set((s) => {
-        const now = Date.now();
-        const prev = s.gnomeStats[id] || { scans: 0 };
-        return {
-          ...s,
-          config: { ...s.config, gnomes: s.config.gnomes.map((g) => (g.id === id ? { ...g, verifiedOnSite: true } : g)) },
-          gnomeStats: { ...s.gnomeStats, [id]: { ...prev, verifiedAt: now, lastScanAt: now } },
-        };
-      }),
-
-    addRiddle: (gnomeId, answerWord = '') => {
-      const id = newId('r');
-      set((s) => ({
-        ...s,
-        riddles: [
-          ...s.riddles,
-          { id, gnomeId, type: 'observe', text: '', answerWord, letter: letterOfAnswer(answerWord), acceptSoundAlike: true, hints: [], difficulty: 1, status: 'draft' },
-        ],
-      }));
-      return id;
-    },
-    updateRiddle: (id, patch) =>
-      set((s) => ({
-        ...s,
-        riddles: s.riddles.map((r) => {
-          if (r.id !== id) return r;
-          const next = { ...r, ...patch };
-          next.letter = letterOfAnswer(next.answerWord);
-          return next;
-        }),
-      })),
-    deleteRiddle: (id) => set((s) => ({ ...s, riddles: s.riddles.filter((r) => r.id !== id) })),
-
-    addPhrase: (text) => {
-      const id = newId('p');
-      cfg((c) => ({ ...c, phrases: [...c.phrases, { id, text: text.trim(), isActive: true }] }));
-      return id;
-    },
-    updatePhrase: (id, patch) => cfg((c) => ({ ...c, phrases: c.phrases.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
-    deletePhrase: (id) => cfg((c) => ({ ...c, phrases: c.phrases.filter((p) => p.id !== id) })),
-
-    updatePlayer: (id, patch) =>
-      set((s) => ({
-        ...s,
-        players: s.players.map((p) => {
-          if (p.id !== id) return p;
-          const renamed = patch.familyName !== undefined && patch.familyName !== p.familyName;
-          return { ...p, ...patch, originalName: renamed ? p.originalName || p.familyName : p.originalName };
-        }),
-      })),
-
-    reset: () => set(() => createDemoState()),
-  };
-}
-

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, CircleAlert, CircleCheck, Luggage, Pause, Play, RefreshCw, TriangleAlert } from 'lucide-react';
+import type { AdminTab } from './nav';
+import { Check, ChevronLeft, CircleAlert, CircleCheck, Copy, ExternalLink, Luggage, Pause, Play, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { TheCodeIssue } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { fixLabel, targetForIssue } from './nav';
@@ -38,10 +39,11 @@ function foldWarnings(issues: TheCodeIssue[], gnomeNo: (id?: string) => number |
 }
 
 export default function OverviewScreen({
-  state, report, actions, navigate, now, checked, onChecked,
+  state, report, actions, navigate, now, checked, onChecked, links, refresh,
 }: ScreenProps & { checked: boolean; onChecked: () => void }) {
   const { config, riddles, gnomeStats, riddleStats, players } = state;
   const [checking, setChecking] = useState(false);
+  const [confirmPause, setConfirmPause] = useState(false);
   const status = STATUS[config.status];
   const errors = report.issues.filter((i) => i.severity === 'error');
   const gnomeNo = (id?: string) => config.gnomes.find((g) => g.id === id)?.number;
@@ -98,13 +100,33 @@ export default function OverviewScreen({
             </div>
           </div>
           {config.status === 'published' ? (
-            <Button icon={Pause} onClick={() => actions.setStatus('paused')}>השהו</Button>
+            <Button icon={Pause} onClick={() => setConfirmPause(true)} disabled={confirmPause}>השהו</Button>
           ) : (
             <Button variant="primary" size="lg" icon={Play} disabled={!canPublish} onClick={() => actions.setStatus('published')}>
               {config.status === 'paused' ? 'חדשו משחק' : 'פרסמו'}
             </Button>
           )}
         </div>
+        {config.status === 'published' && confirmPause && (
+          <div className="mt-4 rounded-lg bg-warning/10 px-4 py-3 text-sm">
+            <p className="text-amber-800 dark:text-amber-300">
+              להשהות את המשחק? משפחות שבאמצע מזוודה יראו &quot;המשחק בהפסקה&quot; כשיסרקו גמד. כל ההתקדמות שלהן נשמרת, והן ימשיכו מאותה נקודה כשתחדשו.
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setConfirmPause(false)}>ביטול</Button>
+              <Button
+                size="sm"
+                icon={Pause}
+                onClick={() => {
+                  actions.setStatus('paused');
+                  setConfirmPause(false);
+                }}
+              >
+                כן, השהו
+              </Button>
+            </div>
+          </div>
+        )}
         {config.status !== 'published' && !canPublish && (
           <div className="mt-4 flex items-center gap-2 text-sm text-danger">
             <CircleAlert size={16} aria-hidden />
@@ -118,6 +140,8 @@ export default function OverviewScreen({
           </div>
         )}
       </Card>
+
+      <GettingStarted state={state} report={report} navigate={navigate} />
 
       {/* Readiness check */}
       <Card className="overflow-hidden">
@@ -195,7 +219,19 @@ export default function OverviewScreen({
       <Card className="p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">בשטח</h2>
-          <span className="text-sm text-text-secondary">{weekFamilies} משפחות שיחקו השבוע</span>
+          <span className="ms-auto text-sm text-text-secondary">{weekFamilies} משפחות שיחקו השבוע</span>
+          {refresh && (
+            <button
+              type="button"
+              onClick={refresh.run}
+              disabled={refresh.busy}
+              aria-label="רעננו נתונים"
+              title={refresh.at ? `עודכן ${timeAgo(refresh.at, now)}` : undefined}
+              className="inline-flex size-9 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-hover disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={refresh.busy ? 'animate-spin' : ''} aria-hidden />
+            </button>
+          )}
         </div>
         {field.length === 0 ? (
           <p className="mt-2 text-text-secondary">כל הגמדים נסרקים ואין חידות קשות מדי.</p>
@@ -207,6 +243,109 @@ export default function OverviewScreen({
           </ul>
         )}
       </Card>
+
+      {links && <LinksCard links={links} />}
+    </div>
+  );
+}
+
+const STEPS: { tab: AdminTab; title: string; text: string }[] = [
+  { tab: 'spots', title: 'מקומות', text: 'איפה במלון יעמדו הגמדים, עם רמזים שיובילו אליהם.' },
+  { tab: 'gnomes', title: 'גמדים', text: 'כמה גמדים בכל מקום, ובאילו צבעים.' },
+  { tab: 'riddles', title: 'חידות', text: 'חידה לכל גמד, על משהו שרואים ממנו.' },
+  { tab: 'phrases', title: 'משפטים סודיים', text: 'המשפט שהמשפחות ירכיבו מהאותיות.' },
+  { tab: 'overview', title: 'פרסום', text: 'בדקו מוכנות ופרסמו — ומשפחות יכולות לשחק.' },
+];
+
+/** Leads a brand-new operator through the order that works. Hidden once everything is done. */
+function GettingStarted({ state, report, navigate }: Pick<ScreenProps, 'state' | 'report' | 'navigate'>) {
+  const { config, riddles } = state;
+  const done = [
+    config.spots.length > 0,
+    config.gnomes.length > 0,
+    riddles.some((r) => r.status === 'published'),
+    config.phrases.some((p) => p.isActive && report.phrases[p.id]?.playable),
+    config.status === 'published',
+  ];
+  // Once only "publish" is left, the status card above already says it — no need to repeat.
+  if (done.slice(0, 4).every(Boolean)) return null;
+  const nextIdx = done.findIndex((d) => !d);
+  const fresh = !config.spots.length && !config.gnomes.length;
+
+  return (
+    <Card className="p-6">
+      <h2 className="text-lg font-semibold">{fresh ? 'בואו נבנה את ההרפתקה' : 'ממשיכים לבנות'}</h2>
+      <p className="text-text-secondary">{fresh ? 'חמישה צעדים, בסדר הזה. אפשר לחזור ולשנות כל דבר בהמשך.' : 'זה מה שנשאר עד שמשפחות יוכלו לשחק.'}</p>
+      <ol className="mt-4 space-y-2">
+        {STEPS.map((st, i) => (
+          <li key={st.title}>
+            <button
+              type="button"
+              onClick={() => navigate({ tab: st.tab })}
+              className={cx(
+                'flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition-colors hover:bg-bg-hover',
+                i === nextIdx && 'bg-accent/5 ring-1 ring-accent/30'
+              )}
+            >
+              <span
+                className={cx(
+                  'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
+                  done[i] ? 'bg-success text-white' : i === nextIdx ? 'bg-accent text-white' : 'bg-bg-secondary text-text-secondary'
+                )}
+              >
+                {done[i] ? <Check size={16} aria-label="בוצע" /> : i + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={cx('block font-medium', done[i] && 'text-text-secondary')}>{st.title}</span>
+                <span className="block text-sm text-text-secondary">{st.text}</span>
+              </span>
+              {i === nextIdx && <ChevronLeft size={16} className="shrink-0 text-accent" aria-hidden />}
+            </button>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+function LinksCard({ links }: { links: NonNullable<ScreenProps['links']> }) {
+  return (
+    <Card className="p-6">
+      <h2 className="text-lg font-semibold">קישורים</h2>
+      <p className="text-text-secondary">הכתובות הקבועות של המשחק. שתפו אותן עם צוות המלון.</p>
+      <div className="mt-4 space-y-3">
+        <LinkRow label="דף הבית של המשחק" hint="למשפחות שרוצות להמשיך או לראות את הלוח" url={links.game} />
+        <LinkRow label="לוח התוצאות למסך בלובי" hint="פתחו אותו בטלוויזיה של המלון" url={links.lobby} />
+      </div>
+    </Card>
+  );
+}
+
+function LinkRow({ label, hint, url }: { label: string; hint: string; url: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.prompt('העתיקו את הקישור', url);
+    }
+  };
+  return (
+    <div className="rounded-lg bg-bg-secondary px-4 py-3">
+      <div className="font-medium">{label}</div>
+      <div className="text-sm text-text-secondary">{hint}</div>
+      <div className="mt-2 flex items-center gap-2">
+        <span dir="ltr" className="min-w-0 flex-1 truncate rounded-md bg-bg-card px-3 py-2 font-mono text-sm ring-1 ring-border">{url}</span>
+        <button type="button" onClick={copy} aria-label={`העתיקו: ${label}`} className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-lg px-3 text-sm font-medium text-accent hover:bg-accent/10">
+          {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
+          {copied ? 'הועתק' : 'העתיקו'}
+        </button>
+        <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`פתחו: ${label}`} className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-hover">
+          <ExternalLink size={16} aria-hidden />
+        </a>
+      </div>
     </div>
   );
 }
