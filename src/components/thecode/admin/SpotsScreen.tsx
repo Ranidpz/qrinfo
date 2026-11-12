@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, MapPin, Plus, ShieldAlert, Trash2, TriangleA
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import type { TheCodeSpot } from '@/types/thecode';
 import type { ScreenProps } from './model';
-import { Button, Card, EmptyState, Field, Pill, ScreenHeader, Toggle, cx } from './ui';
+import { Button, Card, EmptyState, Field, OutdoorPill, Pill, ScreenHeader, Toggle, cx } from './ui';
 import ImageDropZone from './ImageDropZone';
 
 const HINT_LEVELS = [
@@ -57,6 +57,7 @@ export default function SpotsScreen({ state, actions, navigate, target, uploadIm
                     <div className={cx('truncate font-medium', !s.isActive && 'text-text-secondary line-through')}>{s.name}</div>
                     <div className="mt-0.5 flex items-center gap-2 text-sm text-text-secondary">
                       <span>{here.length === 1 ? 'גמד אחד' : `${here.length} גמדים`}</span>
+                      {s.outdoor && <OutdoorPill />}
                       {noHint && here.length > 0 && (
                         <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
                           <TriangleAlert size={14} aria-hidden /> אין רמזים
@@ -139,6 +140,17 @@ function SpotEditor({
           <Toggle checked={spot.isActive} onChange={(v) => onChange({ isActive: v })} label="מקום פעיל" />
           <span className="text-xs text-text-secondary">{spot.isActive ? 'פעיל' : 'כבוי'}</span>
         </div>
+      </div>
+
+      <div className="mt-5 flex items-start justify-between gap-4 rounded-xl bg-bg-secondary px-4 py-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 font-medium">המקום בחוץ {spot.outdoor && <OutdoorPill />}</div>
+          <p className="text-sm text-text-secondary">גמדים שעומדים בחוץ מודפסים מחומר עמיד לשמש ולגשם, שיש כרגע רק בשחור ובאפור.</p>
+          {spot.outdoor && gnomes.some((g) => !['black', 'grey'].includes(g.bodyColor) || !['black', 'grey'].includes(g.hatColor)) && (
+            <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">לחלק מהגמדים כאן יש צבע שלא מודפס בחוץ. פתחו אותם ובחרו שחור או אפור.</p>
+          )}
+        </div>
+        <Toggle checked={!!spot.outdoor} onChange={(v) => onChange({ outdoor: v ? true : undefined })} label="המקום בחוץ" />
       </div>
 
       <div className="mt-6">

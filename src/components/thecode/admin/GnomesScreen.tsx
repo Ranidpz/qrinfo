@@ -6,7 +6,8 @@ import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome } from '@/types/thecode';
 import type { NewGnomeSpec, ScreenProps } from './model';
 import { comboKey, confusableColors, isProbablyMissing, suggestCombos, timeAgo } from './helpers';
-import { Button, ColorPicker, Dialog, EmptyState, Field, Pill, ScreenHeader, Segmented, Toggle, cx } from './ui';
+import { Button, ColorPicker, Dialog, EmptyState, Field, OutdoorPill, Pill, ScreenHeader, Segmented, Toggle, cx } from './ui';
+import { allowedGnomeColors } from '@/lib/thecode/engine';
 
 export default function GnomesScreen({ state, report, actions, navigate, target, now }: ScreenProps) {
   const { config, riddles, gnomeStats } = state;
@@ -24,7 +25,7 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
   const issuesBySpot = useMemo(() => {
     const m = new Map<string, typeof report.issues>();
     for (const i of report.issues) {
-      if ((i.code === 'DUPLICATE_COLORS_AT_SPOT' || i.code === 'CONFUSABLE_COLORS_AT_SPOT') && i.spotId) m.set(i.spotId, [...(m.get(i.spotId) || []), i]);
+      if ((i.code === 'DUPLICATE_COLORS_AT_SPOT' || i.code === 'CONFUSABLE_COLORS_AT_SPOT' || i.code === 'GNOME_COLOR_UNAVAILABLE') && i.spotId) m.set(i.spotId, [...(m.get(i.spotId) || []), i]);
     }
     return m;
   }, [report]);
@@ -32,13 +33,13 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
   const riddleCount = (id: string) => riddles.filter((r) => r.gnomeId === id && r.status === 'published').length;
   const needsAttention = (g: TheCodeGnome) =>
     !g.isActive || !g.verifiedOnSite || riddleCount(g.id) === 0 || isProbablyMissing(g, gnomeStats[g.id], config.status, now) ||
-    report.issues.some((i) => i.gnomeId === g.id && (i.code === 'DUPLICATE_COLORS_AT_SPOT' || i.code === 'CONFUSABLE_COLORS_AT_SPOT'));
+    report.issues.some((i) => i.gnomeId === g.id && (i.code === 'DUPLICATE_COLORS_AT_SPOT' || i.code === 'CONFUSABLE_COLORS_AT_SPOT' || i.code === 'GNOME_COLOR_UNAVAILABLE'));
 
   const editing = config.gnomes.find((g) => g.id === editingId) || null;
   const orphans = config.gnomes.filter((g) => !config.spots.some((s) => s.id === g.spotId));
   const groups = [
-    ...config.spots.map((s) => ({ id: s.id, name: s.name, active: s.isActive, gnomes: config.gnomes.filter((g) => g.spotId === s.id) })),
-    ...(orphans.length ? [{ id: '', name: 'בלי מקום', active: true, gnomes: orphans }] : []),
+    ...config.spots.map((s) => ({ id: s.id, name: s.name, active: s.isActive, outdoor: !!s.outdoor, gnomes: config.gnomes.filter((g) => g.spotId === s.id) })),
+    ...(orphans.length ? [{ id: '', name: 'בלי מקום', active: true, outdoor: false, gnomes: orphans }] : []),
   ];
   const attentionCount = config.gnomes.filter(needsAttention).length;
 
@@ -93,6 +94,7 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
                 <div className="mb-3 flex items-center gap-2">
                   <h2 className={cx('font-semibold', !grp.active && 'text-text-secondary line-through')}>{grp.name}</h2>
                   {!grp.active && <Pill>מקום כבוי</Pill>}
+                  {grp.outdoor && <OutdoorPill />}
                   {grp.id && (
                     <button type="button" onClick={() => setProducing(grp.id)} className="ms-auto inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary">
                       <Plus size={16} aria-hidden /> גמד כאן
@@ -253,6 +255,8 @@ function GnomeEditor({
   onRiddles: () => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const mySpot = spots.find((s) => s.id === g.spotId);
+  const allowed = allowedGnomeColors(mySpot);
   const twin = neighbours.find((n) => comboKey(n) === comboKey(g));
   const alike = neighbours.find((n) => confusableColors(n, g));
 
@@ -305,16 +309,16 @@ function GnomeEditor({
 
       <div className="mt-6 space-y-6">
         <Field label="צבע הגוף">
-          <ColorPicker label="צבע הגוף" value={g.bodyColor} onChange={(c) => onChange({ bodyColor: c })} />
+          <ColorPicker label="צבע הגוף" allowed={allowed} value={g.bodyColor} onChange={(c) => onChange({ bodyColor: c })} />
         </Field>
         <Field label="צבע המצנפת">
-          <ColorPicker label="צבע המצנפת" value={g.hatColor} onChange={(c) => onChange({ hatColor: c })} />
+          <ColorPicker label="צבע המצנפת" allowed={allowed} value={g.hatColor} onChange={(c) => onChange({ hatColor: c })} />
         </Field>
         <Field label="מקום" hint="הקוד של הגמד לא משתנה כשמעבירים אותו.">
           <select className="input select-input" value={g.spotId} onChange={(e) => onChange({ spotId: e.target.value })}>
             {!spots.some((s) => s.id === g.spotId) && <option value={g.spotId}>בחרו מקום</option>}
             {spots.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{s.name}{s.outdoor ? ' (בחוץ)' : ''}</option>
             ))}
           </select>
         </Field>
@@ -364,13 +368,21 @@ function ProduceDialog({
 }) {
   const [spotId, setSpotId] = useState(initialSpotId);
   const standing = gnomes.filter((g) => g.spotId === spotId && g.isActive);
-  const [count, setCount] = useState(Math.max(1, 3 - standing.length));
-  const [specs, setSpecs] = useState<NewGnomeSpec[]>(() => suggestCombos(count, standing));
+  const spot = spots.find((s) => s.id === spotId);
+  const allowed = allowedGnomeColors(spot);
+  /** How many more distinct-looking gnomes a spot can take with the printable colours (max 6 per batch). */
+  const capacityAt = (sid: string) =>
+    suggestCombos(6, gnomes.filter((g) => g.spotId === sid && g.isActive), false, allowedGnomeColors(spots.find((s) => s.id === sid))).length;
+  const capacity = capacityAt(spotId);
+  const [count, setCount] = useState(() => Math.max(1, Math.min(capacityAt(initialSpotId), 3 - standing.length)));
+  const [specs, setSpecs] = useState<NewGnomeSpec[]>(() => suggestCombos(count, standing, false, allowed));
   const [editRow, setEditRow] = useState<number | null>(null);
 
   const regenerate = (n: number, sid: string, shuffle = false) => {
     const there = gnomes.filter((g) => g.spotId === sid && g.isActive);
-    setSpecs(suggestCombos(n, there, shuffle));
+    const take = Math.max(0, Math.min(n, capacityAt(sid)));
+    setCount(Math.max(1, take));
+    setSpecs(suggestCombos(take, there, shuffle, allowedGnomeColors(spots.find((s) => s.id === sid))));
     setEditRow(null);
   };
 
@@ -395,7 +407,7 @@ function ProduceDialog({
         <>
           {blocked && <span className="me-auto text-sm text-danger">יש שני גמדים זהים באותו מקום.</span>}
           <Button variant="ghost" onClick={onClose}>ביטול</Button>
-          <Button variant="primary" disabled={blocked || !specs.length || !spotId} onClick={() => onCreate(spotId, specs)}>
+          <Button variant="primary" disabled={blocked || !specs.length || !spotId || capacity === 0} onClick={() => onCreate(spotId, specs)}>
             {specs.length === 1 ? 'צרו גמד' : `צרו ${specs.length} גמדים`}
           </Button>
         </>
@@ -412,7 +424,7 @@ function ProduceDialog({
             }}
           >
             {spots.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{s.name}{s.outdoor ? ' (בחוץ)' : ''}</option>
             ))}
           </select>
         </Field>
@@ -420,14 +432,23 @@ function ProduceDialog({
           <Segmented
             label="כמה גמדים"
             value={count}
-            onChange={(n) => {
-              setCount(n);
-              regenerate(n, spotId);
-            }}
-            options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: String(n) }))}
+            onChange={(n) => regenerate(n, spotId)}
+            options={[1, 2, 3, 4, 5, 6].slice(0, Math.max(1, capacity)).map((n) => ({ value: n, label: String(n) }))}
           />
         </Field>
       </div>
+
+      {(spot?.outdoor || capacity < 6) && (
+        <div className={cx('mt-4 rounded-lg px-3 py-2 text-sm', capacity === 0 ? 'bg-danger/10 text-red-700 dark:text-red-400' : 'bg-bg-secondary text-text-secondary')}>
+          {capacity === 0
+            ? spot?.outdoor
+              ? 'במקום בחוץ מדפיסים רק בשחור ובאפור, וכבר עומדים כאן כל השילובים שאפשר להבדיל ביניהם. העבירו גמד למקום אחר או הוסיפו מקום חדש.'
+              : 'כבר עומדים כאן כל השילובים שאפשר להבדיל ביניהם. הוסיפו מקום חדש.'
+            : spot?.outdoor
+            ? `גמדים בחוץ מודפסים מחומר עמיד לשמש ולגשם, שיש כרגע רק בשחור ובאפור — לכן אפשר להעמיד כאן עוד ${capacity === 1 ? 'גמד אחד' : `${capacity} גמדים`} שנראים שונים.`
+            : `עם הצבעים שאפשר להדפיס, אפשר להעמיד כאן עוד ${capacity === 1 ? 'גמד אחד' : `${capacity} גמדים`} שנראים שונים.`}
+        </div>
+      )}
 
       {standing.length > 0 && (
         <div className="mt-4 flex items-center gap-2 text-sm text-text-secondary">
@@ -462,10 +483,10 @@ function ProduceDialog({
                 {editRow === i && (
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     <Field label="גוף">
-                      <ColorPicker label="גוף" value={s.bodyColor} onChange={(c) => setSpecs(specs.map((x, j) => (j === i ? { ...x, bodyColor: c } : x)))} />
+                      <ColorPicker label="גוף" allowed={allowed} value={s.bodyColor} onChange={(c) => setSpecs(specs.map((x, j) => (j === i ? { ...x, bodyColor: c } : x)))} />
                     </Field>
                     <Field label="מצנפת">
-                      <ColorPicker label="מצנפת" value={s.hatColor} onChange={(c) => setSpecs(specs.map((x, j) => (j === i ? { ...x, hatColor: c } : x)))} />
+                      <ColorPicker label="מצנפת" allowed={allowed} value={s.hatColor} onChange={(c) => setSpecs(specs.map((x, j) => (j === i ? { ...x, hatColor: c } : x)))} />
                     </Field>
                   </div>
                 )}

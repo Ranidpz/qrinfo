@@ -4,9 +4,10 @@
 // border-border, accent…) so dark mode follows the `dark` class like the dashboard.
 
 import { useEffect, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import { Sun, type LucideIcon } from 'lucide-react';
 import type { TheCodeColor } from '@/types/thecode';
 import { THECODE_COLORS } from '@/components/thecode/GnomeFigure';
+import { THECODE_PALETTE } from '@/lib/thecode/engine';
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
@@ -198,27 +199,64 @@ export function EmptyState({ icon: Icon, title, text, action }: { icon: LucideIc
   );
 }
 
-/** The eight palette colours as round swatches. */
-export function ColorPicker({ value, onChange, label }: { value: TheCodeColor; onChange: (c: TheCodeColor) => void; label: string }) {
+/**
+ * Palette swatches. `allowed` = the colours the supplier can print for this gnome's spot
+ * (engine `allowedGnomeColors`). A current value outside it is still shown — crossed out —
+ * so nothing changes silently; the operator picks a new one.
+ */
+export function ColorPicker({
+  value,
+  onChange,
+  label,
+  allowed = THECODE_PALETTE.indoor,
+}: {
+  value: TheCodeColor;
+  onChange: (c: TheCodeColor) => void;
+  label: string;
+  allowed?: TheCodeColor[];
+}) {
+  const shown = allowed.includes(value) ? allowed : [...allowed, value];
   return (
     <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
-      {(Object.keys(THECODE_COLORS) as TheCodeColor[]).map((c) => (
-        <button
-          key={c}
-          type="button"
-          role="radio"
-          aria-checked={value === c}
-          title={THECODE_COLORS[c].he}
-          aria-label={THECODE_COLORS[c].he}
-          onClick={() => onChange(c)}
-          className={cx(
-            'size-9 rounded-full border-2 transition-transform',
-            value === c ? 'scale-110 border-accent ring-2 ring-accent/30' : 'border-black/15 hover:scale-105 dark:border-white/20'
-          )}
-          style={{ background: THECODE_COLORS[c].hex }}
-        />
-      ))}
+      {shown.map((c) => {
+        const unavailable = !allowed.includes(c);
+        const name = unavailable ? `${THECODE_COLORS[c].he} — לא מודפס כאן, בחרו צבע אחר` : THECODE_COLORS[c].he;
+        return (
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={value === c}
+            title={name}
+            aria-label={name}
+            onClick={() => onChange(c)}
+            className={cx(
+              'relative size-9 overflow-hidden rounded-full border-2 transition-transform',
+              unavailable
+                ? 'border-dashed border-danger ring-2 ring-danger/30'
+                : value === c
+                ? 'scale-110 border-accent ring-2 ring-accent/30'
+                : 'border-black/15 hover:scale-105 dark:border-white/20'
+            )}
+            style={{ background: THECODE_COLORS[c].hex }}
+          >
+            {unavailable && <span aria-hidden className="absolute inset-0 m-auto h-[2px] w-[140%] -translate-x-[15%] rotate-45 bg-danger" />}
+          </button>
+        );
+      })}
+      {!allowed.includes(value) && (
+        <span className="basis-full text-sm text-danger">הצבע המסומן לא מודפס למקום הזה. בחרו צבע אחר.</span>
+      )}
     </div>
+  );
+}
+
+/** Marks an outdoor spot (gnomes there are printed in weather-proof black/grey). */
+export function OutdoorPill() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+      <Sun size={12} aria-hidden /> בחוץ
+    </span>
   );
 }
 

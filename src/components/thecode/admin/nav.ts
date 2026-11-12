@@ -12,6 +12,8 @@ export interface AdminTarget {
   phraseId?: string;
   /** Riddles screen: "find me a source for this letter". */
   letter?: string;
+  /** Riddles screen: open the one-click bank fill preview. */
+  fill?: boolean;
 }
 
 export type Navigate = (target: AdminTarget) => void;
@@ -42,6 +44,8 @@ export function targetForIssue(issue: TheCodeIssue): AdminTarget {
       return { tab: 'phrases' };
     case 'GNOMES_CLUSTERED':
       return { tab: 'gnomes', spotId: issue.spotId };
+    case 'GNOME_COLOR_UNAVAILABLE':
+      return { tab: 'gnomes', gnomeId: issue.gnomeId, spotId: issue.spotId };
     default:
       return { tab: 'overview' };
   }
@@ -68,6 +72,8 @@ export function fixLabel(issue: TheCodeIssue): string {
       return 'לאותיות';
     case 'GNOMES_CLUSTERED':
       return 'לגמדים';
+    case 'GNOME_COLOR_UNAVAILABLE':
+      return 'לגמד';
     default:
       return 'לתיקון';
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
+import { BookOpen, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome, TheCodeRiddle } from '@/types/thecode';
 import { alphabetFor, isAmbiguousLetter, letterOfAnswer, soundAlikes } from '@/lib/thecode/letters';
@@ -9,22 +9,28 @@ import type { RiddleStats, ScreenProps } from './model';
 import { isRiddleTooHard, letterLabel } from './helpers';
 import { Button, Card, EmptyState, Field, LetterTile, Pill, ScreenHeader, Segmented, Toggle, cx } from './ui';
 import ImageDropZone from './ImageDropZone';
+import { BankFillButton, BankFillDialog, BankPickerDialog, addFromBank } from './BankDialogs';
 
 const STATUS_LABEL: Record<TheCodeRiddle['status'], string> = { draft: 'טיוטה', published: 'מפורסמת', disabled: 'מושבתת' };
 const STATUS_TONE: Record<TheCodeRiddle['status'], 'neutral' | 'success' | 'warning'> = { draft: 'neutral', published: 'success', disabled: 'warning' };
 
-export default function RiddlesScreen({ state, actions, navigate, target, uploadImage }: ScreenProps) {
+export default function RiddlesScreen({ state, report, actions, navigate, target, uploadImage }: ScreenProps) {
   const { config, riddles, riddleStats } = state;
   const sorted = [...config.gnomes].sort((a, b) => a.number - b.number);
   const [gnomeId, setGnomeId] = useState<string | null>(target.gnomeId ?? null);
   const [openRiddle, setOpenRiddle] = useState<string | null>(target.riddleId ?? null);
   const [wantLetter, setWantLetter] = useState<string | null>(target.letter ?? null);
   const [query, setQuery] = useState('');
+  /** Bank picker for one gnome (with an optional preselected letter). */
+  const [picking, setPicking] = useState<{ gnomeId: string; letter: string | null } | null>(null);
+  const [filling, setFilling] = useState(!!target.fill);
+  const [filled, setFilled] = useState<number | null>(null);
 
   useEffect(() => {
     if (target.gnomeId) setGnomeId(target.gnomeId);
     if (target.riddleId) setOpenRiddle(target.riddleId);
     setWantLetter(target.letter ?? null);
+    if (target.fill) setFilling(true);
   }, [target]);
 
   const gnome = config.gnomes.find((g) => g.id === gnomeId) || null;
@@ -42,6 +48,45 @@ export default function RiddlesScreen({ state, actions, navigate, target, upload
     setOpenRiddle(id);
   };
 
+  const pickGnome = picking ? config.gnomes.find((g) => g.id === picking.gnomeId) : null;
+  const dialogs = (
+    <>
+      {pickGnome && (
+        <BankPickerDialog
+          gnome={pickGnome}
+          spotName={spotName(pickGnome)}
+          riddles={riddles}
+          report={report}
+          initialLetter={picking!.letter}
+          onAdd={(b) => {
+            const id = addFromBank(actions, pickGnome.id, b);
+            setGnomeId(pickGnome.id);
+            setOpenRiddle(id);
+            setPicking(null);
+            setWantLetter(null);
+          }}
+          onWriteOwn={() => {
+            addRiddle(pickGnome.id);
+            setPicking(null);
+            setWantLetter(null);
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
+      {filling && (
+        <BankFillDialog
+          state={state}
+          onClose={() => setFilling(false)}
+          onApply={(plan) => {
+            for (const item of plan.add) addFromBank(actions, item.gnomeId, item.bank);
+            setFilled(plan.add.length);
+            setFilling(false);
+          }}
+        />
+      )}
+    </>
+  );
+
   if (!config.gnomes.length) {
     return (
       <div className="mx-auto max-w-3xl">
@@ -53,7 +98,22 @@ export default function RiddlesScreen({ state, actions, navigate, target, upload
 
   return (
     <div className="mx-auto max-w-5xl">
-      <ScreenHeader title="חידות" summary="כל גמד שואל חידה על משהו שרואים לידו. האות הראשונה של התשובה נכנסת לאוסף." />
+      <ScreenHeader
+        title="חידות"
+        summary="כל גמד שואל חידה על משהו שרואים לידו. האות הראשונה של התשובה נכנסת לאוסף. לא יודעים מה לכתוב? יש מאגר של חידות מוכנות."
+        actions={<BankFillButton onClick={() => setFilling(true)} />}
+      />
+      {dialogs}
+
+      {filled !== null && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl bg-success/10 px-4 py-3">
+          <Check size={20} className="text-success" aria-hidden />
+          <span className="flex-1 font-medium">{filled === 1 ? 'נוספה חידה אחת מהמאגר.' : `נוספו ${filled} חידות מהמאגר.`} אפשר לפתוח כל אחת ולשנות אותה.</span>
+          <button type="button" aria-label="סגירה" onClick={() => setFilled(null)} className="inline-flex size-9 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-hover">
+            <X size={16} aria-hidden />
+          </button>
+        </div>
+      )}
 
       {wantLetter && (
         <LetterFinder
@@ -61,10 +121,7 @@ export default function RiddlesScreen({ state, actions, navigate, target, upload
           gnomes={sorted.filter((g) => g.isActive)}
           riddles={riddles}
           spotName={spotName}
-          onPick={(gid) => {
-            addRiddle(gid);
-            setWantLetter(null);
-          }}
+          onPick={(gid) => setPicking({ gnomeId: gid, letter: wantLetter })}
           onClose={() => setWantLetter(null)}
         />
       )}
@@ -123,14 +180,22 @@ export default function RiddlesScreen({ state, actions, navigate, target, upload
                 <div className="text-lg font-semibold">גמד {gnome.number}</div>
                 <div className="truncate text-sm text-text-secondary">{describeGnome(gnome.bodyColor, gnome.hatColor)} — {spotName(gnome)}</div>
               </div>
-              <Button variant="primary" icon={Plus} onClick={() => addRiddle(gnome.id)}>הוסיפו חידה</Button>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button icon={BookOpen} onClick={() => setPicking({ gnomeId: gnome.id, letter: wantLetter })}>חידה מהמאגר</Button>
+                <Button variant="primary" icon={Plus} onClick={() => addRiddle(gnome.id)}>הוסיפו חידה</Button>
+              </div>
             </div>
             {!gnome.isActive && (
               <div className="mb-4 rounded-lg bg-bg-hover px-3 py-2 text-sm text-text-secondary">הגמד כבוי, ולכן החידות שלו לא משתתפות כרגע במשחק.</div>
             )}
 
             {bank.length === 0 ? (
-              <EmptyState icon={CircleHelp} title="לגמד הזה אין חידה" text="חידה אחת מספיקה כדי להתחיל. שאלו על משהו שרואים מהמקום שבו הגמד עומד." action={<Button variant="primary" icon={Plus} onClick={() => addRiddle(gnome.id)}>הוסיפו חידה</Button>} />
+              <EmptyState icon={CircleHelp} title="לגמד הזה אין חידה" text="חידה אחת מספיקה כדי להתחיל. שאלו על משהו שרואים מהמקום שבו הגמד עומד." action={
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button variant="primary" icon={BookOpen} onClick={() => setPicking({ gnomeId: gnome.id, letter: wantLetter })}>חידה מהמאגר</Button>
+                    <Button icon={Plus} onClick={() => addRiddle(gnome.id)}>כתבו חידה</Button>
+                  </div>
+                } />
             ) : (
               <div className="space-y-3">
                 {bank.map((r) => (
@@ -187,7 +252,7 @@ function LetterFinder({
         <LetterTile letter={letter} tone="missing" />
         <div className="min-w-0 flex-1">
           <div className="font-semibold">מחפשים חידה לאות {letterLabel(letter)}</div>
-          <p className="text-sm text-text-secondary">בחרו גמד, וכתבו לו חידה שהתשובה שלה מתחילה ב־{letter} — על משהו שרואים לידו. הצענו גמדים שיש להם מעט חידות; אפשר גם לבחור מהרשימה.</p>
+          <p className="text-sm text-text-secondary">בחרו גמד, ונציע לו חידות מוכנות מהמאגר שהתשובה שלהן מתחילה ב־{letter}. אפשר גם לכתוב בעצמכם. הצענו גמדים שיש להם מעט חידות.</p>
         </div>
         <button type="button" onClick={onClose} aria-label="סגירה" className="inline-flex size-9 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-hover">
           <X size={16} aria-hidden />

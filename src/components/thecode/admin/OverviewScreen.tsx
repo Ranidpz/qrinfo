@@ -8,6 +8,7 @@ import type { ScreenProps } from './model';
 import { fixLabel, targetForIssue } from './nav';
 import { isProbablyMissing, isRiddleTooHard, timeAgo } from './helpers';
 import { Button, Card, Pill, cx } from './ui';
+import { BankFillButton } from './BankDialogs';
 
 const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'neutral' }> = {
   published: { label: 'פעילה', tone: 'success' },
@@ -178,6 +179,12 @@ export default function OverviewScreen({
                     <IssueRow key={n} message={i.message} tone="danger" label={fixLabel(i)} onFix={() => navigate(targetForIssue(i))} />
                   ))}
                 </ul>
+                {errors.some((i) => i.code === 'PHRASE_LETTER_MISSING') && (
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <BankFillButton onClick={() => navigate({ tab: 'riddles', fill: true })} />
+                    <span className="text-sm text-text-secondary">נשלים את האותיות החסרות בחידות מוכנות — תראו אותן לפני שהן נכנסות.</span>
+                  </div>
+                )}
               </div>
             )}
 
