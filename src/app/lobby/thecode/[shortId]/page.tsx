@@ -9,7 +9,7 @@ import TheCodeLobby from './TheCodeLobby';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'הקוד — טבלת הקבוצות',
+  title: 'קוד הגמדים — טבלת הקבוצות',
   robots: { index: false, follow: false },
 };
 
@@ -21,7 +21,7 @@ async function resolve(shortId: string): Promise<{ codeId: string; title: string
     const data = doc.data() as { title?: string; media?: { type?: string; title?: string; thecodeConfig?: { title?: string } }[] };
     const m = (data.media || []).find((x) => x?.type === 'thecode');
     if (!m) return null;
-    return { codeId: doc.id, title: m.thecodeConfig?.title || m.title || data.title || 'הקוד' };
+    return { codeId: doc.id, title: m.thecodeConfig?.title || m.title || data.title || 'קוד הגמדים' };
   } catch (err) {
     console.error('[lobby/thecode] resolve failed', err);
     return null;

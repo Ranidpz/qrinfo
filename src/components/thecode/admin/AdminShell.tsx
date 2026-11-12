@@ -97,7 +97,7 @@ export default function AdminShell({
     <div dir="rtl" lang="he" className="min-h-dvh bg-bg-primary text-text-primary" style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif' }}>
       <header className="sticky top-0 z-30 border-b border-border bg-bg-secondary/95 backdrop-blur print:hidden">
         <div className="flex h-14 items-center gap-3 px-4 lg:px-6">
-          <span className="text-lg font-bold">הקוד</span>
+          <span className="text-lg font-bold">קוד הגמדים</span>
           <span className="truncate text-text-secondary">{state.config.title}</span>
           {badge}
           <div className="ms-auto flex items-center gap-1">

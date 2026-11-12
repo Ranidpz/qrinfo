@@ -118,7 +118,7 @@ const RIDDLES: TheCodeRiddle[] = RIDDLE_ROWS.map(([n, text, answerWord, acceptSo
 
 export const DEMO_CONFIG: TheCodeConfig = {
   status: 'published',
-  title: 'הקוד — מלון חוף הצוק',
+  title: 'קוד הגמדים — מלון חוף הצוק',
   language: 'he',
   spots: SPOTS,
   gnomes: GNOMES,

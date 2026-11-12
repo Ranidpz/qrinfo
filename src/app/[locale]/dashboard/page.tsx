@@ -855,7 +855,7 @@ export default function DashboardPage() {
   const handleCreateTheCode = async (name?: string) => {
     if (!user) return;
     try {
-      const title = name?.trim() || 'הקוד';
+      const title = name?.trim() || 'קוד הגמדים';
       const newCode = await createQRCode(
         user.id,
         title,

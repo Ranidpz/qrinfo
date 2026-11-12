@@ -16,7 +16,7 @@ import s from './guide.module.css';
 const display = Secular_One({ subsets: ['hebrew', 'latin'], weight: '400', variable: '--tc-font-display' });
 
 export const metadata: Metadata = {
-  title: 'הקוד — מדריך',
+  title: 'קוד הגמדים — מדריך',
   description: 'משחק חיפוש לקבוצות: מוצאים גמדים, פותרים חידות, אוספים אותיות ופותחים מזוודה סודית.',
   robots: { index: false, follow: false },
 };
@@ -83,7 +83,7 @@ export default function TheCodeGuidePage() {
               <GnomeFigure key={i} bodyColor={body} hatColor={hat} size={i === 0 ? 76 : 56} />
             ))}
           </div>
-          <h1>הקוד</h1>
+          <h1>קוד הגמדים</h1>
           <p className={s.lead}>
             משחק חיפוש לקבוצות, בכל מקום: מלון, בית ספר, קניון, פארק או משרדי חברה. מוצאים גמדים, פותרים חידות, אוספים אותיות ופותחים מזוודה סודית.
           </p>
@@ -213,7 +213,7 @@ export default function TheCodeGuidePage() {
         </section>
 
         <footer className={s.footer}>
-          <span>הקוד — חוויה של The Q</span>
+          <span>קוד הגמדים — חוויה של The Q</span>
           <Link href="/play/the-code">לנסות את ההדגמה</Link>
         </footer>
       </main>

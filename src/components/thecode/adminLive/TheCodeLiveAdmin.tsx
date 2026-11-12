@@ -111,7 +111,7 @@ export function SaveIndicator({ live }: { live: Pick<UseTheCodeAdmin, 'saveState
 const LOAD_ERRORS: Record<LoadError, { title: string; text: string; retry: boolean }> = {
   unauthorized: { title: 'צריך להתחבר', text: 'התחברו לחשבון שיצר את ההרפתקה, ואז רעננו את הדף.', retry: true },
   forbidden: { title: 'ההרפתקה הזו שייכת לחשבון אחר', text: 'רק מי שיצר את הקוד יכול לנהל אותו. אם צריך גישה, בקשו מהבעלים להעביר לכם את הקוד.', retry: false },
-  notFound: { title: 'לא מצאנו את ההרפתקה', text: 'ייתכן שהקוד נמחק, או שזה לא קוד של "הקוד".', retry: false },
+  notFound: { title: 'לא מצאנו את ההרפתקה', text: 'ייתכן שהקוד נמחק, או שזה לא קוד של "קוד הגמדים".', retry: false },
   network: { title: 'אין חיבור', text: 'בדקו את האינטרנט ונסו שוב.', retry: true },
   server: { title: 'משהו השתבש', text: 'לא הצלחנו לטעון את ההרפתקה. נסו שוב בעוד רגע.', retry: true },
 };

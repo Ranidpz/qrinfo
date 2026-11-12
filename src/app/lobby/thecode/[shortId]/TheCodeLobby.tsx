@@ -89,7 +89,7 @@ export default function TheCodeLobby({ codeId, title }: { codeId: string | null;
           <>
             <header className="relative flex items-end justify-between gap-6">
               <div>
-                <h1 className="tc-display text-[9vh] leading-none" style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>הקוד</h1>
+                <h1 className="tc-display text-[9vh] leading-none" style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>קוד הגמדים</h1>
                 {title && <p className="mt-[1vh] text-[3vh]" style={{ color: 'var(--tc-soft)' }}>{title}</p>}
               </div>
               <div className="flex gap-[1vw] rounded-full p-[0.6vh]" style={{ background: 'rgba(0,0,0,.3)' }}>

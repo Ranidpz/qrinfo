@@ -309,7 +309,7 @@ export default function CodeCard({
       case 'raffle': return 'הגרלה';
       case 'qbet': return 'ניחוש';
       case 'tenbool': return '10 בול';
-      case 'thecode': return 'הקוד';
+      case 'thecode': return 'קוד הגמדים';
       case 'socialwall': return 'Social Wall';
       default: return tMedia('image');
     }

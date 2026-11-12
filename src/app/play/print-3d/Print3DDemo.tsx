@@ -41,7 +41,7 @@ export default function Print3DDemo() {
             label="איפה הכפתור"
             value={surface}
             onChange={(v) => { setSurface(v); setOpen(false); }}
-            options={[{ value: 'code', label: 'בדף קוד' }, { value: 'thecode', label: 'בהקוד — הדפסת לוחיות' }]}
+            options={[{ value: 'code', label: 'בדף קוד' }, { value: 'thecode', label: 'בקוד הגמדים — הדפסת לוחיות' }]}
           />
         </div>
       </header>
@@ -118,7 +118,7 @@ function TheCodePrint({ onOpen }: { onOpen: () => void }) {
       </Card>
       <Explainer
         lines={[
-          'במסך ההדפסה של הקוד יש כפתור חדש ליד המדבקות.',
+          'במסך ההדפסה של קוד הגמדים יש כפתור חדש ליד המדבקות.',
           'כל הגמדים יוצאים בקובץ אחד, מסודרים על הפלטה, עם המספר בגב כל לוחית.',
           'אפשר לבחור גם בסיס שחור, לגמדים שתלויים על הקיר בלי גוף.',
         ]}

@@ -6,8 +6,8 @@ import TheCodeAdminDemo from './TheCodeAdminDemo';
 // Outside [locale] (middleware skips /play/).
 
 export const metadata: Metadata = {
-  title: 'הקוד — ניהול (הדגמה)',
-  description: 'מסך המפעיל של הקוד: מקומות, גמדים, חידות, משפטים סודיים והדפסת לוחיות.',
+  title: 'קוד הגמדים — ניהול (הדגמה)',
+  description: 'מסך המפעיל של קוד הגמדים: מקומות, גמדים, חידות, משפטים סודיים והדפסת לוחיות.',
   robots: { index: false, follow: false },
 };
 

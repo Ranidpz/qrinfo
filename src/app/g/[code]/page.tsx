@@ -6,7 +6,7 @@ import GnomeLanding from './GnomeLanding';
 // against /api/thecode/gnome and /api/thecode/play.
 
 export const metadata: Metadata = {
-  title: 'הקוד',
+  title: 'קוד הגמדים',
   description: 'מצאתם גמד! פתרו את החידה שלו ואספו את האות',
   robots: { index: false, follow: false },
 };

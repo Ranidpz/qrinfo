@@ -68,7 +68,7 @@ export default function PrintScreen({ state, navigate }: ScreenProps) {
           open
           onClose={() => setPrint3d(false)}
           items={items3d}
-          title={`${state.config.title || 'הקוד'} — ${items3d.length} גמדים`}
+          title={`${state.config.title || 'קוד הגמדים'} — ${items3d.length} גמדים`}
           shapes={['gnome', 'base']}
           defaultShape="gnome"
         />

@@ -9,7 +9,7 @@ import TheCodeDemo from './TheCodeDemo';
 const display = Secular_One({ subsets: ['hebrew', 'latin'], weight: '400', variable: '--tc-font-display' });
 
 export const metadata: Metadata = {
-  title: 'הקוד — הדגמה',
+  title: 'קוד הגמדים — הדגמה',
   description: 'מצאו את הגמדים, פתרו את החידות ופצחו את הקוד של המזוודה',
   robots: { index: false, follow: false },
 };

@@ -113,7 +113,7 @@ export function PhonePreview({ branding: b, title }: { branding: TheCodeBranding
           <div className="flex h-14 w-32 items-center justify-center rounded-lg border border-dashed border-white/50 text-xs text-white/70">הלוגו שלכם</div>
         )}
         <div className="mt-auto">
-          <div className="text-3xl font-extrabold tracking-tight drop-shadow">הקוד</div>
+          <div className="text-3xl font-extrabold tracking-tight drop-shadow">קוד הגמדים</div>
           <p className={b.welcomeText ? 'mt-2 line-clamp-3 text-sm leading-snug text-white/90 drop-shadow' : 'mt-2 line-clamp-3 text-sm italic leading-snug text-white/50'}>
             {b.welcomeText || defaultWelcome(title)}
           </p>

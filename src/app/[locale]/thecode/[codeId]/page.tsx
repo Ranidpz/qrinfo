@@ -5,7 +5,7 @@ import TheCodeAdminPage from './TheCodeAdminPage';
 // API enforces ownership, the page only routes guests to /login). Never indexed.
 
 export const metadata: Metadata = {
-  title: 'הקוד — ניהול',
+  title: 'קוד הגמדים — ניהול',
   robots: { index: false, follow: false },
 };
 

@@ -231,7 +231,7 @@ function getExperienceTypeLabel(
     case 'minigames': return 'Q.Games';
     case 'raffle': return he ? 'הגרלה' : 'Raffle';
     case 'tenbool': return he ? '10 בול' : '10 Bool';
-    case 'thecode': return he ? 'הקוד' : 'The Code';
+    case 'thecode': return he ? 'קוד הגמדים' : 'The Gnome Code';
     default: return String(type).toUpperCase();
   }
 }
@@ -4504,7 +4504,7 @@ export default function CodeEditPage({ params }: PageProps) {
                           : media.type === 'qtreasure' ? 'Q.Treasure'
                           : media.type === 'qchallenge' ? 'Q.Challenge'
                           : media.type === 'minigames' ? 'Q.Games'
-                          : media.type === 'thecode' ? (media.thecodeConfig?.title || media.title || 'הקוד')
+                          : media.type === 'thecode' ? (media.thecodeConfig?.title || media.title || 'קוד הגמדים')
                           : media.type.toUpperCase()}
                       </span>
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-bg-primary text-text-secondary border border-border whitespace-nowrap">

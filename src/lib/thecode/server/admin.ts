@@ -54,7 +54,7 @@ const TRIGGERS: TheCodeTrigger[] = [
 const DEFAULT_RETENTION_DAYS = 90;
 
 /** A brand-new adventure (what GET returns with `version: 0`). */
-export function defaultTheCodeConfig(title = 'הקוד'): TheCodeConfig {
+export function defaultTheCodeConfig(title = 'קוד הגמדים'): TheCodeConfig {
   return {
     status: 'draft',
     title,
@@ -265,7 +265,7 @@ export function normalizeAdventure(
 
     const config: TheCodeConfig = {
       status: oneOf(c.status, ['draft', 'published', 'paused'] as const, 'draft'),
-      title: line(c.title, THECODE_LIMITS.title) || 'הקוד',
+      title: line(c.title, THECODE_LIMITS.title) || 'קוד הגמדים',
       language: oneOf(c.language, ['he', 'en'] as const, 'he'),
       spots,
       gnomes,

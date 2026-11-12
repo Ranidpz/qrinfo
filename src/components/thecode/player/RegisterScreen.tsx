@@ -34,9 +34,9 @@ interface Props {
 /** The vault title, the one big typographic moment of the app. */
 export function CodeTitle({ small, smaller }: { small?: boolean; smaller?: boolean }) {
   return (
-    <h1 className={`tc-display text-center leading-none ${smaller ? 'text-4xl' : small ? 'text-5xl' : 'text-7xl'}`}
+    <h1 className={`tc-display text-balance text-center leading-none ${smaller ? 'text-3xl' : small ? 'text-4xl' : 'text-6xl'}`}
       style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>
-      הקוד
+      קוד הגמדים
     </h1>
   );
 }
