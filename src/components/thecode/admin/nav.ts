@@ -40,6 +40,8 @@ export function targetForIssue(issue: TheCodeIssue): AdminTarget {
       return { tab: 'setup', gnomeId: issue.gnomeId };
     case 'FEW_FRESH_ROUNDS':
       return { tab: 'phrases' };
+    case 'GNOMES_CLUSTERED':
+      return { tab: 'gnomes', spotId: issue.spotId };
     default:
       return { tab: 'overview' };
   }
@@ -64,6 +66,8 @@ export function fixLabel(issue: TheCodeIssue): string {
       return 'למצב התקנה';
     case 'FEW_FRESH_ROUNDS':
       return 'לאותיות';
+    case 'GNOMES_CLUSTERED':
+      return 'לגמדים';
     default:
       return 'לתיקון';
   }

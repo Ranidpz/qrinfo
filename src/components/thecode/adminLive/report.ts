@@ -210,6 +210,11 @@ function reword(issue: TheCodeIssue, state: AdminState, phrases: Record<string, 
         out.message = `התשובה "${riddle.answerWord}" (גמד ${no}) מתחילה ב־${letterLabel(issue.letter)}, וילדים עלולים ללחוץ ${soundAlikes(issue.letter).map(letterLabel).join(' או ')}. קבלו אות דומה בצליל או בחרו חפץ אחר.`;
       }
       break;
+    case 'GNOMES_CLUSTERED':
+      out.message = spot
+        ? `כמעט כל הגמדים עומדים ב"${spot.name}". פזרו אותם בכמה מקומות, כדי שמשפחות יסתובבו במלון.`
+        : 'כמעט כל הגמדים עומדים באותו מקום. פזרו אותם בכמה מקומות, כדי שמשפחות יסתובבו במלון.';
+      break;
     case 'FEW_FRESH_ROUNDS':
       // Reworded in buildAdventureReport (needs the letter stock).
       break;
