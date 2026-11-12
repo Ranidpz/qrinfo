@@ -80,7 +80,17 @@ const AUTO = [
   'מציגה לוח מובילים שבועי, ומראה אילו חידות קשות מדי.',
 ];
 
+// A sample of the lobby board (src/app/lobby/thecode/[shortId]/TheCodeLobby.tsx) — same columns.
+const MEDALS = ['🥇', '🥈', '🥉'];
+const BOARD = [
+  { emoji: '🐬', name: 'הדולפינים', bags: 2, pts: 1840 },
+  { emoji: '🦉', name: 'הינשופים', bags: 1, pts: 1260 },
+  { emoji: '🐯', name: 'הנמרים', bags: 1, pts: 980 },
+  { emoji: '🐢', name: 'הצבים', bags: 0, pts: 430 },
+];
+
 const FAQ: Array<[string, string]> = [
+  ['אפשר לראות איפה כל קבוצה נמצאת?', 'לא את המקום במתחם. המסך הגדול והמסך של המארגנים מראים כמה נקודות ומזוודות יש לכל קבוצה ומתי שיחקה לאחרונה.'],
   ['שתי קבוצות שסורקות אותו גמד מקבלות אותה חידה?', 'תלוי בכמה חידות נכתבו לגמד. עם חידה אחת כולן מקבלות אותה. עם כמה חידות, כל קבוצה מקבלת את זו שנותנת את האות שחסרה לה.'],
   ['אם משחקים מאה ילדים, הראשונים לא יגלו לכולם את התשובות?', 'אפשר לגלות תשובה, אבל היא שווה מעט. לכל קבוצה מסלול אחר, אי אפשר לענות בלי לסרוק את הגמד עצמו, וגמד עם כמה חידות שואל בדרך כלל קבוצות שונות שאלות שונות. לאירוע גדול כדאי לכתוב שתיים עד שלוש חידות לכל גמד.'],
   ['מה קורה אם סורקים גמד בלי להיות במשחק?', 'הסריקה פותחת את המשחק. נרשמים כקבוצה ומקבלים את היעד הראשון.'],
@@ -105,6 +115,7 @@ export default function TheCodeGuidePage() {
           </p>
           <nav className={s.jump} aria-label="חלקי המדריך">
             <a href="#players">לשחקנים</a>
+            <a href="#screens">המסכים</a>
             <a href="#organizers">למארגנים</a>
             <a href="#faq">שאלות נפוצות</a>
           </nav>
@@ -192,6 +203,42 @@ export default function TheCodeGuidePage() {
             <li>לא ממהרים. אין תחרות על זמן, רק על נקודות.</li>
             <li>אפשר לעצור ולהמשיך מחר. הכול נשמר, ויש קוד שחזור למקרה שמחליפים טלפון.</li>
             <li>לוח המובילים מוצג על מסך גדול במקום.</li>
+          </ul>
+        </section>
+
+        <section id="screens" className={s.section}>
+          <div className={s.head}>
+            <h2>מה רואים על המסכים</h2>
+            <p className={s.soft}>שני מסכים: הטלפון של כל קבוצה, ומסך גדול אחד במקום שכולם רואים.</p>
+          </div>
+          <div className={s.scene}>
+            <div className={s.tv} aria-label="דוגמה למסך הגדול">
+              <div className={s.tvHead}>
+                <span className={s.tvTitle}>קוד הגמדים</span>
+                <span className={s.tvTabs}><span className={s.tvTabOn}>השבוע</span><span>כל הזמנים</span></span>
+              </div>
+              <ol className={s.tvRows}>
+                {BOARD.map((r, i) => (
+                  <li key={r.name} className={i < 3 ? s.tvTop : undefined}>
+                    <span className={s.tvRank}>{MEDALS[i] ?? i + 1}</span>
+                    <span aria-hidden>{r.emoji}</span>
+                    <span className={s.tvName}>{r.name}</span>
+                    <span className={s.tvBags}>🧳 {r.bags}</span>
+                    <span className={s.tvPts}>{r.pts.toLocaleString('en-US')}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className={s.tvFoot}>מצאו גמד, סרקו את הקוד שעליו והצטרפו למשחק!</div>
+            </div>
+            <div className={s.blocksCol}>
+              <article><h3>המסך הגדול</h3><p>עשר הקבוצות המובילות: מקום, שם וסמל, כמה מזוודות פתחו וכמה נקודות יש להן. שלוש הראשונות מקבלות מדליה. המסך מתחלף לבד בין &quot;השבוע&quot; ל&quot;כל הזמנים&quot; ומתעדכן כל רבע דקה. אין בו כפתורים: פותחים אותו פעם אחת על מסך או טלוויזיה, וזהו.</p></article>
+              <article><h3>בטלפון של הקבוצה</h3><p>הנקודות, האותיות שנאספו והיעד הבא. כשהמזוודה נפתחת: חגיגה על המסך, בונוס של {R.suitcaseBonus} נקודות, המקום של הקבוצה בטבלה ואלבום הגמדים שמצאה. משם אפשר להתחיל מזוודה חדשה.</p></article>
+            </div>
+          </div>
+          <ul className={s.tips}>
+            <li>המסך הגדול מראה את מצב הנקודות של כל קבוצה, לא איפה היא עומדת עכשיו במתחם.</li>
+            <li>המארגנים רואים במסך הניהול את כל הקבוצות: נקודות, מזוודות ומתי שיחקו לאחרונה. אפשר לשנות שם או להסתיר קבוצה מהלוח.</li>
+            <li>המערכת לא מחלקת פרסים. המארגנים מחליטים, למשל פרס לקבוצה שבראש הטבלה בסוף השבוע או למי שפתחה מזוודה.</li>
           </ul>
         </section>
 
