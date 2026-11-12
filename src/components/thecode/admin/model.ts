@@ -6,6 +6,7 @@
 
 import type {
   TheCodeAdminPlayer,
+  TheCodeBranding,
   TheCodeColor,
   TheCodeGnomeStats,
   TheCodeRiddleStats,
@@ -78,7 +79,7 @@ export interface NewGnomeSpec {
 }
 
 export type ConfigPatch = Partial<
-  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language'>
+  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding'>
 >;
 
 /** Everything a screen may change. The demo implements it in memory; wave 2 → API calls. */
@@ -86,6 +87,9 @@ export interface AdminActions {
   setStatus(status: TheCodeConfig['status']): void;
   updateConfig(patch: ConfigPatch): void;
   updateRules(patch: Partial<TheCodeRules>): void;
+  /** Merges into the CURRENT branding (two uploads finishing together must not overwrite each
+   *  other); empty fields are dropped, and a branding with nothing left becomes undefined. */
+  updateBranding(patch: Partial<TheCodeBranding>): void;
 
   addSpot(): string;
   updateSpot(id: string, patch: Partial<Omit<TheCodeSpot, 'id'>>): void;
@@ -139,7 +143,12 @@ export interface AdminRefresh {
   at?: number;
 }
 
-export type ImageUploader = (file: File, onProgress: (fraction: number) => void) => Promise<string>;
+export interface UploadOptions {
+  /** Logos: keep transparency — sent as PNG, never re-encoded to lossy WebP/JPEG. */
+  keepAlpha?: boolean;
+}
+
+export type ImageUploader = (file: File, onProgress: (fraction: number) => void, opts?: UploadOptions) => Promise<string>;
 
 export interface AdminLinks {
   /** Game home for families: production origin + /v/{shortId}. */

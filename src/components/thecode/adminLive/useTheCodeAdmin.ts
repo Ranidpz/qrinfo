@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TheCodeIssue } from '@/types/thecode';
-import type { AdminActions, AdminState } from '@/components/thecode/admin/model';
+import type { AdminActions, AdminState, ImageUploader } from '@/components/thecode/admin/model';
 import { createAdminActions } from '@/components/thecode/admin/reducer';
 import type { AdminNotice } from '@/components/thecode/admin/AdminShell';
 import { contentOf, mergeSaved, revertStatus, same, type Content } from './merge';
@@ -52,7 +52,7 @@ export interface UseTheCodeAdmin {
   refresh: () => void;
   refreshing: boolean;
   refreshedAt: number | null;
-  uploadImage: (file: File, onProgress: (f: number) => void) => Promise<string>;
+  uploadImage: ImageUploader;
 }
 
 export function useTheCodeAdmin(codeId: string, opts: { transport?: TheCodeAdminTransport } = {}): UseTheCodeAdmin {
@@ -366,7 +366,7 @@ export function useTheCodeAdmin(codeId: string, opts: { transport?: TheCodeAdmin
     void flushRef.current();
   }, []);
 
-  const uploadImage = useCallback((file: File, onProgress: (f: number) => void) => transport.uploadImage(codeId, file, onProgress), [codeId, transport]);
+  const uploadImage = useCallback<ImageUploader>((file, onProgress, opts) => transport.uploadImage(codeId, file, onProgress, opts), [codeId, transport]);
 
   return {
     phase,

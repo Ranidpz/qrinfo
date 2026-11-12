@@ -68,20 +68,23 @@ function seed(fresh: boolean): TheCodeAdminLoadResponse {
 
 function MockLive({ fresh }: { fresh: boolean }) {
   const [{ transport, controls }] = useState(() => createMemoryTransport(seed(fresh)));
+  // Remount = a real page reload against the same fake server (what was saved stays).
+  const [mount, setMount] = useState(0);
   return (
     <>
       <TheCodeLiveAdmin
+        key={mount}
         codeId="mock"
         transport={transport}
         links={{ game: gameUrl('DEMO12'), lobby: lobbyUrl('DEMO12') }}
         extraBadge={<span className="hidden rounded-full bg-warning/15 px-2.5 py-0.5 text-sm font-medium text-amber-700 sm:inline dark:text-amber-400">שרת מדומה</span>}
       />
-      <MockControls controls={controls} />
+      <MockControls controls={controls} onReload={() => setMount((n) => n + 1)} />
     </>
   );
 }
 
-function MockControls({ controls }: { controls: MemoryServerControls }) {
+function MockControls({ controls, onReload }: { controls: MemoryServerControls; onReload: () => void }) {
   const [msg, setMsg] = useState('');
   const say = (m: string) => {
     setMsg(m);
@@ -92,6 +95,7 @@ function MockControls({ controls }: { controls: MemoryServerControls }) {
       <span className="px-1 font-medium text-text-secondary">שרת מדומה:</span>
       <button type="button" className="rounded-lg px-2 py-1 hover:bg-bg-hover" onClick={() => { controls.failNext(2); say('שתי השמירות הבאות ייכשלו'); }}>הכשילו שמירה</button>
       <button type="button" className="rounded-lg px-2 py-1 hover:bg-bg-hover" onClick={() => { controls.bumpVersion(); say('לשונית אחרת שמרה'); }}>שמירה מלשונית אחרת</button>
+      <button type="button" className="rounded-lg px-2 py-1 hover:bg-bg-hover" onClick={onReload}>טענו את הדף מחדש</button>
       {msg && <span className="px-1 text-accent">{msg}</span>}
     </div>
   );

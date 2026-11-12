@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import type { AdminTab } from './nav';
-import { Check, ChevronLeft, CircleAlert, CircleCheck, Copy, ExternalLink, Luggage, Pause, Play, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Check, ChevronLeft, Image as ImageIcon, CircleAlert, CircleCheck, Copy, ExternalLink, Luggage, Pause, Play, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { TheCodeIssue } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { fixLabel, targetForIssue } from './nav';
 import { isProbablyMissing, isRiddleTooHard, timeAgo } from './helpers';
 import { Button, Card, Pill, cx } from './ui';
 import { BankFillButton } from './BankDialogs';
+import { hasBranding } from './BrandingCard';
 
 const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'neutral' }> = {
   published: { label: 'פעילה', tone: 'success' },
@@ -143,6 +144,21 @@ export default function OverviewScreen({
       </Card>
 
       <GettingStarted state={state} report={report} navigate={navigate} />
+
+      {!hasBranding(config.branding) && (
+        <button
+          type="button"
+          onClick={() => navigate({ tab: 'settings' })}
+          className="flex w-full items-center gap-4 rounded-xl border border-dashed border-accent/40 bg-accent/5 px-5 py-4 text-start hover:bg-accent/10"
+        >
+          <ImageIcon size={22} className="shrink-0 text-accent" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">הוסיפו תמונה ולוגו של המלון למסך הפתיחה</span>
+            <span className="block text-sm text-text-secondary">משפחות רואות אותו מיד אחרי הסריקה הראשונה.</span>
+          </span>
+          <ChevronLeft size={16} className="shrink-0 text-accent" aria-hidden />
+        </button>
+      )}
 
       {/* Readiness check */}
       <Card className="overflow-hidden">

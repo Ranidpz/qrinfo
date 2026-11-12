@@ -23,6 +23,8 @@ export default function ImageDropZone({
   label,
   emptyText,
   aspect = 'aspect-[16/7]',
+  keepAlpha,
+  fit = 'cover',
 }: {
   value?: string;
   onChange: (url: string | undefined) => void;
@@ -30,6 +32,10 @@ export default function ImageDropZone({
   label: string;
   emptyText: string;
   aspect?: string;
+  /** Logos: upload as PNG with transparency kept. */
+  keepAlpha?: boolean;
+  /** 'contain' on a checkerboard — for logos, so transparency is visible. */
+  fit?: 'cover' | 'contain';
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
@@ -56,7 +62,7 @@ export default function ImageDropZone({
     const preview = URL.createObjectURL(file);
     setPhase({ kind: 'uploading', progress: 0, preview });
     try {
-      const url = await upload(file, (f) => alive.current && setPhase({ kind: 'uploading', progress: f, preview }));
+      const url = await upload(file, (f) => alive.current && setPhase({ kind: 'uploading', progress: f, preview }), keepAlpha ? { keepAlpha: true } : undefined);
       if (!alive.current) return;
       onChange(url);
       setPhase({ kind: 'idle' });
@@ -117,7 +123,12 @@ export default function ImageDropZone({
       >
         {shown ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={shown} alt="" className={cx('size-full object-cover', busy && 'opacity-60')} />
+          <img
+            src={shown}
+            alt=""
+            className={cx('size-full', fit === 'contain' ? 'object-contain p-3' : 'object-cover', busy && 'opacity-60')}
+            style={fit === 'contain' ? { background: 'repeating-conic-gradient(#d4d4d8 0 25%, #fafafa 0 50%) 0 0 / 16px 16px' } : undefined}
+          />
         ) : (
           <span className="flex flex-col items-center gap-2 px-4 text-center text-sm">
             <ImagePlus size={26} aria-hidden />
