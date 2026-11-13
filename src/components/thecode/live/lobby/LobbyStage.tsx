@@ -48,7 +48,7 @@ function MomentBanner({ m }: { m: LobbyMoment }) {
     <div className="tc-a-stamp flex items-center gap-[1.6vw] rounded-full px-[2.6vw] py-[1.4vh]"
       style={{ background: look.bg, color: look.fg, boxShadow: '0 1.5vh 5vh rgba(0,0,0,.45)' }}>
       <span className="text-[5vh]" aria-hidden>{look.icon}</span>
-      <Avatar value={m.avatar} size={64} />
+      <Avatar value={m.avatar} size={64} cssSize="6vh" />
       <span className="tc-display text-[4.6vh] leading-none">{look.text}</span>
     </div>
   );
@@ -59,17 +59,19 @@ function QrCard({ url }: { url: string }) {
     <div className="flex h-full flex-col items-center justify-center gap-[3vh] rounded-[4vh] px-[2.5vw] py-[4vh] text-center"
       style={{ background: 'linear-gradient(180deg, rgba(244,183,64,.16), rgba(244,183,64,.05)), rgba(10,14,40,.8)', boxShadow: 'inset 0 0 0 3px rgba(244,183,64,.45)' }}>
       <p className="tc-display text-[6.4vh] leading-none" style={{ color: 'var(--tc-brass-hi)' }}>סרקו כאן והתחילו</p>
-      <div className="relative">
-        <div className="rounded-[3vh] bg-white p-[2vh]" style={{ boxShadow: '0 2vh 6vh rgba(0,0,0,.45)' }}>
-          {url ? <QRCodeSVG value={url} size={300} level="M" style={{ width: '32vh', height: '32vh', display: 'block' }} /> : <div style={{ width: '32vh', height: '32vh' }} />}
-        </div>
-        <span className="tc-a-bob absolute -bottom-[3vh] -left-[7vh]" aria-hidden>
-          <GnomeFigure bodyColor="green" hatColor="red" size={150} />
-        </span>
+      {/* Nothing may ever sit on the code or its quiet zone (Rani: the gnome covered a finder
+          square, so phones could not read it) — the gnome stands BESIDE the text, below it. */}
+      <div className="rounded-[3vh] bg-white p-[1.6vh]" style={{ boxShadow: '0 2vh 6vh rgba(0,0,0,.45)' }}>
+        {url ? <QRCodeSVG value={url} size={300} level="M" marginSize={2} style={{ width: '32vh', height: '32vh', display: 'block' }} /> : <div style={{ width: '32vh', height: '32vh' }} />}
       </div>
-      <p className="text-[3.4vh] leading-snug" style={{ color: 'var(--tc-cream)' }}>
-        הגמד הראשון מחכה לכם כאן.<br />אחריו — חפשו את השאר במקום!
-      </p>
+      <div className="flex items-center gap-[1.2vw]">
+        <span className="tc-a-bob shrink-0" aria-hidden>
+          <GnomeFigure bodyColor="green" hatColor="red" size={104} />
+        </span>
+        <p className="text-start text-[3.2vh] leading-snug" style={{ color: 'var(--tc-cream)' }}>
+          הגמד הראשון מחכה לכם כאן.<br />אחריו — חפשו את השאר במקום!
+        </p>
+      </div>
     </div>
   );
 }
@@ -103,7 +105,7 @@ function QrCorner({ url }: { url: string }) {
       style={{ background: 'rgba(8,11,34,.86)', boxShadow: 'inset 0 0 0 3px rgba(244,183,64,.55), 0 2vh 6vh rgba(0,0,0,.5)' }}>
       <div className="relative shrink-0">
         <div className="rounded-[2vh] bg-white p-[1.4vh]">
-          {url ? <QRCodeSVG value={url} size={240} level="M" style={{ width: '24vh', height: '24vh', display: 'block' }} /> : <div style={{ width: '24vh', height: '24vh' }} />}
+          {url ? <QRCodeSVG value={url} size={240} level="M" marginSize={2} style={{ width: '24vh', height: '24vh', display: 'block' }} /> : <div style={{ width: '24vh', height: '24vh' }} />}
         </div>
       </div>
       <div className="flex max-w-[16vw] flex-col items-center gap-[1vh] text-center">
@@ -453,7 +455,8 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
                     <span className="tc-num w-[4.5vw] text-center text-[3.8vh]" style={{ color: rank < 3 ? 'var(--tc-brass)' : 'var(--tc-soft)' }}>
                       {['🥇', '🥈', '🥉'][rank] ?? rank + 1}
                     </span>
-                    <Avatar value={t.avatar} size={rows >= 10 ? 54 : 60} />
+                    {/* sized from the row height (vh), never a fixed px size: on a short window a 54px photo spilled over the rows */}
+                    <Avatar value={t.avatar} size={54} cssSize={`${(ROW_VH - 2).toFixed(1)}vh`} />
                     <span className="flex-1 truncate text-[3.8vh] font-bold">{t.name}</span>
                     {t.hot && <span className="tc-a-flicker text-[3.6vh]" aria-label="שחקנים חמים">🔥</span>}
                     {up && <span key={`up-${up.key}`} className="tc-a-pop tc-display text-[3.2vh]" style={{ color: 'var(--tc-mint)' }}>▲ {up.by}</span>}
