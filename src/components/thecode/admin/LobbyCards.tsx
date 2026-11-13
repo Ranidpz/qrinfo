@@ -45,7 +45,7 @@ export function SelfieCard({ state, actions }: Pick<ScreenProps, 'state' | 'acti
   );
 }
 
-const SLOTS: { slot: LobbySlot; title: string; text: string }[] = [
+const SLOTS: { slot: Exclude<LobbySlot, 'opening'>; title: string; text: string }[] = [
   { slot: 'idle', title: 'המתנה, בלולאה', text: 'מתנגן כשאף אחד לא סורק.' },
   { slot: 'explain', title: 'הסבר, אחרי סריקה', text: 'פעם אחת, כשמישהו סורק את הקוד שעל המסך.' },
   { slot: 'after', title: 'אחרי ההסבר, בלולאה', text: 'עד הסריקה הבאה.' },
@@ -53,6 +53,7 @@ const SLOTS: { slot: LobbySlot; title: string; text: string }[] = [
 
 const VIDEO_TYPES = ['video/mp4', 'video/webm'];
 const MAX_VIDEO = 100 * 1024 * 1024;
+const MB = 1024 * 1024;
 
 /** "המסך הגדול": three video slots + open the screen. */
 export function BigScreenCard({ state, actions, uploadVideo, links }: Pick<ScreenProps, 'state' | 'actions' | 'uploadVideo' | 'links'>) {
@@ -97,15 +98,17 @@ export function BigScreenCard({ state, actions, uploadVideo, links }: Pick<Scree
 
 type Phase = { kind: 'idle' } | { kind: 'uploading'; progress: number } | { kind: 'error'; message: string };
 
-function VideoSlot({
+export function VideoSlot({
   title,
   text,
   value,
   upload,
   onChange,
+  maxBytes = MAX_VIDEO,
 }: {
   title: string;
   text: string;
+  maxBytes?: number;
   value?: string;
   upload: (file: File, onProgress: (f: number) => void) => Promise<string>;
   onChange: (url: string | undefined) => void;
@@ -129,8 +132,8 @@ function VideoSlot({
       setPhase({ kind: 'error', message: 'אפשר להעלות רק סרטון MP4 או WebM.' });
       return;
     }
-    if (file.size > MAX_VIDEO) {
-      setPhase({ kind: 'error', message: 'הסרטון גדול מ־100MB. קצרו או דחסו אותו ונסו שוב.' });
+    if (file.size > maxBytes) {
+      setPhase({ kind: 'error', message: `הסרטון גדול מ־${Math.round(maxBytes / MB)}MB. קצרו או דחסו אותו ונסו שוב.` });
       return;
     }
     setPhase({ kind: 'uploading', progress: 0 });

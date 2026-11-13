@@ -202,7 +202,7 @@ function reword(issue: TheCodeIssue, state: AdminState, phrases: Record<string, 
       break;
     }
     case 'SPOT_WITHOUT_HINT':
-      out.message = `למקום "${spot?.name}" אין רמזים, וקבוצות לא ימצאו אותו.`;
+      out.message = `למקום "${spot?.name}" אין רמז. בלי רמז הקבוצות רואות רק את שם המקום — הוסיפו רמז אחד לפחות, מהכללי אל המדויק.`;
       break;
     case 'RIDDLE_AMBIGUOUS_LETTER':
       if (riddle && issue.letter) {

@@ -14,6 +14,8 @@ export interface AdminTarget {
   letter?: string;
   /** Riddles screen: open the one-click bank fill preview. */
   fill?: boolean;
+  /** Spots screen: jump straight to the first location hint of `spotId`. */
+  hint?: boolean;
 }
 
 export type Navigate = (target: AdminTarget) => void;
@@ -37,7 +39,7 @@ export function targetForIssue(issue: TheCodeIssue): AdminTarget {
     case 'CONFUSABLE_COLORS_AT_SPOT':
       return { tab: 'gnomes', gnomeId: issue.gnomeId, spotId: issue.spotId };
     case 'SPOT_WITHOUT_HINT':
-      return { tab: 'spots', spotId: issue.spotId };
+      return { tab: 'spots', spotId: issue.spotId, hint: true };
     case 'GNOME_NOT_VERIFIED':
       return { tab: 'setup', gnomeId: issue.gnomeId };
     case 'FEW_FRESH_ROUNDS':
