@@ -286,7 +286,9 @@ async function main() {
     r = await http('DELETE', '/api/thecode/photo', { body: { codeId, auth } });
     const after = (await codeRef.collection('thecodePlayers').doc(auth.playerId).get()).data();
     check('selfie removed by the group', r.status === 200 && r.json?.photoUrl === null && !after?.photo, `status ${r.status}`);
-    const gone = await fetch(photoJson.photoUrl, { cache: 'no-store' });
+    // The public R2 domain sits behind Cloudflare's edge cache, which keeps serving a deleted
+    // object for a while — ask past the cache (a fresh query string) to see the bucket itself.
+    const gone = await fetch(`${photoJson.photoUrl}?gone=${Date.now()}`, { cache: 'no-store' });
     check('selfie object deleted from R2', gone.status === 404 || gone.status === 403, `status ${gone.status}`);
   }
 
