@@ -47,7 +47,11 @@ export type TheCodePlayAction =
   /** The family's full arrangement, one letter per phrase position. */
   | { type: 'open'; arrangement: string[] }
   /** Start the next suitcase from the summary screen (no gnome scanned). */
-  | { type: 'newSuitcase' };
+  | { type: 'newSuitcase' }
+  /** "עריכת הקבוצה" from the profile sheet, any time in the game. Same name rules as
+   *  register (error 'invalidName'); at least one field. The selfie itself goes through
+   *  POST/DELETE /api/thecode/photo. */
+  | { type: 'updateProfile'; familyName?: string; emoji?: string };
 
 export interface TheCodePlayRequest {
   /** The adventure = the code document id. */
