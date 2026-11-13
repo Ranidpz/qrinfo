@@ -31,18 +31,19 @@ const nextConfig: NextConfig = {
       ),
       // The public viewer may be framed by the TVzone signage player (a game on a TV screen with a
       // USB buzzer). Only these origins - every other route keeps X-Frame-Options: SAMEORIGIN below.
-      {
-        source: '/v/:path*',
+      // The big screen (/lobby/…, e.g. קוד הגמדים) may run inside the same TVzone player.
+      ...['/v/:path*', '/lobby/:path*'].map((source) => ({
+        source,
         headers: [
           {
             key: 'Content-Security-Policy',
             value: "frame-ancestors 'self' https://tvzone.playzones.app https://bindexcloud.playzones.app http://localhost:3200"
           },
         ],
-      },
+      })),
       {
-        // Clickjacking protection on every route except /v/ (framing there is governed by the CSP above)
-        source: '/((?!v/).*)',
+        // Clickjacking protection on every route except /v/ and /lobby/ (framing there is governed by the CSP above)
+        source: '/((?!v/|lobby/).*)',
         headers: [
           {
             key: 'X-Frame-Options',

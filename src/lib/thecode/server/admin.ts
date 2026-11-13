@@ -24,6 +24,8 @@ import type {
 import { DEFAULT_THECODE_RULES, resolveRules } from '../engine';
 import { letterOfAnswer } from '../letters';
 import { HOW_TO_PLAY_LIMITS } from '../howToPlay';
+import { resolveSelfie } from '../selfie';
+import { normalizeLobby } from './lobby';
 
 export const THECODE_LIMITS = {
   spots: 60,
@@ -179,7 +181,9 @@ function arr(v: unknown, max: number, what: string): unknown[] {
 export function normalizeAdventure(
   configIn: unknown,
   riddlesIn: unknown,
-  stored: Pick<TheCodeConfig, 'gnomes'> | null
+  stored: Pick<TheCodeConfig, 'gnomes'> | null,
+  /** `videoBase` = our R2 public URL; big-screen videos must live there (absent = none accepted). */
+  opts: { videoBase?: string | null } = {}
 ): TheCodeNormalizeResult {
   try {
     if (!isObj(configIn)) throw new Bad('config missing');
@@ -306,6 +310,10 @@ export function normalizeAdventure(
       if (welcome) branding.welcomeText = welcome;
       if (Object.keys(branding).length) config.branding = branding;
     }
+    // Selfies are always stored resolved (on/off + 1–90 days), so every reader agrees.
+    config.selfie = resolveSelfie({ selfie: isObj(c.selfie) ? (c.selfie as unknown as TheCodeConfig['selfie']) : undefined });
+    const lobby = normalizeLobby(c.lobby, opts.videoBase);
+    if (lobby) config.lobby = lobby;
     return { ok: true, config, riddles, newGnomeIds, droppedRiddles };
   } catch (e) {
     if (e instanceof Bad) return { ok: false, reason: e.message };

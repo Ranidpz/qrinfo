@@ -138,6 +138,13 @@ service cloud.firestore {
       match /thecodePlayers/{playerId} {
         allow read, write: if false;
       }
+      // The big screen's live doc (TheCodeLobbyLive: scan counter, recent banners, video URLs).
+      // PUBLIC read — the lobby listens with onSnapshot; it holds no answers, phrases, phones or
+      // recovery codes. Written only by the Admin SDK (/api/thecode/*).
+      match /thecodeLobby/{docId} {
+        allow read: if true;
+        allow write: if false;
+      }
 
       // Q.Vote XP + packs: voters' XP / opened packs and the producer's prize pool.
       // FULLY locked — voters use /api/qvote/vote, /api/qvote/xp, /api/qvote/pack/open;
@@ -371,6 +378,11 @@ service cloud.firestore {
     // "הקוד" gnome-code index: QR slug / manual code → { codeId, gnomeId }. Admin SDK only
     // (/api/thecode/gnome, /api/thecode/play, /api/thecode/admin keeps it in sync).
     match /thecodeGnomeCodes/{code} {
+      allow read, write: if false;
+    }
+
+    // "קוד הגמדים" selfie index: one doc per R2 selfie, for the daily retention sweep. Admin SDK only.
+    match /thecodeSelfies/{selfieId} {
       allow read, write: if false;
     }
 

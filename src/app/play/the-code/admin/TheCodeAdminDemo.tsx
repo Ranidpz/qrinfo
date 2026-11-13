@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminShell from '@/components/thecode/admin/AdminShell';
 import type { AdminState } from '@/components/thecode/admin/model';
-import { createDemoActions, createDemoState, demoUploadImage, phraseCoverage, validateAdventure } from '@/components/thecode/demo/adminDemo';
+import { createDemoActions, createDemoState, demoUploadImage, demoUploadVideo, phraseCoverage, validateAdventure } from '@/components/thecode/demo/adminDemo';
 import TheCodeLiveAdmin from '@/components/thecode/adminLive/TheCodeLiveAdmin';
 import { createMemoryTransport, type MemoryServerControls } from '@/components/thecode/adminLive/memoryTransport';
 import { DEFAULT_THECODE_RULES } from '@/lib/thecode/engine';
@@ -44,6 +44,7 @@ function Demo() {
       actions={actions}
       coverageOf={coverageOf}
       uploadImage={demoUploadImage}
+      uploadVideo={demoUploadVideo}
       resetLabel="התחילו מחדש עם נתוני הדוגמה"
       badge={<span className="hidden rounded-full bg-warning/15 px-2.5 py-0.5 text-sm font-medium text-amber-700 sm:inline dark:text-amber-400">הדגמה — שום דבר לא נשמר</span>}
     />

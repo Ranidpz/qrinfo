@@ -6,7 +6,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { TheCodeIssue } from '@/types/thecode';
-import type { AdminActions, AdminLinks, AdminRefresh, AdminState, AdventureReport, ImageUploader, PhraseCoverage, ScreenProps } from './model';
+import type { AdminActions, AdminLinks, AdminRefresh, AdminState, AdventureReport, ImageUploader, PhraseCoverage, VideoUploader, ScreenProps } from './model';
 import { fixLabel, targetForIssue, type AdminTab, type AdminTarget } from './nav';
 import { IconButton, cx } from './ui';
 import OverviewScreen from './OverviewScreen';
@@ -39,6 +39,7 @@ export interface AdminShellProps {
   /** Shown as a small tag in the header (e.g. "הדגמה", or the live save state). */
   badge?: ReactNode;
   uploadImage: ImageUploader;
+  uploadVideo: VideoUploader;
   links?: AdminLinks;
   refresh?: AdminRefresh;
   /** A message above every screen (save conflict, refused publish …). */
@@ -60,7 +61,7 @@ export interface AdminNotice {
 }
 
 export default function AdminShell({
-  state, report, actions, coverageOf, badge, uploadImage, links, refresh, notice, resetLabel, scrollRef,
+  state, report, actions, coverageOf, badge, uploadImage, uploadVideo, links, refresh, notice, resetLabel, scrollRef,
 }: AdminShellProps) {
   const [target, setTarget] = useState<AdminTarget>({ tab: 'overview' });
   const [checked, setChecked] = useState(false);
@@ -90,7 +91,7 @@ export default function AdminShell({
     document.documentElement.classList.toggle('dark', next);
   };
 
-  const props: ScreenProps = { state, report, actions, navigate, target, coverageOf, now, uploadImage, links, refresh };
+  const props: ScreenProps = { state, report, actions, navigate, target, coverageOf, now, uploadImage, uploadVideo, links, refresh };
   const tab = target.tab;
 
   return (

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/qgames-reset",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/thecode-selfies",
+      "schedule": "0 3 * * *"
     }
   ],
   "git": {

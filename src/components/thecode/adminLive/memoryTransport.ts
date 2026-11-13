@@ -7,6 +7,7 @@ import type { TheCodeAdminLoadResponse, TheCodeAdminSaveResponse } from '@/types
 import type { TheCodeConfig, TheCodeRiddle } from '@/types/thecode';
 import { validateAdventure, canPublish } from '@/lib/thecode/engine';
 import { letterOfAnswer } from '@/lib/thecode/letters';
+import { resolveSelfie } from '@/lib/thecode/selfie';
 import { newGnomeCode, newManualCode } from '@/components/thecode/admin/reducer';
 import type { TheCodeAdminTransport } from './transport';
 
@@ -41,6 +42,12 @@ function normalize(config: TheCodeConfig, riddles: TheCodeRiddle[]) {
   if (c.howToPlay) {
     const lines = c.howToPlay.map((l) => l.replace(/\s+/g, ' ').trim().slice(0, 160)).filter(Boolean).slice(0, 8);
     c.howToPlay = lines.length ? lines : undefined;
+  }
+  // Like the server: selfie clamped through resolveSelfie, lobby videos without empty slots.
+  if (c.selfie) c.selfie = resolveSelfie(c);
+  if (c.lobby) {
+    const v = Object.fromEntries(Object.entries(c.lobby.videos || {}).filter(([, u]) => typeof u === 'string' && u.trim()));
+    c.lobby = Object.keys(v).length ? { videos: v } : undefined;
   }
   const r = clone(riddles).map((x) => ({ ...x, text: x.text.trim(), answerWord: x.answerWord.trim(), letter: letterOfAnswer(x.answerWord), hints: x.hints.map((h) => h.trim()).filter(Boolean) }));
   return { config: c, riddles: r };
@@ -84,6 +91,23 @@ export function createMemoryTransport(initial: TheCodeAdminLoadResponse): { tran
       db.players = db.players.filter((p) => p.id !== req.playerId);
       return { ok: true };
     },
+    async removePhoto(req) {
+      await wait();
+      db.players = db.players.map((p) => (p.id === req.playerId ? { ...p, photoUrl: undefined } : p));
+      return { ok: true };
+    },
+    uploadLobbyVideo: (_codeId, _slot, file, onProgress) =>
+      new Promise((resolve) => {
+        let f = 0;
+        const t = setInterval(() => {
+          f = Math.min(1, f + 0.1);
+          onProgress(f);
+          if (f >= 1) {
+            clearInterval(t);
+            resolve(URL.createObjectURL(file));
+          }
+        }, 150);
+      }),
     uploadImage: (_codeId, file, onProgress) =>
       new Promise((resolve) => {
         let f = 0;

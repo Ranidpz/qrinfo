@@ -6,8 +6,9 @@ import type { ScreenProps } from './model';
 import { Card, Field, NumberInput, ScreenHeader, Segmented, ToggleRow } from './ui';
 import BrandingCard from './BrandingCard';
 import HowToPlayCard from './HowToPlayCard';
+import { BigScreenCard, SelfieCard } from './LobbyCards';
 
-export default function SettingsScreen({ state, actions, report, uploadImage }: ScreenProps) {
+export default function SettingsScreen({ state, actions, report, uploadImage, uploadVideo, links }: ScreenProps) {
   const { config } = state;
   const r = config.rules;
   const rule = (key: keyof TheCodeRules) => (n: number) => actions.updateRules({ [key]: n });
@@ -23,6 +24,14 @@ export default function SettingsScreen({ state, actions, report, uploadImage }: 
 
       <div id="how-to-play" className="scroll-mt-32">
         <HowToPlayCard state={state} actions={actions} />
+      </div>
+
+      <div id="selfie" className="scroll-mt-32">
+        <SelfieCard state={state} actions={actions} />
+      </div>
+
+      <div id="big-screen" className="scroll-mt-32">
+        <BigScreenCard state={state} actions={actions} uploadVideo={uploadVideo} links={links} />
       </div>
 
       <Section title="כללי">
