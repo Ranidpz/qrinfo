@@ -285,3 +285,23 @@ Product follow-ups:
   WhatsApp verification, reception redemption (wave 3).
 - Deleting a code does not yet remove its `thecode*` data and gnome-code index.
 - Server notes for integrators: `docs/THE_CODE_SERVER_NOTES.md`.
+
+## Wave 3 — big screen live + group selfies (approved by Rani 13.11.2026)
+
+Demo approved: `src/app/play/the-code/lobby/TheCodeLobbyDemo.tsx` (branch `claude/thecode-player-live-86227e`).
+Contract: `TheCodeSelfieSettings`, `TheCodeLobbySettings`, `TheCodePlayer.photo` (src/types/thecode.ts);
+`TheCodeLobbyEvent`, `TheCodeLobbyLive`, lobby-scan + photo endpoints, `photoUrl` on views/rows
+(src/types/thecode-api.ts); `src/lib/thecode/selfie.ts` (resolveSelfie, selfieExpired).
+
+Rani's decisions:
+- Videos: three full-screen slots (idle loop → explain once on a scan of the on-screen QR → "צאו לדרך!" →
+  after loop). WITH sound; short clips, ≤ 100 MB. A scan while the explainer runs never restarts it (only a
+  "joined meanwhile" counter); no cooldown after it. Browsers need one tap for sound → a one-time
+  "הפעלת קול" button; inside TVzone (Android TV) the player may allow autoplay with sound.
+- The big screen may run inside TVzone → `/lobby/:path*` must become frameable like `/v/` (next.config.ts).
+- Board: top 10. Rank changes are computed by the lobby (compare boards), not stored as events.
+- Selfies: camera only, consent line before the shot, shown instead of the emoji (phone, board, admin).
+  Operator: on/off, retention 1–90 days (default 14), remove a group's photo. Daily sweep (Vercel cron)
+  deletes expired photos from R2 + clears `photo`. Deleting a group deletes its photo.
+- Live: public doc `codes/{id}/thecodeLobby/live` (read true / write false) — needs a RULES DEPLOY to both
+  projects, with Rani's explicit OK at release time.
