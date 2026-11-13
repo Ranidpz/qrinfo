@@ -4,7 +4,7 @@
 
 import { CountUp, HintCard, ScreenBody, StarCoin } from './ui';
 import type { TheCodeBranding } from '@/types/thecode';
-import { BrandLogo } from './Branding';
+import { BrandLogo, brandingLayout } from './Branding';
 import type { NetworkProblem, PlayerProfileView } from './types';
 
 function BigIcon({ children }: { children: string }) {
@@ -85,7 +85,7 @@ export function NetworkErrorScreen({ onRetry, problem = 'offline', retryInSecond
 export function LoadingScreen({ branding, venueName = '' }: { branding?: TheCodeBranding | null; venueName?: string }) {
   return (
     <ScreenBody className="items-center justify-center gap-6 text-center">
-      {branding?.logoUrl && <div className="w-full"><BrandLogo url={branding.logoUrl} name={venueName} /></div>}
+      {branding?.logoUrl && !brandingLayout(branding).logo && <div className="w-full"><BrandLogo url={branding.logoUrl} name={venueName} /></div>}
       <span aria-hidden className="tc-spin h-16 w-16 rounded-full border-[6px] border-white/15 border-t-[var(--tc-brass)]" />
       <p className="tc-display text-2xl" style={{ color: 'var(--tc-soft)' }}>מעירים את הגמדים…</p>
     </ScreenBody>

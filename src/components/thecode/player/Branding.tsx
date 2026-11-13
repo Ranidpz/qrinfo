@@ -2,13 +2,59 @@
 
 // The venue's brand on the OPENING screen only (register / recover / loading in front of it):
 // a full-bleed photo with a scrim strong enough for white text on any photo, the venue logo,
-// and a quiet "Powered by Playzone". Once the family is in, the game keeps its own look.
+// and a quiet "Powered by The Q". Once the group is in, the game keeps its own look.
 // Plain <img> (R2 URLs); every image may still be loading or may fail — the screen never
 // waits for it and falls back to the game's night background.
 
 import { useState, type CSSProperties } from 'react';
 import type { TheCodeBranding } from '@/types/thecode';
 import { READABLE_LARGE, contrastOn, isHexColor, luminance, worstContrast } from '@/lib/thecode/contrast';
+
+const clamp = (v: unknown, lo: number, hi: number, dflt: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
+};
+
+export interface BrandingLayout {
+  /** For the background <img>/<video> (object-fit: cover): the framing the venue chose. */
+  media: CSSProperties;
+  /** The logo floating at the venue's spot (absolute, centred on the point), or null = the
+   *  default in-flow logo at the top, exactly as before. */
+  logo: CSSProperties | null;
+  /** Max size of the logo image itself (default 96px tall, 45% wide, × logoScale). */
+  logoImg: CSSProperties;
+}
+
+/**
+ * Where the background and the logo sit (Rani 13.11.2026: drag + zoom the photo, move + resize
+ * the logo). Shared with the admin's phone preview so it draws exactly the same thing.
+ * Absent fields → today's look: centred cover photo, logo at the top in the page flow.
+ */
+export function brandingLayout(b?: TheCodeBranding | null): BrandingLayout {
+  const media: CSSProperties = {};
+  if (b?.backgroundFocus || b?.backgroundZoom) {
+    const fx = clamp(b.backgroundFocus?.x, 0, 100, 50);
+    const fy = clamp(b.backgroundFocus?.y, 0, 100, 50);
+    const zoom = clamp(b.backgroundZoom, 1, 3, 1);
+    media.objectPosition = `${fx}% ${fy}%`;
+    if (zoom !== 1) {
+      media.transform = `scale(${zoom})`;
+      media.transformOrigin = `${fx}% ${fy}%`;   // zoom grows from the point kept in view
+    }
+  }
+  const scale = clamp(b?.logoScale, 0.5, 2.5, 1);
+  const logoImg: CSSProperties = { maxHeight: `${Math.round(96 * scale)}px`, maxWidth: `${Math.round(45 * scale)}%`, width: 'auto', height: 'auto' };
+  let logo: CSSProperties | null = null;
+  if (b?.logoUrl && (b.logoPosition || b.logoScale !== undefined)) {
+    // a placed logo gets a real height (an SVG/PNG without intrinsic size would collapse to 0);
+    // object-contain keeps its proportions inside the box
+    logoImg.height = logoImg.maxHeight;
+    const lx = clamp(b.logoPosition?.x, 0, 100, 50);
+    const ly = clamp(b.logoPosition?.y, 0, 100, 12);
+    logo = { position: 'absolute', left: `${lx}%`, top: `${ly}%`, transform: 'translate(-50%, -50%)', width: '100%', display: 'flex', justifyContent: 'center' };
+  }
+  return { media, logo, logoImg };
+}
 
 /** The game's own night colour — what the scrim over a photo / video amounts to for contrast. */
 const NIGHT = '#0B1030';
@@ -74,7 +120,7 @@ export const DARK_CHROME: CSSProperties = {
 const SCRIM = 'linear-gradient(180deg, rgba(6,9,30,.6) 0%, rgba(6,9,30,.45) 18%, rgba(6,9,30,.8) 40%, rgba(6,9,30,.93) 65%, rgba(6,9,30,.97) 100%)';
 
 /** Whatever fills the opening screen: colour, gradient, photo (+scrim) or a muted looping video (+scrim). */
-export function OpeningBackdrop({ look }: { look: OpeningLook }) {
+export function OpeningBackdrop({ look, mediaStyle }: { look: OpeningLook; mediaStyle?: CSSProperties }) {
   const [videoFailed, setVideoFailed] = useState<string | null>(null);
   if (look.kind === 'color') return <div aria-hidden className="pointer-events-none absolute inset-0 z-0" style={{ background: look.color }} />;
   if (look.kind === 'gradient') return <div aria-hidden className="pointer-events-none absolute inset-0 z-0" style={{ background: `linear-gradient(180deg, ${look.from}, ${look.to})` }} />;
@@ -82,25 +128,25 @@ export function OpeningBackdrop({ look }: { look: OpeningLook }) {
     return (
       <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         <video src={look.videoUrl} autoPlay muted loop playsInline preload="auto" onError={() => setVideoFailed(look.videoUrl!)}
-          className="tc-a-fade absolute inset-0 h-full w-full object-cover" />
+          className="tc-a-fade absolute inset-0 h-full w-full object-cover" style={mediaStyle} />
         <div className="absolute inset-0" style={{ background: SCRIM }} />
       </div>
     );
   }
   // a video that failed falls back to the photo when there is one, else the night sky
   const photo = look.kind === 'image' ? look.imageUrl : look.kind === 'video' ? look.imageUrl : undefined;
-  return <BrandBackdrop url={photo} />;
+  return <BrandBackdrop url={photo} mediaStyle={mediaStyle} />;
 }
 
 /** Full-bleed venue photo + scrim, absolutely filling the nearest positioned parent. */
-export function BrandBackdrop({ url }: { url?: string }) {
+export function BrandBackdrop({ url, mediaStyle }: { url?: string; mediaStyle?: CSSProperties }) {
   const [failed, setFailed] = useState<string | null>(null);
   if (!url || failed === url) return null;
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt="" decoding="async" onError={() => setFailed(url)}
-        className="tc-a-fade absolute inset-0 h-full w-full object-cover object-center" />
+        className="tc-a-fade absolute inset-0 h-full w-full object-cover object-center" style={mediaStyle} />
       <div className="absolute inset-0"
         style={{ background: SCRIM }} />
     </div>
@@ -108,7 +154,7 @@ export function BrandBackdrop({ url }: { url?: string }) {
 }
 
 /** The venue logo, centred; hides itself when the image is broken. */
-export function BrandLogo({ url, name }: { url?: string; name: string }) {
+export function BrandLogo({ url, name, imgStyle }: { url?: string; name: string; imgStyle?: CSSProperties }) {
   const [failed, setFailed] = useState<string | null>(null);
   if (!url || failed === url) return null;
   return (
@@ -116,19 +162,19 @@ export function BrandLogo({ url, name }: { url?: string; name: string }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt={name} decoding="async" onError={() => setFailed(url)}
         className="tc-a-pop block max-h-24 max-w-[45%] object-contain"
-        style={{ filter: 'drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 8px rgba(255,255,255,.45)) drop-shadow(0 4px 14px rgba(0,0,0,.55))' }} />
+        style={{ ...imgStyle, filter: 'drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 8px rgba(255,255,255,.45)) drop-shadow(0 4px 14px rgba(0,0,0,.55))' }} />
     </div>
   );
 }
 
-/** "Powered by Playzone" — small and quiet, opening screen only. */
+/** "Powered by The Q" → the site's home page in a new tab. Small and quiet, opening screen only. */
 export function PoweredBy() {
   return (
-    <a href="/" target="_blank" rel="noopener" dir="ltr"
+    <a href="https://qr.playzones.app" target="_blank" rel="noopener" dir="ltr"
       className="mx-auto flex min-h-[32px] select-none items-center justify-center gap-1.5 text-[11px] transition-opacity hover:opacity-100"
       style={{ color: 'var(--tc-soft)', opacity: 0.75 }}>
       <span>Powered by</span>
-      <span className="font-bold tracking-tight" style={{ color: 'var(--tc-cream)' }}>Playzone</span>
+      <span className="font-bold tracking-tight" style={{ color: 'var(--tc-cream)' }}>The Q</span>
       <svg width="10" height="11" viewBox="0 0 10 11" aria-hidden>
         <path d="M0 0.8 L10 5.5 L0 10.2 Z" fill="var(--tc-brass)" />
       </svg>

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeBranding } from '@/types/thecode';
-import { BrandLogo, PoweredBy, openingLook } from './Branding';
+import { BrandLogo, PoweredBy, brandingLayout, openingLook } from './Branding';
 import type { CSSProperties } from 'react';
 import { HowToPlayButton } from './HowToPlaySheet';
 import { Avatar } from './Avatar';
@@ -57,7 +57,9 @@ export default function RegisterScreen(p: Props) {
   const usingPhoto = !!photo && emoji === photo.preview;
   const [selfieStep, setSelfieStep] = useState<'consent' | null>(null);
   const canGo = name.trim().length >= 2;
-  const logo = p.branding?.logoUrl;
+  // A logo the venue placed itself floats over the screen (TheCodePlayer); else it sits in the flow here.
+  const placed = !!brandingLayout(p.branding).logo;
+  const logo = placed ? undefined : p.branding?.logoUrl;
   const look = openingLook(p.branding);
   const branded = look.kind !== 'none' || !!logo;
   // Top corner, so it is on screen without scrolling and never competes with "יוצאים לדרך".
@@ -67,8 +69,8 @@ export default function RegisterScreen(p: Props) {
     return (
       <ScreenBody className="items-stretch justify-center gap-6">
         {howTo}
-        <BrandLogo url={p.branding?.logoUrl} name={p.venueName} />
-        <CodeTitle small={!p.branding?.logoUrl} smaller={!!p.branding?.logoUrl} look={look.text} />
+        <BrandLogo url={logo} name={p.venueName} imgStyle={brandingLayout(p.branding).logoImg} />
+        <CodeTitle small={!logo} smaller={!!logo} look={look.text} />
         <div className="tc-a-rise text-center">
           <h2 className="tc-display text-3xl">כבר שיחקתם אצלנו?</h2>
           <p className="mt-2 text-lg" style={{ color: 'var(--tc-soft)' }}>הקלידו את קוד השחזור של הקבוצה, והנקודות והמזוודות יחזרו אליכם.</p>
@@ -104,7 +106,7 @@ export default function RegisterScreen(p: Props) {
     <>
     <ScreenBody className="items-stretch gap-5">
       {howTo}
-      {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} /></div>}
+      {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} imgStyle={brandingLayout(p.branding).logoImg} /></div>}
       {p.firstGnome ? (
         <div className="tc-a-rise mt-2 flex items-center gap-4">
           <GnomeStage gnome={p.firstGnome} size={84} />

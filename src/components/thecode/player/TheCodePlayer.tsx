@@ -15,7 +15,7 @@ import { AlreadySolvedScreen, CorrectScreen, GnomeAsleepScreen, RiddleScreen, Ta
 import { ArrangeScreen, SuitcaseScreen, SummaryScreen } from './FinaleScreens';
 import { AllDoneScreen, InAppBrowserScreen, LoadingScreen, NetworkErrorScreen, NotFoundScreen, PausedScreen } from './StatusScreens';
 import ScannerScreen from './ScannerScreen';
-import { DARK_CHROME, OpeningBackdrop, openingLook } from './Branding';
+import { BrandLogo, DARK_CHROME, OpeningBackdrop, brandingLayout, openingLook } from './Branding';
 import { Avatar } from './Avatar';
 import HowToPlaySheet, { HowToPlayButton } from './HowToPlaySheet';
 import { avatarOf, type PlayerCallbacks, type PlayerScreen, type PlayerState } from './types';
@@ -167,6 +167,7 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
   // The venue's photo is the OPENING screen's (register / recover / loading); the game keeps our look.
   const opening = state.screen.kind === 'register' || state.screen.kind === 'loading';
   const look = openingLook(state.branding);
+  const layout = brandingLayout(state.branding);
   const showOpening = opening && look.kind !== 'none';
 
   // "איך משחקים": a pure overlay — the game underneath keeps its place.
@@ -204,7 +205,13 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
       <div dir="rtl" lang="he" className={`tc-root flex flex-col ${alarm ? 'tc-alarm' : ''}`} onPointerDown={() => gameSfx().unlock()}>
         <div className="tc-stars" aria-hidden />
         {/* Covers the stars once loaded; a broken photo simply leaves the night sky. */}
-        {showOpening && <OpeningBackdrop look={look} />}
+        {showOpening && <OpeningBackdrop look={look} mediaStyle={layout.media} />}
+        {/* the venue placed its logo itself: it floats at that spot over the opening screen */}
+        {opening && layout.logo && (
+          <div className="pointer-events-none absolute z-20" style={layout.logo}>
+            <BrandLogo url={state.branding?.logoUrl} name={state.venueName} imgStyle={layout.logoImg} />
+          </div>
+        )}
         {showHeader && (
           <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onMute={() => { callbacks.onToggleMute(); }} onHowTo={howToOpen} />
         )}
