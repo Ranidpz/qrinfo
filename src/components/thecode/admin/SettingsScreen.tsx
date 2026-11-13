@@ -19,7 +19,7 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
       <ScreenHeader title="הגדרות" summary="השינויים נשמרים מיד." />
 
       <div id="branding" className="scroll-mt-32">
-        <BrandingCard state={state} actions={actions} uploadImage={uploadImage} />
+        <BrandingCard state={state} actions={actions} uploadImage={uploadImage} uploadVideo={uploadVideo} />
       </div>
 
       <div id="how-to-play" className="scroll-mt-32">

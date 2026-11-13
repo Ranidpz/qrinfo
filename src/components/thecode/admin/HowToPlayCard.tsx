@@ -6,6 +6,7 @@ import { resolveRules } from '@/lib/thecode/engine';
 import { HOW_TO_PLAY_LIMITS, defaultHowToPlay, resolveHowToPlay } from '@/lib/thecode/howToPlay';
 import type { ScreenProps } from './model';
 import { Button, Card, IconButton, Pill, cx } from './ui';
+import { normalizeHex, readableOn } from './colors';
 
 const { lines: MAX_LINES, line: MAX_CHARS } = HOW_TO_PLAY_LIMITS;
 
@@ -67,6 +68,12 @@ export default function HowToPlayCard({ state, actions }: Pick<ScreenProps, 'sta
         )}
       </div>
 
+      <ThemePicker
+        value={config.howToPlayTheme ?? 'night'}
+        brandColor={normalizeHex(config.branding?.buttonColor)}
+        onChange={(howToPlayTheme) => actions.updateConfig({ howToPlayTheme: howToPlayTheme === 'night' ? undefined : howToPlayTheme })}
+      />
+
       <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div className="min-w-0">
           {draft ? (
@@ -108,7 +115,11 @@ export default function HowToPlayCard({ state, actions }: Pick<ScreenProps, 'sta
 
         <div className="flex flex-col items-center">
           <span className="mb-2 text-sm font-medium text-text-secondary">כך זה נראה בטלפון</span>
-          <SheetPreview lines={draft ? draft.map((l) => l.text).filter((t) => t.trim()) : shown} fallback={defaultHowToPlay(rules, config.language)} />
+          <SheetPreview
+            lines={draft ? draft.map((l) => l.text).filter((t) => t.trim()) : shown}
+            fallback={defaultHowToPlay(rules, config.language)}
+            theme={sheetTheme(config.howToPlayTheme, normalizeHex(config.branding?.buttonColor))}
+          />
         </div>
       </div>
     </Card>
@@ -261,18 +272,79 @@ function Editor({
   );
 }
 
-function SheetPreview({ lines, fallback }: { lines: string[]; fallback: string[] }) {
+type ThemeId = 'night' | 'light' | 'brand';
+
+interface SheetTheme {
+  sheet: string;
+  text: string;
+  number: string;
+}
+
+/** Ready-made, always readable looks for the sheet ('brand' needs a button colour; else night). */
+export function sheetTheme(id: ThemeId | undefined, brandColor: string | undefined): SheetTheme {
+  if (id === 'light') return { sheet: '#FFFFFF', text: '#18181B', number: '#059669' };
+  if (id === 'brand' && brandColor) {
+    const text = readableOn(brandColor);
+    return { sheet: brandColor, text, number: text };
+  }
+  return { sheet: '#111827', text: '#F9FAFB', number: '#34D399' };
+}
+
+const THEMES: { id: ThemeId; label: string }[] = [
+  { id: 'night', label: 'לילה' },
+  { id: 'light', label: 'בהיר' },
+  { id: 'brand', label: 'בצבעי המותג' },
+];
+
+function ThemePicker({ value, brandColor, onChange }: { value: ThemeId; brandColor?: string; onChange: (t: ThemeId) => void }) {
+  return (
+    <div className="mt-5">
+      <span className="mb-2 block text-sm font-medium">ערכת צבעים</span>
+      <div role="radiogroup" aria-label="ערכת צבעים" className="flex flex-wrap gap-2">
+        {THEMES.map((t) => {
+          const off = t.id === 'brand' && !brandColor;
+          const th = sheetTheme(t.id, brandColor);
+          const active = value === t.id && !off;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              disabled={off}
+              onClick={() => onChange(t.id)}
+              className={cx(
+                'flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors',
+                active ? 'border-accent bg-accent/10 text-accent' : 'border-border hover:bg-bg-hover',
+                off && 'cursor-not-allowed opacity-50 hover:bg-transparent'
+              )}
+            >
+              <span className="flex size-6 items-center justify-center rounded-md text-[10px] font-bold ring-1 ring-border" style={{ background: off ? '#D4D4D8' : th.sheet, color: th.number }} aria-hidden>
+                1.
+              </span>
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+      {!brandColor && <p className="mt-1.5 text-sm text-text-secondary">כדי להשתמש ב&quot;בצבעי המותג&quot;, בחרו קודם צבע כפתור בכרטיס &quot;מיתוג המקום&quot;.</p>}
+      {value === 'brand' && !brandColor && <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">בינתיים הקבוצות רואות את ערכת &quot;לילה&quot;.</p>}
+    </div>
+  );
+}
+
+function SheetPreview({ lines, fallback, theme }: { lines: string[]; fallback: string[]; theme: SheetTheme }) {
   const list = lines.length ? lines : fallback;
   return (
     <div dir="rtl" className="relative h-[400px] w-[200px] overflow-hidden rounded-[1.8rem] border-[6px] border-zinc-800 bg-zinc-700 shadow-xl" aria-label="תצוגה מקדימה של איך משחקים">
       <div className="absolute inset-x-0 top-2 mx-auto h-3.5 w-16 rounded-full bg-black/70" aria-hidden />
-      <div className="absolute inset-x-0 bottom-0 top-14 overflow-hidden rounded-t-2xl bg-white px-3 pt-3 text-zinc-900">
-        <div className="mx-auto mb-2 h-1 w-8 rounded-full bg-zinc-300" aria-hidden />
+      <div className="absolute inset-x-0 bottom-0 top-14 overflow-hidden rounded-t-2xl px-3 pt-3 transition-colors" style={{ background: theme.sheet, color: theme.text }}>
+        <div className="mx-auto mb-2 h-1 w-8 rounded-full opacity-30" style={{ background: theme.text }} aria-hidden />
         <div className="mb-2 text-center text-sm font-bold">איך משחקים</div>
         <ol className="space-y-1.5 text-[10.5px] leading-snug">
           {list.map((l, i) => (
             <li key={i} className="flex gap-1.5">
-              <span className="font-bold text-emerald-600">{i + 1}.</span>
+              <span className="font-bold" style={{ color: theme.number }}>{i + 1}.</span>
               <span>{l}</span>
             </li>
           ))}
