@@ -245,6 +245,51 @@ async function main() {
   const auth = r.json.auth;
   const recoveryCode = r.json.snapshot.player.recoveryCode;
 
+  // --- wave 3: the big screen's public live doc + group selfie
+  console.log('\nbig screen + selfie');
+  const liveRef = codeRef.collection('thecodeLobby').doc('live');
+  let live = (await liveRef.get()).data();
+  check('register adds a "joined" banner to the live doc', live?.events?.some((e) => e.kind === 'joined' && e.familyName === 'משפחת בדיקה'), JSON.stringify(live?.events || []).slice(0, 200));
+  check('the live doc holds no recovery code or token', !JSON.stringify(live).includes(recoveryCode) && !JSON.stringify(live).includes(auth.token));
+  const scansBefore = live?.lobbyScans || 0;
+  r = await http('POST', '/api/thecode/lobby-scan', { body: { codeId } });
+  live = (await liveRef.get()).data();
+  check('lobby-scan bumps the counter', r.status === 200 && live?.lobbyScans === scansBefore + 1 && live.lastLobbyScanAt > 0, `status ${r.status}`);
+  r = await http('POST', '/api/thecode/lobby-scan', { body: { codeId: 'notARealCode123456' } });
+  check('lobby-scan on a foreign code → 404', r.status === 404, `status ${r.status}`);
+
+  const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBPVP8 '), Buffer.alloc(64)]);
+  const form = new FormData();
+  form.set('codeId', codeId);
+  form.set('playerId', auth.playerId);
+  form.set('token', auth.token);
+  form.set('file', new Blob([webp], { type: 'image/webp' }), 'selfie.webp');
+  let photoRes = await fetch(`${BASE}/api/thecode/photo`, { method: 'POST', body: form });
+  let photoJson = await photoRes.json().catch(() => null);
+  if (photoRes.status === 503) {
+    console.log('  skip selfie checks: R2 is not configured on this server');
+  } else {
+    check('selfie upload', photoRes.status === 200 && typeof photoJson?.photoUrl === 'string', `status ${photoRes.status} ${JSON.stringify(photoJson)}`);
+    const pdoc = (await codeRef.collection('thecodePlayers').doc(auth.playerId).get()).data();
+    check('selfie stored under {ownerId}/thecode-{shortId}/selfies/', pdoc?.photo?.key?.startsWith(`${OWNER_UID}/thecode-${shortId}/selfies/${auth.playerId}-`), pdoc?.photo?.key);
+    r = await play(auth, { type: 'state' });
+    check('selfie shown in the snapshot', r.json?.snapshot?.player?.photoUrl === photoJson?.photoUrl);
+    const fetched = await fetch(photoJson.photoUrl);
+    check('selfie is publicly served from R2', fetched.ok, `status ${fetched.status}`);
+    const bad = new FormData();
+    bad.set('codeId', codeId);
+    bad.set('playerId', auth.playerId);
+    bad.set('token', auth.token);
+    bad.set('file', new Blob([Buffer.from('<svg/>')], { type: 'image/webp' }), 'x.webp');
+    photoRes = await fetch(`${BASE}/api/thecode/photo`, { method: 'POST', body: bad });
+    check('a non-image is refused by its bytes', photoRes.status === 415, `status ${photoRes.status}`);
+    r = await http('DELETE', '/api/thecode/photo', { body: { codeId, auth } });
+    const after = (await codeRef.collection('thecodePlayers').doc(auth.playerId).get()).data();
+    check('selfie removed by the group', r.status === 200 && r.json?.photoUrl === null && !after?.photo, `status ${r.status}`);
+    const gone = await fetch(photoJson.photoUrl, { cache: 'no-store' });
+    check('selfie object deleted from R2', gone.status === 404 || gone.status === 403, `status ${gone.status}`);
+  }
+
   r = await play({ playerId: auth.playerId, token: 'wrong-token' }, { type: 'state' });
   check('bad token → unauthorized', r.json?.error === 'unauthorized');
 
@@ -352,6 +397,9 @@ async function main() {
   check('right arrangement opens the suitcase', r.json?.event?.opened === true && r.json.snapshot.run.state === 'opened');
   check('suitcase bonus paid and phrase revealed', r.json.snapshot.player.points === beforeOpen + r.json.event.bonus && r.json.snapshot.run.suitcase?.phraseText === phrase.text);
   check('one suitcase counted', r.json.snapshot.player.suitcasesOpened === 1);
+  live = (await liveRef.get()).data();
+  check('opening the suitcase adds a "suitcase" banner', live?.events?.some((e) => e.kind === 'suitcase' && e.familyName === 'משפחת בדיקה'));
+  check('the live doc never holds the phrase', !JSON.stringify(live).includes(phrase.text));
   const finalPoints = r.json.snapshot.player.points;
 
   // --- second device, leaderboard, operator views
@@ -400,7 +448,9 @@ async function main() {
 
   if (CLEANUP) {
     for (const d of idx.docs) await d.ref.delete();
-    for (const sub of ['thecode', 'thecodePlayers']) {
+    const selfies = await db.collection('thecodeSelfies').where('codeId', '==', codeRef.id).get();
+    for (const d of selfies.docs) await d.ref.delete();
+    for (const sub of ['thecode', 'thecodePlayers', 'thecodeLobby']) {
       const docs = await codeRef.collection(sub).get();
       for (const d of docs.docs) await d.ref.delete();
     }

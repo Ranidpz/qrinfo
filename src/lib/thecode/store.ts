@@ -6,6 +6,8 @@
  *   codes/{codeId}/thecode/stats       blind FieldValue.increment counters (never read in play)
  *   codes/{codeId}/thecodePlayers/{id} TheCodePlayer + tokenHashes, week, originalName, rate, expireAt
  *   thecodeGnomeCodes/{code}           { codeId, gnomeId } for the QR slug AND the manual code
+ *   thecodeSelfies/{sha(key)}          { codeId, playerId, key, takenAt } — one per R2 selfie, for the daily sweep
+ *   codes/{codeId}/thecodeLobby/live   PUBLIC (read true): TheCodeLobbyLive for the big screen — no secrets
  *
  * Spec: docs/THE_CODE_PLAN.md §8. Wire contract: src/types/thecode-api.ts.
  * Route behaviour for the UIs: docs/THE_CODE_SERVER_NOTES.md.
@@ -21,6 +23,7 @@ import {
   type DocumentSnapshot,
 } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { deleteR2ObjectByKey, getR2Config, getR2PublicUrl, uploadBufferToR2 } from '@/lib/r2-storage';
 import type { TheCodeAdminPlayer, TheCodeConfig, TheCodeGnomeStats, TheCodePlayer, TheCodeRiddle, TheCodeRiddleStats } from '@/types/thecode';
 import type {
   TheCodeAdminLoadResponse,
@@ -29,6 +32,8 @@ import type {
   TheCodeGnomeLookupResponse,
   TheCodeLeaderboardResponse,
   TheCodeLeaderRow,
+  TheCodeLobbyEvent,
+  TheCodeLobbyVideoUrlResponse,
   TheCodePlayAction,
   TheCodePlayError,
   TheCodePlayEvent,
@@ -54,6 +59,18 @@ import { normalizeEmoji, normalizeFamilyName } from './server/names';
 import { takeRate, type TheCodeRateWindow } from './server/rate';
 import { buildSnapshot, gnomeView, type TheCodeAdventureData } from './server/snapshot';
 import { resolveHowToPlay } from './howToPlay';
+import { resolveSelfie, selfieExpired } from './selfie';
+import {
+  appendLobbyEvents,
+  LOBBY_VIDEO_MAX_BYTES,
+  LOBBY_VIDEO_SLOTS,
+  LOBBY_VIDEO_TYPES,
+  lobbyEventFor,
+  lobbyVideosOf,
+  stripPhotoFromEvents,
+  visiblePhotoUrl,
+} from './server/lobby';
+import { presignUrl } from './server/presign';
 import { addWeekDelta, DEFAULT_WEEK_TIME_ZONE, weekKey, type TheCodeWeeks } from './server/week';
 
 /** Venue zone for active hours + weekly boards (one venue = one zone for now). */
@@ -83,6 +100,9 @@ const adventureRef = (codeId: string) => codeRef(codeId).collection('thecode').d
 const statsRef = (codeId: string) => codeRef(codeId).collection('thecode').doc('stats');
 const playersCol = (codeId: string) => codeRef(codeId).collection('thecodePlayers');
 const gnomeCodeRef = (code: string) => db().collection('thecodeGnomeCodes').doc(code);
+const lobbyRef = (codeId: string) => codeRef(codeId).collection('thecodeLobby').doc('live');
+const selfiesCol = () => db().collection('thecodeSelfies');
+const selfieIndexRef = (key: string) => selfiesCol().doc(createHash('sha256').update(key).digest('hex').slice(0, 40));
 
 export function isValidCodeId(v: unknown): v is string {
   return typeof v === 'string' && /^[A-Za-z0-9]{6,40}$/.test(v);
@@ -232,6 +252,7 @@ async function register(codeId: string, action: Extract<TheCodePlayAction, { typ
   const player = createPlayer({ id, familyName: name.name, emoji, recoveryCode, now });
   const server: PlayerServerFields = { tokenHashes: [sha256(token)], week: {} };
   await playersCol(codeId).doc(id).create(playerDoc(player, server, adv.config.retentionDays));
+  await pushLobbyEvents(codeId, [lobbyEventFor(player, 'joined', { id: lobbyEventId(id), now, selfie: resolveSelfie(adv.config) })]);
   return {
     snapshot: buildSnapshot(adv, player, now, THECODE_TIME_ZONE),
     event: { type: 'registered' },
@@ -327,6 +348,7 @@ export async function playAction(
     const gnomes = new Map(adv.config.gnomes.map((g) => [g.id, g] as const));
     let next: TheCodePlayer = before;
     let event: TheCodePlayEvent | undefined;
+    const lobbyKinds: TheCodeLobbyEvent['kind'][] = [];
     const stats: StatsUpdate = {};
     const bumpRiddle = (riddleId: string | undefined, field: keyof TheCodeRiddleStats) => {
       if (!riddleId) return;
@@ -359,6 +381,7 @@ export async function playAction(
         event = { type: 'answer', outcome: r.outcome };
         const rid = next.run?.slots[slotIndex]?.riddleId;
         if (!r.replayed && r.outcome.kind === 'correct') bumpRiddle(rid, 'correct');
+        if (!r.replayed && r.outcome.kind === 'correct' && r.outcome.becameHot) lobbyKinds.push('hot');
         if (r.outcome.kind === 'wrong') bumpRiddle(rid, 'wrong');
         break;
       }
@@ -388,6 +411,7 @@ export async function playAction(
         }
         const r = openSuitcase(before, arr, ctx);
         next = r.player;
+        if (r.outcome.kind === 'opened' && !r.outcome.replayed) lobbyKinds.push('suitcase');
         event = r.outcome.kind === 'opened'
           ? { type: 'open', opened: true, bonus: r.outcome.bonus }
           : { type: 'open', opened: false, bonus: 0 };
@@ -409,9 +433,16 @@ export async function playAction(
     server.week = addWeekDelta(server.week, weekKey(now, THECODE_TIME_ZONE), pointsDelta, suitcasesDelta);
     tx.set(playerRef, playerDoc(next, server, adv.config.retentionDays));
     if (stats.gnomes || stats.riddles) tx.set(sRef, stats, { merge: true });
-    return { adv, next, event, now };
+    return { adv, next, event, now, lobbyKinds };
   });
 
+  // Right after the commit, awaited (never fire-and-forget on Vercel). A lobby failure
+  // never fails the family's action — pushLobbyEvents logs and moves on.
+  if (result.lobbyKinds.length) {
+    const selfie = resolveSelfie(result.adv.config);
+    await pushLobbyEvents(codeId, result.lobbyKinds.map((kind) =>
+      lobbyEventFor(result.next, kind, { id: lobbyEventId(result.next.id), now: result.now, selfie })));
+  }
   return { snapshot: buildSnapshot(result.adv, result.next, result.now, THECODE_TIME_ZONE), event: result.event };
 }
 
@@ -473,6 +504,9 @@ export async function leaderboard(
   const suitcasesOf = (d: DocumentData) => (scope === 'week' ? Number(d.week?.[key]?.suitcases) || 0 : Number(d.suitcasesOpened) || 0);
 
   const order = scope === 'week' ? weekField(key, 'points') : 'points';
+  const [selfieSnap] = await db().getAll(adventureRef(codeId), { fieldMask: ['config.selfie'] });
+  const selfie = resolveSelfie({ selfie: selfieSnap.data()?.config?.selfie });
+  const now = Date.now();
   // Hidden / zero-point families are skipped, so read a few more than shown.
   const snap = await playersCol(codeId).orderBy(order, 'desc').limit(LEADER_ROWS * 3).get();
   const rows: TheCodeLeaderRow[] = [];
@@ -480,7 +514,10 @@ export async function leaderboard(
     const d = doc.data();
     const points = pointsOf(d);
     if (d.hidden || points <= 0) continue;
-    rows.push({ id: doc.id, familyName: String(d.familyName || ''), emoji: String(d.emoji || ''), points, suitcases: suitcasesOf(d) });
+    const row: TheCodeLeaderRow = { id: doc.id, familyName: String(d.familyName || ''), emoji: String(d.emoji || ''), points, suitcases: suitcasesOf(d) };
+    const photoUrl = visiblePhotoUrl(d as TheCodePlayer, selfie, now);
+    if (photoUrl) row.photoUrl = photoUrl;
+    rows.push(row);
     if (rows.length >= LEADER_ROWS) break;
   }
 
@@ -601,7 +638,7 @@ export async function saveAdventure(codeId: string, body: unknown): Promise<TheC
     const stored = readAdventure(advSnap);
     const storedVersion = stored?.version ?? 0;
     if (baseVersion !== storedVersion) return { ok: false, error: 'conflict', version: storedVersion };
-    const norm = normalizeAdventure(b.config, b.riddles, stored?.config ?? null);
+    const norm = normalizeAdventure(b.config, b.riddles, stored?.config ?? null, { videoBase: getR2Config()?.publicUrl ?? null });
     if (!norm.ok) return { ok: false, error: 'badRequest' };
     const { config, riddles } = norm;
     const issues = validateAdventure(config, riddles);
@@ -623,6 +660,8 @@ export async function saveAdventure(codeId: string, body: unknown): Promise<TheC
       nextMedia[at] = { ...media[at], thecodeConfig: toPublicConfig(config) };
       tx.update(codeRef(codeId), { media: nextMedia });
     }
+    // The big screen reads its videos from the public live doc.
+    tx.set(lobbyRef(codeId), { videos: lobbyVideosOf(config) }, { mergeFields: ['videos'] });
     return { ok: true, version, config, riddles, issues };
   });
 }
@@ -658,11 +697,255 @@ export async function patchPlayer(
     if (typeof p.hidden === 'boolean') update.hidden = p.hidden;
     if (Object.keys(update).length) tx.update(ref, update);
     return { ok: true, player: adminPlayer(snap.id, { ...d, ...update }, weekKey(Date.now(), THECODE_TIME_ZONE)) };
+  }).then(async (res) => {
+    // A hidden group leaves the big screen's banners too.
+    if (res.ok && p.hidden === true) await editLobbyEvents(codeId, (events) => removeGroupEvents(events, playerId));
+    return res;
   });
 }
 
 export async function deletePlayer(codeId: string, playerId: unknown): Promise<{ ok: true } | { ok: false; error: 'badRequest' }> {
   if (!isValidPlayerId(playerId)) return { ok: false, error: 'badRequest' };
-  await playersCol(codeId).doc(playerId).delete();
+  // The photo goes with the group: Firestore first (gone from every view at once), then R2.
+  const ref = playersCol(codeId).doc(playerId);
+  const photo = await db().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const ph = snap.data()?.photo as TheCodePlayer['photo'] | undefined;
+    if (ph?.key) tx.set(selfieIndexRef(ph.key), { takenAt: 0, removed: true }, { merge: true });
+    tx.delete(ref);
+    return ph;
+  });
+  await editLobbyEvents(codeId, (events) => removeGroupEvents(events, playerId));
+  if (photo?.key) await deleteSelfieObject(photo.key);
   return { ok: true };
+}
+
+// =================================================================
+// Big screen — public live doc
+// =================================================================
+
+/** Event ids start with the player id (already public on the board) so a group's banners can be found. */
+function lobbyEventId(playerId: string): string {
+  return `${playerId}_${drawCode(bytes, BASE62, 8)}`;
+}
+
+function removeGroupEvents(events: TheCodeLobbyEvent[], playerId: string): TheCodeLobbyEvent[] | null {
+  const out = events.filter((e) => !e.id.startsWith(`${playerId}_`));
+  return out.length === events.length ? null : out;
+}
+
+/** Read-modify-write of the live doc's events in their own small transaction. Never throws. */
+async function editLobbyEvents(codeId: string, edit: (events: TheCodeLobbyEvent[]) => TheCodeLobbyEvent[] | null): Promise<void> {
+  try {
+    const ref = lobbyRef(codeId);
+    await db().runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const events = appendLobbyEvents(snap.data()?.events, []);
+      const next = edit(events);
+      if (next) tx.set(ref, { events: next }, { merge: true });
+    });
+  } catch (error) {
+    console.error('thecode lobby events error:', error);
+  }
+}
+
+async function pushLobbyEvents(codeId: string, events: (TheCodeLobbyEvent | null)[]): Promise<void> {
+  const add = events.filter((e): e is TheCodeLobbyEvent => !!e);
+  if (!add.length) return;
+  await editLobbyEvents(codeId, (list) => appendLobbyEvents(list, add));
+}
+
+/** A scan of the QR on the big screen. False = not a thecode code. */
+export async function bumpLobbyScan(codeId: string): Promise<boolean> {
+  const codeSnap = await codeRef(codeId).get();
+  const media = (codeSnap.data()?.media || []) as { type?: string }[];
+  if (!codeSnap.exists || !media.some((m) => m?.type === 'thecode')) return false;
+  await lobbyRef(codeId).set({ lobbyScans: FieldValue.increment(1), lastLobbyScanAt: Date.now() }, { merge: true });
+  return true;
+}
+
+export type TheCodeLobbyVideoUrlResult =
+  | TheCodeLobbyVideoUrlResponse
+  | { ok: false; error: 'badRequest' | 'tooLarge' | 'notConfigured' | 'notFound' };
+
+/** Presigned direct browser → R2 PUT for one big-screen slot (owner already verified). */
+export async function lobbyVideoUploadUrl(codeId: string, body: Record<string, unknown>): Promise<TheCodeLobbyVideoUrlResult> {
+  const slot = body.slot as string;
+  const contentType = body.contentType as string;
+  const size = body.size;
+  if (!(LOBBY_VIDEO_SLOTS as readonly string[]).includes(slot) || !LOBBY_VIDEO_TYPES[contentType]) return { ok: false, error: 'badRequest' };
+  if (typeof size !== 'number' || !Number.isInteger(size) || size <= 0) return { ok: false, error: 'badRequest' };
+  if (size > LOBBY_VIDEO_MAX_BYTES) return { ok: false, error: 'tooLarge' };
+  const r2 = getR2Config();
+  if (!r2) return { ok: false, error: 'notConfigured' };
+  const code = (await codeRef(codeId).get()).data();
+  if (!code) return { ok: false, error: 'notFound' };
+  const key = `${safeSegment(code.ownerId)}/thecode-${safeSegment(code.shortId)}/lobby/${slot}-${Date.now()}-${drawCode(bytes, BASE62, 8)}.${LOBBY_VIDEO_TYPES[contentType]}`;
+  const uploadUrl = presignUrl({
+    method: 'PUT',
+    host: `${r2.accountId}.r2.cloudflarestorage.com`,
+    path: `/${r2.bucket}/${key}`,
+    accessKeyId: r2.accessKeyId,
+    secretAccessKey: r2.secretAccessKey,
+    region: 'auto',
+    headers: { 'content-type': contentType, 'content-length': String(size) },
+    expiresSeconds: 600,
+    now: new Date(),
+  });
+  return { ok: true, uploadUrl, publicUrl: getR2PublicUrl(key) };
+}
+
+function safeSegment(v: unknown): string {
+  const s = String(v ?? '').replace(/[^A-Za-z0-9_-]/g, '');
+  return s || 'x';
+}
+
+// =================================================================
+// Group selfies
+// =================================================================
+
+export type TheCodePhotoResult =
+  | { ok: true; photoUrl: string | null }
+  | { ok: false; error: TheCodePlayError | 'selfieOff' };
+
+const PHOTO_EXT: Record<string, string> = { 'image/webp': 'webp', 'image/jpeg': 'jpg' };
+
+async function deleteSelfieObject(key: string): Promise<void> {
+  try {
+    await deleteR2ObjectByKey(key);
+    await selfieIndexRef(key).delete();
+  } catch (error) {
+    // The index doc stays marked (takenAt 0) → the daily sweep retries.
+    console.error('thecode selfie delete error:', error);
+  }
+}
+
+async function forgetPhotoInLobby(codeId: string, url: string | undefined): Promise<void> {
+  if (url) await editLobbyEvents(codeId, (events) => stripPhotoFromEvents(events, (u) => u === url));
+}
+
+/**
+ * A group's new selfie (bytes already checked: type + size). Uploads to R2 first, then
+ * swaps it in one transaction; the previous photo is deleted afterwards.
+ */
+export async function setPlayerPhoto(
+  codeId: string,
+  auth: TheCodeAuth,
+  file: { bytes: Buffer; contentType: 'image/webp' | 'image/jpeg' }
+): Promise<TheCodePhotoResult> {
+  if (!isValidPlayerId(auth.playerId)) return { ok: false, error: 'unauthorized' };
+  const playerRef = playersCol(codeId).doc(auth.playerId);
+  const [codeSnap, advSnap, pSnap] = await db().getAll(codeRef(codeId), adventureRef(codeId), playerRef);
+  const adv = readAdventure(advSnap);
+  if (!codeSnap.exists || !adv) return { ok: false, error: 'notFound' };
+  if (!pSnap.exists || !tokenMatches(pSnap.data()?.tokenHashes, auth.token)) return { ok: false, error: 'unauthorized' };
+  if (!resolveSelfie(adv.config).enabled) return { ok: false, error: 'selfieOff' };
+  const code = codeSnap.data()!;
+  const key = `${safeSegment(code.ownerId)}/thecode-${safeSegment(code.shortId)}/selfies/${auth.playerId}-${drawCode(bytes, BASE62, 10)}.${PHOTO_EXT[file.contentType]}`;
+  const uploaded = await uploadBufferToR2({ key, body: file.bytes, contentType: file.contentType, cacheControl: 'public, max-age=31536000, immutable' });
+  const now = Date.now();
+  let old: TheCodePlayer['photo'] | undefined;
+  try {
+    old = await db().runTransaction(async (tx) => {
+      const snap = await tx.get(playerRef);
+      if (!snap.exists || !tokenMatches(snap.data()?.tokenHashes, auth.token)) throw new TheCodeStoreError('unauthorized', 401);
+      const prev = snap.data()?.photo as TheCodePlayer['photo'] | undefined;
+      tx.update(playerRef, { photo: { url: uploaded.url, key, takenAt: now } });
+      tx.set(selfieIndexRef(key), { codeId, playerId: auth.playerId, key, takenAt: now });
+      if (prev?.key) tx.set(selfieIndexRef(prev.key), { takenAt: 0, removed: true }, { merge: true });
+      return prev;
+    });
+  } catch (error) {
+    await deleteR2ObjectByKey(key).catch((e) => console.error('thecode selfie rollback error:', e));
+    if (error instanceof TheCodeStoreError) return { ok: false, error: 'unauthorized' };
+    throw error;
+  }
+  if (old?.key) {
+    await forgetPhotoInLobby(codeId, old.url);
+    await deleteSelfieObject(old.key);
+  }
+  return { ok: true, photoUrl: uploaded.url };
+}
+
+/** Remove a group's selfie — by the group itself (`auth`) or by the operator (no auth: route checked ownership). */
+export async function removePlayerPhoto(codeId: string, playerId: unknown, auth?: TheCodeAuth): Promise<TheCodePhotoResult> {
+  if (!isValidPlayerId(playerId)) return { ok: false, error: 'badRequest' };
+  const ref = playersCol(codeId).doc(playerId);
+  const res = await db().runTransaction(async (tx): Promise<{ error?: 'notFound' | 'unauthorized'; photo?: TheCodePlayer['photo'] }> => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return { error: auth ? 'unauthorized' : 'notFound' };
+    if (auth && !tokenMatches(snap.data()?.tokenHashes, auth.token)) return { error: 'unauthorized' };
+    const photo = snap.data()?.photo as TheCodePlayer['photo'] | undefined;
+    if (!photo) return {};
+    tx.update(ref, { photo: FieldValue.delete() });
+    if (photo.key) tx.set(selfieIndexRef(photo.key), { takenAt: 0, removed: true }, { merge: true });
+    return { photo };
+  });
+  if (res.error) return { ok: false, error: res.error };
+  if (res.photo) {
+    await forgetPhotoInLobby(codeId, res.photo.url);
+    if (res.photo.key) await deleteSelfieObject(res.photo.key);
+  }
+  return { ok: true, photoUrl: null };
+}
+
+export interface TheCodeSweepResult {
+  checked: number;
+  removed: number;
+  failed: number;
+}
+
+/**
+ * Daily: delete selfies past their adventure's retention (and removals whose R2 delete
+ * failed). R2 first — if that fails the index doc stays and the next run retries; the
+ * photo is already hidden everywhere by `visiblePhotoUrl` once it has expired.
+ */
+export async function sweepSelfies(now = Date.now(), limit = 400): Promise<TheCodeSweepResult> {
+  const out: TheCodeSweepResult = { checked: 0, removed: 0, failed: 0 };
+  // Nothing younger than the shortest retention (1 day) can be due.
+  const snap = await selfiesCol().where('takenAt', '<', now - 86_400_000).limit(limit).get();
+  const settings = new Map<string, ReturnType<typeof resolveSelfie> | null>();
+  for (const doc of snap.docs) {
+    out.checked++;
+    const d = doc.data();
+    const codeId = String(d.codeId || '');
+    const key = String(d.key || '');
+    if (!key) {
+      await doc.ref.delete();
+      continue;
+    }
+    if (!d.removed && isValidCodeId(codeId)) {
+      if (!settings.has(codeId)) {
+        const [a] = await db().getAll(adventureRef(codeId), { fieldMask: ['config.selfie'] });
+        settings.set(codeId, a.exists ? resolveSelfie({ selfie: a.data()?.config?.selfie }) : null);
+      }
+      const s = settings.get(codeId);
+      // A still-existing adventure whose retention has not passed yet → keep.
+      if (s && !selfieExpired(Number(d.takenAt) || 0, s, now)) continue;
+    }
+    try {
+      await deleteR2ObjectByKey(key);
+    } catch (error) {
+      out.failed++;
+      console.error('thecode sweep R2 error:', error);
+      continue;
+    }
+    let url: string | undefined;
+    if (isValidCodeId(codeId) && isValidPlayerId(d.playerId)) {
+      const pRef = playersCol(codeId).doc(String(d.playerId));
+      url = await db().runTransaction(async (tx) => {
+        const p = await tx.get(pRef);
+        const photo = p.data()?.photo as TheCodePlayer['photo'] | undefined;
+        if (photo?.key === key) {
+          tx.update(pRef, { photo: FieldValue.delete() });
+          return photo.url;
+        }
+        return undefined;
+      });
+      await forgetPhotoInLobby(codeId, url);
+    }
+    await doc.ref.delete();
+    out.removed++;
+  }
+  return out;
 }

@@ -28,6 +28,8 @@ import {
 } from '../engine';
 import { phraseLetters, phraseWordLengths } from '../letters';
 import { resolveHowToPlay } from '../howToPlay';
+import { resolveSelfie } from '../selfie';
+import { visiblePhotoUrl } from './lobby';
 
 export interface TheCodeAdventureData {
   config: TheCodeConfig;
@@ -38,11 +40,12 @@ export function gnomeView(g: Pick<TheCodeGnome, 'id' | 'number' | 'bodyColor' | 
   return { id: g.id, number: g.number, bodyColor: g.bodyColor, hatColor: g.hatColor };
 }
 
-function playerView(p: TheCodePlayer, hotStreakAt: number): TheCodePlayerView {
+function playerView(p: TheCodePlayer, hotStreakAt: number, photoUrl: string | undefined): TheCodePlayerView {
   return {
     id: p.id,
     familyName: p.familyName,
     emoji: p.emoji,
+    ...(photoUrl ? { photoUrl } : {}),
     recoveryCode: p.recoveryCode,
     points: p.points,
     streak: p.streak,
@@ -157,7 +160,7 @@ export function buildSnapshot(
       ...(config.branding ? { branding: config.branding } : {}),
       howToPlay: resolveHowToPlay(config, rules),
     },
-    player: player ? playerView(player, rules.hotStreakAt) : null,
+    player: player ? playerView(player, rules.hotStreakAt, visiblePhotoUrl(player, resolveSelfie(config), now)) : null,
     run: player ? runView(player, adv, now) : null,
     album: { found, total: config.gnomes.filter((g) => g.isActive).length },
     canStartNew: hasFreshSuitcase(player || empty, adv),
