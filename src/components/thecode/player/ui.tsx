@@ -14,6 +14,27 @@ import type { CollectorView, PlayerGnomeView } from './types';
 export const SfxContext = createContext<(name: SfxName) => void>(() => {});
 export const useSfx = () => useContext(SfxContext);
 
+// ------------------------------------------------ fit to the phone
+
+/**
+ * How much room the phone really leaves (iPhone Safari with its toolbars ≈ 664px of 844):
+ * 0 on a short screen (≤ 580px) … 1 on a tall one (≥ 860px). Big illustrations (suitcase, gnome,
+ * letter tile) size themselves with `fitSize(min, max)` so on a short screen THEY shrink and the
+ * news + the main action stay on screen (Rani 13.11.2026: "צריך שהכל יתאים למסך של הטלפון").
+ */
+export function useFit(): (min: number, max: number) => number {
+  const [h, setH] = useState(() => (typeof window === 'undefined' ? 844 : window.visualViewport?.height ?? window.innerHeight));
+  useEffect(() => {
+    const read = () => setH(window.visualViewport?.height ?? window.innerHeight);
+    read();
+    window.addEventListener('resize', read);
+    window.visualViewport?.addEventListener('resize', read);
+    return () => { window.removeEventListener('resize', read); window.visualViewport?.removeEventListener('resize', read); };
+  }, []);
+  const t = Math.min(1, Math.max(0, (h - 580) / 280));
+  return (min, max) => Math.round(min + (max - min) * t);
+}
+
 // ------------------------------------------------ numbers
 
 function prefersReducedMotion() {

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import { displayPhrase } from '@/lib/thecode/letters';
 import { Avatar } from './Avatar';
-import { Confetti, CountUp, HintCard, ScreenBody, Socket, StarCoin, Tile, useSfx } from './ui';
+import { Confetti, CountUp, HintCard, ScreenBody, Socket, StarCoin, Tile, useFit, useSfx } from './ui';
 import { avatarOf } from './types';
 import type { ArrangeView, LeaderRowView, PlayerProfileView, SuitcaseView, SummaryView } from './types';
 
@@ -48,18 +48,29 @@ export function ArrangeScreen({ arrange: a, onPlace, onRemove, onHelp, onOpen }:
     if (a.solved) sfx('unlock');
   }, [a.solved, sfx]);
 
+  const fit = useFit();
   const longest = Math.max(...a.wordLengths);
-  const cell = Math.min(56, Math.floor(320 / Math.max(longest, 5)));
+  const cell = Math.min(fit(46, 56), Math.floor(320 / Math.max(longest, 5)));
+  const poolTile = fit(44, 52);
   let offset = 0;
 
   return (
-    <ScreenBody className="items-center gap-5 text-center">
-      <h2 className="tc-display mt-2 text-4xl leading-tight">{a.solved ? 'הקוד נפתח!' : 'פצחו את הקוד'}</h2>
+    <ScreenBody className="items-center gap-4 text-center"
+      footer={a.solved ? (
+        <button type="button" className="tc-btn tc-btn-primary tc-a-pop w-full text-2xl" onClick={() => { sfx('tap'); onOpen(); }}>
+          <span aria-hidden>🧳</span> פתחו את המזוודה!
+        </button>
+      ) : (
+        <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => { sfx('tap'); onHelp(); }}>
+          מקמו לנו אות <span className="tc-num rounded-full bg-black/30 px-2 py-0.5 text-base" style={{ color: 'var(--tc-coral)' }}>−{a.helpCost}</span>
+        </button>
+      )}>
+      <h2 className="tc-display text-[2rem] leading-tight">{a.solved ? 'הקוד נפתח!' : 'פצחו את הקוד'}</h2>
       <p className="text-lg" style={{ color: 'var(--tc-soft)' }}>
         {a.solved ? 'זה הצירוף הסודי של המזוודה' : 'סדרו את האותיות לצירוף הסודי. הקישו על אות כדי להזיז אותה.'}
       </p>
 
-      <div key={a.wrongTick} className={`flex flex-col items-center gap-4 rounded-3xl px-4 py-5 ${a.wrongTick && !a.solved ? 'tc-a-shake' : ''}`}
+      <div key={a.wrongTick} className={`flex flex-col items-center gap-3 rounded-3xl px-4 py-4 ${a.wrongTick && !a.solved ? 'tc-a-shake' : ''}`}
         style={{ background: 'rgba(0,0,0,.25)', boxShadow: a.solved ? 'inset 0 0 0 2px var(--tc-mint), 0 0 40px rgba(54,227,154,.25)' : 'inset 0 0 0 1.5px var(--tc-line)' }}>
         {a.wordLengths.map((len, w) => {
           const start = offset;
@@ -84,11 +95,7 @@ export function ArrangeScreen({ arrange: a, onPlace, onRemove, onHelp, onOpen }:
         })}
       </div>
 
-      {a.solved ? (
-        <button type="button" className="tc-btn tc-btn-primary tc-a-pop mt-auto w-full text-2xl" onClick={() => { sfx('tap'); onOpen(); }}>
-          <span aria-hidden>🧳</span> פתחו את המזוודה!
-        </button>
-      ) : (
+      {!a.solved && (
         <>
           <div aria-live="polite" className="min-h-[1.75rem] text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>
             {full ? 'המזוודה לא נפתחה. החזירו אות ונסו סדר אחר' : ''}
@@ -97,17 +104,14 @@ export function ArrangeScreen({ arrange: a, onPlace, onRemove, onHelp, onOpen }:
             {a.pool.map((l, i) => {
               const used = a.placed.includes(i);
               return used ? (
-                <Socket key={i} size={52} />
+                <Socket key={i} size={poolTile} />
               ) : (
                 <button key={i} type="button" onClick={() => { sfx('place'); onPlace(i); }} aria-label={`הניחו את ${l}`}>
-                  <Tile letter={l} size={52} />
+                  <Tile letter={l} size={poolTile} />
                 </button>
               );
             })}
           </div>
-          <button type="button" className="tc-btn tc-btn-ghost mt-auto w-full" onClick={() => { sfx('tap'); onHelp(); }}>
-            מקמו לנו אות <span className="tc-num rounded-full bg-black/30 px-2 py-0.5 text-base" style={{ color: 'var(--tc-coral)' }}>−{a.helpCost}</span>
-          </button>
         </>
       )}
     </ScreenBody>
@@ -162,6 +166,7 @@ function Suitcase() {
 
 export function SuitcaseScreen({ suitcase, onNext }: { suitcase: SuitcaseView; onNext(): void }) {
   const sfx = useSfx();
+  const fit = useFit();
   const [bonus, setBonus] = useState(0);
   useEffect(() => {
     sfx('unlock');
@@ -169,18 +174,26 @@ export function SuitcaseScreen({ suitcase, onNext }: { suitcase: SuitcaseView; o
     const b = setTimeout(() => setBonus(suitcase.bonus), 1300);
     return () => { clearTimeout(a); clearTimeout(b); };
   }, [suitcase.bonus, sfx]);
+  // Rani (iPhone): the suitcase took half the screen and hid the phrase + bonus. The NEWS comes
+  // first — the secret phrase, the bonus, "recorded" — and the suitcase is what shrinks.
+  const scale = fit(52, 100) / 100;
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center"
+    <ScreenBody className="items-center justify-center gap-3 text-center"
       footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onNext}>לטבלת הקבוצות</button>}>
       <Confetti burstKey={suitcase.suitcaseNumber} />
-      <p className="tc-display tc-a-rise text-2xl" style={{ color: 'var(--tc-soft)' }}>מזוודה מספר <span className="tc-num">{suitcase.suitcaseNumber}</span></p>
-      <div className="mt-16"><Suitcase /></div>
-      <p className="tc-display tc-a-pop text-5xl leading-tight" style={{ color: 'var(--tc-brass-hi)', animationDelay: '1.1s' }}>{suitcase.phraseText}</p>
-      <p className="tc-num text-7xl font-black" style={{ color: 'var(--tc-mint)', textShadow: '0 6px 30px rgba(54,227,154,.45)' }}>
+      <p className="tc-display tc-a-rise text-xl" style={{ color: 'var(--tc-soft)' }}>מזוודה מספר <span className="tc-num">{suitcase.suitcaseNumber}</span> נפתחה!</p>
+      <p className="tc-display tc-a-pop text-5xl leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>{suitcase.phraseText}</p>
+      <p className="tc-num text-6xl font-black leading-none" style={{ color: 'var(--tc-mint)', textShadow: '0 6px 30px rgba(54,227,154,.45)' }}>
         +<CountUp value={bonus} duration={1100} />
       </p>
-      <div className="tc-a-stamp rounded-2xl border-4 px-5 py-2" style={{ borderColor: 'var(--tc-mint)', color: 'var(--tc-mint)', animationDelay: '2.2s' }}>
-        <p className="tc-display text-2xl">✓ הזכייה נרשמה</p>
+      <div className="tc-a-stamp rounded-2xl border-4 px-4 py-1.5" style={{ borderColor: 'var(--tc-mint)', color: 'var(--tc-mint)', animationDelay: '1.6s' }}>
+        <p className="tc-display text-xl">✓ הזכייה נרשמה</p>
+      </div>
+      {/* the suitcase art is 250×234 (lid standing up included); it scales down on a short phone */}
+      <div className="relative mt-2 shrink-0" style={{ width: 250 * scale, height: 234 * scale }}>
+        <div className="absolute left-1/2 top-0 origin-top" style={{ width: 250, transform: `translateX(-50%) scale(${scale})` }}>
+          <div className="pt-16"><Suitcase /></div>
+        </div>
       </div>
     </ScreenBody>
   );
