@@ -118,6 +118,19 @@ export interface TheCodeBranding {
   logoUrl?: string;
   /** One or two lines under the title. Absent = a default built from the title. */
   welcomeText?: string;
+  /** What fills the opening screen behind the title (Rani 13.11.2026). Absent = 'image' when
+   *  `backgroundUrl` is set, else the default look. 'video' = `backgroundVideoUrl`, muted loop. */
+  backgroundType?: 'image' | 'color' | 'gradient' | 'video';
+  /** '#RRGGBB'. 'color' uses `backgroundColor`; 'gradient' runs `gradientFrom` (top) → `gradientTo`. */
+  backgroundColor?: string;
+  gradientFrom?: string;
+  gradientTo?: string;
+  /** R2 mp4/webm, ≤ 30 MB, shown muted in a loop (uploaded through lobby-video-url, slot 'opening'). */
+  backgroundVideoUrl?: string;
+  /** '#RRGGBB' for the title + welcome line, and for the main button (its text colour is picked
+   *  for contrast). Absent = the default look. */
+  textColor?: string;
+  buttonColor?: string;
 }
 
 /**
@@ -176,6 +189,9 @@ export interface TheCodeConfig {
   /** "איך משחקים" — the operator's own short rules, one line each (max 8 × 160).
    *  Absent / empty = the default built from `rules` (src/lib/thecode/howToPlay.ts). */
   howToPlay?: string[];
+  /** Look of the "איך משחקים" sheet — a few ready themes, always readable. Absent = 'night'.
+   *  'brand' takes `branding.buttonColor` (falls back to 'night' without one). */
+  howToPlayTheme?: 'night' | 'light' | 'brand';
   retentionDays: number;            // Player data auto-delete after inactivity
   /** Group selfies. Absent = enabled, 14 days (resolveSelfie). */
   selfie?: TheCodeSelfieSettings;

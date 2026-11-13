@@ -337,7 +337,8 @@ test('play: rate limit per player, paused draft, gnome lookup, hide / rename / d
   assert.equal(paused.snapshot.run, null);
 
   const look = await store.lookupGnome(saved.config.gnomes[2].manualCode.toLowerCase());
-  const { howToPlay, selfie, ...rest } = look;
+  const { howToPlay, selfie, howToPlayTheme, ...rest } = look;
+  assert.equal(howToPlayTheme, 'night', 'lookup carries the how-to-play theme (default)');
   assert.deepEqual(selfie, { enabled: true, retentionDays: 14 }, 'lookup carries the selfie settings (default)');
   assert.deepEqual(rest, { ok: true, codeId: CODE, shortId: 'sh0rt1', title: 'הקוד — מלון', language: 'he', gnome: { id: 'b1', number: 3, bodyColor: 'black', hatColor: 'white' } });
   assert.ok(Array.isArray(howToPlay) && howToPlay.length >= 5, 'lookup carries the rules text');
