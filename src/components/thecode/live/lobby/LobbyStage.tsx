@@ -18,7 +18,7 @@ import { Avatar } from '@/components/thecode/player/Avatar';
 import { THECODE_STYLE } from '@/components/thecode/player/styles';
 import GnomeConfetti from '@/components/thecode/player/GnomeConfetti';
 import { CountUp, TeamStats } from '@/components/thecode/player/ui';
-import SelfieParade, { useParadeRoster } from './SelfieParade';
+import SelfieParade, { paradeRoster } from './SelfieParade';
 
 export interface LobbyTeam {
   id: string;
@@ -70,7 +70,7 @@ function LobbyLogo({ url, backed }: { url: string; backed: boolean }) {
   const [failed, setFailed] = useState<string | null>(null);
   if (failed === url) return null;
   return (
-    <div className={`flex shrink-0 items-center rounded-[2.4vh] ${backed ? 'px-[1.4vw] py-[1.2vh]' : ''}`}
+    <div data-tcl-avoid className={`flex shrink-0 items-center rounded-[2.4vh] ${backed ? 'px-[1.4vw] py-[1.2vh]' : ''}`}
       style={backed ? { background: 'rgba(6,9,30,.5)', backdropFilter: 'blur(6px)' } : undefined}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt="" decoding="async" onError={() => setFailed(url)}
@@ -99,7 +99,7 @@ function GnomeQr({ url }: { url: string }) {
   const width = BOARD.width - QR_INSET * 2;
   const top = BOARD.top + QR_INSET * GNOME_ART.aspect;  // same inset in height units
   return (
-    <div className="tcl-fadein pointer-events-none fixed bottom-0 left-[2vw] z-20" style={{ height: '63vh', aspectRatio: `${GNOME_ART.aspect}` }}>
+    <div data-tcl-avoid className="tcl-fadein pointer-events-none fixed bottom-0 left-[2vw] z-20" style={{ height: '63vh', aspectRatio: `${GNOME_ART.aspect}` }}>
       {!failed ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={GNOME_ART.src} alt="" aria-hidden decoding="async" onError={() => setFailed(true)}
@@ -293,8 +293,6 @@ export function useLobbyStage(rows: number = LOBBY_ROWS) {
   const [banner, setBanner] = useState<{ m: LobbyMoment; key: number } | null>(null);
   const [climb, setClimb] = useState<Record<string, { by: number; key: number }>>({});
   const [delta, setDelta] = useState<Record<string, { amount: number; key: number }>>({});
-  /** When each group last scored (ms) — the selfie parade shows the most recent first. */
-  const [lastGain, setLastGain] = useState<Record<string, number>>({});
   const [phase, setPhase] = useState<Phase>('idle');
   const [sceneKey, setSceneKey] = useState(0);
   const [extraScans, setExtraScans] = useState(0);
@@ -320,11 +318,7 @@ export function useLobbyStage(rows: number = LOBBY_ROWS) {
       if (gain > 0) deltas[t.id] = { amount: gain, key: k };
     }
     if (Object.keys(climbs).length) setClimb((c) => ({ ...c, ...climbs }));
-    if (Object.keys(deltas).length) {
-      setDelta((d) => ({ ...d, ...deltas }));
-      const at = Date.now();
-      setLastGain((g) => ({ ...g, ...Object.fromEntries(Object.keys(deltas).map((id) => [id, at])) }));
-    }
+    if (Object.keys(deltas).length) setDelta((d) => ({ ...d, ...deltas }));
   }, [rows]);
 
   const pushMoments = useCallback((ms: LobbyMoment[]) => {
@@ -363,7 +357,7 @@ export function useLobbyStage(rows: number = LOBBY_ROWS) {
     return () => clearTimeout(t);
   }, [climb]);
 
-  return { teams, banner, climb, delta, lastGain, phase, sceneKey, extraScans, rows, setBoard, pushMoments, scan, onSceneDone };
+  return { teams, banner, climb, delta, phase, sceneKey, extraScans, rows, setBoard, pushMoments, scan, onSceneDone };
 }
 
 export type LobbyStageState = ReturnType<typeof useLobbyStage>;
@@ -397,8 +391,8 @@ interface StageProps {
 }
 
 export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, videos, placeholderLabels, aside, children }: StageProps) {
-  const { teams, banner, climb, delta, lastGain, phase, sceneKey, extraScans, rows, onSceneDone } = stage;
-  const parade = useParadeRoster(teams, lastGain);
+  const { teams, banner, climb, delta, phase, sceneKey, extraScans, rows, onSceneDone } = stage;
+  const parade = useMemo(() => paradeRoster(teams), [teams]);
   const [sound, setSound] = useState<SoundState>('unknown');
   const report = useCallback((s: SoundState) => setSound((cur) => (cur === 'on' ? 'on' : s)), []);
   const soundCtx = useMemo(() => ({ state: sound, report }), [sound, report]);
@@ -422,11 +416,11 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
           <style>{BURST_STYLE}</style>
           <BackgroundLoop url={loopUrl} kind={phase === 'after' ? 'after' : 'idle'} placeholderLabel={placeholderLabels} />
           {/* the selfie parade walks BEHIND the title, the board and the QR card (it comes first) */}
-          <SelfieParade teams={parade} hidden={phase === 'explain'} />
+          <SelfieParade walkers={parade} hidden={phase === 'explain'} />
           {banner?.m.kind === 'suitcase' && <GnomeConfetti position="fixed" burstKey={`b-${banner.key}`} count={170} origin={{ x: '50%', y: '55%' }} />}
 
           <header className="relative flex items-center justify-between gap-[3vw]">
-            <div className="rounded-[2.4vh] px-[1.6vw] py-[1.4vh]" style={{ background: 'rgba(6,9,30,.5)', backdropFilter: 'blur(6px)' }}>
+            <div data-tcl-avoid className="rounded-[2.4vh] px-[1.6vw] py-[1.4vh]" style={{ background: 'rgba(6,9,30,.5)', backdropFilter: 'blur(6px)' }}>
               <h1 className="tc-display text-[8vh] leading-none" style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>
                 קוד הגמדים
               </h1>
@@ -440,7 +434,7 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
           </div>
 
           <div className="relative mt-[2.2vh] flex min-h-0 flex-1 gap-[3vw]">
-            <section className="w-[50%]">
+            <section data-tcl-avoid className="w-[50%]">
             <div className="flex items-baseline justify-between px-[0.6vw]">
               <h2 className="tc-display text-[3vh]" style={{ color: 'var(--tc-soft)', textShadow: '0 1px 8px rgba(0,0,0,.6)' }}>{subtitle}</h2>
               {aside && <p className="tc-display text-[2.8vh]" style={{ color: 'var(--tc-soft)', textShadow: '0 1px 8px rgba(0,0,0,.6)' }}>{aside}</p>}
