@@ -28,6 +28,7 @@ import {
 } from '../engine';
 import { phraseLetters, phraseWordLengths } from '../letters';
 import { resolveHowToPlay } from '../howToPlay';
+import { resolveSelfie } from '../selfie';
 
 export interface TheCodeAdventureData {
   config: TheCodeConfig;
@@ -156,6 +157,7 @@ export function buildSnapshot(
       hotMultiplier: rules.hotMultiplier,
       ...(config.branding ? { branding: config.branding } : {}),
       howToPlay: resolveHowToPlay(config, rules),
+      selfie: resolveSelfie(config),
     },
     player: player ? playerView(player, rules.hotStreakAt) : null,
     run: player ? runView(player, adv, now) : null,

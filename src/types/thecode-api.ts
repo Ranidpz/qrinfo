@@ -18,6 +18,7 @@ import type {
   TheCodeLanguage,
   TheCodeRiddle,
   TheCodeRiddleStats,
+  TheCodeSelfieSettings,
   TheCodeScanOutcome,
 } from './thecode';
 
@@ -46,7 +47,11 @@ export type TheCodePlayAction =
   /** The family's full arrangement, one letter per phrase position. */
   | { type: 'open'; arrangement: string[] }
   /** Start the next suitcase from the summary screen (no gnome scanned). */
-  | { type: 'newSuitcase' };
+  | { type: 'newSuitcase' }
+  /** "עריכת הקבוצה" from the profile sheet, any time in the game. Same name rules as
+   *  register (error 'invalidName'); at least one field. The selfie itself goes through
+   *  POST/DELETE /api/thecode/photo. */
+  | { type: 'updateProfile'; familyName?: string; emoji?: string };
 
 export interface TheCodePlayRequest {
   /** The adventure = the code document id. */
@@ -132,6 +137,8 @@ export interface TheCodeSnapshot {
     branding?: TheCodeBranding;
     /** "איך משחקים" — always filled (the operator's lines or the default from the rules). */
     howToPlay: string[];
+    /** Group selfies — always filled by the server through resolveSelfie(). */
+    selfie: TheCodeSelfieSettings;
   };
   player: TheCodePlayerView | null;
   run: TheCodeRunView | null;
@@ -187,7 +194,9 @@ export type TheCodeGnomeLookupResponse =
       /** Venue look of the opening screen, so /g/{code} is branded from the first paint. */
       branding?: TheCodeBranding;
       /** "איך משחקים", resolved like the snapshot's. */
-      howToPlay: string[] }
+      howToPlay: string[];
+      /** Group selfies — always filled by the server through resolveSelfie(). */
+      selfie: TheCodeSelfieSettings }
   | { ok: false; error: 'notFound' };
 
 // =================================================================
