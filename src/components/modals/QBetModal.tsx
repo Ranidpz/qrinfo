@@ -12,7 +12,6 @@
 // (stable identity — never remounts).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import {
   Check,
   ChevronDown,
@@ -482,7 +481,7 @@ export default function QBetModal({
       ? config.buttonGradient
       : DEFAULT_QBET_GRADIENT;
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const rows = verifiedEntries.map((e) => {
       const hasPick = e.predictionHome != null && e.predictionAway != null;
       return {
@@ -496,6 +495,7 @@ export default function QBetModal({
         'תאריך הרשמה': e.createdAt ? new Date(e.createdAt).toLocaleString('he-IL') : '',
       };
     });
+    const XLSX = await import('xlsx'); // loaded on use: keeps ~400KB out of the page bundle
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet['!cols'] = [
       { wch: 22 },

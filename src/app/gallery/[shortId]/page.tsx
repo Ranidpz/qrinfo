@@ -1,6 +1,11 @@
 import { notFound } from 'next/navigation';
 import { getQRCodeByShortId } from '@/lib/db';
+import { cache } from 'react';
 import GalleryClient from './GalleryClient';
+
+// generateMetadata and the page both need the code: React's request-scoped cache makes that ONE
+// Firestore read per view instead of two (a Selfie Beam doc with its gallery can be ~1MB).
+const getCodeOnce = cache(getQRCodeByShortId);
 
 interface GalleryPageProps {
   params: Promise<{
@@ -12,7 +17,7 @@ export default async function GalleryPage({ params }: GalleryPageProps) {
   const { shortId } = await params;
 
   try {
-    const code = await getQRCodeByShortId(shortId);
+    const code = await getCodeOnce(shortId);
 
     if (!code || !code.isActive) {
       notFound();
@@ -53,7 +58,7 @@ export async function generateMetadata({ params }: GalleryPageProps) {
   const { shortId } = await params;
 
   try {
-    const code = await getQRCodeByShortId(shortId);
+    const code = await getCodeOnce(shortId);
 
     if (!code) {
       return {

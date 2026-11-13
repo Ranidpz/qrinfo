@@ -92,6 +92,7 @@ async function loadReplacement() {
   return loadTs('../../src/lib/content-intake/pdf-replacement.ts', {
     'firebase-admin/firestore': FIRESTORE_STUB,
     '@/lib/firebase-admin': stub('export const getAdminDb=()=>globalThis.__db;'),
+    '@/lib/storage-guard': stub('export const isOwnersStoredFile=()=>true;'),
     '@/lib/server-storage': stub('export const deleteStoredObjectByUrl=async(url)=>{globalThis.__deleted.push(url)};'),
     '@/lib/r2-storage': stub('export const buildStorageKey=()=>"key"; export const buildUniqueFilename=(n)=>n; export const R2_STORAGE_PROVIDER="cloudflare-r2"; export const uploadBufferToR2=async({key})=>{globalThis.__onUpload?.(); const n=++globalThis.__uploads; return {url:`https://media.test/v${n}.pdf`,size:100*n,key:`k${n}`,bucket:"b",provider:"cloudflare-r2",contentType:"application/pdf"}};'),
     'pdfjs-dist/legacy/build/pdf.mjs': stub('export const getDocument=()=>({promise:Promise.resolve({numPages:3,destroy:async()=>{}})});'),

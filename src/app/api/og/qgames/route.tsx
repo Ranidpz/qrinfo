@@ -1,14 +1,13 @@
 import { ImageResponse } from 'next/og';
+import { safeOgLogoUrl } from '@/lib/ogLogo';
 
 export const runtime = 'edge';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
-  const logo = searchParams.get('logo');
-
-  // Show branding logo if provided, otherwise default Q logo
-  const logoUrl = logo || 'https://qr.playzones.app/theQ.png';
+  // Show branding logo if provided (our hosts only), otherwise default Q logo
+  const logoUrl = safeOgLogoUrl(searchParams.get('logo'));
 
   return new ImageResponse(
     (

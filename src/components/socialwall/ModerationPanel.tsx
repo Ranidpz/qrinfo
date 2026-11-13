@@ -6,7 +6,6 @@
 // /api/socialwall/moderate|control|members. Refreshes itself on the RTDB rev pulse.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import { ref as rtdbRef, onValue } from 'firebase/database';
 import {
   Ban, Check, Clock3, Download, Eye, EyeOff, Heart, Loader2, RefreshCw, ShieldCheck, Trash2, Upload, UserCheck, Users,
@@ -353,7 +352,7 @@ export function MembersPanel({
     setMembers((list) => list?.map((x) => (x.id === m.id ? { ...x, status: block ? 'blocked' : 'active' } : x)) ?? list);
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     if (!members) return;
     const rows = members.map((m) => ({
       'שם': m.name,
@@ -364,6 +363,7 @@ export function MembersPanel({
       'סטטוס': m.status === 'blocked' ? 'חסום' : 'פעיל',
       'הצטרף': new Date(m.createdAt).toLocaleString('he-IL'),
     }));
+    const XLSX = await import('xlsx'); // loaded on use: keeps ~400KB out of the page bundle
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'משתתפים');

@@ -6,7 +6,6 @@
 // every phone. Department names are matched to the event's groups by label.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as XLSX from 'xlsx';
 import { AlertTriangle, Download, FileSpreadsheet, Loader2, Plus, Upload, Users } from 'lucide-react';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import type { SocialWallGroup } from '@/types/socialwall';
@@ -92,6 +91,7 @@ export default function AllowlistPanel({
     setMessage(null);
     try {
       const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv';
+      const XLSX = await import('xlsx'); // loaded on use: keeps ~400KB out of the page bundle
       const wb = isCsv ? XLSX.read(await file.text(), { type: 'string' }) : XLSX.read(await file.arrayBuffer(), { type: 'array' });
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: false, defval: '' });
@@ -103,7 +103,8 @@ export default function AllowlistPanel({
     }
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await import('xlsx'); // loaded on use: keeps ~400KB out of the page bundle
     const ws = XLSX.utils.aoa_to_sheet([
       ['שם', 'טלפון', 'מחלקה'],
       ['ישראל ישראלי', '050-1234567', groups[0]?.label || 'שיווק'],

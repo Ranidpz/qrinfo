@@ -18,7 +18,14 @@ function validateOrigin(request: NextRequest): boolean {
   if (!origin) return true; // Same-origin requests may not send origin header
   if (!host) return false;
   const allowedHosts = [host, 'localhost:3000', 'localhost:3001'];
-  return allowedHosts.some(h => origin.includes(h));
+  // Exact host match: a substring test let "https://qr.playzones.app.evil.com" through.
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host.toLowerCase();
+  } catch {
+    return false;
+  }
+  return allowedHosts.some((h) => originHost === h.toLowerCase());
 }
 
 // --- Server-side fingerprint ---
@@ -111,6 +118,31 @@ export async function POST(request: NextRequest) {
         { error: 'Voting is not currently open', errorCode: 'VOTING_CLOSED' },
         { status: 403 }
       );
+    }
+
+    // --- Round + category come from the client: hold them to the config ---
+    // Viewers send round 1 (voting) or 2 (finals). Any other value used to open a fresh dedup
+    // slot per number (unlimited XP / prize packs), and round 2 during the voting phase fed
+    // finalsVoteCount before the finals even started.
+    if (round !== 1 && round !== 2) {
+      return NextResponse.json({ error: 'Invalid round', errorCode: 'INVALID_ROUND' }, { status: 400 });
+    }
+    if (round === 2 && currentPhase !== 'finals') {
+      return NextResponse.json(
+        { error: 'Voting is not currently open', errorCode: 'VOTING_CLOSED' },
+        { status: 403 }
+      );
+    }
+    if (categoryId !== undefined && categoryId !== null && categoryId !== '') {
+      const categories = Array.isArray(qvoteConfig?.categories)
+        ? (qvoteConfig.categories as Array<{ id?: unknown }>)
+        : [];
+      if (typeof categoryId !== 'string' || !categories.some((c) => c?.id === categoryId)) {
+        return NextResponse.json({ error: 'Invalid category', errorCode: 'INVALID_CATEGORY' }, { status: 400 });
+      }
+    }
+    if (voterId.includes('/') || candidateIds.some((id: string) => id.includes('/'))) {
+      return NextResponse.json({ error: 'Invalid id', errorCode: 'INVALID_ID' }, { status: 400 });
     }
 
     // --- Fix 5: Bound candidateIds length ---

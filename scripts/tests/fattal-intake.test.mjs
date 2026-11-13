@@ -183,6 +183,7 @@ test('unapproved source URLs are rejected before fetch; streamed PDFs enforce si
     const { fetchPdfBuffer } = await loadTs('../../src/lib/content-intake/pdf-replacement.ts', {
       'firebase-admin/firestore': stub('export const FieldValue={}; export class Timestamp {}'),
       '@/lib/firebase-admin': stub('export const getAdminDb=()=>{throw Error("Unexpected DB access")};'),
+      '@/lib/storage-guard': stub('export const isOwnersStoredFile=()=>true;'),
       '@/lib/server-storage': stub('export const deleteStoredObjectByUrl=()=>{throw Error("Unexpected delete")};'),
       '@/lib/r2-storage': stub('export const buildStorageKey=()=>""; export const buildUniqueFilename=()=>""; export const R2_STORAGE_PROVIDER="cloudflare-r2"; export const uploadBufferToR2=()=>{throw Error("Unexpected upload")};'),
     });
@@ -332,6 +333,7 @@ test('owner transfer or concurrent edit rolls back newly uploaded PDF', async ()
     const { replaceCodePdfWithBuffer } = await loadTs('../../src/lib/content-intake/pdf-replacement.ts', {
       'firebase-admin/firestore': stub('export const FieldValue={}; export class Timestamp {}'),
       '@/lib/firebase-admin': stub(dbSource),
+      '@/lib/storage-guard': stub('export const isOwnersStoredFile=()=>true;'),
       '@/lib/server-storage': stub('export const deleteStoredObjectByUrl=async(url)=>{globalThis.fattalPdfTest.deleted.push(url)};'),
       '@/lib/r2-storage': stub('export const buildStorageKey=()=>"key"; export const buildUniqueFilename=()=>"name.pdf"; export const R2_STORAGE_PROVIDER="cloudflare-r2"; export const uploadBufferToR2=async()=>({url:"https://storage.test/new.pdf",size:10});'),
       'pdfjs-dist/legacy/build/pdf.mjs': stub('export const getDocument=()=>({promise:Promise.resolve({numPages:1,destroy:async()=>{}})});'),
@@ -460,6 +462,7 @@ test('replacement result uses the title and timestamp persisted in the successfu
     const {replaceCodePdfWithBuffer}=await loadTs('../../src/lib/content-intake/pdf-replacement.ts',{
       'firebase-admin/firestore':stub(`export const FieldValue={serverTimestamp:()=>"server-time",increment:n=>n}; export class Timestamp {static now(){return new Timestamp()} toDate(){return new Date('${time}')}}`),
       '@/lib/firebase-admin':stub('export const getAdminDb=()=>globalThis.__replacementAuditDb;'),
+      '@/lib/storage-guard': stub('export const isOwnersStoredFile=()=>true;'),
       '@/lib/server-storage':stub('export const deleteStoredObjectByUrl=async()=>{};'),
       '@/lib/r2-storage':stub('export const buildStorageKey=()=>"key"; export const buildUniqueFilename=()=>"name.pdf"; export const R2_STORAGE_PROVIDER="cloudflare-r2"; export const uploadBufferToR2=async()=>({url:"https://storage.test/new.pdf",size:10,key:"key",bucket:"bucket",provider:"cloudflare-r2",contentType:"application/pdf"});'),
       'pdfjs-dist/legacy/build/pdf.mjs':stub('export const getDocument=()=>({promise:Promise.resolve({numPages:1,destroy:async()=>{}})});'),

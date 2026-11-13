@@ -362,6 +362,50 @@ export async function saveMemberOtp(
   );
 }
 
+/**
+ * Atomically spend one verify attempt on the pending OTP BEFORE the code is compared. The old
+ * read → compare → write sequence let a burst of parallel verifies all read `otpAttempts = 0`,
+ * so the 5-attempt cap never held. Returns the member as it was before this attempt.
+ */
+export async function claimOtpAttempt(
+  codeId: string,
+  phone: string,
+  limits: { maxAttempts: number; maxFails: number; failsWindowMs: number }
+): Promise<MemberDoc> {
+  const ref = membersCol(codeId).doc(phoneMemberId(codeId, phone));
+  return db().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const member = snap.exists ? toMember(snap.data()!) : null;
+    if (!member?.otpHash || !member.otpExpiresAt) throw new SocialWallError('NO_CODE', 409);
+    if (member.status === 'blocked') throw new SocialWallError('BLOCKED', 403);
+    const now = Date.now();
+    if (now > member.otpExpiresAt) throw new SocialWallError('EXPIRED', 410);
+    const windowOpen = !!member.otpFailsSince && now - member.otpFailsSince < limits.failsWindowMs;
+    const fails = windowOpen ? member.otpFails : 0;
+    if (member.otpAttempts >= limits.maxAttempts || fails >= limits.maxFails) {
+      throw new SocialWallError('TOO_MANY_ATTEMPTS', 429);
+    }
+    tx.update(ref, { otpAttempts: member.otpAttempts + 1 });
+    return member;
+  });
+}
+
+/** A wrong code: count it against the hour-long fail window (transactional, see claimOtpAttempt). */
+export async function recordOtpFail(codeId: string, phone: string, failsWindowMs: number) {
+  const ref = membersCol(codeId).doc(phoneMemberId(codeId, phone));
+  await db().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return;
+    const member = toMember(snap.data()!);
+    const now = Date.now();
+    const windowOpen = !!member.otpFailsSince && now - member.otpFailsSince < failsWindowMs;
+    tx.update(ref, {
+      otpFails: windowOpen ? member.otpFails + 1 : 1,
+      otpFailsSince: windowOpen ? member.otpFailsSince : now,
+    });
+  });
+}
+
 export async function bumpOtpAttempts(codeId: string, phone: string, attempts: number, fails: number, failsSince: number) {
   await membersCol(codeId).doc(phoneMemberId(codeId, phone)).update({ otpAttempts: attempts, otpFails: fails, otpFailsSince: failsSince });
 }

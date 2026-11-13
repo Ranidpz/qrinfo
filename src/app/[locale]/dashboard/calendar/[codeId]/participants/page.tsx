@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Users,
@@ -63,7 +64,7 @@ export default function ParticipantsListPage() {
   // Fetch registrations
   const fetchRegistrations = async () => {
     try {
-      const response = await fetch(`/api/weeklycal/register?codeId=${codeId}`);
+      const response = await fetchWithAuth(`/api/weeklycal/register?codeId=${codeId}`);
       if (!response.ok) throw new Error('Failed to fetch');
 
       const data = await response.json();
