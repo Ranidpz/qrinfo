@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeBranding } from '@/types/thecode';
-import { BrandLogo, PoweredBy, isLogoPlaced, openingLook } from './Branding';
+import { BrandLogo, PoweredBy, isLogoPlaced, openingLook, openingTextPanel } from './Branding';
 import type { CSSProperties } from 'react';
 import { HowToPlayButton } from './HowToPlaySheet';
 import { Avatar } from './Avatar';
@@ -61,6 +61,7 @@ export default function RegisterScreen(p: Props) {
   const placed = isLogoPlaced(p.branding);
   const logo = placed ? undefined : p.branding?.logoUrl;
   const look = openingLook(p.branding);
+  const panel = openingTextPanel(p.branding);
   const branded = look.kind !== 'none' || !!logo;
   // Top corner, so it is on screen without scrolling and never competes with "יוצאים לדרך".
   const howTo = p.onHowToPlay ? <div className="-mb-2 flex justify-end"><HowToPlayButton onClick={p.onHowToPlay} /></div> : null;
@@ -70,7 +71,7 @@ export default function RegisterScreen(p: Props) {
       <ScreenBody className="items-stretch justify-center gap-6">
         {howTo}
         <BrandLogo url={logo} name={p.venueName} />
-        <CodeTitle small={!logo} smaller={!!logo} look={look.text} />
+        <div style={panel ?? undefined}><CodeTitle small={!logo} smaller={!!logo} look={look.text} /></div>
         <div className="tc-a-rise text-center">
           <h2 className="tc-display text-3xl">כבר שיחקתם אצלנו?</h2>
           <p className="mt-2 text-lg" style={{ color: 'var(--tc-soft)' }}>הקלידו את קוד השחזור של הקבוצה, והנקודות והמזוודות יחזרו אליכם.</p>
@@ -113,25 +114,24 @@ export default function RegisterScreen(p: Props) {
       }>
       {howTo}
       {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} /></div>}
-      {p.firstGnome ? (
-        <div className="tc-a-rise mt-2 flex items-center gap-4">
-          <GnomeStage gnome={p.firstGnome} size={84} />
-          <div>
-            <p className="tc-display text-3xl leading-tight">מצאתם את הגמד הראשון!</p>
-            <p className="mt-1 text-base" style={{ color: 'var(--tc-soft)' }}>{describeGnome(p.firstGnome.bodyColor, p.firstGnome.hatColor)}</p>
+      {/* the text block (first-gnome line, title, welcome) sits on a soft glass panel over a
+          photo / video (openingTextPanel), so it never melts into a bright picture */}
+      <div className={`flex flex-col gap-4 ${!p.firstGnome && !logo && !panel ? 'mt-6' : ''}`} style={panel ?? undefined}>
+        {p.firstGnome && (
+          <div className="tc-a-rise flex items-center gap-4">
+            <GnomeStage gnome={p.firstGnome} size={84} />
+            <div>
+              <p className="tc-display text-3xl leading-tight">מצאתם את הגמד הראשון!</p>
+              <p className="mt-1 text-base" style={{ color: 'var(--tc-soft)' }}>{describeGnome(p.firstGnome.bodyColor, p.firstGnome.hatColor)}</p>
+            </div>
           </div>
+        )}
+        <div className="tc-a-rise tc-delay-1">
+          <CodeTitle small={!!p.firstGnome && !logo} smaller={!!logo} look={look.text} />
+          <p className="mt-3 whitespace-pre-line text-center text-lg" style={look.text ?? { color: branded ? 'var(--tc-cream)' : 'var(--tc-soft)', textShadow: branded && !look.chromeDark ? '0 1px 8px rgba(0,0,0,.6)' : undefined }}>
+            {p.addingProfile ? 'עוד קבוצה משחקת מהטלפון הזה? בחרו לה כינוי.' : (p.branding?.welcomeText?.trim() || `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`)}
+          </p>
         </div>
-      ) : logo ? (
-        <CodeTitle smaller look={look.text} />
-      ) : (
-        <div className="mt-6"><CodeTitle look={look.text} /></div>
-      )}
-
-      <div className="tc-a-rise tc-delay-1">
-        {p.firstGnome && <CodeTitle small={!logo} smaller={!!logo} look={look.text} />}
-        <p className="mt-3 whitespace-pre-line text-center text-lg" style={look.text ?? { color: branded ? 'var(--tc-cream)' : 'var(--tc-soft)', textShadow: branded && !look.chromeDark ? '0 1px 8px rgba(0,0,0,.6)' : undefined }}>
-          {p.addingProfile ? 'עוד קבוצה משחקת מהטלפון הזה? בחרו לה כינוי.' : (p.branding?.welcomeText?.trim() || `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`)}
-        </p>
       </div>
 
       <label className="tc-a-rise tc-delay-2 block">

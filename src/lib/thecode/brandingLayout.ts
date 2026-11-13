@@ -70,6 +70,28 @@ export function brandingLayout(b?: TheCodeBranding | null): { background: CSSPro
 export const isLogoPlaced = (b?: TheCodeBranding | null): boolean =>
   !!b?.logoUrl && (!!b.logoPosition || b.logoScale !== undefined);
 
+/**
+ * The glass panel behind the opening title + welcome line (Rani 13.11.2026: "תשים מתחת לטקסט
+ * איזה גלוסי" — white text was lost in a bright photo). Only over a photo or a video; on a flat
+ * colour / gradient there is nothing to fight, so no panel. It adds a backdrop only, never
+ * changes the organiser's textColor. Without backdrop-filter the dark tint alone does the job.
+ * The admin's phone preview uses the same function, so both draw the same panel.
+ */
+export function openingTextPanel(b?: TheCodeBranding | null): CSSProperties | null {
+  const type = b?.backgroundType ?? (b?.backgroundUrl ? 'image' : undefined);
+  const media = (type === 'image' && !!b?.backgroundUrl) || (type === 'video' && !!(b?.backgroundVideoUrl || b?.backgroundUrl));
+  if (!media) return null;
+  return {
+    background: 'linear-gradient(180deg, rgba(8,11,32,.46), rgba(8,11,32,.58))',
+    backdropFilter: 'blur(10px) saturate(1.1)',
+    WebkitBackdropFilter: 'blur(10px) saturate(1.1)',
+    border: '1px solid rgba(255,255,255,.2)',
+    borderRadius: 24,
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,.14), 0 8px 24px rgba(0,0,0,.22)',
+    padding: '14px 16px 16px',
+  };
+}
+
 /** Round to one decimal so saved numbers stay tidy. */
 export const tidy = (v: number) => Math.round(v * 10) / 10;
 export { clamp };

@@ -1191,9 +1191,10 @@ const DEMO_LOGO = svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2
  * 1 bright photo · 2 dark photo · 3 plain light colour (dark text picked automatically) ·
  * 4 gradient + own text/button colours · 5 muted looping video · 6 yellow text on white
  * (too little contrast → the readability outline kicks in) · 7 bright photo framed on the pool
- * (focus + zoom) with the logo moved to the top-right corner and made smaller.
+ * (focus + zoom) with the logo moved to the top-right corner and made smaller · 8 Merlush
+ * (bright beard + flame) — the glass panel behind the title.
  */
-export const DEMO_BRANDINGS: Record<'1' | '2' | '3' | '4' | '5' | '6' | '7', TheCodeBranding> = {
+export const DEMO_BRANDINGS: Record<'1' | '2' | '3' | '4' | '5' | '6' | '7' | '8', TheCodeBranding> = {
   '1': { backgroundUrl: BRIGHT_PHOTO, logoUrl: DEMO_LOGO, welcomeText: 'ברוכים הבאים למלון חוף הצוק!\nהגמדים שלנו מחכים לכם בכל פינה.' },
   '2': { backgroundUrl: DARK_PHOTO, logoUrl: DEMO_LOGO },
   '3': { backgroundType: 'color', backgroundColor: '#F5F1E8', logoUrl: DEMO_LOGO, buttonColor: '#1F3A5F', welcomeText: 'ברוכים הבאים! הגמדים כבר מחכים לכם.' },
@@ -1201,4 +1202,6 @@ export const DEMO_BRANDINGS: Record<'1' | '2' | '3' | '4' | '5' | '6' | '7', The
   '5': { backgroundType: 'video', backgroundVideoUrl: '/play/the-code/brand-demo.mp4', backgroundUrl: DARK_PHOTO, buttonColor: '#36E39A' },
   '6': { backgroundType: 'color', backgroundColor: '#FFFFFF', textColor: '#FFD400', buttonColor: '#FFD400' },
   '7': { backgroundUrl: BRIGHT_PHOTO, backgroundFocus: { x: 70, y: 80 }, backgroundZoom: 1.8, logoUrl: DEMO_LOGO, logoPosition: { x: 64, y: 6 }, logoScale: 0.7 },
+  // Merlush (bright beard + flame behind the text — the case Rani asked the glass panel for)
+  '8': { backgroundUrl: '/thecode/lobby/merlush-v2.webp', backgroundFocus: { x: 30, y: 30 }, logoUrl: DEMO_LOGO, welcomeText: 'ברוכים הבאים! מרלוש והגמדים מחכים לכם.' },
 };
