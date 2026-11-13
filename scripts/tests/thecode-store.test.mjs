@@ -545,6 +545,11 @@ test('lobby videos: only our R2 survives the save and is mirrored live; presigne
   assert.ok(ok.publicUrl.startsWith(`${R2BASE}/owner/thecode-sh0rt1/lobby/explain-`));
   assert.deepEqual(await store.lobbyVideoUploadUrl(CODE, { slot: 'explain', contentType: 'video/mp4', size: 101 * 1024 * 1024 }), { ok: false, error: 'tooLarge' });
   assert.deepEqual(await store.lobbyVideoUploadUrl(CODE, { slot: 'intro', contentType: 'video/mp4', size: 10 }), { ok: false, error: 'badRequest' });
+  // The opening-screen background: same route, smaller cap.
+  const opening = await store.lobbyVideoUploadUrl(CODE, { slot: 'opening', contentType: 'video/webm', size: 30 * 1024 * 1024 });
+  assert.equal(opening.ok, true);
+  assert.match(opening.publicUrl, /\/lobby\/opening-\d+-[0-9A-Za-z]{8}\.webm$/);
+  assert.deepEqual(await store.lobbyVideoUploadUrl(CODE, { slot: 'opening', contentType: 'video/mp4', size: 30 * 1024 * 1024 + 1 }), { ok: false, error: 'tooLarge' });
   assert.deepEqual(await store.lobbyVideoUploadUrl(CODE, { slot: 'idle', contentType: 'video/quicktime', size: 10 }), { ok: false, error: 'badRequest' });
 });
 

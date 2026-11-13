@@ -62,9 +62,9 @@ import { resolveHowToPlay } from './howToPlay';
 import { resolveSelfie, selfieExpired } from './selfie';
 import {
   appendLobbyEvents,
-  LOBBY_VIDEO_MAX_BYTES,
-  LOBBY_VIDEO_SLOTS,
   LOBBY_VIDEO_TYPES,
+  VIDEO_UPLOAD_SLOTS,
+  videoUploadMaxBytes,
   lobbyEventFor,
   lobbyVideosOf,
   stripPhotoFromEvents,
@@ -802,9 +802,9 @@ export async function lobbyVideoUploadUrl(codeId: string, body: Record<string, u
   const slot = body.slot as string;
   const contentType = body.contentType as string;
   const size = body.size;
-  if (!(LOBBY_VIDEO_SLOTS as readonly string[]).includes(slot) || !LOBBY_VIDEO_TYPES[contentType]) return { ok: false, error: 'badRequest' };
+  if (!(VIDEO_UPLOAD_SLOTS as readonly string[]).includes(slot) || !LOBBY_VIDEO_TYPES[contentType]) return { ok: false, error: 'badRequest' };
   if (typeof size !== 'number' || !Number.isInteger(size) || size <= 0) return { ok: false, error: 'badRequest' };
-  if (size > LOBBY_VIDEO_MAX_BYTES) return { ok: false, error: 'tooLarge' };
+  if (size > videoUploadMaxBytes(slot)) return { ok: false, error: 'tooLarge' };
   const r2 = getR2Config();
   if (!r2) return { ok: false, error: 'notConfigured' };
   const code = (await codeRef(codeId).get()).data();

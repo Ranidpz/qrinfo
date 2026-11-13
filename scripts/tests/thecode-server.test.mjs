@@ -406,3 +406,46 @@ test('admin: caps, bad ids, duplicate ids and bad colours are refused', () => {
   assert.equal(d.status, 'draft');
   assert.deepEqual(d.rules, E.DEFAULT_THECODE_RULES);
 });
+
+test('admin: opening-screen branding — #RRGGBB only, known background types, video only from our R2, how-to-play theme', () => {
+  const R2 = 'https://media.example.com';
+  const base = { status: 'draft', title: 't', language: 'he', spots: [], gnomes: [], phrases: [], rules: {} };
+  const branding = {
+    backgroundType: 'video', backgroundColor: '#1a2b3c', gradientFrom: '#ABCDEF', gradientTo: 'red',
+    textColor: '#fff', buttonColor: '#12345G', backgroundVideoUrl: `${R2}/owner/thecode-x/lobby/opening-1.mp4`, evil: 'x',
+  };
+  let r = A.normalizeAdventure({ ...base, branding, howToPlayTheme: 'brand' }, [], null, { videoBase: R2 });
+  assert.deepEqual(r.config.branding, {
+    backgroundType: 'video', backgroundColor: '#1A2B3C', gradientFrom: '#ABCDEF',
+    backgroundVideoUrl: `${R2}/owner/thecode-x/lobby/opening-1.mp4`,
+  });
+  assert.equal(r.config.howToPlayTheme, 'brand');
+  assert.deepEqual(A.toPublicConfig(r.config).branding, r.config.branding, 'the stub carries the branding');
+  r = A.normalizeAdventure({ ...base, branding: { ...branding, backgroundType: 'neon', backgroundVideoUrl: 'https://evil.example/v.mp4' }, howToPlayTheme: 'dark' }, [], null, { videoBase: R2 });
+  assert.equal(r.config.branding.backgroundType, undefined);
+  assert.equal(r.config.branding.backgroundVideoUrl, undefined);
+  assert.equal(r.config.howToPlayTheme, undefined, 'unknown theme → not saved');
+  r = A.normalizeAdventure({ ...base, branding }, [], null);
+  assert.equal(r.config.branding.backgroundVideoUrl, undefined, 'no R2 → no video');
+  assert.equal(r.config.howToPlayTheme, undefined);
+  for (const [v, want] of [['#a1b2c3', '#A1B2C3'], [' #000000 ', '#000000'], ['#abc', null], ['000000', null], ['rgb(0,0,0)', null], [7, null]]) {
+    assert.equal(A.hexColor(v), want, String(v));
+  }
+});
+
+test('admin: opening-screen framing — focus / logo position 0–100, zoom 1–3, logo scale 0.5–2.5, one decimal', () => {
+  const base = { status: 'draft', title: 't', language: 'he', spots: [], gnomes: [], phrases: [], rules: {} };
+  let r = A.normalizeAdventure({ ...base, branding: {
+    backgroundFocus: { x: 33.333, y: 120 }, backgroundZoom: 1.26, logoPosition: { x: -5, y: 12.04 }, logoScale: 9,
+  } }, [], null);
+  assert.deepEqual(r.config.branding, { backgroundFocus: { x: 33.3, y: 100 }, backgroundZoom: 1.3, logoPosition: { x: 0, y: 12 }, logoScale: 2.5 });
+  assert.deepEqual(A.toPublicConfig(r.config).branding, r.config.branding, 'the stub carries the framing');
+  r = A.normalizeAdventure({ ...base, branding: {
+    backgroundFocus: { x: '50', y: 50 }, backgroundZoom: 'big', logoPosition: [50, 50], logoScale: NaN,
+  } }, [], null);
+  assert.equal(r.config.branding, undefined, 'junk is dropped, not defaulted');
+  r = A.normalizeAdventure({ ...base, branding: { backgroundZoom: 0.2, logoScale: 0.1 } }, [], null);
+  assert.deepEqual(r.config.branding, { backgroundZoom: 1, logoScale: 0.5 });
+  assert.equal(A.ranged(Infinity, 0, 1), null);
+  assert.deepEqual(A.point({ x: 1, y: 2, z: 3 }), { x: 1, y: 2 });
+});

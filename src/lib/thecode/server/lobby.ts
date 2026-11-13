@@ -14,6 +14,13 @@ export const LOBBY_EVENTS_MAX = 20;
 export const LOBBY_VIDEO_SLOTS = ['idle', 'explain', 'after'] as const;
 export type TheCodeLobbySlot = (typeof LOBBY_VIDEO_SLOTS)[number];
 export const LOBBY_VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+/** Slots the presigned upload accepts: the big screen's three + the opening-screen background. */
+export const VIDEO_UPLOAD_SLOTS = [...LOBBY_VIDEO_SLOTS, 'opening'] as const;
+/** The opening screen plays muted on phones — keep it small. */
+export const OPENING_VIDEO_MAX_BYTES = 30 * 1024 * 1024;
+export function videoUploadMaxBytes(slot: string): number {
+  return slot === 'opening' ? OPENING_VIDEO_MAX_BYTES : LOBBY_VIDEO_MAX_BYTES;
+}
 export const LOBBY_VIDEO_TYPES: Record<string, string> = { 'video/mp4': 'mp4', 'video/webm': 'webm' };
 
 /** The group's selfie URL when it may be shown right now (selfies on, not expired). */

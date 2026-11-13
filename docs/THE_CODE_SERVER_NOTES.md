@@ -225,3 +225,15 @@ now applies to everything except `/v/` and `/lobby/`.
 2. `CRON_SECRET` must exist in Vercel (already used by `/api/cron/qgames-reset`).
 3. Run `node scripts/thecode-e2e.mjs --cleanup` against a LOCAL server on `qrinfo-dev` (never a
    Vercel preview).
+
+## Opening-screen look (13.11.2026)
+- Save keeps `branding.backgroundType` only from image|color|gradient|video; `backgroundColor`,
+  `gradientFrom`, `gradientTo`, `textColor`, `buttonColor` only as `#RRGGBB` (stored upper-case, anything
+  else dropped); `backgroundVideoUrl` only https on our R2 (same check as the big-screen videos).
+  All of it goes to the public stub `thecodeConfig.branding` (no secrets there).
+- Framing: `backgroundFocus` / `logoPosition` = `{x, y}` 0–100 (both numbers required),
+  `backgroundZoom` 1–3, `logoScale` 0.5–2.5 — out-of-range numbers are clamped, rounded to one
+  decimal; non-numbers are dropped (never defaulted). Also mirrored to the public stub.
+- `howToPlayTheme` kept only when night|light|brand; otherwise not saved.
+- `lobby-video-url` accepts slot `opening` (mp4/webm) with a 30 MB cap (the three big-screen slots
+  stay at 100 MB). Key `{ownerId}/thecode-{shortId}/lobby/opening-{time}-{rand}.{ext}`.

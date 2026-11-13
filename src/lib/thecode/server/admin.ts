@@ -25,7 +25,7 @@ import { DEFAULT_THECODE_RULES, resolveRules } from '../engine';
 import { letterOfAnswer } from '../letters';
 import { HOW_TO_PLAY_LIMITS } from '../howToPlay';
 import { resolveSelfie } from '../selfie';
-import { normalizeLobby } from './lobby';
+import { isAllowedLobbyVideoUrl, normalizeLobby } from './lobby';
 
 export const THECODE_LIMITS = {
   spots: 60,
@@ -141,6 +141,25 @@ export function normalizeRules(v: unknown): TheCodeRules {
     answerCooldownSeconds: int(r.answerCooldownSeconds, 0, 600, DEFAULT_THECODE_RULES.answerCooldownSeconds),
     arrangeHelpCost: int(r.arrangeHelpCost, 0, big, DEFAULT_THECODE_RULES.arrangeHelpCost),
   };
+}
+
+/** A finite number clamped to [min, max], one decimal; anything else → null. */
+export function ranged(v: unknown, min: number, max: number): number | null {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+  return Math.round(Math.min(max, Math.max(min, v)) * 10) / 10;
+}
+
+/** `{x, y}` percentages 0–100 (both required). */
+export function point(v: unknown): { x: number; y: number } | null {
+  if (!isObj(v)) return null;
+  const x = ranged(v.x, 0, 100);
+  const y = ranged(v.y, 0, 100);
+  return x === null || y === null ? null : { x, y };
+}
+
+/** '#RRGGBB' only (upper-cased), else null. */
+export function hexColor(v: unknown): string | null {
+  return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim()) ? v.trim().toUpperCase() : null;
 }
 
 function hm(v: unknown): string | null {
@@ -308,8 +327,29 @@ export function normalizeAdventure(
       if (logo) branding.logoUrl = logo;
       const welcome = line(c.branding.welcomeText, THECODE_LIMITS.welcomeText);
       if (welcome) branding.welcomeText = welcome;
+      const bgType = c.branding.backgroundType;
+      if (bgType === 'image' || bgType === 'color' || bgType === 'gradient' || bgType === 'video') branding.backgroundType = bgType;
+      for (const k of ['backgroundColor', 'gradientFrom', 'gradientTo', 'textColor', 'buttonColor'] as const) {
+        const col = hexColor(c.branding[k]);
+        if (col) branding[k] = col;
+      }
+      // Opening-screen video: like the big-screen videos, only https on our own R2.
+      if (isAllowedLobbyVideoUrl(c.branding.backgroundVideoUrl, opts.videoBase)) {
+        branding.backgroundVideoUrl = c.branding.backgroundVideoUrl;
+      }
+      // Framing of the background + logo: numbers only, clamped, one decimal; junk dropped.
+      const focus = point(c.branding.backgroundFocus);
+      if (focus) branding.backgroundFocus = focus;
+      const logoAt = point(c.branding.logoPosition);
+      if (logoAt) branding.logoPosition = logoAt;
+      const zoom = ranged(c.branding.backgroundZoom, 1, 3);
+      if (zoom !== null) branding.backgroundZoom = zoom;
+      const scale = ranged(c.branding.logoScale, 0.5, 2.5);
+      if (scale !== null) branding.logoScale = scale;
       if (Object.keys(branding).length) config.branding = branding;
     }
+    const theme = c.howToPlayTheme;
+    if (theme === 'night' || theme === 'light' || theme === 'brand') config.howToPlayTheme = theme;
     // Selfies are always stored resolved (on/off + 1–90 days), so every reader agrees.
     config.selfie = resolveSelfie({ selfie: isObj(c.selfie) ? (c.selfie as unknown as TheCodeConfig['selfie']) : undefined });
     const lobby = normalizeLobby(c.lobby, opts.videoBase);
