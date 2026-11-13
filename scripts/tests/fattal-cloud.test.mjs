@@ -403,6 +403,7 @@ test('legacy replacement fences cloud claims before upload and again before acti
       collection:name=>({doc:id=>({name,id,get:async()=>({exists:true,data:()=>({ownerId:'owner',fattalCloudPending:globalThis.cloudFixture.legacyFence.pending}),updateTime:{isEqual:()=>true}})})}),
       runTransaction:async fn=>fn({get:async ref=>({exists:true,data:()=>ref.name==='codes'?{ownerId:'owner',fattalCloudPending:globalThis.cloudFixture.legacyFence.pending}:{}}),update:()=>{globalThis.cloudFixture.legacyFence.writes++}})
     });`),
+    '@/lib/storage-guard': stub('export const isOwnersStoredFile=()=>true;'),
     '@/lib/server-storage': stub('export const deleteStoredObjectByUrl=async url=>{globalThis.cloudFixture.legacyFence.deleted.push(url)};'),
     '@/lib/r2-storage': stub(`export const buildStorageKey=()=>"key"; export const buildUniqueFilename=()=>"file.pdf"; export const R2_STORAGE_PROVIDER="cloudflare-r2";
       export const uploadBufferToR2=async()=>{globalThis.cloudFixture.legacyFence.uploads++;globalThis.cloudFixture.legacyFence.pending='claim-arrived-during-upload';return {url:'https://fixture.invalid/legacy-staging',size:10}};`),

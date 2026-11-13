@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sniffImageType, EXTENSION_FOR } from '@/lib/imageSniff';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
@@ -68,29 +69,43 @@ export async function POST(request: NextRequest) {
       if (!codeDoc.exists) {
         return NextResponse.json({ error: 'Code not found' }, { status: 404 });
       }
+      // Only a code that actually runs Q.Vote accepts candidate photos.
+      const media = codeDoc.data()?.media;
+      const hasQVote = Array.isArray(media) &&
+        media.some((m: { type?: string; qvoteConfig?: unknown }) => m?.type === 'qvote' || !!m?.qvoteConfig);
+      if (!hasQVote) {
+        return NextResponse.json({ error: 'Code not found' }, { status: 404 });
+      }
       ownerId = codeDoc.data()?.ownerId || '';
     } catch (err) {
       console.error('Failed to resolve ownerId for QVote upload:', err);
       return NextResponse.json({ error: 'Failed to validate code' }, { status: 500 });
     }
 
+    // Read file into buffer once — File stream may only be consumable once
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    // The stored type comes from the bytes, never from the client's declared mime type —
+    // otherwise an SVG/HTML file would be hosted on our media domain as a "photo".
+    const sniffedType = sniffImageType(fileBuffer);
+    if (!sniffedType) {
+      return NextResponse.json({ error: 'Only images allowed' }, { status: 400 });
+    }
+
     // Generate unique filename
     const timestamp = Date.now();
     const photoId = `qvote_${timestamp}_${Math.random().toString(36).substring(7)}`;
-    const extension = file.type === 'image/webp' ? 'webp' : 'jpg';
+    const extension = EXTENSION_FOR[sniffedType];
 
     // Build path with owner folder structure: {ownerId}/{codeId}/qvote/photos/...
     const basePathParts = ownerId ? [ownerId, codeId, 'qvote'] : ['qvote', codeId];
-
-    // Read file into buffer once — File stream may only be consumable once
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     // Upload main image
     const mainFilename = buildMediaStorageKey([...basePathParts, 'photos'], `${photoId}.${extension}`);
     const mainObject = await uploadStoredObject({
       key: mainFilename,
       body: fileBuffer,
-      contentType: file.type,
+      contentType: sniffedType,
       mediaType: 'image',
       cacheControl: 'public, max-age=31536000, immutable',
       metadata: {
@@ -106,7 +121,7 @@ export async function POST(request: NextRequest) {
     const thumbnailObject = await uploadStoredObject({
       key: thumbnailFilename,
       body: fileBuffer,
-      contentType: file.type,
+      contentType: sniffedType,
       mediaType: 'image',
       cacheControl: 'public, max-age=31536000, immutable',
       metadata: {

@@ -3,6 +3,20 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { adjustQTagActiveRegistrations, isQTagAtCapacity } from '@/lib/server/qtag-stats';
 
+/** Set the guest's status inside a transaction; true only if this call made the change. */
+async function flipGuestStatus(
+  guestRef: FirebaseFirestore.DocumentReference,
+  allowed: (status: unknown) => boolean,
+  next: 'cancelled' | 'registered'
+): Promise<boolean> {
+  return getAdminDb().runTransaction(async (tx) => {
+    const snap = await tx.get(guestRef);
+    if (!snap.exists || !allowed(snap.data()?.status)) return false;
+    tx.update(guestRef, { status: next });
+    return true;
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const clientIp = getClientIp(request);
@@ -70,9 +84,11 @@ export async function POST(request: NextRequest) {
       if (guest.status === 'cancelled') {
         return NextResponse.json({ success: true, status: 'cancelled' });
       }
-      await guestRef.update({ status: 'cancelled' });
+      // Flip the status atomically and adjust the counter only when THIS request flipped it —
+      // 50 parallel cancels used to each decrement totalRegistered and open phantom spots.
+      const flipped = await flipGuestStatus(guestRef, (status) => status !== 'arrived' && status !== 'cancelled', 'cancelled');
       // Frees the spot: cancelled guests no longer count toward maxRegistrations
-      await adjustQTagActiveRegistrations(codeId, guest.plusOneCount || 0, -1);
+      if (flipped) await adjustQTagActiveRegistrations(codeId, guest.plusOneCount || 0, -1);
       return NextResponse.json({ success: true, status: 'cancelled' });
     }
 
@@ -87,8 +103,8 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
-      await guestRef.update({ status: 'registered' });
-      await adjustQTagActiveRegistrations(codeId, guest.plusOneCount || 0, 1);
+      const flipped = await flipGuestStatus(guestRef, (status) => status === 'cancelled', 'registered');
+      if (flipped) await adjustQTagActiveRegistrations(codeId, guest.plusOneCount || 0, 1);
       return NextResponse.json({ success: true, status: 'registered' });
     }
 

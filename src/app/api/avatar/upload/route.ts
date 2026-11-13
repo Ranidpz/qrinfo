@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
+import { normalizePhoneNumber } from '@/lib/phone-utils';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import sharp from '@/lib/sharp.server';
 import { getAdminDb } from '@/lib/firebase-admin';
@@ -69,11 +71,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a unique identifier for the avatar
-    // Use phone hash if available, otherwise visitorId
-    const identifier = phone
-      ? Buffer.from(phone).toString('base64url').slice(0, 12)
-      : visitorId.slice(0, 12);
+    if (typeof visitorId !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(visitorId)) {
+      return NextResponse.json({ error: 'Invalid visitor ID' }, { status: 400 });
+    }
+
+    // One identifier per person, used as the file-name prefix that a re-upload clears.
+    // It is a hash of the WHOLE phone / visitorId: the old `slice(0, 12)` gave every Q.Hunt
+    // player of the same day the same prefix ("player_17945…"), and a short visitorId like "0"
+    // matched every file — so one upload deleted other people's avatars.
+    const identifier = createHash('sha256')
+      .update(phone ? `phone:${normalizePhoneNumber(String(phone))}` : `visitor:${visitorId}`)
+      .digest('base64url')
+      .slice(0, 16);
 
     // Organized path: {ownerId}/{codeId}/avatars/{identifier}
     // Legacy fallback: avatars/{codeId}/{identifier}
@@ -81,16 +90,6 @@ export async function POST(request: NextRequest) {
     const avatarPath = ownerId
       ? `${ownerId}/${codeId}/avatars/${identifier}`
       : legacyPath;
-
-    // Delete existing avatar if any (check both new and legacy paths)
-    try {
-      await deleteStoredObjectsByPrefix(avatarPath);
-      if (ownerId) {
-        await deleteStoredObjectsByPrefix(legacyPath);
-      }
-    } catch {
-      // Ignore errors when listing/deleting - might not exist
-    }
 
     // Convert image to WebP using sharp
     let webpBuffer: Buffer;
@@ -111,6 +110,17 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to process image. Please try a different format (JPEG, PNG).' },
         { status: 400 }
       );
+    }
+
+    // Only now that the new image decoded: delete this person's previous avatar (both layouts).
+    // The trailing "_" keeps the prefix from matching another identifier that merely starts the same.
+    try {
+      await deleteStoredObjectsByPrefix(`${avatarPath}_`);
+      if (ownerId) {
+        await deleteStoredObjectsByPrefix(`${legacyPath}_`);
+      }
+    } catch {
+      // Ignore errors when listing/deleting - might not exist
     }
 
     // Add a unique suffix to prevent stale avatar caching.

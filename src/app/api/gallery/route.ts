@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sniffImageType, EXTENSION_FOR } from '@/lib/imageSniff';
 import { FieldValue } from 'firebase-admin/firestore';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
 import { getAdminDb } from '@/lib/firebase-admin';
@@ -96,19 +97,23 @@ export async function POST(request: NextRequest) {
     // Generate unique filename in owner's folder with correct extension
     const timestamp = Date.now();
     const imageId = `gallery_${timestamp}_${Math.random().toString(36).substring(7)}`;
-    const ext = file.type === 'image/webp' ? 'webp' : file.type === 'image/jpeg' ? 'jpg' : 'webp';
+    const buffer = Buffer.from(await file.arrayBuffer());
+    // Stored type and extension come from the bytes, never from the client's declared mime type.
+    const sniffedType = sniffImageType(buffer);
+    if (!sniffedType) {
+      return NextResponse.json({ error: 'Only images allowed' }, { status: 400 });
+    }
+    const ext = EXTENSION_FOR[sniffedType];
     const filename = buildMediaStorageKey(
       [ownerId, eventFolder, 'gallery'],
       `${imageId}.${ext}`
     );
-
-    const buffer = Buffer.from(await file.arrayBuffer());
     // Force Cloudflare R2 when configured (same as the raffle route). Falls back to the
     // env-configured provider when R2 isn't available, so existing Riddle galleries keep working.
     const uploaded = await uploadStoredObject({
       key: filename,
       body: buffer,
-      contentType: file.type || (ext === 'webp' ? 'image/webp' : 'image/jpeg'),
+      contentType: sniffedType,
       mediaType: 'image',
       ...(isR2Configured() ? { provider: R2_STORAGE_PROVIDER } : {}),
       cacheControl: 'public, max-age=31536000, immutable',

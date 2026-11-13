@@ -194,3 +194,15 @@ export function keyBelongsToCode(key: string, codeId: string, ownerId: string | 
   if (second !== codeId) return false;
   return first === 'qvote' || first === 'avatars' || (!!ownerId && first === ownerId);
 }
+
+/**
+ * Media URLs on a code are client-writable (the owner and collaborators edit `media` directly),
+ * so a URL alone never proves the file is that code's. Server code that deletes a file named by
+ * such a URL must first check it is in OUR storage under the code owner's folder. Anything else
+ * (another customer's file, a foreign host, an unknown legacy layout) is left in place: an
+ * orphaned file is harmless, a deleted booklet is not.
+ */
+export function isOwnersStoredFile(url: string, ownerId: string): boolean {
+  const key = getStoredObjectKey(url);
+  return !!key && !!ownerId && key.split('/')[0] === ownerId;
+}

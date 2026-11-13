@@ -94,7 +94,8 @@ export async function sendQTagQRWhatsApp(params: SendQTagQRParams): Promise<{ su
       },
     };
 
-    console.log(`[QTag WhatsApp] Full payload:`, JSON.stringify(payload));
+    // Never log the payload: it holds the full phone, the guest's name and the entry-QR token.
+    console.log(`[QTag WhatsApp] Sending to ${maskPhoneNumber(formattedPhone)}`);
 
     const response = await fetch(`${INFORU_API_BASE_URL}/api/v2/WhatsApp/SendWhatsApp`, {
       method: 'POST',

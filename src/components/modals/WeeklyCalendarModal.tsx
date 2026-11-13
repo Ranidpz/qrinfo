@@ -482,7 +482,7 @@ export default function WeeklyCalendarModal({
           url = `/api/weeklycal/register?codeId=${codeId}&weekStartDate=${currentWeekData.weekStartDate}`;
         }
 
-        const response = await fetch(url);
+        const response = await fetchWithAuth(url);
         if (response.ok) {
           const data = await response.json();
           setRegistrationCounts(data.countsByCell || {});
@@ -568,7 +568,7 @@ export default function WeeklyCalendarModal({
         url = `/api/weeklycal/register?codeId=${codeId}&weekStartDate=${currentWeekData.weekStartDate}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetchWithAuth(url);
       if (response.ok) {
         const data = await response.json();
         // Filter registrations for this specific cell

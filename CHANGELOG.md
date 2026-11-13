@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.29.10] - 2026-11-13
+
+- Security stage 2 (server-side fixes from the Nov 12 audit; no data-model or rules change):
+  - `/api/weeklycal/verify` send: only for an existing `cellRegistrations` doc whose phone matches — no more paid OTPs under made-up codeIds.
+  - `/api/avatar/upload`: identifier = hash of the full phone/visitorId (the 12-char slice gave all same-day Q.Hunt players one prefix and let `visitorId=0` delete every avatar); visitorId format checked; old avatar deleted only after the new image decodes, by `{id}_` prefix.
+  - `/api/qvote/upload` + `/api/gallery`: stored type/extension sniffed from the bytes (`src/lib/imageSniff.ts`, raster only — no SVG/HTML hosting); qvote upload requires a Q.Vote code.
+  - `/api/qvote/vote`: round must be 1 or 2 (2 only in finals), categoryId must exist in the config, no `/` in ids.
+  - Q.Tag scanner PIN: durable per-code+IP lockout (Firestore `rateLimits/scanner_pin_*`, 10 fails / 15 min) checked BEFORE comparing.
+  - PDF replacement deletes only files under the code owner's storage folder (`isOwnersStoredFile` in storage-guard); storage credit/debit clamped so `storageUsed` can't go negative. Fattal flow unchanged for real booklets.
+  - weeklycal GET: real registration ids (which embed the cancel key) only for owner/collaborators (`fetchWithAuth` on the editor/check-in/participants pages); others get an opaque id.
+  - OG `qgames`/`qtag`: logo fetched only from our hosts (`src/lib/ogLogo.ts`); `bg` must be a hex colour.
+  - `validateOrigin` (shared + qvote vote/reset-voter): exact host match instead of substring.
+  - Social Wall OTP verify and Q.Tag cancel/uncancel are transactional (no parallel-request bypass).
+  - Logs: no full phone / entry token (`qtag-whatsapp.ts`, weeklycal register).
+  - Tests: `scripts/tests/security-stage2.test.mjs`. Rollback = Vercel rollback to the v1.29.9 deployment.
+
 ## [1.29.9] - 2026-11-13
 
 - Security stage 1 (dependencies only, no behavior change): lockfile refreshed with plain `npm audit fix` (never `--force`) — next 15.5.29, sharp 0.35.5, dompurify 3.4.17, protobufjs 7.6.6, websocket-driver 0.7.5, firebase-admin 13.10.0; clears all 4 critical advisories (prod deps 28 → 16, none critical). `sharp` and `uuid` declared explicitly (both imported by our code, previously resolved transitively). New `src/lib/sharp.server.ts` blocks SVG decoding (librsvg, GHSA-wq5f-xc86-pv6w) for the three sharp callers (avatar upload, upload, Social Wall); `security:check` rule 8 enforces it. pdfjs-dist / pdf-proxy / booklet viewer untouched. Rollback = Vercel rollback to the v1.29.8 deployment, or revert this release.

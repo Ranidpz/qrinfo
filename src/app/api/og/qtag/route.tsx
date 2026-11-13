@@ -1,12 +1,14 @@
 import { ImageResponse } from 'next/og';
+import { safeOgLogoUrl } from '@/lib/ogLogo';
 
 export const runtime = 'edge';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
-  const bgColor = searchParams.get('bg') || '#1a1a2e';
-  const logoUrl = searchParams.get('logo') || 'https://qr.playzones.app/theQ.png';
+  const bgParam = searchParams.get('bg');
+  const bgColor = bgParam && /^#[0-9a-fA-F]{3,8}$/.test(bgParam) ? bgParam : '#1a1a2e';
+  const logoUrl = safeOgLogoUrl(searchParams.get('logo'));
 
   return new ImageResponse(
     (

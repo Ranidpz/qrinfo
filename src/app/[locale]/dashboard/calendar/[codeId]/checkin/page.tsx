@@ -328,7 +328,7 @@ export default function CheckinScannerPage() {
         }
 
         // Fetch ALL registrations for this code (no date filter)
-        const regResponse = await fetch(`/api/weeklycal/register?codeId=${codeId}`);
+        const regResponse = await fetchWithAuth(`/api/weeklycal/register?codeId=${codeId}`);
         if (regResponse.ok) {
           const regData = await regResponse.json();
           const allRegs = regData.registrations || [];

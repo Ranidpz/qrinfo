@@ -131,7 +131,8 @@ export async function restorePdfVersion(codeId: string, eventId: string, actor: 
     const keptUploadedBy = kept.uploadedBy || ownerId;
     const currentSizeForOwner = current.uploadedBy === ownerId ? Number(current.size || 0) : 0;
     const keptSizeForOwner = keptUploadedBy === ownerId ? Number(kept.size || 0) : 0;
-    const storageDelta = keptSizeForOwner - currentSizeForOwner;
+    // Sizes come from client-writable media snapshots: never let a restore push storageUsed below 0.
+    const storageDelta = Math.max(keptSizeForOwner - currentSizeForOwner, -Math.max(Number(owner.storageUsed || 0), 0));
     const limit = Number(owner.storageLimit || 0);
     if (storageDelta > 0 && limit > 0 && Number(owner.storageUsed || 0) + storageDelta > limit) {
       throw new PdfHistoryError('quota', 409);

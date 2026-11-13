@@ -8,7 +8,8 @@ import { resolveGroup, validateName } from '@/lib/socialwall/rules';
 import {
   SocialWallError,
   activatePhoneMember,
-  bumpOtpAttempts,
+  claimOtpAttempt,
+  recordOtpFail,
   getAllowlistEntry,
   getPhoneMember,
   isValidCodeId,
@@ -108,16 +109,14 @@ export async function POST(request: NextRequest) {
 
     if (action === 'verify') {
       const code = typeof body.code === 'string' ? body.code.replace(/\D/g, '') : '';
-      const { member } = await getPhoneMember(codeId, phone);
-      if (!member?.otpHash || !member.otpExpiresAt) throw new SocialWallError('NO_CODE', 409);
-      if (member.status === 'blocked') throw new SocialWallError('BLOCKED', 403);
-      if (Date.now() > member.otpExpiresAt) throw new SocialWallError('EXPIRED', 410);
-      const now = Date.now();
-      const windowOpen = !!member.otpFailsSince && now - member.otpFailsSince < OTP_FAILS_WINDOW_MS;
-      const fails = windowOpen ? member.otpFails : 0;
-      if (member.otpAttempts >= MAX_OTP_ATTEMPTS || fails >= MAX_OTP_FAILS) throw new SocialWallError('TOO_MANY_ATTEMPTS', 429);
-      if (code.length !== OTP_LENGTH || !verifyOTPCode(code, member.otpHash)) {
-        await bumpOtpAttempts(codeId, phone, member.otpAttempts + 1, fails + 1, windowOpen ? member.otpFailsSince! : now);
+      // The attempt is spent atomically before comparing, so parallel guesses can't share one slot.
+      const member = await claimOtpAttempt(codeId, phone, {
+        maxAttempts: MAX_OTP_ATTEMPTS,
+        maxFails: MAX_OTP_FAILS,
+        failsWindowMs: OTP_FAILS_WINDOW_MS,
+      });
+      if (code.length !== OTP_LENGTH || !verifyOTPCode(code, member.otpHash!)) {
+        await recordOtpFail(codeId, phone, OTP_FAILS_WINDOW_MS);
         throw new SocialWallError('WRONG_CODE', 400, { attemptsLeft: MAX_OTP_ATTEMPTS - member.otpAttempts - 1 });
       }
       const { name, groupId } = await profile();

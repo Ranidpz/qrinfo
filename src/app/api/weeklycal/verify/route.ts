@@ -80,10 +80,23 @@ export async function POST(request: NextRequest) {
 
     // ========== SEND OTP ==========
     if (action === 'send') {
-      if (!registrationId) {
+      if (!registrationId || typeof registrationId !== 'string' || registrationId.includes('/') || typeof codeId !== 'string' || codeId.includes('/')) {
         return NextResponse.json(
           { error: 'registrationId is required for send action' },
           { status: 400 }
+        );
+      }
+
+      // A paid WhatsApp code goes out only for a registration that really exists, to the phone it
+      // was made with. Without this, any caller could send OTPs to any number under a made-up
+      // codeId — and the paid-send caps are keyed on that codeId, so each fake id got a fresh cap.
+      const registrationSnap = await db.collection('codes').doc(codeId)
+        .collection('cellRegistrations').doc(registrationId).get();
+      const registeredPhone = registrationSnap.exists ? registrationSnap.data()?.phone : null;
+      if (!registeredPhone || normalizePhoneNumber(String(registeredPhone)) !== normalizedPhone) {
+        return NextResponse.json(
+          { error: 'Registration not found', errorCode: 'REGISTRATION_NOT_FOUND' },
+          { status: 404 }
         );
       }
 

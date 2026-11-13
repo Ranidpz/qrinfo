@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
             });
 
             if (phoneBoothRegs.length >= maxRegistrationsPerPhone) {
-              console.log('WeeklyCal RSVP: Max registrations per booth exceeded', { phone, boothId, count: phoneBoothRegs.length, max: maxRegistrationsPerPhone });
+              console.log('WeeklyCal RSVP: Max registrations per booth exceeded', { phone: maskPhoneNumber(phone), boothId, count: phoneBoothRegs.length, max: maxRegistrationsPerPhone });
               return NextResponse.json(
                 {
                   error: 'Max registrations per booth exceeded',
@@ -452,9 +452,19 @@ export async function GET(request: NextRequest) {
         });
     }
 
+    // visitorId is the key to cancel a registration — never hand out other people's. The doc id
+    // embeds it too (`${visitorId}_${cellId}_${date}`), so only the code's owner/collaborators
+    // (who need the real id to check in / edit / delete) get it; everyone else gets an opaque key.
+    let canSeeIds = false;
+    if (request.headers.get('Authorization')) {
+      canSeeIds = !isAuthError(await requireCodeOwner(request, codeId));
+    }
+    const publicId = (id: string) => crypto.createHash('sha256').update(id).digest('hex').slice(0, 20);
+
     return NextResponse.json({
-      // visitorId is the key to cancel a registration — never hand out other people's
-      registrations: registrations.map(({ visitorId: _visitorId, ...reg }) => reg),
+      registrations: registrations.map(({ visitorId: _visitorId, ...reg }) => (
+        canSeeIds ? reg : { ...reg, id: publicId(reg.id) }
+      )),
       countsByCell,
       confirmationsByCell,
       userRegistrations,

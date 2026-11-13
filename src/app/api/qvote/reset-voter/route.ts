@@ -10,7 +10,14 @@ function validateOrigin(request: NextRequest): boolean {
   if (!origin) return true;
   if (!host) return false;
   const allowedHosts = [host, 'localhost:3000', 'localhost:3001'];
-  return allowedHosts.some(h => origin.includes(h));
+  // Exact host match: a substring test let "https://qr.playzones.app.evil.com" through.
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host.toLowerCase();
+  } catch {
+    return false;
+  }
+  return allowedHosts.some((h) => originHost === h.toLowerCase());
 }
 
 // POST: Reset a voter's votes (for vote change feature) using Admin SDK

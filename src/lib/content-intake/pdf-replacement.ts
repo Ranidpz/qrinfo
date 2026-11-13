@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { deleteStoredObjectByUrl } from '@/lib/server-storage';
+import { isOwnersStoredFile } from '@/lib/storage-guard';
 import {
   buildStorageKey,
   buildUniqueFilename,
@@ -245,13 +246,15 @@ export async function replaceCodePdfWithBuffer(
         throw new Error('Duplicate PDF');
       }
 
-      const oldSizeForOwner = oldMedia?.uploadedBy === ownerId
-        ? Number(oldMedia.size || 0)
-        : 0;
-      storageDelta = uploaded.size - oldSizeForOwner;
-
       const userData = userDoc.data() || {};
       const currentUsage = Number(userData.storageUsed || 0);
+      // `size` on a media item is client-writable: never credit back more than the owner has in
+      // use, or a forged size drives storageUsed negative (unlimited quota). Same rule as before
+      // otherwise, so a real booklet replacement is counted exactly as it always was.
+      const oldSizeForOwner = oldMedia?.uploadedBy === ownerId
+        ? Math.min(Math.max(Number(oldMedia.size) || 0, 0), Math.max(currentUsage, 0))
+        : 0;
+      storageDelta = uploaded.size - oldSizeForOwner;
       const storageLimit = Number(userData.storageLimit || 0);
       if (storageDelta > 0 && storageLimit > 0 && currentUsage + storageDelta > storageLimit) {
         throw new Error('Storage quota exceeded');
@@ -342,6 +345,7 @@ export async function replaceCodePdfWithBuffer(
   }
 
   for (const url of purgeUrls) {
+    if (!isOwnersStoredFile(url, ownerId)) continue;
     await deleteStoredObjectByUrl(url).catch((error) => {
       console.error('[PDF R2] Failed to delete superseded kept PDF:', error);
     });
@@ -349,7 +353,7 @@ export async function replaceCodePdfWithBuffer(
 
   let oldDeleteWarning: string | undefined;
   // With history the previous file is kept for one restore instead of deleted now.
-  if (!oldKept && input.deleteOld !== false && oldUrl && oldUrl !== uploaded.url) {
+  if (!oldKept && input.deleteOld !== false && oldUrl && oldUrl !== uploaded.url && isOwnersStoredFile(oldUrl, ownerId)) {
     try {
       await deleteStoredObjectByUrl(oldUrl);
     } catch (error) {
