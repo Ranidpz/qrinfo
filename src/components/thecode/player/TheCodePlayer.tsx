@@ -15,7 +15,7 @@ import { AlreadySolvedScreen, CorrectScreen, GnomeAsleepScreen, RiddleScreen, Ta
 import { ArrangeScreen, SuitcaseScreen, SummaryScreen } from './FinaleScreens';
 import { AllDoneScreen, InAppBrowserScreen, LoadingScreen, NetworkErrorScreen, NotFoundScreen, PausedScreen } from './StatusScreens';
 import ScannerScreen from './ScannerScreen';
-import { BrandBackdrop } from './Branding';
+import { DARK_CHROME, OpeningBackdrop, openingLook } from './Branding';
 import { Avatar } from './Avatar';
 import HowToPlaySheet, { HowToPlayButton } from './HowToPlaySheet';
 import { avatarOf, type PlayerCallbacks, type PlayerScreen, type PlayerState } from './types';
@@ -166,7 +166,8 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
   const alarm = state.screen.kind === 'wrongGnome' && state.screen.penalty > 0;
   // The venue's photo is the OPENING screen's (register / recover / loading); the game keeps our look.
   const opening = state.screen.kind === 'register' || state.screen.kind === 'loading';
-  const brandPhoto = opening ? state.branding?.backgroundUrl : undefined;
+  const look = openingLook(state.branding);
+  const showOpening = opening && look.kind !== 'none';
 
   // "איך משחקים": a pure overlay — the game underneath keeps its place.
   const howToLines = state.howToPlay ?? [];
@@ -196,11 +197,14 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
     <SfxContext.Provider value={play}>
       <div className="tc-frame">
       <style>{THECODE_STYLE}</style>
-      {state.branding?.backgroundUrl && <FramePhoto url={state.branding.backgroundUrl} />}
+      {/* behind the phone column on a wide window: the venue's own colour / gradient / photo */}
+      {look.kind === 'color' && <div aria-hidden className="absolute inset-0" style={{ background: look.color, filter: 'brightness(.55)' }} />}
+      {look.kind === 'gradient' && <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${look.from}, ${look.to})`, filter: 'brightness(.55)' }} />}
+      {(look.kind === 'image' || look.kind === 'video') && look.imageUrl && <FramePhoto url={look.imageUrl} />}
       <div dir="rtl" lang="he" className={`tc-root flex flex-col ${alarm ? 'tc-alarm' : ''}`} onPointerDown={() => gameSfx().unlock()}>
         <div className="tc-stars" aria-hidden />
         {/* Covers the stars once loaded; a broken photo simply leaves the night sky. */}
-        {brandPhoto && <BrandBackdrop url={brandPhoto} />}
+        {showOpening && <OpeningBackdrop look={look} />}
         {showHeader && (
           <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onMute={() => { callbacks.onToggleMute(); }} onHowTo={howToOpen} />
         )}
@@ -209,7 +213,7 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
             הדפדפן לא שומר אתכם. רשמו את קוד השחזור: <span dir="ltr" className="tc-num">{state.profile.recoveryCode}</span>
           </p>
         )}
-        <main className="relative flex-1">
+        <main className={`relative flex-1 ${showOpening && look.chromeDark ? 'tc-light-chrome' : ''}`} style={showOpening && look.chromeDark ? DARK_CHROME : undefined}>
           <div key={key} className="tc-a-rise absolute inset-0">
             <ScreenSwitch state={state} cb={cb} onHowTo={howToOpen} />
           </div>
@@ -219,6 +223,7 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
           onUpdateProfile={callbacks.onUpdateProfile}
           onClose={() => setSheetOpen(false)} onSwitch={cb.onSwitchProfile} onAdd={cb.onAddProfile} />
         <HowToPlaySheet open={howToShown} lines={howToLines} onClose={closeHowTo}
+          theme={state.howToPlayTheme} brandColor={state.branding?.buttonColor}
           closeLabel={opening ? 'הבנו, יוצאים לדרך' : 'חזרה למשחק'} />
       </div>
       </div>

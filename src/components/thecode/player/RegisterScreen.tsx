@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeBranding } from '@/types/thecode';
-import { BrandLogo, PoweredBy } from './Branding';
+import { BrandLogo, PoweredBy, openingLook } from './Branding';
+import type { CSSProperties } from 'react';
 import { HowToPlayButton } from './HowToPlaySheet';
 import { Avatar } from './Avatar';
 import { EMOJIS, SelfieFlow, SymbolRow } from './SymbolPicker';
@@ -35,10 +36,10 @@ interface Props {
 }
 
 /** The vault title, the one big typographic moment of the app. */
-export function CodeTitle({ small, smaller }: { small?: boolean; smaller?: boolean }) {
+export function CodeTitle({ small, smaller, look }: { small?: boolean; smaller?: boolean; look?: CSSProperties }) {
   return (
     <h1 className={`tc-display text-balance text-center leading-none ${smaller ? 'text-3xl' : small ? 'text-4xl' : 'text-6xl'}`}
-      style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>
+      style={look ?? { color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>
       קוד הגמדים
     </h1>
   );
@@ -57,7 +58,8 @@ export default function RegisterScreen(p: Props) {
   const [selfieStep, setSelfieStep] = useState<'consent' | null>(null);
   const canGo = name.trim().length >= 2;
   const logo = p.branding?.logoUrl;
-  const branded = !!(p.branding?.backgroundUrl || logo);
+  const look = openingLook(p.branding);
+  const branded = look.kind !== 'none' || !!logo;
   // Top corner, so it is on screen without scrolling and never competes with "יוצאים לדרך".
   const howTo = p.onHowToPlay ? <div className="-mb-2 flex justify-end"><HowToPlayButton onClick={p.onHowToPlay} /></div> : null;
 
@@ -66,7 +68,7 @@ export default function RegisterScreen(p: Props) {
       <ScreenBody className="items-stretch justify-center gap-6">
         {howTo}
         <BrandLogo url={p.branding?.logoUrl} name={p.venueName} />
-        <CodeTitle small={!p.branding?.logoUrl} smaller={!!p.branding?.logoUrl} />
+        <CodeTitle small={!p.branding?.logoUrl} smaller={!!p.branding?.logoUrl} look={look.text} />
         <div className="tc-a-rise text-center">
           <h2 className="tc-display text-3xl">כבר שיחקתם אצלנו?</h2>
           <p className="mt-2 text-lg" style={{ color: 'var(--tc-soft)' }}>הקלידו את קוד השחזור של הקבוצה, והנקודות והמזוודות יחזרו אליכם.</p>
@@ -86,7 +88,7 @@ export default function RegisterScreen(p: Props) {
           />
         </label>
         {p.recoverError && <p role="alert" className="tc-a-shake text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{p.recoverError}</p>}
-        <button type="button" className="tc-btn tc-btn-primary w-full" disabled={code.replace(/[^A-Z0-9]/g, '').length < 4}
+        <button type="button" className="tc-btn tc-btn-primary w-full" style={look.button} disabled={code.replace(/[^A-Z0-9]/g, '').length < 4}
           onClick={() => { sfx('tap'); p.onRecover(code); }}>
           שחזרו את הקבוצה
         </button>
@@ -112,14 +114,14 @@ export default function RegisterScreen(p: Props) {
           </div>
         </div>
       ) : logo ? (
-        <CodeTitle smaller />
+        <CodeTitle smaller look={look.text} />
       ) : (
-        <div className="mt-6"><CodeTitle /></div>
+        <div className="mt-6"><CodeTitle look={look.text} /></div>
       )}
 
       <div className="tc-a-rise tc-delay-1">
-        {p.firstGnome && <CodeTitle small={!logo} smaller={!!logo} />}
-        <p className="mt-3 whitespace-pre-line text-center text-lg" style={{ color: branded ? 'var(--tc-cream)' : 'var(--tc-soft)', textShadow: branded ? '0 1px 8px rgba(0,0,0,.6)' : undefined }}>
+        {p.firstGnome && <CodeTitle small={!logo} smaller={!!logo} look={look.text} />}
+        <p className="mt-3 whitespace-pre-line text-center text-lg" style={look.text ?? { color: branded ? 'var(--tc-cream)' : 'var(--tc-soft)', textShadow: branded && !look.chromeDark ? '0 1px 8px rgba(0,0,0,.6)' : undefined }}>
           {p.addingProfile ? 'עוד קבוצה משחקת מהטלפון הזה? בחרו לה כינוי.' : (p.branding?.welcomeText?.trim() || `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`)}
         </p>
       </div>
@@ -149,7 +151,7 @@ export default function RegisterScreen(p: Props) {
       </p>
 
       <div className="mt-auto flex flex-col gap-3">
-        <button type="button" className="tc-btn tc-btn-primary w-full text-xl" disabled={!canGo}
+        <button type="button" className="tc-btn tc-btn-primary w-full text-xl" style={look.button} disabled={!canGo}
           onClick={() => { sfx('correct'); p.onRegister(name, usingPhoto ? lastEmoji : emoji, usingPhoto ? photo! : undefined); }}>
           <Avatar value={emoji} size={30} /> יוצאים לדרך
         </button>

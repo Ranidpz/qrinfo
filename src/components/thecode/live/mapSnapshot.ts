@@ -86,6 +86,7 @@ export interface MapInput {
   branding?: TheCodeBranding | null;
   /** "איך משחקים" lines known before the snapshot (from the /g lookup). */
   howToPlay?: string[];
+  howToPlayTheme?: 'night' | 'light' | 'brand';
   /** Selfie settings known before the snapshot (the /g lookup). */
   selfie?: TheCodeSelfieSettings | null;
   /** A selfie taken on THIS phone, shown at once while it uploads (playerId → preview URL;
@@ -232,6 +233,7 @@ export function buildPlayerState(m: MapInput): PlayerState {
     muted: m.muted,
     branding: s?.adventure.branding ?? m.branding ?? null,
     howToPlay: s?.adventure.howToPlay?.length ? s.adventure.howToPlay : m.howToPlay,
+    howToPlayTheme: s?.adventure.howToPlayTheme ?? m.howToPlayTheme,
     selfie: (() => {
       const st = selfieOf(s?.adventure, m.selfie);
       return { enabled: st.enabled, days: st.retentionDays };

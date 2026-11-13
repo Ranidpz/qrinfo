@@ -11,6 +11,7 @@
 // routing, matching and repair are simplified.
 
 import type {
+  TheCodeBranding,
   TheCodeConfig,
   TheCodeGnome,
   TheCodePlayer,
@@ -1181,7 +1182,17 @@ const DEMO_LOGO = svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2
 <text x="110" y="92" text-anchor="middle" font-family="Georgia, serif" font-size="22" font-weight="700" fill="#1F3A5F" letter-spacing="3">CLIFF BEACH</text>
 </svg>`);
 
-export const DEMO_BRANDINGS = {
+/**
+ * ?brand= cases of the opening screen (TheCodeBranding):
+ * 1 bright photo · 2 dark photo · 3 plain light colour (dark text picked automatically) ·
+ * 4 gradient + own text/button colours · 5 muted looping video · 6 yellow text on white
+ * (too little contrast → the readability outline kicks in).
+ */
+export const DEMO_BRANDINGS: Record<'1' | '2' | '3' | '4' | '5' | '6', TheCodeBranding> = {
   '1': { backgroundUrl: BRIGHT_PHOTO, logoUrl: DEMO_LOGO, welcomeText: 'ברוכים הבאים למלון חוף הצוק!\nהגמדים שלנו מחכים לכם בכל פינה.' },
   '2': { backgroundUrl: DARK_PHOTO, logoUrl: DEMO_LOGO },
-} as const;
+  '3': { backgroundType: 'color', backgroundColor: '#F5F1E8', logoUrl: DEMO_LOGO, buttonColor: '#1F3A5F', welcomeText: 'ברוכים הבאים! הגמדים כבר מחכים לכם.' },
+  '4': { backgroundType: 'gradient', gradientFrom: '#FF8A00', gradientTo: '#C2185B', textColor: '#FFFFFF', buttonColor: '#14142B', welcomeText: 'ערב של קוד, גמדים ומזוודות!' },
+  '5': { backgroundType: 'video', backgroundVideoUrl: '/play/the-code/brand-demo.mp4', backgroundUrl: DARK_PHOTO, buttonColor: '#36E39A' },
+  '6': { backgroundType: 'color', backgroundColor: '#FFFFFF', textColor: '#FFD400', buttonColor: '#FFD400' },
+};
