@@ -120,6 +120,8 @@ export const THECODE_STYLE = `
 @keyframes tc-glow { 0% { transform: scale(.4); opacity: 0 } 40% { opacity: 1 } 100% { transform: scale(1.25); opacity: .85 } }
 @keyframes tc-rays { to { transform: rotate(360deg) } }
 @keyframes tc-stamp { 0% { transform: scale(2.4) rotate(-14deg); opacity: 0 } 60% { transform: scale(.92) rotate(-8deg); opacity: 1 } 100% { transform: scale(1) rotate(-8deg); opacity: 1 } }
+@keyframes tc-bounce-in { 0% { transform: scale(.3); opacity: 0 } 50% { transform: scale(1.12); opacity: 1 } 70% { transform: scale(.92) } 85% { transform: scale(1.04) } 100% { transform: scale(1) } }
+@keyframes tc-hop { 0%,100% { transform: translateY(0) } 30% { transform: translateY(-14px) rotate(-4deg) } 55% { transform: translateY(0) } 75% { transform: translateY(-6px) rotate(3deg) } }
 @keyframes tc-dial { 0% { transform: rotate(0) } 100% { transform: rotate(var(--turn, 300deg)) } }
 
 .tc-a-pop { animation: tc-pop .55s cubic-bezier(.2,.9,.3,1.3) both; }
@@ -129,6 +131,8 @@ export const THECODE_STYLE = `
 .tc-a-wobble { animation: tc-wobble .6s ease-in-out 2; }
 .tc-a-bob { animation: tc-bob 3.2s ease-in-out infinite; }
 .tc-a-flicker { animation: tc-flicker .7s ease-in-out infinite; display: inline-block; }
+.tc-a-bounce-in { animation: tc-bounce-in .8s cubic-bezier(.2,.9,.3,1.2) .1s both; transform-origin: 50% 60%; }
+.tc-a-hop { animation: tc-hop .9s ease-out .35s both; }
 .tc-a-stamp { animation: tc-stamp .5s cubic-bezier(.2,.9,.3,1.2) both; }
 .tc-float-plus { animation: tc-float-up 1.25s ease-out both; color: var(--tc-mint); text-shadow: 0 2px 12px rgba(54,227,154,.5); }
 .tc-float-minus { animation: tc-fall 1.35s ease-in both; color: var(--tc-coral); text-shadow: 0 2px 12px rgba(255,84,104,.5); }

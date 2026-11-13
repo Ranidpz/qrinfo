@@ -9,11 +9,12 @@ import type { CollectorView, CorrectView, PlayerGnomeView, RiddleView, TargetVie
 
 // ------------------------------------------------ pieces
 
-function ColorChip({ color, label }: { color: PlayerGnomeView['bodyColor']; label: string }) {
+/** One colour of the gnome, with the PART in bold ("גוף" / "מצנפת") so swapped pairs don't read alike. */
+function ColorChip({ color, part, name }: { color: PlayerGnomeView['bodyColor']; part: string; name: string }) {
   return (
     <span className="tc-chip text-base">
       <span aria-hidden className="h-5 w-5 rounded-full" style={{ background: THECODE_COLORS[color].hex, boxShadow: '0 0 0 2px rgba(0,0,0,.4), 0 0 0 3.5px rgba(255,244,218,.4)' }} />
-      {label}
+      <span><span className="font-black" style={{ color: 'var(--tc-brass-hi)' }}>{part}</span> {name}</span>
     </span>
   );
 }
@@ -68,8 +69,10 @@ export function TargetScreen({ target, collector, onHint, onScan }: { target: Ta
           <ScanButton onScan={onScan} label={first ? 'מצאתם? סרקו את הגמד' : 'סרקו עכשיו'} />
         </div>
       )}>
-      <p className="tc-display text-base" style={{ color: 'var(--tc-soft)' }}>
-        {first ? 'הגמד הראשון שלכם' : <>אות <span className="tc-num">{target.slotNumber}</span> מתוך <span className="tc-num">{collector?.total ?? '?'}</span></>}
+      {/* Rani (live): after a find, the next target must read as NEW (gnome 5 yellow/blue vs gnome 1 blue/yellow looked the same) */}
+      <p key={`next-${target.slotNumber}`} className="tc-a-pop tc-display rounded-full px-4 py-1 text-lg"
+        style={first ? { color: 'var(--tc-soft)' } : { background: 'rgba(244,183,64,.18)', color: 'var(--tc-brass-hi)', boxShadow: 'inset 0 0 0 1.5px rgba(244,183,64,.45)' }}>
+        {first ? 'הגמד הראשון שלכם' : <>היעד הבא: גמד <span className="tc-num">{target.slotNumber}</span> מתוך <span className="tc-num">{collector?.total ?? '?'}</span></>}
       </p>
       <h2 className="tc-display text-center text-[2rem] leading-tight">מצאו את הגמד</h2>
       {/* Rani (live, iPhone): the gnome is smaller so the colours + the place hint show at once */}
@@ -78,14 +81,23 @@ export function TargetScreen({ target, collector, onHint, onScan }: { target: Ta
         {describeGnome(g.bodyColor, g.hatColor)}
       </p>
       <div className="flex flex-wrap justify-center gap-2">
-        <ColorChip color={g.bodyColor} label={`גוף ${colorNameHe(g.bodyColor, 'body')}`} />
-        <ColorChip color={g.hatColor} label={`מצנפת ${colorNameHe(g.hatColor, 'hat')}`} />
+        <ColorChip color={g.bodyColor} part="גוף" name={colorNameHe(g.bodyColor, 'body')} />
+        <ColorChip color={g.hatColor} part="מצנפת" name={colorNameHe(g.hatColor, 'hat')} />
       </div>
 
       <div className="flex w-full flex-col gap-2">
+        {/* No location hint at all (the operator wrote none) → at least the place's name */}
+        {!target.hintsShown.length && target.placeName && (
+          <HintCard tone="brass" className="tc-a-rise">
+            <span aria-hidden className="me-2">📍</span><span className="font-black">איפה: </span>{target.placeName}
+          </HintCard>
+        )}
         {target.hintsShown.map((h, i) => (
           <HintCard key={i} tone={i === lastHint ? 'brass' : 'plain'} className={i === lastHint ? 'tc-a-rise' : ''}>
             <span aria-hidden className="me-2">{i === 0 ? '📍' : '🔎'}</span>{h}
+            {i === 0 && target.placeName && (
+              <span className="mt-1 block text-sm" style={{ color: 'var(--tc-soft)' }}>המקום: {target.placeName}</span>
+            )}
           </HintCard>
         ))}
       </div>
@@ -141,6 +153,9 @@ export function RiddleScreen({ riddle, alphabet, onPick, onSubmit, onHint }: Rid
 
   const freeLeft = riddle.freeWrongAnswers - riddle.wrongCount;
   const g = riddle.gnome;
+  // Just found (nothing tried on this riddle yet): celebrate once per screen opening.
+  const [fresh] = useState(() => riddle.wrongCount === 0 && riddle.hintsShown.length === 0 && !riddle.pendingLetter);
+  useEffect(() => { if (fresh) sfx('correct'); }, [fresh, sfx]);
   return (
     <ScreenBody className="items-stretch gap-4"
       footer={(
@@ -156,11 +171,13 @@ export function RiddleScreen({ riddle, alphabet, onPick, onSubmit, onHint }: Rid
         )}
       </div>
       )}>
+      {/* Rani (live): finding the gnome is a moment — foil confetti, a bouncing title, a hop. */}
+      {fresh && <Confetti burstKey={`found-${g.id}`} />}
       <div className="flex items-center gap-3">
-        <GnomeStage gnome={g} size={54} />
+        <div className={fresh ? 'tc-a-hop' : ''}><GnomeStage gnome={g} size={58} /></div>
         <div>
-          <p className="tc-display text-2xl leading-none" style={{ color: 'var(--tc-mint)' }}>זה הגמד שלכם!</p>
-          <p className="mt-1 text-sm" style={{ color: 'var(--tc-soft)' }}>הנה החידה שלו</p>
+          <p className={`tc-display text-[2rem] leading-none ${fresh ? 'tc-a-bounce-in' : ''}`} style={{ color: 'var(--tc-mint)' }}>זה הגמד שלכם!</p>
+          <p className="mt-1 text-base" style={{ color: 'var(--tc-soft)' }}>הנה החידה שלו</p>
         </div>
       </div>
 

@@ -856,7 +856,8 @@ export function demoView(s: DemoState): PlayerState {
     if (run.targetSlotIndex !== null) {
       const slot = run.slots[run.targetSlotIndex];
       const gnome = gnomeById(slot.gnomeId);
-      const hints = spotById(gnome.spotId).hints;
+      const spot = spotById(gnome.spotId);
+      const hints = spot.hints;
       const riddle = riddleById(slot.riddleId);
       const done = run.slots.filter((x) => x.status === 'solved' || x.status === 'gifted').length;
       view.target = {
@@ -864,6 +865,7 @@ export function demoView(s: DemoState): PlayerState {
         hintsShown: hints.slice(0, Math.max(1, slot.locationHintsUsed)),
         nextHintCost: slot.locationHintsUsed < hints.length ? rules.hintCost : null,
         slotNumber: done + 1,
+        placeName: spot.name,
       };
       const inCooldown = slot.wrongAnswers > rules.freeWrongAnswers && slot.lastWrongAnswerAt;
       view.riddle = {

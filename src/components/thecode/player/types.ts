@@ -60,6 +60,8 @@ export interface TargetView {
   nextHintCost: number | null;
   /** How many slots are already done — "letter 3 of 6". */
   slotNumber: number;
+  /** The place's player-facing name, when the server sends one (shown when there is no hint). */
+  placeName?: string;
 }
 
 export interface RiddleView {

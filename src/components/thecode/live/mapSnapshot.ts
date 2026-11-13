@@ -263,6 +263,10 @@ export function buildPlayerState(m: MapInput): PlayerState {
         nextHintCost: t.nextLocationHintCost,
         slotNumber: Math.min(run.collected.length + 1, run.totalLetters),
       };
+      // Forward-compatible: the place's player-facing name, once the contract carries it
+      // (proposed `TheCodeTargetView.spotName`). Until then nothing is shown.
+      const placeName = (t as { spotName?: unknown }).spotName;
+      if (typeof placeName === 'string' && placeName.trim()) base.target.placeName = placeName.trim();
       if (t.riddle) {
         const r = t.riddle;
         base.riddle = {
