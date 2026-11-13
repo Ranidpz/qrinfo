@@ -46,7 +46,7 @@ export default function GnomeLanding({ code }: { code: string }) {
       ) : state === 'offline' ? (
         <StaticTheCodeScreen screen={{ kind: 'networkError', problem: 'offline' }} />
       ) : (
-        <TheCodeGame codeId={state.codeId} pendingScanCode={code} pendingGnome={state.gnome} branding={state.branding} howToPlay={state.howToPlay} selfie={state.selfie} onPendingScanConsumed={onConsumed} />
+        <TheCodeGame codeId={state.codeId} pendingScanCode={code} pendingGnome={state.gnome} branding={state.branding} howToPlay={state.howToPlay} howToPlayTheme={state.howToPlayTheme} selfie={state.selfie} onPendingScanConsumed={onConsumed} />
       )}
     </div>
   );

@@ -59,14 +59,22 @@ export function TargetScreen({ target, collector, onHint, onScan }: { target: Ta
   const sfx = useSfx();
   const g = target.gnome;
   const lastHint = target.hintsShown.length - 1;
+  const first = target.slotNumber === 1 && !(collector?.letters.length);
   return (
-    <ScreenBody className="items-center gap-4">
-      <p className="tc-display text-lg" style={{ color: 'var(--tc-soft)' }}>
-        אות <span className="tc-num">{target.slotNumber}</span> מתוך <span className="tc-num">{collector?.total ?? '?'}</span>
+    <ScreenBody className="items-center gap-3"
+      footer={(
+        <div className="flex flex-col gap-2.5">
+          {collector && <Collector collector={collector} size={30} />}
+          <ScanButton onScan={onScan} label={first ? 'מצאתם? סרקו את הגמד' : 'סרקו עכשיו'} />
+        </div>
+      )}>
+      <p className="tc-display text-base" style={{ color: 'var(--tc-soft)' }}>
+        {first ? 'הגמד הראשון שלכם' : <>אות <span className="tc-num">{target.slotNumber}</span> מתוך <span className="tc-num">{collector?.total ?? '?'}</span></>}
       </p>
-      <h2 className="tc-display text-center text-4xl leading-tight">מצאו את הגמד</h2>
-      <GnomeStage gnome={g} size={150} className="tc-a-pop" />
-      <p className="tc-display text-center text-[1.7rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>
+      <h2 className="tc-display text-center text-[2rem] leading-tight">מצאו את הגמד</h2>
+      {/* Rani (live, iPhone): the gnome is smaller so the colours + the place hint show at once */}
+      <GnomeStage gnome={g} size={150} fit="min(170px, 22svh)" className="tc-a-pop" />
+      <p className="tc-display text-center text-[1.6rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>
         {describeGnome(g.bodyColor, g.hatColor)}
       </p>
       <div className="flex flex-wrap justify-center gap-2">
@@ -88,12 +96,6 @@ export function TargetScreen({ target, collector, onHint, onScan }: { target: Ta
       ) : (
         <p className="text-base" style={{ color: 'var(--tc-soft)' }}>זה הרמז האחרון. אתם ממש קרובים!</p>
       )}
-
-      <div className="mt-auto flex w-full flex-col gap-4 pt-2">
-        <p className="text-center text-base" style={{ color: 'var(--tc-soft)' }}>מצאתם? סרקו את הקוד שעל הגמד</p>
-        <ScanButton onScan={onScan} />
-        {collector && <Collector collector={collector} size={36} />}
-      </div>
     </ScreenBody>
   );
 }
@@ -140,7 +142,20 @@ export function RiddleScreen({ riddle, alphabet, onPick, onSubmit, onHint }: Rid
   const freeLeft = riddle.freeWrongAnswers - riddle.wrongCount;
   const g = riddle.gnome;
   return (
-    <ScreenBody className="items-stretch gap-4">
+    <ScreenBody className="items-stretch gap-4"
+      footer={(
+      <div className="flex gap-3">
+        <button type="button" className="tc-btn tc-btn-primary flex-1 text-xl" disabled={!riddle.pendingLetter || cooling || riddle.submitting}
+          onClick={() => { sfx('tap'); onSubmit(); }}>
+          {riddle.submitting ? 'בודקים…' : 'בדקו'}
+        </button>
+        {riddle.nextHintCost !== null && (
+          <button type="button" className={`tc-btn tc-btn-ghost ${cooling || riddle.wrongCount > 0 ? 'tc-a-pop' : ''}`} onClick={() => { sfx('tap'); onHint(); }}>
+            רמז <Cost amount={riddle.nextHintCost} />
+          </button>
+        )}
+      </div>
+      )}>
       <div className="flex items-center gap-3">
         <GnomeStage gnome={g} size={54} />
         <div>
@@ -191,17 +206,6 @@ export function RiddleScreen({ riddle, alphabet, onPick, onSubmit, onHint }: Rid
         )}
       </div>
 
-      <div className="flex gap-3">
-        <button type="button" className="tc-btn tc-btn-primary flex-1 text-xl" disabled={!riddle.pendingLetter || cooling || riddle.submitting}
-          onClick={() => { sfx('tap'); onSubmit(); }}>
-          {riddle.submitting ? 'בודקים…' : 'בדקו'}
-        </button>
-        {riddle.nextHintCost !== null && (
-          <button type="button" className={`tc-btn tc-btn-ghost ${cooling || riddle.wrongCount > 0 ? 'tc-a-pop' : ''}`} onClick={() => { sfx('tap'); onHint(); }}>
-            רמז <Cost amount={riddle.nextHintCost} />
-          </button>
-        )}
-      </div>
     </ScreenBody>
   );
 }
@@ -215,7 +219,10 @@ export function CorrectScreen({ correct, collector, onContinue }: { correct: Cor
     return () => clearTimeout(t);
   }, [correct.points]);
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center">
+    <ScreenBody className="items-center justify-center gap-5 text-center"
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onContinue}>
+        {correct.lastLetter ? 'יש לכם את כל האותיות! לפיצוח הקוד' : 'לגמד הבא'}
+      </button>}>
       {(correct.becameHot || correct.lastLetter) && <Confetti burstKey={`${correct.letter}${correct.points}`} />}
       <p className="tc-display tc-a-rise text-4xl" style={{ color: 'var(--tc-mint)' }}>נכון!</p>
       <div className="relative">
@@ -241,9 +248,6 @@ export function CorrectScreen({ correct, collector, onContinue }: { correct: Cor
       )}
       <p className="text-lg" style={{ color: 'var(--tc-soft)' }}>האות {correct.letter}׳ נכנסה לשק שלכם</p>
       {collector && <Collector collector={collector} size={40} />}
-      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onContinue}>
-        {correct.lastLetter ? 'יש לכם את כל האותיות! לפיצוח הקוד' : 'לגמד הבא'}
-      </button>
     </ScreenBody>
   );
 }
@@ -260,7 +264,8 @@ interface WrongProps {
 
 export function WrongGnomeScreen({ gnome, penalty, freeLeft, target, onContinue }: WrongProps) {
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center">
+    <ScreenBody className="items-center justify-center gap-5 text-center"
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onContinue}>חזרה לחיפוש</button>}>
       <GnomeStage gnome={gnome} size={120} className="tc-a-wobble" />
       <h2 className="tc-display tc-a-pop text-5xl leading-tight" style={{ color: penalty ? '#FFD1D7' : 'var(--tc-brass-hi)' }}>נא נא!</h2>
       <p className="tc-display text-2xl">זה לא הגמד שלכם</p>
@@ -285,32 +290,31 @@ export function WrongGnomeScreen({ gnome, penalty, freeLeft, target, onContinue 
           </div>
         </div>
       )}
-      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onContinue}>חזרה לחיפוש</button>
     </ScreenBody>
   );
 }
 
 export function AlreadySolvedScreen({ gnome, onContinue }: { gnome: PlayerGnomeView; onContinue(): void }) {
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center">
+    <ScreenBody className="items-center justify-center gap-5 text-center"
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onContinue}>חזרה לחיפוש</button>}>
       <div className="relative">
         <GnomeStage gnome={gnome} size={130} />
         <span className="tc-a-stamp absolute -left-3 top-6 flex h-14 w-14 items-center justify-center rounded-full text-3xl font-black text-[#053320]" style={{ background: 'var(--tc-mint)' }} aria-hidden>✓</span>
       </div>
       <h2 className="tc-display text-4xl">כבר פתרתם אותי!</h2>
       <p className="text-xl" style={{ color: 'var(--tc-soft)' }}>האות שלי כבר אצלכם בשק. רוצו לגמד הבא.</p>
-      <button type="button" className="tc-btn tc-btn-primary mt-4 w-full text-xl" onClick={onContinue}>חזרה לחיפוש</button>
     </ScreenBody>
   );
 }
 
 export function GnomeAsleepScreen({ gnome, onContinue }: { gnome: PlayerGnomeView; onContinue(): void }) {
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center">
+    <ScreenBody className="items-center justify-center gap-5 text-center"
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onContinue}>חזרה לחיפוש</button>}>
       <GnomeStage gnome={gnome} size={130} sleeping />
       <h2 className="tc-display text-4xl">ששש… הגמד הזה ישן</h2>
       <p className="text-xl" style={{ color: 'var(--tc-soft)' }}>הוא לא משחק היום, ולא ירדו לכם נקודות. חזרו לחפש את הגמד שלכם.</p>
-      <button type="button" className="tc-btn tc-btn-primary mt-4 w-full text-xl" onClick={onContinue}>חזרה לחיפוש</button>
     </ScreenBody>
   );
 }

@@ -17,13 +17,15 @@ export const metadata: Metadata = {
 
 // Closed on the live site (Rani, 12.11.2026: "מיותר") — production sends visitors to the guide.
 // Still runs on a local dev server (`next dev`), where the build sessions use it.
-export default async function TheCodeDemoPage({ searchParams }: { searchParams: Promise<{ brand?: string }> }) {
+export default async function TheCodeDemoPage({ searchParams }: { searchParams: Promise<{ brand?: string; theme?: string }> }) {
   if (process.env.NODE_ENV === 'production') redirect('/play/the-code/guide');
-  // ?brand=1 = the venue-branded opening screen on a bright photo, ?brand=2 on a dark one.
-  const { brand } = await searchParams;
+  // ?brand=1…7 = the opening-screen looks (see DEMO_BRANDINGS); ?theme=night|light|brand = the "איך משחקים" sheet.
+  const { brand, theme } = await searchParams;
+  const brandKey = brand && ['1', '2', '3', '4', '5', '6', '7'].includes(brand) ? (brand as '1') : undefined;
+  const themeKey = theme === 'light' || theme === 'brand' || theme === 'night' ? theme : undefined;
   return (
     <div className={display.variable}>
-      <TheCodeDemo brand={brand === '1' || brand === '2' ? brand : undefined} />
+      <TheCodeDemo brand={brandKey} theme={themeKey} />
     </div>
   );
 }

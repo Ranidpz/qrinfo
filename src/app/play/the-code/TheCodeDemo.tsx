@@ -92,7 +92,7 @@ function ControlPanel({ s, set }: { s: DemoState; set(next: (s: DemoState) => De
 // The real default text, built from the demo's own rules (the server does the same).
 const DEMO_HOW_TO_PLAY = defaultHowToPlay(DEMO_CONFIG.rules);
 
-export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRANDINGS }) {
+export default function TheCodeDemo({ brand, theme }: { brand?: keyof typeof DEMO_BRANDINGS; theme?: 'night' | 'light' | 'brand' }) {
   const [s, setS] = useState<DemoState>(createDemoState);
   const [barOpen, setBarOpen] = useState(false);
   const set = (fn: (x: DemoState) => DemoState) => setS((prev) => fn(prev));
@@ -131,7 +131,7 @@ export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRAND
     };
   }, []);
 
-  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY, selfie: { enabled: true, days: 14 } }), [s, brand]);
+  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY, selfie: { enabled: true, days: 14 }, howToPlayTheme: theme }), [s, brand, theme]);
 
   return (
     <div className="min-h-[100dvh] bg-[#E9E6F2] md:flex md:items-center md:justify-center md:gap-10 md:p-5">

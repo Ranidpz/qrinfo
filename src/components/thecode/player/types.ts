@@ -187,6 +187,8 @@ export interface PlayerState {
   branding?: TheCodeBranding | null;
   /** "איך משחקים" lines from the server (operator's own or the default built from the rules). Absent = no button. */
   howToPlay?: string[];
+  /** Ready theme of the "איך משחקים" sheet. Absent = 'night'. */
+  howToPlayTheme?: 'night' | 'light' | 'brand';
   /** Group selfies: offered on the register screen + in the profile sheet when `enabled`.
    *  `days` = retention, quoted in the consent line. Absent = no selfie anywhere. */
   selfie?: { enabled: boolean; days: number } | null;

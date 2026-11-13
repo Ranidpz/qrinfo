@@ -50,6 +50,8 @@ export interface UseTheCodeGameOptions {
   branding?: TheCodeBranding | null;
   /** "איך משחקים" lines known before the first snapshot (the /g lookup). */
   howToPlay?: string[];
+  /** Theme of the "איך משחקים" sheet known before the first snapshot (the /g lookup). */
+  howToPlayTheme?: 'night' | 'light' | 'brand';
   /** Selfie settings known before the first snapshot (the /g lookup), when the server sends them. */
   selfie?: TheCodeSelfieSettings | null;
   /** Leaderboard source (injectable for tests). */
@@ -550,10 +552,11 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
     muted,
     branding: opts.branding,
     howToPlay: opts.howToPlay,
+    howToPlayTheme: opts.howToPlayTheme,
     selfie: selfieOff ? { enabled: false, retentionDays: 14 } : opts.selfie,
     localPhotos,
     photoBusy,
-  }), [snapshot, ui, identity, storageAvailable, clockOffset, busy, boards, pendingGnome, loaded, notFound, muted, opts.branding, opts.howToPlay, opts.selfie, selfieOff, localPhotos, photoBusy]);
+  }), [snapshot, ui, identity, storageAvailable, clockOffset, busy, boards, pendingGnome, loaded, notFound, muted, opts.branding, opts.howToPlay, opts.howToPlayTheme, opts.selfie, selfieOff, localPhotos, photoBusy]);
 
   return { state, callbacks };
 }

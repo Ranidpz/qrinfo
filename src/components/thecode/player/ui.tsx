@@ -151,12 +151,14 @@ export function Collector({ collector, size = 40 }: { collector: CollectorView; 
 
 // ------------------------------------------------ gnome on a stage
 
-export function GnomeStage({ gnome, size = 140, sleeping, className }: { gnome: PlayerGnomeView; size?: number; sleeping?: boolean; className?: string }) {
+/** `fit` = a CSS height cap for the figure (e.g. 'min(170px, 22svh)'), so a short phone screen
+ *  shrinks the gnome instead of pushing the text and the action off screen. */
+export function GnomeStage({ gnome, size = 140, sleeping, className, fit }: { gnome: PlayerGnomeView; size?: number; sleeping?: boolean; className?: string; fit?: string }) {
   return (
     <div className={`relative flex flex-col items-center ${className || ''}`}>
       <div aria-hidden className="absolute bottom-0 h-8 rounded-[50%]"
         style={{ width: size * 1.3, background: 'radial-gradient(closest-side, rgba(255,217,120,.35), rgba(255,217,120,0))' }} />
-      <div className={sleeping ? '' : 'tc-a-bob'}>
+      <div className={`${sleeping ? '' : 'tc-a-bob'} ${fit ? '[&>svg]:h-full [&>svg]:w-auto' : ''}`} style={fit ? { height: fit } : undefined}>
         <GnomeFigure bodyColor={gnome.bodyColor} hatColor={gnome.hatColor} number={gnome.number} size={size} sleeping={sleeping} />
       </div>
       {sleeping && (
@@ -180,10 +182,24 @@ export function Confetti({ burstKey }: { burstKey: string | number }) {
 // ------------------------------------------------ layout
 
 /** One task per screen: a column that centres when short and scrolls when tall. */
-export function ScreenBody({ children, className }: { children: ReactNode; className?: string }) {
+/** `plainFooter`: no night fade behind the pinned action (the venue's own background shows through). */
+export function ScreenBody({ children, className, footer, plainFooter }: { children: ReactNode; className?: string; footer?: ReactNode; plainFooter?: boolean }) {
+  if (!footer) {
+    return (
+      <div className="absolute inset-0 overflow-y-auto overscroll-contain">
+        <div className={`flex min-h-full flex-col px-5 pb-8 pt-4 ${className || ''}`}>{children}</div>
+      </div>
+    );
+  }
+  // Rani (live, iPhone): the screen's one action is ALWAYS on screen, pinned to the bottom at
+  // thumb height, clear of Safari's toolbar / home indicator; the content above scrolls when
+  // it must and is never hidden behind it.
   return (
-    <div className="absolute inset-0 overflow-y-auto overscroll-contain">
-      <div className={`flex min-h-full flex-col px-5 pb-8 pt-4 ${className || ''}`}>{children}</div>
+    <div className="absolute inset-0 flex flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className={`flex min-h-full flex-col px-5 pb-4 pt-3 ${className || ''}`}>{children}</div>
+      </div>
+      <div className={`tc-footer relative shrink-0 px-5 pt-3 ${plainFooter ? 'tc-footer-plain' : ''}`}>{footer}</div>
     </div>
   );
 }

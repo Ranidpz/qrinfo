@@ -4,7 +4,7 @@
 
 import { CountUp, HintCard, ScreenBody, StarCoin } from './ui';
 import type { TheCodeBranding } from '@/types/thecode';
-import { BrandLogo } from './Branding';
+import { BrandLogo, brandingLayout } from './Branding';
 import type { NetworkProblem, PlayerProfileView } from './types';
 
 function BigIcon({ children }: { children: string }) {
@@ -13,7 +13,8 @@ function BigIcon({ children }: { children: string }) {
 
 export function AllDoneScreen({ profile, onSummary }: { profile: PlayerProfileView | null; onSummary(): void }) {
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center">
+    <ScreenBody className="items-center justify-center gap-5 text-center"
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onSummary}>לטבלת הקבוצות</button>}>
       <div className="relative flex items-end justify-center gap-1" aria-hidden>
         <span className="tc-a-drop text-6xl">🧳</span>
         <span className="tc-a-drop tc-delay-2 text-8xl">🧳</span>
@@ -26,7 +27,6 @@ export function AllDoneScreen({ profile, onSummary }: { profile: PlayerProfileVi
       {profile && (
         <div className="flex items-center gap-2 text-4xl"><StarCoin size={34} /><CountUp value={profile.points} /></div>
       )}
-      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onSummary}>לטבלת הקבוצות</button>
     </ScreenBody>
   );
 }
@@ -85,7 +85,7 @@ export function NetworkErrorScreen({ onRetry, problem = 'offline', retryInSecond
 export function LoadingScreen({ branding, venueName = '' }: { branding?: TheCodeBranding | null; venueName?: string }) {
   return (
     <ScreenBody className="items-center justify-center gap-6 text-center">
-      {branding?.logoUrl && <div className="w-full"><BrandLogo url={branding.logoUrl} name={venueName} /></div>}
+      {branding?.logoUrl && !brandingLayout(branding).logo && <div className="w-full"><BrandLogo url={branding.logoUrl} name={venueName} /></div>}
       <span aria-hidden className="tc-spin h-16 w-16 rounded-full border-[6px] border-white/15 border-t-[var(--tc-brass)]" />
       <p className="tc-display text-2xl" style={{ color: 'var(--tc-soft)' }}>מעירים את הגמדים…</p>
     </ScreenBody>
