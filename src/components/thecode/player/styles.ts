@@ -106,7 +106,7 @@ export const THECODE_STYLE = `
 @keyframes tc-wobble { 0%,100% { transform: rotate(0) } 25% { transform: rotate(-7deg) } 75% { transform: rotate(7deg) } }
 @keyframes tc-bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
 @keyframes tc-flicker { 0%,100% { transform: scale(1) rotate(-3deg) } 50% { transform: scale(1.12) rotate(3deg) } }
-@keyframes tc-pulse-ring { 0% { transform: scale(.8); opacity: .7 } 100% { transform: scale(1.6); opacity: 0 } }
+@keyframes tc-pulse-ring { 0% { transform: scale(.9); opacity: .7 } 100% { transform: scale(1.22); opacity: 0 } }
 /* pinned action bar: fades the content scrolling under it, clears the iPhone home bar */
 .tc-footer { padding-bottom: max(16px, env(safe-area-inset-bottom)); background: linear-gradient(to top, rgba(11,16,48,.97) 72%, rgba(11,16,48,0)); }
 .tc-light-chrome .tc-footer, .tc-footer-plain { background: none; }
@@ -143,7 +143,7 @@ export const THECODE_STYLE = `
 .tc-a-stamp { animation: tc-stamp .5s cubic-bezier(.2,.9,.3,1.2) both; }
 .tc-float-plus { animation: tc-float-up 1.25s ease-out both; color: var(--tc-mint); text-shadow: 0 2px 12px rgba(54,227,154,.5); }
 .tc-float-minus { animation: tc-fall 1.35s ease-in both; color: var(--tc-coral); text-shadow: 0 2px 12px rgba(255,84,104,.5); }
-.tc-ring { position: absolute; inset: 0; border-radius: 999px; border: 3px solid var(--tc-flame); animation: tc-pulse-ring 1.4s ease-out infinite; }
+.tc-ring { position: absolute; inset: 0; border-radius: 999px; border: 3px solid var(--tc-flame); animation: tc-pulse-ring 1.4s ease-out infinite; pointer-events: none; }
 .tc-zzz { position: absolute; font-weight: 800; animation: tc-zzz 2.4s ease-out infinite; }
 .tc-lid { transform-origin: 50% 100%; animation: tc-lid .45s ease-in .55s both; }
 .tc-lid-open { transform-origin: 50% 100%; animation: tc-lid-open .6s cubic-bezier(.2,.9,.3,1.2) .95s both; }

@@ -48,7 +48,8 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
     const load = () => {
       void fetchLeaderboard(codeId, 'week').then((b) => {
         if (!alive || !b) return;
-        // More rows than the table shows: the selfie parade also walks groups below the top 10.
+        // More rows than the table shows: the parade walks the top 10 groups WITH a selfie,
+        // which can include groups below the table's top 10.
         setBoard(b.rows.slice(0, PARADE_POOL).map((r) => ({
           id: r.id, name: r.familyName, avatar: r.photoUrl || r.emoji, points: r.points,
           gnomesFound: r.gnomesFound, suitcases: r.suitcases,

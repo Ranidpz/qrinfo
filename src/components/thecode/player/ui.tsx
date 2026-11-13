@@ -111,15 +111,32 @@ export function StarCoin({ size = 26 }: { size?: number }) {
 
 // ------------------------------------------------ hot streak
 
-export function HotBadge({ hot, streak, target, compact }: { hot: boolean; streak: number; target: number; compact?: boolean }) {
+/**
+ * The streak dots, or — once hot — the flame chip. `fit`: 'full' (🔥 חמים ×2), 'compact'
+ * (🔥 ×2), 'icon' (🔥) for a narrow header. With `onDismiss` the hot chip is a button: a tap
+ * hides it (Rani: it covered the group button and he could not get into the profile).
+ */
+export function HotBadge({ hot, streak, target, compact, fit, onDismiss }: { hot: boolean; streak: number; target: number; compact?: boolean; fit?: 'full' | 'compact' | 'icon'; onDismiss?(): void }) {
+  const level = fit ?? (compact ? 'compact' : 'full');
   if (hot) {
-    return (
-      <div className="tc-a-pop relative flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 font-black text-[#2A0E00]"
-        style={{ background: 'linear-gradient(180deg,#FFC24B,#FF8A2B)' }} role="status" aria-label="שחקנים חמים, כל אות שווה פי 2" title="שחקנים חמים: כל אות שווה פי 2">
+    const inner = (
+      <>
         <span className="tc-ring" aria-hidden />
         <span className="tc-a-flicker" aria-hidden>🔥</span>
-        {!compact && <span className="tc-display text-sm" aria-hidden>חמים</span>}
-        <span className="tc-num text-sm" aria-hidden>×2</span>
+        {level === 'full' && <span className="tc-display text-sm" aria-hidden>חמים</span>}
+        {level !== 'icon' && <span className="tc-num text-sm" aria-hidden>×2</span>}
+      </>
+    );
+    const cls = 'tc-a-pop relative flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 font-black text-[#2A0E00]';
+    const style = { background: 'linear-gradient(180deg,#FFC24B,#FF8A2B)' };
+    return onDismiss ? (
+      <button type="button" className={`${cls} min-h-[36px]`} style={style} onClick={onDismiss}
+        aria-label="שחקנים חמים, כל אות שווה פי 2. הקישו כדי להסתיר" title="שחקנים חמים: כל אות שווה פי 2">
+        {inner}
+      </button>
+    ) : (
+      <div className={cls} style={style} role="status" aria-label="שחקנים חמים, כל אות שווה פי 2" title="שחקנים חמים: כל אות שווה פי 2">
+        {inner}
       </div>
     );
   }

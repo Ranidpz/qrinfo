@@ -11,7 +11,7 @@ import type { TheCodeBranding } from '@/types/thecode';
 import { LOGO_BOX } from '@/lib/thecode/brandingLayout';
 import { READABLE_LARGE, contrastOn, isHexColor, luminance, worstContrast } from '@/lib/thecode/contrast';
 
-export { LAYOUT, LOGO_BOX, brandingLayout, isLogoPlaced, resolveLayout } from '@/lib/thecode/brandingLayout';
+export { LAYOUT, LOGO_BOX, brandingLayout, isLogoPlaced, openingTextPanel, resolveLayout } from '@/lib/thecode/brandingLayout';
 
 /** The game's own night colour — what the scrim over a photo / video amounts to for contrast. */
 const NIGHT = '#0B1030';
