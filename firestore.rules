@@ -52,8 +52,19 @@ service cloud.firestore {
       match /candidates/{candidateId} {
         // Anyone can read candidates (for voting page)
         allow read: if true;
-        // Anyone can create a candidate (self-registration)
-        allow create: if true;
+        // Anyone can create a candidate (self-registration), but a stranger's candidate starts
+        // unapproved with zero votes — it used to be possible to create one already approved,
+        // a finalist, and holding any voteCount. Owner / collaborators / admins are unrestricted.
+        allow create: if (request.auth != null && (
+            get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
+            request.auth.uid in get(/databases/$(database)/documents/codes/$(codeId)).data.get('collaborators', []) ||
+            isAdmin()
+          )) || (
+            request.resource.data.get('voteCount', 0) == 0 &&
+            request.resource.data.get('finalsVoteCount', 0) == 0 &&
+            request.resource.data.get('isApproved', false) == false &&
+            request.resource.data.get('isFinalist', false) == false
+          );
         // Only owner or admin can update/delete candidates
         allow update, delete: if request.auth != null && (
           get(/databases/$(database)/documents/codes/$(codeId)).data.ownerId == request.auth.uid ||
@@ -307,7 +318,9 @@ service cloud.firestore {
     match /folders/{folderId} {
       // Allow public read (needed for gamification route checking)
       allow read: if true;
-      allow create: if request.auth != null && (isApprovedUser() || isAdmin());
+      allow create: if request.auth != null && (
+        (isApprovedUser() && request.resource.data.ownerId == request.auth.uid) || isAdmin()
+      );
       allow update, delete: if request.auth != null && (
         resource.data.ownerId == request.auth.uid ||
         isAdmin()
@@ -421,14 +434,24 @@ service cloud.firestore {
       );
     }
 
-    // Helper function to check if this is just a view count increment
+    // Helper function to check if this is just a view count increment.
+    // Exactly +1 (the viewer writes increment(1)); it used to accept any number.
     function isViewIncrement() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
+        && request.resource.data.views == resource.data.get('views', 0) + 1;
     }
 
-    // Helper function to check if this is just a userGallery update (for anonymous uploads)
+    // Helper function to check if this is just a userGallery update (for anonymous uploads).
+    // Viewers add one photo (arrayUnion) or edit / delete one of their own (read-modify-write),
+    // so the list may grow or shrink by at most one per write and stays a bounded list.
+    // It used to accept any replacement — one write could empty a live event's gallery.
+    // The owner's photo manager is not limited by this: owners pass the owner rule above.
     function isGalleryUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userGallery']);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userGallery'])
+        && request.resource.data.userGallery is list
+        && request.resource.data.userGallery.size() <= 2500
+        && request.resource.data.userGallery.size() <= resource.data.get('userGallery', []).size() + 1
+        && request.resource.data.userGallery.size() >= resource.data.get('userGallery', []).size() - 1;
     }
   }
 }
