@@ -132,7 +132,7 @@ function missingLetterMessage(m: MissingLetter): string {
   const draft = m.dormant.find((d) => d.why === 'draft');
   const off = m.dormant.find((d) => d.why === 'gnomeOff' || d.why === 'spotOff');
   const disabled = m.dormant.find((d) => d.why === 'disabled');
-  if (draft) return `חסרה חידה לאות ${L} — לגמד ${draft.gnomeNumber} יש חידה כזו בטיוטה. פרסמו אותה.`;
+  if (draft) return `חסרה חידה לאות ${L} — לגמד ${draft.gnomeNumber} יש חידה כזו שעוד לא במשחק. הוסיפו אותה למשחק.`;
   if (off) {
     return `חסרה חידה לאות ${L} — היא נמצאת אצל גמד ${off.gnomeNumber}, ש${off.why === 'gnomeOff' ? 'כבוי' : 'המקום שלו כבוי'}. הפעילו אותו או הוסיפו חידה לאות ${L} בגמד אחר.`;
   }
@@ -183,7 +183,7 @@ function reword(issue: TheCodeIssue, state: AdminState, phrases: Record<string, 
       out.message = `גמד ${gnome?.number} לא משויך למקום. בחרו לו מקום.`;
       break;
     case 'GNOME_WITHOUT_RIDDLE':
-      out.message = `לגמד ${gnome?.number} אין חידה מפורסמת, ולכן אף קבוצה לא תגיע אליו.`;
+      out.message = `לגמד ${gnome?.number} אין חידה במשחק, ולכן אף קבוצה לא תגיע אליו.`;
       break;
     case 'GNOME_NOT_VERIFIED':
       out.message = `גמד ${gnome?.number} עוד לא נסרק במקום.`;

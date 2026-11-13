@@ -344,7 +344,7 @@ function GnomeEditor({
               חידות
             </span>
             <span className={cx('text-sm', riddles ? 'text-text-secondary' : 'text-amber-600 dark:text-amber-400')}>
-              {riddles === 0 ? 'אין חידה מפורסמת — הוסיפו' : riddles === 1 ? 'חידה אחת' : `${riddles} חידות`}
+              {riddles === 0 ? 'אין חידה במשחק — הוסיפו' : riddles === 1 ? 'חידה אחת' : `${riddles} חידות`}
             </span>
           </button>
         </div>

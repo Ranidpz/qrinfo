@@ -14,7 +14,7 @@ import { hasBranding } from './BrandingCard';
 const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'neutral' }> = {
   published: { label: 'פעילה', tone: 'success' },
   paused: { label: 'בהפסקה', tone: 'warning' },
-  draft: { label: 'טיוטה', tone: 'neutral' },
+  draft: { label: 'עוד לא פורסמה', tone: 'neutral' },
 };
 
 /** Warnings that repeat per gnome are folded into one line. */
@@ -22,7 +22,7 @@ function foldWarnings(issues: TheCodeIssue[], gnomeNo: (id?: string) => number |
   const out: { key: string; message: string; issue: TheCodeIssue }[] = [];
   const fold: Partial<Record<TheCodeIssue['code'], (nums: string) => string>> = {
     GNOME_NOT_VERIFIED: (n) => `גמדים ${n} עוד לא נסרקו במקום.`,
-    GNOME_WITHOUT_RIDDLE: (n) => `לגמדים ${n} אין חידה מפורסמת, ולכן אף קבוצה לא תגיע אליהם.`,
+    GNOME_WITHOUT_RIDDLE: (n) => `לגמדים ${n} אין חידה במשחק, ולכן אף קבוצה לא תגיע אליהם.`,
   };
   const groups = new Map<string, TheCodeIssue[]>();
   for (const i of issues) {
@@ -235,7 +235,7 @@ export default function OverviewScreen({
         />
         <Stat value={`${playable}/${activePhrases}`} label="משפטים מוכנים" onClick={() => navigate({ tab: 'phrases' })} />
         <Stat value={`${activeGnomes}/${config.gnomes.length}`} label="גמדים פעילים" onClick={() => navigate({ tab: 'gnomes' })} />
-        <Stat value={published} label="חידות מפורסמות" onClick={() => navigate({ tab: 'riddles' })} />
+        <Stat value={published} label="חידות במשחק" onClick={() => navigate({ tab: 'riddles' })} />
       </div>
 
       {/* Field alerts — things the venue team should go and look at */}

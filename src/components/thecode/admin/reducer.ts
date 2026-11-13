@@ -39,6 +39,13 @@ export interface ReducerOptions {
  */
 export function createAdminActions(set: AdminSetter, opts: ReducerOptions): AdminActions {
   const cfg = (fn: (c: TheCodeConfig) => TheCodeConfig) => set((s) => ({ ...s, config: fn(s.config) }));
+  /**
+   * Riddles created in this session that join the game BY THEMSELVES as soon as they have a
+   * question and an answer with a letter (Rani: "מה זה טיוטה?"). Choosing a state by hand takes
+   * the riddle out of this set, so an explicit "לא במשחק" is never overridden. No model change:
+   * the stored status is still draft/published.
+   */
+  const autoPublish = new Set<string>();
   return {
     setStatus: (status) => cfg((c) => ({ ...c, status })),
     updateConfig: (patch) => cfg((c) => ({ ...c, ...patch })),
@@ -107,6 +114,7 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
 
     addRiddle: (gnomeId, answerWord = '') => {
       const id = newEntityId('r');
+      autoPublish.add(id);
       set((s) => ({
         ...s,
         riddles: [
@@ -123,6 +131,11 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
           if (r.id !== id) return r;
           const next = { ...r, ...patch };
           next.letter = letterOfAnswer(next.answerWord);
+          if (patch.status !== undefined) autoPublish.delete(id);
+          else if (autoPublish.has(id) && next.status === 'draft' && next.text.trim() && next.letter) {
+            next.status = 'published';
+            autoPublish.delete(id);
+          }
           return next;
         }),
       })),

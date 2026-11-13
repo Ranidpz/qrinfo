@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ChevronLeft, CircleAlert, CircleCheck, Info, KeyRound, Luggage, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, CircleAlert, CircleCheck, Info, KeyRound, Lightbulb, Luggage, Plus, Trash2 } from 'lucide-react';
 import type { TheCodePhrase } from '@/types/thecode';
 import type { MissingLetter, PhraseCoverage, ScreenProps } from './model';
 import type { Navigate } from './nav';
 import { letterLabel } from './helpers';
 import { Button, Card, EmptyState, IconButton, LetterTile, Pill, ScreenHeader, Toggle, cx } from './ui';
 import { BankFillButton } from './BankDialogs';
+import { suggestPhrases } from './phraseSuggest';
 
 export default function PhrasesScreen({ state, report, actions, navigate, target, coverageOf }: ScreenProps) {
   const { phrases } = state.config;
@@ -76,6 +77,16 @@ export default function PhrasesScreen({ state, report, actions, navigate, target
         {!draft && (
           <p className="mt-2 text-sm text-text-secondary">כתבו משפט, ונראה לכם מיד אם יש מספיק גמדים לכל האותיות שלו.</p>
         )}
+        {!draft && (
+          <Suggestions
+            state={state}
+            onAdd={(text) => {
+              const id = actions.addPhrase(text);
+              setHighlight(id);
+            }}
+            onFindLetter={(letter) => navigate({ tab: 'riddles', letter })}
+          />
+        )}
       </Card>
 
       <div className="mt-8 space-y-4">
@@ -105,7 +116,7 @@ export default function PhrasesScreen({ state, report, actions, navigate, target
             <ChevronLeft size={16} className="ms-auto text-text-secondary transition-transform group-open:-rotate-90" aria-hidden />
           </summary>
           <div className="border-t border-border px-6 py-5">
-            <p className="mb-4 text-sm text-text-secondary">כמה פעמים כל אות מופיעה במשפטים הפעילים, מול כמה חידות מפורסמות נותנות אותה. כדי שקבוצה תחזור ותפתח עוד מזוודות, כדאי פי שניים חידות.</p>
+            <p className="mb-4 text-sm text-text-secondary">כמה פעמים כל אות מופיעה במשפטים הפעילים, מול כמה חידות במשחק נותנות אותה. כדי שקבוצה תחזור ותפתח עוד מזוודות, כדאי פי שניים חידות.</p>
             <div className="flex flex-wrap gap-4">
               {report.letterStock.map((l) => (
                 <button
@@ -192,7 +203,7 @@ function missingText(m: MissingLetter): string {
   const L = letterLabel(m.letter);
   const draft = m.dormant.find((d) => d.why === 'draft');
   const off = m.dormant.find((d) => d.why === 'gnomeOff' || d.why === 'spotOff');
-  if (draft) return `חסרה חידה לאות ${L} — לגמד ${draft.gnomeNumber} יש חידה כזו בטיוטה.`;
+  if (draft) return `חסרה חידה לאות ${L} — לגמד ${draft.gnomeNumber} יש חידה כזו שעוד לא במשחק.`;
   if (off) return `חסרה חידה לאות ${L} — היא אצל גמד ${off.gnomeNumber}, ש${off.why === 'gnomeOff' ? 'כבוי' : 'המקום שלו כבוי'}.`;
   if (m.shared) return `לאות ${L} אין גמד פנוי — הגמדים שנותנים אותה כבר נותנים אות אחרת במשפט.`;
   if (m.need > 1 && m.have > 0) return `${L} מופיעה ${m.need} פעמים, ורק ${m.have === 1 ? 'גמד אחד נותן' : `${m.have} גמדים נותנים`} אותה. כל אות צריכה גמד משלה.`;
@@ -243,6 +254,54 @@ function Verdict({ coverage, navigate, isDraft }: { coverage: PhraseCoverage; na
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <Info size={14} aria-hidden />
           אות סופית נאספת כמו האות הרגילה (ף = פ), ומוצגת סופית בסוף המילה.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** "הצעות שאפשר להרכיב עכשיו": words whose every letter already comes from a different gnome. */
+function Suggestions({ state, onAdd, onFindLetter }: { state: ScreenProps['state']; onAdd: (text: string) => void; onFindLetter: (letter: string) => void }) {
+  const { ready, almost } = useMemo(() => suggestPhrases(state.config, state.riddles), [state.config, state.riddles]);
+  if (!ready.length && !almost.length) return null;
+  return (
+    <div className="mt-5 border-t border-border pt-4">
+      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+        <Lightbulb size={16} className="text-accent" aria-hidden /> הצעות שאפשר להרכיב עכשיו
+      </div>
+      {ready.length > 0 ? (
+        <>
+          <p className="mb-2 text-sm text-text-secondary">כל אות במילים האלה כבר מגיעה מגמד אחר. לחצו כדי להוסיף.</p>
+          <div className="flex flex-wrap gap-2">
+            {ready.map((s) => (
+              <button
+                key={s.text}
+                type="button"
+                onClick={() => onAdd(s.text)}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/5 px-3 font-medium hover:bg-accent/10"
+              >
+                <Plus size={14} className="text-accent" aria-hidden /> {s.text}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="mb-2 text-sm text-text-secondary">עוד אין מילה שאפשר להרכיב מהחידות שבמשחק. הנה מילים שחסרה להן אות אחת:</p>
+      )}
+      {almost.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {almost.map((s) => (
+            <button
+              key={s.text}
+              type="button"
+              onClick={() => onFindLetter(s.missing)}
+              title={`הוסיפו חידה שהתשובה שלה מתחילה ב־${s.missing}, בגמד שעוד לא נותן אותה`}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-border px-3 text-text-secondary hover:bg-bg-hover"
+            >
+              <span className="font-medium text-text-primary">{s.text}</span>
+              <span className="text-xs">חסרה האות {letterLabel(s.missing)}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>

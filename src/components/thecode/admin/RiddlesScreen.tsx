@@ -16,8 +16,15 @@ import { RIDDLE_TEMPLATES, TEMPLATE_BLANK } from './riddleTemplates';
 const TARGET_MIN = 2;
 const TARGET_MAX = 5;
 
-const STATUS_LABEL: Record<TheCodeRiddle['status'], string> = { draft: 'טיוטה', published: 'מפורסמת', disabled: 'מושבתת' };
-const STATUS_TONE: Record<TheCodeRiddle['status'], 'neutral' | 'success' | 'warning'> = { draft: 'neutral', published: 'success', disabled: 'warning' };
+/** What is still missing before a riddle can be in the game (null = complete). */
+function riddleMissing(r: TheCodeRiddle): string | null {
+  const text = !!r.text.trim();
+  const answer = !!letterOfAnswer(r.answerWord);
+  if (!text && !answer) return 'חסרות שאלה ותשובה';
+  if (!text) return 'חסרה שאלה';
+  if (!answer) return 'חסרה תשובה';
+  return null;
+}
 
 export default function RiddlesScreen({ state, report, actions, navigate, target, uploadImage }: ScreenProps) {
   const { config, riddles, riddleStats } = state;
@@ -156,17 +163,8 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold">#{g.number}</div>
                     <div className="truncate text-sm text-text-secondary">{spotName(g)}</div>
+                    <RiddleCount n={pub.length} waiting={mine.length - pub.length} active={g.isActive} letters={[...new Set(pub.map((r) => r.letter))]} />
                   </div>
-                  {pub.length === 0 ? (
-                    <Pill tone={g.isActive ? 'warning' : 'neutral'}>{mine.length ? 'רק טיוטה' : 'אין'}</Pill>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      {[...new Set(pub.map((r) => r.letter))].slice(0, 3).map((l) => (
-                        <span key={l} className="inline-flex size-7 items-center justify-center rounded-md bg-bg-hover text-sm font-bold">{l}</span>
-                      ))}
-                    </div>
-                  )}
-                  <RiddleCount n={pub.length} active={g.isActive} />
                 </button>
               );
             })}
@@ -306,14 +304,16 @@ function RiddleCard({
   const hints = [0, 1, 2].map((i) => r.hints[i] || '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const missing = riddleMissing(r);
 
   return (
     <Card className={cx(open && 'ring-2 ring-accent/30')}>
-      <button type="button" onClick={onToggle} className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-start">
+      <div className="flex min-h-14 w-full flex-wrap items-center gap-x-2 pe-2">
+      <button type="button" onClick={onToggle} className="flex min-w-[14rem] flex-1 items-center gap-3 py-3 ps-4 text-start">
         <LetterTile letter={letter || '?'} size="sm" tone={letter ? 'ok' : 'missing'} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">{r.answerWord || 'חידה חדשה'}</div>
-          {!open && <div className="truncate text-sm text-text-secondary">{r.text || 'עוד אין טקסט'}</div>}
+          {!open && <div className="truncate text-sm text-text-secondary">{r.text || 'עוד אין שאלה'}</div>}
         </div>
         {hard && <Pill tone="warning" className="hidden sm:inline-flex">חידה קשה מדי</Pill>}
         {stats && (
@@ -322,9 +322,19 @@ function RiddleCard({
             <span className="inline-flex items-center gap-0.5"><X size={14} className="text-danger" aria-label="שגוי" />{stats.wrong}</span>
           </span>
         )}
-        <Pill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Pill>
+        {missing ? (
+          <Pill tone="warning">{missing}</Pill>
+        ) : r.status === 'published' ? (
+          <Pill tone="success">במשחק</Pill>
+        ) : (
+          <Pill tone="neutral">לא במשחק</Pill>
+        )}
         <ChevronDown size={16} className={cx('shrink-0 text-text-secondary transition-transform', open && 'rotate-180')} aria-hidden />
       </button>
+      {!missing && r.status !== 'published' && (
+        <Button size="sm" variant="primary" icon={Plus} className="mb-3 ms-auto sm:mb-0" onClick={() => onChange({ status: 'published' })}>הוסיפו למשחק</Button>
+      )}
+      </div>
 
       {open && (
         <div className="space-y-6 border-t border-border px-4 py-5">
@@ -417,17 +427,19 @@ function RiddleCard({
             <Field label="רמת קושי">
               <Segmented label="רמת קושי" value={r.difficulty} onChange={(d) => onChange({ difficulty: d })} options={[{ value: 1, label: 'קלה' }, { value: 2, label: 'בינונית' }, { value: 3, label: 'קשה' }]} />
             </Field>
-            <Field label="מצב">
-              <Segmented
-                label="מצב"
-                value={r.status}
-                onChange={(st) => onChange({ status: st })}
-                options={[{ value: 'draft', label: 'טיוטה' }, { value: 'published', label: 'מפורסמת' }, { value: 'disabled', label: 'מושבתת' }]}
-              />
+            <Field label="במשחק" hint={missing ? `${missing} — אחרי שתשלימו, החידה תיכנס למשחק.` : r.status === 'published' ? 'קבוצות יכולות לקבל את החידה.' : 'החידה שמורה, אבל קבוצות לא יקבלו אותה.'}>
+              <div className="flex items-center gap-3">
+                <Toggle
+                  checked={r.status === 'published'}
+                  onChange={(v) => onChange({ status: v ? 'published' : 'draft' })}
+                  label="החידה במשחק"
+                />
+                <span className="text-sm">{r.status === 'published' ? 'במשחק' : 'לא במשחק'}</span>
+              </div>
             </Field>
           </div>
           {r.status === 'published' && (!r.text.trim() || !letter || wrongAlphabet) && (
-            <p className="text-sm text-danger">חידה מפורסמת צריכה טקסט ותשובה שמתחילה באות.</p>
+            <p className="text-sm text-danger">חידה במשחק צריכה שאלה ותשובה שמתחילה באות.</p>
           )}
 
           {stats && (
@@ -460,18 +472,20 @@ function RiddleCard({
   );
 }
 
-/** Published riddles of a gnome against the 2–5 target; under 2 is gently flagged. */
-function RiddleCount({ n, active }: { n: number; active: boolean }) {
-  if (n === 0) return null;
+/** In-game riddles of a gnome in words, against the 2–5 target, plus the letters it gives. */
+function RiddleCount({ n, waiting, active, letters }: { n: number; waiting: number; active: boolean; letters: string[] }) {
   const low = active && n < TARGET_MIN;
+  const count = n === 0 ? 'אין חידות במשחק' : n === 1 ? 'חידה אחת' : `${n} חידות`;
+  const title = `${n === 1 ? 'חידה אחת' : `${n} חידות`} במשחק לגמד הזה. כדאי ${TARGET_MIN} עד ${TARGET_MAX}, כדי שקבוצות שונות יקבלו שאלות שונות.${letters.length ? ` הגמד נותן את ${letters.length === 1 ? 'האות' : 'האותיות'} ${letters.join(', ')}.` : ''}${waiting > 0 ? ` עוד ${waiting} לא במשחק.` : ''}`;
   return (
-    <span
-      title={low ? `כדאי להוסיף — היעד ${TARGET_MIN} עד ${TARGET_MAX} חידות לגמד` : `${n} חידות מפורסמות`}
-      dir="ltr"
-      className={cx('shrink-0 text-xs tabular-nums', low ? 'font-medium text-amber-600 dark:text-amber-400' : 'text-text-secondary')}
-    >
-      {n}/{TARGET_MIN}–{TARGET_MAX}
-    </span>
+    <div title={title} className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
+      <span className={low ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-text-secondary'}>
+        {count}
+        {low && ` · כדאי ${TARGET_MIN} עד ${TARGET_MAX}`}
+      </span>
+      {letters.length > 0 && <span className="text-text-secondary">אותיות: <b className="text-text-primary">{letters.join(', ')}</b></span>}
+      {waiting > 0 && <span className="text-text-secondary">· {waiting === 1 ? 'אחת לא במשחק' : `${waiting} לא במשחק`}</span>}
+    </div>
   );
 }
 
@@ -479,7 +493,7 @@ function TargetLine({ n }: { n: number }) {
   const low = n < TARGET_MIN;
   return (
     <div className={cx('-mt-2 mb-4 text-sm', low ? 'text-amber-700 dark:text-amber-400' : 'text-text-secondary')}>
-      {n === 0 ? 'אין עדיין חידה מפורסמת' : n === 1 ? 'חידה מפורסמת אחת' : `${n} חידות מפורסמות`} · היעד {TARGET_MIN} עד {TARGET_MAX}
+      {n === 0 ? 'אין עדיין חידה במשחק' : n === 1 ? 'חידה אחת במשחק' : `${n} חידות במשחק`} · כדאי {TARGET_MIN} עד {TARGET_MAX}
       {low && ' — כדאי להוסיף'}
     </div>
   );
