@@ -5,10 +5,11 @@ import { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeBranding } from '@/types/thecode';
 import { BrandLogo, PoweredBy } from './Branding';
 import { HowToPlayButton } from './HowToPlaySheet';
+import { Avatar } from './Avatar';
+import { EMOJIS, SelfieFlow, SymbolRow } from './SymbolPicker';
 import { GnomeStage, ScreenBody, useSfx } from './ui';
-import type { PlayerGnomeView } from './types';
+import type { PlayerGnomeView, SelfieShot } from './types';
 
-const EMOJIS = ['🦁', '🐯', '🦊', '🐼', '🦉', '🐬', '🐙', '🦄', '🐢', '🐝', '🚀', '⚡'];
 const MAX_NAME = 20;
 
 interface Props {
@@ -22,11 +23,13 @@ interface Props {
   nameError?: string;
   /** Adding a sibling from the switcher (not the first scan). */
   addingProfile: boolean;
-  onRegister(familyName: string, emoji: string): void;
+  onRegister(familyName: string, emoji: string, photo?: SelfieShot): void;
   onRecover(code: string): void;
   onMode(mode: 'new' | 'recover'): void;
   /** Opens "איך משחקים" (absent = no button). */
   onHowToPlay?(): void;
+  /** Offer a selfie as the group's symbol (absent / disabled = no camera tile at all). */
+  selfie?: { enabled: boolean; days: number } | null;
   /** Back out of "add a family" to the family that was playing. */
   onCancel?(): void;
 }
@@ -46,6 +49,12 @@ export default function RegisterScreen(p: Props) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [code, setCode] = useState('');
+  const [photo, setPhoto] = useState<SelfieShot | null>(null);
+  // The emoji the server needs anyway (the selfie only replaces it on screen).
+  const [lastEmoji, setLastEmoji] = useState(EMOJIS[0]);
+  const allowSelfie = !!p.selfie?.enabled;
+  const usingPhoto = !!photo && emoji === photo.preview;
+  const [selfieStep, setSelfieStep] = useState<'consent' | null>(null);
   const canGo = name.trim().length >= 2;
   const logo = p.branding?.logoUrl;
   const branded = !!(p.branding?.backgroundUrl || logo);
@@ -90,6 +99,7 @@ export default function RegisterScreen(p: Props) {
   }
 
   return (
+    <>
     <ScreenBody className="items-stretch gap-5">
       {howTo}
       {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} /></div>}
@@ -127,34 +137,21 @@ export default function RegisterScreen(p: Props) {
         />
       </label>
 
-      <fieldset className="tc-a-rise tc-delay-3">
-        <legend className="tc-display mb-2 text-xl">והסמל שלכם</legend>
-        <div className="grid grid-cols-6 gap-2">
-          {EMOJIS.map((e) => (
-            <button
-              key={e}
-              type="button"
-              aria-pressed={emoji === e}
-              aria-label={`סמל ${e}`}
-              onClick={() => { sfx('key'); setEmoji(e); }}
-              className="flex aspect-square items-center justify-center rounded-2xl text-3xl transition-transform active:scale-90"
-              style={emoji === e
-                ? { background: 'rgba(244,183,64,.2)', boxShadow: 'inset 0 0 0 3px var(--tc-brass)' }
-                : { background: 'var(--tc-panel)', boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
+      <fieldset className="tc-a-rise tc-delay-3 min-w-0">
+        <legend className="tc-display mb-1 text-xl">{allowSelfie ? 'והסמל שלכם: סלפי או ציור' : 'והסמל שלכם'}</legend>
+        <SymbolRow value={emoji} selfie={allowSelfie} photo={photo?.preview ?? null} onCamera={() => setSelfieStep('consent')}
+          onChange={(v) => { setEmoji(v); if (!photo || v !== photo.preview) setLastEmoji(v); }} />
       </fieldset>
 
       {p.nameError && <p role="alert" className="tc-a-shake text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{p.nameError}</p>}
-      <p className="text-center text-sm" style={{ color: 'var(--tc-soft)' }}>בלי שמות אמיתיים ובלי תמונות. רק כינוי וסמל.</p>
+      <p className="text-center text-sm" style={{ color: 'var(--tc-soft)' }}>
+        {allowSelfie ? 'בלי שמות אמיתיים. סלפי רק אם תרצו, ובסוף הוא נמחק.' : 'בלי שמות אמיתיים ובלי תמונות. רק כינוי וסמל.'}
+      </p>
 
       <div className="mt-auto flex flex-col gap-3">
         <button type="button" className="tc-btn tc-btn-primary w-full text-xl" disabled={!canGo}
-          onClick={() => { sfx('correct'); p.onRegister(name, emoji); }}>
-          <span aria-hidden>{emoji}</span> יוצאים לדרך
+          onClick={() => { sfx('correct'); p.onRegister(name, usingPhoto ? lastEmoji : emoji, usingPhoto ? photo! : undefined); }}>
+          <Avatar value={emoji} size={30} /> יוצאים לדרך
         </button>
         {p.addingProfile ? (
           p.onCancel && <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={p.onCancel}>ביטול</button>
@@ -166,5 +163,10 @@ export default function RegisterScreen(p: Props) {
         {!p.addingProfile && <PoweredBy />}
       </div>
     </ScreenBody>
+    {allowSelfie && (
+      <SelfieFlow step={selfieStep} days={p.selfie!.days} onCancel={() => setSelfieStep(null)}
+        onPhoto={(shot) => { setPhoto(shot); setEmoji(shot.preview); sfx('correct'); }} />
+    )}
+    </>
   );
 }

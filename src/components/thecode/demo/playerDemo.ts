@@ -764,6 +764,25 @@ export function demoScanCode(s0: DemoState, code: string): DemoState {
   return demoScan({ ...s0, scannerError: null }, g.id);
 }
 
+/** "עריכת הקבוצה" in the demo: rename, another emoji, a selfie (data: URL) or no photo. */
+export function demoUpdateProfile(s0: DemoState, patch: { familyName?: string; emoji?: string }): DemoState {
+  const s = clone(s0);
+  const p = active(s);
+  if (!p) return s;
+  if (patch.familyName) p.player.familyName = patch.familyName.trim().slice(0, 20);
+  if (patch.emoji) p.player.emoji = patch.emoji;
+  return s;
+}
+
+export function demoSetPhoto(s0: DemoState, dataUrl: string | null): DemoState {
+  const s = clone(s0);
+  const p = active(s);
+  if (!p) return s;
+  if (dataUrl) p.player.emoji = dataUrl;
+  else if (p.player.emoji.startsWith('data:')) p.player.emoji = '🦁';
+  return s;
+}
+
 export function demoSetOverlay(s0: DemoState, overlay: DemoState['overlay']): DemoState {
   return { ...s0, overlay };
 }
@@ -774,10 +793,13 @@ export function demoSetOverlay(s0: DemoState, overlay: DemoState['overlay']): De
 
 function profileView(p: DemoProfile): PlayerProfileView {
   const pl = p.player;
+  // Demo: a selfie lives in `emoji` as a data: URL (it never leaves this browser).
+  const isPhoto = pl.emoji.startsWith('data:');
   return {
     id: pl.id,
     familyName: pl.familyName,
-    emoji: pl.emoji,
+    emoji: isPhoto ? '🦁' : pl.emoji,
+    photoUrl: isPhoto ? pl.emoji : undefined,
     recoveryCode: pl.recoveryCode,
     points: pl.points,
     streak: pl.streak,
