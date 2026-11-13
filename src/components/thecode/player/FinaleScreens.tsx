@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import { displayPhrase } from '@/lib/thecode/letters';
 import { Avatar } from './Avatar';
-import { Confetti, CountUp, HintCard, ScreenBody, Socket, StarCoin, Tile, useFit, useSfx } from './ui';
+import { Confetti, CountUp, HintCard, ScreenBody, Socket, StarCoin, TeamStats, Tile, useFit, useSfx } from './ui';
 import { avatarOf } from './types';
 import type { ArrangeView, LeaderRowView, PlayerProfileView, SuitcaseView, SummaryView } from './types';
 
@@ -243,6 +243,7 @@ function Leaderboard({ rows, meOutside }: { rows: LeaderRowView[]; meOutside?: {
               <Avatar value={avatarOf(r)} size={32} />
               <span className="flex-1 truncate text-start text-lg font-bold">{r.familyName}</span>
               {r.isMe && climbed && settled && <span className="tc-a-pop text-sm font-black" style={{ color: 'var(--tc-mint)' }}>▲ {r.prevRank - i}</span>}
+              <TeamStats gnomes={r.gnomesFound} suitcases={r.suitcases} className="text-sm" />
               <span className="tc-num text-lg">{r.points.toLocaleString('en-US')}</span>
             </li>
           );

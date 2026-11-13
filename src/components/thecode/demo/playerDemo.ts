@@ -149,13 +149,14 @@ const ARRANGE_HELP_COST = 50;
 const VENUE_NAME = 'מלון חוף הצוק';
 
 /** Other families on this week's board. Fixed numbers so the screen-recording repeats. */
-const BOARD_OTHERS: { id: string; familyName: string; emoji: string; points: number }[] = [
-  { id: 'o1', familyName: 'האריות מקומה 4', emoji: '🦁', points: 2140 },
-  { id: 'o2', familyName: 'הצוללים', emoji: '🤿', points: 1560 },
-  { id: 'o3', familyName: 'הנמרים המהירים', emoji: '🐯', points: 1180 },
-  { id: 'o4', familyName: 'צוות פיצה', emoji: '🍕', points: 940 },
-  { id: 'o5', familyName: 'גמדי הים', emoji: '🌊', points: 610 },
-  { id: 'o6', familyName: 'הפרפרים', emoji: '🦋', points: 380 },
+type DemoBoardRow = { id: string; familyName: string; emoji: string; points: number; gnomesFound: number; suitcases: number };
+const BOARD_OTHERS: DemoBoardRow[] = [
+  { id: 'o1', familyName: 'האריות מקומה 4', emoji: '🦁', points: 2140, gnomesFound: 9, suitcases: 1 },
+  { id: 'o2', familyName: 'הצוללים', emoji: '🤿', points: 1560, gnomesFound: 7, suitcases: 1 },
+  { id: 'o3', familyName: 'הנמרים המהירים', emoji: '🐯', points: 1180, gnomesFound: 6, suitcases: 0 },
+  { id: 'o4', familyName: 'צוות פיצה', emoji: '🍕', points: 940, gnomesFound: 5, suitcases: 0 },
+  { id: 'o5', familyName: 'גמדי הים', emoji: '🌊', points: 610, gnomesFound: 3, suitcases: 0 },
+  { id: 'o6', familyName: 'הפרפרים', emoji: '🦋', points: 380, gnomesFound: 2, suitcases: 0 },
 ];
 
 // =================================================================
@@ -254,9 +255,10 @@ function newPlayer(s: DemoState, familyName: string, emoji: string): TheCodePlay
 
 // ------------------------------------------------ board
 
-function boardRows(s: DemoState): { id: string; familyName: string; emoji: string; points: number }[] {
+function boardRows(s: DemoState): DemoBoardRow[] {
   const mine = s.profiles.map((p) => ({
     id: p.player.id, familyName: p.player.familyName, emoji: p.player.emoji, points: p.player.points,
+    gnomesFound: p.player.foundGnomeIds.length, suitcases: p.player.suitcasesOpened,
   }));
   return [...BOARD_OTHERS, ...mine].sort((a, b) => b.points - a.points);
 }

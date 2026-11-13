@@ -29,24 +29,29 @@ const SELFIES = [
   face('#FFD978', '#C98D5E', '#1E1410', '#36E39A'),
   face('#C9A7FF', '#F6D2B8', '#D9A441', '#5AA9FF'),
   face('#FFB3BD', '#8D5A3B', '#120C08', '#F4B740'),
+  face('#9BE7C4', '#E8B48C', '#7A3E12', '#FF5468'),
+  face('#FFC79A', '#F6D2B8', '#2E2A26', '#7EC8FF'),
+  face('#B8C6FF', '#A86F4A', '#120C08', '#FFD978'),
+  face('#FFE08A', '#F2C29B', '#B8571F', '#C9A7FF'),
 ];
 
 
+// Most demo groups shared a selfie, so the selfie parade has walkers (with 8+ they take turns).
 const START: Team[] = [
-  { id: 't1', name: 'הנמרים מקומה 3', avatar: SELFIES[0], points: 1240, hot: false },
-  { id: 't2', name: 'צוות הינשופים', avatar: '🦉', points: 980, hot: true },
-  { id: 't3', name: 'הדולפינים', avatar: '🐬', points: 860, hot: false },
-  { id: 't4', name: 'הבלשים', avatar: SELFIES[1], points: 720, hot: false },
-  { id: 't5', name: 'כוכבי הבריכה', avatar: '🚀', points: 540, hot: false },
-  { id: 't6', name: 'הצבים המהירים', avatar: '🐢', points: 410, hot: false },
-  { id: 't7', name: 'צוות ירח', avatar: '🦄', points: 260, hot: false },
+  { id: 't1', name: 'הנמרים מקומה 3', avatar: SELFIES[0], points: 1240, hot: false, gnomesFound: 8, suitcases: 1 },
+  { id: 't2', name: 'צוות הינשופים', avatar: '🦉', points: 980, hot: true, gnomesFound: 7, suitcases: 1 },
+  { id: 't3', name: 'הדולפינים', avatar: SELFIES[4], points: 860, hot: false, gnomesFound: 6, suitcases: 0 },
+  { id: 't4', name: 'הבלשים', avatar: SELFIES[1], points: 720, hot: false, gnomesFound: 5, suitcases: 0 },
+  { id: 't5', name: 'כוכבי הבריכה', avatar: SELFIES[5], points: 540, hot: false, gnomesFound: 4, suitcases: 0 },
+  { id: 't6', name: 'הצבים המהירים', avatar: '🐢', points: 410, hot: false, gnomesFound: 3, suitcases: 0 },
+  { id: 't7', name: 'צוות ירח', avatar: SELFIES[6], points: 260, hot: false, gnomesFound: 2, suitcases: 0 },
 ];
 
 const JOINERS: Omit<Team, 'points' | 'hot'>[] = [
   { id: 'j1', name: 'שועלי הלילה', avatar: SELFIES[2] },
   { id: 'j2', name: 'הדבורים', avatar: '🐝' },
   { id: 'j3', name: 'הנינג׳ות', avatar: SELFIES[3] },
-  { id: 'j4', name: 'האריות הקטנים', avatar: '🦁' },
+  { id: 'j4', name: 'האריות הקטנים', avatar: SELFIES[7] },
   { id: 'j5', name: 'צוות ברק', avatar: '⚡' },
 ];
 
@@ -119,7 +124,7 @@ export default function TheCodeLobbyDemo() {
       const m = (kind: LobbyMoment['kind'], team: Team) => moments.push({ kind, name: team.name, avatar: team.avatar });
 
       if (beat === 'join' && joinIdx.current < JOINERS.length) {
-        const team: Team = { ...JOINERS[joinIdx.current++], points: 100, hot: false };
+        const team: Team = { ...JOINERS[joinIdx.current++], points: 100, hot: false, gnomesFound: 1, suitcases: 0 };
         next.push(team);
         m('join', team);
       } else if (beat === 'suitcase') {
@@ -128,15 +133,19 @@ export default function TheCodeLobbyDemo() {
         const targetId = sorted[Math.min(sorted.length - 1, 2 + Math.floor(Math.random() * 4))].id;
         const team = next.find((x) => x.id === targetId)!;
         team.points += 500 + (team.hot ? 200 : 100);
+        team.gnomesFound = (team.gnomesFound ?? 0) + 1;
+        team.suitcases = (team.suitcases ?? 0) + 1;
         m('suitcase', team);
       } else if (beat === 'hot') {
         const cold = next.filter((x) => !x.hot);
         const team = cold.length ? cold[Math.floor(Math.random() * cold.length)] : pick();
         team.points += 200;
+        team.gnomesFound = (team.gnomesFound ?? 0) + 1;
         if (!team.hot) { team.hot = true; m('hot', team); }
       } else {
         const team = pick();
         team.points += team.hot ? 200 : 100;
+        team.gnomesFound = (team.gnomesFound ?? 0) + 1;
         if (Math.random() < 0.25) next = next.map((x) => (x.id === team.id ? x : { ...x, hot: x.hot && Math.random() > 0.3 }));
       }
       teamsRef.current = next;

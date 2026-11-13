@@ -136,6 +136,44 @@ export function HotBadge({ hot, streak, target, compact }: { hot: boolean; strea
   );
 }
 
+// ------------------------------------------------ team stats (boards)
+
+/** A tiny gnome (pointed hat, face, beard, body), sized in em so it follows the text around it. */
+export function GnomeGlyph() {
+  return (
+    <svg viewBox="0 0 24 30" aria-hidden style={{ width: '1.05em', height: '1.3em', display: 'inline-block', verticalAlign: '-0.28em' }}>
+      <path d="M12 0.5 L20.5 13 L3.5 13 Z" fill="#E5484D" stroke="#7A1E22" strokeWidth="1" strokeLinejoin="round" />
+      <rect x="2.5" y="12" width="19" height="3" rx="1.5" fill="#B8323A" />
+      <path d="M5 26 Q5 20 12 20 Q19 20 19 26 L19 29.5 L5 29.5 Z" fill="#3D7BFF" />
+      <circle cx="12" cy="16.6" r="3.4" fill="#F6CFAF" />
+      <path d="M6.2 17.2 Q12 30 17.8 17.2 Q15 19.6 12 19.6 Q9 19.6 6.2 17.2 Z" fill="#FFFFFF" stroke="#C9C9D6" strokeWidth=".6" />
+      <circle cx="12" cy="17.3" r="1.2" fill="#F08A7E" />
+    </svg>
+  );
+}
+
+/**
+ * Gnomes found and suitcases opened, beside a group's points (Rani: "לא רק ניקוד"). Quiet next
+ * to the points; the suitcase count only when there is one, so the row never gets crowded.
+ */
+export function TeamStats({ gnomes, suitcases, className }: { gnomes?: number; suitcases?: number; className?: string }) {
+  if (gnomes === undefined && !suitcases) return null;
+  return (
+    <span className={`flex shrink-0 items-center gap-[0.7em] whitespace-nowrap ${className || ''}`} style={{ color: 'var(--tc-soft)' }}>
+      {gnomes !== undefined && (
+        <span className="flex items-center gap-[0.25em]" aria-label={`${gnomes} גמדים נמצאו`} title="גמדים שנמצאו">
+          <GnomeGlyph /><span className="tc-num">{gnomes}</span>
+        </span>
+      )}
+      {!!suitcases && (
+        <span className="flex items-center gap-[0.25em]" aria-label={`${suitcases} מזוודות נפתחו`} title="מזוודות שנפתחו">
+          <span aria-hidden>🧳</span><span className="tc-num">{suitcases}</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ------------------------------------------------ letters
 
 const HE_LETTER_NAMES: Record<string, string> = {

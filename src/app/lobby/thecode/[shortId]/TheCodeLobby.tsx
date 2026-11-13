@@ -18,6 +18,8 @@ import LobbyStage, { LOBBY_ROWS, useLobbyStage, type LobbyMoment } from '@/compo
 import type { TheCodeLobbyEvent, TheCodeLobbyLive } from '@/types/thecode-api';
 
 const POLL_MS = 15000;
+/** Groups the board keeps (the table shows LOBBY_ROWS of them; the parade may walk any). */
+const PARADE_POOL = 40;
 /** An event older than this when the screen first sees it is not replayed as a banner. */
 const STALE_EVENT_MS = 60_000;
 
@@ -46,7 +48,11 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
     const load = () => {
       void fetchLeaderboard(codeId, 'week').then((b) => {
         if (!alive || !b) return;
-        setBoard(b.rows.slice(0, LOBBY_ROWS).map((r) => ({ id: r.id, name: r.familyName, avatar: r.photoUrl || r.emoji, points: r.points })));
+        // More rows than the table shows: the selfie parade also walks groups below the top 10.
+        setBoard(b.rows.slice(0, PARADE_POOL).map((r) => ({
+          id: r.id, name: r.familyName, avatar: r.photoUrl || r.emoji, points: r.points,
+          gnomesFound: r.gnomesFound, suitcases: r.suitcases,
+        })));
       });
     };
     load();
