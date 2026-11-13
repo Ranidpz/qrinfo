@@ -1,13 +1,21 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowDown, ArrowUp, BookOpenText, Pencil, Plus, RotateCcw, Trash2, TriangleAlert } from 'lucide-react';
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { BookOpenText, GripVertical, Pencil, Plus, RotateCcw, Trash2, TriangleAlert } from 'lucide-react';
 import { resolveRules } from '@/lib/thecode/engine';
 import { HOW_TO_PLAY_LIMITS, defaultHowToPlay, resolveHowToPlay } from '@/lib/thecode/howToPlay';
 import type { ScreenProps } from './model';
 import { Button, Card, IconButton, Pill, cx } from './ui';
 
 const { lines: MAX_LINES, line: MAX_CHARS } = HOW_TO_PLAY_LIMITS;
+
+/** A draft line with a stable id, so React keeps each textarea (and its focus) while reordering. */
+interface Line {
+  id: string;
+  text: string;
+}
+let lineSeq = 0;
+const toLine = (text: string): Line => ({ id: `l${++lineSeq}`, text });
 
 /**
  * "איך משחקים": the short rules families can open from any screen. Until the operator writes
@@ -20,11 +28,11 @@ export default function HowToPlayCard({ state, actions }: Pick<ScreenProps, 'sta
   const rules = resolveRules(config.rules);
   const own = (config.howToPlay || []).some((l) => l.trim());
   const shown = resolveHowToPlay(config, rules);
-  const [draft, setDraft] = useState<string[] | null>(null);
+  const [draft, setDraft] = useState<Line[] | null>(null);
 
-  const startEdit = () => setDraft([...shown]);
+  const startEdit = () => setDraft(shown.map(toLine));
   const save = () => {
-    const lines = (draft || []).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, MAX_LINES);
+    const lines = (draft || []).map((l) => l.text.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, MAX_LINES);
     actions.updateConfig({ howToPlay: lines.length ? lines : undefined });
     setDraft(null);
   };
@@ -32,11 +40,13 @@ export default function HowToPlayCard({ state, actions }: Pick<ScreenProps, 'sta
     actions.updateConfig({ howToPlay: undefined });
     setDraft(null);
   };
-  const move = (i: number, d: -1 | 1) =>
+  /** Move the line at `from` to position `to` (drag or keyboard). */
+  const move = (from: number, to: number) =>
     setDraft((cur) => {
-      if (!cur) return cur;
+      if (!cur || from === to || to < 0 || to >= cur.length) return cur;
       const next = [...cur];
-      [next[i], next[i + d]] = [next[i + d], next[i]];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
       return next;
     });
 
@@ -98,7 +108,7 @@ export default function HowToPlayCard({ state, actions }: Pick<ScreenProps, 'sta
 
         <div className="flex flex-col items-center">
           <span className="mb-2 text-sm font-medium text-text-secondary">כך זה נראה בטלפון</span>
-          <SheetPreview lines={draft ? draft.filter((l) => l.trim()) : shown} fallback={defaultHowToPlay(rules, config.language)} />
+          <SheetPreview lines={draft ? draft.map((l) => l.text).filter((t) => t.trim()) : shown} fallback={defaultHowToPlay(rules, config.language)} />
         </div>
       </div>
     </Card>
@@ -110,42 +120,141 @@ function Editor({
   setDraft,
   move,
 }: {
-  draft: string[];
-  setDraft: (fn: (cur: string[] | null) => string[] | null) => void;
-  move: (i: number, d: -1 | 1) => void;
+  draft: Line[];
+  setDraft: (fn: (cur: Line[] | null) => Line[] | null) => void;
+  move: (from: number, to: number) => void;
 }) {
-  const setLine = (i: number, v: string) => setDraft((cur) => (cur ? cur.map((l, j) => (j === i ? v.replace(/[\r\n]+/g, ' ') : l)) : cur));
+  const setLine = (id: string, v: string) => setDraft((cur) => (cur ? cur.map((l) => (l.id === id ? { ...l, text: v.replace(/[\r\n]+/g, ' ') } : l)) : cur));
+  const rows = useRef(new Map<string, HTMLLIElement>());
+  const handles = useRef(new Map<string, HTMLButtonElement>());
+  const [dragId, setDragId] = useState<string | null>(null);
+  // Refs, not state, inside the pointer handlers: moves can arrive before React re-renders.
+  const dragRef = useRef<string | null>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [announce, setAnnounce] = useState('');
+
+  // Keyboard moves re-render the list: keep the focus on the moved line's handle.
+  useEffect(() => {
+    if (focusId) handles.current.get(focusId)?.focus();
+  }, [draft, focusId]);
+
+  /** Index of the row under the pointer (by row midpoints), so the line follows the finger. */
+  const indexAt = (y: number): number => {
+    const list = draftRef.current;
+    let idx = 0;
+    list.forEach((l, i) => {
+      const r = rows.current.get(l.id)?.getBoundingClientRect();
+      if (r && y > r.top + r.height / 2) idx = i;
+    });
+    return idx;
+  };
+
+  const onPointerDown = (e: PointerEvent<HTMLButtonElement>, id: string) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* capture is a nicety; the moves still arrive on the handle */
+    }
+    dragRef.current = id;
+    setDragId(id);
+  };
+  const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
+    const id = dragRef.current;
+    if (!id) return;
+    const list = draftRef.current;
+    const from = list.findIndex((l) => l.id === id);
+    const to = indexAt(e.clientY);
+    if (from >= 0 && to !== from) {
+      move(from, to);
+      // Keep the ref in step until React re-renders, so a fast drag never moves twice.
+      const next = [...list];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      draftRef.current = next;
+    }
+  };
+  const endDrag = () => {
+    const id = dragRef.current;
+    if (!id) return;
+    const at = draftRef.current.findIndex((l) => l.id === id);
+    setAnnounce(`השורה נמצאת עכשיו במקום ${at + 1}`);
+    dragRef.current = null;
+    setDragId(null);
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>, i: number, id: string) => {
+    const to = e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : e.key === 'Home' ? 0 : e.key === 'End' ? draft.length - 1 : null;
+    if (to === null || to < 0 || to >= draft.length || to === i) return;
+    e.preventDefault();
+    setFocusId(id);
+    move(i, to);
+    setAnnounce(`השורה נמצאת עכשיו במקום ${to + 1}`);
+  };
+
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between text-sm text-text-secondary">
-        <span>שורה לכל צעד. כתבו בפשטות, כך שגם ילד יבין.</span>
-        <span className={cx('tabular-nums', draft.length >= MAX_LINES && 'font-medium text-amber-700 dark:text-amber-400')}>{draft.length}/{MAX_LINES} שורות</span>
+      <div className="mb-2 flex items-center justify-between gap-3 text-sm text-text-secondary">
+        <span>שורה לכל צעד. כתבו בפשטות, כך שגם ילד יבין. גררו את הידית כדי לשנות סדר.</span>
+        <span className={cx('shrink-0 tabular-nums', draft.length >= MAX_LINES && 'font-medium text-amber-700 dark:text-amber-400')}>{draft.length}/{MAX_LINES} שורות</span>
       </div>
       <ol className="space-y-3">
         {draft.map((l, i) => (
-          <li key={i} className="flex items-start gap-2">
-            <span className="mt-3 w-5 shrink-0 text-center font-semibold tabular-nums text-accent">{i + 1}.</span>
+          <li
+            key={l.id}
+            ref={(el) => {
+              if (el) rows.current.set(l.id, el);
+              else rows.current.delete(l.id);
+            }}
+            className={cx(
+              'flex items-start gap-1 rounded-xl transition-shadow sm:gap-2',
+              dragId === l.id && 'relative z-10 bg-bg-card shadow-lg ring-2 ring-accent/40'
+            )}
+          >
+            <button
+              type="button"
+              ref={(el) => {
+                if (el) handles.current.set(l.id, el);
+                else handles.current.delete(l.id);
+              }}
+              aria-label={`שורה ${i + 1}: גררו כדי לשנות סדר, או השתמשו בחיצים למעלה ולמטה`}
+              title="גררו כדי לשנות סדר"
+              onPointerDown={(e) => onPointerDown(e, l.id)}
+              onPointerMove={onPointerMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onKeyDown={(e) => onKeyDown(e, i, l.id)}
+              onBlur={() => setFocusId((f) => (f === l.id ? null : f))}
+              className={cx(
+                'mt-2 flex h-11 w-8 shrink-0 touch-none select-none items-center justify-center rounded-lg text-text-secondary hover:bg-bg-hover hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent',
+                dragId === l.id ? 'cursor-grabbing text-accent' : 'cursor-grab'
+              )}
+            >
+              <GripVertical size={18} aria-hidden />
+            </button>
+            <span className="mt-3 w-4 shrink-0 text-center font-semibold tabular-nums text-accent sm:w-5">{i + 1}.</span>
             <div className="min-w-0 flex-1">
               <textarea
-                className="input min-h-16 resize-y"
-                value={l}
+                className="input min-h-28 resize-y sm:min-h-16"
+                value={l.text}
                 maxLength={MAX_CHARS}
                 aria-label={`שורה ${i + 1}`}
-                onChange={(e) => setLine(i, e.target.value)}
+                onChange={(e) => setLine(l.id, e.target.value)}
               />
-              <span className={cx('mt-0.5 block text-end text-xs tabular-nums', l.length >= MAX_CHARS ? 'text-amber-700 dark:text-amber-400' : 'text-text-secondary')}>
-                {l.length}/{MAX_CHARS}
+              <span className={cx('mt-0.5 block text-end text-xs tabular-nums', l.text.length >= MAX_CHARS ? 'text-amber-700 dark:text-amber-400' : 'text-text-secondary')}>
+                {l.text.length}/{MAX_CHARS}
               </span>
             </div>
-            <div className="flex shrink-0 flex-col">
-              <IconButton icon={ArrowUp} label="הזיזו למעלה" disabled={i === 0} onClick={() => move(i, -1)} />
-              <IconButton icon={ArrowDown} label="הזיזו למטה" disabled={i === draft.length - 1} onClick={() => move(i, 1)} />
-              <IconButton icon={Trash2} label="מחקו שורה" onClick={() => setDraft((cur) => (cur ? cur.filter((_, j) => j !== i) : cur))} />
+            <div className="mt-2 shrink-0">
+              <IconButton icon={Trash2} label="מחקו שורה" onClick={() => setDraft((cur) => (cur ? cur.filter((x) => x.id !== l.id) : cur))} />
             </div>
           </li>
         ))}
       </ol>
-      <Button size="sm" variant="ghost" icon={Plus} className="mt-3" disabled={draft.length >= MAX_LINES} onClick={() => setDraft((cur) => (cur ? [...cur, ''] : cur))}>
+      <span className="sr-only" aria-live="polite">{announce}</span>
+      <Button size="sm" variant="ghost" icon={Plus} className="mt-3" disabled={draft.length >= MAX_LINES} onClick={() => setDraft((cur) => (cur ? [...cur, toLine('')] : cur))}>
         הוסיפו שורה
       </Button>
     </div>
