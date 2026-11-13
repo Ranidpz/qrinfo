@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeBranding } from '@/types/thecode';
-import { BrandLogo, PoweredBy, brandingLayout, openingLook } from './Branding';
+import { BrandLogo, PoweredBy, isLogoPlaced, openingLook } from './Branding';
 import type { CSSProperties } from 'react';
 import { HowToPlayButton } from './HowToPlaySheet';
 import { Avatar } from './Avatar';
@@ -58,7 +58,7 @@ export default function RegisterScreen(p: Props) {
   const [selfieStep, setSelfieStep] = useState<'consent' | null>(null);
   const canGo = name.trim().length >= 2;
   // A logo the venue placed itself floats over the screen (TheCodePlayer); else it sits in the flow here.
-  const placed = !!brandingLayout(p.branding).logo;
+  const placed = isLogoPlaced(p.branding);
   const logo = placed ? undefined : p.branding?.logoUrl;
   const look = openingLook(p.branding);
   const branded = look.kind !== 'none' || !!logo;
@@ -69,7 +69,7 @@ export default function RegisterScreen(p: Props) {
     return (
       <ScreenBody className="items-stretch justify-center gap-6">
         {howTo}
-        <BrandLogo url={logo} name={p.venueName} imgStyle={brandingLayout(p.branding).logoImg} />
+        <BrandLogo url={logo} name={p.venueName} />
         <CodeTitle small={!logo} smaller={!!logo} look={look.text} />
         <div className="tc-a-rise text-center">
           <h2 className="tc-display text-3xl">כבר שיחקתם אצלנו?</h2>
@@ -112,7 +112,7 @@ export default function RegisterScreen(p: Props) {
         </button>
       }>
       {howTo}
-      {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} imgStyle={brandingLayout(p.branding).logoImg} /></div>}
+      {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} /></div>}
       {p.firstGnome ? (
         <div className="tc-a-rise mt-2 flex items-center gap-4">
           <GnomeStage gnome={p.firstGnome} size={84} />
