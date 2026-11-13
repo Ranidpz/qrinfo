@@ -15,7 +15,7 @@ import {
   getStoredObjectSize,
   ownerOfKey,
 } from '@/lib/storage-guard';
-import sharp from 'sharp';
+import sharp from '@/lib/sharp.server';
 
 // Anonymous Q.Games players may upload a small selfie avatar into the owner's code folder.
 const ANON_AVATAR_MAX_BYTES = 1024 * 1024;

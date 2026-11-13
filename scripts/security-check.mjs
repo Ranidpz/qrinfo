@@ -12,6 +12,7 @@
  *  5. no raw error text (String(error) / error.message) in API JSON responses
  *  6. no new secret-like fields (token / pin / secret / password / apiKey) in src/types
  *  7. no client-SDK Firestore/RTDB import in API routes (server code must use the Admin SDK)
+ *  8. sharp is imported only through src/lib/sharp.server.ts (which blocks SVG decoding)
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -124,6 +125,15 @@ for (const f of srcFiles.filter((f) => f.includes('/src/app/api/'))) {
   const s = read(f);
   if (/from '@\/lib\/firebase'|from 'firebase\/(firestore|database)'|from '@\/lib\/[a-z-]+-realtime'/.test(s)) {
     fail('client-sdk', r, 'client Firebase SDK in an API route — use getAdminDb / src/lib/server/*-rtdb');
+  }
+}
+
+// 8. sharp only through the wrapper that blocks SVG decoding
+for (const f of srcFiles) {
+  const r = rel(f);
+  if (r === 'src/lib/sharp.server.ts') continue;
+  if (/from\s+['"]sharp['"]|import\(\s*['"]sharp['"]\s*\)/.test(read(f))) {
+    fail('sharp', r, "imports sharp directly — import it from '@/lib/sharp.server' (blocks SVG decoding)");
   }
 }
 

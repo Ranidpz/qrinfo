@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.29.9] - 2026-11-13
+
+- Security stage 1 (dependencies only, no behavior change): lockfile refreshed with plain `npm audit fix` (never `--force`) — next 15.5.29, sharp 0.35.5, dompurify 3.4.17, protobufjs 7.6.6, websocket-driver 0.7.5, firebase-admin 13.10.0; clears all 4 critical advisories (prod deps 28 → 16, none critical). `sharp` and `uuid` declared explicitly (both imported by our code, previously resolved transitively). New `src/lib/sharp.server.ts` blocks SVG decoding (librsvg, GHSA-wq5f-xc86-pv6w) for the three sharp callers (avatar upload, upload, Social Wall); `security:check` rule 8 enforces it. pdfjs-dist / pdf-proxy / booklet viewer untouched. Rollback = Vercel rollback to the v1.29.8 deployment, or revert this release.
+
 ## [1.28.10] - 2026-10-18
 
 - Social Wall event links (`/v/{shortId}`): WhatsApp/OG preview uses the branded `public/play/social-wall/og.jpg`, description "הרשת החברתית הפרטית לאירועים", and the install icons are Social Wall's own (`apple-icon.png`, manifest `icon-192.png`/`icon.png`). Docs: `docs/SOCIAL_WALL.md` status. Rollback = revert this release commit.

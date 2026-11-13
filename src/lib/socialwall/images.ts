@@ -3,7 +3,7 @@
 // counts are refused before decoding (decompression bombs), the EXIF orientation is applied and
 // ALL metadata is dropped — phone photos carry GPS, and nobody's home address goes on the feed.
 
-import sharp from 'sharp';
+import sharp, { type Metadata } from '@/lib/sharp.server';
 import { SocialWallError } from './store';
 
 const ACCEPTED = new Set(['jpeg', 'png', 'webp', 'heif']);
@@ -19,7 +19,7 @@ export interface ProcessedImage {
 }
 
 export async function processPostImage(input: Buffer): Promise<ProcessedImage> {
-  let meta: sharp.Metadata;
+  let meta: Metadata;
   try {
     meta = await sharp(input, { limitInputPixels: MAX_INPUT_PIXELS }).metadata();
   } catch {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rateLimit';
-import sharp from 'sharp';
+import sharp from '@/lib/sharp.server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { requireCodeOwner, isAuthError } from '@/lib/auth';
 import {
