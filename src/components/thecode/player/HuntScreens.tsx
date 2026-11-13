@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { THECODE_COLORS, colorNameHe, describeGnome } from '@/components/thecode/GnomeFigure';
-import { Collector, Confetti, CountUp, GnomeStage, HintCard, ScreenBody, Socket, Tile, useSfx } from './ui';
+import { Collector, Confetti, CountUp, GnomeStage, HintCard, ScreenBody, Socket, Tile, letterName, useSfx } from './ui';
 import type { CollectorView, CorrectView, PlayerGnomeView, RiddleView, TargetView } from './types';
 
 // ------------------------------------------------ pieces
@@ -229,6 +229,14 @@ export function RiddleScreen({ riddle, alphabet, onPick, onSubmit, onHint }: Rid
 
 // ------------------------------------------------ correct
 
+function lettersLeftLine(last: boolean, collector: CollectorView | null): string {
+  if (last) return 'יש לכם את כל האותיות של המשפט הסודי!';
+  const left = collector ? collector.total - collector.letters.length : 0;
+  if (left === 1) return 'עוד אות אחת למשפט הסודי';
+  if (left > 1) return `עוד ${left} אותיות למשפט הסודי`;
+  return 'האות נכנסה לשק שלכם';
+}
+
 export function CorrectScreen({ correct, collector, onContinue }: { correct: CorrectView; collector: CollectorView | null; onContinue(): void }) {
   const [shownPoints, setShownPoints] = useState(0);
   useEffect(() => {
@@ -236,7 +244,7 @@ export function CorrectScreen({ correct, collector, onContinue }: { correct: Cor
     return () => clearTimeout(t);
   }, [correct.points]);
   return (
-    <ScreenBody className="items-center justify-center gap-4 text-center"
+    <ScreenBody className="items-center justify-center gap-3 text-center"
       footer={(
         <div className="flex flex-col gap-2.5">
           {/* Rani (iPhone): the hot banner was cut under the button — it now sits WITH the button, always seen */}
@@ -254,13 +262,18 @@ export function CorrectScreen({ correct, collector, onContinue }: { correct: Cor
         </div>
       )}>
       {(correct.becameHot || correct.lastLetter) && <Confetti burstKey={`${correct.letter}${correct.points}`} />}
-      <p className="tc-display tc-a-rise text-4xl" style={{ color: 'var(--tc-mint)' }}>נכון!</p>
+      <p className="tc-display tc-a-rise text-[2rem] leading-none" style={{ color: 'var(--tc-mint)' }}>נכון!</p>
+      {/* Rani: "מה זה האות הזו?" — say what the tile is, and name the letter */}
+      <p className="tc-a-rise -mb-1 text-xl font-bold">אספתם את האות</p>
       <div className="relative">
         <div aria-hidden className="tc-rays absolute -inset-16 opacity-40"
           style={{ background: 'repeating-conic-gradient(from 0deg, rgba(255,217,120,.35) 0 10deg, transparent 10deg 30deg)', borderRadius: '50%', maskImage: 'radial-gradient(closest-side, #000 40%, transparent)' }} />
-        <Tile letter={correct.letter} size={108} className="tc-a-pop" />
+        <Tile letter={correct.letter} size={92} className="tc-a-pop" />
       </div>
-      <p className="tc-num tc-a-pop tc-delay-3 text-6xl font-black" style={{ color: 'var(--tc-mint)', textShadow: '0 6px 30px rgba(54,227,154,.45)' }}>
+      {letterName(correct.letter) && (
+        <p className="tc-display -mt-2 text-2xl" style={{ color: 'var(--tc-brass-hi)' }}>{letterName(correct.letter)}</p>
+      )}
+      <p className="tc-num tc-a-pop tc-delay-3 text-5xl font-black" style={{ color: 'var(--tc-mint)', textShadow: '0 6px 30px rgba(54,227,154,.45)' }}>
         +<CountUp value={shownPoints} duration={700} />
       </p>
       {correct.spellingTip && (
@@ -268,7 +281,7 @@ export function CorrectScreen({ correct, collector, onContinue }: { correct: Cor
           <span aria-hidden className="me-2">✏️</span>{correct.spellingTip}
         </HintCard>
       )}
-      <p className="text-lg" style={{ color: 'var(--tc-soft)' }}>האות {correct.letter}׳ נכנסה לשק שלכם</p>
+      <p className="text-lg font-bold" style={{ color: 'var(--tc-soft)' }}>{lettersLeftLine(correct.lastLetter, collector)}</p>
       {collector && <Collector collector={collector} size={36} />}
     </ScreenBody>
   );

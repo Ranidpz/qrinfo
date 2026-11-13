@@ -94,10 +94,10 @@ export function HotBadge({ hot, streak, target, compact }: { hot: boolean; strea
   if (hot) {
     return (
       <div className="tc-a-pop relative flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 font-black text-[#2A0E00]"
-        style={{ background: 'linear-gradient(180deg,#FFC24B,#FF8A2B)' }} role="status" aria-label="שחקנים חמים, כל אות שווה פי 2">
+        style={{ background: 'linear-gradient(180deg,#FFC24B,#FF8A2B)' }} role="status" aria-label="שחקנים חמים, כל אות שווה פי 2" title="שחקנים חמים: כל אות שווה פי 2">
         <span className="tc-ring" aria-hidden />
         <span className="tc-a-flicker" aria-hidden>🔥</span>
-        {!compact && <span className="tc-display text-sm" aria-hidden>שחקן חם</span>}
+        {!compact && <span className="tc-display text-sm" aria-hidden>חמים</span>}
         <span className="tc-num text-sm" aria-hidden>×2</span>
       </div>
     );
@@ -117,9 +117,19 @@ export function HotBadge({ hot, streak, target, compact }: { hot: boolean; strea
 
 // ------------------------------------------------ letters
 
+const HE_LETTER_NAMES: Record<string, string> = {
+  'א': 'אלף', 'ב': 'בית', 'ג': 'גימל', 'ד': 'דלת', 'ה': 'הא', 'ו': 'וו', 'ז': 'זין', 'ח': 'חית', 'ט': 'טית',
+  'י': 'יוד', 'כ': 'כף', 'ך': 'כף סופית', 'ל': 'למד', 'מ': 'מם', 'ם': 'מם סופית', 'נ': 'נון', 'ן': 'נון סופית',
+  'ס': 'סמך', 'ע': 'עין', 'פ': 'פא', 'ף': 'פא סופית', 'צ': 'צדי', 'ץ': 'צדי סופית', 'ק': 'קוף', 'ר': 'ריש',
+  'ש': 'שין', 'ת': 'תיו',
+};
+
+/** The Hebrew name of a letter ("דלת"), so a big tile is never misread (Rani read ד as ז). */
+export const letterName = (l: string): string | undefined => HE_LETTER_NAMES[l];
+
 export function Tile({ letter, size = 52, className, style }: { letter: string; size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <span className={`tc-tile tc-display ${className || ''}`} style={{ width: size, height: size * 1.12, fontSize: size * 0.62, ...style }}>
+    <span className={`tc-tile ${className || ''}`} style={{ width: size, height: size * 1.12, fontSize: size * 0.66, ...style }}>
       {letter}
     </span>
   );

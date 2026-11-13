@@ -43,15 +43,6 @@ function enterSound(state: PlayerState): SfxName | null {
   }
 }
 
-function MuteIcon({ muted }: { muted: boolean }) {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" />
-      {muted ? <path d="m16 9 5 6M21 9l-5 6" /> : <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />}
-    </svg>
-  );
-}
-
 function HomeIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -60,29 +51,27 @@ function HomeIcon() {
   );
 }
 
-function Header({ state, onProfiles, onMute, onHowTo, onHome }: { state: PlayerState; onProfiles(): void; onMute(): void; onHowTo?(): void; onHome?(): void }) {
+function Header({ state, onProfiles, onHowTo, onHome }: { state: PlayerState; onProfiles(): void; onHowTo?(): void; onHome?(): void }) {
   const p = state.profile!;
+  // Rani (live, iPhone): six crowded items with cut text. Now: group (symbol only — the name is in
+  // the sheet), streak / hot chip, points, "?", and HOME always at the same edge. Sounds moved
+  // into the group sheet. Nothing here is ever truncated.
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
-      {/* Rani (live): "there is no button back to the main screen" → home = the summary (suitcases,
-          album, board); nothing is lost — the current target / letters wait there under "חזרה למשחק" */}
-      {onHome && (
-        <button type="button" className="tc-chip w-11 shrink-0 justify-center !px-0" onClick={onHome} aria-label="למסך הבית: המזוודות וההתקדמות">
-          <HomeIcon />
-        </button>
-      )}
-      <button type="button" className="tc-chip min-w-0 max-w-[40%] shrink" onClick={onProfiles} aria-label={`הקבוצה: ${p.familyName}. החלפת קבוצה וקוד שחזור`}>
-        <Avatar value={avatarOf(p)} size={26} />
-        <span className="truncate">{p.familyName}</span>
-        {state.profiles.length > 1 && <span aria-hidden className="text-xs opacity-70">▾</span>}
+      <button type="button" className="tc-chip w-12 shrink-0 justify-center !px-0" onClick={onProfiles}
+        aria-label={`הקבוצה: ${p.familyName}. צלילים, החלפת קבוצה וקוד שחזור`} title={p.familyName}>
+        <Avatar value={avatarOf(p)} size={28} />
       </button>
       <div className="flex min-w-0 flex-1 justify-center">
-        <HotBadge hot={p.hot} streak={Math.min(p.streak, HOT_STREAK_AT)} target={HOT_STREAK_AT} compact />
+        <HotBadge hot={p.hot} streak={Math.min(p.streak, HOT_STREAK_AT)} target={HOT_STREAK_AT} />
       </div>
       <ScoreCounter points={p.points} />
       {onHowTo && <HowToPlayButton compact onClick={onHowTo} />}
-      <button type="button" className="tc-chip w-11 justify-center !px-0" onClick={onMute} aria-label={state.muted ? 'הפעלת צלילים' : 'השתקת צלילים'} aria-pressed={state.muted}>
-        <MuteIcon muted={state.muted} />
+      {/* the home slot is always there, so the edge never shifts; on the home screen it is "you are here" */}
+      <button type="button" className="tc-chip w-11 shrink-0 justify-center !px-0" onClick={onHome} disabled={!onHome}
+        aria-label={onHome ? 'למסך הבית: המזוודות וההתקדמות' : 'אתם במסך הבית'} aria-current={onHome ? undefined : 'page'}
+        style={onHome ? undefined : { background: 'rgba(244,183,64,.18)', boxShadow: 'inset 0 0 0 1.5px rgba(244,183,64,.5)', color: 'var(--tc-brass-hi)' }}>
+        <HomeIcon />
       </button>
     </header>
   );
@@ -227,7 +216,7 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
           <PlacedBrandLogo url={state.branding?.logoUrl} name={state.venueName} style={layout.logo} />
         )}
         {showHeader && (
-          <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onMute={() => { callbacks.onToggleMute(); }} onHowTo={howToOpen}
+          <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onHowTo={howToOpen}
             onHome={state.screen.kind === 'summary' ? undefined : () => { play('tap'); callbacks.onShowSummary(); }} />
         )}
         {showHeader && state.storageWarning && state.profile && (
@@ -243,6 +232,7 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
         <ProfileSheet open={sheetOpen && showHeader} profile={state.profile} profiles={state.profiles}
           selfie={state.selfie} photoBusy={state.photoBusy} onSetPhoto={callbacks.onSetPhoto} onRemovePhoto={callbacks.onRemovePhoto}
           onUpdateProfile={callbacks.onUpdateProfile}
+          muted={state.muted} onToggleMute={callbacks.onToggleMute}
           onClose={() => setSheetOpen(false)} onSwitch={cb.onSwitchProfile} onAdd={cb.onAddProfile} />
         <HowToPlaySheet open={howToShown} lines={howToLines} onClose={closeHowTo}
           theme={state.howToPlayTheme} brandColor={state.branding?.buttonColor}

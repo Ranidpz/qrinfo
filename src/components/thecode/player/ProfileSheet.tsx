@@ -25,6 +25,24 @@ interface Props {
   onSetPhoto?(photo: SelfieShot): void;
   onRemovePhoto?(): void;
   onUpdateProfile?(patch: { familyName?: string; emoji?: string }): Promise<ProfilePatchResult>;
+  /** Sounds on / off (moved here from the header, Rani 13.11.2026). */
+  muted?: boolean;
+  onToggleMute?(): void;
+}
+
+/** "צלילים" on / off as a switch row. */
+function SoundRow({ muted, onToggle }: { muted: boolean; onToggle(): void }) {
+  return (
+    <button type="button" role="switch" aria-checked={!muted} onClick={onToggle}
+      className="mt-3 flex min-h-[56px] w-full items-center gap-3 rounded-2xl px-4 text-start"
+      style={{ background: 'var(--tc-panel)', boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }}>
+      <span aria-hidden className="text-2xl">{muted ? '🔇' : '🔊'}</span>
+      <span className="flex-1 text-xl font-bold">צלילים</span>
+      <span aria-hidden className="relative h-8 w-14 rounded-full transition-colors" style={{ background: muted ? 'rgba(255,244,218,.2)' : 'var(--tc-mint)' }}>
+        <span className="absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all" style={{ insetInlineStart: muted ? 4 : 28 }} />
+      </span>
+    </button>
+  );
 }
 
 interface EditProps {
@@ -73,7 +91,7 @@ function EditGroup({ profile, selfieOn, name, setName, value, setValue, shot, er
 }
 
 export default function ProfileSheet(p: Props) {
-  const { open, profile, profiles, selfie, photoBusy, onClose, onSwitch, onAdd, onSetPhoto, onRemovePhoto, onUpdateProfile } = p;
+  const { open, profile, profiles, selfie, photoBusy, onClose, onSwitch, onAdd, onSetPhoto, onRemovePhoto, onUpdateProfile, muted, onToggleMute } = p;
   const sfx = useSfx();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
@@ -162,6 +180,7 @@ export default function ProfileSheet(p: Props) {
                 <span aria-hidden>＋</span> קבוצה נוספת
               </button>
             </div>
+            {onToggleMute && <SoundRow muted={!!muted} onToggle={onToggleMute} />}
             {profile && (
               <div className="mt-5 rounded-2xl px-4 py-3" style={{ background: 'rgba(0,0,0,.25)' }}>
                 <p className="text-base" style={{ color: 'var(--tc-soft)' }}>קוד השחזור של {profile.familyName}</p>
