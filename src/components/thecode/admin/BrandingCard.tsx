@@ -8,7 +8,7 @@ import ImageDropZone from './ImageDropZone';
 import { VideoSlot } from './LobbyCards';
 import { MIN_TEXT_CONTRAST, contrastRatio, normalizeHex, readableOn } from './colors';
 import { Card, Field, Segmented, cx } from './ui';
-import { LAYOUT, brandingLayout, clamp, resolveLayout, tidy } from './brandingLayout';
+import { LAYOUT, LOGO_BOX, brandingLayout, clamp, resolveLayout, tidy } from './brandingLayout';
 
 /** Same limit the server enforces (src/lib/thecode/server/admin.ts THECODE_LIMITS.welcomeText). */
 export const WELCOME_MAX = 140;
@@ -349,8 +349,8 @@ export function PhonePreview({ branding, title, onLayout }: { branding: TheCodeB
 
         {/* The logo: placed by brandingLayout, draggable in the editor */}
         <div
-          className={cx('z-10 flex h-14 w-40 items-center justify-center', onLayout && b.logoUrl && 'cursor-move touch-none')}
-          style={styles.logo}
+          className={cx('z-10 flex items-center justify-center', onLayout && b.logoUrl && 'cursor-move touch-none')}
+          style={{ ...LOGO_BOX, ...styles.logo }}
           onPointerDown={b.logoUrl ? onLogoDown : undefined}
           onPointerMove={onLogoMove}
           onPointerUp={onLogoUp}

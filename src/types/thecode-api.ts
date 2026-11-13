@@ -83,8 +83,11 @@ export interface TheCodeRiddleView {
 export interface TheCodeTargetView {
   slotIndex: number;
   gnome: TheCodeGnomeView;
-  /** Location hints revealed so far (the first, zone hint, is always there). */
+  /** Location hints revealed so far (the first, zone hint, is there when the spot has hints). */
   locationHints: string[];
+  /** The spot's own name — sent ONLY when the spot has no location hint at all, so a group is
+   *  never left without a lead (Rani's live test, 13.11.2026). */
+  spotName?: string;
   nextLocationHintCost: number | null;
   /** Free wrong scans still left for this target. */
   freeWrongScansLeft: number;
