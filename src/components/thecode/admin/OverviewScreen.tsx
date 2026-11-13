@@ -7,9 +7,15 @@ import type { TheCodeIssue } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { fixLabel, targetForIssue } from './nav';
 import { isProbablyMissing, isRiddleTooHard, timeAgo } from './helpers';
-import { Button, Card, Pill, cx } from './ui';
+import { Button, Card, Pill, cx, Tip } from './ui';
 import { BankFillButton } from './BankDialogs';
 import { hasBranding } from './BrandingCard';
+
+const STATUS_TIP: Record<string, string> = {
+  published: 'ההרפתקה פתוחה: קבוצות שסורקות גמד משחקות.',
+  paused: 'ההרפתקה בהפסקה: קבוצות רואות "המשחק בהפסקה", וההתקדמות שלהן נשמרת.',
+  draft: 'ההרפתקה עוד לא פורסמה, ואף קבוצה לא יכולה לשחק בה.',
+};
 
 const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'neutral' }> = {
   published: { label: 'פעילה', tone: 'success' },
@@ -95,7 +101,9 @@ export default function OverviewScreen({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="truncate text-2xl font-bold text-text-title">{config.title}</h1>
-              <Pill tone={status.tone}>{status.label}</Pill>
+              <Tip text={STATUS_TIP[config.status]}>
+                <Pill tone={status.tone}>{status.label}</Pill>
+              </Tip>
             </div>
             <div className="mt-1 text-text-secondary">
               {config.status === 'published'

@@ -5,7 +5,8 @@ import { BadgeCheck, MapPin, ScanLine, ShieldAlert, Wifi } from 'lucide-react';
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { ScreenProps } from './model';
 import { timeAgo } from './helpers';
-import { Button, Card, EmptyState, Toggle, cx } from './ui';
+import { Button, Card, EmptyState, Toggle, cx, Tip } from './ui';
+import { TIPS } from './GnomesScreen';
 
 /**
  * Setup mode — the operator walks the venue with a phone, scans each gnome where it stands.
@@ -101,12 +102,23 @@ export default function SetupScreen({ state, actions, navigate, target, now }: S
                         <div className="font-semibold">גמד {g.number}</div>
                         <div className="truncate text-sm text-text-secondary">{describeGnome(g.bodyColor, g.hatColor)}</div>
                         {g.verifiedOnSite && (
-                          <div className={cx('mt-0.5 flex items-center gap-1 text-sm', fresh ? 'text-green-700 dark:text-green-400' : 'text-text-secondary')}>
-                            {fresh ? <Wifi size={14} aria-hidden /> : <BadgeCheck size={14} className="text-success" aria-hidden />}
-                            {fresh ? 'אומת עכשיו — יש קליטה' : `אומת ${timeAgo(gnomeStats[g.id]?.verifiedAt, now)}`}
-                          </div>
+                          <Tip text={TIPS.verified}>
+                            <span className={cx('mt-0.5 flex items-center gap-1 text-sm', fresh ? 'text-green-700 dark:text-green-400' : 'text-text-secondary')}>
+                              {fresh ? <Wifi size={14} aria-hidden /> : <BadgeCheck size={14} className="text-success" aria-hidden />}
+                              {fresh ? 'אומת עכשיו — יש קליטה' : `אומת ${timeAgo(gnomeStats[g.id]?.verifiedAt, now)}`}
+                            </span>
+                          </Tip>
                         )}
-                        {!g.isActive && <div className="mt-0.5 text-sm text-text-secondary">כבוי</div>}
+                        {!g.verifiedOnSite && (
+                          <Tip text={TIPS.notVerified}>
+                            <span className="mt-0.5 text-sm text-text-secondary">לא אומת</span>
+                          </Tip>
+                        )}
+                        {!g.isActive && (
+                          <Tip text={TIPS.toggle}>
+                            <span className="mt-0.5 block text-sm text-text-secondary">כבוי</span>
+                          </Tip>
+                        )}
                       </div>
                       {g.verifiedOnSite ? (
                         <Button size="sm" variant="ghost" icon={ScanLine} disabled={busy} onClick={() => scan(g.id)}>{busy ? 'סורקים…' : 'שוב'}</Button>
