@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.29.11] - 2026-11-13
+## [1.29.15] - 2026-11-13
 
 - Performance stage 4 (behaviour-identical):
   - `xlsx` loaded on use (`await import('xlsx')`) in 7 files (QVote/QBet/QTagGuests/QVoteVoters modals, Social Wall allowlist + moderation panels, Q.Tag scanner page): first-load JS −139 kB on `/[locale]/dashboard`, `/[locale]/code/[id]`, candidates and scanner pages. Excel stays client-side.
@@ -8,8 +8,6 @@
   - Dashboard view listeners keyed on the list of code ids, not the `codes` array (no resubscribe of every listener on each edit).
   - Weekly calendar editor polls registrations every 10s while visible (was 3s, always).
   - Firestore rules (stage 3, deploy SEPARATELY to dev then prod): `views` +1 only, anonymous `userGallery` writes ±1 entry and ≤2500, stranger candidates start unapproved with 0 votes, folders bound to the caller. Tested with the Rules test API (25/25). Rollback = redeploy the previous rules.
-
-## [1.29.10] - 2026-11-13
 
 - Security stage 2 (server-side fixes from the Nov 12 audit; no data-model or rules change):
   - `/api/weeklycal/verify` send: only for an existing `cellRegistrations` doc whose phone matches — no more paid OTPs under made-up codeIds.

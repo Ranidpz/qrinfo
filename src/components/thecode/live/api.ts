@@ -6,7 +6,10 @@
 // from the server, even a broken one, becomes a TheCodePlayResponse.
 
 import type {
+  TheCodeAuth,
   TheCodeGnomeLookupResponse,
+  TheCodeLobbyScanRequest,
+  TheCodePhotoResponse,
   TheCodeLeaderboardResponse,
   TheCodePlayRequest,
   TheCodePlayResponse,
@@ -74,5 +77,53 @@ export async function lookupGnome(code: string): Promise<TheCodeGnomeLookupRespo
     return status === 404 ? { ok: false, error: 'notFound' } : null;
   } catch {
     return null;
+  }
+}
+
+// ---------------------------------------------------------------- wave 3
+
+/** /v/{shortId}?src=lobby — tell the big screen someone scanned its QR. Fire once; never throws. */
+export async function reportLobbyScan(codeId: string): Promise<boolean> {
+  try {
+    const { status } = await fetchJson('/api/thecode/lobby-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codeId } satisfies TheCodeLobbyScanRequest),
+    });
+    return status >= 200 && status < 300;
+  } catch {
+    return false;
+  }
+}
+
+export type PhotoResult =
+  | { ok: true; photoUrl: string | null }
+  /** 'off' = selfies are switched off for this adventure; 'failed' = anything else. */
+  | { ok: false; reason: 'off' | 'failed' };
+
+/** Upload the group's selfie (square webp/jpeg ≤ 400 KB) or, with `blob: null`, remove it. */
+export async function sendPhoto(codeId: string, auth: TheCodeAuth, blob: Blob | null): Promise<PhotoResult> {
+  try {
+    let res: { status: number; body: unknown };
+    if (blob) {
+      const form = new FormData();
+      form.set('codeId', codeId);
+      form.set('playerId', auth.playerId);
+      form.set('token', auth.token);
+      form.set('file', blob, blob.type === 'image/jpeg' ? 'selfie.jpg' : 'selfie.webp');
+      res = await fetchJson('/api/thecode/photo', { method: 'POST', body: form });
+    } else {
+      res = await fetchJson('/api/thecode/photo', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, auth: { playerId: auth.playerId, token: auth.token } }),
+      });
+    }
+    const b = res.body as TheCodePhotoResponse | { ok: false; error?: string } | null;
+    if (b && b.ok) return { ok: true, photoUrl: b.photoUrl };
+    const err = (b as { error?: string } | null)?.error;
+    return { ok: false, reason: err === 'selfieOff' || res.status === 409 ? 'off' : 'failed' };
+  } catch {
+    return { ok: false, reason: 'failed' };
   }
 }

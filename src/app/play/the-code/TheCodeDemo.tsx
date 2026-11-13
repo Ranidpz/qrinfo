@@ -10,7 +10,7 @@ import { defaultHowToPlay } from '@/lib/thecode/howToPlay';
 import type { PlayerCallbacks } from '@/components/thecode/player/types';
 import {
   createDemoState, demoAddProfile, demoAnswerRight, demoAnswerWrong, demoArrangeHelp, demoArrangePlace,
-  demoArrangeRemove, demoCaption, demoCloseScanner, demoOpenScanner, demoScanCode, demoContinue, demoJump, demoLocationHint, demoNewSuitcase, demoOpenSuitcase,
+  demoArrangeRemove, demoCaption, demoSetPhoto, demoUpdateProfile, demoCloseScanner, demoOpenScanner, demoScanCode, demoContinue, demoJump, demoLocationHint, demoNewSuitcase, demoOpenSuitcase,
   demoPickLetter, demoRecover, demoRegister, demoRegisterMode, demoRiddleHint, demoScanSleeping, demoScanSolved,
   demoScanTarget, demoScanWrong, demoSetOverlay, demoShowSummary, demoSubmitLetter, demoSwitchProfile,
   demoToggleMute, demoView, DEMO_BRANDINGS, DEMO_CONFIG, type DemoJump, type DemoState,
@@ -100,7 +100,8 @@ export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRAND
   const callbacks = useMemo<PlayerCallbacks>(() => {
     const on = (fn: (x: DemoState) => DemoState) => () => setS((prev) => fn(prev));
     return {
-      onRegister: (name, emoji) => setS((x) => demoRegister(x, name, emoji)),
+      // Demo: the selfie stays on this phone (its data: URL stands in for the uploaded photo).
+      onRegister: (name, emoji, photo) => setS((x) => demoRegister(x, name, photo?.preview ?? emoji)),
       onRecover: (code) => setS((x) => demoRecover(x, code)),
       onRegisterMode: (mode) => setS((x) => demoRegisterMode(x, mode)),
       onLocationHint: on(demoLocationHint),
@@ -121,13 +122,16 @@ export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRAND
       onOpenScanner: on(demoOpenScanner),
       onCloseScanner: on(demoCloseScanner),
       onScanCode: (code) => setS((x) => demoScanCode(x, code)),
+      onUpdateProfile: async (patch) => { setS((x) => demoUpdateProfile(x, patch)); return 'ok'; },
+      onSetPhoto: (shot) => setS((x) => demoSetPhoto(x, shot.preview)),
+      onRemovePhoto: () => setS((x) => demoSetPhoto(x, null)),
       // In the real app: openCurrentUrlInBrowser() from src/lib/inAppBrowser.ts.
       onOpenInBrowser: on((x) => demoSetOverlay(x, null)),
       onDismissInAppBrowser: on((x) => demoSetOverlay(x, null)),
     };
   }, []);
 
-  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY }), [s, brand]);
+  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY, selfie: { enabled: true, days: 14 } }), [s, brand]);
 
   return (
     <div className="min-h-[100dvh] bg-[#E9E6F2] md:flex md:items-center md:justify-center md:gap-10 md:p-5">

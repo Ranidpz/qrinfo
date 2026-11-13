@@ -146,3 +146,82 @@ contract).
 4. Watch the stats doc: every scan/answer/hint writes `codes/{id}/thecode/stats` — Firestore's
    ~1 sustained write/s per doc is fine for one hotel; shard it if a venue gets busier.
 5. Middleware: add `g/` to the i18n exclusion (session P).
+
+---
+
+# Wave 3 — big screen live + group selfies (server, 13.11.2026)
+
+New files: `src/lib/thecode/server/{lobby,presign,photo}.ts` (pure),
+`src/app/api/thecode/{lobby-scan,photo,admin/photo,admin/lobby-video-url}/route.ts`,
+`src/app/api/cron/thecode-selfies/route.ts`, tests `scripts/tests/thecode-wave3.test.mjs` + wave-3
+cases in `thecode-store.test.mjs` (82 tests in all). `scripts/thecode-e2e.mjs` extended (NOT run
+here — the worktree has no `.env.local`).
+
+## Public live doc `codes/{codeId}/thecodeLobby/live` (TheCodeLobbyLive)
+- Rules: `read: if true; write: if false` — NOT deployed.
+- `events` (newest last, ≤ 20): `joined` on register, `hot` when an answer makes the group hot
+  (`becameHot`, not on replays), `suitcase` on a real open (not on replays). Written in a small
+  transaction right AFTER the play transaction, awaited; a failure is logged and never fails the
+  player's action. Event `id` = `{playerId}_{rand}` (player ids are already public on the board) —
+  that is how a group's banners are found again.
+- Hidden groups: no new events; hiding a group (PATCH hidden:true) and deleting it remove its
+  existing banners. Removing / replacing / expiring a selfie strips that photo URL from banners.
+- `photoUrl` on an event only when selfies are on and the photo has not expired at that moment.
+- `lobbyScans` / `lastLobbyScanAt`: `POST /api/thecode/lobby-scan {codeId}` (same-origin, 6/min per
+  IP per code, 120/min per code; 404 when the code has no `thecode` media item → no junk docs).
+- `videos`: replaced (not merged) from `config.lobby.videos` on EVERY admin save, so clearing a slot
+  clears it live. The doc is created by the first admin save (or first scan/event).
+
+## Selfies
+- `POST /api/thecode/photo` multipart `codeId, playerId, token, file`. Checked by BYTES (webp
+  `RIFF…WEBP` or jpeg `FF D8 FF`), ≤ 400 KB. Errors (JSON `{ok:false,error}`): 400 badRequest/empty,
+  401 unauthorized, 404 notFound, 409 **selfieOff** (not in TheCodePlayError — the UI should handle
+  it), 413 tooLarge, 415 badType, 429 rateLimited (60/min per IP, 10 per 10 min per group),
+  503 notConfigured (no R2). Success `{ok:true, photoUrl}`.
+- Key `{ownerId}/thecode-{shortId}/selfies/{playerId}-{rand}.webp|.jpg` (extension follows the real
+  type). Upload first, then one transaction swaps `player.photo = {url,key,takenAt}`; the previous
+  object is deleted afterwards.
+- `DELETE /api/thecode/photo` JSON `{codeId, auth:{playerId,token}}` → `{ok:true, photoUrl:null}`
+  (allowed even with selfies off). `DELETE /api/thecode/admin/photo {codeId, playerId}` (owner).
+- `photoUrl` appears in `snapshot.player` and leaderboard rows only while selfies are on AND the
+  photo is younger than `retentionDays` — expired photos disappear before the sweep runs.
+- `config.selfie` is always saved RESOLVED (`resolveSelfie`: on/off + 1–90 days, default 14).
+- Index `thecodeSelfies/{sha(key)}` (locked) = one doc per R2 object. Removals mark it
+  `takenAt: 0, removed: true` and delete it once R2 confirmed the delete.
+- Cron `GET /api/cron/thecode-selfies` daily 03:00 UTC (vercel.json), `Authorization: Bearer
+  CRON_SECRET` (fails closed). Per due index doc: R2 delete FIRST (a failure keeps the doc → retried
+  next day), then clears `photo` if it is still that key, strips banners, deletes the index doc.
+  ≤ 400 per run.
+- `TheCodeAdminPlayer.photoUrl` (admin GET + the PATCH reply): only an unexpired photo.
+- NOT done: the selfie bytes do not count toward the owner's `storageUsed`.
+
+## updateProfile (play action)
+`{ type: 'updateProfile', familyName?, emoji? }` — at least one field (else `badRequest`); name rules =
+register (`invalidName`), emoji rules = register (`badRequest`); counts toward the 60/min; no event
+and no lobby banner; an operator rename's `originalName` is kept. Answer = the usual snapshot.
+
+## Big-screen videos
+- `POST /api/thecode/admin/lobby-video-url` `{codeId, slot, contentType, size}` (owner) →
+  `{ok:true, uploadUrl, publicUrl}`; 400 badRequest, 413 tooLarge (> 100 MB), 503 notConfigured.
+- The URL is a SigV4 presigned PUT (own signer in `server/presign.ts`, verified against the AWS
+  reference vector — no new npm dependency) that SIGNS `content-type` and `content-length`: the
+  browser must PUT with exactly that `Content-Type`, and the file must be exactly `size` bytes.
+  Valid 10 minutes. Key `{ownerId}/thecode-{shortId}/lobby/{slot}-{time}-{rand}.mp4|webm`.
+  R2 bucket CORS must allow PUT from the app origin. NOT verified: our R2 token is object-scoped and
+  cannot read bucket CORS; per earlier notes the bucket (`theq-media-prod`) allows only GET/HEAD
+  today, and the Q.Treasure presigned upload that would need PUT is still unreleased. Needed rule
+  (Cloudflare dashboard → R2 → bucket → CORS): AllowedOrigins `https://qr.playzones.app`,
+  `http://localhost:3000` (+ the local dev ports in use); AllowedMethods `PUT` (keep GET, HEAD);
+  AllowedHeaders `content-type`; MaxAgeSeconds 3600.
+- Save keeps only `https` URLs on our R2 public base ending in .mp4/.webm, slots idle/explain/after.
+
+## next.config.ts
+`/lobby/:path*` gets the same `frame-ancestors` CSP as `/v/:path*`; `X-Frame-Options: SAMEORIGIN`
+now applies to everything except `/v/` and `/lobby/`.
+
+## Release checklist additions
+1. Rules deploy (both projects, Rani's OK): `codes/{id}/thecodeLobby/{doc}` (public read) and
+   `/thecodeSelfies/{id}` (locked).
+2. `CRON_SECRET` must exist in Vercel (already used by `/api/cron/qgames-reset`).
+3. Run `node scripts/thecode-e2e.mjs --cleanup` against a LOCAL server on `qrinfo-dev` (never a
+   Vercel preview).

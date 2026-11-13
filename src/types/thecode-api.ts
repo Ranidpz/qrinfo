@@ -18,6 +18,7 @@ import type {
   TheCodeLanguage,
   TheCodeRiddle,
   TheCodeRiddleStats,
+  TheCodeSelfieSettings,
   TheCodeScanOutcome,
 } from './thecode';
 
@@ -46,7 +47,11 @@ export type TheCodePlayAction =
   /** The family's full arrangement, one letter per phrase position. */
   | { type: 'open'; arrangement: string[] }
   /** Start the next suitcase from the summary screen (no gnome scanned). */
-  | { type: 'newSuitcase' };
+  | { type: 'newSuitcase' }
+  /** "עריכת הקבוצה" from the profile sheet, any time in the game. Same name rules as
+   *  register (error 'invalidName'); at least one field. The selfie itself goes through
+   *  POST/DELETE /api/thecode/photo. */
+  | { type: 'updateProfile'; familyName?: string; emoji?: string };
 
 export interface TheCodePlayRequest {
   /** The adventure = the code document id. */
@@ -111,6 +116,8 @@ export interface TheCodePlayerView {
   id: string;
   familyName: string;
   emoji: string;
+  /** The group selfie, when it has one — shown instead of `emoji`. */
+  photoUrl?: string;
   recoveryCode: string;
   points: number;
   streak: number;
@@ -130,6 +137,8 @@ export interface TheCodeSnapshot {
     branding?: TheCodeBranding;
     /** "איך משחקים" — always filled (the operator's lines or the default from the rules). */
     howToPlay: string[];
+    /** Group selfies — always filled by the server through resolveSelfie(). */
+    selfie: TheCodeSelfieSettings;
   };
   player: TheCodePlayerView | null;
   run: TheCodeRunView | null;
@@ -185,7 +194,9 @@ export type TheCodeGnomeLookupResponse =
       /** Venue look of the opening screen, so /g/{code} is branded from the first paint. */
       branding?: TheCodeBranding;
       /** "איך משחקים", resolved like the snapshot's. */
-      howToPlay: string[] }
+      howToPlay: string[];
+      /** Group selfies — always filled by the server through resolveSelfie(). */
+      selfie: TheCodeSelfieSettings }
   | { ok: false; error: 'notFound' };
 
 // =================================================================
@@ -197,9 +208,55 @@ export interface TheCodeLeaderRow {
   id: string;
   familyName: string;
   emoji: string;
+  /** The group selfie, when it has one and selfies are on. */
+  photoUrl?: string;
   points: number;
   suitcases: number;
 }
+
+// -----------------------------------------------------------------
+// Wave 3 — the big screen, live (Rani 13.11.2026)
+// -----------------------------------------------------------------
+
+/**
+ * One "live moment" banner on the big screen. Rank changes are NOT events: the lobby
+ * works them out itself by comparing two boards.
+ */
+export interface TheCodeLobbyEvent {
+  id: string;
+  kind: 'joined' | 'suitcase' | 'hot';
+  familyName: string;
+  emoji: string;
+  photoUrl?: string;
+  at: number;                       // ms epoch, server clock
+}
+
+/**
+ * PUBLIC doc `codes/{codeId}/thecodeLobby/live` — the only thecode doc a browser reads
+ * directly (rules: read true, write false; Admin SDK writes). The lobby listens with
+ * onSnapshot, so a scan reaches the screen in about a second. No answers, phrases,
+ * phones or recovery codes here — ever.
+ */
+export interface TheCodeLobbyLive {
+  /** Bumped by every scan of the on-screen QR. The lobby starts the explainer when it
+   *  changes while idle/after, and only counts it while the explainer runs. */
+  lobbyScans: number;
+  lastLobbyScanAt?: number;
+  /** Newest last, at most 20. */
+  events: TheCodeLobbyEvent[];
+  /** Big-screen video slots, mirrored from TheCodeConfig.lobby on every admin save. */
+  videos?: { idle?: string; explain?: string; after?: string };
+}
+
+/** POST /api/thecode/lobby-scan — called by /v/{shortId}?src=lobby. Public, rate-limited. */
+export interface TheCodeLobbyScanRequest { codeId: string }
+
+/**
+ * POST /api/thecode/photo (multipart: codeId, token + playerId as in TheCodeAuth, file ≤ 400 KB
+ * webp/jpeg, square, from the camera). Refused when selfies are off. DELETE with the same
+ * auth removes the group's own photo. Operators remove a photo through the admin API.
+ */
+export interface TheCodePhotoResponse { ok: true; photoUrl: string | null }
 
 export interface TheCodeLeaderboardResponse {
   ok: true;
@@ -260,3 +317,20 @@ export interface TheCodeAdminPlayerDeleteRequest {
   codeId: string;
   playerId: string;
 }
+
+/**
+ * Operator (requireCodeOwner, Bearer token): POST /api/thecode/admin/lobby-video-url
+ * → a presigned R2 PUT for one big-screen slot (direct browser → R2, the 4.5 MB Vercel body
+ * limit never applies). The admin then saves `TheCodeConfig.lobby.videos[slot] = publicUrl`
+ * through the normal adventure save, which mirrors it to `TheCodeLobbyLive.videos`.
+ */
+export interface TheCodeLobbyVideoUrlRequest {
+  codeId: string;
+  slot: 'idle' | 'explain' | 'after';
+  contentType: 'video/mp4' | 'video/webm';
+  size: number;                     // bytes, ≤ 100 MB
+}
+export interface TheCodeLobbyVideoUrlResponse { ok: true; uploadUrl: string; publicUrl: string }
+
+/** Operator: DELETE /api/thecode/admin/photo { codeId, playerId } → removes that group's selfie. */
+export interface TheCodeAdminPhotoRemoveRequest { codeId: string; playerId: string }

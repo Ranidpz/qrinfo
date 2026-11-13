@@ -54,6 +54,7 @@ export default function TheCodeLiveAdmin({
       actions={live.actions}
       coverageOf={coverageOf}
       uploadImage={live.uploadImage}
+      uploadVideo={live.uploadVideo}
       links={links}
       refresh={{ run: live.refresh, busy: live.refreshing, at: live.refreshedAt ?? undefined }}
       notice={live.notice}

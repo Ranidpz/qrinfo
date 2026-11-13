@@ -10,7 +10,7 @@ import type { TheCodePlayAction, TheCodePlayError, TheCodePlayResponse } from '@
 
 export const dynamic = 'force-dynamic';
 
-const ACTIONS = new Set(['state', 'register', 'recover', 'scan', 'answer', 'hint', 'arrangeHelp', 'open', 'newSuitcase']);
+const ACTIONS = new Set(['state', 'register', 'recover', 'scan', 'answer', 'hint', 'arrangeHelp', 'open', 'newSuitcase', 'updateProfile']);
 const IP_LIMIT = { maxRequests: 900, windowMs: 60_000 };
 
 function fail(error: TheCodePlayError, status: number, retryAfterSeconds?: number) {

@@ -16,8 +16,9 @@ import { ArrangeScreen, SuitcaseScreen, SummaryScreen } from './FinaleScreens';
 import { AllDoneScreen, InAppBrowserScreen, LoadingScreen, NetworkErrorScreen, NotFoundScreen, PausedScreen } from './StatusScreens';
 import ScannerScreen from './ScannerScreen';
 import { BrandBackdrop } from './Branding';
+import { Avatar } from './Avatar';
 import HowToPlaySheet, { HowToPlayButton } from './HowToPlaySheet';
-import type { PlayerCallbacks, PlayerScreen, PlayerState } from './types';
+import { avatarOf, type PlayerCallbacks, type PlayerScreen, type PlayerState } from './types';
 
 const HOT_STREAK_AT = 3;
 const NO_HEADER: PlayerScreen['kind'][] = ['register', 'inAppBrowser', 'networkError', 'paused', 'loading', 'notFound'];
@@ -56,7 +57,7 @@ function Header({ state, onProfiles, onMute, onHowTo }: { state: PlayerState; on
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
       <button type="button" className="tc-chip min-w-0 max-w-[40%] shrink" onClick={onProfiles} aria-label={`הקבוצה: ${p.familyName}. החלפת קבוצה וקוד שחזור`}>
-        <span className="text-xl" aria-hidden>{p.emoji}</span>
+        <Avatar value={avatarOf(p)} size={26} />
         <span className="truncate">{p.familyName}</span>
         {state.profiles.length > 1 && <span aria-hidden className="text-xs opacity-70">▾</span>}
       </button>
@@ -77,7 +78,7 @@ function ScreenSwitch({ state, cb, onHowTo }: { state: PlayerState; cb: PlayerCa
   switch (s.kind) {
     case 'register':
       return (
-        <RegisterScreen onHowToPlay={onHowTo} branding={state.branding} venueName={state.venueName} mode={s.mode} firstGnome={s.firstGnome} recoverError={s.recoverError} nameError={s.nameError}
+        <RegisterScreen selfie={state.selfie} onHowToPlay={onHowTo} branding={state.branding} venueName={state.venueName} mode={s.mode} firstGnome={s.firstGnome} recoverError={s.recoverError} nameError={s.nameError}
           addingProfile={!!state.profile && !s.firstGnome}
           onRegister={cb.onRegister} onRecover={cb.onRecover} onMode={cb.onRegisterMode}
           onCancel={state.profile ? () => cb.onSwitchProfile(state.profile!.id) : undefined} />
@@ -214,6 +215,8 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
           </div>
         </main>
         <ProfileSheet open={sheetOpen && showHeader} profile={state.profile} profiles={state.profiles}
+          selfie={state.selfie} photoBusy={state.photoBusy} onSetPhoto={callbacks.onSetPhoto} onRemovePhoto={callbacks.onRemovePhoto}
+          onUpdateProfile={callbacks.onUpdateProfile}
           onClose={() => setSheetOpen(false)} onSwitch={cb.onSwitchProfile} onAdd={cb.onAddProfile} />
         <HowToPlaySheet open={howToShown} lines={howToLines} onClose={closeHowTo}
           closeLabel={opening ? 'הבנו, יוצאים לדרך' : 'חזרה למשחק'} />

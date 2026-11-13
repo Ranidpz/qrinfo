@@ -14,7 +14,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isInAppBrowser, openCurrentUrlInBrowser } from '@/lib/inAppBrowser';
 import { phraseLetters, phraseWordLengths } from '@/lib/thecode/letters';
-import type { TheCodeBranding } from '@/types/thecode';
+import type { TheCodeBranding, TheCodeSelfieSettings } from '@/types/thecode';
+import type { SelfieShot } from '../player/types';
 import type {
   TheCodeAuth,
   TheCodeGnomeView,
@@ -24,7 +25,7 @@ import type {
   TheCodeSnapshot,
 } from '@/types/thecode-api';
 import type { PlayerCallbacks, PlayerState } from '../player/types';
-import { fetchLeaderboard, fetchPlayTransport, type TheCodePlayTransport } from './api';
+import { fetchLeaderboard, fetchPlayTransport, sendPhoto, type TheCodePlayTransport } from './api';
 import {
   EMPTY_IDENTITY,
   activeAuth,
@@ -49,6 +50,8 @@ export interface UseTheCodeGameOptions {
   branding?: TheCodeBranding | null;
   /** "איך משחקים" lines known before the first snapshot (the /g lookup). */
   howToPlay?: string[];
+  /** Selfie settings known before the first snapshot (the /g lookup), when the server sends them. */
+  selfie?: TheCodeSelfieSettings | null;
   /** Leaderboard source (injectable for tests). */
   leaderboard?: typeof fetchLeaderboard;
 }
@@ -91,6 +94,10 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
   const [loaded, setLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [muted, setMuted] = useState(false);
+  // Selfies: the photo shows from this phone at once; the server copy replaces it after upload.
+  const [localPhotos, setLocalPhotos] = useState<Record<string, string | null>>({});
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [selfieOff, setSelfieOff] = useState(false);
   const [boards, setBoards] = useState<{ week: BoardData | null; all: BoardData | null }>({ week: null, all: null });
   const [, setTick] = useState(0);
 
@@ -310,15 +317,41 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
   }, [codeId, transport, patchUi, setIdentity, applySnapshot, applyEvent]);
 
   /** After register / recover: continue with the scanned gnome, or open the first suitcase. */
+  /** Upload (or, with null, remove) the active group's selfie; the local preview covers the wait. */
+  const putPhoto = useCallback(async (auth: TheCodeAuth | undefined, shot: SelfieShot | null) => {
+    if (!auth) return;
+    const id = auth.playerId;
+    setLocalPhotos((m) => ({ ...m, [id]: shot ? shot.preview : null }));
+    setPhotoBusy(true);
+    const r = await sendPhoto(codeId, auth, shot ? shot.blob : null);
+    setPhotoBusy(false);
+    if (!r.ok) {
+      // Not uploaded → do not pretend: drop the local preview (the emoji shows again).
+      setLocalPhotos((m) => { const n = { ...m }; delete n[id]; return n; });
+      if (r.reason === 'off') setSelfieOff(true);
+      return;
+    }
+    // The server copy is the truth from now on.
+    lastRefreshRef.current = 0;
+    await send({ type: 'state' }, null);
+    setLocalPhotos((m) => { const n = { ...m }; delete n[id]; return n; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeId]);
+  const pendingPhotoRef = useRef<SelfieShot | null>(null);
+
   const afterJoin = useCallback(async (res: TheCodePlayResponse | null) => {
     if (!res || !res.ok || !res.auth) return;
+    const shot = pendingPhotoRef.current;
+    pendingPhotoRef.current = null;
+    // The selfie goes up in the background: it never delays the scan / the first suitcase.
+    if (shot) void putPhoto(res.auth, shot);
     const code = pendingScanRef.current;
     if (code) {
       await send({ type: 'scan', code }, 'scan');
     } else if (!res.snapshot.run && res.snapshot.canStartNew) {
       await send({ type: 'newSuitcase' }, 'other');
     }
-  }, [send]);
+  }, [send, putPhoto]);
 
   const refresh = useCallback(() => {
     const now = Date.now();
@@ -388,7 +421,8 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
 
   // ---- callbacks
   const callbacks = useMemo<PlayerCallbacks>(() => ({
-    onRegister: (familyName, emoji) => {
+    onRegister: (familyName, emoji, photo) => {
+      pendingPhotoRef.current = photo ?? null;
       patchUi((u) => ({ ...u, registering: u.registering ? { ...u.registering, nameError: undefined } : null }));
       void send({ type: 'register', familyName: familyName.trim(), emoji }, 'other', null).then(afterJoin);
     },
@@ -481,7 +515,26 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
     onBoardScope: (scope) => patchUi((u) => ({ ...u, boardScope: scope })),
     onOpenInBrowser: () => openCurrentUrlInBrowser(),
     onDismissInAppBrowser: () => patchUi((u) => ({ ...u, inAppGate: false })),
-  }), [send, afterJoin, patchUi, setIdentity]);
+    onSetPhoto: (shot) => { void putPhoto(activeAuth(identityRef.current), shot); },
+    onRemovePhoto: () => { void putPhoto(activeAuth(identityRef.current), null); },
+    onUpdateProfile: async (patch) => {
+      // Direct transport call (not `send`): the sheet shows its own error, the game screen
+      // underneath never turns into a network-error screen for a rename.
+      const auth = activeAuth(identityRef.current);
+      if (!auth) return 'failed';
+      const action: TheCodePlayAction = { type: 'updateProfile', ...patch };
+      let res: TheCodePlayResponse;
+      try {
+        res = await transport({ codeId, auth, action });
+      } catch {
+        return 'failed';
+      }
+      if (!res.ok) return res.error === 'invalidName' ? 'invalidName' : 'failed';
+      appliedSeqRef.current = ++seqRef.current;
+      applySnapshot(res.snapshot, res.serverNow);   // header + sheet update at once; the board on its next refresh
+      return 'ok';
+    },
+  }), [send, afterJoin, patchUi, setIdentity, putPhoto, transport, codeId, applySnapshot]);
 
   const state = useMemo(() => buildPlayerState({
     snapshot,
@@ -497,7 +550,10 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
     muted,
     branding: opts.branding,
     howToPlay: opts.howToPlay,
-  }), [snapshot, ui, identity, storageAvailable, clockOffset, busy, boards, pendingGnome, loaded, notFound, muted, opts.branding, opts.howToPlay]);
+    selfie: selfieOff ? { enabled: false, retentionDays: 14 } : opts.selfie,
+    localPhotos,
+    photoBusy,
+  }), [snapshot, ui, identity, storageAvailable, clockOffset, busy, boards, pendingGnome, loaded, notFound, muted, opts.branding, opts.howToPlay, opts.selfie, selfieOff, localPhotos, photoBusy]);
 
   return { state, callbacks };
 }
