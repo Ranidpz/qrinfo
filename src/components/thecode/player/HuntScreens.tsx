@@ -159,20 +159,44 @@ export function RiddleScreen({ riddle, alphabet, onPick, onSubmit, onHint }: Rid
   return (
     <ScreenBody className="items-stretch gap-4"
       footer={(
-      <div className="flex gap-3">
-        <button type="button" className="tc-btn tc-btn-primary flex-1 text-xl" disabled={!riddle.pendingLetter || cooling || riddle.submitting}
-          onClick={() => { sfx('tap'); onSubmit(); }}>
-          {riddle.submitting ? 'בודקים…' : 'בדקו'}
-        </button>
-        {riddle.nextHintCost !== null && (
-          <button type="button" className={`tc-btn tc-btn-ghost ${cooling || riddle.wrongCount > 0 ? 'tc-a-pop' : ''}`} onClick={() => { sfx('tap'); onHint(); }}>
-            רמז <Cost amount={riddle.nextHintCost} />
+      // Rani (iPhone): the letter pad IS the action — pinned with "בדקו", never below the fold.
+      <div className="flex flex-col gap-2.5">
+        <div key={riddle.wrongTick} className={`flex items-center justify-between gap-3 ${riddle.wrongTick ? 'tc-a-shake' : ''}`}>
+          <p className="text-base leading-snug">הקישו את <b>האות הראשונה</b> של התשובה</p>
+          <div aria-live="polite" className="shrink-0 text-sm font-bold">
+            {cooling ? (
+              <span style={{ color: 'var(--tc-coral)' }}>עוד <span className="tc-num">{coolLeft}</span> שניות</span>
+            ) : null}
+          </div>
+        </div>
+        <div className="relative">
+          <LetterPad alphabet={alphabet} picked={riddle.pendingLetter} disabled={cooling || riddle.submitting}
+            onPick={(l) => { sfx('key'); onPick(l); }} />
+          {cooling && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-[#0B1030]/80">
+              <span className="tc-num tc-a-pop text-6xl" style={{ color: 'var(--tc-coral)' }}>{coolLeft}</span>
+              <span className="text-base font-bold" style={{ color: 'var(--tc-coral)' }}>רגע, נושמים עמוק…</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {riddle.pendingLetter ? (
+            <Tile letter={riddle.pendingLetter} size={46} className="tc-a-pop shrink-0" />
+          ) : (
+            <Socket size={46} className="shrink-0">{flash ? '✕' : '?'}</Socket>
+          )}
+          <button type="button" className="tc-btn tc-btn-primary flex-1 text-xl" disabled={!riddle.pendingLetter || cooling || riddle.submitting}
+            onClick={() => { sfx('tap'); onSubmit(); }}>
+            {riddle.submitting ? 'בודקים…' : 'בדקו'}
           </button>
-        )}
+          {riddle.nextHintCost !== null && (
+            <button type="button" className={`tc-btn tc-btn-ghost ${cooling || riddle.wrongCount > 0 ? 'tc-a-pop' : ''}`} onClick={() => { sfx('tap'); onHint(); }}>
+              רמז <Cost amount={riddle.nextHintCost} />
+            </button>
+          )}
+        </div>
       </div>
       )}>
-      {/* Rani (live): finding the gnome is a moment — foil confetti, a bouncing title, a hop. */}
-      {fresh && <Confetti burstKey={`found-${g.id}`} />}
       <div className="flex items-center gap-3">
         <div className={fresh ? 'tc-a-hop' : ''}><GnomeStage gnome={g} size={58} /></div>
         <div>
@@ -194,35 +218,11 @@ export function RiddleScreen({ riddle, alphabet, onPick, onSubmit, onHint }: Rid
         ))}
       </div>
 
-      <div key={riddle.wrongTick} className={`flex items-center justify-between gap-3 ${riddle.wrongTick ? 'tc-a-shake' : ''}`}>
-        <p className="text-lg leading-snug">הקישו את <b>האות הראשונה</b> של התשובה</p>
-        {riddle.pendingLetter ? (
-          <Tile letter={riddle.pendingLetter} size={58} className="tc-a-pop shrink-0" />
-        ) : (
-          <Socket size={58} className="shrink-0">{flash ? '✕' : '?'}</Socket>
-        )}
-      </div>
-
-      <div aria-live="polite" className="min-h-[1.75rem] text-center text-lg font-bold">
-        {cooling ? (
-          <span style={{ color: 'var(--tc-coral)' }}>רגע, נושמים עמוק… עוד <span className="tc-num">{coolLeft}</span> שניות</span>
-        ) : flash ? (
-          <span style={{ color: 'var(--tc-coral)' }}>
-            {freeLeft > 0 ? `לא זו האות. עוד ${freeLeft === 1 ? 'ניסיון אחד' : `${freeLeft} ניסיונות`} בלי הורדת נקודות` : 'לא זו האות. נסו שוב'}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="relative">
-        <LetterPad alphabet={alphabet} picked={riddle.pendingLetter} disabled={cooling || riddle.submitting}
-          onPick={(l) => { sfx('key'); onPick(l); }} />
-        {cooling && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#0B1030]/75">
-            <span className="tc-num tc-a-pop text-7xl" style={{ color: 'var(--tc-coral)' }}>{coolLeft}</span>
-          </div>
-        )}
-      </div>
-
+      {flash && !cooling && (
+        <p role="alert" className="tc-a-shake text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>
+          {freeLeft > 0 ? `לא זו האות. עוד ${freeLeft === 1 ? 'ניסיון אחד' : `${freeLeft} ניסיונות`} בלי הורדת נקודות` : 'לא זו האות. נסו שוב'}
+        </p>
+      )}
     </ScreenBody>
   );
 }
@@ -236,35 +236,40 @@ export function CorrectScreen({ correct, collector, onContinue }: { correct: Cor
     return () => clearTimeout(t);
   }, [correct.points]);
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center"
-      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onContinue}>
-        {correct.lastLetter ? 'יש לכם את כל האותיות! לפיצוח הקוד' : 'לגמד הבא'}
-      </button>}>
+    <ScreenBody className="items-center justify-center gap-4 text-center"
+      footer={(
+        <div className="flex flex-col gap-2.5">
+          {/* Rani (iPhone): the hot banner was cut under the button — it now sits WITH the button, always seen */}
+          {correct.becameHot ? (
+            <div className="tc-a-pop rounded-2xl px-4 py-2 text-center text-[#2A0E00]" style={{ background: 'linear-gradient(180deg,#FFC24B,#FF8A2B)' }}>
+              <p className="tc-display text-2xl leading-tight"><span className="tc-a-flicker">🔥</span> שחקנים חמים!</p>
+              <p className="text-base font-bold leading-snug">שלוש ברצף! מעכשיו כל אות שווה <span className="whitespace-nowrap">פי 2</span></p>
+            </div>
+          ) : correct.hot ? (
+            <p className="tc-display text-center text-xl" style={{ color: 'var(--tc-flame)' }}>🔥 עדיין חמים, פי 2!</p>
+          ) : null}
+          <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onContinue}>
+            {correct.lastLetter ? 'יש לכם את כל האותיות! לפיצוח הקוד' : 'לגמד הבא'}
+          </button>
+        </div>
+      )}>
       {(correct.becameHot || correct.lastLetter) && <Confetti burstKey={`${correct.letter}${correct.points}`} />}
       <p className="tc-display tc-a-rise text-4xl" style={{ color: 'var(--tc-mint)' }}>נכון!</p>
       <div className="relative">
         <div aria-hidden className="tc-rays absolute -inset-16 opacity-40"
           style={{ background: 'repeating-conic-gradient(from 0deg, rgba(255,217,120,.35) 0 10deg, transparent 10deg 30deg)', borderRadius: '50%', maskImage: 'radial-gradient(closest-side, #000 40%, transparent)' }} />
-        <Tile letter={correct.letter} size={128} className="tc-a-pop" />
+        <Tile letter={correct.letter} size={108} className="tc-a-pop" />
       </div>
-      <p className="tc-num tc-a-pop tc-delay-3 text-7xl font-black" style={{ color: 'var(--tc-mint)', textShadow: '0 6px 30px rgba(54,227,154,.45)' }}>
+      <p className="tc-num tc-a-pop tc-delay-3 text-6xl font-black" style={{ color: 'var(--tc-mint)', textShadow: '0 6px 30px rgba(54,227,154,.45)' }}>
         +<CountUp value={shownPoints} duration={700} />
       </p>
-      {correct.becameHot ? (
-        <div className="tc-a-stamp rounded-3xl px-5 py-3 text-[#2A0E00]" style={{ background: 'linear-gradient(180deg,#FFC24B,#FF8A2B)' }}>
-          <p className="tc-display text-3xl"><span className="tc-a-flicker">🔥</span> שחקנים חמים!</p>
-          <p className="text-lg font-bold">שלוש ברצף! מעכשיו כל אות שווה <span className="whitespace-nowrap">פי 2</span></p>
-        </div>
-      ) : correct.hot ? (
-        <p className="tc-display text-2xl" style={{ color: 'var(--tc-flame)' }}>🔥 עדיין חמים, פי 2!</p>
-      ) : null}
       {correct.spellingTip && (
         <HintCard tone="brass" className="tc-a-rise tc-delay-4 w-full text-xl">
           <span aria-hidden className="me-2">✏️</span>{correct.spellingTip}
         </HintCard>
       )}
       <p className="text-lg" style={{ color: 'var(--tc-soft)' }}>האות {correct.letter}׳ נכנסה לשק שלכם</p>
-      {collector && <Collector collector={collector} size={40} />}
+      {collector && <Collector collector={collector} size={36} />}
     </ScreenBody>
   );
 }

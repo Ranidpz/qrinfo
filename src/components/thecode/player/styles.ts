@@ -85,7 +85,7 @@ export const THECODE_STYLE = `
   border-radius: 999px; background: var(--tc-panel); box-shadow: inset 0 0 0 1.5px var(--tc-line); font-weight: 700; }
 
 /* letter pad key */
-.tc-key { display: flex; align-items: center; justify-content: center; height: 54px; border-radius: 14px;
+.tc-key { display: flex; align-items: center; justify-content: center; height: clamp(40px, 6.3svh, 54px); border-radius: 14px;
   font-size: 1.6rem; font-weight: 800; color: var(--tc-cream);
   background: linear-gradient(180deg, #2B357E, #1F2763); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.14), 0 4px 0 #0E1440;
   transition: transform .08s ease; }
@@ -107,6 +107,10 @@ export const THECODE_STYLE = `
 /* pinned action bar: fades the content scrolling under it, clears the iPhone home bar */
 .tc-footer { padding-bottom: max(16px, env(safe-area-inset-bottom)); background: linear-gradient(to top, rgba(11,16,48,.97) 72%, rgba(11,16,48,0)); }
 .tc-light-chrome .tc-footer, .tc-footer-plain { background: none; }
+.tc-noscrollbar { scrollbar-width: none; } .tc-noscrollbar::-webkit-scrollbar { display: none; }
+.tc-more-fade { background: linear-gradient(to top, rgba(11,16,48,.9), rgba(11,16,48,0)); }
+.tc-light-chrome .tc-more-fade { background: none; }
+.tc-more-arrow { color: #2A1600; background: var(--tc-brass); box-shadow: 0 4px 14px rgba(0,0,0,.45); animation: tc-bob 1.6s ease-in-out infinite; }
 /* opening screen on a light venue background: fields read as fields */
 .tc-light-chrome input { background: rgba(255,255,255,.82) !important; }
 .tc-light-chrome input::placeholder { color: rgba(20,20,43,.42) !important; }
