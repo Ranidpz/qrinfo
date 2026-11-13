@@ -417,6 +417,24 @@ export async function playAction(
           : { type: 'open', opened: false, bonus: 0 };
         break;
       }
+      case 'updateProfile': {
+        // The group edits its own name / symbol. Same rules as register; no lobby banner;
+        // an operator rename's `originalName` stays as it is.
+        const edit: Partial<Pick<TheCodePlayer, 'familyName' | 'emoji'>> = {};
+        if (action.familyName !== undefined) {
+          const n = normalizeFamilyName(action.familyName);
+          if (!n.ok) throw new TheCodeStoreError('invalidName', 400);
+          edit.familyName = n.name;
+        }
+        if (action.emoji !== undefined) {
+          const e = normalizeEmoji(action.emoji);
+          if (!e) throw new TheCodeStoreError('badRequest', 400);
+          edit.emoji = e;
+        }
+        if (!Object.keys(edit).length) throw new TheCodeStoreError('badRequest', 400);
+        next = { ...repairRun(before, ctx).player, ...edit, lastSeenAt: now };
+        break;
+      }
       case 'newSuitcase': {
         const r = startNewRun(repairRun(before, ctx).player, ctx, { runId: newRunId() });
         next = r.player;
@@ -542,7 +560,7 @@ export async function leaderboard(
 // Operator
 // =================================================================
 
-function adminPlayer(id: string, d: DocumentData, key: string): TheCodeAdminPlayer {
+function adminPlayer(id: string, d: DocumentData, key: string, photoUrl?: string): TheCodeAdminPlayer {
   const p: TheCodeAdminPlayer = {
     id,
     familyName: String(d.familyName || ''),
@@ -555,6 +573,7 @@ function adminPlayer(id: string, d: DocumentData, key: string): TheCodeAdminPlay
     lastSeenAt: Number(d.lastSeenAt) || 0,
   };
   if (typeof d.originalName === 'string' && d.originalName !== p.familyName) p.originalName = d.originalName;
+  if (photoUrl) p.photoUrl = photoUrl;
   return p;
 }
 
@@ -577,6 +596,8 @@ export async function loadAdmin(codeId: string): Promise<TheCodeAdminLoadRespons
     riddleStats[id] = { correct: Number(v?.correct) || 0, wrong: Number(v?.wrong) || 0, hints: Number(v?.hints) || 0 };
   }
   const key = weekKey(Date.now(), THECODE_TIME_ZONE);
+  const now = Date.now();
+  const selfie = resolveSelfie(adv?.config ?? {});
   return {
     ok: true,
     version: adv?.version ?? 0,
@@ -584,7 +605,10 @@ export async function loadAdmin(codeId: string): Promise<TheCodeAdminLoadRespons
     riddles: adv?.riddles ?? [],
     gnomeStats,
     riddleStats,
-    players: players.docs.map((d) => adminPlayer(d.id, d.data(), key)),
+    players: players.docs.map((d) => {
+      const data = d.data();
+      return adminPlayer(d.id, data, key, visiblePhotoUrl(data as TheCodePlayer, selfie, now));
+    }),
   };
 }
 
@@ -686,6 +710,8 @@ export async function patchPlayer(
     name = n.name;
   }
   const ref = playersCol(codeId).doc(playerId);
+  const [selfieSnap] = await db().getAll(adventureRef(codeId), { fieldMask: ['config.selfie'] });
+  const selfie = resolveSelfie({ selfie: selfieSnap.data()?.config?.selfie });
   return db().runTransaction(async (tx): Promise<TheCodeAdminPlayerResult> => {
     const snap = await tx.get(ref);
     if (!snap.exists) return { ok: false, error: 'notFound' };
@@ -697,7 +723,8 @@ export async function patchPlayer(
     }
     if (typeof p.hidden === 'boolean') update.hidden = p.hidden;
     if (Object.keys(update).length) tx.update(ref, update);
-    return { ok: true, player: adminPlayer(snap.id, { ...d, ...update }, weekKey(Date.now(), THECODE_TIME_ZONE)) };
+    const now = Date.now();
+    return { ok: true, player: adminPlayer(snap.id, { ...d, ...update }, weekKey(now, THECODE_TIME_ZONE), visiblePhotoUrl(d as TheCodePlayer, selfie, now)) };
   }).then(async (res) => {
     // A hidden group leaves the big screen's banners too.
     if (res.ok && p.hidden === true) await editLobbyEvents(codeId, (events) => removeGroupEvents(events, playerId));

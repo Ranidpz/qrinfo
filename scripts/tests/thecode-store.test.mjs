@@ -546,3 +546,36 @@ test('lobby videos: only our R2 survives the save and is mirrored live; presigne
   assert.deepEqual(await store.lobbyVideoUploadUrl(CODE, { slot: 'intro', contentType: 'video/mp4', size: 10 }), { ok: false, error: 'badRequest' });
   assert.deepEqual(await store.lobbyVideoUploadUrl(CODE, { slot: 'idle', contentType: 'video/quicktime', size: 10 }), { ok: false, error: 'badRequest' });
 });
+
+test('updateProfile: name + symbol any time, register rules, operator originalName kept; admin sees the fresh photo', async () => {
+  seedCode();
+  objects.clear();
+  await save(0);
+  const reg = await play(undefined, { type: 'register', familyName: 'הגמדים', emoji: '🦊' });
+  const auth = reg.auth;
+  const events = docs.get(LIVE).events.length;
+  let r = await play(auth, { type: 'updateProfile', familyName: '  הגמדים   הירוקים ' });
+  assert.deepEqual([r.snapshot.player.familyName, r.snapshot.player.emoji], ['הגמדים הירוקים', '🦊']);
+  assert.equal(r.event, undefined);
+  r = await play(auth, { type: 'updateProfile', emoji: '🐸' });
+  assert.equal(r.snapshot.player.emoji, '🐸');
+  await assert.rejects(play(auth, { type: 'updateProfile', familyName: 'זונה' }), (e) => e.code === 'invalidName');
+  await assert.rejects(play(auth, { type: 'updateProfile', emoji: 'ab' }), (e) => e.code === 'badRequest');
+  await assert.rejects(play(auth, { type: 'updateProfile' }), (e) => e.code === 'badRequest');
+  await assert.rejects(play(undefined, { type: 'updateProfile', emoji: '🐸' }), (e) => e.code === 'needRegister');
+  assert.equal(docs.get(LIVE).events.length, events, 'no banner');
+  // Operator renamed first → originalName survives the group's own edit.
+  await store.patchPlayer(CODE, auth.playerId, { familyName: 'שם מהמפעיל' });
+  await play(auth, { type: 'updateProfile', familyName: 'בחירה שלנו' });
+  const doc = docs.get(`codes/${CODE}/thecodePlayers/${auth.playerId}`);
+  assert.deepEqual([doc.familyName, doc.originalName], ['בחירה שלנו', 'הגמדים הירוקים']);
+
+  const up = await store.setPlayerPhoto(CODE, auth, { bytes: WEBP, contentType: 'image/webp' });
+  let admin = await store.loadAdmin(CODE);
+  assert.equal(admin.players.find((p) => p.id === auth.playerId).photoUrl, up.photoUrl);
+  const patched = await store.patchPlayer(CODE, auth.playerId, { hidden: false });
+  assert.equal(patched.player.photoUrl, up.photoUrl);
+  docs.get(`codes/${CODE}/thecodePlayers/${auth.playerId}`).photo.takenAt = Date.now() - 30 * 86_400_000; // older than the default 14 days
+  admin = await store.loadAdmin(CODE);
+  assert.equal(admin.players.find((p) => p.id === auth.playerId).photoUrl, undefined, 'expired photo is not shown');
+});

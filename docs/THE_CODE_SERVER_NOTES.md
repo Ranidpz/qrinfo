@@ -192,8 +192,13 @@ here — the worktree has no `.env.local`).
   CRON_SECRET` (fails closed). Per due index doc: R2 delete FIRST (a failure keeps the doc → retried
   next day), then clears `photo` if it is still that key, strips banners, deletes the index doc.
   ≤ 400 per run.
-- NOT done: the selfie bytes do not count toward the owner's `storageUsed`; `TheCodeAdminPlayer` has
-  no `photoUrl` in the contract, so the admin list does not carry it yet (contract change needed).
+- `TheCodeAdminPlayer.photoUrl` (admin GET + the PATCH reply): only an unexpired photo.
+- NOT done: the selfie bytes do not count toward the owner's `storageUsed`.
+
+## updateProfile (play action)
+`{ type: 'updateProfile', familyName?, emoji? }` — at least one field (else `badRequest`); name rules =
+register (`invalidName`), emoji rules = register (`badRequest`); counts toward the 60/min; no event
+and no lobby banner; an operator rename's `originalName` is kept. Answer = the usual snapshot.
 
 ## Big-screen videos
 - `POST /api/thecode/admin/lobby-video-url` `{codeId, slot, contentType, size}` (owner) →
@@ -202,7 +207,12 @@ here — the worktree has no `.env.local`).
   reference vector — no new npm dependency) that SIGNS `content-type` and `content-length`: the
   browser must PUT with exactly that `Content-Type`, and the file must be exactly `size` bytes.
   Valid 10 minutes. Key `{ownerId}/thecode-{shortId}/lobby/{slot}-{time}-{rand}.mp4|webm`.
-  R2 bucket CORS must allow PUT from the app origin (already needed by Q.Treasure videos).
+  R2 bucket CORS must allow PUT from the app origin. NOT verified: our R2 token is object-scoped and
+  cannot read bucket CORS; per earlier notes the bucket (`theq-media-prod`) allows only GET/HEAD
+  today, and the Q.Treasure presigned upload that would need PUT is still unreleased. Needed rule
+  (Cloudflare dashboard → R2 → bucket → CORS): AllowedOrigins `https://qr.playzones.app`,
+  `http://localhost:3000` (+ the local dev ports in use); AllowedMethods `PUT` (keep GET, HEAD);
+  AllowedHeaders `content-type`; MaxAgeSeconds 3600.
 - Save keeps only `https` URLs on our R2 public base ending in .mp4/.webm, slots idle/explain/after.
 
 ## next.config.ts
