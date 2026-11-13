@@ -116,13 +116,13 @@ export async function sendPhoto(codeId: string, auth: TheCodeAuth, blob: Blob | 
       res = await fetchJson('/api/thecode/photo', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codeId, playerId: auth.playerId, token: auth.token }),
+        body: JSON.stringify({ codeId, auth: { playerId: auth.playerId, token: auth.token } }),
       });
     }
     const b = res.body as TheCodePhotoResponse | { ok: false; error?: string } | null;
     if (b && b.ok) return { ok: true, photoUrl: b.photoUrl };
     const err = (b as { error?: string } | null)?.error;
-    return { ok: false, reason: err === 'selfieOff' || err === 'disabled' || res.status === 403 ? 'off' : 'failed' };
+    return { ok: false, reason: err === 'selfieOff' || res.status === 409 ? 'off' : 'failed' };
   } catch {
     return { ok: false, reason: 'failed' };
   }
