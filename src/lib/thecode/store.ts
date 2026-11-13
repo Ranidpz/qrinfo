@@ -498,6 +498,7 @@ export async function lookupGnome(raw: unknown): Promise<TheCodeGnomeLookupRespo
     ...(adv.config.branding ? { branding: adv.config.branding } : {}),
     howToPlay: resolveHowToPlay(adv.config, resolveRules(adv.config.rules)),
     selfie: resolveSelfie(adv.config),
+    howToPlayTheme: adv.config.howToPlayTheme ?? 'night',
   };
 }
 

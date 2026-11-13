@@ -137,6 +137,8 @@ export interface TheCodeSnapshot {
     branding?: TheCodeBranding;
     /** "איך משחקים" — always filled (the operator's lines or the default from the rules). */
     howToPlay: string[];
+    /** Ready theme of the "איך משחקים" sheet (TheCodeConfig.howToPlayTheme, default 'night'). */
+    howToPlayTheme: 'night' | 'light' | 'brand';
     /** Group selfies — always filled by the server through resolveSelfie(). */
     selfie: TheCodeSelfieSettings;
   };
@@ -195,6 +197,7 @@ export type TheCodeGnomeLookupResponse =
       branding?: TheCodeBranding;
       /** "איך משחקים", resolved like the snapshot's. */
       howToPlay: string[];
+      howToPlayTheme: 'night' | 'light' | 'brand';
       /** Group selfies — always filled by the server through resolveSelfie(). */
       selfie: TheCodeSelfieSettings }
   | { ok: false; error: 'notFound' };
@@ -326,7 +329,8 @@ export interface TheCodeAdminPlayerDeleteRequest {
  */
 export interface TheCodeLobbyVideoUrlRequest {
   codeId: string;
-  slot: 'idle' | 'explain' | 'after';
+  /** 'opening' = the venue opening screen's background video (TheCodeBranding.backgroundVideoUrl, ≤ 30 MB). */
+  slot: 'idle' | 'explain' | 'after' | 'opening';
   contentType: 'video/mp4' | 'video/webm';
   size: number;                     // bytes, ≤ 100 MB
 }

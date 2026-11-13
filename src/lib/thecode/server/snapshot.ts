@@ -160,6 +160,7 @@ export function buildSnapshot(
       ...(config.branding ? { branding: config.branding } : {}),
       howToPlay: resolveHowToPlay(config, rules),
       selfie: resolveSelfie(config),
+      howToPlayTheme: config.howToPlayTheme ?? 'night',
     },
     player: player ? playerView(player, rules.hotStreakAt, visiblePhotoUrl(player, resolveSelfie(config), now)) : null,
     run: player ? runView(player, adv, now) : null,
