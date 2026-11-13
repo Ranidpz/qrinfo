@@ -17,7 +17,8 @@ import GnomeFigure from '@/components/thecode/GnomeFigure';
 import { Avatar } from '@/components/thecode/player/Avatar';
 import { THECODE_STYLE } from '@/components/thecode/player/styles';
 import GnomeConfetti from '@/components/thecode/player/GnomeConfetti';
-import { CountUp } from '@/components/thecode/player/ui';
+import { CountUp, TeamStats } from '@/components/thecode/player/ui';
+import SelfieParade, { useParadeRoster } from './SelfieParade';
 
 export interface LobbyTeam {
   id: string;
@@ -26,6 +27,9 @@ export interface LobbyTeam {
   avatar: string;
   points: number;
   hot?: boolean;
+  /** Different gnomes found / suitcases opened — beside the points (Rani: "לא רק ניקוד"). */
+  gnomesFound?: number;
+  suitcases?: number;
 }
 
 export interface LobbyMoment { kind: 'join' | 'suitcase' | 'hot'; name: string; avatar: string }
@@ -289,6 +293,8 @@ export function useLobbyStage(rows: number = LOBBY_ROWS) {
   const [banner, setBanner] = useState<{ m: LobbyMoment; key: number } | null>(null);
   const [climb, setClimb] = useState<Record<string, { by: number; key: number }>>({});
   const [delta, setDelta] = useState<Record<string, { amount: number; key: number }>>({});
+  /** When each group last scored (ms) — the selfie parade shows the most recent first. */
+  const [lastGain, setLastGain] = useState<Record<string, number>>({});
   const [phase, setPhase] = useState<Phase>('idle');
   const [sceneKey, setSceneKey] = useState(0);
   const [extraScans, setExtraScans] = useState(0);
@@ -314,7 +320,11 @@ export function useLobbyStage(rows: number = LOBBY_ROWS) {
       if (gain > 0) deltas[t.id] = { amount: gain, key: k };
     }
     if (Object.keys(climbs).length) setClimb((c) => ({ ...c, ...climbs }));
-    if (Object.keys(deltas).length) setDelta((d) => ({ ...d, ...deltas }));
+    if (Object.keys(deltas).length) {
+      setDelta((d) => ({ ...d, ...deltas }));
+      const at = Date.now();
+      setLastGain((g) => ({ ...g, ...Object.fromEntries(Object.keys(deltas).map((id) => [id, at])) }));
+    }
   }, [rows]);
 
   const pushMoments = useCallback((ms: LobbyMoment[]) => {
@@ -353,7 +363,7 @@ export function useLobbyStage(rows: number = LOBBY_ROWS) {
     return () => clearTimeout(t);
   }, [climb]);
 
-  return { teams, banner, climb, delta, phase, sceneKey, extraScans, rows, setBoard, pushMoments, scan, onSceneDone };
+  return { teams, banner, climb, delta, lastGain, phase, sceneKey, extraScans, rows, setBoard, pushMoments, scan, onSceneDone };
 }
 
 export type LobbyStageState = ReturnType<typeof useLobbyStage>;
@@ -387,7 +397,8 @@ interface StageProps {
 }
 
 export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, videos, placeholderLabels, aside, children }: StageProps) {
-  const { teams, banner, climb, delta, phase, sceneKey, extraScans, rows, onSceneDone } = stage;
+  const { teams, banner, climb, delta, lastGain, phase, sceneKey, extraScans, rows, onSceneDone } = stage;
+  const parade = useParadeRoster(teams, lastGain);
   const [sound, setSound] = useState<SoundState>('unknown');
   const report = useCallback((s: SoundState) => setSound((cur) => (cur === 'on' ? 'on' : s)), []);
   const soundCtx = useMemo(() => ({ state: sound, report }), [sound, report]);
@@ -410,6 +421,8 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
           <style>{THECODE_STYLE}</style>
           <style>{BURST_STYLE}</style>
           <BackgroundLoop url={loopUrl} kind={phase === 'after' ? 'after' : 'idle'} placeholderLabel={placeholderLabels} />
+          {/* the selfie parade walks BEHIND the title, the board and the QR card (it comes first) */}
+          <SelfieParade teams={parade} hidden={phase === 'explain'} />
           {banner?.m.kind === 'suitcase' && <GnomeConfetti position="fixed" burstKey={`b-${banner.key}`} count={170} origin={{ x: '50%', y: '55%' }} />}
 
           <header className="relative flex items-center justify-between gap-[3vw]">
@@ -467,7 +480,8 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
                     <span className="flex-1 truncate text-[3.8vh] font-bold">{t.name}</span>
                     {t.hot && <span className="tc-a-flicker text-[3.6vh]" aria-label="שחקנים חמים">🔥</span>}
                     {up && <span key={`up-${up.key}`} className="tc-a-pop tc-display text-[3.2vh]" style={{ color: 'var(--tc-mint)' }}>▲ {up.by}</span>}
-                    <span className="relative w-[10vw] text-end">
+                    <TeamStats gnomes={t.gnomesFound} suitcases={t.suitcases} className="text-[2.8vh]" />
+                    <span className="relative w-[7.5vw] text-end">
                       <CountUp value={t.points} duration={900} className="text-[4.2vh]" />
                       {d && <span key={`d-${d.key}`} className="tc-float-plus tc-num absolute -top-[2vh] end-0 text-[3.2vh]">+{d.amount}</span>}
                     </span>

@@ -179,6 +179,8 @@ function leaderRows(board: BoardData | null, myId: string | undefined): LeaderRo
     emoji: r.emoji,
     points: r.points,
     photoUrl: r.photoUrl,
+    gnomesFound: r.gnomesFound,
+    suitcases: r.suitcases,
     prevRank: board.prevRanks ? (board.prevRanks[r.id] ?? board.rows.length) : i,
     isMe: r.id === myId,
   }));

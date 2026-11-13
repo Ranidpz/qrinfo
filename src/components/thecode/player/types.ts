@@ -127,6 +127,9 @@ export interface LeaderRowView {
   prevRank: number;
   isMe: boolean;
   photoUrl?: string;
+  /** Different gnomes found / suitcases opened — quiet details beside the points. */
+  gnomesFound?: number;
+  suitcases?: number;
 }
 
 export interface SummaryView {
