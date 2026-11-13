@@ -52,10 +52,25 @@ function MuteIcon({ muted }: { muted: boolean }) {
   );
 }
 
-function Header({ state, onProfiles, onMute, onHowTo }: { state: PlayerState; onProfiles(): void; onMute(): void; onHowTo?(): void }) {
+function HomeIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" />
+    </svg>
+  );
+}
+
+function Header({ state, onProfiles, onMute, onHowTo, onHome }: { state: PlayerState; onProfiles(): void; onMute(): void; onHowTo?(): void; onHome?(): void }) {
   const p = state.profile!;
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
+      {/* Rani (live): "there is no button back to the main screen" → home = the summary (suitcases,
+          album, board); nothing is lost — the current target / letters wait there under "חזרה למשחק" */}
+      {onHome && (
+        <button type="button" className="tc-chip w-11 shrink-0 justify-center !px-0" onClick={onHome} aria-label="למסך הבית: המזוודות וההתקדמות">
+          <HomeIcon />
+        </button>
+      )}
       <button type="button" className="tc-chip min-w-0 max-w-[40%] shrink" onClick={onProfiles} aria-label={`הקבוצה: ${p.familyName}. החלפת קבוצה וקוד שחזור`}>
         <Avatar value={avatarOf(p)} size={26} />
         <span className="truncate">{p.familyName}</span>
@@ -110,7 +125,8 @@ function ScreenSwitch({ state, cb, onHowTo }: { state: PlayerState; cb: PlayerCa
     case 'suitcase':
       return state.suitcase ? <SuitcaseScreen suitcase={state.suitcase} onNext={cb.onShowSummary} /> : null;
     case 'summary':
-      return state.profile && state.summary ? <SummaryScreen profile={state.profile} summary={state.summary} onNewSuitcase={cb.onNewSuitcase} onBoardScope={cb.onBoardScope} /> : null;
+      return state.profile && state.summary ? <SummaryScreen profile={state.profile} summary={state.summary} onNewSuitcase={cb.onNewSuitcase} onBoardScope={cb.onBoardScope}
+        inRun={!!(state.target || state.arrange)} onBackToGame={cb.onContinue} /> : null;
     case 'allDone':
       return <AllDoneScreen profile={state.profile} onSummary={cb.onShowSummary} />;
     case 'paused':
@@ -213,7 +229,8 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
           </div>
         )}
         {showHeader && (
-          <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onMute={() => { callbacks.onToggleMute(); }} onHowTo={howToOpen} />
+          <Header state={state} onProfiles={() => { play('tap'); setSheetOpen(true); }} onMute={() => { callbacks.onToggleMute(); }} onHowTo={howToOpen}
+            onHome={state.screen.kind === 'summary' ? undefined : () => { play('tap'); callbacks.onShowSummary(); }} />
         )}
         {showHeader && state.storageWarning && state.profile && (
           <p role="note" className="relative z-20 mx-4 mb-1 rounded-xl px-3 py-1.5 text-center text-sm font-bold" style={{ background: 'rgba(255,138,43,.18)', color: 'var(--tc-brass-hi)' }}>

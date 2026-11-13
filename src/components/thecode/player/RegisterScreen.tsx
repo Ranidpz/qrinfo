@@ -104,7 +104,13 @@ export default function RegisterScreen(p: Props) {
 
   return (
     <>
-    <ScreenBody className="items-stretch gap-5">
+    <ScreenBody className="items-stretch gap-5" plainFooter={branded}
+      footer={
+        <button type="button" className="tc-btn tc-btn-primary w-full text-xl" style={look.button} disabled={!canGo}
+          onClick={() => { sfx('correct'); p.onRegister(name, usingPhoto ? lastEmoji : emoji, usingPhoto ? photo! : undefined); }}>
+          <Avatar value={emoji} size={30} /> יוצאים לדרך
+        </button>
+      }>
       {howTo}
       {logo && <div className="mt-2"><BrandLogo url={logo} name={p.venueName} imgStyle={brandingLayout(p.branding).logoImg} /></div>}
       {p.firstGnome ? (
@@ -153,10 +159,6 @@ export default function RegisterScreen(p: Props) {
       </p>
 
       <div className="mt-auto flex flex-col gap-3">
-        <button type="button" className="tc-btn tc-btn-primary w-full text-xl" style={look.button} disabled={!canGo}
-          onClick={() => { sfx('correct'); p.onRegister(name, usingPhoto ? lastEmoji : emoji, usingPhoto ? photo! : undefined); }}>
-          <Avatar value={emoji} size={30} /> יוצאים לדרך
-        </button>
         {p.addingProfile ? (
           p.onCancel && <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={p.onCancel}>ביטול</button>
         ) : (

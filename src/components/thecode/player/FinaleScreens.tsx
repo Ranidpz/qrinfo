@@ -170,7 +170,8 @@ export function SuitcaseScreen({ suitcase, onNext }: { suitcase: SuitcaseView; o
     return () => { clearTimeout(a); clearTimeout(b); };
   }, [suitcase.bonus, sfx]);
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center">
+    <ScreenBody className="items-center justify-center gap-5 text-center"
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onNext}>לטבלת הקבוצות</button>}>
       <Confetti burstKey={suitcase.suitcaseNumber} />
       <p className="tc-display tc-a-rise text-2xl" style={{ color: 'var(--tc-soft)' }}>מזוודה מספר <span className="tc-num">{suitcase.suitcaseNumber}</span></p>
       <div className="mt-16"><Suitcase /></div>
@@ -181,7 +182,6 @@ export function SuitcaseScreen({ suitcase, onNext }: { suitcase: SuitcaseView; o
       <div className="tc-a-stamp rounded-2xl border-4 px-5 py-2" style={{ borderColor: 'var(--tc-mint)', color: 'var(--tc-mint)', animationDelay: '2.2s' }}>
         <p className="tc-display text-2xl">✓ הזכייה נרשמה</p>
       </div>
-      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onNext}>לטבלת הקבוצות</button>
     </ScreenBody>
   );
 }
@@ -252,11 +252,40 @@ interface SummaryProps {
   summary: SummaryView;
   onNewSuitcase(): void;
   onBoardScope?(scope: 'week' | 'all'): void;
+  /** A run is in progress (a gnome to find / letters to arrange) → the action is "back to the game". */
+  inRun?: boolean;
+  onBackToGame?(): void;
+}
+
+/** The summary's one action, pinned to the bottom: back to the game, the FIRST start, or a new suitcase. */
+function SummaryAction({ profile, summary, inRun, onNewSuitcase, onBackToGame }: Pick<SummaryProps, 'profile' | 'summary' | 'inRun' | 'onNewSuitcase' | 'onBackToGame'>) {
+  if (inRun && onBackToGame) {
+    return (
+      <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onBackToGame}>
+        <span aria-hidden>🧭</span> חזרה למשחק
+      </button>
+    );
+  }
+  if (!summary.canStartNew) {
+    return <HintCard tone="brass" className="text-center">פתחתם את כל המזוודות. כל הכבוד!</HintCard>;
+  }
+  // Rani: "the button of the first suitcase isn't clear that it starts the game" → say what happens.
+  const firstTime = profile.suitcasesOpened === 0;
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-center text-base" style={{ color: 'var(--tc-soft)' }}>
+        {firstTime ? 'המשחק ישלח אתכם לגמד הראשון. מצאו אותו וסרקו את הקוד שעליו.' : 'עוד מזוודה מחכה לכם, עם גמדים וחידות חדשים.'}
+      </p>
+      <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onNewSuitcase}>
+        {firstTime ? <><span aria-hidden>🚀</span> מתחילים לשחק!</> : <><span aria-hidden>🧳</span> למזוודה הבאה</>}
+      </button>
+    </div>
+  );
 }
 
 const SCOPES: { id: 'week' | 'all'; label: string }[] = [{ id: 'week', label: 'השבוע' }, { id: 'all', label: 'כל הזמנים' }];
 
-export function SummaryScreen({ profile, summary, onNewSuitcase, onBoardScope }: SummaryProps) {
+export function SummaryScreen({ profile, summary, onNewSuitcase, onBoardScope, inRun, onBackToGame }: SummaryProps) {
   const sfx = useSfx();
   const found = summary.album.filter((a) => a.found).length;
   const [pts, setPts] = useState(0);
@@ -265,7 +294,8 @@ export function SummaryScreen({ profile, summary, onNewSuitcase, onBoardScope }:
     return () => clearTimeout(t);
   }, [profile.points]);
   return (
-    <ScreenBody className="items-stretch gap-6">
+    <ScreenBody className="items-stretch gap-6"
+      footer={<SummaryAction profile={profile} summary={summary} inRun={inRun} onNewSuitcase={onNewSuitcase} onBackToGame={onBackToGame} />}>
       <div className="mt-2 text-center">
         <div className="flex justify-center"><Avatar value={avatarOf(profile)} size={52} /></div>
         <h2 className="tc-display text-3xl">{profile.familyName}</h2>
@@ -316,13 +346,6 @@ export function SummaryScreen({ profile, summary, onNewSuitcase, onBoardScope }:
         <Leaderboard key={summary.boardScope || 'week'} rows={summary.leaderboard} meOutside={summary.meOutside} />
       </section>
 
-      {summary.canStartNew ? (
-        <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onNewSuitcase}>
-          <span aria-hidden>🧳</span> מזוודה חדשה
-        </button>
-      ) : (
-        <HintCard tone="brass" className="text-center">פתחתם את כל המזוודות. כל הכבוד!</HintCard>
-      )}
     </ScreenBody>
   );
 }

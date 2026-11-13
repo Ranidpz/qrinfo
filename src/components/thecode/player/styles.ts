@@ -104,6 +104,9 @@ export const THECODE_STYLE = `
 @keyframes tc-bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
 @keyframes tc-flicker { 0%,100% { transform: scale(1) rotate(-3deg) } 50% { transform: scale(1.12) rotate(3deg) } }
 @keyframes tc-pulse-ring { 0% { transform: scale(.8); opacity: .7 } 100% { transform: scale(1.6); opacity: 0 } }
+/* pinned action bar: fades the content scrolling under it, clears the iPhone home bar */
+.tc-footer { padding-bottom: max(16px, env(safe-area-inset-bottom)); background: linear-gradient(to top, rgba(11,16,48,.97) 72%, rgba(11,16,48,0)); }
+.tc-light-chrome .tc-footer, .tc-footer-plain { background: none; }
 /* opening screen on a light venue background: fields read as fields */
 .tc-light-chrome input { background: rgba(255,255,255,.82) !important; }
 .tc-light-chrome input::placeholder { color: rgba(20,20,43,.42) !important; }

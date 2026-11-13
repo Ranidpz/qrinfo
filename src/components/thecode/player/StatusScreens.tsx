@@ -13,7 +13,8 @@ function BigIcon({ children }: { children: string }) {
 
 export function AllDoneScreen({ profile, onSummary }: { profile: PlayerProfileView | null; onSummary(): void }) {
   return (
-    <ScreenBody className="items-center justify-center gap-5 text-center">
+    <ScreenBody className="items-center justify-center gap-5 text-center"
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onSummary}>לטבלת הקבוצות</button>}>
       <div className="relative flex items-end justify-center gap-1" aria-hidden>
         <span className="tc-a-drop text-6xl">🧳</span>
         <span className="tc-a-drop tc-delay-2 text-8xl">🧳</span>
@@ -26,7 +27,6 @@ export function AllDoneScreen({ profile, onSummary }: { profile: PlayerProfileVi
       {profile && (
         <div className="flex items-center gap-2 text-4xl"><StarCoin size={34} /><CountUp value={profile.points} /></div>
       )}
-      <button type="button" className="tc-btn tc-btn-primary mt-2 w-full text-xl" onClick={onSummary}>לטבלת הקבוצות</button>
     </ScreenBody>
   );
 }
