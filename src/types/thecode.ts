@@ -121,6 +121,28 @@ export interface TheCodeBranding {
 }
 
 /**
+ * Group selfie as the group's symbol (wave 3, Rani 13.11.2026). Camera only, never the
+ * gallery; a consent line before the shot. Photos are personal data (often children):
+ * they are deleted `retentionDays` after they were taken, and the operator can remove
+ * one at any time or switch selfies off. Resolve with `resolveSelfie()` — absent = on, 14 days.
+ */
+export interface TheCodeSelfieSettings {
+  enabled: boolean;
+  /** 1–90. Photos older than this are removed by the daily sweep. */
+  retentionDays: number;
+}
+
+/**
+ * The big screen (`/lobby/thecode/{shortId}`). Three full-screen video slots (R2, mp4/webm,
+ * ≤ 100 MB, with sound): `idle` loops while waiting; a scan of the on-screen QR plays
+ * `explain` ONCE (further scans while it runs never restart it), then "צאו לדרך!", then
+ * `after` loops until the next scan. Any slot may be empty → the drawn placeholder scene.
+ */
+export interface TheCodeLobbySettings {
+  videos?: { idle?: string; explain?: string; after?: string };
+}
+
+/**
  * The ONLY part of an adventure that is world-readable: a stub on the code's media
  * item (`thecodeConfig`), kept in sync by the server on every admin save. Everything
  * else (spots, gnomes, phrases, rules, riddles) is server-only — see TheCodeConfig.
@@ -155,6 +177,10 @@ export interface TheCodeConfig {
    *  Absent / empty = the default built from `rules` (src/lib/thecode/howToPlay.ts). */
   howToPlay?: string[];
   retentionDays: number;            // Player data auto-delete after inactivity
+  /** Group selfies. Absent = enabled, 14 days (resolveSelfie). */
+  selfie?: TheCodeSelfieSettings;
+  /** Big-screen videos. Absent = the drawn placeholder scenes. */
+  lobby?: TheCodeLobbySettings;
 }
 
 // -----------------------------------------------------------------
@@ -209,6 +235,10 @@ export interface TheCodePlayer {
   recoveryCode: string;             // Short code to restore on another device
   phone?: string;                   // +972… only when requirePhoneVerification
   hidden?: boolean;                 // Operator hid this name from the public board
+  /** The group selfie (R2). Replaces `emoji` wherever the group is shown while present.
+   *  `key` = the R2 object key (for deletion). Removed by the sweep after
+   *  `selfie.retentionDays`, by the operator, or when the group is deleted. */
+  photo?: { url: string; key: string; takenAt: number };
   points: number;
   streak: number;                   // Current correct-in-a-row
   suitcasesOpened: number;
