@@ -51,6 +51,48 @@ function HomeIcon() {
   );
 }
 
+const hotHiddenKey = (id: string) => `thecode_hot_hidden_${id}`;
+
+/**
+ * The streak / hot chip between the group button and the points. It never sits on its
+ * neighbours: the slot measures itself and the chip steps down full → compact → flame only;
+ * a tap hides it until the group turns hot AGAIN (remembered in this browser only).
+ */
+function HotSlot({ profileId, hot, streak }: { profileId: string; hot: boolean; streak: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<'full' | 'compact' | 'icon'>('full');
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let h = false;
+    try {
+      if (!hot) localStorage.removeItem(hotHiddenKey(profileId)); // cooled down → next time hot shows again
+      else h = localStorage.getItem(hotHiddenKey(profileId)) === '1';
+    } catch { /* private mode */ }
+    setHidden(h);
+  }, [hot, profileId]);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = () => {
+      const room = el.clientWidth;
+      setFit(room >= 96 ? 'full' : room >= 60 ? 'compact' : 'icon');
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const dismiss = () => {
+    setHidden(true);
+    try { localStorage.setItem(hotHiddenKey(profileId), '1'); } catch { /* private mode */ }
+  };
+  return (
+    <div ref={box} className="flex min-w-0 flex-1 justify-center">
+      {!(hot && hidden) && <HotBadge hot={hot} streak={streak} target={HOT_STREAK_AT} fit={fit} onDismiss={dismiss} />}
+    </div>
+  );
+}
+
 function Header({ state, onProfiles, onHowTo, onHome }: { state: PlayerState; onProfiles(): void; onHowTo?(): void; onHome?(): void }) {
   const p = state.profile!;
   // Rani (live, iPhone): six crowded items with cut text. Now: group (symbol only — the name is in
@@ -62,9 +104,7 @@ function Header({ state, onProfiles, onHowTo, onHome }: { state: PlayerState; on
         aria-label={`הקבוצה: ${p.familyName}. צלילים, החלפת קבוצה וקוד שחזור`} title={p.familyName}>
         <Avatar value={avatarOf(p)} size={28} />
       </button>
-      <div className="flex min-w-0 flex-1 justify-center">
-        <HotBadge hot={p.hot} streak={Math.min(p.streak, HOT_STREAK_AT)} target={HOT_STREAK_AT} />
-      </div>
+      <HotSlot profileId={p.id} hot={p.hot} streak={Math.min(p.streak, HOT_STREAK_AT)} />
       <ScoreCounter points={p.points} />
       {onHowTo && <HowToPlayButton compact onClick={onHowTo} />}
       {/* the home slot is always there, so the edge never shifts; on the home screen it is "you are here" */}
