@@ -129,9 +129,11 @@ const BURST_STYLE = `
 .tcl-go { animation: tcl-go 2.6s cubic-bezier(.2,.9,.3,1.2) both; }
 @keyframes tcl-zoom { from { transform: scale(1) } to { transform: scale(1.08) } }
 .tcl-zoom { transform-origin: 30% 45%; animation: tcl-zoom 30s ease-in-out infinite alternate; will-change: transform; }
+@keyframes tcl-zoom-b { from { transform: scale(1.08) } to { transform: scale(1) } }
+.tcl-zoom-b { transform-origin: 42% 40%; animation: tcl-zoom-b 34s ease-in-out infinite alternate; will-change: transform; }
 @keyframes tcl-fadein { from { opacity: 0 } to { opacity: 1 } }
 .tcl-fadein { animation: tcl-fadein .6s ease both; }
-@media (prefers-reduced-motion: reduce) { .tcl-blob, .tcl-step, .tcl-go, .tcl-zoom { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .tcl-blob, .tcl-step, .tcl-go, .tcl-zoom, .tcl-zoom-b { animation: none !important; } }
 `;
 
 // ------------------------------------------------ video layer (Rani: an intro loop, a "how to play"
@@ -180,6 +182,39 @@ const EXPLAIN_STEPS = [
   { icon: '🧳', title: 'סדרו את האותיות', text: 'פצחו את המשפט הסודי ופתחו מזוודה' },
 ] as const;
 
+/**
+ * Default backdrop when the organiser has no video (Rani 13.11.2026): Merlush in a few poses of
+ * the SAME approved design, cross-fading slowly so the screen breathes until a real video is in.
+ * All frames are 1672x941 with the right side empty, so the board stays readable. Only opacity
+ * and transform animate. prefers-reduced-motion -> the first pose, still.
+ */
+const MERLUSH_POSES = [
+  '/thecode/lobby/merlush-v2.webp',
+  '/thecode/lobby/merlush-pose-2.webp',
+  '/thecode/lobby/merlush-pose-3.webp',
+];
+const POSE_HOLD_MS = 9000;
+const POSE_FADE_MS = 1800;
+
+function MerlushPoses({ onError }: { onError(): void }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const t = setInterval(() => setI((p) => (p + 1) % MERLUSH_POSES.length), POSE_HOLD_MS + POSE_FADE_MS);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <>
+      {MERLUSH_POSES.map((src, n) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img key={src} src={src} alt="" decoding="async" onError={n === 0 ? onError : undefined}
+          className={`${n % 2 ? 'tcl-zoom-b' : 'tcl-zoom'} absolute inset-0 h-full w-full object-cover object-left`}
+          style={{ opacity: n === i ? 1 : 0, transition: `opacity ${POSE_FADE_MS}ms ease-in-out` }} />
+      ))}
+    </>
+  );
+}
+
 /** A looping background: the organiser's video, or a drawn placeholder. Never blocks the screen. */
 function BackgroundLoop({ url, kind, placeholderLabel }: { url: string | null; kind: 'idle' | 'after'; placeholderLabel?: boolean }) {
   const [failed, setFailed] = useState(false);
@@ -193,10 +228,7 @@ function BackgroundLoop({ url, kind, placeholderLabel }: { url: string | null; k
         <LobbyVideo url={url} loop onError={() => setFailed(true)} />
       ) : (
         !artFailed ? (
-          // Default backdrop (no organiser video): Merlush presenting to the right, slow zoom.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src="/thecode/lobby/merlush-v2.webp" alt="" decoding="async" onError={() => setArtFailed(true)}
-            className="tcl-zoom absolute inset-0 h-full w-full object-cover object-left" />
+          <MerlushPoses onError={() => setArtFailed(true)} />
         ) : (
         <>
           <span className="tcl-blob" style={{ width: '70vmin', height: '70vmin', top: '-10%', right: '-8%', background: blobs[0] }} />
