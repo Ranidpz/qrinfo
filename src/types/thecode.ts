@@ -329,6 +329,8 @@ export interface TheCodeAdminPlayer {
   /** The name the family registered with, kept when the operator renames it. */
   originalName?: string;
   emoji: string;
+  /** The group selfie (still within retention), shown instead of `emoji`. */
+  photoUrl?: string;
   hidden: boolean;
   points: number;
   weekPoints: number;
