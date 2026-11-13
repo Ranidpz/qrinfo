@@ -22,10 +22,8 @@ import type {
 /** Contract shape (src/types/thecode.ts) + a local-only `verifiedAt` set by setup mode. */
 export type GnomeStats = TheCodeGnomeStats & { verifiedAt?: number };
 export type RiddleStats = TheCodeRiddleStats;
-/** What the operator sees of a group. Never a phone, never a full name.
- *  `photoUrl` = the group's selfie (wave 3). NOT in the contract's TheCodeAdminPlayer yet —
- *  read when the server sends it (reported to the plan owner). */
-export type AdminPlayer = TheCodeAdminPlayer & { photoUrl?: string };
+/** What the operator sees of a group (incl. its selfie `photoUrl`). Never a phone, never a full name. */
+export type AdminPlayer = TheCodeAdminPlayer;
 
 export type LobbySlot = 'idle' | 'explain' | 'after';
 
