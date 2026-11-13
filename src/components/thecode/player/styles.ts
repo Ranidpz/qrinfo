@@ -108,7 +108,6 @@ export const THECODE_STYLE = `
 .tc-a-fade { animation: tc-fade .6s ease both; }
 @keyframes tc-spin-slow { to { transform: rotate(360deg) } }
 @keyframes tc-zzz { 0% { transform: translate(0,0) scale(.6); opacity: 0 } 30% { opacity: 1 } 100% { transform: translate(-26px,-46px) scale(1.2); opacity: 0 } }
-@keyframes tc-confetti { 0% { transform: translate3d(0,-10vh,0) rotate(0); opacity: 1 } 100% { transform: translate3d(var(--dx), 110vh, 0) rotate(var(--rot)); opacity: .9 } }
 @keyframes tc-lid { 0% { transform: rotateX(0) } 25% { transform: rotateX(-10deg) translateY(-4px) } 100% { transform: rotateX(90deg) translateY(-8px); opacity: 0 } }
 @keyframes tc-lid-open { 0% { transform: scaleY(0); opacity: 0 } 1% { opacity: 1 } 70% { transform: scaleY(1.06) } 100% { transform: scaleY(1); opacity: 1 } }
 @keyframes tc-latch { 0% { transform: translateY(0) } 100% { transform: translateY(-10px) rotate(-30deg); opacity: .0 } }
@@ -129,7 +128,6 @@ export const THECODE_STYLE = `
 .tc-float-minus { animation: tc-fall 1.35s ease-in both; color: var(--tc-coral); text-shadow: 0 2px 12px rgba(255,84,104,.5); }
 .tc-ring { position: absolute; inset: 0; border-radius: 999px; border: 3px solid var(--tc-flame); animation: tc-pulse-ring 1.4s ease-out infinite; }
 .tc-zzz { position: absolute; font-weight: 800; animation: tc-zzz 2.4s ease-out infinite; }
-.tc-confetti-piece { position: absolute; top: 0; width: 9px; height: 15px; border-radius: 2px; animation: tc-confetti var(--dur) cubic-bezier(.25,.6,.35,1) var(--delay) both; }
 .tc-lid { transform-origin: 50% 100%; animation: tc-lid .45s ease-in .55s both; }
 .tc-lid-open { transform-origin: 50% 100%; animation: tc-lid-open .6s cubic-bezier(.2,.9,.3,1.2) .95s both; }
 .tc-latch { animation: tc-latch .35s ease-in .25s both; }
@@ -144,6 +142,6 @@ export const THECODE_STYLE = `
 
 @media (prefers-reduced-motion: reduce) {
   .tc-root *, .tc-root *::before, .tc-root *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
-  .tc-confetti-piece, .tc-ring, .tc-zzz { display: none; }
+  .tc-ring, .tc-zzz { display: none; }
 }
 `;

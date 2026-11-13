@@ -11,6 +11,8 @@ export interface SelfieShot {
   preview: string;
 }
 
+export type ProfilePatchResult = 'ok' | 'invalidName' | 'failed';
+
 /** The symbol to draw for a group: its photo when it has one, else its emoji. */
 export const avatarOf = (p: { emoji: string; photoUrl?: string }) => p.photoUrl || p.emoji;
 
@@ -224,6 +226,8 @@ export interface PlayerCallbacks {
   /** Profile sheet: a new selfie for the active group / remove its selfie. */
   onSetPhoto?(photo: SelfieShot): void;
   onRemovePhoto?(): void;
+  /** "עריכת הקבוצה": rename and/or another emoji (the selfie goes through onSetPhoto / onRemovePhoto). */
+  onUpdateProfile?(patch: { familyName?: string; emoji?: string }): Promise<ProfilePatchResult>;
   /** Summary board: this week / all time. */
   onBoardScope?(scope: 'week' | 'all'): void;
   onOpenInBrowser(): void;

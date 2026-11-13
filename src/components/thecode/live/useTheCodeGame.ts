@@ -517,7 +517,24 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
     onDismissInAppBrowser: () => patchUi((u) => ({ ...u, inAppGate: false })),
     onSetPhoto: (shot) => { void putPhoto(activeAuth(identityRef.current), shot); },
     onRemovePhoto: () => { void putPhoto(activeAuth(identityRef.current), null); },
-  }), [send, afterJoin, patchUi, setIdentity, putPhoto]);
+    onUpdateProfile: async (patch) => {
+      // Direct transport call (not `send`): the sheet shows its own error, the game screen
+      // underneath never turns into a network-error screen for a rename.
+      const auth = activeAuth(identityRef.current);
+      if (!auth) return 'failed';
+      const action: TheCodePlayAction = { type: 'updateProfile', ...patch };
+      let res: TheCodePlayResponse;
+      try {
+        res = await transport({ codeId, auth, action });
+      } catch {
+        return 'failed';
+      }
+      if (!res.ok) return res.error === 'invalidName' ? 'invalidName' : 'failed';
+      appliedSeqRef.current = ++seqRef.current;
+      applySnapshot(res.snapshot, res.serverNow);   // header + sheet update at once; the board on its next refresh
+      return 'ok';
+    },
+  }), [send, afterJoin, patchUi, setIdentity, putPhoto, transport, codeId, applySnapshot]);
 
   const state = useMemo(() => buildPlayerState({
     snapshot,

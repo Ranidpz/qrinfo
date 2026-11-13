@@ -16,7 +16,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import { Avatar } from '@/components/thecode/player/Avatar';
 import { THECODE_STYLE } from '@/components/thecode/player/styles';
-import { CountUp, StarCoin } from '@/components/thecode/player/ui';
+import GnomeConfetti from '@/components/thecode/player/GnomeConfetti';
+import { CountUp } from '@/components/thecode/player/ui';
 
 export interface LobbyTeam {
   id: string;
@@ -73,56 +74,49 @@ function QrCard({ url }: { url: string }) {
   );
 }
 
-// ------------------------------------------------ gnome-world burst ("פוף")
-// A suitcase opening EXPLODES from the middle of the screen: gnome hats in every hat
-// colour, mushrooms, stars and coins fly up and out, spin, then fall with gravity.
-// A flash + shock ring sells the pop. Transform/opacity only; hidden under reduced motion.
+/** "הקוד — מלכת שבא" / "קוד הגמדים - מלכת שבא" → "מלכת שבא" (our own name is already the title). */
+function cleanGameName(title?: string): string {
+  const t = (title || '').trim();
+  const stripped = t.replace(/^(קוד הגמדים|הקוד)\s*[—–-]\s*/, '').trim();
+  return stripped === 'קוד הגמדים' || stripped === 'הקוד' ? '' : stripped;
+}
 
-const HAT_COLORS = ['#E5484D', '#3B82F6', '#30A46C', '#F5C518', '#8E4EC6', '#F76B15', '#F4F4F5'];
-
-function GnomeHat({ color }: { color: string }) {
+/** The venue's logo (transparent PNG), facing the title. A broken image just disappears. */
+function LobbyLogo({ url, backed }: { url: string; backed: boolean }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (failed === url) return null;
   return (
-    <svg width="100%" height="100%" viewBox="0 0 40 44" aria-hidden>
-      <path d="M20 2 C26 14 31 26 34 36 L6 36 C9 26 14 14 20 2 Z" fill={color} stroke="#11131A" strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M14 14 C17 12 19 9 20 4" stroke="rgba(255,255,255,.45)" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-      <rect x="2" y="34" width="36" height="8" rx="4" fill="#FFF4DA" stroke="#11131A" strokeWidth="2.2" />
-    </svg>
+    <div className={`flex shrink-0 items-center rounded-[2.4vh] ${backed ? 'px-[1.4vw] py-[1.2vh]' : ''}`}
+      style={backed ? { background: 'rgba(6,9,30,.5)', backdropFilter: 'blur(6px)' } : undefined}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" decoding="async" onError={() => setFailed(url)}
+        className="block h-[11vh] w-auto max-w-[24vw] object-contain"
+        style={{ filter: 'drop-shadow(0 0 1px rgba(255,255,255,.6)) drop-shadow(0 4px 14px rgba(0,0,0,.55))' }} />
+    </div>
   );
 }
 
-type PieceKind = 'hat' | 'mushroom' | 'star' | 'coin';
-const BURST = Array.from({ length: 64 }, (_, i) => {
-  const r = (n: number) => {
-    const x = Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453;
-    return x - Math.floor(x);
-  };
-  const angle = r(1) * Math.PI * 2;
-  const dist = 22 + r(2) * 34;                       // vmin
-  const kind: PieceKind = i % 8 < 4 ? 'hat' : i % 8 === 4 ? 'mushroom' : i % 8 === 5 || i % 8 === 6 ? 'star' : 'coin';
-  return {
-    kind,
-    color: HAT_COLORS[i % HAT_COLORS.length],
-    dx: `${Math.cos(angle) * dist}vmin`,
-    dy: `${Math.sin(angle) * dist * 0.8 - 14}vmin`,  // biased upward: a fountain, not a drop
-    fall: `${28 + r(3) * 30}vmin`,
-    rot: `${(r(4) - 0.5) * 900}deg`,
-    size: `${(kind === 'hat' ? 5.2 : 4.2) + r(5) * 2.6}vmin`,
-    delay: `${r(6) * 0.12}s`,
-    dur: `${1.9 + r(7) * 0.9}s`,
-  };
-});
+/** With a video playing: a compact card bottom-left over the video, still scannable from a few metres. */
+function QrCorner({ url }: { url: string }) {
+  return (
+    <div className="tcl-fadein fixed bottom-[3vh] left-[2vw] z-20 flex items-center gap-[1.4vw] rounded-[3vh] py-[2vh] pe-[1.6vw] ps-[2vh]"
+      style={{ background: 'rgba(8,11,34,.86)', boxShadow: 'inset 0 0 0 3px rgba(244,183,64,.55), 0 2vh 6vh rgba(0,0,0,.5)' }}>
+      <div className="relative shrink-0">
+        <div className="rounded-[2vh] bg-white p-[1.4vh]">
+          {url ? <QRCodeSVG value={url} size={240} level="M" style={{ width: '24vh', height: '24vh', display: 'block' }} /> : <div style={{ width: '24vh', height: '24vh' }} />}
+        </div>
+      </div>
+      <div className="flex max-w-[16vw] flex-col items-center gap-[1vh] text-center">
+        <span aria-hidden className="tc-a-bob"><GnomeFigure bodyColor="green" hatColor="red" size={86} /></span>
+        <p className="tc-display text-[3.6vh] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>סרקו כאן והתחילו</p>
+      </div>
+    </div>
+  );
+}
+
+// The celebration is the shared GnomeConfetti (phone + big screen look the same).
 
 const BURST_STYLE = `
-@keyframes tcl-pop { 0% { transform: translate(-50%,-50%) translate(0,0) scale(.2) rotate(0); opacity: 0 }
-  8% { opacity: 1 }
-  38% { transform: translate(-50%,-50%) translate(var(--dx), var(--dy)) scale(1.15) rotate(calc(var(--rot) * .5)); opacity: 1 }
-  100% { transform: translate(-50%,-50%) translate(calc(var(--dx) * 1.25), calc(var(--dy) + var(--fall))) scale(.9) rotate(var(--rot)); opacity: 0 } }
-@keyframes tcl-flash { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.3) } 15% { opacity: .95 } 100% { opacity: 0; transform: translate(-50%,-50%) scale(2.4) } }
-@keyframes tcl-ring { 0% { opacity: .9; transform: translate(-50%,-50%) scale(.2) } 100% { opacity: 0; transform: translate(-50%,-50%) scale(3.2) } }
-.tcl-piece { position: absolute; left: 50%; top: 50%; animation: tcl-pop var(--dur) cubic-bezier(.15,.75,.3,1) var(--delay) both; will-change: transform, opacity; }
-.tcl-flash { position: absolute; left: 50%; top: 50%; width: 40vmin; height: 40vmin; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255,240,190,.95), rgba(255,190,80,.5) 45%, rgba(255,190,80,0)); animation: tcl-flash .9s ease-out both; }
-.tcl-ring { position: absolute; left: 50%; top: 50%; width: 30vmin; height: 30vmin; border-radius: 50%; border: 1.2vmin solid rgba(255,217,120,.85); animation: tcl-ring 1s ease-out .05s both; }
 @keyframes tcl-drift { 0% { transform: translate(0,0) scale(1) } 50% { transform: translate(-6%,4%) scale(1.15) } 100% { transform: translate(0,0) scale(1) } }
 .tcl-blob { position: absolute; border-radius: 50%; filter: blur(8vmin); animation: tcl-drift 18s ease-in-out infinite; }
 @keyframes tcl-step { 0% { opacity: 0; transform: translateY(6vh) scale(.92) } 12% { opacity: 1; transform: none } 88% { opacity: 1; transform: none } 100% { opacity: 0; transform: translateY(-4vh) } }
@@ -131,28 +125,8 @@ const BURST_STYLE = `
 .tcl-go { animation: tcl-go 2.6s cubic-bezier(.2,.9,.3,1.2) both; }
 @keyframes tcl-fadein { from { opacity: 0 } to { opacity: 1 } }
 .tcl-fadein { animation: tcl-fadein .6s ease both; }
-@media (prefers-reduced-motion: reduce) { .tcl-burst { display: none; } .tcl-blob, .tcl-step, .tcl-go { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .tcl-blob, .tcl-step, .tcl-go { animation: none !important; } }
 `;
-
-function GnomeBurst({ burstKey }: { burstKey: number }) {
-  return (
-    <div key={burstKey} aria-hidden className="tcl-burst pointer-events-none absolute inset-0 z-30 overflow-hidden">
-      <span className="tcl-flash" />
-      <span className="tcl-ring" />
-      {BURST.map((p, i) => (
-        <span key={i} className="tcl-piece flex items-center justify-center"
-          style={{ width: p.size, height: p.size, fontSize: p.size, lineHeight: 1,
-            ['--dx' as string]: p.dx, ['--dy' as string]: p.dy, ['--fall' as string]: p.fall,
-            ['--rot' as string]: p.rot, ['--delay' as string]: p.delay, ['--dur' as string]: p.dur }}>
-          {p.kind === 'hat' ? <GnomeHat color={p.color} />
-            : p.kind === 'mushroom' ? <span style={{ fontSize: '0.85em' }}>🍄</span>
-              : p.kind === 'star' ? <span style={{ fontSize: '0.8em' }}>⭐</span>
-                : <StarCoin size={40} />}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 // ------------------------------------------------ video layer (Rani: an intro loop, a "how to play"
 // scene when someone scans the opening QR, then a second loop). Three SLOTS the organisers
@@ -221,8 +195,11 @@ function BackgroundLoop({ url, kind, placeholderLabel }: { url: string | null; k
           </span>}
         </>
       )}
-      {/* keeps the board and the moments readable on ANY video */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(6,9,30,.62), rgba(6,9,30,.5) 40%, rgba(6,9,30,.7))' }} />
+      {/* keeps the board and the moments readable on ANY video; lighter when a real video
+          plays (the rows, the header and the QR card carry their own dark backing) */}
+      <div className="absolute inset-0" style={{ background: url && !failed
+        ? 'linear-gradient(270deg, rgba(6,9,30,.62), rgba(6,9,30,.25) 55%, rgba(6,9,30,.12))'
+        : 'linear-gradient(180deg, rgba(6,9,30,.62), rgba(6,9,30,.5) 40%, rgba(6,9,30,.7))' }} />
     </div>
   );
 }
@@ -256,7 +233,7 @@ function ExplainScene({ url, extraScans, onDone, burstKey }: { url: string | nul
       {!useVideo && <BackgroundLoop url={null} kind="idle" />}
       {go ? (
         <>
-          <GnomeBurst burstKey={burstKey} />
+          <GnomeConfetti position="fixed" burstKey={`go-${burstKey}`} count={170} origin={{ x: '50%', y: '55%' }} />
           <p className="tcl-go tc-display relative z-10 text-[22vh] leading-none"
             style={{ color: 'var(--tc-brass)', textShadow: '0 1.2vh 0 #6E400C, 0 4vh 12vh rgba(244,183,64,.55)' }}>
             צאו לדרך!
@@ -383,7 +360,11 @@ function SoundButton({ onUnlock }: { onUnlock(): void }) {
 
 interface StageProps {
   stage: LobbyStageState;
-  title?: string;
+  /** The organisers' name for this adventure (TheCodeConfig.title), e.g. "מלכת שבא אילת". */
+  gameName?: string;
+  /** The venue's (transparent) logo — top left, facing the title. */
+  logoUrl?: string | null;
+  /** Small heading above the board. */
   subtitle: string;
   qrUrl: string;
   videos?: { idle?: string | null; explain?: string | null; after?: string | null };
@@ -394,7 +375,7 @@ interface StageProps {
   children?: ReactNode;
 }
 
-export default function LobbyStage({ stage, title, subtitle, qrUrl, videos, placeholderLabels, aside, children }: StageProps) {
+export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, videos, placeholderLabels, aside, children }: StageProps) {
   const { teams, banner, climb, delta, phase, sceneKey, extraScans, rows, onSceneDone } = stage;
   const [sound, setSound] = useState<SoundState>('unknown');
   const report = useCallback((s: SoundState) => setSound((cur) => (cur === 'on' ? 'on' : s)), []);
@@ -405,8 +386,12 @@ export default function LobbyStage({ stage, title, subtitle, qrUrl, videos, plac
     setSound('on');
   };
   const ranks = useMemo(() => rankMap(teams), [teams]);
-  const ROW_VH = rows >= 10 ? 7 : 8.6;
+  const ROW_VH = rows >= 10 ? 6.6 : 8.6;
   const loopUrl = (phase === 'after' ? videos?.after : videos?.idle) || null;
+  // A real video behind → the QR moves to a compact corner card so it never hides the video
+  // (Rani). During the scene it hides and comes back right after "צאו לדרך!".
+  const videoMode = !!loopUrl;
+  const name = cleanGameName(gameName);
 
   return (
     <SoundContext.Provider value={soundCtx}>
@@ -415,24 +400,30 @@ export default function LobbyStage({ stage, title, subtitle, qrUrl, videos, plac
           <style>{THECODE_STYLE}</style>
           <style>{BURST_STYLE}</style>
           <BackgroundLoop url={loopUrl} kind={phase === 'after' ? 'after' : 'idle'} placeholderLabel={placeholderLabels} />
-          {banner?.m.kind === 'suitcase' && <GnomeBurst burstKey={banner.key} />}
+          {banner?.m.kind === 'suitcase' && <GnomeConfetti position="fixed" burstKey={`b-${banner.key}`} count={170} origin={{ x: '50%', y: '55%' }} />}
 
-          <header className="relative flex items-end justify-between">
-            <div>
-              <h1 className="tc-display text-[8.5vh] leading-none" style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>
-                {title || 'קוד הגמדים'}
+          <header className="relative flex items-center justify-between gap-[3vw]">
+            <div className={`rounded-[2.4vh] ${videoMode ? 'px-[1.6vw] py-[1.4vh]' : ''}`}
+              style={videoMode ? { background: 'rgba(6,9,30,.5)', backdropFilter: 'blur(6px)' } : undefined}>
+              <h1 className="tc-display text-[8vh] leading-none" style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>
+                קוד הגמדים
               </h1>
-              <p className="mt-[1vh] text-[3vh]" style={{ color: 'var(--tc-soft)' }}>{subtitle}</p>
+              {name && <p className="tc-display mt-[1.2vh] text-[4.2vh] leading-none" style={{ color: 'var(--tc-cream)', textShadow: '0 2px 12px rgba(0,0,0,.6)' }}>{name}</p>}
             </div>
-            {aside && <p className="tc-display text-[3.2vh]" style={{ color: 'var(--tc-soft)' }}>{aside}</p>}
+            {logoUrl && <LobbyLogo url={logoUrl} backed={videoMode} />}
           </header>
 
           <div aria-live="polite" className="pointer-events-none absolute inset-x-0 top-[5vh] z-20 flex justify-center">
             {banner && <MomentBanner key={banner.key} m={banner.m} />}
           </div>
 
-          <div className="relative mt-[2.5vh] flex min-h-0 flex-1 gap-[3vw]">
-            <ol className="relative flex-[1.55] pt-[1.2vh]" style={{ height: `${rows * ROW_VH + 2.4}vh` }} aria-label="טבלת הקבוצות">
+          <div className="relative mt-[2.2vh] flex min-h-0 flex-1 gap-[3vw]">
+            <section className={videoMode ? 'w-[56%]' : 'flex-[1.55]'}>
+            <div className="flex items-baseline justify-between px-[0.6vw]">
+              <h2 className="tc-display text-[3vh]" style={{ color: 'var(--tc-soft)', textShadow: '0 1px 8px rgba(0,0,0,.6)' }}>{subtitle}</h2>
+              {aside && <p className="tc-display text-[2.8vh]" style={{ color: 'var(--tc-soft)', textShadow: '0 1px 8px rgba(0,0,0,.6)' }}>{aside}</p>}
+            </div>
+            <ol className="relative pt-[1.2vh]" style={{ height: `${rows * ROW_VH + 2.4}vh` }} aria-label="טבלת הקבוצות">
               {!teams.length && (
                 <li className="flex h-full flex-col items-center justify-center gap-[2vh] text-center">
                   <span className="tc-display text-[5vh]" style={{ color: 'var(--tc-brass-hi)' }}>הטבלה עוד ריקה</span>
@@ -474,10 +465,14 @@ export default function LobbyStage({ stage, title, subtitle, qrUrl, videos, plac
                 );
               })}
             </ol>
-            <aside className="flex-1">
-              <QrCard url={qrUrl} />
-            </aside>
+            </section>
+            {!videoMode && (
+              <aside className="flex-1">
+                <QrCard url={qrUrl} />
+              </aside>
+            )}
           </div>
+          {videoMode && phase !== 'explain' && <QrCorner url={qrUrl} />}
           {phase === 'explain' && <ExplainScene key={`scene-${sceneKey}`} url={videos?.explain || null} extraScans={extraScans} onDone={onSceneDone} burstKey={sceneKey} />}
         </div>
         {sound === 'blocked' && <SoundButton onUnlock={unlock} />}

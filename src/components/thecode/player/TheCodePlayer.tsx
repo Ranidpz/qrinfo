@@ -216,6 +216,7 @@ export default function TheCodePlayer({ state, callbacks }: { state: PlayerState
         </main>
         <ProfileSheet open={sheetOpen && showHeader} profile={state.profile} profiles={state.profiles}
           selfie={state.selfie} photoBusy={state.photoBusy} onSetPhoto={callbacks.onSetPhoto} onRemovePhoto={callbacks.onRemovePhoto}
+          onUpdateProfile={callbacks.onUpdateProfile}
           onClose={() => setSheetOpen(false)} onSwitch={cb.onSwitchProfile} onAdd={cb.onAddProfile} />
         <HowToPlaySheet open={howToShown} lines={howToLines} onClose={closeHowTo}
           closeLabel={opening ? 'הבנו, יוצאים לדרך' : 'חזרה למשחק'} />

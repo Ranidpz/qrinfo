@@ -13,15 +13,21 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-async function resolve(shortId: string): Promise<{ codeId: string; title: string } | null> {
+async function resolve(shortId: string): Promise<{ codeId: string; title: string; logoUrl: string | null } | null> {
   try {
     const snap = await getAdminDb().collection('codes').where('shortId', '==', shortId).limit(1).get();
     if (snap.empty) return null;
     const doc = snap.docs[0];
-    const data = doc.data() as { title?: string; media?: { type?: string; title?: string; thecodeConfig?: { title?: string } }[] };
+    const data = doc.data() as { title?: string; media?: { type?: string; title?: string; thecodeConfig?: { title?: string; branding?: { logoUrl?: string } } }[] };
     const m = (data.media || []).find((x) => x?.type === 'thecode');
     if (!m) return null;
-    return { codeId: doc.id, title: m.thecodeConfig?.title || m.title || data.title || 'קוד הגמדים' };
+    // The venue's logo lives on the PUBLIC stub (thecodeConfig.branding) — safe to read here.
+    const logo = m.thecodeConfig?.branding?.logoUrl;
+    return {
+      codeId: doc.id,
+      title: m.thecodeConfig?.title || m.title || data.title || 'קוד הגמדים',
+      logoUrl: typeof logo === 'string' && /^https:\/\//.test(logo) ? logo : null,
+    };
   } catch (err) {
     console.error('[lobby/thecode] resolve failed', err);
     return null;
@@ -31,5 +37,5 @@ async function resolve(shortId: string): Promise<{ codeId: string; title: string
 export default async function TheCodeLobbyPage({ params }: { params: Promise<{ shortId: string }> }) {
   const { shortId } = await params;
   const found = await resolve(shortId);
-  return <TheCodeLobby codeId={found?.codeId ?? null} shortId={shortId} title={found?.title ?? ''} />;
+  return <TheCodeLobby codeId={found?.codeId ?? null} shortId={shortId} title={found?.title ?? ''} logoUrl={found?.logoUrl ?? null} />;
 }

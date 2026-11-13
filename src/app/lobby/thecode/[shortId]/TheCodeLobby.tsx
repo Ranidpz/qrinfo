@@ -27,7 +27,7 @@ const momentOf = (e: TheCodeLobbyEvent): LobbyMoment => ({
   avatar: e.photoUrl || e.emoji,
 });
 
-export default function TheCodeLobby({ codeId, shortId, title }: { codeId: string | null; shortId: string; title: string }) {
+export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { codeId: string | null; shortId: string; title: string; logoUrl: string | null }) {
   const stage = useLobbyStage(LOBBY_ROWS);
   const { setBoard, pushMoments, scan } = stage;
   const [videos, setVideos] = useState<TheCodeLobbyLive['videos']>({});
@@ -95,7 +95,7 @@ export default function TheCodeLobby({ codeId, shortId, title }: { codeId: strin
 
   return (
     <div className={theCodeFont.variable}>
-      <LobbyStage stage={stage} title={title} subtitle="הטבלה של השבוע" qrUrl={qrUrl}
+      <LobbyStage stage={stage} gameName={title} logoUrl={logoUrl} subtitle="הטבלה של השבוע" qrUrl={qrUrl}
         videos={{ idle: videos?.idle, explain: videos?.explain, after: videos?.after }} />
     </div>
   );

@@ -10,7 +10,7 @@ import { defaultHowToPlay } from '@/lib/thecode/howToPlay';
 import type { PlayerCallbacks } from '@/components/thecode/player/types';
 import {
   createDemoState, demoAddProfile, demoAnswerRight, demoAnswerWrong, demoArrangeHelp, demoArrangePlace,
-  demoArrangeRemove, demoCaption, demoCloseScanner, demoOpenScanner, demoScanCode, demoContinue, demoJump, demoLocationHint, demoNewSuitcase, demoOpenSuitcase,
+  demoArrangeRemove, demoCaption, demoSetPhoto, demoUpdateProfile, demoCloseScanner, demoOpenScanner, demoScanCode, demoContinue, demoJump, demoLocationHint, demoNewSuitcase, demoOpenSuitcase,
   demoPickLetter, demoRecover, demoRegister, demoRegisterMode, demoRiddleHint, demoScanSleeping, demoScanSolved,
   demoScanTarget, demoScanWrong, demoSetOverlay, demoShowSummary, demoSubmitLetter, demoSwitchProfile,
   demoToggleMute, demoView, DEMO_BRANDINGS, DEMO_CONFIG, type DemoJump, type DemoState,
@@ -122,6 +122,9 @@ export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRAND
       onOpenScanner: on(demoOpenScanner),
       onCloseScanner: on(demoCloseScanner),
       onScanCode: (code) => setS((x) => demoScanCode(x, code)),
+      onUpdateProfile: async (patch) => { setS((x) => demoUpdateProfile(x, patch)); return 'ok'; },
+      onSetPhoto: (shot) => setS((x) => demoSetPhoto(x, shot.preview)),
+      onRemovePhoto: () => setS((x) => demoSetPhoto(x, null)),
       // In the real app: openCurrentUrlInBrowser() from src/lib/inAppBrowser.ts.
       onOpenInBrowser: on((x) => demoSetOverlay(x, null)),
       onDismissInAppBrowser: on((x) => demoSetOverlay(x, null)),

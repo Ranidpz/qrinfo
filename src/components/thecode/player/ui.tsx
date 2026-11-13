@@ -3,6 +3,7 @@
 // הקוד — shared presentational pieces. ALL at module scope: an inline component gets a
 // new identity every render, React remounts it and its entrance animation replays.
 
+import GnomeConfetti from './GnomeConfetti';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import type { SfxName } from './sfx';
@@ -171,44 +172,9 @@ export function GnomeStage({ gnome, size = 140, sleeping, className }: { gnome: 
 
 // ------------------------------------------------ confetti
 
-const CONFETTI_COLORS = ['#F4B740', '#FFD978', '#36E39A', '#FF5468', '#5AA9FF', '#FFF4DA', '#FF8A2B'];
-const CONFETTI = Array.from({ length: 70 }, (_, i) => {
-  const r = (n: number) => {
-    const x = Math.sin((i + 1) * 9301 + n * 49297) * 10000;
-    return x - Math.floor(x);
-  };
-  return {
-    left: `${r(1) * 100}%`,
-    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-    dx: `${(r(2) - 0.5) * 160}px`,
-    rot: `${(r(3) - 0.5) * 1440}deg`,
-    dur: `${2.2 + r(4) * 1.8}s`,
-    delay: `${r(5) * 0.6}s`,
-    round: r(6) > 0.6,
-  };
-});
-
-/** Pure-CSS burst. Change `burstKey` to fire again. */
+/** The celebration — the same confetti the big screen fires (GnomeConfetti). Change `burstKey` to fire again. */
 export function Confetti({ burstKey }: { burstKey: string | number }) {
-  return (
-    <div key={burstKey} aria-hidden className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
-      {CONFETTI.map((c, i) => (
-        <span
-          key={i}
-          className="tc-confetti-piece"
-          style={{
-            left: c.left,
-            background: c.color,
-            borderRadius: c.round ? 999 : 2,
-            ['--dx' as string]: c.dx,
-            ['--rot' as string]: c.rot,
-            ['--dur' as string]: c.dur,
-            ['--delay' as string]: c.delay,
-          }}
-        />
-      ))}
-    </div>
-  );
+  return <GnomeConfetti burstKey={burstKey} count={90} origin={{ x: '50%', y: '42%' }} />;
 }
 
 // ------------------------------------------------ layout

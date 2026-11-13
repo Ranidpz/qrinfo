@@ -52,6 +52,17 @@ const JOINERS: Omit<Team, 'points' | 'hot'>[] = [
 
 type Team = LobbyTeam & { hot: boolean };
 
+/** A drawn, transparent sample venue logo (no external URLs in the demo). */
+const DEMO_VENUE_LOGO = svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120">
+<g fill="#F4D58D" stroke="#F4D58D">
+<path d="M40 70 L52 34 L70 58 L88 26 L106 58 L124 34 L136 70 Z" stroke-width="2" stroke-linejoin="round"/>
+<rect x="40" y="74" width="96" height="10" rx="3"/>
+<circle cx="52" cy="32" r="5"/><circle cx="88" cy="22" r="6"/><circle cx="124" cy="32" r="5"/>
+</g>
+<text x="152" y="66" font-family="Georgia, serif" font-size="34" font-weight="700" fill="#FFF4DA" letter-spacing="2">QUEEN</text>
+<text x="152" y="100" font-family="Georgia, serif" font-size="26" fill="#F4D58D" letter-spacing="5">OF SHEBA</text>
+</svg>`);
+
 /** Event rhythm of the demo, one beat per tick (≈ a suitcase every 20 s). */
 const SCRIPT = ['letter', 'suitcase', 'letter', 'join', 'hot', 'letter', 'letter', 'suitcase', 'join', 'letter', 'hot', 'letter'] as const;
 const TICK_MS = 3800;
@@ -82,6 +93,8 @@ export default function TheCodeLobbyDemo() {
   const stage = useLobbyStage();
   const { setBoard, pushMoments } = stage;
   const [url, setUrl] = useState('');
+  // ?logo=0 → the screen without a venue logo
+  const [logo, setLogo] = useState<string | null>(null);
   const [slots, setSlots] = useState<Record<LobbyPhase, string | null>>({ idle: null, explain: null, after: null });
   const teamsRef = useRef<Team[]>(START);
   const joinIdx = useRef(0);
@@ -91,6 +104,7 @@ export default function TheCodeLobbyDemo() {
     // The live screen links its own /v/{shortId}?src=lobby; the demo points at a sample code.
     setUrl(`${window.location.origin}/v/demo-gnomes?src=lobby`);
     setSlots(readSlots());
+    setLogo(new URLSearchParams(window.location.search).get('logo') === '0' ? null : DEMO_VENUE_LOGO);
     setBoard(sortTeams(START));
   }, [setBoard]);
 
@@ -133,7 +147,7 @@ export default function TheCodeLobbyDemo() {
   }, [setBoard, pushMoments]);
 
   return (
-    <LobbyStage stage={stage} subtitle="הטבלה של השבוע" qrUrl={url} videos={slots} placeholderLabels
+    <LobbyStage stage={stage} gameName="מלכת שבא אילת" logoUrl={logo} subtitle="הטבלה של השבוע" qrUrl={url} videos={slots} placeholderLabels
       aside={<><span className="tc-num" style={{ color: 'var(--tc-brass-hi)' }}>{stage.teams.length}</span> קבוצות משחקות עכשיו</>}>
       <DemoScanPanel phase={stage.phase} onScan={() => stage.scan()} />
     </LobbyStage>
