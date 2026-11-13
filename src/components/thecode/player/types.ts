@@ -5,6 +5,15 @@
 
 import type { TheCodeBranding, TheCodeColor } from '@/types/thecode';
 
+/** A selfie taken on this phone: the square image to upload + an object/data URL to show at once. */
+export interface SelfieShot {
+  blob: Blob;
+  preview: string;
+}
+
+/** The symbol to draw for a group: its photo when it has one, else its emoji. */
+export const avatarOf = (p: { emoji: string; photoUrl?: string }) => p.photoUrl || p.emoji;
+
 export interface PlayerGnomeView {
   id: string;
   number: number;
@@ -22,6 +31,8 @@ export interface PlayerProfileView {
   /** "שחקן חם": streak reached hotStreakAt → points are multiplied. */
   hot: boolean;
   suitcasesOpened: number;
+  /** The group selfie (shown instead of the emoji while present). */
+  photoUrl?: string;
 }
 
 export interface CollectorLetterView {
@@ -111,6 +122,7 @@ export interface LeaderRowView {
   /** 0-based rank before the latest change — the board animates from here. */
   prevRank: number;
   isMe: boolean;
+  photoUrl?: string;
 }
 
 export interface SummaryView {
@@ -173,15 +185,19 @@ export interface PlayerState {
   branding?: TheCodeBranding | null;
   /** "איך משחקים" lines from the server (operator's own or the default built from the rules). Absent = no button. */
   howToPlay?: string[];
-  /** Offer a selfie as the team's symbol on the register screen (demo only, awaiting approval). */
-  selfieEnabled?: boolean;
+  /** Group selfies: offered on the register screen + in the profile sheet when `enabled`.
+   *  `days` = retention, quoted in the consent line. Absent = no selfie anywhere. */
+  selfie?: { enabled: boolean; days: number } | null;
+  /** A selfie upload is on its way (the photo already shows from the phone). */
+  photoBusy?: boolean;
   /** Hebrew or English letter pad. */
   alphabet: string[];
   muted: boolean;
 }
 
 export interface PlayerCallbacks {
-  onRegister(familyName: string, emoji: string): void;
+  /** `photo` = a selfie taken on the register screen; it is uploaded right after the group joins. */
+  onRegister(familyName: string, emoji: string, photo?: SelfieShot): void;
   onRecover(code: string): void;
   onRegisterMode(mode: 'new' | 'recover'): void;
   onLocationHint(): void;
@@ -205,6 +221,9 @@ export interface PlayerCallbacks {
   onCloseScanner(): void;
   /** A gnome code: the slug from a /g/{code} QR or the short code typed by hand. */
   onScanCode(code: string): void;
+  /** Profile sheet: a new selfie for the active group / remove its selfie. */
+  onSetPhoto?(photo: SelfieShot): void;
+  onRemovePhoto?(): void;
   /** Summary board: this week / all time. */
   onBoardScope?(scope: 'week' | 'all'): void;
   onOpenInBrowser(): void;

@@ -6,7 +6,8 @@
 // the tiles placed on the arrange board, the open scanner, a failed request to retry.
 
 import { alphabetFor } from '@/lib/thecode/letters';
-import type { TheCodeBranding } from '@/types/thecode';
+import type { TheCodeBranding, TheCodeSelfieSettings } from '@/types/thecode';
+import { resolveSelfie } from '@/lib/thecode/selfie';
 import type { TheCodeGnomeView, TheCodeLeaderRow, TheCodeSnapshot } from '@/types/thecode-api';
 import type { StoredIdentity } from './identity';
 import type {
@@ -85,6 +86,22 @@ export interface MapInput {
   branding?: TheCodeBranding | null;
   /** "איך משחקים" lines known before the snapshot (from the /g lookup). */
   howToPlay?: string[];
+  /** Selfie settings known before the snapshot (the /g lookup). */
+  selfie?: TheCodeSelfieSettings | null;
+  /** A selfie taken on THIS phone, shown at once while it uploads (playerId → preview URL;
+   *  `null` = the group just removed its photo). The server's photoUrl wins once it matches. */
+  localPhotos?: Record<string, string | null>;
+  photoBusy?: boolean;
+}
+
+/**
+ * Selfie settings for the phone. The contract carries them on `adventure.selfie` (asked of the
+ * plan owner 13.11.2026); until the server sends them we read the field defensively and fall
+ * back to resolveSelfie's defaults (on, 14 days). A server refusal ('off') hides the camera.
+ */
+export function selfieOf(adventure: unknown, fallback?: TheCodeSelfieSettings | null): TheCodeSelfieSettings {
+  const raw = (adventure && typeof adventure === 'object' ? (adventure as { selfie?: Partial<TheCodeSelfieSettings> }).selfie : undefined) ?? fallback ?? undefined;
+  return resolveSelfie({ selfie: raw as TheCodeSelfieSettings | undefined });
 }
 
 const gnomeView = (g: TheCodeGnomeView): PlayerGnomeView => ({
@@ -149,6 +166,7 @@ function profileFromSnapshot(s: TheCodeSnapshot): PlayerProfileView | null {
     streak: p.streak,
     hot: p.hot,
     suitcasesOpened: p.suitcasesOpened,
+    photoUrl: p.photoUrl,
   };
 }
 
@@ -159,6 +177,7 @@ function leaderRows(board: BoardData | null, myId: string | undefined): LeaderRo
     familyName: r.familyName,
     emoji: r.emoji,
     points: r.points,
+    photoUrl: r.photoUrl,
     prevRank: board.prevRanks ? (board.prevRanks[r.id] ?? board.rows.length) : i,
     isMe: r.id === myId,
   }));
@@ -177,7 +196,10 @@ function homeScreen(s: TheCodeSnapshot): PlayerScreen {
 export function buildPlayerState(m: MapInput): PlayerState {
   const s = m.snapshot;
   const ui = m.ui;
-  const active = s ? profileFromSnapshot(s) : null;
+  const snapActive = s ? profileFromSnapshot(s) : null;
+  // A just-taken selfie shows at once; a just-removed one disappears at once.
+  const local = snapActive && m.localPhotos && snapActive.id in m.localPhotos ? m.localPhotos[snapActive.id] : undefined;
+  const active = snapActive && local !== undefined ? { ...snapActive, photoUrl: local ?? undefined } : snapActive;
   const profiles: PlayerProfileView[] = m.identity.profiles.map((p) => (
     active && p.playerId === active.id ? active : {
       id: p.playerId,
@@ -210,6 +232,11 @@ export function buildPlayerState(m: MapInput): PlayerState {
     muted: m.muted,
     branding: s?.adventure.branding ?? m.branding ?? null,
     howToPlay: s?.adventure.howToPlay?.length ? s.adventure.howToPlay : m.howToPlay,
+    selfie: (() => {
+      const st = selfieOf(s?.adventure, m.selfie);
+      return { enabled: st.enabled, days: st.retentionDays };
+    })(),
+    photoBusy: m.photoBusy,
   };
 
   if (ui.inAppGate) return { ...base, screen: { kind: 'inAppBrowser' } };

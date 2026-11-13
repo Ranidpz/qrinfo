@@ -8,7 +8,7 @@ import { HowToPlayButton } from './HowToPlaySheet';
 import { Avatar } from './Avatar';
 import { EMOJIS, SelfieFlow, SymbolRow } from './SymbolPicker';
 import { GnomeStage, ScreenBody, useSfx } from './ui';
-import type { PlayerGnomeView } from './types';
+import type { PlayerGnomeView, SelfieShot } from './types';
 
 const MAX_NAME = 20;
 
@@ -23,13 +23,13 @@ interface Props {
   nameError?: string;
   /** Adding a sibling from the switcher (not the first scan). */
   addingProfile: boolean;
-  onRegister(familyName: string, emoji: string): void;
+  onRegister(familyName: string, emoji: string, photo?: SelfieShot): void;
   onRecover(code: string): void;
   onMode(mode: 'new' | 'recover'): void;
   /** Opens "איך משחקים" (absent = no button). */
   onHowToPlay?(): void;
-  /** Offer a selfie as the team's symbol (demo only until the server stores photos). */
-  allowSelfie?: boolean;
+  /** Offer a selfie as the group's symbol (absent / disabled = no camera tile at all). */
+  selfie?: { enabled: boolean; days: number } | null;
   /** Back out of "add a family" to the family that was playing. */
   onCancel?(): void;
 }
@@ -49,7 +49,11 @@ export default function RegisterScreen(p: Props) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState(EMOJIS[0]);
   const [code, setCode] = useState('');
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<SelfieShot | null>(null);
+  // The emoji the server needs anyway (the selfie only replaces it on screen).
+  const [lastEmoji, setLastEmoji] = useState(EMOJIS[0]);
+  const allowSelfie = !!p.selfie?.enabled;
+  const usingPhoto = !!photo && emoji === photo.preview;
   const [selfieStep, setSelfieStep] = useState<'consent' | null>(null);
   const canGo = name.trim().length >= 2;
   const logo = p.branding?.logoUrl;
@@ -134,18 +138,19 @@ export default function RegisterScreen(p: Props) {
       </label>
 
       <fieldset className="tc-a-rise tc-delay-3 min-w-0">
-        <legend className="tc-display mb-1 text-xl">{p.allowSelfie ? 'והסמל שלכם: סלפי או ציור' : 'והסמל שלכם'}</legend>
-        <SymbolRow value={emoji} onChange={setEmoji} selfie={!!p.allowSelfie} photo={photo} onCamera={() => setSelfieStep('consent')} />
+        <legend className="tc-display mb-1 text-xl">{allowSelfie ? 'והסמל שלכם: סלפי או ציור' : 'והסמל שלכם'}</legend>
+        <SymbolRow value={emoji} selfie={allowSelfie} photo={photo?.preview ?? null} onCamera={() => setSelfieStep('consent')}
+          onChange={(v) => { setEmoji(v); if (!photo || v !== photo.preview) setLastEmoji(v); }} />
       </fieldset>
 
       {p.nameError && <p role="alert" className="tc-a-shake text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{p.nameError}</p>}
       <p className="text-center text-sm" style={{ color: 'var(--tc-soft)' }}>
-        {p.allowSelfie ? 'בלי שמות אמיתיים. סלפי רק אם תרצו, והוא נמחק בסוף המשחק.' : 'בלי שמות אמיתיים ובלי תמונות. רק כינוי וסמל.'}
+        {allowSelfie ? 'בלי שמות אמיתיים. סלפי רק אם תרצו, ובסוף הוא נמחק.' : 'בלי שמות אמיתיים ובלי תמונות. רק כינוי וסמל.'}
       </p>
 
       <div className="mt-auto flex flex-col gap-3">
         <button type="button" className="tc-btn tc-btn-primary w-full text-xl" disabled={!canGo}
-          onClick={() => { sfx('correct'); p.onRegister(name, emoji); }}>
+          onClick={() => { sfx('correct'); p.onRegister(name, usingPhoto ? lastEmoji : emoji, usingPhoto ? photo! : undefined); }}>
           <Avatar value={emoji} size={30} /> יוצאים לדרך
         </button>
         {p.addingProfile ? (
@@ -158,9 +163,9 @@ export default function RegisterScreen(p: Props) {
         {!p.addingProfile && <PoweredBy />}
       </div>
     </ScreenBody>
-    {p.allowSelfie && (
-      <SelfieFlow step={selfieStep} onCancel={() => setSelfieStep(null)}
-        onPhoto={(url) => { setPhoto(url); setEmoji(url); sfx('correct'); }} />
+    {allowSelfie && (
+      <SelfieFlow step={selfieStep} days={p.selfie!.days} onCancel={() => setSelfieStep(null)}
+        onPhoto={(shot) => { setPhoto(shot); setEmoji(shot.preview); sfx('correct'); }} />
     )}
     </>
   );

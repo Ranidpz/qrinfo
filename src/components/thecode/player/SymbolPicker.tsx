@@ -8,7 +8,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import SquareImageCropper from '@/components/viewer/SquareImageCropper';
+import { SELFIE_LIMITS } from '@/lib/thecode/selfie';
 import { Avatar, isPhotoAvatar } from './Avatar';
+import type { SelfieShot } from './types';
 import { useSfx } from './ui';
 
 export const EMOJIS = ['🦁', '🐯', '🦊', '🐼', '🦉', '🐬', '🐙', '🦄', '🐢', '🐝', '🚀', '⚡'];
@@ -86,10 +88,12 @@ export function SymbolRow({ value, onChange, selfie, photo, onCamera }: RowProps
 }
 
 interface SelfieFlowProps {
-  /** 'consent' = the short "your photo on the big screen" sheet; 'camera' = pick/crop. */
+  /** 'consent' = the short "your photo on the big screen" sheet. */
   step: 'consent' | null;
+  /** Retention in days, quoted in the consent line (TheCodeSelfieSettings.retentionDays). */
+  days: number;
   onCancel(): void;
-  onPhoto(dataUrl: string): void;
+  onPhoto(shot: SelfieShot): void;
 }
 
 /** Read a cropped blob into a data: URL (stays in memory, survives the demo's JSON state copies). */
@@ -103,7 +107,7 @@ function toDataUrl(blob: Blob): Promise<string> {
 }
 
 /** Consent sheet → front camera (file input with capture) → SquareImageCropper → data URL. */
-export function SelfieFlow({ step, onCancel, onPhoto }: SelfieFlowProps) {
+export function SelfieFlow({ step, days, onCancel, onPhoto }: SelfieFlowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState(false);
@@ -128,8 +132,8 @@ export function SelfieFlow({ step, onCancel, onPhoto }: SelfieFlowProps) {
             </div>
             {/* Final wording is Rani's call — this is the demo draft. */}
             <ul className="mb-5 flex flex-col gap-2 text-lg leading-snug">
-              <li>📺 התמונה תופיע על המסך הגדול במקום, ליד שם הקבוצה.</li>
-              <li>🗑️ בסוף המשחק היא נמחקת.</li>
+              <li>📺 התמונה תוצג על המסך במקום ותימחק אחרי {days === 1 ? 'יום אחד' : <><span className="tc-num">{days}</span> ימים</>}.</li>
+              <li>👨‍👧 אם מצולמים ילדים, הורה מאשר.</li>
               <li>🙂 לא חובה. אפשר תמיד לבחור סמל במקום.</li>
             </ul>
             <button type="button" className="tc-btn tc-btn-primary w-full text-xl"
@@ -145,13 +149,15 @@ export function SelfieFlow({ step, onCancel, onPhoto }: SelfieFlowProps) {
         <div dir="rtl">
           <SquareImageCropper
             file={file}
-            outputSize={320}
+            outputSize={SELFIE_LIMITS.sizePx}
             quality={0.8}
             labels={{ title: 'מסדרים את הסלפי', hint: 'הזיזו והגדילו עם האצבעות. הסמל יוצג בעיגול.', confirm: 'זה הסמל שלנו', cancel: 'ביטול', processing: 'מכינים…' }}
             onCancel={() => setFile(null)}
             onConfirm={async (blob) => {
               try {
-                onPhoto(await toDataUrl(blob));
+                // A data: URL (not an object URL): it survives the demo's JSON state copies
+                // and never needs revoking; it is only ever shown on this phone.
+                onPhoto({ blob, preview: await toDataUrl(blob) });
               } catch {
                 setError(true);
               }

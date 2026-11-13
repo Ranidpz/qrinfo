@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getAdminDb } from '@/lib/firebase-admin';
 import TheCodeLobby from './TheCodeLobby';
 
-// הקוד — the venue's TV: the families' board, this week ↔ all time.
+// קוד הגמדים — the venue's TV: board (top 10, this week) + live moments + video scenes.
 // Resolved on the server by shortId (Admin SDK, like /v/{shortId}); the board itself is
 // polled client-side from the public /api/thecode/leaderboard.
 
@@ -31,5 +31,5 @@ async function resolve(shortId: string): Promise<{ codeId: string; title: string
 export default async function TheCodeLobbyPage({ params }: { params: Promise<{ shortId: string }> }) {
   const { shortId } = await params;
   const found = await resolve(shortId);
-  return <TheCodeLobby codeId={found?.codeId ?? null} title={found?.title ?? ''} />;
+  return <TheCodeLobby codeId={found?.codeId ?? null} shortId={shortId} title={found?.title ?? ''} />;
 }

@@ -100,7 +100,8 @@ export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRAND
   const callbacks = useMemo<PlayerCallbacks>(() => {
     const on = (fn: (x: DemoState) => DemoState) => () => setS((prev) => fn(prev));
     return {
-      onRegister: (name, emoji) => setS((x) => demoRegister(x, name, emoji)),
+      // Demo: the selfie stays on this phone (its data: URL stands in for the uploaded photo).
+      onRegister: (name, emoji, photo) => setS((x) => demoRegister(x, name, photo?.preview ?? emoji)),
       onRecover: (code) => setS((x) => demoRecover(x, code)),
       onRegisterMode: (mode) => setS((x) => demoRegisterMode(x, mode)),
       onLocationHint: on(demoLocationHint),
@@ -127,7 +128,7 @@ export default function TheCodeDemo({ brand }: { brand?: keyof typeof DEMO_BRAND
     };
   }, []);
 
-  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY, selfieEnabled: true }), [s, brand]);
+  const view = useMemo(() => ({ ...demoView(s), branding: brand ? DEMO_BRANDINGS[brand] : null, howToPlay: DEMO_HOW_TO_PLAY, selfie: { enabled: true, days: 14 } }), [s, brand]);
 
   return (
     <div className="min-h-[100dvh] bg-[#E9E6F2] md:flex md:items-center md:justify-center md:gap-10 md:p-5">
