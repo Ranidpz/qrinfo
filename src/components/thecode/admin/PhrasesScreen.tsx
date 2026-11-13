@@ -8,7 +8,7 @@ import type { Navigate } from './nav';
 import { letterLabel } from './helpers';
 import { Button, Card, EmptyState, IconButton, LetterTile, Pill, ScreenHeader, Toggle, cx } from './ui';
 import { BankFillButton } from './BankDialogs';
-import { suggestPhrases } from './phraseSuggest';
+import { sourcesByLetter, suggestPhrases } from './phraseSuggest';
 
 export default function PhrasesScreen({ state, report, actions, navigate, target, coverageOf }: ScreenProps) {
   const { phrases } = state.config;
@@ -77,6 +77,7 @@ export default function PhrasesScreen({ state, report, actions, navigate, target
         {!draft && (
           <p className="mt-2 text-sm text-text-secondary">כתבו משפט, ונראה לכם מיד אם יש מספיק גמדים לכל האותיות שלו.</p>
         )}
+        <AvailableLetters state={state} onPick={(letter) => setDraft((d) => d + letter)} />
         {!draft && (
           <Suggestions
             state={state}
@@ -256,6 +257,42 @@ function Verdict({ coverage, navigate, isDraft }: { coverage: PhraseCoverage; na
           אות סופית נאספת כמו האות הרגילה (ף = פ), ומוצגת סופית בסוף המילה.
         </div>
       )}
+    </div>
+  );
+}
+
+/** "האותיות שיש לכם": every letter an in-game riddle gives right now, with how many different
+ *  gnomes give it (= how many times it may appear in one phrase). A tap types it into the draft. */
+function AvailableLetters({ state, onPick }: { state: ScreenProps['state']; onPick: (letter: string) => void }) {
+  const letters = useMemo(() => {
+    const sources = sourcesByLetter(state.config, state.riddles);
+    return [...sources.entries()]
+      .map(([letter, gnomes]) => ({ letter, count: gnomes.length }))
+      .sort((a, b) => a.letter.localeCompare(b.letter, 'he'));
+  }, [state.config, state.riddles]);
+  if (!letters.length) return null;
+  return (
+    <div className="mt-5 border-t border-border pt-4">
+      <div className="mb-1 text-sm font-medium">האותיות שיש לכם עכשיו</div>
+      <p className="mb-2 text-sm text-text-secondary">
+        מהחידות שבמשחק. המספר הקטן = מכמה גמדים שונים האות מגיעה, כלומר כמה פעמים היא יכולה להופיע במשפט אחד. לחצו על אות כדי להוסיף אותה למשפט.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {letters.map(({ letter, count }) => (
+          <button
+            key={letter}
+            type="button"
+            onClick={() => onPick(letter)}
+            title={count === 1 ? 'מגיעה מגמד אחד' : `מגיעה מ־${count} גמדים שונים`}
+            className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg border border-accent/40 bg-accent/5 text-lg font-bold hover:bg-accent/10"
+          >
+            {letter}
+            <span className="absolute -bottom-1.5 -start-1.5 rounded-full bg-bg-secondary px-1.5 text-[11px] font-medium text-text-secondary ring-1 ring-border">
+              {count}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
