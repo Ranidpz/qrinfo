@@ -54,28 +54,6 @@ function MomentBanner({ m }: { m: LobbyMoment }) {
   );
 }
 
-function QrCard({ url }: { url: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-[3vh] rounded-[4vh] px-[2.5vw] py-[4vh] text-center"
-      style={{ background: 'linear-gradient(180deg, rgba(244,183,64,.16), rgba(244,183,64,.05)), rgba(10,14,40,.8)', boxShadow: 'inset 0 0 0 3px rgba(244,183,64,.45)' }}>
-      <p className="tc-display text-[6.4vh] leading-none" style={{ color: 'var(--tc-brass-hi)' }}>סרקו כאן והתחילו</p>
-      {/* Nothing may ever sit on the code or its quiet zone (Rani: the gnome covered a finder
-          square, so phones could not read it) — the gnome stands BESIDE the text, below it. */}
-      <div className="rounded-[3vh] bg-white p-[1.6vh]" style={{ boxShadow: '0 2vh 6vh rgba(0,0,0,.45)' }}>
-        {url ? <QRCodeSVG value={url} size={300} level="M" marginSize={2} style={{ width: '32vh', height: '32vh', display: 'block' }} /> : <div style={{ width: '32vh', height: '32vh' }} />}
-      </div>
-      <div className="flex items-center gap-[1.2vw]">
-        <span className="tc-a-bob shrink-0" aria-hidden>
-          <GnomeFigure bodyColor="green" hatColor="red" size={104} />
-        </span>
-        <p className="text-start text-[3.2vh] leading-snug" style={{ color: 'var(--tc-cream)' }}>
-          הגמד הראשון מחכה לכם כאן.<br />אחריו — חפשו את השאר במקום!
-        </p>
-      </div>
-    </div>
-  );
-}
-
 /** "הקוד — מלכת שבא" / "קוד הגמדים - מלכת שבא" → "מלכת שבא" (our own name is already the title). */
 function cleanGameName(title?: string): string {
   const t = (title || '').trim();
@@ -92,26 +70,46 @@ function LobbyLogo({ url, backed }: { url: string; backed: boolean }) {
       style={backed ? { background: 'rgba(6,9,30,.5)', backdropFilter: 'blur(6px)' } : undefined}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt="" decoding="async" onError={() => setFailed(url)}
-        className="block h-[11vh] w-auto max-w-[24vw] object-contain"
+        className="block h-[9vh] w-auto max-w-[14vw] object-contain"
         style={{ filter: 'drop-shadow(0 0 1px rgba(255,255,255,.6)) drop-shadow(0 4px 14px rgba(0,0,0,.55))' }} />
     </div>
   );
 }
 
-/** With a video playing: a compact card bottom-left over the video, still scannable from a few metres. */
-function QrCorner({ url }: { url: string }) {
+/**
+ * The opening QR, held by the real gnome (Rani 13.11.2026): the code sits ON the white board in
+ * his hands — never over his fingers, never cropped. The art is `garden-gnome-selected.png`
+ * cropped hat → belt (nothing in it changed). The board's clean square (no fingers), measured
+ * on the pixels: x 489–771, y 525–807 of 1254 → in the crop (x 290, y 10, 680×880) it is
+ * left 29.26%, top 58.52%, 41.47% of the width. The QR sits 1% inside it and carries its own
+ * 2-module white margin, the rest of the board is extra quiet zone. Height 63vh ⇒ QR ≈ 19vh,
+ * scannable from a few metres; the GNOME is what scales, the code never shrinks below that.
+ */
+const GNOME_ART = { src: '/thecode/lobby/gnome-holding-board.webp', aspect: 600 / 776 };
+const BOARD = { left: 29.26, top: 58.52, width: 41.47 };
+const QR_INSET = 1;  // % of the art width, kept off the board's edge
+
+function GnomeQr({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  const left = BOARD.left + QR_INSET;
+  const width = BOARD.width - QR_INSET * 2;
+  const top = BOARD.top + QR_INSET * GNOME_ART.aspect;  // same inset in height units
   return (
-    <div className="tcl-fadein fixed bottom-[3vh] left-[2vw] z-20 flex items-center gap-[1.4vw] rounded-[3vh] py-[2vh] pe-[1.6vw] ps-[2vh]"
-      style={{ background: 'rgba(8,11,34,.86)', boxShadow: 'inset 0 0 0 3px rgba(244,183,64,.55), 0 2vh 6vh rgba(0,0,0,.5)' }}>
-      <div className="relative shrink-0">
-        <div className="rounded-[2vh] bg-white p-[1.4vh]">
-          {url ? <QRCodeSVG value={url} size={240} level="M" marginSize={2} style={{ width: '24vh', height: '24vh', display: 'block' }} /> : <div style={{ width: '24vh', height: '24vh' }} />}
-        </div>
+    <div className="tcl-fadein pointer-events-none fixed bottom-0 left-[2vw] z-20" style={{ height: '63vh', aspectRatio: `${GNOME_ART.aspect}` }}>
+      {!failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={GNOME_ART.src} alt="" aria-hidden decoding="async" onError={() => setFailed(true)}
+          className="absolute inset-0 h-full w-full object-contain" style={{ filter: 'drop-shadow(0 2vh 4vh rgba(0,0,0,.55))' }} />
+      ) : (
+        <div className="absolute rounded-[1.6vh] bg-white" style={{ left: `${BOARD.left}%`, top: `${BOARD.top}%`, width: `${BOARD.width}%`, aspectRatio: '1' }} />
+      )}
+      <div className="absolute" style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, aspectRatio: '1' }}>
+        {url && <QRCodeSVG value={url} size={300} level="M" marginSize={2} bgColor="#FFFFFF" style={{ width: '100%', height: '100%', display: 'block' }} />}
       </div>
-      <div className="flex max-w-[16vw] flex-col items-center gap-[1vh] text-center">
-        <span aria-hidden className="tc-a-bob"><GnomeFigure bodyColor="green" hatColor="red" size={86} /></span>
-        <p className="tc-display text-[3.6vh] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>סרקו כאן והתחילו</p>
-      </div>
+      <p className="tc-display absolute whitespace-nowrap rounded-full px-[1.4vw] py-[1vh] text-[3.4vh] leading-none"
+        style={{ left: '96%', top: '62%', color: '#2A1600', background: 'var(--tc-brass)', boxShadow: '0 1vh 3vh rgba(0,0,0,.45)' }}>
+        סרקו כאן והתחילו
+      </p>
     </div>
   );
 }
@@ -125,9 +123,11 @@ const BURST_STYLE = `
 .tcl-step { animation: tcl-step var(--step-ms) cubic-bezier(.2,.8,.2,1) both; }
 @keyframes tcl-go { 0% { opacity: 0; transform: scale(.3) rotate(-6deg) } 25% { opacity: 1; transform: scale(1.12) rotate(2deg) } 40% { transform: scale(1) rotate(0) } 100% { opacity: 1; transform: scale(1.04) } }
 .tcl-go { animation: tcl-go 2.6s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes tcl-zoom { from { transform: scale(1) } to { transform: scale(1.08) } }
+.tcl-zoom { transform-origin: 30% 45%; animation: tcl-zoom 30s ease-in-out infinite alternate; will-change: transform; }
 @keyframes tcl-fadein { from { opacity: 0 } to { opacity: 1 } }
 .tcl-fadein { animation: tcl-fadein .6s ease both; }
-@media (prefers-reduced-motion: reduce) { .tcl-blob, .tcl-step, .tcl-go { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .tcl-blob, .tcl-step, .tcl-go, .tcl-zoom { animation: none !important; } }
 `;
 
 // ------------------------------------------------ video layer (Rani: an intro loop, a "how to play"
@@ -179,6 +179,7 @@ const EXPLAIN_STEPS = [
 /** A looping background: the organiser's video, or a drawn placeholder. Never blocks the screen. */
 function BackgroundLoop({ url, kind, placeholderLabel }: { url: string | null; kind: 'idle' | 'after'; placeholderLabel?: boolean }) {
   const [failed, setFailed] = useState(false);
+  const [artFailed, setArtFailed] = useState(false);
   const blobs = kind === 'idle'
     ? ['#4B2E9E', '#1E5BC6', '#7A2A8C']
     : ['#0F7A5A', '#1E6FA8', '#2F9E6E'];
@@ -187,6 +188,12 @@ function BackgroundLoop({ url, kind, placeholderLabel }: { url: string | null; k
       {url && !failed ? (
         <LobbyVideo url={url} loop onError={() => setFailed(true)} />
       ) : (
+        !artFailed ? (
+          // Default backdrop (no organiser video): Merlush presenting to the right, slow zoom.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/thecode/lobby/merlush-presenting-right.webp" alt="" decoding="async" onError={() => setArtFailed(true)}
+            className="tcl-zoom absolute inset-0 h-full w-full object-cover object-left" />
+        ) : (
         <>
           <span className="tcl-blob" style={{ width: '70vmin', height: '70vmin', top: '-10%', right: '-8%', background: blobs[0] }} />
           <span className="tcl-blob" style={{ width: '60vmin', height: '60vmin', bottom: '-15%', left: '10%', background: blobs[1], animationDelay: '-6s' }} />
@@ -196,11 +203,13 @@ function BackgroundLoop({ url, kind, placeholderLabel }: { url: string | null; k
             {kind === 'idle' ? 'משבצת וידאו: פתיח בלולאה' : 'משבצת וידאו: לולאה אחרי ההסבר'}
           </span>}
         </>
+        )
       )}
       {/* keeps the board and the moments readable on ANY video; lighter when a real video
           plays (the rows, the header and the QR card carry their own dark backing) */}
-      <div className="absolute inset-0" style={{ background: url && !failed
-        ? 'linear-gradient(270deg, rgba(6,9,30,.62), rgba(6,9,30,.25) 55%, rgba(6,9,30,.12))'
+      <div className="absolute inset-0" style={{ background: (url && !failed) || !artFailed
+        // a picture behind (video or Merlush): dark on the board's side (right), light on his
+        ? 'linear-gradient(270deg, rgba(6,9,30,.62), rgba(6,9,30,.3) 50%, rgba(6,9,30,.08))'
         : 'linear-gradient(180deg, rgba(6,9,30,.62), rgba(6,9,30,.5) 40%, rgba(6,9,30,.7))' }} />
     </div>
   );
@@ -390,9 +399,8 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
   const ranks = useMemo(() => rankMap(teams), [teams]);
   const ROW_VH = rows >= 10 ? 6.6 : 8.6;
   const loopUrl = (phase === 'after' ? videos?.after : videos?.idle) || null;
-  // A real video behind → the QR moves to a compact corner card so it never hides the video
-  // (Rani). During the scene it hides and comes back right after "צאו לדרך!".
-  const videoMode = !!loopUrl;
+  // The QR is always held by the gnome bottom-left (over Merlush or over a video); it hides
+  // during the scene and comes back right after "צאו לדרך!".
   const name = cleanGameName(gameName);
 
   return (
@@ -405,14 +413,13 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
           {banner?.m.kind === 'suitcase' && <GnomeConfetti position="fixed" burstKey={`b-${banner.key}`} count={170} origin={{ x: '50%', y: '55%' }} />}
 
           <header className="relative flex items-center justify-between gap-[3vw]">
-            <div className={`rounded-[2.4vh] ${videoMode ? 'px-[1.6vw] py-[1.4vh]' : ''}`}
-              style={videoMode ? { background: 'rgba(6,9,30,.5)', backdropFilter: 'blur(6px)' } : undefined}>
+            <div className="rounded-[2.4vh] px-[1.6vw] py-[1.4vh]" style={{ background: 'rgba(6,9,30,.5)', backdropFilter: 'blur(6px)' }}>
               <h1 className="tc-display text-[8vh] leading-none" style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.35)' }}>
                 קוד הגמדים
               </h1>
               {name && <p className="tc-display mt-[1.2vh] text-[4.2vh] leading-none" style={{ color: 'var(--tc-cream)', textShadow: '0 2px 12px rgba(0,0,0,.6)' }}>{name}</p>}
             </div>
-            {logoUrl && <LobbyLogo url={logoUrl} backed={videoMode} />}
+            {logoUrl && <LobbyLogo url={logoUrl} backed />}
           </header>
 
           <div aria-live="polite" className="pointer-events-none absolute inset-x-0 top-[5vh] z-20 flex justify-center">
@@ -420,7 +427,7 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
           </div>
 
           <div className="relative mt-[2.2vh] flex min-h-0 flex-1 gap-[3vw]">
-            <section className={videoMode ? 'w-[56%]' : 'flex-[1.55]'}>
+            <section className="w-[50%]">
             <div className="flex items-baseline justify-between px-[0.6vw]">
               <h2 className="tc-display text-[3vh]" style={{ color: 'var(--tc-soft)', textShadow: '0 1px 8px rgba(0,0,0,.6)' }}>{subtitle}</h2>
               {aside && <p className="tc-display text-[2.8vh]" style={{ color: 'var(--tc-soft)', textShadow: '0 1px 8px rgba(0,0,0,.6)' }}>{aside}</p>}
@@ -469,13 +476,8 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
               })}
             </ol>
             </section>
-            {!videoMode && (
-              <aside className="flex-1">
-                <QrCard url={qrUrl} />
-              </aside>
-            )}
           </div>
-          {videoMode && phase !== 'explain' && <QrCorner url={qrUrl} />}
+          {phase !== 'explain' && <GnomeQr url={qrUrl} />}
           {phase === 'explain' && <ExplainScene key={`scene-${sceneKey}`} url={videos?.explain || null} extraScans={extraScans} onDone={onSceneDone} burstKey={sceneKey} />}
         </div>
         {sound === 'blocked' && <SoundButton onUnlock={unlock} />}
