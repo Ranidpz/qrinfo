@@ -94,10 +94,10 @@ export function HotBadge({ hot, streak, target, compact }: { hot: boolean; strea
   if (hot) {
     return (
       <div className="tc-a-pop relative flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 font-black text-[#2A0E00]"
-        style={{ background: 'linear-gradient(180deg,#FFC24B,#FF8A2B)' }} role="status" aria-label="שחקנים חמים, כל אות שווה פי 2">
+        style={{ background: 'linear-gradient(180deg,#FFC24B,#FF8A2B)' }} role="status" aria-label="שחקנים חמים, כל אות שווה פי 2" title="שחקנים חמים: כל אות שווה פי 2">
         <span className="tc-ring" aria-hidden />
         <span className="tc-a-flicker" aria-hidden>🔥</span>
-        {!compact && <span className="tc-display text-sm" aria-hidden>שחקן חם</span>}
+        {!compact && <span className="tc-display text-sm" aria-hidden>חמים</span>}
         <span className="tc-num text-sm" aria-hidden>×2</span>
       </div>
     );
@@ -117,9 +117,19 @@ export function HotBadge({ hot, streak, target, compact }: { hot: boolean; strea
 
 // ------------------------------------------------ letters
 
+const HE_LETTER_NAMES: Record<string, string> = {
+  'א': 'אלף', 'ב': 'בית', 'ג': 'גימל', 'ד': 'דלת', 'ה': 'הא', 'ו': 'וו', 'ז': 'זין', 'ח': 'חית', 'ט': 'טית',
+  'י': 'יוד', 'כ': 'כף', 'ך': 'כף סופית', 'ל': 'למד', 'מ': 'מם', 'ם': 'מם סופית', 'נ': 'נון', 'ן': 'נון סופית',
+  'ס': 'סמך', 'ע': 'עין', 'פ': 'פא', 'ף': 'פא סופית', 'צ': 'צדי', 'ץ': 'צדי סופית', 'ק': 'קוף', 'ר': 'ריש',
+  'ש': 'שין', 'ת': 'תיו',
+};
+
+/** The Hebrew name of a letter ("דלת"), so a big tile is never misread (Rani read ד as ז). */
+export const letterName = (l: string): string | undefined => HE_LETTER_NAMES[l];
+
 export function Tile({ letter, size = 52, className, style }: { letter: string; size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <span className={`tc-tile tc-display ${className || ''}`} style={{ width: size, height: size * 1.12, fontSize: size * 0.62, ...style }}>
+    <span className={`tc-tile ${className || ''}`} style={{ width: size, height: size * 1.12, fontSize: size * 0.66, ...style }}>
       {letter}
     </span>
   );
@@ -196,10 +206,49 @@ export function ScreenBody({ children, className, footer, plainFooter }: { child
   // it must and is never hidden behind it.
   return (
     <div className="absolute inset-0 flex flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className={`flex min-h-full flex-col px-5 pb-4 pt-3 ${className || ''}`}>{children}</div>
-      </div>
+      <MoreBelow className={className}>{children}</MoreBelow>
       <div className={`tc-footer relative shrink-0 px-5 pt-3 ${plainFooter ? 'tc-footer-plain' : ''}`}>{footer}</div>
+    </div>
+  );
+}
+
+/**
+ * The scrolling part above a pinned action. When content continues below the edge it says so
+ * (Rani, iPhone: "צריך משהו שמוביל לשם"): a soft fade at the bottom + a small arrow that
+ * scrolls down; both vanish at the end. No scrollbar.
+ */
+function MoreBelow({ children, className }: { children: ReactNode; className?: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const check = () => setMore(el.scrollHeight - el.clientHeight - el.scrollTop > 12);
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
+    ro?.observe(el);
+    if (inner.current) ro?.observe(inner.current);
+    // entrance animations change heights without a resize of the boxes themselves
+    const late = setTimeout(check, 900);
+    return () => { el.removeEventListener('scroll', check); ro?.disconnect(); clearTimeout(late); };
+  }, []);
+  return (
+    <div className="relative min-h-0 flex-1">
+      <div ref={box} className="tc-noscrollbar absolute inset-0 overflow-y-auto overscroll-contain">
+        <div ref={inner} className={`flex min-h-full flex-col px-5 pb-4 pt-3 ${className || ''}`}>{children}</div>
+      </div>
+      <div aria-hidden className={`tc-more-fade pointer-events-none absolute inset-x-0 bottom-0 h-14 transition-opacity duration-300 ${more ? 'opacity-100' : 'opacity-0'}`} />
+      {more && (
+        <button type="button" aria-label="יש עוד למטה. גללו"
+          onClick={() => box.current?.scrollBy({ top: Math.max(120, (box.current.clientHeight || 300) * 0.7), behavior: 'smooth' })}
+          className="tc-more-arrow absolute bottom-1.5 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
