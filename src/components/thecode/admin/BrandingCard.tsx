@@ -8,7 +8,7 @@ import ImageDropZone from './ImageDropZone';
 import { VideoSlot } from './LobbyCards';
 import { MIN_TEXT_CONTRAST, contrastRatio, normalizeHex, readableOn } from './colors';
 import { Card, Field, Segmented, cx } from './ui';
-import { LAYOUT, LOGO_BOX, brandingLayout, clamp, resolveLayout, tidy } from './brandingLayout';
+import { LAYOUT, LOGO_BOX, brandingLayout, clamp, openingTextPanel, resolveLayout, tidy } from './brandingLayout';
 
 /** Same limit the server enforces (src/lib/thecode/server/admin.ts THECODE_LIMITS.welcomeText). */
 export const WELCOME_MAX = 140;
@@ -366,7 +366,7 @@ export function PhonePreview({ branding, title, onLayout }: { branding: TheCodeB
         </div>
 
         <div className="pointer-events-none relative flex h-full flex-col items-center px-4 pb-4 pt-10 text-center text-white" style={text ? { color: text } : undefined}>
-          <div className="mt-auto">
+          <div className="mt-auto" style={openingTextPanel(b) ?? undefined}>
             <div className="text-3xl font-extrabold tracking-tight drop-shadow">קוד הגמדים</div>
             <p className={b.welcomeText ? 'mt-2 line-clamp-3 text-sm leading-snug opacity-90 drop-shadow' : 'mt-2 line-clamp-3 text-sm italic leading-snug opacity-50'}>
               {b.welcomeText || defaultWelcome(title)}
