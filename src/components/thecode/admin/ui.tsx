@@ -3,7 +3,8 @@
 // הקוד admin — small UI primitives. Semantic app tokens only (bg-bg-card, text-text-secondary,
 // border-border, accent…) so dark mode follows the `dark` class like the dashboard.
 
-import { useEffect, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Sun, type LucideIcon } from 'lucide-react';
 import type { TheCodeColor } from '@/types/thecode';
 import { THECODE_COLORS } from '@/components/thecode/GnomeFigure';
@@ -400,5 +401,115 @@ export function Dialog({
         {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border px-6 py-4">{footer}</div>}
       </div>
     </div>
+  );
+}
+
+/**
+ * A designed tooltip (not the browser's `title`): opens on hover and focus with a mouse, on a tap
+ * on touch screens; closes on Escape, on a tap outside or when the pointer leaves. Arrow pointing
+ * at the trigger, kept inside the viewport. `interactive` = the child handles its own clicks
+ * (a switch, a button) → no tap-to-open, so the click still does its job.
+ * Accessible: role="tooltip" + aria-describedby on the trigger while open.
+ */
+export function Tip({ text, children, interactive, className }: { text: ReactNode; children: ReactNode; interactive?: boolean; className?: string }) {
+  const id = useId();
+  const trigger = useRef<HTMLSpanElement>(null);
+  const tip = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const lastPointer = useRef<string>('mouse');
+  const lastPointerAt = useRef(0);
+  const [pos, setPos] = useState<{ left: number; top: number; arrow: number; below: boolean } | null>(null);
+
+  const measure = () => {
+    if (!trigger.current || !tip.current) return;
+    const r = trigger.current.getBoundingClientRect();
+    const w = tip.current.offsetWidth;
+    const h = tip.current.offsetHeight;
+    const margin = 8;
+    const center = r.left + r.width / 2;
+    const left = Math.min(window.innerWidth - margin - w, Math.max(margin, center - w / 2));
+    const below = r.top - h - 10 < margin;
+    setPos({ left, top: below ? r.bottom + 10 : r.top - h - 10, arrow: center - left, below });
+  };
+  const measureRef = useRef(measure);
+  measureRef.current = measure;
+  useLayoutEffect(() => {
+    if (open) measureRef.current();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const onDown = (e: PointerEvent) => {
+      if (!trigger.current?.contains(e.target as Node) && !tip.current?.contains(e.target as Node)) setOpen(false);
+    };
+    // Follow the trigger (focusing it may scroll the page; closing then would hide it at once).
+    const onScroll = () => measureRef.current();
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [open]);
+
+  return (
+    <span
+      ref={trigger}
+      tabIndex={interactive ? undefined : 0}
+      aria-describedby={open ? id : undefined}
+      className={cx('inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent', !interactive && 'cursor-help', className)}
+      onPointerDown={(e) => {
+        lastPointer.current = e.pointerType;
+        lastPointerAt.current = Date.now();
+      }}
+      onPointerEnter={(e) => e.pointerType === 'mouse' && setOpen(true)}
+      onPointerLeave={(e) => e.pointerType === 'mouse' && setOpen(false)}
+      onFocus={() => {
+        // Keyboard focus only: a click/tap also focuses, and hover or the tap itself handles that.
+        if (Date.now() - lastPointerAt.current > 400) setOpen(true);
+      }}
+      onBlur={() => setOpen(false)}
+      onClick={(e) => {
+        if (interactive) return;
+        // Inside a clickable card: a tap on the label explains it instead of opening the card.
+        e.stopPropagation();
+        if (lastPointer.current !== 'mouse') setOpen((o) => !o);
+      }}
+      onKeyDown={(e) => {
+        if (!interactive && (e.key === 'Enter' || e.key === ' ')) e.stopPropagation();
+      }}
+    >
+      {children}
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <>
+          <style>{`@keyframes thecode-tip { from { opacity: 0; } to { opacity: 1; } }`}</style>
+          <div
+            ref={tip}
+            id={id}
+            role="tooltip"
+            dir="rtl"
+            className="pointer-events-none fixed z-[100] max-w-[16rem] rounded-lg bg-zinc-900 px-3 py-2 text-sm leading-snug text-white shadow-lg ring-1 ring-white/10 motion-safe:animate-[thecode-tip_120ms_ease-out] dark:bg-zinc-800"
+            style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: -9999 }}
+          >
+            {text}
+            {pos && (
+              <span
+                aria-hidden
+                className="absolute size-2.5 rotate-45 bg-zinc-900 dark:bg-zinc-800"
+                style={{ left: pos.arrow - 5, ...(pos.below ? { top: -5 } : { bottom: -5 }) }}
+              />
+            )}
+          </div>
+          </>,
+          document.body
+        )}
+    </span>
   );
 }

@@ -7,7 +7,7 @@ import type { TheCodeGnome, TheCodeRiddle } from '@/types/thecode';
 import { alphabetFor, isAmbiguousLetter, letterOfAnswer, soundAlikes } from '@/lib/thecode/letters';
 import type { RiddleStats, ScreenProps } from './model';
 import { isRiddleTooHard, letterLabel } from './helpers';
-import { Button, Card, EmptyState, Field, LetterTile, Pill, ScreenHeader, Segmented, Toggle, cx } from './ui';
+import { Button, Card, EmptyState, Field, LetterTile, Pill, ScreenHeader, Segmented, Toggle, cx, Tip } from './ui';
 import ImageDropZone from './ImageDropZone';
 import { BankFillButton, BankFillDialog, BankPickerDialog, addFromBank } from './BankDialogs';
 import { RIDDLE_TEMPLATES, TEMPLATE_BLANK } from './riddleTemplates';
@@ -502,7 +502,8 @@ function RiddleCount({ n, waiting, active, letters }: { n: number; waiting: numb
   const count = n === 0 ? 'אין חידות במשחק' : n === 1 ? 'חידה אחת' : `${n} חידות`;
   const title = `${n === 1 ? 'חידה אחת' : `${n} חידות`} במשחק לגמד הזה. כדאי ${TARGET_MIN} עד ${TARGET_MAX}, כדי שקבוצות שונות יקבלו שאלות שונות.${letters.length ? ` הגמד נותן את ${letters.length === 1 ? 'האות' : 'האותיות'} ${letters.join(', ')}.` : ''}${waiting > 0 ? ` עוד ${waiting} לא במשחק.` : ''}`;
   return (
-    <div title={title} className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
+    <Tip text={title} interactive className="mt-0.5">
+    <div className="flex flex-wrap items-center gap-x-2 text-xs">
       <span className={low ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-text-secondary'}>
         {count}
         {low && ` · כדאי ${TARGET_MIN} עד ${TARGET_MAX}`}
@@ -510,6 +511,7 @@ function RiddleCount({ n, waiting, active, letters }: { n: number; waiting: numb
       {letters.length > 0 && <span className="text-text-secondary">אותיות: <b className="text-text-primary">{letters.join(', ')}</b></span>}
       {waiting > 0 && <span className="text-text-secondary">· {waiting === 1 ? 'אחת לא במשחק' : `${waiting} לא במשחק`}</span>}
     </div>
+    </Tip>
   );
 }
 

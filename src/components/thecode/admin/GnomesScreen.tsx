@@ -5,8 +5,19 @@ import { BadgeCheck, CircleAlert, CircleHelp, Plus, Printer, Sparkles, Trash2, T
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome } from '@/types/thecode';
 import type { NewGnomeSpec, ScreenProps } from './model';
-import { comboKey, confusableColors, isProbablyMissing, suggestCombos, timeAgo } from './helpers';
-import { Button, ColorPicker, Dialog, EmptyState, Field, OutdoorPill, Pill, ScreenHeader, Segmented, Toggle, cx } from './ui';
+import { SILENT_AFTER_DAYS, comboKey, confusableColors, isProbablyMissing, suggestCombos, timeAgo } from './helpers';
+import { Button, ColorPicker, Dialog, EmptyState, Field, OutdoorPill, Pill, ScreenHeader, Segmented, Tip, Toggle, cx } from './ui';
+
+/** Plain-words explanations of every status label (Rani: "למה כתוב לי 'כנראה נעלם'?"). */
+export const TIPS = {
+  notVerified: "עוד לא סימנתם במסך 'מצב התקנה' שהגמד עומד במקום. סמנו אחרי שהדבקתם אותו.",
+  verified: 'סימנתם שהגמד הותקן במקום.',
+  neverScanned: 'אף קבוצה עוד לא סרקה את הגמד הזה.',
+  scans: 'הסריקה האחרונה, וכמה פעמים נסרק.',
+  missing: `אומת, אבל אף אחד לא סרק אותו כבר ${SILENT_AFTER_DAYS} ימים. כדאי לבדוק שהוא עדיין במקום.`,
+  toggle: 'כבוי = המשחק מדלג על הגמד הזה.',
+  noRiddle: 'לגמד אין חידה במשחק, ולכן קבוצות לא יישלחו אליו.',
+};
 import { allowedGnomeColors } from '@/lib/thecode/engine';
 
 export default function GnomesScreen({ state, report, actions, navigate, target, now }: ScreenProps) {
@@ -38,8 +49,8 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
   const editing = config.gnomes.find((g) => g.id === editingId) || null;
   const orphans = config.gnomes.filter((g) => !config.spots.some((s) => s.id === g.spotId));
   const groups = [
-    ...config.spots.map((s) => ({ id: s.id, name: s.name, active: s.isActive, outdoor: !!s.outdoor, gnomes: config.gnomes.filter((g) => g.spotId === s.id) })),
-    ...(orphans.length ? [{ id: '', name: 'בלי מקום', active: true, outdoor: false, gnomes: orphans }] : []),
+    ...config.spots.map((s) => ({ id: s.id, name: s.name, active: s.isActive, outdoor: !!s.outdoor, noHint: !s.hints.some((h) => h.trim()), gnomes: config.gnomes.filter((g) => g.spotId === s.id) })),
+    ...(orphans.length ? [{ id: '', name: 'בלי מקום', active: true, outdoor: false, noHint: false, gnomes: orphans }] : []),
   ];
   const attentionCount = config.gnomes.filter(needsAttention).length;
 
@@ -95,6 +106,15 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
                   <h2 className={cx('font-semibold', !grp.active && 'text-text-secondary line-through')}>{grp.name}</h2>
                   {!grp.active && <Pill>מקום כבוי</Pill>}
                   {grp.outdoor && <OutdoorPill />}
+                  {grp.id && grp.active && grp.noHint && (
+                    <button
+                      type="button"
+                      onClick={() => navigate({ tab: 'spots', spotId: grp.id, hint: true })}
+                      className="inline-flex min-h-8 items-center gap-1 rounded-md px-1.5 text-sm font-medium text-amber-700 hover:bg-warning/10 dark:text-amber-400"
+                    >
+                      <TriangleAlert size={14} aria-hidden /> הוסיפו רמז למקום
+                    </button>
+                  )}
                   {grp.id && (
                     <button type="button" onClick={() => setProducing(grp.id)} className="ms-auto inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary">
                       <Plus size={16} aria-hidden /> גמד כאן
@@ -207,9 +227,13 @@ function GnomeCard({
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold">#{g.number}</span>
           {g.verifiedOnSite ? (
-            <BadgeCheck size={16} className="text-success" aria-label="אומת במקום" />
+            <Tip text={TIPS.verified}>
+              <Pill tone="success"><BadgeCheck size={14} className="me-0.5 inline" aria-hidden /> אומת</Pill>
+            </Tip>
           ) : (
-            <Pill tone="neutral">לא אומת</Pill>
+            <Tip text={TIPS.notVerified}>
+              <Pill tone="neutral">לא אומת</Pill>
+            </Tip>
           )}
         </div>
         <div className="text-sm leading-snug text-text-secondary">{describeGnome(g.bodyColor, g.hatColor)}</div>
@@ -218,19 +242,35 @@ function GnomeCard({
             <span>כבוי</span>
           ) : (
             stats?.lastScanAt ? (
-              <>
-                <span>{stats.scans} סריקות</span>
-                <span>{timeAgo(stats.lastScanAt, now)}</span>
-              </>
+              <Tip text={TIPS.scans}>
+                <span className="flex flex-wrap gap-x-3">
+                  <span className="whitespace-nowrap">{stats.scans === 1 ? 'סריקה אחת' : `${stats.scans} סריקות`}</span>
+                  <span className="whitespace-nowrap">{timeAgo(stats.lastScanAt, now)}</span>
+                </span>
+              </Tip>
             ) : (
-              <span>עוד לא נסרק</span>
+              <Tip text={TIPS.neverScanned}>
+                <span>עוד לא נסרק</span>
+              </Tip>
             )
           )}
-          {missing && <Pill tone="warning">כנראה נעלם</Pill>}
-          {g.isActive && riddles === 0 && <Pill tone="warning">בלי חידה</Pill>}
+          {missing && (
+            <Tip text={TIPS.missing}>
+              <Pill tone="warning">כנראה נעלם</Pill>
+            </Tip>
+          )}
+          {g.isActive && riddles === 0 && (
+            <Tip text={TIPS.noRiddle}>
+              <Pill tone="warning">בלי חידה</Pill>
+            </Tip>
+          )}
         </div>
       </div>
-      <Toggle checked={g.isActive} onChange={onToggle} label={g.isActive ? `כבו את גמד ${g.number}` : `הפעילו את גמד ${g.number}`} size="sm" />
+      <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <Tip text={TIPS.toggle} interactive>
+          <Toggle checked={g.isActive} onChange={onToggle} label={g.isActive ? `כבו את גמד ${g.number}` : `הפעילו את גמד ${g.number}`} size="sm" />
+        </Tip>
+      </span>
     </div>
   );
 }
