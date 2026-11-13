@@ -131,6 +131,16 @@ export interface TheCodeBranding {
    *  for contrast). Absent = the default look. */
   textColor?: string;
   buttonColor?: string;
+  /** Framing of the background image/video, set by dragging + zooming it in the admin preview.
+   *  `backgroundFocus` = the point kept in view, % of the image (0–100 each, default 50/50 =
+   *  CSS object-position); `backgroundZoom` 1–3 (default 1 = cover). */
+  backgroundFocus?: { x: number; y: number };
+  backgroundZoom?: number;
+  /** Logo placement on the opening screen: centre of the logo in % of the screen (0–100 each,
+   *  default x 50, y 12) and its size relative to the default (0.5–2.5, default 1). The logo keeps
+   *  its transparency (PNG / WebP with alpha). */
+  logoPosition?: { x: number; y: number };
+  logoScale?: number;
 }
 
 /**
