@@ -12,7 +12,7 @@
 
 import type { TheCodeColor, TheCodeGnome, TheCodePhrase, TheCodeRiddle, TheCodeRules, TheCodeSpot } from '@/types/thecode';
 import { letterOfAnswer } from '@/lib/thecode/letters';
-import type { AdminActions, AdminPlayer, AdminState, GnomeStats, ImageUploader, RiddleStats } from '@/components/thecode/admin/model';
+import type { AdminActions, AdminPlayer, AdminState, GnomeStats, ImageUploader, RiddleStats, VideoUploader } from '@/components/thecode/admin/model';
 import { DAY, HOUR } from '@/components/thecode/admin/helpers';
 import { createAdminActions, type AdminSetter } from '@/components/thecode/admin/reducer';
 import { buildAdventureReport, phraseCoverage } from '@/components/thecode/adminLive/report';
@@ -152,6 +152,14 @@ const PLAYERS_RAW: [string, string, number, number, number, number, number][] = 
   ['בני דודים', '🐢', 40, 40, 0, 0, 0.3],
 ];
 
+/** A drawn placeholder "group photo" as an SVG data URL (three smiling faces). */
+function demoSelfie(bg: string, face: string): string {
+  const head = (x: number, y: number, r: number) =>
+    `<circle cx='${x}' cy='${y}' r='${r}' fill='${face}'/><circle cx='${x - r / 3}' cy='${y - r / 5}' r='${r / 9}' fill='#1f2937'/><circle cx='${x + r / 3}' cy='${y - r / 5}' r='${r / 9}' fill='#1f2937'/><path d='M${x - r / 2.5} ${y + r / 4} q${r / 2.5} ${r / 3} ${r / 1.25} 0' stroke='#1f2937' stroke-width='${r / 10}' fill='none'/>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><rect width='120' height='120' fill='${bg}'/>${head(36, 70, 20)}${head(84, 70, 20)}${head(60, 52, 24)}</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 export function createDemoState(now = Date.now()): AdminState {
   const gnomes: TheCodeGnome[] = GNOMES_RAW.map(([number, spotId, bodyColor, hatColor, code, manualCode, active, verified]) => ({
     id: `g${number}`,
@@ -201,6 +209,8 @@ export function createDemoState(now = Date.now()): AdminState {
     suitcases,
     weekSuitcases,
     lastSeenAt: now - hours * HOUR,
+    // Two sample "selfies" (drawn, no real people) so the photo column + remove can be tried.
+    photoUrl: i === 0 ? demoSelfie('#f97316', '#fde68a') : i === 1 ? demoSelfie('#0ea5e9', '#bbf7d0') : undefined,
   }));
 
   return {
@@ -235,6 +245,9 @@ export { phraseCoverage };
 export function createDemoActions(set: AdminSetter): AdminActions {
   return createAdminActions(set, { localCodes: true, reset: () => set(() => createDemoState()) });
 }
+
+/** Demo video "upload": a local object URL after a short fake progress. */
+export const demoUploadVideo: VideoUploader = (_slot, file, onProgress) => demoUploadImage(file, onProgress);
 
 /** Demo image "upload": a local object URL after a short fake progress. */
 export const demoUploadImage: ImageUploader = (file, onProgress) =>

@@ -6,6 +6,8 @@
 // client SDK — it has no env and would fail to initialise.
 
 import type {
+  TheCodeAdminPhotoRemoveRequest,
+  TheCodeLobbyVideoUrlResponse,
   TheCodeAdminLoadResponse,
   TheCodeAdminPlayerDeleteRequest,
   TheCodeAdminPlayerPatchRequest,
@@ -13,7 +15,7 @@ import type {
   TheCodeAdminSaveResponse,
 } from '@/types/thecode-api';
 import { compressImage } from '@/lib/imageCompression';
-import type { UploadOptions } from '@/components/thecode/admin/model';
+import type { LobbySlot, UploadOptions } from '@/components/thecode/admin/model';
 
 export type LoadError = 'unauthorized' | 'forbidden' | 'notFound' | 'network' | 'server';
 
@@ -36,6 +38,10 @@ export interface TheCodeAdminTransport {
   deletePlayer(req: TheCodeAdminPlayerDeleteRequest): Promise<PlayerResult>;
   /** Compress + upload one image for this adventure; resolves to its public URL. */
   uploadImage(codeId: string, file: File, onProgress: (fraction: number) => void, opts?: UploadOptions): Promise<string>;
+  /** Big-screen video: presigned R2 PUT (POST lobby-video-url), then the file straight to R2. */
+  uploadLobbyVideo(codeId: string, slot: LobbySlot, file: File, onProgress: (fraction: number) => void): Promise<string>;
+  /** DELETE /api/thecode/admin/photo — removes one group's selfie. */
+  removePhoto(req: TheCodeAdminPhotoRemoveRequest): Promise<PlayerResult>;
 }
 
 const ADMIN = '/api/thecode/admin';
@@ -129,6 +135,40 @@ export function createHttpTransport(): TheCodeAdminTransport {
     async deletePlayer(req) {
       try {
         const res = await authed(`${ADMIN}/players`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
+        return res.ok ? { ok: true } : { ok: false, error: res.status === 403 ? 'forbidden' : 'server' };
+      } catch {
+        return { ok: false, error: 'network' };
+      }
+    },
+
+    async uploadLobbyVideo(codeId, slot, file, onProgress) {
+      const contentType = file.type === 'video/webm' ? 'video/webm' : 'video/mp4';
+      const res = await authed(`${ADMIN}/lobby-video-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId, slot, contentType, size: file.size }),
+      });
+      const data = await readJson<TheCodeLobbyVideoUrlResponse | { ok: false }>(res);
+      if (!res.ok || !data || !data.ok) throw new Error(`lobby-video-url failed (${res.status})`);
+      // Straight to R2 (the 4.5 MB Vercel body limit never applies). XHR for progress.
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', data.uploadUrl);
+        xhr.setRequestHeader('Content-Type', contentType);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) onProgress(e.loaded / e.total);
+        };
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`R2 PUT ${xhr.status}`)));
+        xhr.onerror = () => reject(new Error('network'));
+        xhr.send(file);
+      });
+      onProgress(1);
+      return data.publicUrl;
+    },
+
+    async removePhoto(req) {
+      try {
+        const res = await authed(`${ADMIN}/photo`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
         return res.ok ? { ok: true } : { ok: false, error: res.status === 403 ? 'forbidden' : 'server' };
       } catch {
         return { ok: false, error: 'network' };

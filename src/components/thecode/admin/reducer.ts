@@ -43,6 +43,14 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
     setStatus: (status) => cfg((c) => ({ ...c, status })),
     updateConfig: (patch) => cfg((c) => ({ ...c, ...patch })),
     updateRules: (patch) => cfg((c) => ({ ...c, rules: { ...c.rules, ...patch } })),
+    updateLobbyVideo: (slot, url) =>
+      cfg((c) => {
+        const videos = { ...c.lobby?.videos, [slot]: url || undefined };
+        for (const k of Object.keys(videos) as (keyof typeof videos)[]) if (!videos[k]) delete videos[k];
+        const lobby = { ...c.lobby, videos: Object.keys(videos).length ? videos : undefined };
+        if (!lobby.videos) delete lobby.videos;
+        return { ...c, lobby: Object.keys(lobby).length ? lobby : undefined };
+      }),
     updateBranding: (patch) =>
       cfg((c) => {
         const next: TheCodeBranding = { ...c.branding, ...patch };
@@ -138,6 +146,7 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
         }),
       })),
     deletePlayer: (id) => set((s) => ({ ...s, players: s.players.filter((p) => p.id !== id) })),
+    removePlayerPhoto: (id) => set((s) => ({ ...s, players: s.players.map((p) => (p.id === id ? { ...p, photoUrl: undefined } : p)) })),
 
     reset: opts.reset,
   };

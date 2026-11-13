@@ -22,8 +22,10 @@ import type {
 /** Contract shape (src/types/thecode.ts) + a local-only `verifiedAt` set by setup mode. */
 export type GnomeStats = TheCodeGnomeStats & { verifiedAt?: number };
 export type RiddleStats = TheCodeRiddleStats;
-/** What the operator sees of a family. Never a phone, never a full name. */
+/** What the operator sees of a group (incl. its selfie `photoUrl`). Never a phone, never a full name. */
 export type AdminPlayer = TheCodeAdminPlayer;
+
+export type LobbySlot = 'idle' | 'explain' | 'after';
 
 export interface AdminState {
   config: TheCodeConfig;
@@ -79,7 +81,7 @@ export interface NewGnomeSpec {
 }
 
 export type ConfigPatch = Partial<
-  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding' | 'howToPlay'>
+  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding' | 'howToPlay' | 'selfie'>
 >;
 
 /** Everything a screen may change. The demo implements it in memory; wave 2 → API calls. */
@@ -90,6 +92,8 @@ export interface AdminActions {
   /** Merges into the CURRENT branding (two uploads finishing together must not overwrite each
    *  other); empty fields are dropped, and a branding with nothing left becomes undefined. */
   updateBranding(patch: Partial<TheCodeBranding>): void;
+  /** One big-screen video slot; merges into the CURRENT videos (parallel uploads). */
+  updateLobbyVideo(slot: LobbySlot, url: string | undefined): void;
 
   addSpot(): string;
   updateSpot(id: string, patch: Partial<Omit<TheCodeSpot, 'id'>>): void;
@@ -113,6 +117,8 @@ export interface AdminActions {
   updatePlayer(id: string, patch: Partial<Pick<AdminPlayer, 'familyName' | 'hidden'>>): void;
   /** Remove a family for good (the screen asks twice first). */
   deletePlayer(id: string): void;
+  /** Remove a group's selfie (the server deletes the file). */
+  removePlayerPhoto(id: string): void;
 
   reset(): void;
 }
@@ -130,6 +136,8 @@ export interface ScreenProps {
   now: number;
   /** Uploads one (already validated) image and resolves to its public URL. */
   uploadImage: ImageUploader;
+  /** Uploads one big-screen video straight to storage; resolves to its public URL. */
+  uploadVideo: VideoUploader;
   /** Where this adventure lives; absent in the demo (no code yet). */
   links?: AdminLinks;
   /** Re-fetch stats + families from the server; absent in the demo. */
@@ -147,6 +155,8 @@ export interface UploadOptions {
   /** Logos: keep transparency — sent as PNG, never re-encoded to lossy WebP/JPEG. */
   keepAlpha?: boolean;
 }
+
+export type VideoUploader = (slot: LobbySlot, file: File, onProgress: (fraction: number) => void) => Promise<string>;
 
 export type ImageUploader = (file: File, onProgress: (fraction: number) => void, opts?: UploadOptions) => Promise<string>;
 

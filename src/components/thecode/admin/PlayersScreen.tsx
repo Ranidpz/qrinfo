@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Eye, EyeOff, Luggage, Pencil, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
+import { Check, Eye, EyeOff, ImageOff, Luggage, Pencil, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
 import type { AdminPlayer, ScreenProps } from './model';
 import { timeAgo } from './helpers';
 import { Button, Card, EmptyState, IconButton, Pill, ScreenHeader, Segmented, cx } from './ui';
 
 export default function PlayersScreen({ state, actions, now, refresh }: ScreenProps) {
   const [removing, setRemoving] = useState<{ id: string; step: 1 | 2 } | null>(null);
+  const [removingPhoto, setRemovingPhoto] = useState<string | null>(null);
   const [period, setPeriod] = useState<'week' | 'all'>('week');
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
@@ -61,7 +62,12 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
             return (
               <div key={p.id} className={cx('flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap', p.hidden && 'bg-bg-secondary')}>
                 <span className={cx('w-6 shrink-0 text-center font-semibold tabular-nums', r && r <= 3 ? 'text-accent' : 'text-text-secondary')}>{r ?? '–'}</span>
-                <span className={cx('text-2xl', p.hidden && 'opacity-40')} aria-hidden>{p.emoji}</span>
+                {p.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.photoUrl} alt={`התמונה של ${p.familyName}`} className={cx('size-10 shrink-0 rounded-full object-cover ring-1 ring-border', p.hidden && 'opacity-40')} />
+                ) : (
+                  <span className={cx('w-10 shrink-0 text-center text-2xl', p.hidden && 'opacity-40')} aria-hidden>{p.emoji}</span>
+                )}
                 <div className="min-w-0 flex-1">
                   {editing === p.id ? (
                     <RenameInput
@@ -87,11 +93,31 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
                   )}
                 </div>
                 <span className="shrink-0 text-xl font-bold tabular-nums">{pts(p)}</span>
-                {editing !== p.id && removing?.id !== p.id && (
+                {editing !== p.id && removing?.id !== p.id && removingPhoto !== p.id && (
                   <div className="flex shrink-0">
                     <IconButton icon={Pencil} label="שנו שם" onClick={() => setEditing(p.id)} />
                     <IconButton icon={p.hidden ? Eye : EyeOff} label={p.hidden ? 'הציגו בלוח' : 'הסתירו מהלוח'} onClick={() => actions.updatePlayer(p.id, { hidden: !p.hidden })} />
+                    {p.photoUrl && <IconButton icon={ImageOff} label="הסירו תמונה" onClick={() => setRemovingPhoto(p.id)} />}
                     <IconButton icon={Trash2} label="הסירו קבוצה" onClick={() => setRemoving({ id: p.id, step: 1 })} />
+                  </div>
+                )}
+                {removingPhoto === p.id && (
+                  <div className="basis-full rounded-lg bg-danger/5 px-3 py-2 text-sm sm:basis-auto">
+                    <div className="text-red-700 dark:text-red-400">להסיר את התמונה של &quot;{p.familyName}&quot;? היא תימחק לגמרי, והקבוצה תוצג עם הסמל שלה.</div>
+                    <div className="mt-2 flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => setRemovingPhoto(null)}>ביטול</Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        icon={ImageOff}
+                        onClick={() => {
+                          actions.removePlayerPhoto(p.id);
+                          setRemovingPhoto(null);
+                        }}
+                      >
+                        הסירו תמונה
+                      </Button>
+                    </div>
                   </div>
                 )}
                 {removing?.id === p.id && (
