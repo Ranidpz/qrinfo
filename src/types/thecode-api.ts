@@ -218,6 +218,9 @@ export interface TheCodeLeaderRow {
   photoUrl?: string;
   points: number;
   suitcases: number;
+  /** How many different gnomes this group has found — shown beside the points on the big
+   *  screen, so a board with no suitcases yet still tells a story (Rani, 13.11.2026). */
+  gnomesFound: number;
 }
 
 // -----------------------------------------------------------------

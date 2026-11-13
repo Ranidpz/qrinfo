@@ -534,7 +534,7 @@ export async function leaderboard(
     const d = doc.data();
     const points = pointsOf(d);
     if (d.hidden || points <= 0) continue;
-    const row: TheCodeLeaderRow = { id: doc.id, familyName: String(d.familyName || ''), emoji: String(d.emoji || ''), points, suitcases: suitcasesOf(d) };
+    const row: TheCodeLeaderRow = { id: doc.id, familyName: String(d.familyName || ''), emoji: String(d.emoji || ''), points, suitcases: suitcasesOf(d), gnomesFound: Array.isArray(d.foundGnomeIds) ? d.foundGnomeIds.length : 0 };
     const photoUrl = visiblePhotoUrl(d as TheCodePlayer, selfie, now);
     if (photoUrl) row.photoUrl = photoUrl;
     rows.push(row);
