@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchWithAuth, getAuthHeader } from '@/lib/fetchWithAuth';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
@@ -290,11 +290,16 @@ export default function DashboardPage() {
     loadData();
   }, [user]);
 
+  // The view subscriptions only depend on WHICH codes are listed. Keying the effect on this
+  // string (not the `codes` array, replaced on every edit) stops each rename/move/toggle from
+  // tearing down and re-opening one listener per code plus the 24h view-log listeners.
+  const codeIdsKey = useMemo(() => codes.map((c) => c.id).join(','), [codes]);
+
   // Subscribe to real-time view counts for 24h and total views
   useEffect(() => {
-    if (codes.length === 0 || !user) return;
+    if (!codeIdsKey || !user) return;
 
-    const codeIds = codes.map((c) => c.id);
+    const codeIds = codeIdsKey.split(',');
 
     // Subscribe to 24h views (pass ownerId for Firestore security rules)
     const unsubscribe24h = subscribeToCodeViews(
@@ -323,7 +328,7 @@ export default function DashboardPage() {
       unsubscribe24h();
       unsubscribeTotal();
     };
-  }, [codes, user]);
+  }, [codeIdsKey, user]);
 
   // Check for due scheduled replacements
   useEffect(() => {

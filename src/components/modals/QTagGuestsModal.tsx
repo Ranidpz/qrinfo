@@ -16,7 +16,6 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
-import * as XLSX from 'xlsx';
 import { formatPhoneForDisplay } from '@/lib/phone-utils';
 import { useQTagGuests } from '@/hooks/useQTagGuests';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -284,7 +283,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
   }, [codeId]);
 
   // Export to Excel (client-side generation)
-  const handleExport = () => {
+  const handleExport = async () => {
     setExporting(true);
     try {
       const rows = guests.map(g => ({
@@ -299,6 +298,7 @@ export default function QTagGuestsModal({ isOpen, onClose, codeId, shortId }: QT
         'Verified': g.isVerified ? 'Yes' : 'No',
       }));
 
+      const XLSX = await import('xlsx'); // loaded on use: keeps ~400KB out of the page bundle
       const worksheet = XLSX.utils.json_to_sheet(rows);
       worksheet['!cols'] = [
         { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 10 },

@@ -29,7 +29,6 @@ import {
   SwitchCamera,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import * as XLSX from 'xlsx';
 import { formatPhoneForDisplay } from '@/lib/phone-utils';
 import type { QTagGuest } from '@/types/qtag';
 
@@ -638,7 +637,7 @@ export default function QTagScannerPage() {
   }, [confirmDeleteGuest, scannerFetch, refreshGuests]);
 
   // Export to Excel (client-side generation)
-  const handleExport = () => {
+  const handleExport = async () => {
     setExporting(true);
     try {
       const rows = guests.map(g => ({
@@ -653,6 +652,7 @@ export default function QTagScannerPage() {
         'Verified': g.isVerified ? 'Yes' : 'No',
       }));
 
+      const XLSX = await import('xlsx'); // loaded on use: keeps ~400KB out of the page bundle
       const worksheet = XLSX.utils.json_to_sheet(rows);
       worksheet['!cols'] = [
         { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 10 },

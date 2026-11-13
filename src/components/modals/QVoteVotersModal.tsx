@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { X, Search, Download, Loader2, Users, Phone, UserX, RefreshCw } from 'lucide-react';
 import { formatPhoneForDisplay } from '@/lib/phone-utils';
 import { fetchWithAuth } from '@/lib/fetchWithAuth';
-import * as XLSX from 'xlsx';
 
 interface VoterVote {
   candidateId: string;
@@ -124,7 +123,7 @@ export default function QVoteVotersModal({
     });
   }, [voters, searchQuery]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const rows = voters.map((voter) => {
       const candidateNames = voter.votes.map((v) => v.candidateName).join(', ');
       const categories = voter.votes
@@ -142,6 +141,7 @@ export default function QVoteVotersModal({
       };
     });
 
+    const XLSX = await import('xlsx'); // loaded on use: keeps ~400KB out of the page bundle
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, isRTL ? 'מצביעים' : 'Voters');

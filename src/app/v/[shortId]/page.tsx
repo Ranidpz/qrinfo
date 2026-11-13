@@ -1,8 +1,13 @@
 import { notFound, redirect } from 'next/navigation';
 import { stripSecretsForPublic } from '@/lib/codeSecrets';
 import { getQRCodeByShortId } from '@/lib/db';
+import { cache } from 'react';
 import { getAdminDb } from '@/lib/firebase-admin';
 import ViewerClient from './ViewerClient';
+
+// generateMetadata and the page both need the code: React's request-scoped cache makes that ONE
+// Firestore read per view instead of two (a Selfie Beam doc with its gallery can be ~1MB).
+const getCodeOnce = cache(getQRCodeByShortId);
 
 // Force dynamic to prevent caching - always fetch fresh data
 export const dynamic = 'force-dynamic';
@@ -37,7 +42,8 @@ async function resolveStationServer(stationShortId: string): Promise<string | nu
 
     // Fallback: scan all codes for Q.Treasure config with this station
     // (for legacy station codes created before parentCodeShortId was stored)
-    const allCodesSnapshot = await db.collection('codes').get();
+    // Only the two fields this loop reads — the full docs (galleries, configs) are never needed here.
+    const allCodesSnapshot = await db.collection('codes').select('shortId', 'media').get();
     for (const codeDoc of allCodesSnapshot.docs) {
       const data = codeDoc.data();
       const qtreasureMedia = data.media?.find(
@@ -71,7 +77,7 @@ export default async function ViewerPage({ params, searchParams }: ViewerPagePro
   let raffleRedirect: string | null = null; // full path, e.g. /raffle/{shortId}?token=
 
   try {
-    const code = await getQRCodeByShortId(shortId);
+    const code = await getCodeOnce(shortId);
 
     // Debug logging
     console.log('[ViewerPage] Code loaded:', code?.title, 'folderId:', code?.folderId);
@@ -177,7 +183,7 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
   const { pk } = await searchParams;
 
   try {
-    const code = await getQRCodeByShortId(shortId);
+    const code = await getCodeOnce(shortId);
 
     if (!code) {
       return {

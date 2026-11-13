@@ -496,10 +496,20 @@ export default function WeeklyCalendarModal({
     // Fetch immediately
     fetchRegistrations();
 
-    // Auto-refresh every 3 seconds for real-time updates
-    const interval = setInterval(fetchRegistrations, 3000);
+    // Auto-refresh for near-real-time counts. Every call reads the whole registrations
+    // collection, so poll every 10s and skip while the tab is hidden; catch up on return.
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchRegistrations();
+    }, 10000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchRegistrations();
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [isOpen, codeId, config.enableRSVP, config.mode, config.weeks, currentWeekIndex, currentBoothDate]);
 
   // Auto-scroll booth timeline to current time
