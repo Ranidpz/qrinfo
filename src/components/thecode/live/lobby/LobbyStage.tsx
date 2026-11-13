@@ -191,7 +191,7 @@ function BackgroundLoop({ url, kind, placeholderLabel }: { url: string | null; k
         !artFailed ? (
           // Default backdrop (no organiser video): Merlush presenting to the right, slow zoom.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/thecode/lobby/merlush-presenting-right.webp" alt="" decoding="async" onError={() => setArtFailed(true)}
+          <img src="/thecode/lobby/merlush-v2.webp" alt="" decoding="async" onError={() => setArtFailed(true)}
             className="tcl-zoom absolute inset-0 h-full w-full object-cover object-left" />
         ) : (
         <>
