@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import TheCodeAdminDemo from './TheCodeAdminDemo';
 
 // הקוד — operator demo on sample data (src/components/thecode/demo/adminDemo.ts). No code,
@@ -11,6 +12,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Closed on the live site (Rani, 12.11.2026: "מיותר") — production sends visitors to the guide.
+// Still runs on a local dev server (`next dev`), where the build sessions use it.
 export default function TheCodeAdminDemoPage() {
+  if (process.env.NODE_ENV === 'production') redirect('/play/the-code/guide');
   return <TheCodeAdminDemo />;
 }
