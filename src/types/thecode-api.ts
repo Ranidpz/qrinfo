@@ -18,6 +18,7 @@ import type {
   TheCodeLanguage,
   TheCodeRiddle,
   TheCodeRiddleStats,
+  TheCodeSelfieSettings,
   TheCodeScanOutcome,
 } from './thecode';
 
@@ -132,6 +133,8 @@ export interface TheCodeSnapshot {
     branding?: TheCodeBranding;
     /** "איך משחקים" — always filled (the operator's lines or the default from the rules). */
     howToPlay: string[];
+    /** Group selfies — always filled by the server through resolveSelfie(). */
+    selfie: TheCodeSelfieSettings;
   };
   player: TheCodePlayerView | null;
   run: TheCodeRunView | null;
@@ -187,7 +190,9 @@ export type TheCodeGnomeLookupResponse =
       /** Venue look of the opening screen, so /g/{code} is branded from the first paint. */
       branding?: TheCodeBranding;
       /** "איך משחקים", resolved like the snapshot's. */
-      howToPlay: string[] }
+      howToPlay: string[];
+      /** Group selfies — always filled by the server through resolveSelfie(). */
+      selfie: TheCodeSelfieSettings }
   | { ok: false; error: 'notFound' };
 
 // =================================================================
