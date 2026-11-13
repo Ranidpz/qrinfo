@@ -25,7 +25,8 @@ export type RiddleStats = TheCodeRiddleStats;
 /** What the operator sees of a group (incl. its selfie `photoUrl`). Never a phone, never a full name. */
 export type AdminPlayer = TheCodeAdminPlayer;
 
-export type LobbySlot = 'idle' | 'explain' | 'after';
+/** Big-screen slots + 'opening' = the venue opening screen's background video (≤ 30 MB). */
+export type LobbySlot = 'idle' | 'explain' | 'after' | 'opening';
 
 export interface AdminState {
   config: TheCodeConfig;
@@ -81,7 +82,7 @@ export interface NewGnomeSpec {
 }
 
 export type ConfigPatch = Partial<
-  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding' | 'howToPlay' | 'selfie'>
+  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding' | 'howToPlay' | 'selfie' | 'howToPlayTheme'>
 >;
 
 /** Everything a screen may change. The demo implements it in memory; wave 2 → API calls. */
@@ -93,7 +94,7 @@ export interface AdminActions {
    *  other); empty fields are dropped, and a branding with nothing left becomes undefined. */
   updateBranding(patch: Partial<TheCodeBranding>): void;
   /** One big-screen video slot; merges into the CURRENT videos (parallel uploads). */
-  updateLobbyVideo(slot: LobbySlot, url: string | undefined): void;
+  updateLobbyVideo(slot: Exclude<LobbySlot, 'opening'>, url: string | undefined): void;
 
   addSpot(): string;
   updateSpot(id: string, patch: Partial<Omit<TheCodeSpot, 'id'>>): void;

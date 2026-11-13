@@ -7,9 +7,15 @@ import type { TheCodeIssue } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { fixLabel, targetForIssue } from './nav';
 import { isProbablyMissing, isRiddleTooHard, timeAgo } from './helpers';
-import { Button, Card, Pill, cx } from './ui';
+import { Button, Card, Pill, cx, Tip } from './ui';
 import { BankFillButton } from './BankDialogs';
 import { hasBranding } from './BrandingCard';
+
+const STATUS_TIP: Record<string, string> = {
+  published: 'ההרפתקה פתוחה: קבוצות שסורקות גמד משחקות.',
+  paused: 'ההרפתקה בהפסקה: קבוצות רואות "המשחק בהפסקה", וההתקדמות שלהן נשמרת.',
+  draft: 'ההרפתקה עוד לא פורסמה, ואף קבוצה לא יכולה לשחק בה.',
+};
 
 const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'neutral' }> = {
   published: { label: 'פעילה', tone: 'success' },
@@ -66,7 +72,11 @@ export default function OverviewScreen({
   const published = riddles.filter((r) => r.status === 'published').length;
   const weekFamilies = players.filter((p) => p.weekPoints > 0).length;
 
-  const field = [
+  // Spots without a location hint: always visible here (groups only see the spot's name).
+  const field: { key: string; text: string; go: () => void; label?: string }[] = [
+    ...report.issues
+      .filter((i) => i.code === 'SPOT_WITHOUT_HINT')
+      .map((i) => ({ key: `hint-${i.spotId}`, text: i.message, go: () => navigate(targetForIssue(i)), label: 'הוסיפו רמז' })),
     ...config.gnomes
       .filter((g) => isProbablyMissing(g, gnomeStats[g.id], config.status, now))
       .map((g) => ({
@@ -91,7 +101,9 @@ export default function OverviewScreen({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="truncate text-2xl font-bold text-text-title">{config.title}</h1>
-              <Pill tone={status.tone}>{status.label}</Pill>
+              <Tip text={STATUS_TIP[config.status]}>
+                <Pill tone={status.tone}>{status.label}</Pill>
+              </Tip>
             </div>
             <div className="mt-1 text-text-secondary">
               {config.status === 'published'
@@ -261,7 +273,7 @@ export default function OverviewScreen({
         ) : (
           <ul className="mt-4 space-y-2">
             {field.map((f) => (
-              <IssueRow key={f.key} message={f.text} tone="warning" label="להצגה" onFix={f.go} />
+              <IssueRow key={f.key} message={f.text} tone="warning" label={f.label || 'להצגה'} onFix={f.go} />
             ))}
           </ul>
         )}

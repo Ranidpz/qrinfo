@@ -31,13 +31,25 @@ function normalize(config: TheCodeConfig, riddles: TheCodeRiddle[]) {
   // Like the server: drop empty fields, one line of ≤140 chars, no branding when nothing is left.
   // (URLs are not forced to https here — the fake upload returns blob: URLs.)
   if (c.branding) {
+    const hex = (v?: string) => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim()) ? v.trim().toUpperCase() : undefined);
+    const src = c.branding;
     const b = {
-      backgroundUrl: c.branding.backgroundUrl?.trim() || undefined,
-      logoUrl: c.branding.logoUrl?.trim() || undefined,
-      welcomeText: c.branding.welcomeText?.replace(/\s+/g, ' ').trim().slice(0, 140) || undefined,
+      ...src,
+      backgroundUrl: src.backgroundUrl?.trim() || undefined,
+      logoUrl: src.logoUrl?.trim() || undefined,
+      welcomeText: src.welcomeText?.replace(/\s+/g, ' ').trim().slice(0, 140) || undefined,
+      backgroundType: ['image', 'color', 'gradient', 'video'].includes(src.backgroundType as string) ? src.backgroundType : undefined,
+      backgroundColor: hex(src.backgroundColor),
+      gradientFrom: hex(src.gradientFrom),
+      gradientTo: hex(src.gradientTo),
+      backgroundVideoUrl: src.backgroundVideoUrl?.trim() || undefined,
+      textColor: hex(src.textColor),
+      buttonColor: hex(src.buttonColor),
     };
-    c.branding = b.backgroundUrl || b.logoUrl || b.welcomeText ? JSON.parse(JSON.stringify(b)) : undefined;
+    const clean = JSON.parse(JSON.stringify(b)) as typeof b;
+    c.branding = Object.keys(clean).length ? clean : undefined;
   }
+  if (c.howToPlayTheme && !['light', 'brand'].includes(c.howToPlayTheme)) c.howToPlayTheme = undefined;
   // Like the server: one line each, ≤160 chars, ≤8 lines, empties dropped; nothing left → default.
   if (c.howToPlay) {
     const lines = c.howToPlay.map((l) => l.replace(/\s+/g, ' ').trim().slice(0, 160)).filter(Boolean).slice(0, 8);

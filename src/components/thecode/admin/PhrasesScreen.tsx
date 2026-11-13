@@ -6,7 +6,7 @@ import type { TheCodePhrase } from '@/types/thecode';
 import type { MissingLetter, PhraseCoverage, ScreenProps } from './model';
 import type { Navigate } from './nav';
 import { letterLabel } from './helpers';
-import { Button, Card, EmptyState, IconButton, LetterTile, Pill, ScreenHeader, Toggle, cx } from './ui';
+import { Button, Card, EmptyState, IconButton, LetterTile, Pill, ScreenHeader, Toggle, cx, Tip } from './ui';
 import { BankFillButton } from './BankDialogs';
 import { sourcesByLetter, suggestPhrases } from './phraseSuggest';
 
@@ -190,9 +190,9 @@ function Board({ coverage }: { coverage: PhraseCoverage }) {
       {words.map((w, i) => (
         <div key={i} className="flex flex-wrap gap-2">
           {w.map((l, j) => (
-            <span key={j} title={l.have === 0 ? `אין גמד שנותן ${letterLabel(l.letter)}` : `${l.have} גמדים נותנים ${letterLabel(l.letter)}`}>
+            <Tip key={j} text={l.have === 0 ? `אין גמד שנותן את ${letterLabel(l.letter)}. הוסיפו חידה שהתשובה שלה מתחילה באות הזו.` : `${l.have === 1 ? 'גמד אחד נותן' : `${l.have} גמדים נותנים`} את ${letterLabel(l.letter)}.`}>
               <LetterTile letter={l.letter} tone={l.ok ? 'ok' : 'missing'} badge={l.have} />
-            </span>
+            </Tip>
           ))}
         </div>
       ))}
@@ -279,11 +279,10 @@ function AvailableLetters({ state, onPick }: { state: ScreenProps['state']; onPi
       </p>
       <div className="flex flex-wrap gap-2">
         {letters.map(({ letter, count }) => (
+          <Tip key={letter} interactive text={`${count === 1 ? 'מגיעה מגמד אחד' : `מגיעה מ־${count} גמדים שונים`}. לחצו כדי להוסיף אותה למשפט.`}>
           <button
-            key={letter}
             type="button"
             onClick={() => onPick(letter)}
-            title={count === 1 ? 'מגיעה מגמד אחד' : `מגיעה מ־${count} גמדים שונים`}
             className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg border border-accent/40 bg-accent/5 text-lg font-bold hover:bg-accent/10"
           >
             {letter}
@@ -291,6 +290,7 @@ function AvailableLetters({ state, onPick }: { state: ScreenProps['state']; onPi
               {count}
             </span>
           </button>
+          </Tip>
         ))}
       </div>
     </div>

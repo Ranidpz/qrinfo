@@ -12,7 +12,7 @@ export type TheCodeLanguage = 'he' | 'en';
 /** A place in the venue ("under the piano"). Several gnomes can stand at one spot. */
 export interface TheCodeSpot {
   id: string;
-  name: string;                 // Operator-facing name, never shown as-is to players
+  name: string;                 // Operator-facing name; shown to players only as a fallback when the spot has no hints
   photoUrl?: string;            // Operator's photo of the place (R2)
   /** Graded hints leading a family TO this spot: [zone, closer, exact]. 1–3 entries. */
   hints: string[];

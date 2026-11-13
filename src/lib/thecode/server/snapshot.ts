@@ -96,6 +96,7 @@ function targetView(p: TheCodePlayer, run: TheCodeRun, adv: TheCodeAdventureData
     nextLocationHintCost: nextCost(slot.locationHintsUsed, allLocation.length, rules.hintCost, p.points),
     freeWrongScansLeft: Math.max(0, freeScans - (run.wrongGnomeIdsOnTarget || []).length),
     riddle,
+    ...(allLocation.length === 0 && spot?.name ? { spotName: spot.name } : {}),
   };
 }
 

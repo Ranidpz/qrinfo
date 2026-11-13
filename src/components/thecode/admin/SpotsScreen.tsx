@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, MapPin, Plus, ShieldAlert, Trash2, TriangleAlert } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight, MapPin, Plus, ShieldAlert, Sparkles, Trash2, TriangleAlert } from 'lucide-react';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 import type { TheCodeSpot } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { Button, Card, EmptyState, Field, OutdoorPill, Pill, ScreenHeader, Toggle, cx } from './ui';
 import ImageDropZone from './ImageDropZone';
+import { HINT_BLANK, HINT_TEMPLATES } from './hintTemplates';
 
 const HINT_LEVELS = [
   { label: 'רמז 1 — אזור', placeholder: 'למשל: בלובי, בצד של הספות' },
@@ -58,7 +59,7 @@ export default function SpotsScreen({ state, actions, navigate, target, uploadIm
                     <div className="mt-0.5 flex items-center gap-2 text-sm text-text-secondary">
                       <span>{here.length === 1 ? 'גמד אחד' : `${here.length} גמדים`}</span>
                       {s.outdoor && <OutdoorPill />}
-                      {noHint && here.length > 0 && (
+                      {noHint && s.isActive && (
                         <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
                           <TriangleAlert size={14} aria-hidden /> אין רמזים
                         </span>
@@ -84,6 +85,7 @@ export default function SpotsScreen({ state, actions, navigate, target, uploadIm
               }}
               onOpenGnome={(id) => navigate({ tab: 'gnomes', gnomeId: id })}
               onAddGnomes={() => navigate({ tab: 'gnomes', spotId: selected.id })}
+              focusHint={!!target.hint && target.spotId === selected.id}
               uploadImage={uploadImage}
             />
           ) : (
@@ -106,7 +108,9 @@ function SpotEditor({
   onOpenGnome,
   onAddGnomes,
   uploadImage,
+  focusHint,
 }: {
+  focusHint?: boolean;
   spot: TheCodeSpot;
   gnomes: ScreenProps['state']['config']['gnomes'];
   onBack: () => void;
@@ -118,6 +122,23 @@ function SpotEditor({
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const hints = [0, 1, 2].map((i) => spot.hints[i] || '');
+  const noHint = !hints.some((h) => h.trim());
+  const hintRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const lastHint = useRef(0);
+  /** Scroll to + focus a hint field; with `selectBlank` select the template's ___ in it. */
+  const focusHintAt = (i: number, selectBlank = false) =>
+    window.setTimeout(() => {
+      const el = hintRefs.current[i];
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.focus({ preventScroll: true });
+      const at = el.value.indexOf(HINT_BLANK);
+      if (selectBlank && at >= 0) el.setSelectionRange(at, at + HINT_BLANK.length);
+    }, 0);
+  useEffect(() => {
+    if (focusHint) focusHintAt(Math.max(0, hints.findIndex((h) => !h.trim())));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusHint]);
 
   const setHint = (i: number, v: string) => {
     const next = [...hints];
@@ -141,6 +162,16 @@ function SpotEditor({
           <span className="text-xs text-text-secondary">{spot.isActive ? 'פעיל' : 'כבוי'}</span>
         </div>
       </div>
+
+      {noHint && spot.isActive && (
+        <div className="mt-5 flex flex-wrap items-start gap-3 rounded-xl bg-warning/10 px-4 py-3 text-sm">
+          <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden />
+          <span className="min-w-0 flex-1 text-amber-800 dark:text-amber-300">
+            בלי רמז הקבוצות רואות רק את שם המקום. הוסיפו רמז אחד לפחות, מהכללי אל המדויק.
+          </span>
+          <Button size="sm" variant="primary" icon={Plus} onClick={() => focusHintAt(0)}>הוסיפו רמז</Button>
+        </div>
+      )}
 
       <div className="mt-5 flex items-start justify-between gap-4 rounded-xl bg-bg-secondary px-4 py-3">
         <div className="min-w-0">
@@ -170,9 +201,27 @@ function SpotEditor({
         </div>
         {HINT_LEVELS.map((h, i) => (
           <Field key={i} label={h.label}>
-            <input className="input" value={hints[i]} placeholder={h.placeholder} onChange={(e) => setHint(i, e.target.value)} />
+            <input
+              ref={(el) => {
+                hintRefs.current[i] = el;
+              }}
+              className="input"
+              value={hints[i]}
+              placeholder={h.placeholder}
+              onFocus={() => (lastHint.current = i)}
+              onChange={(e) => setHint(i, e.target.value)}
+            />
           </Field>
         ))}
+        <HintIdeas
+          onPick={(text) => {
+            // Into the field the organizer was in, else the first empty one.
+            const empty = hints.findIndex((x) => !x.trim());
+            const i = hints[lastHint.current]?.trim() ? (empty >= 0 ? empty : lastHint.current) : lastHint.current;
+            setHint(i, text);
+            focusHintAt(i, true);
+          }}
+        />
       </div>
 
       <Field label="הערת בטיחות לצוות" className="mt-6">
@@ -218,5 +267,38 @@ function SpotEditor({
         )}
       </div>
     </Card>
+  );
+}
+
+/** "רעיונות לרמז": a tap writes the template into a hint field; complete the ___ on site. */
+function HintIdeas({ onPick }: { onPick: (text: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-accent hover:bg-accent/10">
+        <Sparkles size={16} aria-hidden /> רעיונות לרמז
+        <ChevronDown size={14} className={cx('transition-transform', open && 'rotate-180')} aria-hidden />
+      </button>
+      {open && (
+        <div className="mt-2 rounded-xl bg-bg-secondary p-3">
+          <p className="mb-2 text-sm text-text-secondary">בחרו רעיון והשלימו את ה־{HINT_BLANK} במשהו שרואים ליד המקום.</p>
+          <div className="flex flex-wrap gap-2">
+            {HINT_TEMPLATES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  onPick(t);
+                  setOpen(false);
+                }}
+                className="min-h-10 rounded-lg border border-border bg-bg-card px-3 py-2 text-start text-sm hover:border-accent/50 hover:bg-accent/5"
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
