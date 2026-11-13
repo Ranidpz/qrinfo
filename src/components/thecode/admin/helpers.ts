@@ -39,7 +39,10 @@ export function isProbablyMissing(
   // Never installed ≠ missing: only a gnome that was verified on site and then went quiet.
   if (!gnome.isActive || !gnome.verifiedOnSite || status === 'draft') return false;
   const last = stats?.lastScanAt;
-  return !last || now - last > SILENT_AFTER_DAYS * DAY;
+  // Never scanned yet = "עוד לא נסרק", not missing: a freshly installed gnome must not be
+  // flagged before any group reached it (Rani's first real test, 13.11.2026).
+  if (!last) return false;
+  return now - last > SILENT_AFTER_DAYS * DAY;
 }
 
 /** Many wrong answers or hints per solve → rewrite the riddle. */
