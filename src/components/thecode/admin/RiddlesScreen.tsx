@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { BookOpen, Check, ChevronDown, Sparkles, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { BookOpen, Check, ChevronDown, ChevronLeft, Sparkles, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome, TheCodeRiddle } from '@/types/thecode';
 import { alphabetFor, isAmbiguousLetter, letterOfAnswer, soundAlikes } from '@/lib/thecode/letters';
@@ -110,6 +110,7 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
 
   return (
     <div className="mx-auto max-w-5xl">
+      <style>{`@keyframes thecode-reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }`}</style>
       <ScreenHeader
         title="חידות"
         summary={`הסתובבו במקום שבו עומד הגמד וכתבו לו ${TARGET_MIN} עד ${TARGET_MAX} חידות על מה שרואים סביבו. אפשר גם שאלות ידע. האות הראשונה של התשובה נכנסת לאוסף.`}
@@ -305,6 +306,15 @@ function RiddleCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const missing = riddleMissing(r);
+  // Step-by-step form (Rani): question first, then the answer, then everything else. A riddle
+  // that already has both opens complete; a revealed step never folds away again while open.
+  const hasQuestion = r.text.trim().length >= 2;
+  const hasAnswer = !!letter && !wrongAlphabet;
+  const stepNow = hasQuestion && hasAnswer ? 3 : hasQuestion ? 2 : 1;
+  const [step, setStep] = useState<1 | 2 | 3>(stepNow);
+  useEffect(() => {
+    if (stepNow > step) setStep(stepNow);
+  }, [stepNow, step]);
 
   return (
     <Card className={cx(open && 'ring-2 ring-accent/30')}>
@@ -338,7 +348,8 @@ function RiddleCard({
 
       {open && (
         <div className="space-y-6 border-t border-border px-4 py-5">
-          <Field label="החידה">
+          {step === 1 && <StepGuide>מתחילים בשאלה: מה הקבוצה צריכה למצוא או לראות ליד הגמד?</StepGuide>}
+          <Field label="השאלה">
             <textarea
               ref={textRef}
               className="input min-h-24 resize-y"
@@ -361,6 +372,9 @@ function RiddleCard({
             }}
           />
 
+          {step >= 2 && (
+          <Reveal>
+          {step === 2 && !hasAnswer && <StepGuide>עכשיו כתבו את התשובה — מילה אחת. האות הראשונה שלה היא האות שהקבוצה אוספת.</StepGuide>}
           <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
             <Field label="התשובה" hint="מילה אחת. רק האות הראשונה שלה נאספת.">
               <input className="input text-lg" value={r.answerWord} placeholder="למשל: שעון" onChange={(e) => onChange({ answerWord: e.target.value })} />
@@ -376,6 +390,14 @@ function RiddleCard({
               <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden />
               {noLetter ? `התשובה מתחילה ב־"${firstChar}", וזו לא אות. התחילו את התשובה באות.` : 'התשובה לא בשפת ההרפתקה, ואין את האות הזו על לוח המקשים של הקבוצה.'}
             </div>
+          )}
+          </Reveal>
+          )}
+
+          {step >= 3 && (
+          <Reveal>
+          {stepNow === 3 && r.status === 'published' && !r.imageUrl && !r.hints.length && (
+            <StepGuide tone="done">החידה במשחק. אם תרצו, הוסיפו רמזים או תמונה — זה לא חובה.</StepGuide>
           )}
 
           {ambiguous && (
@@ -451,6 +473,8 @@ function RiddleCard({
               </div>
               {hard && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">הרבה קבוצות נתקעות כאן. נסו ניסוח פשוט יותר או רמז ראשון ברור יותר.</p>}
             </div>
+          )}
+          </Reveal>
           )}
 
           <div className="flex justify-end">
@@ -530,4 +554,19 @@ function TemplateIdeas({ onPick }: { onPick: (text: string) => void }) {
       )}
     </div>
   );
+}
+
+/** A short line that tells the organizer what to do next. */
+function StepGuide({ children, tone = 'next' }: { children: ReactNode; tone?: 'next' | 'done' }) {
+  return (
+    <p className={cx('flex items-start gap-2 rounded-lg px-3 py-2 text-sm font-medium', tone === 'done' ? 'bg-success/10 text-green-700 dark:text-green-400' : 'bg-accent/10 text-accent')}>
+      {tone === 'done' ? <Check size={16} className="mt-0.5 shrink-0" aria-hidden /> : <ChevronLeft size={16} className="mt-0.5 shrink-0" aria-hidden />}
+      {children}
+    </p>
+  );
+}
+
+/** Fades the next step in (no layout jump; nothing moves when reduced motion is on). */
+function Reveal({ children }: { children: ReactNode }) {
+  return <div className="space-y-6 motion-safe:animate-[thecode-reveal_220ms_ease-out]">{children}</div>;
 }
