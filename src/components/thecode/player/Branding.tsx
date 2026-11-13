@@ -8,53 +8,10 @@
 
 import { useState, type CSSProperties } from 'react';
 import type { TheCodeBranding } from '@/types/thecode';
+import { LOGO_BOX } from '@/lib/thecode/brandingLayout';
 import { READABLE_LARGE, contrastOn, isHexColor, luminance, worstContrast } from '@/lib/thecode/contrast';
 
-const clamp = (v: unknown, lo: number, hi: number, dflt: number) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
-};
-
-export interface BrandingLayout {
-  /** For the background <img>/<video> (object-fit: cover): the framing the venue chose. */
-  media: CSSProperties;
-  /** The logo floating at the venue's spot (absolute, centred on the point), or null = the
-   *  default in-flow logo at the top, exactly as before. */
-  logo: CSSProperties | null;
-  /** Max size of the logo image itself (default 96px tall, 45% wide, × logoScale). */
-  logoImg: CSSProperties;
-}
-
-/**
- * Where the background and the logo sit (Rani 13.11.2026: drag + zoom the photo, move + resize
- * the logo). Shared with the admin's phone preview so it draws exactly the same thing.
- * Absent fields → today's look: centred cover photo, logo at the top in the page flow.
- */
-export function brandingLayout(b?: TheCodeBranding | null): BrandingLayout {
-  const media: CSSProperties = {};
-  if (b?.backgroundFocus || b?.backgroundZoom) {
-    const fx = clamp(b.backgroundFocus?.x, 0, 100, 50);
-    const fy = clamp(b.backgroundFocus?.y, 0, 100, 50);
-    const zoom = clamp(b.backgroundZoom, 1, 3, 1);
-    media.objectPosition = `${fx}% ${fy}%`;
-    if (zoom !== 1) {
-      media.transform = `scale(${zoom})`;
-      media.transformOrigin = `${fx}% ${fy}%`;   // zoom grows from the point kept in view
-    }
-  }
-  const scale = clamp(b?.logoScale, 0.5, 2.5, 1);
-  const logoImg: CSSProperties = { maxHeight: `${Math.round(96 * scale)}px`, maxWidth: `${Math.round(45 * scale)}%`, width: 'auto', height: 'auto' };
-  let logo: CSSProperties | null = null;
-  if (b?.logoUrl && (b.logoPosition || b.logoScale !== undefined)) {
-    // a placed logo gets a real height (an SVG/PNG without intrinsic size would collapse to 0);
-    // object-contain keeps its proportions inside the box
-    logoImg.height = logoImg.maxHeight;
-    const lx = clamp(b.logoPosition?.x, 0, 100, 50);
-    const ly = clamp(b.logoPosition?.y, 0, 100, 12);
-    logo = { position: 'absolute', left: `${lx}%`, top: `${ly}%`, transform: 'translate(-50%, -50%)', width: '100%', display: 'flex', justifyContent: 'center' };
-  }
-  return { media, logo, logoImg };
-}
+export { LAYOUT, LOGO_BOX, brandingLayout, isLogoPlaced, resolveLayout } from '@/lib/thecode/brandingLayout';
 
 /** The game's own night colour — what the scrim over a photo / video amounts to for contrast. */
 const NIGHT = '#0B1030';
@@ -153,16 +110,33 @@ export function BrandBackdrop({ url, mediaStyle }: { url?: string; mediaStyle?: 
   );
 }
 
-/** The venue logo, centred; hides itself when the image is broken. */
-export function BrandLogo({ url, name, imgStyle }: { url?: string; name: string; imgStyle?: CSSProperties }) {
+const LOGO_GLOW = 'drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 8px rgba(255,255,255,.45)) drop-shadow(0 4px 14px rgba(0,0,0,.55))';
+
+/** The venue logo, centred in the page flow; hides itself when the image is broken. */
+export function BrandLogo({ url, name }: { url?: string; name: string }) {
   const [failed, setFailed] = useState<string | null>(null);
   if (!url || failed === url) return null;
   return (
     <div className="flex justify-center">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt={name} decoding="async" onError={() => setFailed(url)}
-        className="tc-a-pop block max-h-24 max-w-[45%] object-contain"
-        style={{ ...imgStyle, filter: 'drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 8px rgba(255,255,255,.45)) drop-shadow(0 4px 14px rgba(0,0,0,.55))' }} />
+        className="tc-a-pop block max-h-24 max-w-[45%] object-contain" style={{ filter: LOGO_GLOW }} />
+    </div>
+  );
+}
+
+/**
+ * The logo where the venue placed it (`brandingLayout(b).logo`), floating over the screen:
+ * a LOGO_BOX centred on the point and scaled — the same box the operator's preview drags.
+ */
+export function PlacedBrandLogo({ url, name, style }: { url?: string; name: string; style: CSSProperties }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (!url || failed === url) return null;
+  return (
+    <div className="pointer-events-none z-20 flex items-center justify-center" style={{ ...LOGO_BOX, ...style }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={name} decoding="async" onError={() => setFailed(url)}
+        className="tc-a-fade block h-full w-full object-contain" style={{ filter: LOGO_GLOW }} />
     </div>
   );
 }

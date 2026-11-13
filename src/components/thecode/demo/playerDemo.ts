@@ -1196,5 +1196,5 @@ export const DEMO_BRANDINGS: Record<'1' | '2' | '3' | '4' | '5' | '6' | '7', The
   '4': { backgroundType: 'gradient', gradientFrom: '#FF8A00', gradientTo: '#C2185B', textColor: '#FFFFFF', buttonColor: '#14142B', welcomeText: 'ערב של קוד, גמדים ומזוודות!' },
   '5': { backgroundType: 'video', backgroundVideoUrl: '/play/the-code/brand-demo.mp4', backgroundUrl: DARK_PHOTO, buttonColor: '#36E39A' },
   '6': { backgroundType: 'color', backgroundColor: '#FFFFFF', textColor: '#FFD400', buttonColor: '#FFD400' },
-  '7': { backgroundUrl: BRIGHT_PHOTO, backgroundFocus: { x: 70, y: 80 }, backgroundZoom: 1.8, logoUrl: DEMO_LOGO, logoPosition: { x: 76, y: 5.5 }, logoScale: 0.85 },
+  '7': { backgroundUrl: BRIGHT_PHOTO, backgroundFocus: { x: 70, y: 80 }, backgroundZoom: 1.8, logoUrl: DEMO_LOGO, logoPosition: { x: 64, y: 6 }, logoScale: 0.7 },
 };
