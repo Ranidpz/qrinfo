@@ -33,6 +33,8 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
   const stage = useLobbyStage(LOBBY_ROWS);
   const { setBoard, pushMoments, scan } = stage;
   const [videos, setVideos] = useState<TheCodeLobbyLive['videos']>({});
+  // Absent in the live doc (an adventure saved before this) = selfies on, as everywhere else.
+  const [selfies, setSelfies] = useState(true);
   const [qrUrl, setQrUrl] = useState('');
   const seenEvents = useRef<Set<string> | null>(null);
   const lastScans = useRef<number | null>(null);
@@ -67,6 +69,7 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
     const unsub = onSnapshot(doc(db, 'codes', codeId, 'thecodeLobby', 'live'), (snap) => {
       const live = (snap.data() || null) as TheCodeLobbyLive | null;
       setVideos(live?.videos || {});
+      setSelfies(live?.selfies !== false);
       const events = Array.isArray(live?.events) ? live!.events : [];
       const scans = typeof live?.lobbyScans === 'number' ? live.lobbyScans : 0;
 
@@ -103,7 +106,8 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
   return (
     <div className={theCodeFont.variable}>
       <LobbyStage stage={stage} gameName={title} logoUrl={logoUrl} subtitle="הטבלה של השבוע" qrUrl={qrUrl}
-        videos={{ idle: videos?.idle, explain: videos?.explain, after: videos?.after }} />
+        videos={{ idle: videos?.idle, explain: videos?.explain, after: videos?.after }}
+        inviteParade={selfies} />
     </div>
   );
 }

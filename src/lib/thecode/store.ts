@@ -686,8 +686,9 @@ export async function saveAdventure(codeId: string, body: unknown): Promise<TheC
       nextMedia[at] = { ...media[at], thecodeConfig: toPublicConfig(config) };
       tx.update(codeRef(codeId), { media: nextMedia });
     }
-    // The big screen reads its videos from the public live doc.
-    tx.set(lobbyRef(codeId), { videos: lobbyVideosOf(config) }, { mergeFields: ['videos'] });
+    // The big screen reads its videos — and whether to invite groups to the parade — from the public live doc.
+    tx.set(lobbyRef(codeId), { videos: lobbyVideosOf(config), selfies: resolveSelfie(config).enabled },
+      { mergeFields: ['videos', 'selfies'] });
     return { ok: true, version, config, riddles, issues };
   });
 }

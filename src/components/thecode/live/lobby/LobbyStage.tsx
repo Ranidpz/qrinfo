@@ -419,10 +419,12 @@ interface StageProps {
   placeholderLabels?: boolean;
   /** Small line top-left, e.g. "7 קבוצות משחקות עכשיו". */
   aside?: ReactNode;
+  /** Selfies on (the default): invite the groups under the board to join the parade. */
+  inviteParade?: boolean;
   children?: ReactNode;
 }
 
-export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, videos, placeholderLabels, aside, children }: StageProps) {
+export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, videos, placeholderLabels, aside, inviteParade = true, children }: StageProps) {
   const { teams, banner, climb, delta, phase, sceneKey, extraScans, rows, onSceneDone } = stage;
   const parade = useMemo(() => paradeRoster(teams), [teams]);
   const [sound, setSound] = useState<SoundState>('unknown');
@@ -434,7 +436,8 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
     setSound('on');
   };
   const ranks = useMemo(() => rankMap(teams), [teams]);
-  const ROW_VH = rows >= 10 ? 6.6 : 8.6;
+  // The invite under the board needs ~5vh — the rows give it up, so nothing is clipped.
+  const ROW_VH = rows >= 10 ? (inviteParade ? 6.1 : 6.6) : (inviteParade ? 8.0 : 8.6);
   const loopUrl = (phase === 'after' ? videos?.after : videos?.idle) || null;
   // The QR is always held by the gnome bottom-left (over Merlush or over a video); it hides
   // during the scene and comes back right after "צאו לדרך!".
@@ -515,6 +518,15 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
                 );
               })}
             </ol>
+            {/* Under the board (Rani 14.11.2026): what the parade is and how to get into it. */}
+            {inviteParade && (
+              <p className="mt-[1.2vh] flex items-center justify-center gap-[1vw] rounded-[1.8vh] px-[1.4vw] py-[0.8vh]"
+                style={{ background: 'rgba(10,14,40,.72)', boxShadow: 'inset 0 0 0 1px rgba(244,183,64,.3)' }}>
+                <span className="text-[2.9vh]" aria-hidden>🤳</span>
+                <span className="tc-display text-[2.7vh]" style={{ color: 'var(--tc-brass-hi)' }}>הצטרפו אל מצעד הגמדים</span>
+                <span className="text-[2.3vh]" style={{ color: 'var(--tc-soft)' }}>העלו סלפי קבוצתי מהטלפון</span>
+              </p>
+            )}
             </section>
           </div>
           {phase !== 'explain' && <GnomeQr url={qrUrl} />}

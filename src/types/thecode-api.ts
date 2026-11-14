@@ -255,6 +255,8 @@ export interface TheCodeLobbyLive {
   events: TheCodeLobbyEvent[];
   /** Big-screen video slots, mirrored from TheCodeConfig.lobby on every admin save. */
   videos?: { idle?: string; explain?: string; after?: string };
+  /** Group selfies on? Mirrored on every admin save. ABSENT = on (old docs, and the default). */
+  selfies?: boolean;
 }
 
 /** POST /api/thecode/lobby-scan — called by /v/{shortId}?src=lobby. Public, rate-limited. */
