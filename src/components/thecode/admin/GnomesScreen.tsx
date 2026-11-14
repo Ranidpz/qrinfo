@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { BadgeCheck, CircleAlert, CircleHelp, Plus, Printer, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react';
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome } from '@/types/thecode';
@@ -25,6 +25,12 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
   const [editingId, setEditingId] = useState<string | null>(null);
   const [producing, setProducing] = useState<string | null>(null); // spot id, '' = choose
   const [filter, setFilter] = useState<'all' | 'attention'>('all');
+  // Rani 14.11.2026: the list is grouped by place, but a long adventure is easier to scan by number.
+  const [view, setView] = useState<'spot' | 'number'>('spot');
+  // Dragging a card onto another place's section moves the gnome there (the editor's place
+  // selector stays the way to do it with a finger — HTML drag does not work on touch).
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overSpot, setOverSpot] = useState<string | null>(null);
   const [created, setCreated] = useState<number[] | null>(null);
 
   useEffect(() => {
@@ -46,6 +52,26 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
     !g.isActive || !g.verifiedOnSite || riddleCount(g.id) === 0 || isProbablyMissing(g, gnomeStats[g.id], config.status, now) ||
     report.issues.some((i) => i.gnomeId === g.id && (i.code === 'DUPLICATE_COLORS_AT_SPOT' || i.code === 'CONFUSABLE_COLORS_AT_SPOT' || i.code === 'GNOME_COLOR_UNAVAILABLE'));
 
+  /** Same-place colour clash: an identical pair is an error, a confusable pair a warning. */
+  const flagOf = (g: TheCodeGnome): 'error' | 'warning' | null => {
+    if (!g.isActive) return null;
+    const others = config.gnomes.filter((o) => o.spotId === g.spotId && o.id !== g.id && o.isActive);
+    if (others.some((o) => comboKey(o) === comboKey(g))) return 'error';
+    if (others.some((o) => confusableColors(o, g))) return 'warning';
+    return null;
+  };
+  const moveTo = (gnomeId: string, spotId: string) => {
+    const g = config.gnomes.find((x) => x.id === gnomeId);
+    if (g && g.spotId !== spotId) actions.updateGnome(gnomeId, { spotId });
+    setDragId(null);
+    setOverSpot(null);
+  };
+  const dragProps = (g: TheCodeGnome) => ({
+    draggable: true,
+    onDragStart: (e: DragEvent) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', g.id); setDragId(g.id); },
+    onDragEnd: () => { setDragId(null); setOverSpot(null); },
+  });
+
   const editing = config.gnomes.find((g) => g.id === editingId) || null;
   const orphans = config.gnomes.filter((g) => !config.spots.some((s) => s.id === g.spotId));
   const groups = [
@@ -61,6 +87,12 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
         summary={`${config.gnomes.length} גמדים ב־${config.spots.length} מקומות`}
         actions={
           <>
+            <Segmented
+              label="תצוגה"
+              value={view}
+              onChange={setView}
+              options={[{ value: 'spot', label: 'לפי מקום' }, { value: 'number', label: 'לפי מספר' }]}
+            />
             <Segmented
               label="סינון"
               value={filter}
@@ -94,14 +126,36 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
           text={config.spots.length ? 'הפיקו גמדים: בחרו מקום, כמה גמדים ואיזה צבעים. כל גמד מקבל מספר וקוד QR.' : 'הוסיפו קודם מקום, ואז הפיקו גמדים שיעמדו בו.'}
           action={config.spots.length ? <Button variant="primary" icon={Sparkles} onClick={() => setProducing('')}>הפקת גמדים</Button> : <Button variant="primary" onClick={() => navigate({ tab: 'spots' })}>למקומות</Button>}
         />
+      ) : view === 'number' ? (
+        <NumbersView
+          gnomes={[...config.gnomes].sort((a, b) => a.number - b.number).filter((g) => filter === 'all' || needsAttention(g))}
+          spotNameOf={(id) => config.spots.find((x) => x.id === id)?.name || 'בלי מקום'}
+          riddleCount={riddleCount}
+          gnomeStats={gnomeStats}
+          missingOf={(g) => isProbablyMissing(g, gnomeStats[g.id], config.status, now)}
+          flagOf={flagOf}
+          now={now}
+          onOpen={setEditingId}
+          onToggle={(id, v) => actions.updateGnome(id, { isActive: v })}
+        />
       ) : (
         <div className="space-y-8">
+          {config.spots.length > 1 && (
+            <p className="text-sm text-text-secondary">גררו גמד אל מקום אחר כדי להעביר אותו. בטלפון או בטאבלט פתחו את הגמד ובחרו מקום.</p>
+          )}
           {groups.map((grp) => {
             const shown = filter === 'all' ? grp.gnomes : grp.gnomes.filter(needsAttention);
             if (!shown.length && (filter === 'attention' || !grp.id)) return null;
             const spotIssues = issuesBySpot.get(grp.id) || [];
             return (
-              <section key={grp.id || 'none'} id={`spot-${grp.id}`} className="scroll-mt-32">
+              <section
+                key={grp.id || 'none'}
+                id={`spot-${grp.id}`}
+                onDragOver={(e) => { if (dragId && grp.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOverSpot(grp.id); } }}
+                onDragLeave={() => setOverSpot((cur) => (cur === grp.id ? null : cur))}
+                onDrop={(e) => { if (dragId && grp.id) { e.preventDefault(); moveTo(dragId, grp.id); } }}
+                className={cx('scroll-mt-32 rounded-xl', overSpot === grp.id && grp.id && 'outline-2 outline-dashed outline-offset-8 outline-accent')}
+              >
                 <div className="mb-3 flex items-center gap-2">
                   <h2 className={cx('font-semibold', !grp.active && 'text-text-secondary line-through')}>{grp.name}</h2>
                   {!grp.active && <Pill>מקום כבוי</Pill>}
@@ -138,13 +192,10 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
                         riddles={riddleCount(g.id)}
                         stats={gnomeStats[g.id]}
                         missing={isProbablyMissing(g, gnomeStats[g.id], config.status, now)}
-                        flagged={
-                          !g.isActive ? null
-                          : grp.gnomes.some((o) => o.id !== g.id && o.isActive && comboKey(o) === comboKey(g)) ? 'error'
-                          : grp.gnomes.some((o) => o.id !== g.id && o.isActive && confusableColors(o, g)) ? 'warning'
-                          : null
-                        }
+                        flagged={flagOf(g)}
                         now={now}
+                        dragging={dragId === g.id}
+                        drag={dragProps(g)}
                         onOpen={() => setEditingId(g.id)}
                         onToggle={(v) => actions.updateGnome(g.id, { isActive: v })}
                       />
@@ -191,6 +242,47 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
   );
 }
 
+/** All the gnomes in one grid, ordered by their number (Rani 14.11.2026). Each card says where it stands. */
+function NumbersView({
+  gnomes, spotNameOf, riddleCount, gnomeStats, missingOf, flagOf, now, onOpen, onToggle,
+}: {
+  gnomes: TheCodeGnome[];
+  spotNameOf: (spotId: string) => string;
+  riddleCount: (id: string) => number;
+  gnomeStats: Record<string, { scans: number; lastScanAt?: number } | undefined>;
+  missingOf: (g: TheCodeGnome) => boolean;
+  flagOf: (g: TheCodeGnome) => 'error' | 'warning' | null;
+  now: number;
+  onOpen: (id: string) => void;
+  onToggle: (id: string, v: boolean) => void;
+}) {
+  if (!gnomes.length) return <p className="text-sm text-text-secondary">אין גמדים להצגה.</p>;
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {gnomes.map((g) => (
+        <GnomeCard
+          key={g.id}
+          gnome={g}
+          riddles={riddleCount(g.id)}
+          stats={gnomeStats[g.id]}
+          missing={missingOf(g)}
+          flagged={flagOf(g)}
+          now={now}
+          spotName={spotNameOf(g.spotId)}
+          onOpen={() => onOpen(g.id)}
+          onToggle={(v) => onToggle(g.id, v)}
+        />
+      ))}
+    </div>
+  );
+}
+
+export interface GnomeDragProps {
+  draggable: boolean;
+  onDragStart: (e: DragEvent) => void;
+  onDragEnd: () => void;
+}
+
 function GnomeCard({
   gnome: g,
   riddles,
@@ -198,6 +290,9 @@ function GnomeCard({
   missing,
   flagged,
   now,
+  spotName,
+  dragging,
+  drag,
   onOpen,
   onToggle,
 }: {
@@ -207,6 +302,10 @@ function GnomeCard({
   missing: boolean;
   flagged: 'error' | 'warning' | null;
   now: number;
+  /** Shown only in the by-number view, where the places are not the headings. */
+  spotName?: string;
+  dragging?: boolean;
+  drag?: GnomeDragProps;
   onOpen: () => void;
   onToggle: (v: boolean) => void;
 }) {
@@ -216,10 +315,12 @@ function GnomeCard({
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpen()}
+      {...drag}
       className={cx(
         'flex cursor-pointer items-center gap-3 rounded-xl border bg-bg-card p-3 transition-colors hover:bg-bg-hover',
         flagged === 'error' ? 'border-danger/70' : flagged === 'warning' ? 'border-warning/60' : 'border-border',
-        !g.isActive && 'opacity-60'
+        !g.isActive && 'opacity-60',
+        dragging && 'opacity-40'
       )}
     >
       <GnomeFigure bodyColor={g.bodyColor} hatColor={g.hatColor} size={44} />
@@ -237,6 +338,7 @@ function GnomeCard({
           )}
         </div>
         <div className="text-sm leading-snug text-text-secondary">{describeGnome(g.bodyColor, g.hatColor)}</div>
+        {spotName && <div className="text-sm leading-snug text-text-secondary">{spotName}</div>}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
           {!g.isActive ? (
             <span>כבוי</span>
