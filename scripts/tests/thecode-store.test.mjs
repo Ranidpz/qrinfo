@@ -658,7 +658,12 @@ test('staff session: only for an active member, hashed token, dies with removal 
 
   // At most 5 devices per member; logout kills only that device.
   const tokens = [];
-  for (let i = 0; i < 7; i++) tokens.push((await store.openStaffSession(CODE, '+972501234567')).token);
+  // A millisecond apart: real logins never share a timestamp, and `createdAtMs` is what
+  // decides which device is evicted — same-ms sessions would make the order arbitrary.
+  for (let i = 0; i < 7; i++) {
+    tokens.push((await store.openStaffSession(CODE, '+972501234567')).token);
+    await new Promise((r) => setTimeout(r, 2));
+  }
   assert.equal(sessions().length, 5);
   const last = tokens.at(-1);
   assert.equal((await store.staffAction(CODE, last, { type: 'logout' })).ok, true);
