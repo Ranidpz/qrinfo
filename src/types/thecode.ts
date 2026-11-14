@@ -207,6 +207,20 @@ export interface TheCodeConfig {
   selfie?: TheCodeSelfieSettings;
   /** Big-screen videos. Absent = the drawn placeholder scenes. */
   lobby?: TheCodeLobbySettings;
+  /** Venue staff allowed into the staff screen (/staff/thecode/{shortId}) by WhatsApp code.
+   *  Lives ONLY in the locked adventure doc — never on the public stub. */
+  staff?: TheCodeStaffMember[];
+}
+
+/** One person of the venue's team. `phone` is always E.164 (+9725XXXXXXXX). */
+export interface TheCodeStaffMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  /** Off = cannot log in, and an open session stops working at once. */
+  active: boolean;
+  addedAt: number;
 }
 
 // -----------------------------------------------------------------

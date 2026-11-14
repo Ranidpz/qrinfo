@@ -20,9 +20,10 @@ export const config = {
   // - Raffle pages (standalone big-screen draw)
   // - Play pages (public game demos, e.g. /play/10-bool)
   // - Gnome QR landing of "הקוד" (/g/{code})
+  // - Venue staff screens (/staff/thecode/{shortId})
   matcher: [
     // Match all pathnames except for
-    // - … if they start with `/api`, `/_next`, `/v/`, `/gallery/`, `/lobby/`, `/packs/`, `/raffle/`, `/play/`, `/g/` or contain a dot
-    '/((?!api|_next|v/|gallery/|lobby/|packs/|raffle/|play/|g/|.*\\..*).*)',
+    // - … if they start with `/api`, `/_next`, `/v/`, `/gallery/`, `/lobby/`, `/packs/`, `/raffle/`, `/play/`, `/g/`, `/staff/` or contain a dot
+    '/((?!api|_next|v/|gallery/|lobby/|packs/|raffle/|play/|g/|staff/|.*\\..*).*)',
   ],
 };

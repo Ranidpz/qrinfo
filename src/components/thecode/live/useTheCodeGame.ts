@@ -45,6 +45,10 @@ export interface UseTheCodeGameOptions {
   pendingGnome?: TheCodeGnomeView | null;
   /** Called once the pending scan reached the server (→ replaceState to /v/{shortId}). */
   onPendingScanConsumed?(): void;
+  /** A recovery code from the staff QR (/v/{shortId}?join=CODE): the group is brought back on mount. */
+  pendingRecoveryCode?: string;
+  /** Called once the server answered the recovery (found or not) → drop `join` from the URL. */
+  onPendingRecoveryConsumed?(): void;
   transport?: TheCodePlayTransport;
   /** Venue branding known before the first snapshot (the /g lookup). */
   branding?: TheCodeBranding | null;
@@ -118,6 +122,11 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
   useEffect(() => {
     onConsumedRef.current = opts.onPendingScanConsumed;
   }, [opts.onPendingScanConsumed]);
+  const pendingRecoveryRef = useRef<string | null>(opts.pendingRecoveryCode || null);
+  const onRecoveryConsumedRef = useRef(opts.onPendingRecoveryConsumed);
+  useEffect(() => {
+    onRecoveryConsumedRef.current = opts.onPendingRecoveryConsumed;
+  }, [opts.onPendingRecoveryConsumed]);
   const [pendingGnome, setPendingGnome] = useState<TheCodeGnomeView | null>(opts.pendingGnome || null);
 
   const setIdentity = useCallback((next: StoredIdentity) => {
@@ -252,6 +261,12 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
       }
     }
 
+    // The staff QR's code was answered (found or not): it must not stay in the address bar.
+    if (action.type === 'recover' && pendingRecoveryRef.current) {
+      pendingRecoveryRef.current = null;
+      onRecoveryConsumedRef.current?.();
+    }
+
     if (!res.ok) {
       switch (res.error) {
         case 'notFound':
@@ -373,7 +388,20 @@ export function useTheCodeGame(opts: UseTheCodeGameOptions): { state: PlayerStat
     if (isInAppBrowser()) patchUi((u) => ({ ...u, inAppGate: true }));
     const code = pendingScanRef.current;
     lastRefreshRef.current = Date.now();
-    if (code && activeAuth(id)) void send({ type: 'scan', code }, 'scan');
+    const join = pendingRecoveryRef.current;
+    const known = join ? id.profiles.find((p) => p.recoveryCode === join) : undefined;
+    if (join && known) {
+      // This phone already holds that group: just make it the active one (no new device token).
+      pendingRecoveryRef.current = null;
+      onRecoveryConsumedRef.current?.();
+      const next = { ...id, activeId: known.playerId };
+      identityRef.current = next;
+      setIdentityState(next);
+      saveIdentity(codeId, next);
+      void send({ type: 'state' }, null);
+    } else if (join) {
+      void send({ type: 'recover', recoveryCode: join }, 'other', null).then(afterJoin);
+    } else if (code && activeAuth(id)) void send({ type: 'scan', code }, 'scan');
     else void send({ type: 'state' }, null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeId]);

@@ -346,3 +346,58 @@ export interface TheCodeLobbyVideoUrlResponse { ok: true; uploadUrl: string; pub
 
 /** Operator: DELETE /api/thecode/admin/photo { codeId, playerId } → removes that group's selfie. */
 export interface TheCodeAdminPhotoRemoveRequest { codeId: string; playerId: string }
+
+// =================================================================
+// Venue staff screen — /staff/thecode/{shortId}   (WhatsApp code, no Firebase account)
+// =================================================================
+// Staff see GROUPS only: never riddles, answers, phrases, gnome codes or settings.
+
+/** POST /api/thecode/staff/login { codeId, phone } — ALWAYS the same answer, listed or not. */
+export interface TheCodeStaffLoginResponse { ok: true; resendInMs: number }
+
+/** POST /api/thecode/staff/verify { codeId, phone, code } */
+export type TheCodeStaffVerifyResponse =
+  | { ok: true; token: string; expiresAt: number; staffName: string }
+  /** One generic failure for wrong code / expired / unknown phone — nothing leaks. */
+  | { ok: false; error: 'invalid' | 'rateLimited' | 'badRequest' | 'server' };
+
+/** A group as the staff list shows it — no recovery code here. */
+export interface TheCodeStaffPlayer {
+  id: string;
+  familyName: string;
+  emoji: string;
+  photoUrl?: string;
+  hidden: boolean;
+  points: number;
+  lastSeenAt: number;
+}
+
+/** POST /api/thecode/staff { codeId, token, action } */
+export type TheCodeStaffAction =
+  | { type: 'list' }
+  /** Opens one group: returns its recovery code. Logged. */
+  | { type: 'profile'; playerId: string }
+  | { type: 'rename'; playerId: string; familyName: string }
+  | { type: 'hide'; playerId: string; hidden: boolean }
+  | { type: 'removePhoto'; playerId: string }
+  | { type: 'logout' };
+
+export type TheCodeStaffResponse =
+  | { ok: true; staffName: string; title: string; players?: TheCodeStaffPlayer[]; player?: TheCodeStaffPlayer; recoveryCode?: string }
+  /** `unauthorized` = no session / expired / removed or switched off → back to the login. */
+  | { ok: false; error: 'unauthorized' | 'notFound' | 'invalidName' | 'badRequest' | 'rateLimited' | 'server' };
+
+/** One line of the staff log (who did what to which group). Newest last, capped. */
+export interface TheCodeStaffLogEntry {
+  at: number;
+  staffId: string;
+  staffName: string;
+  action: 'login' | 'viewCode' | 'rename' | 'hide' | 'show' | 'removePhoto';
+  playerId?: string;
+  playerName?: string;
+  /** rename: the new name. */
+  detail?: string;
+}
+
+/** Operator: GET /api/thecode/admin/staff-log?codeId= → newest first. */
+export type TheCodeStaffLogResponse = { ok: true; entries: TheCodeStaffLogEntry[] } | { ok: false; error: 'badRequest' | 'server' };

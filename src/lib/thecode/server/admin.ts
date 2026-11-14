@@ -26,6 +26,7 @@ import { letterOfAnswer } from '../letters';
 import { HOW_TO_PLAY_LIMITS } from '../howToPlay';
 import { resolveSelfie } from '../selfie';
 import { isAllowedLobbyVideoUrl, normalizeLobby } from './lobby';
+import { normalizeStaff } from './staff';
 
 export const THECODE_LIMITS = {
   spots: 60,
@@ -202,7 +203,7 @@ export function normalizeAdventure(
   riddlesIn: unknown,
   stored: Pick<TheCodeConfig, 'gnomes'> | null,
   /** `videoBase` = our R2 public URL; big-screen videos must live there (absent = none accepted). */
-  opts: { videoBase?: string | null } = {}
+  opts: { videoBase?: string | null; now?: number } = {}
 ): TheCodeNormalizeResult {
   try {
     if (!isObj(configIn)) throw new Bad('config missing');
@@ -354,6 +355,9 @@ export function normalizeAdventure(
     config.selfie = resolveSelfie({ selfie: isObj(c.selfie) ? (c.selfie as unknown as TheCodeConfig['selfie']) : undefined });
     const lobby = normalizeLobby(c.lobby, opts.videoBase);
     if (lobby) config.lobby = lobby;
+    // Venue staff: stays in this locked doc only (toPublicConfig never copies it).
+    const staff = normalizeStaff(c.staff, opts.now ?? Date.now());
+    if (staff.length) config.staff = staff;
     return { ok: true, config, riddles, newGnomeIds, droppedRiddles };
   } catch (e) {
     if (e instanceof Bad) return { ok: false, reason: e.message };

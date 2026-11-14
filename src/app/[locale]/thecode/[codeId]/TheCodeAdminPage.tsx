@@ -10,8 +10,10 @@ import { isApprovedStatus } from '@/lib/auth/approval';
 import ApprovalGate from '@/components/auth/ApprovalGate';
 import { getQRCode } from '@/lib/db';
 import TheCodeLiveAdmin, { MessageScreen } from '@/components/thecode/adminLive/TheCodeLiveAdmin';
-import { gameUrl, lobbyUrl } from '@/components/thecode/admin/helpers';
+import { gameUrl, lobbyUrl, staffUrl } from '@/components/thecode/admin/helpers';
 import type { AdminLinks } from '@/components/thecode/admin/model';
+import { fetchWithAuth } from '@/lib/fetchWithAuth';
+import type { TheCodeStaffLogResponse } from '@/types/thecode-api';
 
 type CodeCheck =
   | { kind: 'loading' }
@@ -46,7 +48,23 @@ export default function TheCodeAdminPage({ codeId }: { codeId: string }) {
         if (!alive) return;
         if (!code) return setCheck({ kind: 'notFound' });
         if (!code.media.some((m) => m.type === 'thecode')) return setCheck({ kind: 'notTheCode' });
-        setCheck({ kind: 'ok', links: { game: gameUrl(code.shortId), lobby: lobbyUrl(code.shortId) } });
+        setCheck({
+          kind: 'ok',
+          links: {
+            game: gameUrl(code.shortId),
+            lobby: lobbyUrl(code.shortId),
+            staff: staffUrl(code.shortId),
+            staffLog: async () => {
+              try {
+                const res = await fetchWithAuth(`/api/thecode/admin/staff-log?codeId=${encodeURIComponent(codeId)}`, { cache: 'no-store' });
+                const data = (await res.json()) as TheCodeStaffLogResponse;
+                return data.ok ? data.entries : null;
+              } catch {
+                return null;
+              }
+            },
+          },
+        });
       })
       .catch(() => alive && setCheck({ kind: 'error' }));
     return () => {

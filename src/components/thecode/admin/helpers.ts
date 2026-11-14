@@ -64,6 +64,8 @@ export const plateUrl = (code: string) => `${PUBLIC_ORIGIN}/g/${encodeURICompone
 export const gameUrl = (shortId: string) => `${PUBLIC_ORIGIN}/v/${encodeURIComponent(shortId)}`;
 /** Big-screen leaderboard for the venue's TV. */
 export const lobbyUrl = (shortId: string) => `${PUBLIC_ORIGIN}/lobby/thecode/${encodeURIComponent(shortId)}`;
+/** The venue staff screen. */
+export const staffUrl = (shortId: string) => `${PUBLIC_ORIGIN}/staff/thecode/${encodeURIComponent(shortId)}`;
 
 export const comboKey = (g: { bodyColor: TheCodeColor; hatColor: TheCodeColor }) => `${g.bodyColor}/${g.hatColor}`;
 
