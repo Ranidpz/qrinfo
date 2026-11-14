@@ -49,6 +49,26 @@ test('bank: every Hebrew letter has at least three riddles', () => {
   }
 });
 
+test('bank: there are real hard riddles, and a hard one always has two hints', () => {
+  const hard = B.RIDDLE_BANK.filter((r) => r.difficulty === 3);
+  assert.ok(hard.length >= 20, `only ${hard.length} hard riddles`);
+  for (const r of hard) assert.ok(r.hints.length >= 2, `${r.id}: a hard riddle needs two hints`);
+  // Every level is actually reachable from the picker.
+  for (const d of [1, 2, 3]) {
+    const only = B.suggestFromBank({ difficulty: d });
+    assert.ok(only.length > 0, `no riddles at level ${d}`);
+    assert.ok(only.every((r) => r.difficulty === d), `level ${d} leaks other levels`);
+  }
+  // Filters combine: level + letter.
+  const hardShin = B.suggestFromBank({ difficulty: 3, letter: 'ש' });
+  assert.ok(hardShin.length > 0 && hardShin.every((r) => r.difficulty === 3 && B.bankLetter(r) === 'ש'));
+});
+
+test('bank: the one-click fill still prefers the easiest riddles', () => {
+  const easiest = B.suggestFromBank({})[0];
+  assert.equal(easiest.difficulty, 1);
+});
+
 test('bank: the spot name tells the kind of place', () => {
   assert.equal(B.placeOfSpotName('נקודת הפתיחה לובי'), 'lobby');
   assert.equal(B.placeOfSpotName('ליד הקבלה'), 'lobby');

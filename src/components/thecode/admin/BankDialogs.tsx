@@ -39,6 +39,9 @@ export function addFromBank(actions: AdminActions, gnomeId: string, bank: BankRi
   return id;
 }
 
+const DIFFICULTY_LABELS: Record<1 | 2 | 3, string> = { 1: 'קלה', 2: 'בינונית', 3: 'קשה' };
+const BANK_DIFFICULTIES: (1 | 2 | 3)[] = [1, 2, 3];
+
 const BANK_LETTERS = (() => {
   const have = new Set(RIDDLE_BANK.map(bankLetter));
   return alphabetFor('he').filter((l) => have.has(l));
@@ -66,8 +69,9 @@ export function BankPickerDialog({
 }) {
   const [letter, setLetter] = useState<string | null>(initialLetter ?? null);
   const [place, setPlace] = useState<RiddlePlace>(() => placeOfSpotName(spotName));
+  const [difficulty, setDifficulty] = useState<1 | 2 | 3 | null>(null);
   const lacking = useMemo(() => lackingLetters(report), [report]);
-  const list = useMemo(() => suggestFromBank({ letter, place, riddles }), [letter, place, riddles]);
+  const list = useMemo(() => suggestFromBank({ letter, place, difficulty, riddles }), [letter, place, difficulty, riddles]);
 
   return (
     <Dialog
@@ -103,6 +107,18 @@ export function BankPickerDialog({
         </div>
       </div>
 
+      <div className="mt-4">
+        <div className="mb-2 text-sm font-medium">רמת קושי</div>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="רמת קושי">
+          <Chip active={difficulty === null} onClick={() => setDifficulty(null)}>כל הרמות</Chip>
+          {BANK_DIFFICULTIES.map((d) => (
+            <Chip key={d} active={difficulty === d} onClick={() => setDifficulty(d)}>
+              <span className="px-1 text-sm font-medium">{DIFFICULTY_LABELS[d]}</span>
+            </Chip>
+          ))}
+        </div>
+      </div>
+
       <label className="mt-4 block">
         <span className="mb-1.5 block text-sm font-medium">מתאים למקום</span>
         <select className="input select-input" value={place} onChange={(e) => setPlace(e.target.value as RiddlePlace)}>
@@ -115,7 +131,11 @@ export function BankPickerDialog({
       <div className="mt-4">
         {list.length === 0 ? (
           <div className="rounded-xl bg-bg-secondary px-4 py-6 text-center text-text-secondary">
-            {letter ? `במאגר לא נשארו חידות לאות ${letterLabel(letter)}. כתבו חידה בעצמכם — על משהו שרואים ליד הגמד.` : 'לא נשארו חידות במאגר. כתבו חידה בעצמכם.'}
+            {difficulty
+              ? `במאגר לא נשארו חידות ברמה ${DIFFICULTY_LABELS[difficulty]}${letter ? ` לאות ${letterLabel(letter)}` : ''}. נסו רמה אחרת, או כתבו חידה בעצמכם.`
+              : letter
+                ? `במאגר לא נשארו חידות לאות ${letterLabel(letter)}. כתבו חידה בעצמכם — על משהו שרואים ליד הגמד.`
+                : 'לא נשארו חידות במאגר. כתבו חידה בעצמכם.'}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -127,6 +147,7 @@ export function BankPickerDialog({
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
                     <span>תשובה: <b className="text-text-primary">{b.answerWord}</b></span>
                     <span className="inline-flex items-center gap-1"><Lightbulb size={14} aria-hidden />{b.hints.length === 1 ? 'רמז אחד' : `${b.hints.length} רמזים`}</span>
+                    <span>{DIFFICULTY_LABELS[b.difficulty]}</span>
                     {b.place !== 'any' && <span>{RIDDLE_PLACES.find((p) => p.id === b.place)?.he}</span>}
                   </div>
                 </div>
