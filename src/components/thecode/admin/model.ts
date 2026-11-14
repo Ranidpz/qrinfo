@@ -82,7 +82,7 @@ export interface NewGnomeSpec {
 }
 
 export type ConfigPatch = Partial<
-  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding' | 'howToPlay' | 'selfie' | 'howToPlayTheme'>
+  Pick<TheCodeConfig, 'title' | 'requirePhoneVerification' | 'activeHours' | 'retentionDays' | 'language' | 'branding' | 'howToPlay' | 'selfie' | 'howToPlayTheme' | 'staff'>
 >;
 
 /** Everything a screen may change. The demo implements it in memory; wave 2 → API calls. */
@@ -166,4 +166,8 @@ export interface AdminLinks {
   game: string;
   /** Big-screen leaderboard for the venue's TV. */
   lobby: string;
+  /** The venue staff screen (WhatsApp-code login). Absent in the demo. */
+  staff?: string;
+  /** Who did what on the staff screen, newest first; null = could not load. */
+  staffLog?: () => Promise<import('@/types/thecode-api').TheCodeStaffLogEntry[] | null>;
 }

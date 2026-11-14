@@ -237,3 +237,31 @@ now applies to everything except `/v/` and `/lobby/`.
 - `howToPlayTheme` kept only when night|light|brand; otherwise not saved.
 - `lobby-video-url` accepts slot `opening` (mp4/webm) with a 30 MB cap (the three big-screen slots
   stay at 100 MB). Key `{ownerId}/thecode-{shortId}/lobby/opening-{time}-{rand}.{ext}`.
+
+## Venue staff screen (14.11.2026)
+- Page `/staff/thecode/{shortId}` (excluded from the i18n middleware). Staff list = `config.staff`
+  (`TheCodeStaffMember[]`, locked adventure doc only — `toPublicConfig` never copies it; phones
+  always `+972…`, invalid entries dropped by `normalizeStaff`, max 30).
+- `POST /api/thecode/staff/login {codeId, phone}` → ALWAYS `{ok:true, resendInMs}` for a valid
+  mobile. The list lookup, code issue and WhatsApp send run in `after()` so a listed and an
+  unlisted phone answer identically (body, status, timing). Limits: 3/10 min + 10/day per phone,
+  20/10 min + 80/day per IP (`consumeLimits`, Firestore). Sent through `guardedSendOTP`
+  (kind `thecode-staff-otp`, counted on the owner's quota).
+- Codes reuse `loginCodes` (`issueLoginCode` / `verifyLoginCode`: 10 min, 5 tries, single use)
+  under their OWN identity `thecode-staff|{codeId}|{phone}` — never valid on the platform login.
+- `POST /api/thecode/staff/verify {codeId, phone, code}` → `{ok, token, expiresAt, staffName}`;
+  every failure is the same `invalid`.
+- Session: `codes/{id}/thecodeStaff/s_{sha256(token)}` `{staffId, createdAtMs, expiresAtMs,
+  expireAt}` — 7 days, ≤ 5 devices per member, raw token only on the device (localStorage
+  `thecode_staff_{codeId}`), sent in the POST body.
+- `POST /api/thecode/staff {codeId, token, action}`: `list` | `profile` (returns `recoveryCode`,
+  logged BEFORE it is returned) | `rename` | `hide` | `removePhoto` | `logout`. Every call
+  re-checks the member is still on the list and active → removed / switched off = `unauthorized`
+  at once. No delete for staff. Responses carry groups only.
+- Log: `codes/{id}/thecodeStaff/log` `{entries}` newest 300; owner reads it with
+  `GET /api/thecode/admin/staff-log?codeId=`.
+- Staff QR → `/v/{shortId}?join={recoveryCode}`: `TheCodeViewer` passes `pendingRecoveryCode` to
+  `useTheCodeGame`, which recovers on mount (or just switches to the group when this phone already
+  holds it) and the URL is cleaned with `replaceState` once the server answered.
+- RULES TO DEPLOY (both projects, Rani's OK): `codes/{id}/thecodeStaff/{doc}` read+write `if false`.
+  Optional: a Firestore TTL policy on `thecodeStaff.expireAt` (sessions are also pruned on login).

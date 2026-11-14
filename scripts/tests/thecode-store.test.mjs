@@ -117,7 +117,8 @@ const engineUrl = await urlOf('../../src/lib/thecode/engine.ts', { './letters': 
 const howToPlayUrl = await urlOf('../../src/lib/thecode/howToPlay.ts');
 const selfieUrl = await urlOf('../../src/lib/thecode/selfie.ts');
 const lobbyUrl = await urlOf('../../src/lib/thecode/server/lobby.ts', { '../selfie': selfieUrl });
-const dep = { '../engine': engineUrl, '../letters': lettersUrl, '../howToPlay': howToPlayUrl, '../selfie': selfieUrl, './lobby': lobbyUrl };
+const staffUrl = await urlOf('../../src/lib/thecode/server/staff.ts', { '@/lib/phone-utils': await urlOf('../../src/lib/phone-utils.ts') });
+const dep = { '../engine': engineUrl, '../letters': lettersUrl, '../howToPlay': howToPlayUrl, '../selfie': selfieUrl, './lobby': lobbyUrl, './staff': staffUrl };
 const store = await import(await urlOf('../../src/lib/thecode/store.ts', {
   './howToPlay': howToPlayUrl,
   './selfie': selfieUrl,
@@ -131,6 +132,7 @@ const store = await import(await urlOf('../../src/lib/thecode/store.ts', {
   './server/codes': await urlOf('../../src/lib/thecode/server/codes.ts'),
   './server/names': await urlOf('../../src/lib/thecode/server/names.ts'),
   './server/rate': await urlOf('../../src/lib/thecode/server/rate.ts'),
+  './server/staff': staffUrl,
   './server/snapshot': await urlOf('../../src/lib/thecode/server/snapshot.ts', dep),
   './server/week': await urlOf('../../src/lib/thecode/server/week.ts'),
 }));
@@ -584,4 +586,151 @@ test('updateProfile: name + symbol any time, register rules, operator originalNa
   docs.get(`codes/${CODE}/thecodePlayers/${auth.playerId}`).photo.takenAt = Date.now() - 30 * 86_400_000; // older than the default 14 days
   admin = await store.loadAdmin(CODE);
   assert.equal(admin.players.find((p) => p.id === auth.playerId).photoUrl, undefined, 'expired photo is not shown');
+});
+
+// ------------------------------------------------------------------ venue staff screen
+const STAFF_DIR = `codes/${CODE}/thecodeStaff`;
+const member = (id, firstName, phone, active = true) => ({ id, firstName, lastName: 'כהן', phone, active, addedAt: 1 });
+async function saveWithStaff(base, staff) {
+  const adv = adventure();
+  adv.config.staff = staff;
+  return save(base, adv);
+}
+const sessions = () => [...docs.keys()].filter((k) => k.startsWith(`${STAFF_DIR}/s_`));
+
+test('staff list: saved normalized in the locked doc only, never on the public stub', async () => {
+  seedCode();
+  const r = await saveWithStaff(0, [
+    member('s1', ' דנה ', '050-123-4567'),
+    member('s2', 'יוסי', '0501234567'),           // same phone → dropped
+    member('s3', 'בלי טלפון', '12345'),            // not a mobile → dropped
+    { id: 's4', firstName: '', phone: '0521112222' }, // no name → dropped
+    member('s5', 'רון', '+972521112222', false),
+  ]);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.config.staff.map((s) => [s.id, s.firstName, s.phone, s.active]), [
+    ['s1', 'דנה', '+972501234567', true],
+    ['s5', 'רון', '+972521112222', false],
+  ]);
+  const stub = JSON.stringify(docs.get(`codes/${CODE}`));
+  assert.equal(stub.includes('972501234567') || stub.includes('דנה') || stub.includes('staff'), false, 'the world-readable code doc knows nothing about the staff');
+  assert.equal(await store.isStaffPhone(CODE, '+972501234567'), true);
+  assert.equal(await store.isStaffPhone(CODE, '+972521112222'), false, 'switched off');
+  assert.equal(await store.isStaffPhone(CODE, '+972549999999'), false);
+});
+
+test('staff session: only for an active member, hashed token, dies with removal / switch-off / expiry', async () => {
+  seedCode();
+  await saveWithStaff(0, [member('s1', 'דנה', '0501234567'), member('s2', 'רון', '0521112222', false)]);
+  assert.equal(await store.openStaffSession(CODE, '+972549999999'), null, 'not on the list');
+  assert.equal(await store.openStaffSession(CODE, '+972521112222'), null, 'switched off');
+  const s = await store.openStaffSession(CODE, '+972501234567');
+  assert.match(s.token, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(s.staffName, 'דנה כהן');
+  assert.ok(Math.abs(s.expiresAt - Date.now() - 7 * 86_400_000) < 5000, 'a week');
+  assert.equal(sessions().length, 1);
+  assert.equal(JSON.stringify([...docs.entries()]).includes(s.token), false, 'the raw token is stored nowhere');
+
+  const list = await store.staffAction(CODE, s.token, { type: 'list' });
+  assert.deepEqual([list.ok, list.staffName, list.title, list.players], [true, 'דנה כהן', 'הקוד — מלון', []]);
+  for (const bad of [undefined, '', 'x'.repeat(43), s.token.slice(0, -1) + (s.token.endsWith('A') ? 'B' : 'A')]) {
+    assert.deepEqual(await store.staffAction(CODE, bad, { type: 'list' }), { ok: false, error: 'unauthorized' });
+  }
+
+  // Switched off → cut off at once, and the dead session is cleaned up.
+  await saveWithStaff(1, [member('s1', 'דנה', '0501234567', false)]);
+  assert.deepEqual(await store.staffAction(CODE, s.token, { type: 'list' }), { ok: false, error: 'unauthorized' });
+  assert.equal(sessions().length, 0);
+  // Back on: the OLD token stays dead; a new login is needed.
+  await saveWithStaff(2, [member('s1', 'דנה', '0501234567')]);
+  assert.deepEqual(await store.staffAction(CODE, s.token, { type: 'list' }), { ok: false, error: 'unauthorized' });
+
+  // Removed and re-added under a new id → old sessions do not carry over.
+  const s2 = await store.openStaffSession(CODE, '+972501234567');
+  await saveWithStaff(3, [member('s9', 'דנה', '0501234567')]);
+  assert.deepEqual(await store.staffAction(CODE, s2.token, { type: 'list' }), { ok: false, error: 'unauthorized' });
+
+  // Expiry.
+  const s3 = await store.openStaffSession(CODE, '+972501234567');
+  const key = sessions()[0];
+  docs.get(key).expiresAtMs = Date.now() - 1;
+  assert.deepEqual(await store.staffAction(CODE, s3.token, { type: 'list' }), { ok: false, error: 'unauthorized' });
+
+  // At most 5 devices per member; logout kills only that device.
+  const tokens = [];
+  for (let i = 0; i < 7; i++) tokens.push((await store.openStaffSession(CODE, '+972501234567')).token);
+  assert.equal(sessions().length, 5);
+  const last = tokens.at(-1);
+  assert.equal((await store.staffAction(CODE, last, { type: 'logout' })).ok, true);
+  assert.deepEqual(await store.staffAction(CODE, last, { type: 'list' }), { ok: false, error: 'unauthorized' });
+  assert.equal((await store.staffAction(CODE, tokens.at(-2), { type: 'list' })).ok, true);
+});
+
+test('staff actions: groups only (no secrets), recovery code on profile, rename / hide / photo, all logged', async () => {
+  seedCode();
+  objects.clear();
+  await saveWithStaff(0, [member('s1', 'דנה', '0501234567')]);
+  const reg = await play(undefined, { type: 'register', familyName: 'משפחת לוי', emoji: '🦊' });
+  const pid = reg.auth.playerId;
+  const code = reg.snapshot.player.recoveryCode;
+  await store.setPlayerPhoto(CODE, reg.auth, { bytes: WEBP, contentType: 'image/webp' });
+  const { token } = await store.openStaffSession(CODE, '+972501234567');
+  const act = (action) => store.staffAction(CODE, token, action);
+
+  const list = await act({ type: 'list' });
+  assert.deepEqual(Object.keys(list.players[0]).sort(), ['emoji', 'familyName', 'hidden', 'id', 'lastSeenAt', 'photoUrl', 'points']);
+  const listJson = JSON.stringify(list);
+  assert.equal(listJson.includes(code), false, 'the list carries no recovery codes');
+  // Nothing of the adventure itself ever reaches the staff: phrases, answers, riddles, gnome codes.
+  const adv = docs.get(`codes/${CODE}/thecode/adventure`);
+  const secrets = ['כלב', 'כובע', 'לול', 'חידה', ...adv.config.gnomes.flatMap((g) => [g.code, g.manualCode])];
+
+  const prof = await act({ type: 'profile', playerId: pid });
+  assert.equal(prof.recoveryCode, code);
+  assert.equal(prof.player.familyName, 'משפחת לוי');
+
+  const renamed = await act({ type: 'rename', playerId: pid, familyName: ' הלויים ' });
+  assert.equal(renamed.player.familyName, 'הלויים');
+  assert.deepEqual(await act({ type: 'rename', playerId: pid, familyName: 'זונה' }), { ok: false, error: 'invalidName' });
+  const hidden = await act({ type: 'hide', playerId: pid, hidden: true });
+  assert.equal(hidden.player.hidden, true);
+  assert.equal((await act({ type: 'hide', playerId: pid, hidden: false })).player.hidden, false);
+  assert.deepEqual(await act({ type: 'hide', playerId: pid, hidden: 'yes' }), { ok: false, error: 'badRequest' });
+  const noPhoto = await act({ type: 'removePhoto', playerId: pid });
+  assert.equal(noPhoto.player.photoUrl, undefined);
+  assert.equal(objects.size, 0, 'the file is gone from storage');
+
+  assert.deepEqual(await act({ type: 'profile', playerId: 'A'.repeat(20) }), { ok: false, error: 'notFound' });
+  assert.deepEqual(await act({ type: 'profile', playerId: '../x' }), { ok: false, error: 'badRequest' });
+  assert.deepEqual(await act({ type: 'delete', playerId: pid }), { ok: false, error: 'badRequest' }, 'staff cannot delete a group');
+  assert.ok(docs.has(`codes/${CODE}/thecodePlayers/${pid}`));
+
+  for (const out of [list, prof, renamed, hidden, noPhoto]) {
+    const json = JSON.stringify(out);
+    for (const secret of secrets) assert.equal(json.includes(secret), false, `leaked ${secret}`);
+    assert.equal(json.includes('tokenHashes') || json.includes('972501234567'), false);
+  }
+
+  // The recovered code really brings the group back (what the staff QR does).
+  const back = await play(undefined, { type: 'recover', recoveryCode: prof.recoveryCode });
+  assert.equal(back.auth.playerId, pid);
+
+  const log = await store.loadStaffLog(CODE);
+  assert.deepEqual(log.map((e) => e.action), ['removePhoto', 'show', 'hide', 'rename', 'viewCode', 'login']);
+  assert.deepEqual([log[3].staffName, log[3].playerName, log[3].detail], ['דנה כהן', 'משפחת לוי', 'הלויים']);
+  assert.equal(log[4].playerId, pid);
+  assert.equal(JSON.stringify(log).includes(code), false, 'the log never holds the code itself');
+});
+
+test('staff log is bounded', async () => {
+  seedCode();
+  await saveWithStaff(0, [member('s1', 'דנה', '0501234567')]);
+  const reg = await play(undefined, { type: 'register', familyName: 'קבוצה', emoji: '🦊' });
+  const { token } = await store.openStaffSession(CODE, '+972501234567');
+  docs.get(`${STAFF_DIR}/log`).entries = Array.from({ length: 300 }, (_, i) => ({ at: i + 1, staffId: 's1', staffName: 'x', action: 'login' }));
+  await store.staffAction(CODE, token, { type: 'profile', playerId: reg.auth.playerId });
+  const entries = docs.get(`${STAFF_DIR}/log`).entries;
+  assert.equal(entries.length, 300);
+  assert.equal(entries.at(-1).action, 'viewCode');
+  assert.equal(entries[0].at, 2, 'the oldest line fell off');
 });

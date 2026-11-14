@@ -21,7 +21,8 @@ const engineUrl = await urlOf('../../src/lib/thecode/engine.ts', { './letters': 
 const howToPlayUrl = await urlOf('../../src/lib/thecode/howToPlay.ts');
 const selfieUrl = await urlOf('../../src/lib/thecode/selfie.ts');
 const lobbyUrl = await urlOf('../../src/lib/thecode/server/lobby.ts', { '../selfie': selfieUrl });
-const dep = { '../engine': engineUrl, '../letters': lettersUrl, '../howToPlay': howToPlayUrl, '../selfie': selfieUrl, './lobby': lobbyUrl };
+const staffUrl = await urlOf('../../src/lib/thecode/server/staff.ts', { '@/lib/phone-utils': await urlOf('../../src/lib/phone-utils.ts') });
+const dep = { '../engine': engineUrl, '../letters': lettersUrl, '../howToPlay': howToPlayUrl, '../selfie': selfieUrl, './lobby': lobbyUrl, './staff': staffUrl };
 const H = await import(howToPlayUrl);
 const L = await import(lettersUrl);
 const E = await import(engineUrl);
@@ -448,4 +449,60 @@ test('admin: opening-screen framing — focus / logo position 0–100, zoom 1–
   assert.deepEqual(r.config.branding, { backgroundZoom: 1, logoScale: 0.5 });
   assert.equal(A.ranged(Infinity, 0, 1), null);
   assert.deepEqual(A.point({ x: 1, y: 2, z: 3 }), { x: 1, y: 2 });
+});
+
+// ------------------------------------------------------------------ venue staff (pure)
+const ST = await import(staffUrl);
+
+test('staff: phones normalize to +972 mobiles only; list is cleaned, deduped and capped', () => {
+  assert.equal(ST.staffPhone('050-123 4567'), '+972501234567');
+  assert.equal(ST.staffPhone('+972 52 111 2222'), '+972521112222');
+  for (const bad of [null, 5, '', '12345', '03-5551234', '+1 202 555 0100', '050123456', '0501234567<script>']) assert.equal(ST.staffPhone(bad), null);
+
+  const now = 1_000_000;
+  const list = ST.normalizeStaff([
+    { id: 'a', firstName: '  דנה\u200f <b> ', lastName: 'כהן', phone: '0501234567', active: true, addedAt: 500 },
+    { id: 'a', firstName: 'כפול', phone: '0521112222' },
+    { id: 'b', firstName: 'אותו טלפון', phone: '+972501234567' },
+    { id: 'bad id!', firstName: 'x', phone: '0531112222' },
+    { id: 'c', firstName: 'רון', phone: '0541112222', active: false, addedAt: now + 5 },
+    'junk', null,
+  ], now);
+  assert.deepEqual(list, [
+    { id: 'a', firstName: 'דנה b', lastName: 'כהן', phone: '+972501234567', active: true, addedAt: 500 },
+    { id: 'c', firstName: 'רון', lastName: '', phone: '+972541112222', active: false, addedAt: now },
+  ]);
+  assert.deepEqual(ST.normalizeStaff('nope', now), []);
+  const many = Array.from({ length: 50 }, (_, i) => ({ id: `m${i}`, firstName: 'א', phone: `05012345${String(i).padStart(2, '0')}` }));
+  assert.equal(ST.normalizeStaff(many, now).length, ST.STAFF_LIMITS.members);
+
+  assert.equal(ST.staffByPhone(list, '+972501234567').id, 'a');
+  assert.equal(ST.staffByPhone(list, '+972541112222'), null, 'inactive');
+  assert.equal(ST.staffById(list, 'c'), null);
+  assert.equal(ST.staffById(undefined, 'a'), null);
+  assert.equal(ST.staffDisplayName(list[1]), 'רון');
+});
+
+test('staff: session lifetime is a week; log keeps the newest lines; code identity is its own namespace', () => {
+  assert.equal(ST.STAFF_SESSION_MS, 7 * 24 * 60 * 60 * 1000);
+  assert.equal(ST.sessionAlive({ staffId: 'a', expiresAtMs: 11 }, 10), true);
+  assert.equal(ST.sessionAlive({ staffId: 'a', expiresAtMs: 10 }, 10), false);
+  assert.equal(ST.sessionAlive({ expiresAtMs: 99 }, 10), false);
+  assert.equal(ST.sessionAlive(undefined, 10), false);
+  let log = ['junk', { at: 'x' }];
+  for (let i = 1; i <= ST.STAFF_LOG_MAX + 5; i++) log = ST.appendStaffLog(log, { at: i, staffId: 's', staffName: 'n', action: 'login' });
+  assert.equal(log.length, ST.STAFF_LOG_MAX);
+  assert.equal(log[0].at, 6);
+  const id = ST.staffCodeIdentity('codeA', '+972501234567');
+  assert.equal(id.kind, 'phone');
+  assert.notEqual(id.value, '+972501234567', 'never the platform-login identity of the same phone');
+  assert.notEqual(id.value, ST.staffCodeIdentity('codeB', '+972501234567').value);
+});
+
+test('admin save keeps the staff list out of the public stub', () => {
+  const res = A.normalizeAdventure({ ...A.defaultTheCodeConfig(), staff: [{ id: 'a', firstName: 'דנה', phone: '0501234567' }] }, [], null, { now: 77 });
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.config.staff, [{ id: 'a', firstName: 'דנה', lastName: '', phone: '+972501234567', active: true, addedAt: 77 }]);
+  assert.equal(JSON.stringify(A.toPublicConfig(res.config)).includes('staff'), false);
+  assert.equal('staff' in A.normalizeAdventure(A.defaultTheCodeConfig(), [], null).config, false);
 });

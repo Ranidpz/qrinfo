@@ -156,6 +156,11 @@ service cloud.firestore {
         allow read: if true;
         allow write: if false;
       }
+      // "קוד הגמדים" staff screen: device sessions (hashed tokens) + the log of staff actions.
+      // FULLY locked — staff use /api/thecode/staff*, the owner /api/thecode/admin/staff-log.
+      match /thecodeStaff/{docId} {
+        allow read, write: if false;
+      }
 
       // Q.Vote XP + packs: voters' XP / opened packs and the producer's prize pool.
       // FULLY locked — voters use /api/qvote/vote, /api/qvote/xp, /api/qvote/pack/open;

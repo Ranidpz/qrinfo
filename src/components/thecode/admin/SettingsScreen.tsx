@@ -7,6 +7,7 @@ import { Card, Field, NumberInput, ScreenHeader, Segmented, ToggleRow } from './
 import BrandingCard from './BrandingCard';
 import HowToPlayCard from './HowToPlayCard';
 import { BigScreenCard, SelfieCard } from './LobbyCards';
+import StaffCard from './StaffCard';
 
 export default function SettingsScreen({ state, actions, report, uploadImage, uploadVideo, links }: ScreenProps) {
   const { config } = state;
@@ -32,6 +33,10 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
 
       <div id="big-screen" className="scroll-mt-32">
         <BigScreenCard state={state} actions={actions} uploadVideo={uploadVideo} links={links} />
+      </div>
+
+      <div id="staff" className="scroll-mt-32">
+        <StaffCard state={state} actions={actions} links={links} />
       </div>
 
       <Section title="כללי">

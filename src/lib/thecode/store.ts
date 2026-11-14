@@ -8,6 +8,8 @@
  *   thecodeGnomeCodes/{code}           { codeId, gnomeId } for the QR slug AND the manual code
  *   thecodeSelfies/{sha(key)}          { codeId, playerId, key, takenAt } — one per R2 selfie, for the daily sweep
  *   codes/{codeId}/thecodeLobby/live   PUBLIC (read true): TheCodeLobbyLive for the big screen — no secrets
+ *   codes/{codeId}/thecodeStaff/s_{sha(token)}  one staff device session { staffId, createdAtMs, expiresAtMs }
+ *   codes/{codeId}/thecodeStaff/log    { entries: TheCodeStaffLogEntry[] } — newest STAFF_LOG_MAX only
  *
  * Spec: docs/THE_CODE_PLAN.md §8. Wire contract: src/types/thecode-api.ts.
  * Route behaviour for the UIs: docs/THE_CODE_SERVER_NOTES.md.
@@ -24,7 +26,7 @@ import {
 } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { deleteR2ObjectByKey, getR2Config, getR2PublicUrl, uploadBufferToR2 } from '@/lib/r2-storage';
-import type { TheCodeAdminPlayer, TheCodeConfig, TheCodeGnomeStats, TheCodePlayer, TheCodeRiddle, TheCodeRiddleStats } from '@/types/thecode';
+import type { TheCodeAdminPlayer, TheCodeConfig, TheCodeGnomeStats, TheCodePlayer, TheCodeRiddle, TheCodeRiddleStats, TheCodeStaffMember } from '@/types/thecode';
 import type {
   TheCodeAdminLoadResponse,
   TheCodeAdminSaveResponse,
@@ -38,6 +40,10 @@ import type {
   TheCodePlayError,
   TheCodePlayEvent,
   TheCodeSnapshot,
+  TheCodeStaffAction,
+  TheCodeStaffLogEntry,
+  TheCodeStaffPlayer,
+  TheCodeStaffResponse,
 } from '@/types/thecode-api';
 import {
   answerRiddle,
@@ -71,6 +77,7 @@ import {
   visiblePhotoUrl,
 } from './server/lobby';
 import { presignUrl } from './server/presign';
+import { STAFF_SESSIONS_PER_MEMBER, STAFF_SESSION_MS, appendStaffLog, readStaffLog, sessionAlive, staffById, staffByPhone, staffDisplayName } from './server/staff';
 import { addWeekDelta, DEFAULT_WEEK_TIME_ZONE, weekKey, type TheCodeWeeks } from './server/week';
 
 /** Venue zone for active hours + weekly boards (one venue = one zone for now). */
@@ -978,4 +985,139 @@ export async function sweepSelfies(now = Date.now(), limit = 400): Promise<TheCo
     out.removed++;
   }
   return out;
+}
+
+// =================================================================
+// Venue staff screen — sessions, group actions, log
+// =================================================================
+// A staff member proves their phone with a WhatsApp code (the route owns the code itself:
+// src/app/api/thecode/staff/*). Here: the device session and what a session may do.
+// Staff get GROUPS only — nothing below ever returns riddles, answers, phrases or gnome codes.
+
+const staffCol = (codeId: string) => codeRef(codeId).collection('thecodeStaff');
+/** Only the hash of the token is stored: a leaked database cannot be replayed as a session. */
+const staffSessionRef = (codeId: string, token: string) => staffCol(codeId).doc(`s_${sha256(token)}`);
+const staffLogRef = (codeId: string) => staffCol(codeId).doc('log');
+
+function isStaffToken(v: unknown): v is string {
+  return typeof v === 'string' && /^[A-Za-z0-9_-]{40,64}$/.test(v);
+}
+
+async function writeStaffLog(codeId: string, member: TheCodeStaffMember, entry: Omit<TheCodeStaffLogEntry, 'at' | 'staffId' | 'staffName'>): Promise<void> {
+  const ref = staffLogRef(codeId);
+  await db().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const full: TheCodeStaffLogEntry = { at: Date.now(), staffId: member.id, staffName: staffDisplayName(member), ...entry };
+    tx.set(ref, { entries: appendStaffLog(snap.data()?.entries, plain(full)) });
+  });
+}
+
+/** Is this (normalized) phone an ACTIVE staff member of the adventure? */
+export async function isStaffPhone(codeId: string, phone: string): Promise<boolean> {
+  const adv = readAdventure(await adventureRef(codeId).get());
+  return !!adv && !!staffByPhone(adv.config.staff, phone);
+}
+
+/**
+ * After the WhatsApp code was verified: a new device session for that phone's staff member.
+ * null = the phone is not (or no longer) an active member.
+ */
+export async function openStaffSession(codeId: string, phone: string): Promise<{ token: string; expiresAt: number; staffName: string } | null> {
+  const adv = readAdventure(await adventureRef(codeId).get());
+  const member = adv && staffByPhone(adv.config.staff, phone);
+  if (!member) return null;
+  const now = Date.now();
+  // Housekeeping: drop this member's expired sessions and keep at most a few devices.
+  const mine = await staffCol(codeId).where('staffId', '==', member.id).get();
+  const alive = mine.docs
+    .filter((d) => sessionAlive(d.data(), now))
+    .sort((a, b) => Number(b.data().createdAtMs) - Number(a.data().createdAtMs));
+  const keep = new Set(alive.slice(0, STAFF_SESSIONS_PER_MEMBER - 1).map((d) => d.id));
+  await Promise.all(mine.docs.filter((d) => !keep.has(d.id)).map((d) => d.ref.delete()));
+
+  const token = randomBytes(32).toString('base64url');
+  const expiresAt = now + STAFF_SESSION_MS;
+  await staffSessionRef(codeId, token).set({ staffId: member.id, createdAtMs: now, expiresAtMs: expiresAt, expireAt: Timestamp.fromMillis(expiresAt) });
+  await writeStaffLog(codeId, member, { action: 'login' });
+  return { token, expiresAt, staffName: staffDisplayName(member) };
+}
+
+function staffPlayer(p: TheCodeAdminPlayer): TheCodeStaffPlayer {
+  const out: TheCodeStaffPlayer = { id: p.id, familyName: p.familyName, emoji: p.emoji, hidden: p.hidden, points: p.points, lastSeenAt: p.lastSeenAt };
+  if (p.photoUrl) out.photoUrl = p.photoUrl;
+  return out;
+}
+
+/**
+ * Everything the staff screen does. The session is checked against the CURRENT staff list on
+ * every call: a removed or switched-off member gets `unauthorized` at once.
+ */
+export async function staffAction(codeId: string, token: unknown, action: TheCodeStaffAction): Promise<TheCodeStaffResponse> {
+  if (!isStaffToken(token)) return { ok: false, error: 'unauthorized' };
+  const sessionRef = staffSessionRef(codeId, token);
+  const [sessionSnap, advSnap] = await db().getAll(sessionRef, adventureRef(codeId));
+  const adv = readAdventure(advSnap);
+  const session = sessionSnap.data();
+  const now = Date.now();
+  const member = adv && sessionAlive(session, now) ? staffById(adv.config.staff, session.staffId) : null;
+  if (!adv || !member) {
+    if (sessionSnap.exists) await sessionRef.delete();
+    return { ok: false, error: 'unauthorized' };
+  }
+  const base = { ok: true as const, staffName: staffDisplayName(member), title: adv.config.title };
+  const selfie = resolveSelfie(adv.config);
+  const key = weekKey(now, THECODE_TIME_ZONE);
+  const view = (id: string, d: DocumentData) => staffPlayer(adminPlayer(id, d, key, visiblePhotoUrl(d as TheCodePlayer, selfie, now)));
+
+  if (action.type === 'logout') {
+    await sessionRef.delete();
+    return base;
+  }
+  if (action.type === 'list') {
+    const players = await playersCol(codeId).orderBy('lastSeenAt', 'desc').limit(ADMIN_PLAYERS_LIMIT).get();
+    return { ...base, players: players.docs.map((d) => view(d.id, d.data())) };
+  }
+
+  if (!isValidPlayerId(action.playerId)) return { ok: false, error: 'badRequest' };
+  const ref = playersCol(codeId).doc(action.playerId);
+  const before = await ref.get();
+  if (!before.exists) return { ok: false, error: 'notFound' };
+  const oldName = String(before.data()!.familyName || '');
+  const logged = { playerId: action.playerId, playerName: oldName };
+
+  switch (action.type) {
+    case 'profile': {
+      // Logged BEFORE the code leaves the server: no reveal without a record.
+      await writeStaffLog(codeId, member, { action: 'viewCode', ...logged });
+      return { ...base, player: view(before.id, before.data()!), recoveryCode: String(before.data()!.recoveryCode || '') };
+    }
+    case 'rename': {
+      const res = await patchPlayer(codeId, action.playerId, { familyName: action.familyName });
+      if (!res.ok) return res;
+      if (res.player.familyName !== oldName) await writeStaffLog(codeId, member, { action: 'rename', ...logged, detail: res.player.familyName });
+      return { ...base, player: staffPlayer(res.player) };
+    }
+    case 'hide': {
+      if (typeof action.hidden !== 'boolean') return { ok: false, error: 'badRequest' };
+      const res = await patchPlayer(codeId, action.playerId, { hidden: action.hidden });
+      if (!res.ok) return res;
+      await writeStaffLog(codeId, member, { action: action.hidden ? 'hide' : 'show', ...logged });
+      return { ...base, player: staffPlayer(res.player) };
+    }
+    case 'removePhoto': {
+      const res = await removePlayerPhoto(codeId, action.playerId);
+      if (!res.ok) return { ok: false, error: res.error === 'notFound' ? 'notFound' : 'badRequest' };
+      await writeStaffLog(codeId, member, { action: 'removePhoto', ...logged });
+      const after = await ref.get();
+      return after.exists ? { ...base, player: view(after.id, after.data()!) } : { ok: false, error: 'notFound' };
+    }
+    default:
+      return { ok: false, error: 'badRequest' };
+  }
+}
+
+/** Operator: the staff log, newest first. */
+export async function loadStaffLog(codeId: string): Promise<TheCodeStaffLogEntry[]> {
+  const snap = await staffLogRef(codeId).get();
+  return readStaffLog(snap.data()?.entries).reverse();
 }
