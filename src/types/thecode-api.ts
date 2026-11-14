@@ -370,7 +370,22 @@ export interface TheCodeStaffPlayer {
   hidden: boolean;
   points: number;
   lastSeenAt: number;
+  /** Present once the group collected its prize at the desk. */
+  award?: TheCodeStaffAward;
 }
+
+/** The prize record as the staff screen shows it. */
+export interface TheCodeStaffAward {
+  at: number;
+  staffName: string;
+  points: number;
+  rank?: number;
+  prize?: string;
+  photoUrl?: string;
+}
+
+/** Typed by the staff member to confirm a reset, so nobody wipes a round by a stray tap. */
+export const THECODE_RESET_WORD = 'איפוס';
 
 /** POST /api/thecode/staff { codeId, token, action } */
 export type TheCodeStaffAction =
@@ -380,10 +395,17 @@ export type TheCodeStaffAction =
   | { type: 'rename'; playerId: string; familyName: string }
   | { type: 'hide'; playerId: string; hidden: boolean }
   | { type: 'removePhoto'; playerId: string }
+  /** The group collected its prize at the desk. Nothing changes on the board. */
+  | { type: 'award'; playerId: string; prize?: string }
+  /** Handed by mistake: removes the record and its photo. */
+  | { type: 'undoAward'; playerId: string }
+  | { type: 'removeAwardPhoto'; playerId: string }
+  /** A new round: every group back to zero. `confirm` must be THECODE_RESET_WORD. */
+  | { type: 'resetGame'; confirm: string }
   | { type: 'logout' };
 
 export type TheCodeStaffResponse =
-  | { ok: true; staffName: string; title: string; players?: TheCodeStaffPlayer[]; player?: TheCodeStaffPlayer; recoveryCode?: string }
+  | { ok: true; staffName: string; title: string; players?: TheCodeStaffPlayer[]; player?: TheCodeStaffPlayer; recoveryCode?: string; reset?: { groups: number } }
   /** `unauthorized` = no session / expired / removed or switched off → back to the login. */
   | { ok: false; error: 'unauthorized' | 'notFound' | 'invalidName' | 'badRequest' | 'rateLimited' | 'server' };
 
@@ -392,10 +414,10 @@ export interface TheCodeStaffLogEntry {
   at: number;
   staffId: string;
   staffName: string;
-  action: 'login' | 'viewCode' | 'rename' | 'hide' | 'show' | 'removePhoto';
+  action: 'login' | 'viewCode' | 'rename' | 'hide' | 'show' | 'removePhoto' | 'award' | 'undoAward' | 'removeAwardPhoto' | 'awardPhoto' | 'resetGame';
   playerId?: string;
   playerName?: string;
-  /** rename: the new name. */
+  /** rename: the new name. award: the prize. resetGame: how many groups were reset. */
   detail?: string;
 }
 

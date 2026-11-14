@@ -286,8 +286,24 @@ export interface TheCodePlayer {
   solvedRiddleIds: string[];
   foundGnomeIds: string[];          // The "gnome album"
   run: TheCodeRun | null;
+  /** The prize handed at the reception desk. One per group per round; a game reset clears it. */
+  award?: TheCodeAward;
   createdAt: number;
   lastSeenAt: number;
+}
+
+/** What a staff member recorded when the group collected its prize. */
+export interface TheCodeAward {
+  at: number;
+  staffId: string;
+  staffName: string;
+  /** Points and place on the board at that moment — so a later question has an answer. */
+  points: number;
+  rank?: number;
+  /** What was handed, if the staff member typed it. */
+  prize?: string;
+  /** The photo at the desk (R2). Swept with the same retention as the group selfies. */
+  photo?: { url: string; key: string; takenAt: number };
 }
 
 // -----------------------------------------------------------------

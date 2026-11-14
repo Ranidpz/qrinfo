@@ -26,7 +26,7 @@ import {
 } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { deleteR2ObjectByKey, getR2Config, getR2PublicUrl, uploadBufferToR2 } from '@/lib/r2-storage';
-import type { TheCodeAdminPlayer, TheCodeConfig, TheCodeGnomeStats, TheCodePlayer, TheCodeRiddle, TheCodeRiddleStats, TheCodeStaffMember } from '@/types/thecode';
+import type { TheCodeAdminPlayer, TheCodeAward, TheCodeConfig, TheCodeGnomeStats, TheCodePlayer, TheCodeRiddle, TheCodeRiddleStats, TheCodeStaffMember } from '@/types/thecode';
 import type {
   TheCodeAdminLoadResponse,
   TheCodeAdminSaveResponse,
@@ -42,9 +42,11 @@ import type {
   TheCodeSnapshot,
   TheCodeStaffAction,
   TheCodeStaffLogEntry,
+  TheCodeStaffAward,
   TheCodeStaffPlayer,
   TheCodeStaffResponse,
 } from '@/types/thecode-api';
+import { THECODE_RESET_WORD } from '@/types/thecode-api';
 import {
   answerRiddle,
   arrangeHelp,
@@ -972,6 +974,11 @@ export async function sweepSelfies(now = Date.now(), limit = 400): Promise<TheCo
       const pRef = playersCol(codeId).doc(String(d.playerId));
       url = await db().runTransaction(async (tx) => {
         const p = await tx.get(pRef);
+        const award = readAward(p.data())?.photo;
+        if (award?.key === key) {
+          tx.update(pRef, { 'award.photo': FieldValue.delete() });
+          return undefined;  // a prize photo was never on the board
+        }
         const photo = p.data()?.photo as TheCodePlayer['photo'] | undefined;
         if (photo?.key === key) {
           tx.update(pRef, { photo: FieldValue.delete() });
@@ -1042,10 +1049,122 @@ export async function openStaffSession(codeId: string, phone: string): Promise<{
   return { token, expiresAt, staffName: staffDisplayName(member) };
 }
 
-function staffPlayer(p: TheCodeAdminPlayer): TheCodeStaffPlayer {
+function staffPlayer(p: TheCodeAdminPlayer, award?: TheCodeAward): TheCodeStaffPlayer {
   const out: TheCodeStaffPlayer = { id: p.id, familyName: p.familyName, emoji: p.emoji, hidden: p.hidden, points: p.points, lastSeenAt: p.lastSeenAt };
   if (p.photoUrl) out.photoUrl = p.photoUrl;
+  if (award) out.award = staffAward(award);
   return out;
+}
+
+/** The prize record as the staff screen sees it (no staff id, no R2 key). */
+function staffAward(a: TheCodeAward): TheCodeStaffAward {
+  const out: TheCodeStaffAward = { at: Number(a.at) || 0, staffName: String(a.staffName || ''), points: Number(a.points) || 0 };
+  if (typeof a.rank === 'number') out.rank = a.rank;
+  if (a.prize) out.prize = String(a.prize);
+  if (a.photo?.url) out.photoUrl = a.photo.url;
+  return out;
+}
+
+function readAward(d: DocumentData | undefined): TheCodeAward | undefined {
+  const a = d?.award as TheCodeAward | undefined;
+  return a && typeof a === 'object' && typeof a.at === 'number' ? a : undefined;
+}
+
+/** Place on the board right now: groups with more points + 1 (one cheap count query). */
+async function rankOf(codeId: string, points: number): Promise<number | undefined> {
+  if (points <= 0) return undefined;
+  try {
+    const ahead = await playersCol(codeId).where('points', '>', points).count().get();
+    return (ahead.data().count || 0) + 1;
+  } catch (error) {
+    console.error('thecode rank error:', error);
+    return undefined;
+  }
+}
+
+/** Drops the prize photo of one group (R2 + index). Never throws. */
+async function dropAwardPhoto(photo: TheCodeAward['photo']): Promise<void> {
+  if (photo?.key) await deleteSelfieObject(photo.key);
+}
+
+/**
+ * A new round: every group back to zero, keeping its name, emoji, selfie and recovery code,
+ * so a group that is still at the venue simply starts over with the same code. The prize
+ * records go too — the log keeps who reset and when.
+ */
+async function resetAllPlayers(codeId: string): Promise<number> {
+  const snap = await playersCol(codeId).select('award').get();
+  const photos: TheCodeAward['photo'][] = [];
+  let done = 0;
+  for (let i = 0; i < snap.docs.length; i += 300) {
+    const batch = db().batch();
+    for (const doc of snap.docs.slice(i, i + 300)) {
+      const photo = readAward(doc.data())?.photo;
+      if (photo?.key) photos.push(photo);
+      batch.update(doc.ref, {
+        points: 0,
+        streak: 0,
+        suitcasesOpened: 0,
+        openedPhraseIds: [],
+        solvedRiddleIds: [],
+        foundGnomeIds: [],
+        run: null,
+        week: FieldValue.delete(),
+        award: FieldValue.delete(),
+      });
+      done++;
+    }
+    await batch.commit();
+  }
+  // The big screen starts the round clean as well.
+  await lobbyRef(codeId).set({ events: [] }, { merge: true }).catch((e) => console.error('thecode reset lobby error:', e));
+  for (const photo of photos) await dropAwardPhoto(photo);
+  return done;
+}
+
+/**
+ * The photo at the reception desk, taken by a staff member right after the prize was handed.
+ * It hangs off the prize record (never on the board, never on the big screen) and is swept
+ * with the same retention as the group selfies.
+ */
+export async function setAwardPhoto(
+  codeId: string,
+  token: unknown,
+  playerId: unknown,
+  file: { bytes: Buffer; contentType: 'image/webp' | 'image/jpeg' }
+): Promise<TheCodePhotoResult> {
+  if (!isStaffToken(token)) return { ok: false, error: 'unauthorized' };
+  if (!isValidPlayerId(playerId)) return { ok: false, error: 'badRequest' };
+  const sessionRef = staffSessionRef(codeId, token);
+  const [sessionSnap, advSnap, codeSnap] = await db().getAll(sessionRef, adventureRef(codeId), codeRef(codeId));
+  const adv = readAdventure(advSnap);
+  const session = sessionSnap.data();
+  const member = adv && sessionAlive(session, Date.now()) ? staffById(adv.config.staff, session.staffId) : null;
+  if (!adv || !member) {
+    if (sessionSnap.exists) await sessionRef.delete();
+    return { ok: false, error: 'unauthorized' };
+  }
+  if (!codeSnap.exists) return { ok: false, error: 'notFound' };
+  const playerRef = playersCol(codeId).doc(playerId);
+  const pSnap = await playerRef.get();
+  if (!pSnap.exists) return { ok: false, error: 'notFound' };
+  const award = readAward(pSnap.data());
+  // A photo only ever belongs to a prize that was actually handed.
+  if (!award) return { ok: false, error: 'badRequest' };
+  const code = codeSnap.data()!;
+  const key = `${safeSegment(code.ownerId)}/thecode-${safeSegment(code.shortId)}/prizes/${playerId}-${drawCode(bytes, BASE62, 10)}.${PHOTO_EXT[file.contentType]}`;
+  const uploaded = await uploadBufferToR2({ key, body: file.bytes, contentType: file.contentType, cacheControl: 'public, max-age=31536000, immutable' });
+  const now = Date.now();
+  try {
+    await playerRef.update({ 'award.photo': { url: uploaded.url, key, takenAt: now } });
+    await selfieIndexRef(key).set({ codeId, playerId, key, takenAt: now, field: 'award' });
+  } catch (error) {
+    await deleteR2ObjectByKey(key).catch((e) => console.error('thecode prize photo rollback error:', e));
+    throw error;
+  }
+  await writeStaffLog(codeId, member, { action: 'awardPhoto', playerId, playerName: String(pSnap.data()!.familyName || '') });
+  if (award.photo?.key) await dropAwardPhoto(award.photo);
+  return { ok: true, photoUrl: uploaded.url };
 }
 
 /**
@@ -1067,7 +1186,7 @@ export async function staffAction(codeId: string, token: unknown, action: TheCod
   const base = { ok: true as const, staffName: staffDisplayName(member), title: adv.config.title };
   const selfie = resolveSelfie(adv.config);
   const key = weekKey(now, THECODE_TIME_ZONE);
-  const view = (id: string, d: DocumentData) => staffPlayer(adminPlayer(id, d, key, visiblePhotoUrl(d as TheCodePlayer, selfie, now)));
+  const view = (id: string, d: DocumentData) => staffPlayer(adminPlayer(id, d, key, visiblePhotoUrl(d as TheCodePlayer, selfie, now)), readAward(d));
 
   if (action.type === 'logout') {
     await sessionRef.delete();
@@ -1076,6 +1195,14 @@ export async function staffAction(codeId: string, token: unknown, action: TheCod
   if (action.type === 'list') {
     const players = await playersCol(codeId).orderBy('lastSeenAt', 'desc').limit(ADMIN_PLAYERS_LIMIT).get();
     return { ...base, players: players.docs.map((d) => view(d.id, d.data())) };
+  }
+
+  if (action.type === 'resetGame') {
+    if (typeof action.confirm !== 'string' || action.confirm.trim() !== THECODE_RESET_WORD) return { ok: false, error: 'badRequest' };
+    const groups = await resetAllPlayers(codeId);
+    await writeStaffLog(codeId, member, { action: 'resetGame', detail: String(groups) });
+    const players = await playersCol(codeId).orderBy('lastSeenAt', 'desc').limit(ADMIN_PLAYERS_LIMIT).get();
+    return { ...base, reset: { groups }, players: players.docs.map((d) => view(d.id, d.data())) };
   }
 
   if (!isValidPlayerId(action.playerId)) return { ok: false, error: 'badRequest' };
@@ -1103,6 +1230,38 @@ export async function staffAction(codeId: string, token: unknown, action: TheCod
       if (!res.ok) return res;
       await writeStaffLog(codeId, member, { action: action.hidden ? 'hide' : 'show', ...logged });
       return { ...base, player: staffPlayer(res.player) };
+    }
+    case 'award': {
+      const already = readAward(before.data());
+      if (already) return { ...base, player: view(before.id, before.data()!) };  // idempotent: one prize per group
+      const points = Number(before.data()!.points) || 0;
+      const prize = typeof action.prize === 'string' ? action.prize.replace(/\s+/g, ' ').trim().slice(0, 40) : '';
+      const rank = await rankOf(codeId, points);
+      const award: TheCodeAward = { at: Date.now(), staffId: member.id, staffName: staffDisplayName(member), points };
+      if (rank) award.rank = rank;
+      if (prize) award.prize = prize;
+      await ref.update({ award });
+      await writeStaffLog(codeId, member, { action: 'award', ...logged, detail: prize || String(points) });
+      const after = await ref.get();
+      return { ...base, player: view(after.id, after.data()!) };
+    }
+    case 'undoAward': {
+      const award = readAward(before.data());
+      if (!award) return { ...base, player: view(before.id, before.data()!) };
+      await ref.update({ award: FieldValue.delete() });
+      await writeStaffLog(codeId, member, { action: 'undoAward', ...logged });
+      await dropAwardPhoto(award.photo);
+      const after = await ref.get();
+      return { ...base, player: view(after.id, after.data()!) };
+    }
+    case 'removeAwardPhoto': {
+      const award = readAward(before.data());
+      if (!award?.photo) return { ...base, player: view(before.id, before.data()!) };
+      await ref.update({ 'award.photo': FieldValue.delete() });
+      await writeStaffLog(codeId, member, { action: 'removeAwardPhoto', ...logged });
+      await dropAwardPhoto(award.photo);
+      const after = await ref.get();
+      return { ...base, player: view(after.id, after.data()!) };
     }
     case 'removePhoto': {
       const res = await removePlayerPhoto(codeId, action.playerId);

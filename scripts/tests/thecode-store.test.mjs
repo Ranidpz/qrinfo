@@ -41,6 +41,18 @@ function apply(base, patch) {
   return out;
 }
 const strip = (v) => apply({}, v);
+// update() only: "a.b" is a field PATH (set/merge would keep it as a literal name).
+function expand(patch) {
+  const out = {};
+  for (const [k, v] of Object.entries(patch)) {
+    const parts = String(k).split('.');
+    if (parts.length === 1) { out[k] = v; continue; }
+    let cur = out;
+    for (const part of parts.slice(0, -1)) cur = (cur[part] ||= {});
+    cur[parts[parts.length - 1]] = v;
+  }
+  return out;
+}
 function snap(path) {
   const d = docs.get(path);
   return { id: path.split('/').pop(), ref: ref(path), exists: d !== undefined, data: () => clone(d) };
@@ -58,7 +70,7 @@ function ref(path) {
         docs.set(path, cur);
       } else docs.set(path, o?.merge ? apply(docs.get(path), d) : strip(d));
     },
-    update: async (d) => { if (!docs.has(path)) throw new Error('NOT_FOUND'); docs.set(path, apply(docs.get(path), d)); },
+    update: async (d) => { if (!docs.has(path)) throw new Error('NOT_FOUND'); docs.set(path, apply(docs.get(path), expand(d))); },
     delete: async () => { docs.delete(path); },
   };
 }
@@ -68,19 +80,32 @@ function col(path, q = { where: [], order: null, limit: Infinity }) {
     for (const [f, op, v] of q.where) list = list.filter((s) => { const x = getField(s.data(), f); return op === '==' ? x === v : op === '>' ? x > v : op === '<' ? x < v : false; });
     if (q.order) list = list.filter((s) => getField(s.data(), q.order[0]) !== undefined)
       .sort((a, b) => (getField(b.data(), q.order[0]) - getField(a.data(), q.order[0])) * (q.order[1] === 'desc' ? 1 : -1));
-    return list.slice(0, q.limit);
+    list = list.slice(0, q.limit);
+    // select(): the snapshot carries only those fields, exactly as the Admin SDK does.
+    if (q.select) list = list.map((sn) => ({ ...sn, data: () => Object.fromEntries(q.select.map((f) => [f, getField(sn.data(), f)]).filter(([, v]) => v !== undefined)) }));
+    return list;
   };
   return {
     doc: (id) => ref(path + '/' + id),
     where: (f, op, v) => col(path, { ...q, where: [...q.where, [f, op, v]] }),
     orderBy: (f, dir = 'asc') => col(path, { ...q, order: [f, dir] }),
     limit: (n) => col(path, { ...q, limit: n }),
+    select: (...fields) => col(path, { ...q, select: fields }),
     get: async () => { const d = run(); return { empty: !d.length, docs: d }; },
     count: () => ({ get: async () => ({ data: () => ({ count: run().length }) }) }),
   };
 }
 const db = {
   collection: (n) => col(n),
+  batch: () => {
+    const writes = [];
+    return {
+      set: (r, d, o) => writes.push(() => r.set(d, o)),
+      update: (r, d) => writes.push(() => r.update(d)),
+      delete: (r) => writes.push(() => r.delete()),
+      commit: async () => { for (const w of writes) await w(); },
+    };
+  },
   getAll: async (...refs) => refs.filter((r) => r && r.path).map((r) => snap(r.path)),
   runTransaction: async (fn) => {
     const writes = [];
@@ -125,6 +150,7 @@ const store = await import(await urlOf('../../src/lib/thecode/store.ts', {
   './server/lobby': lobbyUrl,
   './server/presign': await urlOf('../../src/lib/thecode/server/presign.ts'),
   '@/lib/r2-storage': r2Url,
+  '@/types/thecode-api': await urlOf('../../src/types/thecode-api.ts'),
   'firebase-admin/firestore': fakeUrl,
   '@/lib/firebase-admin': fakeUrl,
   './engine': engineUrl,
@@ -725,6 +751,70 @@ test('staff actions: groups only (no secrets), recovery code on profile, rename 
   assert.deepEqual([log[3].staffName, log[3].playerName, log[3].detail], ['דנה כהן', 'משפחת לוי', 'הלויים']);
   assert.equal(log[4].playerId, pid);
   assert.equal(JSON.stringify(log).includes(code), false, 'the log never holds the code itself');
+});
+
+test('staff prize: handed once with place and time, photo never on the board, undone; reset starts a new round', async () => {
+  seedCode();
+  objects.clear();
+  await saveWithStaff(0, [member('s1', 'דנה', '0501234567')]);
+  const first = await play(undefined, { type: 'register', familyName: 'הראשונים', emoji: '🦊' });
+  const second = await play(undefined, { type: 'register', familyName: 'השניים', emoji: '🐼' });
+  const pathOf = (auth) => `codes/${CODE}/thecodePlayers/${auth.auth.playerId}`;
+  // Points without a whole run: the prize cares only about the board, not how it was earned.
+  Object.assign(docs.get(pathOf(first)), { points: 900, foundGnomeIds: ['a1'], week: { '2026-W46': { points: 900, suitcases: 1 } } });
+  Object.assign(docs.get(pathOf(second)), { points: 300, foundGnomeIds: ['b1'] });
+  const pid = second.auth.playerId;
+  const { token } = await store.openStaffSession(CODE, '+972501234567');
+  const act = (action) => store.staffAction(CODE, token, action);
+
+  const handed = await act({ type: 'award', playerId: pid, prize: '  בובת גמד  ' });
+  assert.deepEqual(
+    [handed.player.award.rank, handed.player.award.points, handed.player.award.prize, handed.player.award.staffName],
+    [2, 300, 'בובת גמד', 'דנה כהן'],
+    'the place and the points are kept as they were at the desk'
+  );
+  assert.ok(handed.player.award.at > 0);
+  assert.equal(handed.player.points, 300, 'handing a prize does not touch the board');
+
+  // One prize per group: a second tap changes nothing.
+  const again = await act({ type: 'award', playerId: pid, prize: 'עוד פרס' });
+  assert.deepEqual([again.player.award.at, again.player.award.prize], [handed.player.award.at, 'בובת גמד']);
+
+  // The photo at the desk hangs off the prize, under its own R2 folder.
+  const shot = await store.setAwardPhoto(CODE, token, pid, { bytes: WEBP, contentType: 'image/webp' });
+  assert.equal(shot.ok, true);
+  const stored = docs.get(pathOf(second)).award.photo;
+  assert.ok(stored.key.includes('/prizes/'), stored.key);
+  assert.equal(objects.size, 1);
+  assert.equal(docs.get(pathOf(second)).photo, undefined, 'it never becomes the group symbol');
+  const board = await store.leaderboard(CODE, 'all');
+  assert.equal(JSON.stringify(board).includes('prizes/'), false, 'the prize photo never reaches the board');
+  assert.equal((await act({ type: 'list' })).players.find((p) => p.id === pid).award.photoUrl, stored.url);
+  // Only a handed prize can carry a photo.
+  assert.deepEqual(await store.setAwardPhoto(CODE, token, first.auth.playerId, { bytes: WEBP, contentType: 'image/webp' }), { ok: false, error: 'badRequest' });
+
+  // Handed by mistake → the record and the photo go together.
+  const undone = await act({ type: 'undoAward', playerId: pid });
+  assert.equal(undone.player.award, undefined);
+  assert.equal(objects.size, 0, 'the photo is gone from storage');
+
+  // A new round: zero for everyone, names and codes kept, prizes cleared.
+  await act({ type: 'award', playerId: pid });
+  assert.deepEqual(await act({ type: 'resetGame', confirm: 'אפס' }), { ok: false, error: 'badRequest' }, 'the word must be typed exactly');
+  assert.ok(docs.get(pathOf(first)).points === 900, 'nothing was reset by the refused call');
+  const reset = await act({ type: 'resetGame', confirm: 'איפוס' });
+  assert.deepEqual(reset.reset, { groups: 2 });
+  for (const who of [first, second]) {
+    const d = docs.get(pathOf(who));
+    assert.deepEqual([d.points, d.foundGnomeIds, d.week, d.award, d.run], [0, [], undefined, undefined, null]);
+    assert.ok(d.recoveryCode && d.familyName, 'the group itself stays, with its code');
+  }
+  assert.deepEqual((await store.leaderboard(CODE, 'all')).rows, [], 'the board starts empty');
+  assert.deepEqual(docs.get(`codes/${CODE}/thecodeLobby/live`).events, [], 'the big screen starts clean');
+
+  const log = await store.loadStaffLog(CODE);
+  assert.deepEqual(log.map((e) => e.action), ['resetGame', 'award', 'undoAward', 'awardPhoto', 'award', 'login']);
+  assert.deepEqual([log[0].detail, log[4].detail, log[4].playerName], ['2', 'בובת גמד', 'השניים']);
 });
 
 test('staff log is bounded', async () => {

@@ -20,6 +20,11 @@ const LOG_TEXT: Record<TheCodeStaffLogEntry['action'], (e: TheCodeStaffLogEntry)
   hide: (e) => `הסתיר את "${e.playerName}" מהלוח`,
   show: (e) => `החזיר את "${e.playerName}" ללוח`,
   removePhoto: (e) => `הסיר את התמונה של "${e.playerName}"`,
+  award: (e) => `מסר פרס ל"${e.playerName}"${e.detail ? ` — ${e.detail}` : ''}`,
+  undoAward: (e) => `ביטל את מסירת הפרס ל"${e.playerName}"`,
+  awardPhoto: (e) => `צילם את "${e.playerName}" עם הפרס`,
+  removeAwardPhoto: (e) => `הסיר את תמונת הפרס של "${e.playerName}"`,
+  resetGame: (e) => `איפס את המשחק והתחיל סבב חדש (${e.detail || '0'} קבוצות)`,
 };
 
 const when = (at: number) => new Date(at).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
