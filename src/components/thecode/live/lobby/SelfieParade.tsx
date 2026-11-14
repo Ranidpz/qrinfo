@@ -97,6 +97,9 @@ function trackPoint(s: number, t: Track): { x: number; y: number } {
 // ------------------------------------------------ the walk
 
 interface Walker { s: number; v: number; waitUntil: number; bumpAt: number; retuneAt: number; walking: boolean }
+/** Longest a walker stays held under the mouse (safety against a missed mouseleave). */
+const HOVER_MAX_MS = 20000;
+
 const rand = (lo: number, hi: number) => lo + Math.random() * (hi - lo);
 /** The leader strolls; the ones behind walk a little faster, so the queue keeps catching up and bumping. */
 const paceOf = (slot: number, base: number) => base * (slot === 0 ? rand(0.65, 0.95) : rand(0.85, 1.35));
@@ -106,6 +109,11 @@ export default function SelfieParade({ walkers, hidden }: { walkers: ParadeWalke
   const trackRef = useRef<Track | null>(null);
   const slots = useRef<Walker[]>([]);
   const els = useRef<(HTMLDivElement | null)[]>([]);
+  // Mouse over a walker (Rani 14.11.2026): it stops where it is and grows a little, so a face
+  // can be looked at. Kept in refs — the rAF loop reads them, React never re-renders per frame.
+  const hover = useRef<number | null>(null);
+  const hoverAt = useRef(0);
+  const hoverK = useRef<number[]>([]);
   const n = walkers.length;
 
   // Measure the free band now, on resize, and every few seconds (a logo may load late).
@@ -147,7 +155,12 @@ export default function SelfieParade({ walkers, hidden }: { walkers: ParadeWalke
         const { x, y } = trackPoint(wk.s, t);
         const since = now - wk.bumpAt;
         const k = since < 420 ? 1 + 0.09 * Math.sin((since / 420) * Math.PI) : 1;
-        el.style.transform = `translate3d(${(x - t.d / 2).toFixed(1)}px, ${(y - t.d / 2).toFixed(1)}px, 0) scale(${k.toFixed(3)})`;
+        // ease toward the hover size instead of snapping (the loop writes transform every frame)
+        const want = hover.current === i ? 1.18 : 1;
+        const hk = (hoverK.current[i] ?? 1) + (want - (hoverK.current[i] ?? 1)) * 0.18;
+        hoverK.current[i] = hk;
+        el.style.zIndex = hk > 1.01 ? '5' : '';
+        el.style.transform = `translate3d(${(x - t.d / 2).toFixed(1)}px, ${(y - t.d / 2).toFixed(1)}px, 0) scale(${(k * hk).toFixed(3)})`;
         const walking = String(wk.walking);
         if (el.dataset.walk !== walking) el.dataset.walk = walking;
       }
@@ -169,6 +182,10 @@ export default function SelfieParade({ walkers, hidden }: { walkers: ParadeWalke
       for (let i = 0; i < n; i++) {
         const me = q[i];
         if (now > me.retuneAt) { me.v = paceOf(i, base); me.retuneAt = now + rand(6000, 14000); }
+        // held by the mouse — but never for ever: a missed mouseleave (the pane loses focus, the
+        // page reflows under the cursor) would jam the whole queue behind it.
+        if (hover.current === i && now - hoverAt.current < HOVER_MAX_MS) { me.walking = false; continue; }
+        if (hover.current === i) hover.current = null;
         if (now >= me.waitUntil && Math.random() < dt * 0.03) me.waitUntil = now + rand(900, 2000); // stops to look around
         if (now < me.waitUntil) { me.walking = false; continue; }
         let target = me.s + me.v * dt;
@@ -198,11 +215,15 @@ export default function SelfieParade({ walkers, hidden }: { walkers: ParadeWalke
   if (hidden || !n || !track) return null;
   const size = `${track.d.toFixed(1)}px`;
   return (
-    <div aria-hidden className="tcl-parade pointer-events-none fixed inset-0 overflow-hidden">
+    <div aria-hidden className="tcl-parade pointer-events-none fixed inset-0 overflow-hidden"
+      onMouseLeave={() => { hover.current = null; }}>
       <style>{PARADE_STYLE}</style>
       {walkers.map((t, i) => (
         // the SLOT is the place in the queue; when the ranking changes its photo cross-fades
-        <div key={`slot-${i}`} ref={(el) => { els.current[i] = el; }} className="tcl-walker absolute left-0 top-0" data-walk="true"
+        <div key={`slot-${i}`} ref={(el) => { els.current[i] = el; }} className="tcl-walker pointer-events-auto absolute left-0 top-0" data-walk="true"
+          onMouseEnter={() => { hover.current = i; hoverAt.current = performance.now(); }}
+          onMouseMove={() => { if (hover.current === i) hoverAt.current = performance.now(); }}
+          onMouseLeave={() => { if (hover.current === i) hover.current = null; }}
           style={{ width: size, height: size, transform: 'translate3d(-400px,-400px,0)', ['--d' as string]: size }}>
           <div className="tcl-walker-body h-full w-full">
             <div key={t.id} className="tcl-walker-face h-full w-full">

@@ -188,30 +188,93 @@ const EXPLAIN_STEPS = [
  * All frames are 1672x941 with the right side empty, so the board stays readable. Only opacity
  * and transform animate. prefers-reduced-motion -> the first pose, still.
  */
-const MERLUSH_POSES = [
-  '/thecode/lobby/merlush-v2.webp',
-  '/thecode/lobby/merlush-pose-2.webp',
-  '/thecode/lobby/merlush-pose-3.webp',
+// `shift` nudges a pose sideways (% of the screen) with a touch of zoom to cover the gap:
+// the third pose stands in the middle of its frame and would sit under the board (Rani 14.11.2026).
+const MERLUSH_POSES: { src: string; shift?: number }[] = [
+  { src: '/thecode/lobby/merlush-v2.webp' },
+  { src: '/thecode/lobby/merlush-pose-2.webp' },
+  { src: '/thecode/lobby/merlush-pose-3.webp', shift: -8 },
 ];
 const POSE_HOLD_MS = 9000;
 const POSE_FADE_MS = 1800;
 
 function MerlushPoses({ onError }: { onError(): void }) {
-  const [i, setI] = useState(0);
+  // The NEW pose fades in ON TOP of the one before it, which stays fully opaque until the fade
+  // ends — two images fading at once would dip to a dark screen mid-change.
+  const [cur, setCur] = useState({ i: 0, prev: -1 });
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const t = setInterval(() => setI((p) => (p + 1) % MERLUSH_POSES.length), POSE_HOLD_MS + POSE_FADE_MS);
+    const t = setInterval(() => setCur((c) => ({ i: (c.i + 1) % MERLUSH_POSES.length, prev: c.i })), POSE_HOLD_MS + POSE_FADE_MS);
     return () => clearInterval(t);
   }, []);
+  useEffect(() => {
+    if (cur.prev < 0) return;                       // hidden behind the new one by now: drop it
+    const t = setTimeout(() => setCur((c) => ({ ...c, prev: -1 })), POSE_FADE_MS + 80);
+    return () => clearTimeout(t);
+  }, [cur]);
   return (
     <>
-      {MERLUSH_POSES.map((src, n) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img key={src} src={src} alt="" decoding="async" onError={n === 0 ? onError : undefined}
-          className={`${n % 2 ? 'tcl-zoom-b' : 'tcl-zoom'} absolute inset-0 h-full w-full object-cover object-left`}
-          style={{ opacity: n === i ? 1 : 0, transition: `opacity ${POSE_FADE_MS}ms ease-in-out` }} />
+      {MERLUSH_POSES.map((pose, n) => (
+        <span key={pose.src} className="absolute inset-0 block overflow-hidden"
+          style={{
+            opacity: n === cur.i || n === cur.prev ? 1 : 0,
+            zIndex: n === cur.i ? 2 : n === cur.prev ? 1 : 0,
+            transition: n === cur.i ? `opacity ${POSE_FADE_MS}ms ease-in-out` : 'none',
+          }}>
+          <span className="absolute inset-0 block"
+            style={pose.shift ? { transform: `translateX(${pose.shift}%) scale(1.18)` } : undefined}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={pose.src} alt="" decoding="async" onError={n === 0 ? onError : undefined}
+              className={`${n % 2 ? 'tcl-zoom-b' : 'tcl-zoom'} absolute inset-0 h-full w-full object-cover object-left`} />
+          </span>
+        </span>
       ))}
     </>
+  );
+}
+
+/**
+ * Grumphy peeks in from the left edge every minute or so and ducks back out (Rani 14.11.2026).
+ * He sits between the venue logo and the gnome with the QR, BEHIND everything else on the
+ * screen, so he never covers the board, the title or a banner. Only transform animates.
+ * prefers-reduced-motion -> he never comes in.
+ */
+const PEEK_EVERY_MS = [45000, 80000] as const;
+const PEEK_IN_MS = 900;
+const PEEK_STAY_MS = 2400;
+const PEEK_OUT_MS = 700;
+
+function LeftPeeker({ hidden }: { hidden?: boolean }) {
+  const [state, setState] = useState<'out' | 'in'>('out');
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (hidden || failed) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    let show = 0;
+    let hide = 0;
+    const plan = () => {
+      const wait = PEEK_EVERY_MS[0] + Math.random() * (PEEK_EVERY_MS[1] - PEEK_EVERY_MS[0]);
+      show = window.setTimeout(() => {
+        setState('in');
+        hide = window.setTimeout(() => { setState('out'); plan(); }, PEEK_IN_MS + PEEK_STAY_MS);
+      }, wait);
+    };
+    plan();
+    return () => { clearTimeout(show); clearTimeout(hide); setState('out'); };
+  }, [hidden, failed]);
+  if (hidden || failed) return null;
+  return (
+    <div aria-hidden className="pointer-events-none absolute left-0 overflow-hidden"
+      style={{ top: '19vh', height: '24vh', width: '20vh' }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/thecode/lobby/grumphy-peek.webp" alt="" decoding="async" onError={() => setFailed(true)}
+        className="h-full w-full object-contain object-left"
+        style={{
+          transform: state === 'in' ? 'translateX(0)' : 'translateX(-104%)',
+          transition: `transform ${state === 'in' ? PEEK_IN_MS : PEEK_OUT_MS}ms ${state === 'in' ? 'cubic-bezier(.2,1.5,.5,1)' : 'ease-in'}`,
+          filter: 'drop-shadow(0 1vh 2vh rgba(0,0,0,.45))',
+        }} />
+    </div>
   );
 }
 
@@ -450,6 +513,7 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
           <style>{THECODE_STYLE}</style>
           <style>{BURST_STYLE}</style>
           <BackgroundLoop url={loopUrl} kind={phase === 'after' ? 'after' : 'idle'} placeholderLabel={placeholderLabels} />
+          <LeftPeeker hidden={phase === 'explain'} />
           {/* the selfie parade walks BEHIND the title, the board and the QR card (it comes first) */}
           <SelfieParade walkers={parade} hidden={phase === 'explain'} />
           {banner?.m.kind === 'suitcase' && <GnomeConfetti position="fixed" burstKey={`b-${banner.key}`} count={170} origin={{ x: '50%', y: '55%' }} />}
