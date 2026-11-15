@@ -1,8 +1,9 @@
 'use client';
 
 // קוד הגמדים — the venue's big screen (TV, also inside the TVzone Android player). No controls.
-// - Board: GET /api/thecode/leaderboard (this week, top 10), polled; climbs and +points are
-//   worked out by comparing two boards (LobbyStage).
+// - Board: GET /api/thecode/leaderboard?scope=screen (top 10), polled; the period is the
+//   operator's (this week by default, last week's board while this week is still empty, or
+//   all time). Climbs and +points are worked out by comparing two boards (LobbyStage).
 // - Live: the PUBLIC doc codes/{codeId}/thecodeLobby/live (onSnapshot, client SDK): videos,
 //   live-moment events, and `lobbyScans` — a bump while idle/after starts the "how to play"
 //   scene; bumps while it runs only count. Rules deny the read → the screen still shows the
@@ -15,13 +16,20 @@ import { db } from '@/lib/firebase';
 import { theCodeFont } from '@/components/thecode/live/font';
 import { fetchLeaderboard } from '@/components/thecode/live/api';
 import LobbyStage, { LOBBY_ROWS, useLobbyStage, type LobbyMoment } from '@/components/thecode/live/lobby/LobbyStage';
-import type { TheCodeLobbyEvent, TheCodeLobbyLive } from '@/types/thecode-api';
+import type { TheCodeBoardPeriod, TheCodeLobbyEvent, TheCodeLobbyLive } from '@/types/thecode-api';
 
 const POLL_MS = 15000;
 /** Groups the board keeps (the table shows LOBBY_ROWS of them; the parade may walk any). */
 const PARADE_POOL = 40;
 /** An event older than this when the screen first sees it is not replayed as a banner. */
 const STALE_EVENT_MS = 60_000;
+
+/** The board's own title — the screen must never claim a period it is not showing. */
+const BOARD_TITLE: Record<TheCodeBoardPeriod, string> = {
+  week: 'הטבלה של השבוע',
+  lastWeek: 'הטבלה של שבוע שעבר',
+  all: 'הטבלה של כל הזמנים',
+};
 
 const momentOf = (e: TheCodeLobbyEvent): LobbyMoment => ({
   kind: e.kind === 'joined' ? 'join' : e.kind,
@@ -36,6 +44,7 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
   // Absent in the live doc (an adventure saved before this) = selfies on, as everywhere else.
   const [selfies, setSelfies] = useState(true);
   const [qrUrl, setQrUrl] = useState('');
+  const [board, setBoardPeriod] = useState<TheCodeBoardPeriod>('week');
   const seenEvents = useRef<Set<string> | null>(null);
   const lastScans = useRef<number | null>(null);
 
@@ -48,8 +57,9 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
     if (!codeId) return;
     let alive = true;
     const load = () => {
-      void fetchLeaderboard(codeId, 'week').then((b) => {
+      void fetchLeaderboard(codeId, 'screen').then((b) => {
         if (!alive || !b) return;
+        setBoardPeriod(b.board || b.scope);
         // More rows than the table shows: the parade walks the top 10 groups WITH a selfie,
         // which can include groups below the table's top 10.
         setBoard(b.rows.slice(0, PARADE_POOL).map((r) => ({
@@ -105,7 +115,7 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
 
   return (
     <div className={theCodeFont.variable}>
-      <LobbyStage stage={stage} gameName={title} logoUrl={logoUrl} subtitle="הטבלה של השבוע" qrUrl={qrUrl}
+      <LobbyStage stage={stage} gameName={title} logoUrl={logoUrl} subtitle={BOARD_TITLE[board]} qrUrl={qrUrl}
         videos={{ idle: videos?.idle, explain: videos?.explain, after: videos?.after }}
         inviteParade={selfies} />
     </div>

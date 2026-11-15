@@ -265,13 +265,18 @@ function LeftPeeker({ hidden }: { hidden?: boolean }) {
   if (hidden || failed) return null;
   return (
     <div aria-hidden className="pointer-events-none absolute left-0 overflow-hidden"
-      style={{ top: '19vh', height: '24vh', width: '20vh' }}>
+      style={{
+        top: '19vh', height: '24vh', width: '20vh',
+        transform: state === 'in' ? 'translateX(0)' : 'translateX(-104%)',
+        transition: `transform ${state === 'in' ? PEEK_IN_MS : PEEK_OUT_MS}ms ${state === 'in' ? 'cubic-bezier(.2,1.5,.5,1)' : 'ease-in'}`,
+      }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/thecode/lobby/grumphy-peek.webp" alt="" decoding="async" onError={() => setFailed(true)}
-        className="h-full w-full object-contain object-left"
+        className="h-full w-full object-contain object-right"
         style={{
-          transform: state === 'in' ? 'translateX(0)' : 'translateX(-104%)',
-          transition: `transform ${state === 'in' ? PEEK_IN_MS : PEEK_OUT_MS}ms ${state === 'in' ? 'cubic-bezier(.2,1.5,.5,1)' : 'ease-in'}`,
+          // The drawing itself ends mid-net on its right edge. Mirrored, that cut edge sits on the
+          // screen's own left edge (where he is behind the wall anyway) and his gaze turns inward.
+          transform: 'scaleX(-1)',
           filter: 'drop-shadow(0 1vh 2vh rgba(0,0,0,.45))',
         }} />
     </div>

@@ -37,6 +37,11 @@ export function weekKey(now: number, timeZone: string = DEFAULT_WEEK_TIME_ZONE):
   return `${year}-W${String(week).padStart(2, '0')}`;
 }
 
+/** The key of the week BEFORE the one that contains `now` (weeks are exactly 7 days). */
+export function prevWeekKey(now: number, timeZone: string = DEFAULT_WEEK_TIME_ZONE): string {
+  return weekKey(now - 7 * DAY, timeZone);
+}
+
 export interface TheCodeWeekEntry {
   points: number;
   suitcases: number;

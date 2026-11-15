@@ -13,6 +13,7 @@ import type {
   TheCodeConfig,
   TheCodeGnome,
   TheCodeIssue,
+  TheCodeLobbySettings,
   TheCodePhrase,
   TheCodeRiddle,
   TheCodeRules,
@@ -95,6 +96,8 @@ export interface AdminActions {
   updateBranding(patch: Partial<TheCodeBranding>): void;
   /** One big-screen video slot; merges into the CURRENT videos (parallel uploads). */
   updateLobbyVideo(slot: Exclude<LobbySlot, 'opening'>, url: string | undefined): void;
+  /** What the big screen's board counts; merges into the CURRENT lobby settings. */
+  updateLobbyBoard(patch: Pick<TheCodeLobbySettings, 'board' | 'boardFallback'>): void;
 
   addSpot(): string;
   updateSpot(id: string, patch: Partial<Omit<TheCodeSpot, 'id'>>): void;

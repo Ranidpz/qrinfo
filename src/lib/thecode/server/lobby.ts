@@ -6,7 +6,7 @@
  * phrases, phones, recovery codes or ids of anything secret.
  */
 
-import type { TheCodeConfig, TheCodeLobbySettings, TheCodePlayer, TheCodeSelfieSettings } from '@/types/thecode';
+import type { TheCodeBoardRange, TheCodeConfig, TheCodeLobbySettings, TheCodePlayer, TheCodeSelfieSettings } from '@/types/thecode';
 import type { TheCodeLobbyEvent } from '@/types/thecode-api';
 import { selfieExpired } from '../selfie';
 
@@ -102,14 +102,31 @@ export function isAllowedLobbyVideoUrl(url: unknown, videoBase: string | null | 
 
 export function normalizeLobby(v: unknown, videoBase: string | null | undefined): TheCodeLobbySettings | undefined {
   if (!v || typeof v !== 'object') return undefined;
-  const raw = (v as { videos?: unknown }).videos;
-  if (!raw || typeof raw !== 'object') return undefined;
-  const videos: NonNullable<TheCodeLobbySettings['videos']> = {};
-  for (const slot of LOBBY_VIDEO_SLOTS) {
-    const url = (raw as Record<string, unknown>)[slot];
-    if (isAllowedLobbyVideoUrl(url, videoBase)) videos[slot] = url;
+  const o = v as { videos?: unknown; board?: unknown; boardFallback?: unknown };
+  const out: TheCodeLobbySettings = {};
+  if (o.videos && typeof o.videos === 'object') {
+    const videos: NonNullable<TheCodeLobbySettings['videos']> = {};
+    for (const slot of LOBBY_VIDEO_SLOTS) {
+      const url = (o.videos as Record<string, unknown>)[slot];
+      if (isAllowedLobbyVideoUrl(url, videoBase)) videos[slot] = url;
+    }
+    if (Object.keys(videos).length) out.videos = videos;
   }
-  return Object.keys(videos).length ? { videos } : undefined;
+  if (o.board === 'all' || o.board === 'week') out.board = o.board;
+  if (typeof o.boardFallback === 'boolean') out.boardFallback = o.boardFallback;
+  return Object.keys(out).length ? out : undefined;
+}
+
+/**
+ * What the big screen's board should show. Absent settings = this week, falling back to
+ * last week while nobody has scored yet (Rani 15.11.2026: a screen in a hotel lobby must
+ * never greet arriving guests with an empty table).
+ */
+export function resolveBoard(lobby: TheCodeLobbySettings | undefined | null): { range: TheCodeBoardRange; fallback: boolean } {
+  return {
+    range: lobby?.board === 'all' ? 'all' : 'week',
+    fallback: lobby?.boardFallback !== false,
+  };
 }
 
 /** What the live doc mirrors from the adventure. */

@@ -143,6 +143,7 @@ const howToPlayUrl = await urlOf('../../src/lib/thecode/howToPlay.ts');
 const selfieUrl = await urlOf('../../src/lib/thecode/selfie.ts');
 const lobbyUrl = await urlOf('../../src/lib/thecode/server/lobby.ts', { '../selfie': selfieUrl });
 const staffUrl = await urlOf('../../src/lib/thecode/server/staff.ts', { '@/lib/phone-utils': await urlOf('../../src/lib/phone-utils.ts') });
+const weekUrl = await urlOf('../../src/lib/thecode/server/week.ts');
 const dep = { '../engine': engineUrl, '../letters': lettersUrl, '../howToPlay': howToPlayUrl, '../selfie': selfieUrl, './lobby': lobbyUrl, './staff': staffUrl };
 const store = await import(await urlOf('../../src/lib/thecode/store.ts', {
   './howToPlay': howToPlayUrl,
@@ -160,11 +161,12 @@ const store = await import(await urlOf('../../src/lib/thecode/store.ts', {
   './server/rate': await urlOf('../../src/lib/thecode/server/rate.ts'),
   './server/staff': staffUrl,
   './server/snapshot': await urlOf('../../src/lib/thecode/server/snapshot.ts', dep),
-  './server/week': await urlOf('../../src/lib/thecode/server/week.ts'),
+  './server/week': weekUrl,
 }));
 const { __docs: docs } = await import(fakeUrl);
 const { __objects: objects, __r2: r2 } = await import(r2Url);
 const L = await import(lettersUrl);
+const W = await import(weekUrl);
 
 // ------------------------------------------------------------------ fixture
 const CODE = 'codeAAAAAAAAAAAAAAAA';
@@ -828,4 +830,49 @@ test('staff log is bounded', async () => {
   assert.equal(entries.length, 300);
   assert.equal(entries.at(-1).action, 'viewCode');
   assert.equal(entries[0].at, 2, 'the oldest line fell off');
+});
+
+// ------------------------------------------------------------------ the big screen's board
+test('big screen board: the operator picks the period, and an empty week shows last week', async () => {
+  seedCode();
+  await save(0);
+  const reg = await play(undefined, { type: 'register', familyName: 'כהן', emoji: '🦊' });
+  const player = docs.get(`codes/${CODE}/thecodePlayers/${reg.auth.playerId}`);
+  const now = Date.now();
+  const thisWeek = W.weekKey(now, W.DEFAULT_WEEK_TIME_ZONE);
+  const lastWeek = W.prevWeekKey(now, W.DEFAULT_WEEK_TIME_ZONE);
+  assert.notEqual(thisWeek, lastWeek);
+  // Scored last week, nothing yet this week — exactly a Sunday morning in a hotel.
+  player.points = 500;
+  player.week = { [lastWeek]: { points: 400, suitcases: 1 } };
+
+  // The player's own screen is unchanged: an empty week stays empty.
+  assert.deepEqual((await store.leaderboard(CODE, 'week')).rows, []);
+  // The big screen falls back, and says which week it is showing.
+  const fell = await store.leaderboard(CODE, 'screen');
+  assert.equal(fell.board, 'lastWeek');
+  assert.equal(fell.scope, 'week');
+  assert.deepEqual(fell.rows.map((r) => [r.familyName, r.points, r.suitcases]), [['כהן', 400, 1]]);
+
+  // Operator turns the fallback off → the empty week is shown as it is.
+  const off = adventure();
+  off.config.lobby = { boardFallback: false };
+  assert.equal((await save(1, off)).ok, true);
+  const empty = await store.leaderboard(CODE, 'screen');
+  assert.deepEqual([empty.board, empty.rows.length], ['week', 0]);
+
+  // Operator asks for all time → everything since the last reset, no week involved.
+  const all = adventure();
+  all.config.lobby = { board: 'all' };
+  assert.equal((await save(2, all)).ok, true);
+  const allBoard = await store.leaderboard(CODE, 'screen');
+  assert.deepEqual([allBoard.board, allBoard.scope, allBoard.rows[0].points], ['all', 'all', 500]);
+  // Videos and the board live side by side in one settings object.
+  assert.deepEqual(docs.get(`codes/${CODE}/thecode/adventure`).config.lobby, { board: 'all' });
+
+  // Back to the default, and a group scores this week → the fallback steps aside.
+  assert.equal((await save(3, adventure())).ok, true);
+  player.week[thisWeek] = { points: 120, suitcases: 0 };
+  const live = await store.leaderboard(CODE, 'screen');
+  assert.deepEqual([live.board, live.rows[0].points], ['week', 120]);
 });

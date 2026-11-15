@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import { Camera, CircleAlert, ExternalLink, Film, Loader2, MonitorPlay, RefreshCw, Trash2, Volume2 } from 'lucide-react';
+import { Camera, CircleAlert, ExternalLink, Film, Loader2, MonitorPlay, RefreshCw, Trash2, Trophy, Volume2 } from 'lucide-react';
 import { SELFIE_LIMITS, resolveSelfie } from '@/lib/thecode/selfie';
+import { resolveBoard } from '@/lib/thecode/server/lobby';
 import type { LobbySlot, ScreenProps } from './model';
-import { Card, NumberInput, Toggle, cx } from './ui';
+import { Card, NumberInput, Segmented, Toggle, ToggleRow, cx } from './ui';
 
 // קוד הגמדים admin — wave 3 settings: group selfies + the big screen's three videos.
 
@@ -92,7 +93,49 @@ export function BigScreenCard({ state, actions, uploadVideo, links }: Pick<Scree
         ))}
       </div>
       <p className="mt-3 text-sm text-text-secondary">MP4 או WebM, עד 100MB לכל סרטון. כדאי סרטונים קצרים.</p>
+      <BoardRange state={state} actions={actions} />
     </Card>
+  );
+}
+
+/**
+ * "מה הטבלה מציגה" (Rani 15.11.2026): a hotel screen must not greet arriving guests with an
+ * empty table, so a week nobody has scored in yet falls back to last week's board. A real
+ * "from date to date" is not possible — points are kept per WEEK, not per day.
+ */
+function BoardRange({ state, actions }: Pick<ScreenProps, 'state' | 'actions'>) {
+  const board = resolveBoard(state.config.lobby);
+  const set = actions.updateLobbyBoard;
+  return (
+    <div className="mt-6 border-t border-border pt-5">
+      <h3 className="flex items-center gap-2 font-semibold">
+        <Trophy size={18} className="text-accent" aria-hidden /> מה הטבלה מציגה
+      </h3>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Segmented
+          label="תקופת הטבלה"
+          value={board.range}
+          onChange={(range) => set({ board: range })}
+          options={[
+            { value: 'week' as const, label: 'השבוע' },
+            { value: 'all' as const, label: 'כל הזמנים' },
+          ]}
+        />
+        <span className="text-sm text-text-secondary">
+          {board.range === 'week'
+            ? 'שבוע מתחיל ביום ראשון בבוקר ונגמר בשבת בלילה.'
+            : 'כל הנקודות שנצברו מאז האיפוס האחרון של המשחק.'}
+        </span>
+      </div>
+      {board.range === 'week' && (
+        <ToggleRow
+          label="אם עוד אין נקודות השבוע, הציגו את שבוע שעבר"
+          hint="כך אורחים שנכנסים ביום ראשון בבוקר לא רואים מסך ריק. הכותרת על המסך משתנה בהתאם."
+          checked={board.fallback}
+          onChange={(boardFallback) => set({ boardFallback })}
+        />
+      )}
+    </div>
   );
 }
 

@@ -1,5 +1,7 @@
-// GET /api/thecode/leaderboard?codeId=…&scope=week|all&playerId=… — public board (top 20).
+// GET /api/thecode/leaderboard?codeId=…&scope=week|all|screen&playerId=… — public board (top 20).
 // Hidden and zero-point families are left out. Cached a few seconds at the edge.
+// `screen` = the big screen: the operator's own choice of period, and last week's board while
+// this week is still empty (so a lobby TV is never a blank table).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
@@ -12,7 +14,8 @@ export async function GET(request: NextRequest) {
   if (!rl.success) return NextResponse.json({ ok: false, error: 'rateLimited' }, { status: 429 });
   const q = request.nextUrl.searchParams;
   const codeId = q.get('codeId');
-  const scope = q.get('scope') === 'all' ? 'all' : 'week';
+  const raw = q.get('scope');
+  const scope = raw === 'all' ? 'all' : raw === 'screen' ? 'screen' : 'week';
   if (!isValidCodeId(codeId)) return NextResponse.json({ ok: false, error: 'badRequest' }, { status: 400 });
   try {
     const res = await leaderboard(codeId, scope, q.get('playerId') || undefined);

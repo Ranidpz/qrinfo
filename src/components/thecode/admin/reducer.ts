@@ -58,6 +58,7 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
         if (!lobby.videos) delete lobby.videos;
         return { ...c, lobby: Object.keys(lobby).length ? lobby : undefined };
       }),
+    updateLobbyBoard: (patch) => cfg((c) => ({ ...c, lobby: { ...c.lobby, ...patch } })),
     updateBranding: (patch) =>
       cfg((c) => {
         const next: TheCodeBranding = { ...c.branding, ...patch };

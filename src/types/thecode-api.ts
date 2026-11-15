@@ -269,9 +269,14 @@ export interface TheCodeLobbyScanRequest { codeId: string }
  */
 export interface TheCodePhotoResponse { ok: true; photoUrl: string | null }
 
+/** Which period the board on screen ended up showing. */
+export type TheCodeBoardPeriod = 'week' | 'lastWeek' | 'all';
+
 export interface TheCodeLeaderboardResponse {
   ok: true;
   scope: 'week' | 'all';
+  /** Absent on older answers = same as `scope`. 'lastWeek' = this week is still empty. */
+  board?: TheCodeBoardPeriod;
   title: string;
   rows: TheCodeLeaderRow[];                       // top 20
   /** The asking family's own place when it is outside the top rows. */

@@ -54,7 +54,7 @@ export const fetchPlayTransport: TheCodePlayTransport = async (req) => {
 
 export async function fetchLeaderboard(
   codeId: string,
-  scope: 'week' | 'all',
+  scope: 'week' | 'all' | 'screen',
   playerId?: string,
 ): Promise<TheCodeLeaderboardResponse | null> {
   const q = new URLSearchParams({ codeId, scope });

@@ -161,8 +161,16 @@ export interface TheCodeSelfieSettings {
  * `explain` ONCE (further scans while it runs never restart it), then "צאו לדרך!", then
  * `after` loops until the next scan. Any slot may be empty → the drawn placeholder scene.
  */
+/** What the big screen's board counts. Absent = 'week'. */
+export type TheCodeBoardRange = 'week' | 'all';
+
 export interface TheCodeLobbySettings {
   videos?: { idle?: string; explain?: string; after?: string };
+  /** 'week' = Sunday → Saturday in the venue's time zone; 'all' = since the last reset. */
+  board?: TheCodeBoardRange;
+  /** With 'week': when no group has scored yet this week, show LAST week's board instead,
+   *  so guests never walk in on an empty screen. Absent = true. */
+  boardFallback?: boolean;
 }
 
 /**

@@ -26,12 +26,13 @@ import {
 } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { deleteR2ObjectByKey, getR2Config, getR2PublicUrl, uploadBufferToR2 } from '@/lib/r2-storage';
-import type { TheCodeAdminPlayer, TheCodeAward, TheCodeConfig, TheCodeGnomeStats, TheCodePlayer, TheCodeRiddle, TheCodeRiddleStats, TheCodeStaffMember } from '@/types/thecode';
+import type { TheCodeAdminPlayer, TheCodeAward, TheCodeConfig, TheCodeGnomeStats, TheCodeLobbySettings, TheCodePlayer, TheCodeRiddle, TheCodeRiddleStats, TheCodeStaffMember } from '@/types/thecode';
 import type {
   TheCodeAdminLoadResponse,
   TheCodeAdminSaveResponse,
   TheCodeAuth,
   TheCodeGnomeLookupResponse,
+  TheCodeBoardPeriod,
   TheCodeLeaderboardResponse,
   TheCodeLeaderRow,
   TheCodeLobbyEvent,
@@ -75,12 +76,13 @@ import {
   videoUploadMaxBytes,
   lobbyEventFor,
   lobbyVideosOf,
+  resolveBoard,
   stripPhotoFromEvents,
   visiblePhotoUrl,
 } from './server/lobby';
 import { presignUrl } from './server/presign';
 import { STAFF_SESSIONS_PER_MEMBER, STAFF_SESSION_MS, appendStaffLog, readStaffLog, sessionAlive, staffById, staffByPhone, staffDisplayName } from './server/staff';
-import { addWeekDelta, DEFAULT_WEEK_TIME_ZONE, weekKey, type TheCodeWeeks } from './server/week';
+import { addWeekDelta, DEFAULT_WEEK_TIME_ZONE, prevWeekKey, weekKey, type TheCodeWeeks } from './server/week';
 
 /** Venue zone for active hours + weekly boards (one venue = one zone for now). */
 export const THECODE_TIME_ZONE = DEFAULT_WEEK_TIME_ZONE;
@@ -519,44 +521,65 @@ function weekField(key: string, field: 'points' | 'suitcases') {
   return new FieldPath('week', key, field);
 }
 
+/**
+ * The public board. `scope`:
+ *   'week' / 'all' — what the player's own screen asked for;
+ *   'screen'       — what the OPERATOR chose for the big screen (`config.lobby`), and, with a
+ *                    week that nobody has scored in yet, last week's board instead of an empty
+ *                    one. The answer says which period it ended up showing (`board`).
+ */
 export async function leaderboard(
   codeId: string,
-  scope: 'week' | 'all',
+  scope: 'week' | 'all' | 'screen',
   playerId?: string
 ): Promise<TheCodeLeaderboardResponse | null> {
   const codeSnap = await codeRef(codeId).get();
   if (!codeSnap.exists) return null;
   const media = ((codeSnap.data()?.media || []) as { type?: string; thecodeConfig?: { title?: string } }[]).find((m) => m.type === 'thecode');
   if (!media) return null;
-  const key = weekKey(Date.now(), THECODE_TIME_ZONE);
-  const pointsOf = (d: DocumentData) => (scope === 'week' ? Number(d.week?.[key]?.points) || 0 : Number(d.points) || 0);
-  const suitcasesOf = (d: DocumentData) => (scope === 'week' ? Number(d.week?.[key]?.suitcases) || 0 : Number(d.suitcasesOpened) || 0);
-
-  const order = scope === 'week' ? weekField(key, 'points') : 'points';
-  const [selfieSnap] = await db().getAll(adventureRef(codeId), { fieldMask: ['config.selfie'] });
-  const selfie = resolveSelfie({ selfie: selfieSnap.data()?.config?.selfie });
+  const [advSnap] = await db().getAll(adventureRef(codeId), { fieldMask: ['config.selfie', 'config.lobby'] });
+  const advConfig = advSnap.data()?.config || {};
+  const selfie = resolveSelfie({ selfie: advConfig.selfie });
+  const screen = resolveBoard(advConfig.lobby as TheCodeLobbySettings | undefined);
+  const effective: 'week' | 'all' = scope === 'screen' ? screen.range : scope;
   const now = Date.now();
-  // Hidden / zero-point families are skipped, so read a few more than shown.
-  const snap = await playersCol(codeId).orderBy(order, 'desc').limit(LEADER_ROWS * 3).get();
-  const rows: TheCodeLeaderRow[] = [];
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    const points = pointsOf(d);
-    if (d.hidden || points <= 0) continue;
-    const row: TheCodeLeaderRow = { id: doc.id, familyName: String(d.familyName || ''), emoji: String(d.emoji || ''), points, suitcases: suitcasesOf(d), gnomesFound: Array.isArray(d.foundGnomeIds) ? d.foundGnomeIds.length : 0 };
-    const photoUrl = visiblePhotoUrl(d as TheCodePlayer, selfie, now);
-    if (photoUrl) row.photoUrl = photoUrl;
-    rows.push(row);
-    if (rows.length >= LEADER_ROWS) break;
+
+  const readRows = async (key: string | null): Promise<TheCodeLeaderRow[]> => {
+    const pointsOf = (d: DocumentData) => (key ? Number(d.week?.[key]?.points) || 0 : Number(d.points) || 0);
+    const suitcasesOf = (d: DocumentData) => (key ? Number(d.week?.[key]?.suitcases) || 0 : Number(d.suitcasesOpened) || 0);
+    // Hidden / zero-point families are skipped, so read a few more than shown.
+    const snap = await playersCol(codeId).orderBy(key ? weekField(key, 'points') : 'points', 'desc').limit(LEADER_ROWS * 3).get();
+    const out: TheCodeLeaderRow[] = [];
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      const points = pointsOf(d);
+      if (d.hidden || points <= 0) continue;
+      const row: TheCodeLeaderRow = { id: doc.id, familyName: String(d.familyName || ''), emoji: String(d.emoji || ''), points, suitcases: suitcasesOf(d), gnomesFound: Array.isArray(d.foundGnomeIds) ? d.foundGnomeIds.length : 0 };
+      const photoUrl = visiblePhotoUrl(d as TheCodePlayer, selfie, now);
+      if (photoUrl) row.photoUrl = photoUrl;
+      out.push(row);
+      if (out.length >= LEADER_ROWS) break;
+    }
+    return out;
+  };
+
+  let board: TheCodeBoardPeriod = effective === 'all' ? 'all' : 'week';
+  let key: string | null = effective === 'all' ? null : weekKey(now, THECODE_TIME_ZONE);
+  let rows = await readRows(key);
+  if (!rows.length && effective === 'week' && scope === 'screen' && screen.fallback) {
+    const last = prevWeekKey(now, THECODE_TIME_ZONE);
+    const lastRows = await readRows(last);
+    if (lastRows.length) { rows = lastRows; key = last; board = 'lastWeek'; }
   }
 
   const res: TheCodeLeaderboardResponse = {
-    ok: true, scope, title: String(media.thecodeConfig?.title || ''), rows, serverNow: Date.now(),
+    ok: true, scope: effective, board, title: String(media.thecodeConfig?.title || ''), rows, serverNow: Date.now(),
   };
   if (isValidPlayerId(playerId) && !rows.some((r) => r.id === playerId)) {
+    const order = key ? weekField(key, 'points') : 'points';
     const me = await playersCol(codeId).doc(playerId).get();
     const d = me.data();
-    const points = d ? pointsOf(d) : 0;
+    const points = d ? (key ? Number(d.week?.[key]?.points) || 0 : Number(d.points) || 0) : 0;
     if (d && !d.hidden && points > 0) {
       // Rank = families with more points + 1 (hidden families are counted too — cheap and close enough).
       const ahead = await playersCol(codeId).where(order, '>', points).count().get();
