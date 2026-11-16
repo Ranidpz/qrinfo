@@ -52,12 +52,26 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
     !g.isActive || !g.verifiedOnSite || riddleCount(g.id) === 0 || isProbablyMissing(g, gnomeStats[g.id], config.status, now) ||
     report.issues.some((i) => i.gnomeId === g.id && (i.code === 'DUPLICATE_COLORS_AT_SPOT' || i.code === 'CONFUSABLE_COLORS_AT_SPOT' || i.code === 'GNOME_COLOR_UNAVAILABLE'));
 
-  /** Same-place colour clash: an identical pair is an error, a confusable pair a warning. */
-  const flagOf = (g: TheCodeGnome): 'error' | 'warning' | null => {
+  /**
+   * Same-place colour clash: an identical pair is an error, a confusable pair a warning.
+   * Rani (live): the clash must stay VISIBLE on the gnome itself, not only while producing it —
+   * whoever runs the venue months later has to see it without opening anything.
+   */
+  const flagOf = (g: TheCodeGnome): GnomeFlag | null => {
     if (!g.isActive) return null;
     const others = config.gnomes.filter((o) => o.spotId === g.spotId && o.id !== g.id && o.isActive);
-    if (others.some((o) => comboKey(o) === comboKey(g))) return 'error';
-    if (others.some((o) => confusableColors(o, g))) return 'warning';
+    const twin = others.find((o) => comboKey(o) === comboKey(g));
+    if (twin) return {
+      tone: 'error',
+      text: `זהה לגמד ${twin.number}`,
+      tip: `גמד ${twin.number} עומד באותו מקום בדיוק באותם הצבעים, ואי אפשר להבדיל ביניהם. שנו צבע לאחד מהם.`,
+    };
+    const alike = others.find((o) => confusableColors(o, g));
+    if (alike) return {
+      tone: 'warning',
+      text: `נראה כמו גמד ${alike.number}`,
+      tip: `ההבדל מגמד ${alike.number}, שעומד באותו מקום, הוא רק אדום מול ירוק. ילדים שלא מבחינים בין שני הצבעים האלה יראו שני גמדים זהים ועלולים לסרוק את הלא נכון.`,
+    };
     return null;
   };
   const moveTo = (gnomeId: string, spotId: string) => {
@@ -251,7 +265,7 @@ function NumbersView({
   riddleCount: (id: string) => number;
   gnomeStats: Record<string, { scans: number; lastScanAt?: number } | undefined>;
   missingOf: (g: TheCodeGnome) => boolean;
-  flagOf: (g: TheCodeGnome) => 'error' | 'warning' | null;
+  flagOf: (g: TheCodeGnome) => GnomeFlag | null;
   now: number;
   onOpen: (id: string) => void;
   onToggle: (id: string, v: boolean) => void;
@@ -277,6 +291,15 @@ function NumbersView({
   );
 }
 
+/** A same-place colour clash, shown on the gnome card and kept there for whoever runs the venue. */
+export interface GnomeFlag {
+  tone: 'error' | 'warning';
+  /** Short label for the pill — carries the clashing gnome's number. */
+  text: string;
+  /** The whole story, on hover. */
+  tip: string;
+}
+
 export interface GnomeDragProps {
   draggable: boolean;
   onDragStart: (e: DragEvent) => void;
@@ -300,7 +323,7 @@ function GnomeCard({
   riddles: number;
   stats?: { scans: number; lastScanAt?: number };
   missing: boolean;
-  flagged: 'error' | 'warning' | null;
+  flagged: GnomeFlag | null;
   now: number;
   /** Shown only in the by-number view, where the places are not the headings. */
   spotName?: string;
@@ -318,7 +341,7 @@ function GnomeCard({
       {...drag}
       className={cx(
         'flex cursor-pointer items-center gap-3 rounded-xl border bg-bg-card p-3 transition-colors hover:bg-bg-hover',
-        flagged === 'error' ? 'border-danger/70' : flagged === 'warning' ? 'border-warning/60' : 'border-border',
+        flagged?.tone === 'error' ? 'border-danger/70' : flagged?.tone === 'warning' ? 'border-warning/60' : 'border-border',
         !g.isActive && 'opacity-60',
         dragging && 'opacity-40'
       )}
@@ -355,6 +378,11 @@ function GnomeCard({
                 <span>עוד לא נסרק</span>
               </Tip>
             )
+          )}
+          {flagged && (
+            <Tip text={flagged.tip}>
+              <Pill tone={flagged.tone === 'error' ? 'danger' : 'warning'}>{flagged.text}</Pill>
+            </Tip>
           )}
           {missing && (
             <Tip text={TIPS.missing}>
@@ -445,7 +473,7 @@ function GnomeEditor({
       {(twin || alike) && (
         <div className={cx('mt-4 flex items-start gap-2 rounded-lg px-3 py-2 text-sm', twin ? 'bg-danger/10 text-red-700 dark:text-red-400' : 'bg-warning/10 text-amber-700 dark:text-amber-400')}>
           {twin ? <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden /> : <TriangleAlert size={16} className="mt-0.5 shrink-0" aria-hidden />}
-          {twin ? `גמד ${twin.number} שעומד לידו נראה בדיוק אותו דבר. בחרו צבעים אחרים.` : `גמד ${alike!.number} שלידו נבדל רק באדום וירוק — עדיף צבע אחר.`}
+          {twin ? `גמד ${twin.number} שעומד לידו נראה בדיוק אותו דבר. בחרו צבעים אחרים.` : `גמד ${alike!.number} שעומד לידו נבדל רק באדום מול ירוק. ילדים שלא מבחינים בין שני הצבעים האלה יראו שני גמדים זהים — עדיף צבע אחר.`}
         </div>
       )}
 
