@@ -528,16 +528,40 @@ function ProduceDialog({
     setEditRow(null);
   };
 
-  const rowProblem = (i: number): { tone: 'error' | 'warning'; text: string } | null => {
+  const nextNumber = Math.max(0, ...gnomes.map((g) => g.number)) + 1;
+  /** Everyone else who will stand at this spot, each with the number it will carry. */
+  const othersAt = (i: number) => [
+    ...standing.map((g) => ({ bodyColor: g.bodyColor, hatColor: g.hatColor, number: g.number })),
+    ...specs.map((s, j) => ({ ...s, number: nextNumber + j })).filter((_, j) => j !== i),
+  ];
+
+  /**
+   * Rani (live): the old pills said only "אדום/ירוק ליד גמד אחר" — which gnome, and why, was a guess.
+   * Name the other gnome and say what a child would see, as the gnome card already does.
+   */
+  const rowProblem = (i: number): { tone: 'error' | 'warning'; text: string; note?: string } | null => {
     const s = specs[i];
-    const others = [...standing, ...specs.filter((_, j) => j !== i)];
-    if (others.some((o) => comboKey(o) === comboKey(s))) return { tone: 'error', text: 'זהה לגמד אחר במקום' };
-    if (others.some((o) => confusableColors(o, s))) return { tone: 'warning', text: 'אדום/ירוק ליד גמד אחר' };
-    if (s.bodyColor === s.hatColor) return { tone: 'warning', text: 'גוף ומצנפת באותו צבע' };
+    const others = othersAt(i);
+    const twin = others.find((o) => comboKey(o) === comboKey(s));
+    if (twin) return {
+      tone: 'error',
+      text: `זהה לגמד ${twin.number}`,
+      note: `גמד ${twin.number} עומד באותו מקום בדיוק באותם הצבעים, ואי אפשר להבדיל ביניהם.`,
+    };
+    const alike = others.find((o) => confusableColors(o, s));
+    if (alike) return {
+      tone: 'warning',
+      text: `נראה כמו גמד ${alike.number}`,
+      note: `ההבדל מגמד ${alike.number} הוא רק אדום מול ירוק. ילדים שלא מבחינים בין שני הצבעים האלה יראו שני גמדים זהים ועלולים לסרוק את הלא נכון.`,
+    };
+    if (s.bodyColor === s.hatColor) return {
+      tone: 'warning',
+      text: 'גוף ומצנפת באותו צבע',
+      note: 'גמד בצבע אחד קשה יותר לתאר ולזהות מרחוק.',
+    };
     return null;
   };
   const blocked = specs.some((_, i) => rowProblem(i)?.tone === 'error');
-  const nextNumber = Math.max(0, ...gnomes.map((g) => g.number)) + 1;
 
   return (
     <Dialog
@@ -622,6 +646,9 @@ function ProduceDialog({
                   {problem && <Pill tone={problem.tone === 'error' ? 'danger' : 'warning'}>{problem.text}</Pill>}
                   <Button size="sm" variant="ghost" onClick={() => setEditRow(editRow === i ? null : i)}>{editRow === i ? 'סגרו' : 'שנו צבעים'}</Button>
                 </div>
+                {problem?.note && (
+                  <p className={cx('mt-2 text-sm', problem.tone === 'error' ? 'text-danger' : 'text-amber-700 dark:text-amber-400')}>{problem.note}</p>
+                )}
                 {editRow === i && (
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     <Field label="גוף">
