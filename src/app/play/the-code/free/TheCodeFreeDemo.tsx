@@ -5,11 +5,11 @@
 // phone sits in a frame with the bar beside it; on a phone the bar is a pull-up sheet (🎬).
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import FreeGamePlayer, { type FreeGameCallbacks, type FreeGameVideos } from '@/components/thecode/free/FreeGamePlayer';
+import FreeGamePlayer, { type FreeGameCallbacks, type FreeGameView } from '@/components/thecode/free/FreeGamePlayer';
 import {
   ATTEMPTS_PER_RIDDLE, FREE_GNOMES, HINT_COST, POINTS_PER_RIDDLE, REFRESH, SECOND_ATTEMPT_FACTOR,
   createFreeDemoState, demoNow, freeBuyHint, freeDemoCaption, freeDemoGoRegister, freeDemoJump, freeDemoSolveAllBut,
-  freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
+  freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freeDemoView, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
   freeToBoard, freeToggleMute, isAsleep, msToNextWake, type FreeDemoState,
 } from '@/components/thecode/demo/freeDemo';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
@@ -94,7 +94,7 @@ export default function TheCodeFreeDemo() {
   // 0 until mounted: the demo renders in the browser only (clock + screen size differ from the server).
   const [realNow, setRealNow] = useState(0);
   // Real clips can be tried with ?intro=…&welldone=… (any https URL or a file in /public).
-  const [videos, setVideos] = useState<FreeGameVideos>({});
+  const [videos, setVideos] = useState<FreeGameView['videos']>({});
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const ok = (v: string | null) => (v && /^(https?:\/\/|\/)/.test(v) ? v : null);
@@ -130,7 +130,7 @@ export default function TheCodeFreeDemo() {
   return (
     <div className="min-h-[100dvh] bg-[#E9E6F2] md:flex md:items-center md:justify-center md:gap-10 md:p-5">
       <div className="fixed inset-0 md:relative md:inset-auto md:aspect-[390/844] md:h-[min(844px,calc(100dvh-40px))] md:shrink-0 md:overflow-hidden md:rounded-[46px] md:shadow-[0_0_0_10px_#151827,0_30px_80px_rgba(20,20,60,.35)]">
-        {realNow > 0 && <FreeGamePlayer state={s} realNow={realNow} callbacks={callbacks} videos={videos} />}
+        {realNow > 0 && <FreeGamePlayer view={freeDemoView(s, realNow, videos)} callbacks={callbacks} />}
       </div>
 
       <aside className="hidden max-h-[calc(100dvh-40px)] w-[380px] overflow-y-auto rounded-3xl bg-white/80 p-5 shadow-xl backdrop-blur md:block">

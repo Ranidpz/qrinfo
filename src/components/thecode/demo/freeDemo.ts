@@ -15,6 +15,7 @@
 import type { TheCodeColor } from '@/types/thecode';
 import { RIDDLE_BANK } from '@/lib/thecode/riddleBank';
 import { alphabetFor, letterOfAnswer, matchLetter } from '@/lib/thecode/letters';
+import type { FreeGameView } from '@/components/thecode/free/types';
 
 // ------------------------------------------------ the rules (easy to change)
 
@@ -409,4 +410,72 @@ export function freeDemoCaption(s: FreeDemoState): string {
     case 'asleep': return 'סריקה של גמד ישן. קפיצה בזמן תעיר אותו.';
     case 'finished': return 'כל הגמדים ישנים: קליוסטרו מתקשר לברך (‎?welldone=כתובת). קפיצה בזמן מעירה אותם.';
   }
+}
+
+// ------------------------------------------------ the screens' view model
+
+/** The demo state as the free-game screens see it (the live game builds the same from the server). */
+export function freeDemoView(s: FreeDemoState, realNow: number, videos: FreeGameView['videos']): FreeGameView {
+  const now = demoNow(s, realNow);
+  const gv = (id: string) => {
+    const g = FREE_GNOMES.find((x) => x.id === id);
+    return g ? { id: g.id, number: g.number, bodyColor: g.bodyColor, hatColor: g.hatColor } : null;
+  };
+  const sc = s.screen;
+  let screen: FreeGameView['screen'];
+  switch (sc.kind) {
+    case 'startAtScreen': screen = { kind: 'startAtScreen', gnome: sc.gnomeId ? gv(sc.gnomeId) : null }; break;
+    case 'register': screen = { kind: 'register', mode: 'new' }; break;
+    case 'scanner': screen = { kind: 'scanner', error: sc.error, camera: false, busy: false }; break;
+    case 'riddle': screen = { kind: 'riddle' }; break;
+    case 'failed': screen = { kind: 'failed', gnomeId: sc.gnomeId, wakesAt: s.gnomes[sc.gnomeId].asleepUntil ?? now, allAsleep: sc.allAsleep }; break;
+    case 'asleep': {
+      const p = s.gnomes[sc.gnomeId];
+      screen = { kind: 'asleep', gnomeId: sc.gnomeId, wakesAt: p.asleepUntil ?? now, ...(p.last ? { last: p.last } : {}) };
+      break;
+    }
+    case 'gnome': screen = { kind: 'gnome', gnomeId: sc.gnomeId }; break;
+    default: screen = { kind: sc.kind } as FreeGameView['screen'];
+  }
+  const riddleGnome = sc.kind === 'riddle' ? sc.gnomeId : null;
+  const r = riddleGnome ? currentRiddle(s, riddleGnome) : null;
+  const c = s.correct;
+  return {
+    screen,
+    now,
+    venueName: FREE_VENUE_NAME,
+    group: s.group ? { name: s.group.name, avatar: s.group.emoji } : null,
+    points: s.points,
+    streak: s.streak,
+    hot: isHot(s),
+    hotStreakAt: HOT_STREAK_AT,
+    gnomes: FREE_GNOMES.map((g) => {
+      const p = s.gnomes[g.id];
+      const asleep = isAsleep(p, now);
+      return {
+        id: g.id, number: g.number, bodyColor: g.bodyColor, hatColor: g.hatColor,
+        status: asleep ? 'asleep' : 'awake',
+        ...(asleep ? { wakesAt: p.asleepUntil! } : {}),
+        ...(asleep && p.last ? { last: p.last } : {}),
+        hints: p.hintBought ? [g.hint] : [],
+        nextHintCost: p.hintBought ? null : HINT_COST,
+      };
+    }),
+    riddle: r && riddleGnome ? { gnomeId: riddleGnome, text: r.text, wrongs: s.gnomes[riddleGnome].wrongs, attempts: ATTEMPTS_PER_RIDDLE } : null,
+    pendingLetter: s.pendingLetter,
+    wrongTick: s.wrongTick,
+    submitting: false,
+    correct: c ? {
+      gnomeId: c.gnomeId, letter: c.letter, answerWord: c.answerWord, points: c.points, secondTry: c.half, hot: c.hot,
+      becameHot: c.becameHot, ...(c.spellingTip ? { spellingTip: c.spellingTip } : {}),
+      wakesAt: s.gnomes[c.gnomeId].asleepUntil ?? now, allAsleep: c.allAsleep,
+    } : null,
+    solved: s.solved,
+    secondAttemptFactor: SECOND_ATTEMPT_FACTOR,
+    muted: s.muted,
+    call: s.call,
+    videos,
+    screenHint: SCREEN_HINT,
+    demo: true,
+  };
 }

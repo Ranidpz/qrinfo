@@ -15,6 +15,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cleanRecoveryCode } from '@/lib/thecode/server/codes';
 import TheCodeGame from '@/components/thecode/live/TheCodeGame';
+import TheCodeFreeGame from '@/components/thecode/free/TheCodeFreeGame';
+import type { TheCodeMode } from '@/types/thecode';
 import { theCodeFont } from '@/components/thecode/live/font';
 import { reportLobbyScan } from '@/components/thecode/live/api';
 
@@ -30,7 +32,8 @@ function dropParam(name: string) {
   } catch { /* nothing to clean */ }
 }
 
-export default function TheCodeViewer({ codeId }: { codeId: string }) {
+/** `mode` = the public stub's (absent = guided). A free adventure plays the free app. */
+export default function TheCodeViewer({ codeId, mode }: { codeId: string; mode?: TheCodeMode }) {
   // Read once, before the game mounts (this component is client-only).
   const [joinCode] = useState(() => {
     try {
@@ -59,7 +62,11 @@ export default function TheCodeViewer({ codeId }: { codeId: string }) {
 
   return (
     <div className={`${theCodeFont.variable} fixed inset-x-0 bottom-0 z-10`} style={{ top: 'var(--pwa-banner-h, 0px)' }}>
-      <TheCodeGame codeId={codeId} pendingRecoveryCode={joinCode || undefined} onPendingRecoveryConsumed={onJoinConsumed} />
+      {mode === 'free' ? (
+        <TheCodeFreeGame codeId={codeId} pendingRecoveryCode={joinCode || undefined} onPendingRecoveryConsumed={onJoinConsumed} />
+      ) : (
+        <TheCodeGame codeId={codeId} pendingRecoveryCode={joinCode || undefined} onPendingRecoveryConsumed={onJoinConsumed} />
+      )}
     </div>
   );
 }

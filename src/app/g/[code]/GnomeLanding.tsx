@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import TheCodeGame, { StaticTheCodeScreen } from '@/components/thecode/live/TheCodeGame';
+import TheCodeFreeGame from '@/components/thecode/free/TheCodeFreeGame';
 import { theCodeFont } from '@/components/thecode/live/font';
 import { lookupGnome } from '@/components/thecode/live/api';
 import type { TheCodeGnomeLookupResponse } from '@/types/thecode-api';
@@ -45,6 +46,10 @@ export default function GnomeLanding({ code }: { code: string }) {
         <StaticTheCodeScreen screen={{ kind: 'notFound', title: 'הגמד הזה כבר לא במשחק', text: 'אולי הוא יצא לחופשה. חפשו גמד אחר, או שאלו בקבלה.' }} />
       ) : state === 'offline' ? (
         <StaticTheCodeScreen screen={{ kind: 'networkError', problem: 'offline' }} />
+      ) : state.mode === 'free' ? (
+        // Free mode: a known group scans at once; a new phone is sent to the big screen to register.
+        <TheCodeFreeGame codeId={state.codeId} pendingScanCode={code} pendingGnome={state.gnome} branding={state.branding}
+          selfie={state.selfie} screenHint={state.screenHint} onPendingScanConsumed={onConsumed} />
       ) : (
         <TheCodeGame codeId={state.codeId} pendingScanCode={code} pendingGnome={state.gnome} branding={state.branding} howToPlay={state.howToPlay} howToPlayTheme={state.howToPlayTheme} selfie={state.selfie} onPendingScanConsumed={onConsumed} />
       )}

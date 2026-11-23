@@ -1581,7 +1581,7 @@ export default function ViewerClient({ media, widgets, title, codeId, shortId, o
         ) : isSocialWall ? (
           <SocialWallViewer codeId={codeId} shortId={shortId} title={title || currentMedia.title} config={currentMedia.socialWallConfig} />
         ) : isTheCode ? (
-          <TheCodeViewer codeId={codeId} />
+          <TheCodeViewer codeId={codeId} mode={currentMedia.thecodeConfig?.mode} />
         ) : isTenBool ? (
           <TenBoolExperience codeId={codeId} shortId={shortId} title={title || currentMedia.title} config={currentMedia.tenboolConfig} />
         ) : isQBet && currentMedia.qbetConfig ? (
