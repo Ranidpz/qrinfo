@@ -359,6 +359,9 @@ export const freeShowIntro = (s: FreeDemoState): FreeDemoState => (s.group ? { .
 export const freeEndCall = (s: FreeDemoState): FreeDemoState => ({ ...s, call: null });
 export const freeCallMagician = (s: FreeDemoState, call: 'intro' | 'wellDone'): FreeDemoState => ({ ...s, call });
 
+/** Installed / "continue in the browser" → to the big screen (scan the gnome on it to register). */
+export const freeDemoToScreen = (s: FreeDemoState): FreeDemoState => ({ ...s, screen: { kind: 'startAtScreen', gnomeId: null } });
+
 /** Demo: the install dialog was accepted (Android) → "open it from the home screen". */
 export const freeDemoInstalled = (s: FreeDemoState): FreeDemoState => ({ ...s, installed: true });
 export const freeDemoPlatform = (s: FreeDemoState, installPlatform: InstallPlatform): FreeDemoState =>
@@ -411,7 +414,7 @@ export function freeDemoSolveAllBut(s: FreeDemoState, keep: number, realNow: num
 export function freeDemoCaption(s: FreeDemoState): string {
   switch (s.screen.kind) {
     case 'install': return 'כל כניסה של טלפון לא רשום (כרטיס, גמד או המסך) מתחילה כאן. החליפו טלפון למטה: אייפון, אנדרואיד או וואטסאפ.';
-    case 'startAtScreen': return 'קבוצה שעוד לא נרשמה סרקה גמד. בהדגמה: "נרשמנו במסך" ממשיך להרשמה.';
+    case 'startAtScreen': return 'אחרי ההתקנה: הולכים למסך הגדול וסורקים את הגמד שעליו. בהדגמה הכפתור "סורק" מיד וממשיך להרשמה.';
     case 'register': return 'ההרשמה עצמה (במשחק האמיתי אחרי סריקת הקוד שעל המסך הגדול).';
     case 'joined': return 'הקבוצה הופיעה עכשיו על המסך הגדול (חגיגת ההצטרפות). כשהחגיגה נגמרת, קליוסטרו מתקשר.';
     case 'intro': return s.call ? 'קליוסטרו "מתקשר": ענו, והסרטון עולה במסך מלא (הכתוב יהיה בתוך הסרטון). סרטון אמיתי: ‎?intro=כתובת' : 'מסך הכללים אחרי השיחה. אפשר לשוחח שוב עם הקוסם.';

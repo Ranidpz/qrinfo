@@ -48,14 +48,16 @@ export type FreeScreenView =
   | { kind: 'network'; problem?: NetworkProblem; retryInSeconds?: number }
   /** Not registered yet, in a browser: install the game to the home screen first (Rani 23.11.2026). */
   | { kind: 'install'; platform: InstallPlatform; canPrompt: boolean; installed: boolean }
-  /** A group scanned a gnome before registering: go to the big screen first. */
+  /** Installed (or "continue in the browser"), not registered: go to the big screen and scan the
+   *  gnome on it — that scan opens registration (Rani 23.11.2026). `gnome` = a gnome scanned on the way. */
   | { kind: 'startAtScreen'; gnome: PlayerGnomeView | null }
   | { kind: 'register'; mode: 'new' | 'recover'; nameError?: string; recoverError?: string }
   /** Right after registering: "you are on the big screen!" while it celebrates the group. */
   | { kind: 'joined' }
   | { kind: 'intro' }
   | { kind: 'board' }
-  | { kind: 'scanner'; error: string | null; camera: boolean; busy: boolean }
+  /** `target: 'screen'` = scanning the big screen's code to register (no manual code). */
+  | { kind: 'scanner'; error: string | null; camera: boolean; busy: boolean; target?: 'gnome' | 'screen' }
   | { kind: 'gnome'; gnomeId: string }
   | { kind: 'riddle' }
   | { kind: 'correct' }
@@ -117,6 +119,10 @@ export interface FreeGameCallbacks {
   onEndCall(): void;
   onCallMagician(call: 'intro' | 'wellDone'): void;
   onRetry?(): void;
+  /** "עכשיו למסך הגדול": open the scanner for the screen's code. */
+  onScanScreen?(): void;
+  /** The scanner read a QR that is not a gnome (the big screen's). true = handled. */
+  onScreenText?(text: string): boolean;
   /** Install screen: the browser's own install dialog (Android). */
   onInstall?(): void;
   /** Install screen: play in the browser after all. */

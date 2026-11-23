@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SelfieShot } from '@/components/thecode/player/types';
 import type { TheCodeAuth, TheCodeGnomeView, TheCodePlayAction, TheCodePlayResponse, TheCodeSnapshot } from '@/types/thecode-api';
 import type { TheCodeBranding, TheCodeSelfieSettings } from '@/types/thecode';
-import { fetchPlayTransport, sendPhoto, type TheCodePlayTransport } from '@/components/thecode/live/api';
+import { fetchPlayTransport, reportLobbyScan, sendPhoto, type TheCodePlayTransport } from '@/components/thecode/live/api';
 import { EMPTY_IDENTITY, activeAuth, dropProfile, loadIdentity, saveIdentity, upsertProfile, type StoredIdentity } from '@/components/thecode/live/identity';
 import type { FreeCorrectView, FreeGameCallbacks, FreeGameView, FreeScreenView } from './types';
 import { useInstall } from './install';
@@ -27,6 +27,8 @@ export interface UseTheCodeFreeGameOptions {
   branding?: TheCodeBranding | null;
   selfie?: TheCodeSelfieSettings | null;
   screenHint?: string;
+  /** /v/{shortId}?src=lobby: this phone just scanned the big screen's code → straight to registration. */
+  fromScreen?: boolean;
   transport?: TheCodePlayTransport;
 }
 
@@ -40,6 +42,7 @@ type Flash =
 const MUTE_KEY = 'thecode_muted';
 const UNKNOWN = 'זה לא גמד של המשחק הזה. סרקו את הקוד שעל הגמד עצמו.';
 const GNOME_OFF = 'הגמד הזה לא משחק כרגע. חפשו גמד אחר.';
+const NEED_SCREEN = 'זה קוד של גמד. כדי להירשם, סרקו את הקוד שעל המסך הגדול.';
 const REFRESH_GAP_MS = 1500;
 
 function readMuted(): boolean {
@@ -66,6 +69,8 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
   // Not registered, in a browser: offer to install first (Rani 23.11.2026); "continue without" is remembered for this tab.
   const install = useInstall();
   const [skipInstall, setSkipInstall] = useState(false);
+  // Registration opens only after the big screen's code was scanned (Rani 23.11.2026).
+  const [screenScanned, setScreenScanned] = useState(!!opts.fromScreen);
   useEffect(() => {
     try { if (window.sessionStorage.getItem(`thecode_skip_install_${codeId}`) === '1') setSkipInstall(true); } catch { /* private mode */ }
   }, [codeId]);
@@ -289,7 +294,22 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     onRegisterMode: (mode) => setRegister({ mode }),
     onOpenGnome: (id) => { setOpenGnome(id); setView('gnome'); },
     onOpenScanner: () => { setScannerError(null); setFlash(null); setView('scanner'); },
-    onScanCode: (code) => { void send({ type: 'scan', code }, true); },
+    onScanCode: (code) => {
+      if (!snapshotRef.current?.player) { setScannerError(NEED_SCREEN); return; }
+      void send({ type: 'scan', code }, true);
+    },
+    onScanScreen: () => { setScannerError(null); setView('scanner'); },
+    onScreenText: (text) => {
+      // The big screen's QR = {origin}/v/{shortId}?src=lobby (TheCodeLobby).
+      try {
+        const u = new URL(text.trim());
+        if (!/^\/v\/[^/]+\/?$/.test(u.pathname) || u.searchParams.get('src') !== 'lobby') return false;
+      } catch { return false; }
+      void reportLobbyScan(codeId); // the screen starts its "how to play" scene, as with a camera scan
+      setScreenScanned(true);
+      setView('board');
+      return true;
+    },
     onBuyHint: (gnomeId) => { void send({ type: 'freeHint', gnomeId }, true); },
     onPickLetter: (l) => setPendingLetter(l),
     onSubmitLetter: () => {
@@ -336,7 +356,10 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     const offerInstall = !install.standalone && !skipInstall && install.platform !== 'desktop';
     screen = offerInstall
       ? { kind: 'install', platform: install.platform, canPrompt: install.canPrompt, installed: install.installed }
-      : register ? { kind: 'register', ...register } : { kind: 'register', mode: 'new' };
+      : register ? { kind: 'register', ...register } // a name error / recovery / a dropped profile
+      : screenScanned ? { kind: 'register', mode: 'new' }
+      : view === 'scanner' ? { kind: 'scanner', error: scannerError, camera: true, busy, target: 'screen' }
+      : { kind: 'startAtScreen', gnome: opts.pendingGnome ?? null };
   } else if (!adv?.open) screen = { kind: 'paused' };
   else if (flash) {
     screen = flash.kind === 'correct' ? { kind: 'correct' } : flash;

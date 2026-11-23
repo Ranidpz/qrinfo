@@ -9,7 +9,7 @@ import FreeGamePlayer, { type FreeGameCallbacks, type FreeGameView } from '@/com
 import {
   ATTEMPTS_PER_RIDDLE, FREE_GNOMES, HINT_COST, POINTS_PER_RIDDLE, REFRESH, SECOND_ATTEMPT_FACTOR,
   createFreeDemoState, demoNow, freeBuyHint, freeDemoCaption, freeDemoGoRegister, freeDemoJump, freeDemoSolveAllBut,
-  freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freeDemoView, freeDemoInstalled, freeDemoPlatform, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
+  freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freeDemoView, freeDemoInstalled, freeDemoPlatform, freeDemoToScreen, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
   freeToBoard, freeToggleMute, isAsleep, msToNextWake, type FreeDemoState,
 } from '@/components/thecode/demo/freeDemo';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
@@ -129,10 +129,11 @@ export default function TheCodeFreeDemo() {
       onEndCall: on(freeEndCall),
       onJoinedDone: on(freeJoinedDone),
       onInstall: on(freeDemoInstalled),
-      onSkipInstall: on(freeDemoGoRegister),
+      onSkipInstall: on(freeDemoToScreen),
+      onScanScreen: on(freeDemoGoRegister),
       onOpenInBrowser: () => setS((x) => freeDemoPlatform(x, 'ios-safari')),
       onCallMagician: (call) => setS((x) => freeCallMagician(x, call)),
-      onDemoRegistered: on(freeDemoGoRegister),
+      onDemoRegistered: on(freeDemoToScreen),
     };
   }, []);
 

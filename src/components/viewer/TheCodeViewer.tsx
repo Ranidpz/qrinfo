@@ -46,6 +46,11 @@ export default function TheCodeViewer({ codeId, mode }: { codeId: string; mode?:
   });
   const onJoinConsumed = useCallback(() => dropParam('join'), []);
 
+  // Read once before the effect below drops it: a scan of the big screen opens registration (free mode).
+  const [fromScreen] = useState(() => {
+    try { return new URL(window.location.href).searchParams.get('src') === 'lobby'; } catch { return false; }
+  });
+
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
@@ -63,7 +68,7 @@ export default function TheCodeViewer({ codeId, mode }: { codeId: string; mode?:
   return (
     <div className={`${theCodeFont.variable} fixed inset-x-0 bottom-0 z-10`} style={{ top: 'var(--pwa-banner-h, 0px)' }}>
       {mode === 'free' ? (
-        <TheCodeFreeGame codeId={codeId} pendingRecoveryCode={joinCode || undefined} onPendingRecoveryConsumed={onJoinConsumed} />
+        <TheCodeFreeGame codeId={codeId} fromScreen={fromScreen} pendingRecoveryCode={joinCode || undefined} onPendingRecoveryConsumed={onJoinConsumed} />
       ) : (
         <TheCodeGame codeId={codeId} pendingRecoveryCode={joinCode || undefined} onPendingRecoveryConsumed={onJoinConsumed} />
       )}

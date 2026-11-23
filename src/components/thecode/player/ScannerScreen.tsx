@@ -48,9 +48,16 @@ interface Props {
   scanner: ScannerView;
   onScanCode(code: string): void;
   onClose(): void;
+  /** Optional: a QR that is not a gnome (e.g. the big screen's code). Return true = handled. */
+  onOtherText?(text: string): boolean;
+  /** Optional heading / line (absent = the gnome scanner's own). */
+  title?: string;
+  prompt?: string;
+  /** Optional: hide the "type the code" fallback (the big screen has no printed code). */
+  noManual?: boolean;
 }
 
-export default function ScannerScreen({ scanner, onScanCode, onClose }: Props) {
+export default function ScannerScreen({ scanner, onScanCode, onClose, onOtherText, title, prompt, noManual }: Props) {
   const sfx = useSfx();
   const [localError, setLocalError] = useState<string | null>(null);
   const [problem, setProblem] = useState<CameraProblem | null>(null);
@@ -67,6 +74,11 @@ export default function ScannerScreen({ scanner, onScanCode, onClose }: Props) {
 
   const onText = (text: string) => {
     if (scanner.busy) return;
+    if (onOtherText?.(text)) {
+      sfx('scan');
+      setLocalError(null);
+      return;
+    }
     const code = parseGnomeQr(text);
     if (!code) {
       sfx('warn');
@@ -89,10 +101,10 @@ export default function ScannerScreen({ scanner, onScanCode, onClose }: Props) {
   return (
     <ScreenBody className="items-stretch gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="tc-display text-4xl">סרקו גמד</h2>
+        <h2 className="tc-display text-4xl">{title || 'סרקו גמד'}</h2>
         <button type="button" className="tc-chip min-h-[44px]" onClick={() => { sfx('tap'); onClose(); }}>חזרה</button>
       </div>
-      <p className="text-lg" style={{ color: 'var(--tc-soft)' }}>כוונו את המצלמה לקוד שעל הגמד</p>
+      <p className="text-lg" style={{ color: 'var(--tc-soft)' }}>{prompt || 'כוונו את המצלמה לקוד שעל הגמד'}</p>
 
       {!problem && (
         <div className="relative">
@@ -112,7 +124,7 @@ export default function ScannerScreen({ scanner, onScanCode, onClose }: Props) {
         {error && <p role="alert" className="tc-a-shake mt-2 text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{error}</p>}
       </div>
 
-      {manualOpen ? (
+      {noManual ? null : manualOpen ? (
         <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); submitManual(); }}>
           <label className="block">
             <span className="tc-display mb-2 block text-xl">הקוד שמתחת לגמד</span>

@@ -296,24 +296,31 @@ function InstallScreen({ platform, canPrompt, installed, cb }: { platform: Insta
   );
 }
 
-export function StartAtScreenScreen({ gnome, screenHint, onDemoRegistered }: { gnome: PlayerGnomeView | null; screenHint?: string; onDemoRegistered?(): void }) {
+/** Installed / in the browser, not registered yet: to the big screen — scan the gnome on it to register. */
+export function StartAtScreenScreen({ gnome, screenHint, onScanScreen, onDemoRegistered }: { gnome: PlayerGnomeView | null; screenHint?: string; onScanScreen?(): void; onDemoRegistered?(): void }) {
   const fit = useFit();
+  const sfx = useSfx();
   return (
     <ScreenBody className="items-center justify-center gap-4 text-center"
-      footer={onDemoRegistered && (
-        <button type="button" onClick={onDemoRegistered}
-          className="min-h-[52px] w-full rounded-2xl border-2 border-dashed border-amber-300/70 bg-amber-300/10 px-3 text-base font-bold text-amber-200">
-          הדגמה בלבד: המשיכו כאילו נרשמתם
-        </button>
+      footer={(
+        <div className="flex flex-col gap-2">
+          {onScanScreen && <ScanButton onScan={() => { sfx('tap'); onScanScreen(); }} label="סרקו את הגמד שעל המסך" />}
+          {onDemoRegistered && (
+            <button type="button" onClick={onDemoRegistered}
+              className="min-h-[48px] w-full rounded-2xl border-2 border-dashed border-amber-300/70 bg-amber-300/10 px-3 text-base font-bold text-amber-200">
+              הדגמה בלבד: סרקנו את הגמד שעל המסך
+            </button>
+          )}
+        </div>
       )}>
-      {gnome && <GnomeStage gnome={gnome} size={fit(84, 120)} className="tc-a-pop" />}
-      <h2 className="tc-display text-[2.1rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>מצאתם גמד!</h2>
-      <p className="tc-display text-2xl leading-snug">אבל המשחק מתחיל במסך של הגמדים</p>
+      {gnome ? <GnomeStage gnome={gnome} size={fit(76, 110)} className="tc-a-pop" /> : <div className="tc-a-pop text-7xl leading-none" aria-hidden>📺</div>}
+      <h2 className="tc-display text-[2.1rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>{gnome ? 'מצאתם גמד!' : 'עכשיו למסך הגדול!'}</h2>
+      <p className="tc-display text-2xl leading-snug">{gnome ? 'אבל המשחק מתחיל במסך של הגמדים' : 'שם נרשמים ומתחילים לשחק'}</p>
       <HintCard tone="brass" className="w-full text-start">
         <ol className="flex flex-col gap-2">
           <li><span aria-hidden className="me-2">📺</span>חפשו את המסך הגדול של הגמדים במקום</li>
-          <li><span aria-hidden className="me-2">📷</span>סרקו את הקוד שעל המסך והירשמו כקבוצה</li>
-          <li><span aria-hidden className="me-2">🍄</span>חזרו לגמדים. כל גמד ער מחכה לכם עם חידה</li>
+          <li><span aria-hidden className="me-2">📷</span>סרקו את הגמד שעל המסך בכפתור למטה</li>
+          <li><span aria-hidden className="me-2">🍄</span>בחרו שם לקבוצה, והופיעו על המסך!</li>
         </ol>
       </HintCard>
       {screenHint && <ScreenHint hint={screenHint} />}
@@ -618,7 +625,7 @@ function Screen({ v, cb }: { v: FreeGameView; cb: FreeGameCallbacks }) {
     case 'install':
       return <InstallScreen platform={sc.platform} canPrompt={sc.canPrompt} installed={sc.installed} cb={cb} />;
     case 'startAtScreen':
-      return <StartAtScreenScreen gnome={sc.gnome} screenHint={v.screenHint} onDemoRegistered={cb.onDemoRegistered} />;
+      return <StartAtScreenScreen gnome={sc.gnome} screenHint={v.screenHint} onScanScreen={cb.onScanScreen} />;
     case 'register':
       return (
         <RegisterScreen venueName={v.venueName} mode={sc.mode} addingProfile={false} selfie={v.selfie}
@@ -629,7 +636,12 @@ function Screen({ v, cb }: { v: FreeGameView; cb: FreeGameCallbacks }) {
     case 'board':
       return <BoardScreen v={v} cb={cb} />;
     case 'scanner':
-      return <ScannerScreen scanner={{ camera: sc.camera, error: sc.error, busy: sc.busy }} onScanCode={cb.onScanCode} onClose={cb.onBoard} />;
+      return sc.target === 'screen' ? (
+        <ScannerScreen scanner={{ camera: sc.camera, error: sc.error, busy: sc.busy }} onScanCode={cb.onScanCode} onClose={cb.onBoard}
+          onOtherText={cb.onScreenText} title="סרקו את המסך" prompt="כוונו את המצלמה לקוד שהגמד מחזיק על המסך הגדול" noManual />
+      ) : (
+        <ScannerScreen scanner={{ camera: sc.camera, error: sc.error, busy: sc.busy }} onScanCode={cb.onScanCode} onClose={cb.onBoard} />
+      );
     case 'gnome':
       return <GnomeScreen v={v} gnomeId={sc.gnomeId} cb={cb} />;
     case 'riddle':
