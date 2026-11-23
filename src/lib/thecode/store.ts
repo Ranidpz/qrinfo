@@ -1103,10 +1103,10 @@ async function writeLogEntry(codeId: string, staffId: string, staffName: string,
  * The owner starts a new round from the admin — the same reset as the staff screen (caller has
  * already checked ownership). The typed word is checked here too, never trusted from the UI.
  */
-export async function adminResetGame(codeId: string, confirm: unknown): Promise<TheCodeAdminResetResponse> {
+export async function adminResetGame(codeId: string, confirm: unknown, deleteGroups = false): Promise<TheCodeAdminResetResponse> {
   if (typeof confirm !== 'string' || confirm.trim() !== THECODE_RESET_WORD) return { ok: false, error: 'badRequest' };
-  const groups = await resetAllPlayers(codeId);
-  await writeLogEntry(codeId, OWNER_LOG_ID, OWNER_LOG_NAME, { action: 'resetGame', detail: String(groups) }).catch((e) =>
+  const groups = deleteGroups ? await deleteAllPlayers(codeId) : await resetAllPlayers(codeId);
+  await writeLogEntry(codeId, OWNER_LOG_ID, OWNER_LOG_NAME, { action: 'resetGame', detail: deleteGroups ? `${groups}, נמחקו` : String(groups) }).catch((e) =>
     console.error('thecode owner reset log error:', e)
   );
   return { ok: true, groups };
@@ -1214,6 +1214,34 @@ async function resetAllPlayers(codeId: string): Promise<number> {
   await lobbyRef(codeId).set({ events: [] }, { merge: true }).catch((e) => console.error('thecode reset lobby error:', e));
   for (const photo of photos) await dropAwardPhoto(photo);
   return done;
+}
+
+/**
+ * A fresh start (owner only, on request): every group is DELETED — names, selfies, prize records
+ * and entry codes — so every phone registers again. Phones holding an old token get
+ * `unauthorized` and drop it. Selfie / prize photos leave R2 the same way a single delete does.
+ */
+async function deleteAllPlayers(codeId: string): Promise<number> {
+  const snap = await playersCol(codeId).select('photo', 'award').get();
+  const keys: string[] = [];
+  for (let i = 0; i < snap.docs.length; i += 200) {
+    const batch = db().batch();
+    for (const doc of snap.docs.slice(i, i + 200)) {
+      const d = doc.data();
+      const photoKey = (d.photo as TheCodePlayer['photo'] | undefined)?.key;
+      const awardKey = readAward(d)?.photo?.key;
+      for (const key of [photoKey, awardKey]) {
+        if (!key) continue;
+        keys.push(key);
+        batch.set(selfieIndexRef(key), { takenAt: 0, removed: true }, { merge: true });
+      }
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+  }
+  await lobbyRef(codeId).set({ events: [] }, { merge: true }).catch((e) => console.error('thecode delete-all lobby error:', e));
+  for (const key of keys) await deleteSelfieObject(key);
+  return snap.docs.length;
 }
 
 /**

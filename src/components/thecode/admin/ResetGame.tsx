@@ -22,13 +22,16 @@ export default function ResetGame({ state, actions, variant }: { state: AdminSta
   const [word, setWord] = useState('');
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState('');
-  const [done, setDone] = useState<number | null>(null);
+  const [done, setDone] = useState<{ groups: number; deleted: boolean } | null>(null);
+  // A fresh start: delete every group too (every phone registers again) — Rani 23.11.2026.
+  const [deleteGroups, setDeleteGroups] = useState(false);
   const count = state.players.length;
 
   const start = () => {
     setWord('');
     setFailed('');
     setDone(null);
+    setDeleteGroups(false);
     setOpen(true);
   };
   const close = () => {
@@ -37,20 +40,23 @@ export default function ResetGame({ state, actions, variant }: { state: AdminSta
   const run = async () => {
     setBusy(true);
     setFailed('');
-    const res = await actions.resetGame(word);
+    const res = await actions.resetGame(word, { deleteGroups });
     setBusy(false);
     if (!res.ok) {
       setFailed(FAILED[res.error] ?? FAILED.server);
       return;
     }
-    setDone(res.groups || count);
+    setDone({ groups: res.groups || count, deleted: deleteGroups });
     setOpen(false);
   };
 
   const ready = word.trim() === THECODE_RESET_WORD;
   const doneLine = done !== null && (
     <p role="status" className="inline-flex items-center gap-1.5 text-sm font-medium text-success">
-      <Check size={16} aria-hidden /> התחיל סבב חדש. {done === 1 ? 'קבוצה אחת חזרה' : `${done} קבוצות חזרו`} לאפס נקודות.
+      <Check size={16} aria-hidden /> התחיל סבב חדש.{' '}
+      {done.deleted
+        ? (done.groups === 1 ? 'הקבוצה נמחקה, וכל טלפון יירשם מחדש.' : `${done.groups} קבוצות נמחקו, וכל טלפון יירשם מחדש.`)
+        : (done.groups === 1 ? 'קבוצה אחת חזרה לאפס נקודות.' : `${done.groups} קבוצות חזרו לאפס נקודות.`)}
     </p>
   );
 
@@ -68,7 +74,7 @@ export default function ResetGame({ state, actions, variant }: { state: AdminSta
             onClick={() => void run()}
             className="border-0 bg-danger text-white hover:bg-danger/90 disabled:hover:bg-danger"
           >
-            {busy ? 'מאפסים…' : 'אפסו את המשחק'}
+            {busy ? 'מאפסים…' : deleteGroups ? 'מחקו ואפסו' : 'אפסו את המשחק'}
           </Button>
         </>
       }
@@ -81,10 +87,19 @@ export default function ResetGame({ state, actions, variant }: { state: AdminSta
               {count === 1 ? 'הקבוצה תחזור' : `כל ${count} הקבוצות יחזרו`} לאפס נקודות. הגמדים שנמצאו, האלבום והפרסים שחולקו יימחקו,
               ולוח התוצאות במסך הגדול יתחיל מחדש.
             </p>
-            <p>השמות, הסלפי וקודי הכניסה נשארים, וכל קבוצה יכולה להמשיך לשחק מההתחלה.</p>
+            {deleteGroups
+              ? <p className="font-semibold">גם כל הקבוצות יימחקו: השמות, הסלפי וקודי הכניסה. כל טלפון יתחיל מההתחלה ויירשם מחדש.</p>
+              : <p>השמות, הסלפי וקודי הכניסה נשארים, וכל קבוצה יכולה להמשיך לשחק מההתחלה.</p>}
             <p className="font-semibold">אי אפשר לבטל את זה.</p>
           </div>
         </div>
+        <label className="flex cursor-pointer items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-0.5 h-4 w-4" checked={deleteGroups} onChange={(e) => setDeleteGroups(e.target.checked)} />
+          <span>
+            <span className="font-medium">גם למחוק את כל הקבוצות</span>
+            <span className="block text-text-secondary">התחלה מאפס: כולם נרשמים מחדש. מתאים לבדיקה או למשחק חדש.</span>
+          </span>
+        </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium">הקלידו את המילה {THECODE_RESET_WORD} כדי לאשר</span>
           <input

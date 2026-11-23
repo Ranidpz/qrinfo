@@ -106,8 +106,9 @@ export function createMemoryTransport(initial: TheCodeAdminLoadResponse): { tran
     async resetGame(req) {
       await wait();
       if (req.confirm.trim() !== THECODE_RESET_WORD) return { ok: false, error: 'badRequest' };
-      db.players = db.players.map(zeroPlayer);
-      return { ok: true, groups: db.players.length };
+      const groups = db.players.length;
+      db.players = req.deleteGroups ? [] : db.players.map(zeroPlayer);
+      return { ok: true, groups };
     },
     async removePhoto(req) {
       await wait();

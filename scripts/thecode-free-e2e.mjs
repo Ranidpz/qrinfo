@@ -166,6 +166,11 @@ async function main() {
   r = await http('POST', '/api/thecode/admin/reset', { token: idToken, body: { codeId, confirm: 'איפוס' } });
   const after = (await codeRef.collection('thecodePlayers').doc(auth.playerId).get()).data();
   check('round reset clears the free state', r.status === 200 && after && after.free === undefined && after.points === 0, `status ${r.status}`);
+  r = await http('POST', '/api/thecode/admin/reset', { token: idToken, body: { codeId, confirm: 'איפוס', deleteGroups: true } });
+  const gone = await codeRef.collection('thecodePlayers').doc(auth.playerId).get();
+  check('reset with deleteGroups deletes every group', r.status === 200 && r.json?.groups === 1 && !gone.exists, `status ${r.status} ${JSON.stringify(r.json)}`);
+  res = await play(auth, { type: 'state' });
+  check('an old phone of a deleted group is told to register again', res?.ok === false && res.error === 'unauthorized', JSON.stringify(res).slice(0, 120));
 
   // --- pages
   console.log('\npages');

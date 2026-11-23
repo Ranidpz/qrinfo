@@ -406,6 +406,8 @@ export interface TheCodeAdminPlayerDeleteRequest {
 export interface TheCodeAdminResetRequest {
   codeId: string;
   confirm: string;
+  /** Also DELETE every group (a fresh start: every phone registers again). Absent = keep them. */
+  deleteGroups?: boolean;
 }
 
 export type TheCodeAdminResetResponse = { ok: true; groups: number } | { ok: false; error: 'badRequest' | 'server' };

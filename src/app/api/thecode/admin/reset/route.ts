@@ -1,5 +1,6 @@
 // /api/thecode/admin/reset — the owner starts a new round (Bearer + ownership).
-//   POST { codeId, confirm: 'איפוס' } → { ok, groups }
+//   POST { codeId, confirm: 'איפוס', deleteGroups?: true } → { ok, groups }
+// With deleteGroups every group is deleted instead (a fresh start: every phone registers again).
 // Same reset as the staff screen: points, progress and prizes back to zero; names, emoji,
 // selfies and entry codes stay. Logged in the staff log as "מסך הניהול".
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
   const auth = await requireCodeOwner(request, body.codeId);
   if (isAuthError(auth)) return auth.response;
   try {
-    const res = await adminResetGame(body.codeId, body.confirm);
+    const res = await adminResetGame(body.codeId, body.confirm, body.deleteGroups === true);
     return NextResponse.json(res, { status: res.ok ? 200 : 400 });
   } catch (error) {
     console.error('thecode admin reset error:', error);

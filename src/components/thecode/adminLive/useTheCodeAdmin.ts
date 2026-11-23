@@ -320,11 +320,12 @@ export function useTheCodeAdmin(codeId: string, opts: { transport?: TheCodeAdmin
         });
       },
       // Not optimistic: a reset is big and final, so the screen waits for the server's answer.
-      resetGame: async (confirm) => {
-        const r = await transport.resetGame({ codeId, confirm });
+      resetGame: async (confirm, opts) => {
+        const deleteGroups = !!opts?.deleteGroups;
+        const r = await transport.resetGame({ codeId, confirm, ...(deleteGroups ? { deleteGroups: true } : {}) });
         if (r.ok && mounted.current) {
           const cur = stateRef.current;
-          if (cur) commit({ ...cur, players: cur.players.map(zeroPlayer) });
+          if (cur) commit({ ...cur, players: deleteGroups ? [] : cur.players.map(zeroPlayer) });
         }
         return r;
       },

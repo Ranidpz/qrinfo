@@ -128,7 +128,7 @@ export interface AdminActions {
    * A new round: every group back to zero points and progress (names, emoji, selfies and entry
    * codes stay). `confirm` is the word the operator typed; the server checks it again.
    */
-  resetGame(confirm: string): Promise<ResetGameResult>;
+  resetGame(confirm: string, opts?: { deleteGroups?: boolean }): Promise<ResetGameResult>;
 
   reset(): void;
 }
