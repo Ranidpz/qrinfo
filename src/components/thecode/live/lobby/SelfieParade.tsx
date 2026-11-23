@@ -7,9 +7,8 @@
 //
 // Second round (Rani, the real TV): (1) the queue is the RANKING — first place leads, then
 // second…; a rank change swaps the photos softly (cross-fade), never a jump; (2) the parade must
-// hide NOTHING. So the track is measured from the screen itself: it runs only through the free
-// band between the venue logo and the title, above the board and the QR card ([data-tcl-avoid]
-// elements). No room → no parade.
+// hide NOTHING — it walks BEHIND the title, the board and the QR card. Third round (24.11.2026):
+// the track is the whole frame of the screen, just inside its edges (see measureTrack).
 //
 // Performance (hours on a TV): one rAF loop writes `transform` only (no layout, no React state
 // per frame), light shadows, no filters. prefers-reduced-motion → they stand still.
@@ -36,64 +35,66 @@ export function paradeRoster(teams: ParadeTeam[], max = PARADE_MAX, everyone = f
     .slice(0, max);
 }
 
-// ------------------------------------------------ the track (measured, never over anything)
+// ------------------------------------------------ the track: the screen's own frame
 
 interface Track {
-  /** Walker centres: two lanes joined by half-circles (a stadium). */
-  x0: number; x1: number; yTop: number; yBot: number; r: number;
+  /** Walker centres run on a rounded rectangle just inside the screen's edges. */
+  xL: number; xR: number; yT: number; yB: number; r: number;
   /** Circle diameter + the name tag under it (px). */
   d: number; nameH: number;
   perimeter: number;
 }
 
-const rectsOf = () => [...document.querySelectorAll<HTMLElement>('[data-tcl-avoid]')]
-  .map((el) => el.getBoundingClientRect())
-  .filter((r) => r.width > 0 && r.height > 0);
-
 /**
- * The free band at the top of the screen: between the logo (left) and the title (right),
- * above the first element that starts lower down (the board, the QR card).
+ * Third round (Rani 24.11.2026): the parade walks the WHOLE frame of the screen, inside its
+ * edges — along the top, down the side, along the bottom, up the other side — not a short loop
+ * in one band. It walks BEHIND the title, the board and the QR card (the layer comes first), so
+ * it never covers them; a walker passing behind one shows again on the other side.
  */
 function measureTrack(): Track | null {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  const rects = rectsOf();
-  const top = rects.filter((r) => r.top < h * 0.12);
-  const below = rects.filter((r) => r.top >= h * 0.12);
   const pad = 0.012 * h;
-  const bandTop = pad;
-  const bandBottom = (below.length ? Math.min(...below.map((r) => r.top)) : h * 0.3) - pad;
-  const left = Math.max(0.02 * w, ...top.filter((r) => r.left + r.width / 2 < w / 2).map((r) => r.right)) + pad;
-  const right = Math.min(0.98 * w, ...top.filter((r) => r.left + r.width / 2 >= w / 2).map((r) => r.left)) - pad;
   const nameH = 0.026 * h;
-  const avail = bandBottom - bandTop;
-  const d = Math.min(0.08 * h, (avail - 0.01 * h) / 2 - nameH);
-  if (d < 0.045 * h) return null;                 // too tight to read from across the room
-  const halfW = Math.max(d / 2, (d * 1.5) / 2);   // the name tag is up to 1.5 × the circle wide
-  const x0 = left + halfW;
-  const x1 = right - halfW;
-  const yTop = bandTop + d / 2;
-  const yBot = bandBottom - nameH - d / 2;
-  const r = (yBot - yTop) / 2;
-  if (r <= 0 || x1 - x0 < 4 * r + 2 * d) return null;
-  const straight = x1 - x0 - 2 * r;
-  return { x0, x1, yTop, yBot, r, d, nameH, perimeter: 2 * straight + 2 * Math.PI * r };
+  const d = Math.min(0.075 * h, 0.06 * w);
+  if (d < 28) return null;                        // a tiny window: no parade
+  const halfW = (d * 1.5) / 2;                    // the name tag is up to 1.5 × the circle wide
+  const xL = pad + halfW;
+  const xR = w - pad - halfW;
+  const yT = pad + d / 2 + 0.008 * h;             // room for the rank badge above the circle
+  const yB = h - pad - nameH - d / 2;
+  const r = Math.min(d * 1.4, (xR - xL) / 2, (yB - yT) / 2);
+  if (xR - xL < 4 * d || yB - yT < 2 * d) return null;
+  const perimeter = 2 * (xR - xL - 2 * r) + 2 * (yB - yT - 2 * r) + 2 * Math.PI * r;
+  return { xL, xR, yT, yB, r, d, nameH, perimeter };
 }
 
-/** A point on the stadium, counter-clockwise: left along the top, down the left end, right along the bottom, up the right end. */
+/** A point on the frame, counter-clockwise: left along the top, down the left side, right along the bottom, up the right side. */
 function trackPoint(s: number, t: Track): { x: number; y: number } {
-  const straight = t.x1 - t.x0 - 2 * t.r;
-  const arc = Math.PI * t.r;
-  const yMid = (t.yTop + t.yBot) / 2;
+  const { xL, xR, yT, yB, r } = t;
+  const across = xR - xL - 2 * r;
+  const down = yB - yT - 2 * r;
+  const arc = (Math.PI / 2) * r;
   let d = ((s % t.perimeter) + t.perimeter) % t.perimeter;
-  if (d < straight) return { x: t.x1 - t.r - d, y: t.yTop };
-  d -= straight;
-  if (d < arc) { const a = d / t.r; return { x: t.x0 + t.r - t.r * Math.sin(a), y: yMid - t.r * Math.cos(a) }; }
+  const corner = (cx: number, cy: number, a0: number, len: number) => {
+    const a = a0 + len / r;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  };
+  if (d < across) return { x: xR - r - d, y: yT };                     // top, right → left
+  d -= across;
+  if (d < arc) return corner(xL + r, yT + r, -Math.PI / 2, -d);          // top-left corner
   d -= arc;
-  if (d < straight) return { x: t.x0 + t.r + d, y: t.yBot };
-  d -= straight;
-  const a = d / t.r;
-  return { x: t.x1 - t.r + t.r * Math.sin(a), y: yMid + t.r * Math.cos(a) };
+  if (d < down) return { x: xL, y: yT + r + d };                       // left side, down
+  d -= down;
+  if (d < arc) return corner(xL + r, yB - r, Math.PI, -d);               // bottom-left corner
+  d -= arc;
+  if (d < across) return { x: xL + r + d, y: yB };                     // bottom, left → right
+  d -= across;
+  if (d < arc) return corner(xR - r, yB - r, Math.PI / 2, -d);           // bottom-right corner
+  d -= arc;
+  if (d < down) return { x: xR, y: yB - r - d };                       // right side, up
+  d -= down;
+  return corner(xR - r, yT + r, 0, -d);                                // top-right corner
 }
 
 // ------------------------------------------------ the walk
@@ -118,14 +119,14 @@ export default function SelfieParade({ walkers, hidden }: { walkers: ParadeWalke
   const hoverK = useRef<number[]>([]);
   const n = walkers.length;
 
-  // Measure the free band now, on resize, and every few seconds (a logo may load late).
+  // Measure the frame now, on resize, and every few seconds.
   useEffect(() => {
     if (hidden || !n) return;
     const update = () => {
       const t = measureTrack();
       const prev = trackRef.current;
       trackRef.current = t;
-      if (!t !== !prev || (t && prev && (Math.abs(t.d - prev.d) > 1 || Math.abs(t.x1 - prev.x1) > 2 || Math.abs(t.x0 - prev.x0) > 2 || Math.abs(t.yBot - prev.yBot) > 2))) setTrack(t);
+      if (!t !== !prev || (t && prev && (Math.abs(t.d - prev.d) > 1 || Math.abs(t.xR - prev.xR) > 2 || Math.abs(t.yB - prev.yB) > 2))) setTrack(t);
     };
     update();
     const id = setInterval(update, 3000);
@@ -137,7 +138,7 @@ export default function SelfieParade({ walkers, hidden }: { walkers: ParadeWalke
     if (hidden || !n || !track) return;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const gap = track.d * 1.18;
-    const base = 0.022 * window.innerHeight;
+    const base = 0.03 * window.innerHeight; // a long frame: a little quicker than the old short loop
     const now0 = performance.now();
     // Keep the walkers we have; a new last place joins at the back of the queue.
     const cur = slots.current.slice(0, n);

@@ -274,9 +274,13 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     wasFinished.current = finishedNow;
   }, [finishedNow]);
 
-  const putPhoto = useCallback(async (auth: TheCodeAuth, shot: SelfieShot) => {
-    setLocalPhoto(shot.preview);
-    const r = await sendPhoto(codeId, auth, shot.blob);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  /** A selfie up (shot) or removed (null). The local preview shows at once; the server copy wins after. */
+  const putPhoto = useCallback(async (auth: TheCodeAuth, shot: SelfieShot | null) => {
+    if (shot) setLocalPhoto(shot.preview);
+    setPhotoBusy(true);
+    const r = await sendPhoto(codeId, auth, shot ? shot.blob : null);
+    setPhotoBusy(false);
     if (r.ok) { lastRefreshRef.current = 0; await send({ type: 'state' }, false); }
     setLocalPhoto(null);
   }, [codeId, send]);
@@ -328,6 +332,25 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
       setCall('intro'); // with no clip yet the call shows a black screen (Rani 23.11.2026)
     },
     onEndCall: () => setCall(null),
+    onSetPhoto: (shot) => { const a = activeAuth(identityRef.current); if (a) void putPhoto(a, shot); },
+    onRemovePhoto: () => { const a = activeAuth(identityRef.current); if (a) void putPhoto(a, null); },
+    onUpdateProfile: async (patch) => {
+      // Straight to the transport (not `send`): the sheet shows its own error, the game never turns
+      // into a network-error screen for a rename.
+      const auth = activeAuth(identityRef.current);
+      if (!auth) return 'failed';
+      let res: TheCodePlayResponse;
+      try {
+        res = await transport({ codeId, auth, action: { type: 'updateProfile', ...patch } });
+      } catch {
+        return 'failed';
+      }
+      if (!res.ok) return res.error === 'invalidName' ? 'invalidName' : 'failed';
+      appliedSeqRef.current = ++seqRef.current;
+      snapshotRef.current = res.snapshot;
+      setSnapshot(res.snapshot);
+      return 'ok';
+    },
     onCallMagician: (c) => setCall(c),
     onInstall: () => { void installPrompt(); },
     onSkipInstall: () => {
@@ -340,7 +363,7 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
       setFailure(null);
       if (a) void send(a, a.type !== 'state'); else void send({ type: 'state' }, false);
     },
-  }), [send, putPhoto, installPrompt, codeId]);
+  }), [send, putPhoto, installPrompt, codeId, transport]);
   const pendingLetterRef = useRef(pendingLetter);
   useEffect(() => { pendingLetterRef.current = pendingLetter; }, [pendingLetter]);
 
@@ -377,6 +400,12 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     now: serverNow,
     venueName: adv?.title || '',
     group: player ? { name: player.familyName, avatar: localPhoto || player.photoUrl || player.emoji } : null,
+    profile: player ? {
+      id: player.id, familyName: player.familyName, emoji: player.emoji, recoveryCode: player.recoveryCode,
+      points: player.points, streak: player.streak, hot: !!player.hot, suitcasesOpened: 0,
+      ...((localPhoto || player.photoUrl) ? { photoUrl: (localPhoto || player.photoUrl)! } : {}),
+    } : null,
+    photoBusy,
     points: player?.points ?? 0,
     streak: player?.streak ?? 0,
     hot: !!player?.hot,

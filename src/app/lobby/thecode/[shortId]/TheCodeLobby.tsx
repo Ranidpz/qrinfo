@@ -67,12 +67,14 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
     setQrUrl(`${window.location.origin}/v/${encodeURIComponent(shortId)}?src=lobby`);
   }, [shortId]);
 
-  // Board — polled; a failed poll keeps the last good board.
+  // Board — polled, and refetched at once when the live doc says it changed (boardRev / a new
+  // group); a failed fetch keeps the last good board.
+  const loadBoard = useRef<(rev?: string) => void>(() => {});
   useEffect(() => {
     if (!codeId) return;
     let alive = true;
-    const load = () => {
-      void fetchLeaderboard(codeId, 'screen').then((b) => {
+    const load = (rev?: string) => {
+      void fetchLeaderboard(codeId, 'screen', undefined, rev).then((b) => {
         if (!alive || !b) return;
         setBoardPeriod(b.board || b.scope);
         // More rows than the table shows: the parade walks the top 10 groups WITH a selfie,
@@ -83,10 +85,12 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
         })));
       });
     };
+    loadBoard.current = load;
     load();
-    const t = setInterval(load, POLL_MS);
-    return () => { alive = false; clearInterval(t); };
+    const t = setInterval(() => load(), POLL_MS);
+    return () => { alive = false; clearInterval(t); loadBoard.current = () => {}; };
   }, [codeId, setBoard]);
+  const lastBoardRev = useRef<string | null>(null);
 
   // Live doc — scans, moments, videos in about a second.
   useEffect(() => {
@@ -106,11 +110,16 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
         const now = Date.now();
         routeEvents(events.filter((e) => now - e.at < STALE_EVENT_MS).slice(-3));
         lastScans.current = scans;
+        lastBoardRev.current = `${live?.boardRev ?? 0}-${events.length ? events[events.length - 1].id : ''}`;
         return;
       }
       const fresh = events.filter((e) => !seenEvents.current!.has(e.id));
       fresh.forEach((e) => seenEvents.current!.add(e.id));
       routeEvents(fresh);
+      // Points changed or a group joined → fresh board now (a new rev = a new URL past the edge cache).
+      const rev = `${live?.boardRev ?? 0}-${events.length ? events[events.length - 1].id : ''}`;
+      if (lastBoardRev.current !== null && rev !== lastBoardRev.current) loadBoard.current(rev);
+      lastBoardRev.current = rev;
       // A changed counter = scans of the on-screen QR (the director decides start vs count).
       const prev = lastScans.current ?? scans;
       lastScans.current = scans;

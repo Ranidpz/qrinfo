@@ -72,12 +72,25 @@ export default function MagicianCall({ url, topic, onEnd }: MagicianCallProps) {
   const endRef = useRef(onEnd);
   useEffect(() => { endRef.current = onEnd; });
 
-  // A soft ring while it rings.
+  // The phone RINGS while it rings (Rani 24.11.2026: the soft tick went unheard), and buzzes where
+  // the phone can (Android). iPhone: Web Audio obeys the silent switch unless the page asks for a
+  // "playback" audio session (Safari 17+) — asked only while ringing, then put back.
   useEffect(() => {
     if (live) return;
-    sfx('tick');
-    const t = setInterval(() => sfx('tick'), 1400);
-    return () => clearInterval(t);
+    const nav = navigator as Navigator & { audioSession?: { type: string } };
+    const prevSession = nav.audioSession?.type;
+    try { if (nav.audioSession) nav.audioSession.type = 'playback'; } catch { /* not supported */ }
+    const ring = () => {
+      sfx('ring');
+      try { navigator.vibrate?.([450, 170, 450]); } catch { /* not supported */ }
+    };
+    ring();
+    const t = setInterval(ring, 2400);
+    return () => {
+      clearInterval(t);
+      try { navigator.vibrate?.(0); } catch { /* not supported */ }
+      try { if (nav.audioSession && prevSession) nav.audioSession.type = prevSession; } catch { /* not supported */ }
+    };
   }, [live, sfx]);
 
   // The placeholder's clock (a clip drives `elapsed` itself, via onTimeUpdate); it hangs up by itself.

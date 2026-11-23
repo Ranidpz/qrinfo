@@ -3,7 +3,7 @@
 // server snapshot) both build it. Plain data only.
 
 import type { TheCodeBranding, TheCodeColor } from '@/types/thecode';
-import type { NetworkProblem, PlayerGnomeView, SelfieShot } from '@/components/thecode/player/types';
+import type { NetworkProblem, PlayerGnomeView, PlayerProfileView, ProfilePatchResult, SelfieShot } from '@/components/thecode/player/types';
 import type { InstallPlatform } from './install';
 
 export interface FreeGnomeView {
@@ -93,6 +93,9 @@ export interface FreeGameView {
   screenHint?: string;
   branding?: TheCodeBranding | null;
   selfie?: { enabled: boolean; days: number } | null;
+  /** The group's own sheet (tap the symbol top-right): rename, symbol, selfie, recovery code. */
+  profile?: PlayerProfileView | null;
+  photoBusy?: boolean;
   /** Demo only: the on-screen "continue as if registered" button. */
   demo?: boolean;
 }
@@ -129,6 +132,10 @@ export interface FreeGameCallbacks {
   onSkipInstall?(): void;
   /** Install screen inside WhatsApp / Instagram: reopen in the real browser. */
   onOpenInBrowser?(): void;
+  /** The group's sheet (as in the guided game's ProfileSheet). */
+  onSetPhoto?(photo: SelfieShot): void;
+  onRemovePhoto?(): void;
+  onUpdateProfile?(patch: { familyName?: string; emoji?: string }): Promise<ProfilePatchResult>;
   /** Demo only. */
   onDemoRegistered?(): void;
 }

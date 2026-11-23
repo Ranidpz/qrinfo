@@ -56,9 +56,12 @@ export async function fetchLeaderboard(
   codeId: string,
   scope: 'week' | 'all' | 'screen',
   playerId?: string,
+  /** The live doc's boardRev: a new value is a new URL, so the edge cache can't serve the old board. */
+  rev?: string,
 ): Promise<TheCodeLeaderboardResponse | null> {
   const q = new URLSearchParams({ codeId, scope });
   if (playerId) q.set('playerId', playerId);
+  if (rev) q.set('rev', rev);
   try {
     const { body } = await fetchJson(`/api/thecode/leaderboard?${q.toString()}`);
     const b = body as TheCodeLeaderboardResponse | null;

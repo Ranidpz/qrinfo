@@ -322,6 +322,8 @@ export interface TheCodeLobbyLive {
   selfies?: boolean;
   /** Mirrored on every admin save. 'free' → a new group gets the full-screen join celebration. */
   mode?: TheCodeMode;
+  /** Bumped whenever a group's points change: the screen refetches the board at once (no secrets). */
+  boardRev?: number;
 }
 
 /** POST /api/thecode/lobby-scan — called by /v/{shortId}?src=lobby. Public, rate-limited. */

@@ -23,7 +23,9 @@ import { Avatar } from '@/components/thecode/player/Avatar';
 import type { PlayerGnomeView } from '@/components/thecode/player/types';
 import { alphabetFor } from '@/lib/thecode/letters';
 import { PoweredBy } from '@/components/thecode/player/Branding';
+import ProfileSheet from '@/components/thecode/player/ProfileSheet';
 import MagicianCall from './MagicianCall';
+import WakeCountdown from './WakeCountdown';
 import { JOIN_FLY_MS, JOIN_SHOW_MS } from './JoinCelebration';
 import { wakeLabel, type FreeGameCallbacks, type FreeGameView, type FreeGnomeView } from './types';
 import type { InstallPlatform } from './install';
@@ -85,21 +87,23 @@ function HotSlot({ hot, streak, target }: { hot: boolean; streak: number; target
   );
 }
 
-function Header({ v, onBoard, onToggleMute, onHome, onHowTo }: { v: FreeGameView; onBoard?(): void; onToggleMute(): void; onHome: boolean; onHowTo(): void }) {
+function Header({ v, onBoard, onToggleMute, onHome, onHowTo, onGroup }: { v: FreeGameView; onBoard(): void; onToggleMute(): void; onHome: boolean; onHowTo(): void; onGroup?(): void }) {
   const g = v.group!;
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
-      <span className="tc-chip w-12 shrink-0 justify-center !px-0" title={g.name} aria-label={`הקבוצה: ${g.name}`}>
+      {/* the group's symbol opens its sheet: name, symbol, selfie, recovery code (Rani 24.11.2026) */}
+      <button type="button" className="tc-chip w-12 shrink-0 justify-center !px-0" title={g.name} aria-label={`הקבוצה ${g.name}: עריכה וקוד שחזור`}
+        onClick={onGroup} disabled={!onGroup}>
         <Avatar value={g.avatar} size={28} />
-      </span>
+      </button>
       <HotSlot hot={v.hot} streak={Math.min(v.streak, v.hotStreakAt)} target={v.hotStreakAt} />
       <ScoreCounter points={v.points} />
       <button type="button" className="tc-chip tc-display w-11 shrink-0 justify-center !px-0 text-xl" onClick={onHowTo} aria-label="איך משחקים">?</button>
       <button type="button" className="tc-chip w-11 shrink-0 justify-center !px-0" onClick={onToggleMute} aria-label={v.muted ? 'הפעלת צלילים' : 'השתקת צלילים'}>
         <SoundIcon muted={v.muted} />
       </button>
-      <button type="button" className="tc-chip w-11 shrink-0 justify-center !px-0" onClick={onBoard} disabled={!onBoard}
-        aria-label={onHome ? 'אתם בלוח הגמדים' : 'ללוח הגמדים'} aria-current={onHome ? 'page' : undefined}
+      <button type="button" className="tc-chip w-11 shrink-0 justify-center !px-0" onClick={onBoard}
+        aria-label={onHome ? 'לראש לוח הגמדים' : 'ללוח הגמדים'} aria-current={onHome ? 'page' : undefined}
         style={onHome ? { background: 'rgba(244,183,64,.18)', boxShadow: 'inset 0 0 0 1.5px rgba(244,183,64,.5)', color: 'var(--tc-brass-hi)' } : undefined}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" />
@@ -470,9 +474,7 @@ function GnomeScreen({ v, gnomeId, cb }: { v: FreeGameView; gnomeId: string; cb:
         <ColorChip color={g.hatColor} part="מצנפת" name={colorNameHe(g.hatColor, 'hat')} />
       </div>
       {asleep ? (
-        <HintCard className="w-full text-lg">
-          <span aria-hidden className="me-2">💤</span>הגמד ישן. הוא יתעורר {wakeLabel(g.wakesAt!, v.now)} עם חידה חדשה.
-        </HintCard>
+        <WakeCountdown until={g.wakesAt!} now={v.now} caption="הגמד ישן. הוא יתעורר עם חידה חדשה בעוד" />
       ) : done ? (
         <HintCard className="w-full text-lg">הגמד הזה ענה איתכם על כל החידות שלו. כל הכבוד!</HintCard>
       ) : (
@@ -641,9 +643,8 @@ function FailedScreen({ v, gnomeId, wakesAt, allSleep, cb }: { v: FreeGameView; 
       {g && <GnomeStage gnome={view(g)} size={fit(90, 130)} sleeping />}
       <h2 className="tc-display text-4xl leading-tight">לא הפעם</h2>
       <p className="text-xl leading-snug">הגמד התעייף והלך לישון.</p>
-      <HintCard tone="brass" className="w-full text-lg">
-        לא ירדו לכם נקודות. הגמד יתעורר {wakeLabel(wakesAt, v.now)} עם חידה חדשה, ואז אפשר לנסות שוב.
-      </HintCard>
+      <p className="text-lg leading-snug" style={{ color: 'var(--tc-brass-hi)' }}>לא ירדו לכם נקודות. כשהוא יתעורר תקבלו חידה חדשה.</p>
+      <WakeCountdown until={wakesAt} now={v.now} />
     </ScreenBody>
   );
 }
@@ -658,8 +659,9 @@ function AsleepScreen({ v, gnomeId, wakesAt, last, cb }: { v: FreeGameView; gnom
       <h2 className="tc-display text-4xl leading-tight">ששש… הגמד ישן</h2>
       <p className="text-xl leading-snug" style={{ color: 'var(--tc-soft)' }}>
         {last === 'failed' ? 'הוא עוד עייף מהחידה הקודמת.' : 'כבר פתרתם את החידה שלו.'}
-        {' '}הוא יתעורר {wakeLabel(wakesAt, v.now)} עם חידה חדשה.
+        {' '}הוא יתעורר עם חידה חדשה בעוד:
       </p>
+      <WakeCountdown until={wakesAt} now={v.now} />
       <p className="text-lg" style={{ color: 'var(--tc-brass-hi)' }}>בינתיים יש עוד גמדים ערים במקום</p>
     </ScreenBody>
   );
@@ -798,6 +800,8 @@ export default function FreeGamePlayer({ view: v, callbacks }: { view: FreeGameV
   }, [key, v, play]);
 
   const showHeader = !!v.group && !NO_HEADER.includes(v.screen.kind);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
   const onBoardScreen = v.screen.kind === 'board';
   const callUrl = v.call === 'intro' ? v.videos.intro : v.call === 'wellDone' ? v.videos.wellDone : null;
 
@@ -809,13 +813,23 @@ export default function FreeGamePlayer({ view: v, callbacks }: { view: FreeGameV
           <div className="tc-stars" aria-hidden />
           {showHeader && (
             <Header v={v} onToggleMute={callbacks.onToggleMute} onHome={onBoardScreen} onHowTo={() => { play('tap'); callbacks.onShowIntro(); }}
-              onBoard={onBoardScreen ? undefined : () => { play('tap'); callbacks.onBoard(); }} />
+              onGroup={v.profile && callbacks.onUpdateProfile ? () => { play('tap'); setSheetOpen(true); } : undefined}
+              onBoard={() => {
+                play('tap');
+                // Already on the board: back to its top (a tap that did nothing felt broken).
+                if (onBoardScreen) mainRef.current?.querySelectorAll<HTMLElement>('*').forEach((el) => { if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' }); });
+                else callbacks.onBoard();
+              }} />
           )}
-          <main className="relative flex-1">
+          <main ref={mainRef} className="relative flex-1">
             <div key={key} className="tc-a-rise absolute inset-0">
               <Screen v={v} cb={callbacks} />
             </div>
           </main>
+          <ProfileSheet open={sheetOpen && showHeader} profile={v.profile ?? null} profiles={v.profile ? [v.profile] : []}
+            selfie={v.selfie} photoBusy={v.photoBusy} onSetPhoto={callbacks.onSetPhoto} onRemovePhoto={callbacks.onRemovePhoto}
+            onUpdateProfile={callbacks.onUpdateProfile} muted={v.muted} onToggleMute={callbacks.onToggleMute}
+            onClose={() => setSheetOpen(false)} onSwitch={() => setSheetOpen(false)} />
           {v.call && (
             <MagicianCall key={v.call} url={callUrl}
               topic={v.call === 'intro' ? 'הקוסם מסביר לקבוצה מה עושים' : 'כל הכבוד! הקוסם מברך את הקבוצה'} onEnd={callbacks.onEndCall} />

@@ -506,11 +506,13 @@ export async function playAction(
     server.week = addWeekDelta(server.week, weekKey(now, THECODE_TIME_ZONE), pointsDelta, suitcasesDelta);
     tx.set(playerRef, playerDoc(next, server, adv.config.retentionDays));
     if (stats.gnomes || stats.riddles) tx.set(sRef, stats, { merge: true });
-    return { adv, next, event, now, lobbyKinds };
+    return { adv, next, event, now, lobbyKinds, pointsDelta };
   });
 
   // Right after the commit, awaited (never fire-and-forget on Vercel). A lobby failure
   // never fails the family's action — pushLobbyEvents logs and moves on.
+  // Points changed → the big screen refetches its board now instead of on its next poll.
+  if (result.pointsDelta) await bumpBoardRev(codeId);
   if (result.lobbyKinds.length) {
     const selfie = resolveSelfie(result.adv.config);
     await pushLobbyEvents(codeId, result.lobbyKinds.map((kind) =>
@@ -882,6 +884,15 @@ async function pushLobbyEvents(codeId: string, events: (TheCodeLobbyEvent | null
   const add = events.filter((e): e is TheCodeLobbyEvent => !!e);
   if (!add.length) return;
   await editLobbyEvents(codeId, (list) => appendLobbyEvents(list, add));
+}
+
+/** Tells the big screen (onSnapshot on the live doc) that the board changed. Never throws. */
+async function bumpBoardRev(codeId: string): Promise<void> {
+  try {
+    await lobbyRef(codeId).set({ boardRev: FieldValue.increment(1) }, { merge: true });
+  } catch (error) {
+    console.error('thecode lobby boardRev error:', error);
+  }
 }
 
 /** A scan of the QR on the big screen. False = not a thecode code. */

@@ -21,7 +21,8 @@ interface Props {
   photoBusy?: boolean;
   onClose(): void;
   onSwitch(id: string): void;
-  onAdd(): void;
+  /** Absent (the free game: one group per phone) → no "קבוצה נוספת" button. */
+  onAdd?(): void;
   onSetPhoto?(photo: SelfieShot): void;
   onRemovePhoto?(): void;
   onUpdateProfile?(patch: { familyName?: string; emoji?: string }): Promise<ProfilePatchResult>;
@@ -176,9 +177,11 @@ export default function ProfileSheet(p: Props) {
                   <span aria-hidden>✏️</span> עריכת הקבוצה
                 </button>
               )}
-              <button type="button" className="tc-btn tc-btn-ghost flex-1 !text-base" onClick={onAdd}>
-                <span aria-hidden>＋</span> קבוצה נוספת
-              </button>
+              {onAdd && (
+                <button type="button" className="tc-btn tc-btn-ghost flex-1 !text-base" onClick={onAdd}>
+                  <span aria-hidden>＋</span> קבוצה נוספת
+                </button>
+              )}
             </div>
             {onToggleMute && <SoundRow muted={!!muted} onToggle={onToggleMute} />}
             {profile && (

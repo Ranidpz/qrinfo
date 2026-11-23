@@ -4,7 +4,7 @@
 
 export type SfxName =
   | 'tap' | 'key' | 'scan' | 'correct' | 'wrong' | 'penalty' | 'hot' | 'place'
-  | 'unplace' | 'unlock' | 'fanfare' | 'tick' | 'warn';
+  | 'unplace' | 'unlock' | 'fanfare' | 'tick' | 'warn' | 'ring';
 
 type Note = { f: number; t: number; d: number; type?: OscillatorType; g?: number; slideTo?: number };
 
@@ -41,7 +41,20 @@ const SOUNDS: Record<SfxName, Note[]> = {
   ],
   tick: [{ f: 1400, t: 0, d: 0.02, type: 'square', g: 0.03 }],
   warn: [{ f: 494, t: 0, d: 0.1, type: 'triangle' }, { f: 415, t: 0.12, d: 0.16, type: 'triangle' }],
+  // A phone ringing (Cliostro calls, Rani 24.11.2026): "trrr — trrr", two bursts of a fast
+  // two-tone warble, like an old phone bell. The caller repeats it every ~2.4s while it rings.
+  ring: ringBursts([0, 0.62]),
 };
+
+function ringBursts(starts: number[]): Note[] {
+  const out: Note[] = [];
+  for (const t0 of starts) {
+    for (let i = 0; i < 10; i++) {
+      out.push({ f: i % 2 ? 1180 : 940, t: t0 + i * 0.045, d: 0.05, type: 'triangle', g: 0.16 });
+    }
+  }
+  return out;
+}
 
 class GameSfx {
   private ctx: AudioContext | null = null;

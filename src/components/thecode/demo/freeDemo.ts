@@ -463,6 +463,10 @@ export function freeDemoView(s: FreeDemoState, realNow: number, videos: FreeGame
     now,
     venueName: FREE_VENUE_NAME,
     group: s.group ? { name: s.group.name, avatar: s.group.emoji } : null,
+    profile: s.group ? {
+      id: 'demo', familyName: s.group.name, emoji: s.group.emoji, recoveryCode: 'GNOME7',
+      points: s.points, streak: s.streak, hot: isHot(s), suitcasesOpened: 0,
+    } : null,
     points: s.points,
     streak: s.streak,
     hot: isHot(s),
@@ -496,4 +500,10 @@ export function freeDemoView(s: FreeDemoState, realNow: number, videos: FreeGame
     screenHint: SCREEN_HINT,
     demo: true,
   };
+}
+
+/** Demo: the group's sheet — rename / pick another symbol. */
+export function freeDemoEditGroup(s: FreeDemoState, patch: { familyName?: string; emoji?: string }): FreeDemoState {
+  if (!s.group) return s;
+  return { ...s, group: { name: patch.familyName ?? s.group.name, emoji: patch.emoji ?? s.group.emoji } };
 }

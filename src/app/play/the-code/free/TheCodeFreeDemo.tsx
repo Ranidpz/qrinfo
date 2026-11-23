@@ -11,6 +11,7 @@ import {
   createFreeDemoState, demoNow, freeBuyHint, freeDemoCaption, freeDemoGoRegister, freeDemoJump, freeDemoSolveAllBut,
   freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freeDemoView, freeDemoInstalled, freeDemoPlatform, freeDemoToScreen, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
   freeToBoard, freeToggleMute, isAsleep, msToNextWake, type FreeDemoState,
+  freeDemoEditGroup,
 } from '@/components/thecode/demo/freeDemo';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 
@@ -134,6 +135,7 @@ export default function TheCodeFreeDemo() {
       onOpenInBrowser: () => setS((x) => freeDemoPlatform(x, 'ios-safari')),
       onCallMagician: (call) => setS((x) => freeCallMagician(x, call)),
       onDemoRegistered: on(freeDemoToScreen),
+      onUpdateProfile: async (patch) => { setS((x) => freeDemoEditGroup(x, patch)); return 'ok'; },
     };
   }, []);
 
