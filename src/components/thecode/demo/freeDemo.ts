@@ -43,6 +43,8 @@ export const REFRESH: { kind: 'minutes'; minutes: number } | { kind: 'dailyAt'; 
 export const RIDDLES_PER_GNOME = 3;
 
 export const FREE_VENUE_NAME = 'אחוזת הגמדים';
+/** Where the gnomes' big screen stands — the hint an unregistered group gets (the venue writes it). */
+export const SCREEN_HINT = 'בלובי, על הקיר שמול דלפק הקבלה. חפשו את המסך עם הגמדים שרוקדים.';
 
 // ------------------------------------------------ demo data
 
@@ -139,6 +141,8 @@ export interface FreeCollected {
 export interface FreeCorrect {
   gnomeId: string;
   letter: string;
+  /** The answer itself — shown only after the group got it right. */
+  answerWord: string;
   points: number;
   half: boolean;
   hot: boolean;
@@ -305,7 +309,7 @@ export function freeSubmitLetter(s: FreeDemoState, realNow: number): FreeDemoSta
     ...next,
     screen: { kind: 'correct' },
     correct: {
-      gnomeId, letter: riddle.letter, points, half, hot, becameHot: hot && !wasHot,
+      gnomeId, letter: riddle.letter, answerWord: riddle.answerWord, points, half, hot, becameHot: hot && !wasHot,
       spellingTip: match === 'soundAlike' ? `כמעט! ${riddle.answerWord} כותבים ב־${riddle.letter}׳` : undefined,
       allAsleep: allAsleep(next, now),
     },

@@ -20,7 +20,7 @@ import ScannerScreen from '@/components/thecode/player/ScannerScreen';
 import { Avatar } from '@/components/thecode/player/Avatar';
 import type { PlayerGnomeView } from '@/components/thecode/player/types';
 import {
-  ATTEMPTS_PER_RIDDLE, FREE_ALPHABET, FREE_GNOMES, FREE_VENUE_NAME, HINT_COST, HOT_STREAK_AT, SECOND_ATTEMPT_FACTOR,
+  ATTEMPTS_PER_RIDDLE, FREE_ALPHABET, FREE_GNOMES, FREE_VENUE_NAME, HINT_COST, SCREEN_HINT, HOT_STREAK_AT, SECOND_ATTEMPT_FACTOR,
   currentRiddle, demoNow, isAsleep, isHot, wakeLabel,
   type FreeDemoState, type FreeGnome, type FreeGnomeProgress,
 } from '@/components/thecode/demo/freeDemo';
@@ -149,6 +149,21 @@ function GnomeCard({ g, p, now, onOpen }: { g: FreeGnome; p: FreeGnomeProgress; 
 
 // ------------------------------------------------ screens
 
+/** "Can't find the screen?" — reveals the venue's hint for where the big screen stands (free). */
+function ScreenHint() {
+  const sfx = useSfx();
+  const [open, setOpen] = useState(false);
+  return open ? (
+    <HintCard tone="brass" className="tc-a-rise w-full text-start">
+      <span aria-hidden className="me-2">📍</span><span className="font-black">המסך נמצא </span>{SCREEN_HINT}
+    </HintCard>
+  ) : (
+    <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => { sfx('tap'); setOpen(true); }}>
+      לא מצאתם את המסך? רמז
+    </button>
+  );
+}
+
 function StartAtScreenScreen({ gnome, onDemoRegistered }: { gnome: FreeGnome | null; onDemoRegistered?(): void }) {
   const fit = useFit();
   return (
@@ -169,7 +184,7 @@ function StartAtScreenScreen({ gnome, onDemoRegistered }: { gnome: FreeGnome | n
           <li><span aria-hidden className="me-2">🍄</span>חזרו לגמדים. כל גמד ער מחכה לכם עם חידה</li>
         </ol>
       </HintCard>
-      <p className="text-base" style={{ color: 'var(--tc-soft)' }}>לא מוצאים את המסך? שאלו את המארגנים.</p>
+      <ScreenHint />
     </ScreenBody>
   );
 }
@@ -362,7 +377,11 @@ function CorrectScreen({ s, now, cb }: { s: FreeDemoState; now: number; cb: Free
           style={{ background: 'repeating-conic-gradient(from 0deg, rgba(255,217,120,.35) 0 10deg, transparent 10deg 30deg)', borderRadius: '50%', maskImage: 'radial-gradient(closest-side, #000 40%, transparent)' }} />
         <Tile letter={c.letter} size={fit(64, 100)} className="tc-a-pop" />
       </div>
-      {letterName(c.letter) && <p className="tc-display -mt-1 text-2xl" style={{ color: 'var(--tc-brass-hi)' }}>{letterName(c.letter)}</p>}
+      <p className="tc-display tc-a-rise -mt-1 text-2xl leading-tight">
+        <span style={{ color: 'var(--tc-soft)' }}>התשובה: </span>
+        <span style={{ color: 'var(--tc-brass-hi)' }}>{c.answerWord}</span>
+      </p>
+      {letterName(c.letter) && <p className="-mt-2 text-base" style={{ color: 'var(--tc-soft)' }}>האות {letterName(c.letter)}</p>}
       <p className="tc-num tc-a-pop tc-delay-3 text-5xl font-black" style={{ color: 'var(--tc-mint)', textShadow: '0 6px 30px rgba(54,227,154,.45)' }}>
         +<CountUp value={shown} duration={700} />
       </p>
