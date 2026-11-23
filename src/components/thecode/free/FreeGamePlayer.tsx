@@ -16,6 +16,7 @@ import {
 } from '@/components/thecode/player/ui';
 import { ScanButton } from '@/components/thecode/player/HuntScreens';
 import MagicianCall from './MagicianCall';
+import { JOIN_FLY_MS, JOIN_SHOW_MS } from './JoinCelebration';
 import RegisterScreen from '@/components/thecode/player/RegisterScreen';
 import ScannerScreen from '@/components/thecode/player/ScannerScreen';
 import { Avatar } from '@/components/thecode/player/Avatar';
@@ -51,6 +52,8 @@ export interface FreeGameCallbacks {
   onToggleMute(): void;
   /** "?" in the header / the intro's button: show or leave the explanation screen. */
   onShowIntro(): void;
+  /** The "you are on the big screen" moment is over → the magician calls. */
+  onJoinedDone(): void;
   /** The magician's video call ended (hung up, clip over, "אחר כך"). */
   onEndCall(): void;
   /** Call the magician again from the rules / finish screen. */
@@ -165,6 +168,29 @@ const WELL_DONE_LINES = [
 ];
 
 // ------------------------------------------------ screens
+
+/**
+ * Right after registering: the big screen is celebrating THIS group (JoinCelebration), so the
+ * phone says so — look up! When the screen's moment ends, Cliostro calls.
+ */
+function JoinedScreen({ s, onDone }: { s: FreeDemoState; onDone(): void }) {
+  const fit = useFit();
+  useEffect(() => {
+    const t = setTimeout(onDone, JOIN_SHOW_MS + JOIN_FLY_MS);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <ScreenBody className="items-center justify-center gap-5 text-center">
+      <Confetti burstKey="joined" />
+      <span className="tc-a-pop flex items-center justify-center rounded-full"
+        style={{ width: fit(120, 160), height: fit(120, 160), background: 'radial-gradient(circle, #3E2C74, #141a48)', boxShadow: '0 0 0 6px var(--tc-brass), 0 20px 50px rgba(0,0,0,.45)' }}>
+        <Avatar value={s.group?.emoji || '🍄'} size={fit(80, 110)} />
+      </span>
+      <h2 className="tc-display text-[2.3rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>אתם על המסך הגדול!</h2>
+      <p className="text-xl leading-snug">הרימו את הראש <span aria-hidden>📺</span><br />{s.group?.name} הצטרפו למשחק</p>
+    </ScreenBody>
+  );
+}
 
 /** After registering: Cliostro explains (video slot), the rules in three short lines, then go. */
 function IntroScreen({ onDone, onCall }: { onDone(): void; onCall(): void }) {
@@ -507,6 +533,8 @@ function Screen({ s, now, cb }: { s: FreeDemoState; now: number; cb: FreeGameCal
       return <AsleepScreen s={s} gnomeId={sc.gnomeId} now={now} cb={cb} />;
     case 'finished':
       return <FinishedScreen s={s} now={now} onCall={() => cb.onCallMagician('wellDone')} />;
+    case 'joined':
+      return <JoinedScreen s={s} onDone={cb.onJoinedDone} />;
     case 'intro':
       return <IntroScreen onDone={cb.onBoard} onCall={() => cb.onCallMagician('intro')} />;
   }
@@ -525,11 +553,12 @@ function enterSound(s: FreeDemoState): SfxName | null {
     case 'asleep':
     case 'startAtScreen': return 'warn';
     case 'finished': return 'fanfare';
+    case 'joined': return 'hot';
     default: return null;
   }
 }
 
-const NO_HEADER: FreeDemoState['screen']['kind'][] = ['startAtScreen', 'register'];
+const NO_HEADER: FreeDemoState['screen']['kind'][] = ['startAtScreen', 'register', 'joined'];
 
 /** `realNow` ticks in the parent; the demo clock adds the time-travel offset. */
 export default function FreeGamePlayer({ state, realNow, callbacks, videos }: { state: FreeDemoState; realNow: number; callbacks: FreeGameCallbacks; videos?: FreeGameVideos }) {

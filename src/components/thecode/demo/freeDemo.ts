@@ -150,7 +150,9 @@ export interface FreeCorrect {
 export type FreeScreen =
   | { kind: 'startAtScreen'; gnomeId: string | null }
   | { kind: 'register' }
-  /** Right after registering (and from "?" in the header): Cliostro's explanation + the rules. */
+  /** Right after registering: "you are on the big screen!" while the screen celebrates the group. */
+  | { kind: 'joined' }
+  /** After the join moment (and from "?" in the header): Cliostro's call, then the rules. */
   | { kind: 'intro' }
   | { kind: 'board' }
   | { kind: 'scanner'; error: string | null }
@@ -259,8 +261,12 @@ export function freeScanCode(s: FreeDemoState, code: string, realNow: number): F
 }
 
 export function freeRegister(s: FreeDemoState, name: string, emoji: string): FreeDemoState {
-  return { ...s, group: { name: name.trim() || 'הקבוצה שלנו', emoji }, screen: { kind: 'intro' }, call: 'intro' };
+  return { ...s, group: { name: name.trim() || 'הקבוצה שלנו', emoji }, screen: { kind: 'joined' } };
 }
+
+/** The big screen finished celebrating the group → Cliostro calls at once (Rani: "בום שיחה"). */
+export const freeJoinedDone = (s: FreeDemoState): FreeDemoState =>
+  (s.screen.kind === 'joined' ? { ...s, screen: { kind: 'intro' }, call: 'intro' } : s);
 
 export function freePickLetter(s: FreeDemoState, letter: string): FreeDemoState {
   return { ...s, pendingLetter: letter };
@@ -392,7 +398,8 @@ export function freeDemoCaption(s: FreeDemoState): string {
   switch (s.screen.kind) {
     case 'startAtScreen': return 'קבוצה שעוד לא נרשמה סרקה גמד. בהדגמה: "נרשמנו במסך" ממשיך להרשמה.';
     case 'register': return 'ההרשמה עצמה (במשחק האמיתי אחרי סריקת הקוד שעל המסך הגדול).';
-    case 'intro': return s.call ? 'קליוסטרו "מתקשר": ענו, ובזמן השיחה כפתור i פותח את הכתוב. סרטון אמיתי: ‎?intro=כתובת' : 'מסך הכללים אחרי השיחה. אפשר לשוחח שוב עם הקוסם.';
+    case 'joined': return 'הקבוצה הופיעה עכשיו על המסך הגדול (חגיגת ההצטרפות). כשהחגיגה נגמרת, קליוסטרו מתקשר.';
+    case 'intro': return s.call ? 'קליוסטרו "מתקשר": ענו. בזמן השיחה מה שהוא אומר עולה כהודעות מלמטה, וכפתור i מסתיר או מציג אותן. סרטון אמיתי: ‎?intro=כתובת' : 'מסך הכללים אחרי השיחה. אפשר לשוחח שוב עם הקוסם.';
     case 'board': return 'הקישו על גמד ער כדי לסרוק אותו או לקנות רמז למקום שלו.';
     case 'gnome': return 'בהדגמה "מצאנו! סרקו" פותח את החידה מיד. בטלפון אמיתי נפתחת המצלמה.';
     case 'scanner': return 'מצלמה מדומה: סרקו גמד מהכפתורים למטה, או הקלידו קוד 101 עד 116.';

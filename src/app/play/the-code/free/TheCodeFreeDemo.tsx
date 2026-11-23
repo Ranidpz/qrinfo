@@ -9,7 +9,7 @@ import FreeGamePlayer, { type FreeGameCallbacks, type FreeGameVideos } from '@/c
 import {
   ATTEMPTS_PER_RIDDLE, FREE_GNOMES, HINT_COST, POINTS_PER_RIDDLE, REFRESH, SECOND_ATTEMPT_FACTOR,
   createFreeDemoState, demoNow, freeBuyHint, freeDemoCaption, freeDemoGoRegister, freeDemoJump, freeDemoSolveAllBut,
-  freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
+  freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
   freeToBoard, freeToggleMute, isAsleep, msToNextWake, type FreeDemoState,
 } from '@/components/thecode/demo/freeDemo';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
@@ -121,6 +121,7 @@ export default function TheCodeFreeDemo() {
       onToggleMute: on(freeToggleMute),
       onShowIntro: on(freeShowIntro),
       onEndCall: on(freeEndCall),
+      onJoinedDone: on(freeJoinedDone),
       onCallMagician: (call) => setS((x) => freeCallMagician(x, call)),
       onDemoRegistered: on(freeDemoGoRegister),
     };

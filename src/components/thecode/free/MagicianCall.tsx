@@ -4,7 +4,8 @@
 // video call with the magician). Two steps:
 //   1. ringing — the magician's picture, pulsing rings, "ענו" / "אחר כך";
 //   2. live    — the clip fills the screen, a call bar on top (name, red dot, timer, "i"), hang-up below.
-//      "i" opens what he says in writing over the video, for whoever prefers to read.
+//      While he talks, what he says pops up as TEXT MESSAGES from the bottom, each new bubble pushing
+//      the earlier ones up — like a phone (Rani). "i" hides / shows the messages.
 // The "ענו" tap is a user gesture, so the clip may play WITH sound on iPhone (autoplay with sound
 // is refused otherwise). No clip yet → a drawn placeholder that ends by itself after a few seconds.
 // Overlay inside the phone column (absolute inset-0), above everything, safe-area aware.
@@ -17,15 +18,20 @@ export interface MagicianCallProps {
   url?: string | null;
   /** What the clip is about — shown on the placeholder. */
   topic: string;
-  /** What the magician says, in writing — the "i" button opens it over the video (Rani). */
+  /** What the magician says, in writing — popped up as text messages during the call (Rani). */
   lines?: string[];
+  /** Second of the clip at which each line pops up. Absent = FIRST_MS, then every STEP_MS. */
+  lineTimes?: number[];
   /** The call ended: hung up, the clip finished, or "אחר כך". */
   onEnd(): void;
 }
 
 const NAME = 'הקוסם קליוסטרו';
-/** The placeholder "call" lasts this long when there is no clip. */
-const PLACEHOLDER_MS = 7000;
+/** Default rhythm of the messages: the first after a few seconds, then one every few seconds. */
+const FIRST_MS = 3000;
+const STEP_MS = 3200;
+/** Without a clip the placeholder hangs up this long after the last message. */
+const PLACEHOLDER_TAIL_MS = 4500;
 
 const STYLE = `
 @keyframes tcm-ring { 0% { transform: scale(1); opacity: .55 } 100% { transform: scale(1.9); opacity: 0 } }
@@ -34,7 +40,14 @@ const STYLE = `
 .tcm-answer { animation: tcm-shake 1.2s ease-in-out infinite; }
 @keyframes tcm-dot { 50% { opacity: .25 } }
 .tcm-dot { animation: tcm-dot 1s step-end infinite; }
-@media (prefers-reduced-motion: reduce) { .tcm-ring, .tcm-answer, .tcm-dot { animation: none !important; } }
+/* a new message grows from nothing (so the ones above slide up smoothly), then pops in */
+@keyframes tcm-grow { from { grid-template-rows: 0fr } to { grid-template-rows: 1fr } }
+@keyframes tcm-pop { 0% { transform: translateY(70%) scale(.85); opacity: 0 } 70% { transform: translateY(-4%) scale(1.02); opacity: 1 } 100% { transform: none; opacity: 1 } }
+.tcm-msg { display: grid; animation: tcm-grow .35s ease-out both; }
+.tcm-msg > div { min-height: 0; }
+.tcm-bubble { animation: tcm-pop .45s cubic-bezier(.2,.9,.3,1.2) .05s both; transform-origin: 100% 100%; }
+.tcm-feed { mask-image: linear-gradient(to bottom, transparent 0, #000 18%); }
+@media (prefers-reduced-motion: reduce) { .tcm-ring, .tcm-answer, .tcm-dot, .tcm-msg, .tcm-bubble { animation: none !important; } }
 `;
 
 function Magician({ size }: { size: number }) {
@@ -56,11 +69,15 @@ function PhoneIcon({ down }: { down?: boolean }) {
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-export default function MagicianCall({ url, topic, lines, onEnd }: MagicianCallProps) {
+export default function MagicianCall({ url, topic, lines = [], lineTimes, onEnd }: MagicianCallProps) {
   const sfx = useSfx();
   const [live, setLive] = useState(false);
-  const [secs, setSecs] = useState(0);
-  const [info, setInfo] = useState(false);
+  /** Ms into the call: the clip's own clock when there is a clip, a timer for the placeholder. */
+  const [elapsed, setElapsed] = useState(0);
+  const [showText, setShowText] = useState(true);
+  const times = lines.map((_, i) => (lineTimes?.[i] !== undefined ? lineTimes[i] * 1000 : FIRST_MS + i * STEP_MS));
+  const shown = lines.filter((_, i) => elapsed >= times[i]).length;
+  const secs = Math.floor(elapsed / 1000);
   const video = useRef<HTMLVideoElement>(null);
 
   // A soft ring while it rings.
@@ -71,13 +88,22 @@ export default function MagicianCall({ url, topic, lines, onEnd }: MagicianCallP
     return () => clearInterval(t);
   }, [live, sfx]);
 
-  // The call timer; the placeholder hangs up by itself.
+  // The placeholder's clock (a clip drives `elapsed` itself, via onTimeUpdate); it hangs up after the last message.
+  const lastAt = times.length ? times[times.length - 1] : 0;
   useEffect(() => {
-    if (!live) return;
-    const t = setInterval(() => setSecs((s) => s + 1), 1000);
-    const end = url || info ? null : setTimeout(onEnd, PLACEHOLDER_MS);
-    return () => { clearInterval(t); if (end) clearTimeout(end); };
-  }, [live, url, info, onEnd]);
+    if (!live || url) return;
+    const start = Date.now();
+    const t = setInterval(() => setElapsed(Date.now() - start), 200);
+    const end = setTimeout(onEnd, lastAt + PLACEHOLDER_TAIL_MS);
+    return () => { clearInterval(t); clearTimeout(end); };
+  }, [live, url, lastAt, onEnd]);
+
+  // A soft "message" blip for every new bubble.
+  const lastShown = useRef(0);
+  useEffect(() => {
+    if (shown > lastShown.current && showText) sfx('key');
+    lastShown.current = shown;
+  }, [shown, showText, sfx]);
 
   const answer = () => {
     sfx('tap');
@@ -125,11 +151,12 @@ export default function MagicianCall({ url, topic, lines, onEnd }: MagicianCallP
         <>
           {url ? (
             <video ref={video} src={url} playsInline autoPlay onEnded={onEnd}
+              onTimeUpdate={(e) => setElapsed(e.currentTarget.currentTime * 1000)}
               className="absolute inset-0 h-full w-full bg-black object-cover" />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
+            <div className="absolute inset-0 flex flex-col items-center gap-4 px-8 pt-[16svh] text-center">
               <span className="absolute start-5 top-16 rounded-full bg-black/40 px-2.5 py-1 text-xs font-bold" style={{ color: 'var(--tc-soft)' }}>משבצת וידאו</span>
-              <div className="tc-a-bob"><Magician size={190} /></div>
+              <div className="tc-a-bob"><Magician size={150} /></div>
               <p className="tc-display text-2xl leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>כאן ירוץ הסרטון של קליוסטרו</p>
               <p className="text-base leading-snug" style={{ color: 'var(--tc-soft)' }}>{topic}</p>
             </div>
@@ -143,23 +170,34 @@ export default function MagicianCall({ url, topic, lines, onEnd }: MagicianCallP
             </div>
             <div className="flex items-center gap-3">
               <span className="tc-num text-base text-white/85" aria-label="משך השיחה">{fmt(secs)}</span>
-              {!!lines?.length && (
-                <button type="button" onClick={() => { sfx('tap'); setInfo((o) => !o); }} aria-pressed={info}
-                  aria-label={info ? 'הסתרת הכתוב' : 'מה הקוסם אומר, בכתב'}
+              {!!lines.length && (
+                <button type="button" onClick={() => { sfx('tap'); setShowText((o) => !o); }} aria-pressed={showText}
+                  aria-label={showText ? 'הסתרת ההודעות' : 'הצגת מה שהקוסם אומר, בכתב'}
                   className="flex h-11 w-11 items-center justify-center rounded-full font-serif text-xl font-bold italic"
-                  style={info ? { background: 'var(--tc-brass)', color: '#2A1600' } : { background: 'rgba(255,255,255,.2)', color: '#fff', boxShadow: 'inset 0 0 0 1.5px rgba(255,255,255,.5)' }}>
+                  style={showText ? { background: 'var(--tc-brass)', color: '#2A1600' } : { background: 'rgba(255,255,255,.2)', color: '#fff', boxShadow: 'inset 0 0 0 1.5px rgba(255,255,255,.5)' }}>
                   i
                 </button>
               )}
             </div>
           </div>
-          {info && !!lines?.length && (
-            <div className="tc-a-rise absolute inset-x-4 bottom-[120px] max-h-[55%] overflow-y-auto rounded-3xl px-5 py-4"
-              style={{ background: 'rgba(8,10,34,.86)', backdropFilter: 'blur(6px)', boxShadow: 'inset 0 0 0 1.5px rgba(244,183,64,.45)' }}>
-              <p className="tc-display mb-2 text-lg" style={{ color: 'var(--tc-brass-hi)' }}>מה הקוסם אומר</p>
-              <ul className="flex flex-col gap-2 text-lg leading-snug text-white">
-                {lines.map((l, i) => <li key={i}>{l}</li>)}
-              </ul>
+          {/* what he says, as text messages from the bottom; each new one pushes the earlier ones up */}
+          {showText && shown > 0 && (
+            <div aria-live="polite" className="tcm-feed absolute inset-x-4 bottom-[118px] flex max-h-[52%] flex-col justify-end gap-2 overflow-hidden pt-6">
+              {lines.slice(0, shown).map((l, i) => (
+                <div key={i} className="tcm-msg">
+                  <div>
+                    <div className="flex items-end gap-2">
+                      {i === shown - 1 ? <span aria-hidden className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-base"
+                        style={{ background: 'radial-gradient(circle at 50% 35%, #5B3FA6, #1A1240)', boxShadow: '0 0 0 1.5px var(--tc-brass)' }}>🧙‍♂️</span>
+                        : <span aria-hidden className="w-7 shrink-0" />}
+                      <p className="tcm-bubble max-w-[82%] rounded-[20px] rounded-br-md px-4 py-2.5 text-[1.05rem] leading-snug"
+                        style={{ background: 'rgba(255,255,255,.94)', color: '#14162B', boxShadow: '0 4px 14px rgba(0,0,0,.3)' }}>
+                        {l}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           {/* hang up */}
