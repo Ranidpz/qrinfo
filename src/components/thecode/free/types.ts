@@ -4,6 +4,7 @@
 
 import type { TheCodeBranding, TheCodeColor } from '@/types/thecode';
 import type { NetworkProblem, PlayerGnomeView, SelfieShot } from '@/components/thecode/player/types';
+import type { InstallPlatform } from './install';
 
 export interface FreeGnomeView {
   id: string;
@@ -45,6 +46,8 @@ export type FreeScreenView =
   | { kind: 'notFound' }
   | { kind: 'paused' }
   | { kind: 'network'; problem?: NetworkProblem; retryInSeconds?: number }
+  /** Not registered yet, in a browser: install the game to the home screen first (Rani 23.11.2026). */
+  | { kind: 'install'; platform: InstallPlatform; canPrompt: boolean; installed: boolean }
   /** A group scanned a gnome before registering: go to the big screen first. */
   | { kind: 'startAtScreen'; gnome: PlayerGnomeView | null }
   | { kind: 'register'; mode: 'new' | 'recover'; nameError?: string; recoverError?: string }
@@ -114,6 +117,12 @@ export interface FreeGameCallbacks {
   onEndCall(): void;
   onCallMagician(call: 'intro' | 'wellDone'): void;
   onRetry?(): void;
+  /** Install screen: the browser's own install dialog (Android). */
+  onInstall?(): void;
+  /** Install screen: play in the browser after all. */
+  onSkipInstall?(): void;
+  /** Install screen inside WhatsApp / Instagram: reopen in the real browser. */
+  onOpenInBrowser?(): void;
   /** Demo only. */
   onDemoRegistered?(): void;
 }

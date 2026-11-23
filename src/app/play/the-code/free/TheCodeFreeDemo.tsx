@@ -9,7 +9,7 @@ import FreeGamePlayer, { type FreeGameCallbacks, type FreeGameView } from '@/com
 import {
   ATTEMPTS_PER_RIDDLE, FREE_GNOMES, HINT_COST, POINTS_PER_RIDDLE, REFRESH, SECOND_ATTEMPT_FACTOR,
   createFreeDemoState, demoNow, freeBuyHint, freeDemoCaption, freeDemoGoRegister, freeDemoJump, freeDemoSolveAllBut,
-  freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freeDemoView, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
+  freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freeDemoView, freeDemoInstalled, freeDemoPlatform, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
   freeToBoard, freeToggleMute, isAsleep, msToNextWake, type FreeDemoState,
 } from '@/components/thecode/demo/freeDemo';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
@@ -67,8 +67,14 @@ function ControlPanel({ s, realNow, set }: { s: FreeDemoState; realNow: number; 
       </Group>
 
       <Group title="קיצורים">
-        <DemoButton onClick={() => set((x) => ({ ...x, group: null, screen: { kind: 'startAtScreen', gnomeId: FREE_GNOMES[4].id } }))}>קבוצה לא רשומה סורקת</DemoButton>
-        <DemoButton onClick={() => set(freeDemoGoRegister)}>נרשמנו במסך</DemoButton>
+        <DemoButton onClick={() => set((x) => ({ ...x, group: null, screen: { kind: 'install' }, installed: false }))}>טלפון לא רשום נכנס</DemoButton>
+        <DemoButton onClick={() => set(freeDemoGoRegister)}>להרשמה</DemoButton>
+      </Group>
+
+      <Group title="מסך ההתקנה: איזה טלפון">
+        <DemoButton strong={s.installPlatform === 'ios-safari'} onClick={() => set((x) => freeDemoPlatform(x, 'ios-safari'))}>אייפון</DemoButton>
+        <DemoButton strong={s.installPlatform === 'android'} onClick={() => set((x) => freeDemoPlatform(x, 'android'))}>אנדרואיד</DemoButton>
+        <DemoButton strong={s.installPlatform === 'inapp'} onClick={() => set((x) => freeDemoPlatform(x, 'inapp'))}>מתוך וואטסאפ</DemoButton>
         <DemoButton onClick={() => set((x) => freeDemoSolveAllBut(x, 1, Date.now()))}>להשאיר גמד ער אחד</DemoButton>
       </Group>
 
@@ -122,6 +128,9 @@ export default function TheCodeFreeDemo() {
       onShowIntro: on(freeShowIntro),
       onEndCall: on(freeEndCall),
       onJoinedDone: on(freeJoinedDone),
+      onInstall: on(freeDemoInstalled),
+      onSkipInstall: on(freeDemoGoRegister),
+      onOpenInBrowser: () => setS((x) => freeDemoPlatform(x, 'ios-safari')),
       onCallMagician: (call) => setS((x) => freeCallMagician(x, call)),
       onDemoRegistered: on(freeDemoGoRegister),
     };

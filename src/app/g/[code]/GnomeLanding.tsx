@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import TheCodeGame, { StaticTheCodeScreen } from '@/components/thecode/live/TheCodeGame';
 import TheCodeFreeGame from '@/components/thecode/free/TheCodeFreeGame';
+import { activeAuth, loadIdentity } from '@/components/thecode/live/identity';
 import { theCodeFont } from '@/components/thecode/live/font';
 import { lookupGnome } from '@/components/thecode/live/api';
 import type { TheCodeGnomeLookupResponse } from '@/types/thecode-api';
@@ -47,12 +48,29 @@ export default function GnomeLanding({ code }: { code: string }) {
       ) : state === 'offline' ? (
         <StaticTheCodeScreen screen={{ kind: 'networkError', problem: 'offline' }} />
       ) : state.mode === 'free' ? (
-        // Free mode: a known group scans at once; a new phone is sent to the big screen to register.
-        <TheCodeFreeGame codeId={state.codeId} pendingScanCode={code} pendingGnome={state.gnome} branding={state.branding}
-          selfie={state.selfie} screenHint={state.screenHint} onPendingScanConsumed={onConsumed} />
+        <FreeGnomeEntry found={state} code={code} onConsumed={onConsumed} />
       ) : (
         <TheCodeGame codeId={state.codeId} pendingScanCode={code} pendingGnome={state.gnome} branding={state.branding} howToPlay={state.howToPlay} howToPlayTheme={state.howToPlayTheme} selfie={state.selfie} onPendingScanConsumed={onConsumed} />
       )}
     </div>
+  );
+}
+
+/**
+ * Free mode: a phone that already has a group scans this gnome at once. A new phone goes to the
+ * game page /v/{shortId} instead — that is the page the game is installed from (its manifest), and
+ * where the group registers (Rani 23.11.2026: install → register → the screen → the magician).
+ */
+function FreeGnomeEntry({ found, code, onConsumed }: { found: Found; code: string; onConsumed(): void }) {
+  const [known, setKnown] = useState<boolean | null>(null);
+  useEffect(() => {
+    const has = !!activeAuth(loadIdentity(found.codeId).identity);
+    setKnown(has);
+    if (!has && found.shortId) window.location.replace(`/v/${found.shortId}`);
+  }, [found.codeId, found.shortId]);
+  if (!known) return <StaticTheCodeScreen screen={{ kind: 'loading' }} />;
+  return (
+    <TheCodeFreeGame codeId={found.codeId} pendingScanCode={code} pendingGnome={found.gnome} branding={found.branding}
+      selfie={found.selfie} screenHint={found.screenHint} onPendingScanConsumed={onConsumed} />
   );
 }

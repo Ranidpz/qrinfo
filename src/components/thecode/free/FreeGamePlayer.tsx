@@ -25,6 +25,7 @@ import { alphabetFor } from '@/lib/thecode/letters';
 import MagicianCall from './MagicianCall';
 import { JOIN_FLY_MS, JOIN_SHOW_MS } from './JoinCelebration';
 import { wakeLabel, type FreeGameCallbacks, type FreeGameView, type FreeGnomeView } from './types';
+import type { InstallPlatform } from './install';
 
 export type { FreeGameCallbacks, FreeGameView } from './types';
 
@@ -145,7 +146,7 @@ function JoinedScreen({ v, onDone }: { v: FreeGameView; onDone(): void }) {
         <Avatar value={v.group?.avatar || '🍄'} size={fit(80, 110)} />
       </span>
       <h2 className="tc-display text-[2.3rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>אתם על המסך הגדול!</h2>
-      <p className="text-xl leading-snug">הרימו את הראש <span aria-hidden>📺</span><br />{v.group?.name} הצטרפו למשחק</p>
+      <p className="text-xl leading-snug">{v.group?.name} הצטרפו למשחק<br />ליד המסך? הרימו את הראש <span aria-hidden>📺</span></p>
     </ScreenBody>
   );
 }
@@ -163,7 +164,7 @@ function IntroScreen({ onDone, onCall, canCall }: { onDone(): void; onCall(): vo
         </button>
       )}
       <ol className="flex w-full flex-col gap-2 text-start text-lg leading-snug">
-        <li className="flex gap-3"><span aria-hidden>🔍</span><span>מצאו גמד ער במקום וסרקו את הקוד שלו</span></li>
+        <li className="flex gap-3"><span aria-hidden>🔍</span><span>מצאו גמד ער במקום וסרקו אותו בכפתור <b>&quot;סרקו גמד&quot;</b> שבתוך המשחק</span></li>
         <li className="flex gap-3"><span aria-hidden>🔤</span><span>פתרו את החידה: הקישו את <b>האות הראשונה</b> של התשובה</span></li>
         <li className="flex gap-3"><span aria-hidden>💤</span><span>הגמד נרדם, ויתעורר אחר כך עם חידה חדשה</span></li>
         <li className="flex gap-3"><span aria-hidden>⭐</span><span>כל חידה מוסיפה נקודות. בדקו איפה אתם על המסך הגדול</span></li>
@@ -184,6 +185,114 @@ function ScreenHint({ hint }: { hint: string }) {
     <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => { sfx('tap'); setOpen(true); }}>
       לא מצאתם את המסך? רמז
     </button>
+  );
+}
+
+// ------------------------------------------------ install to the home screen
+
+function ShareIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3v12M8 7l4-4 4 4" /><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" />
+    </svg>
+  );
+}
+function AddIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+      <rect x="4" y="4" width="16" height="16" rx="4" /><path d="M12 8.5v7M8.5 12h7" />
+    </svg>
+  );
+}
+function DotsIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
+    </svg>
+  );
+}
+
+function Step({ n, icon, children }: { n: number; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-start" style={{ background: 'var(--tc-panel)', boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }}>
+      <span className="tc-num flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg" style={{ background: 'var(--tc-brass)', color: '#2A1600' }}>{n}</span>
+      <span className="min-w-0 flex-1 text-lg leading-snug">{children}</span>
+      {icon && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgba(255,255,255,.1)', color: 'var(--tc-cream)' }}>{icon}</span>}
+    </li>
+  );
+}
+
+/** Before registering: add the game to the home screen, instructions per phone (Rani 23.11.2026). */
+function InstallScreen({ platform, canPrompt, installed, cb }: { platform: InstallPlatform; canPrompt: boolean; installed: boolean; cb: FreeGameCallbacks }) {
+  const sfx = useSfx();
+  const fit = useFit();
+  const skip = (
+    <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => { sfx('tap'); cb.onSkipInstall?.(); }}>
+      המשיכו בלי להתקין
+    </button>
+  );
+  let body: React.ReactNode;
+  let primary: React.ReactNode = null;
+  if (installed) {
+    body = (
+      <HintCard tone="brass" className="w-full text-lg">
+        <span aria-hidden className="me-2">🎉</span>המשחק מותקן! סגרו את הדפדפן ופתחו את <b>קוד הגמדים</b> ממסך הבית. שם נרשמים ומתחילים.
+      </HintCard>
+    );
+  } else if (platform === 'inapp') {
+    body = (
+      <p className="text-lg leading-snug" style={{ color: 'var(--tc-soft)' }}>
+        פתחתם את הקישור מתוך וואטסאפ או אינסטגרם. משם אי אפשר להתקין, אז קודם פותחים בדפדפן.
+      </p>
+    );
+    primary = <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={() => { sfx('tap'); cb.onOpenInBrowser?.(); }}>פתחו בדפדפן</button>;
+  } else if (platform === 'android' && canPrompt) {
+    body = <p className="text-lg leading-snug" style={{ color: 'var(--tc-soft)' }}>לחיצה אחת, והמשחק יופיע במסך הבית שלכם.</p>;
+    primary = <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={() => { sfx('tap'); cb.onInstall?.(); }}>התקינו את המשחק</button>;
+  } else if (platform === 'android') {
+    body = (
+      <ol className="flex w-full flex-col gap-2">
+        <Step n={1} icon={<DotsIcon />}>לחצו על שלוש הנקודות למעלה</Step>
+        <Step n={2} icon={<AddIcon />}>בחרו &quot;התקנת אפליקציה&quot; או &quot;הוספה למסך הבית&quot;</Step>
+        <Step n={3}>פתחו את <b>קוד הגמדים</b> ממסך הבית</Step>
+      </ol>
+    );
+  } else {
+    // iPhone (Safari, or Chrome / Edge on iOS: the share button sits in the address bar).
+    body = (
+      <ol className="flex w-full flex-col gap-2">
+        <Step n={1} icon={<ShareIcon />}>{platform === 'ios-safari' ? 'לחצו על כפתור השיתוף בשורת הכתובת (או ⋯ ואז שיתוף)' : 'לחצו על כפתור השיתוף בשורת הכתובת'}</Step>
+        <Step n={2} icon={<AddIcon />}>גללו ובחרו &quot;הוספה למסך הבית&quot;</Step>
+        <Step n={3}>לחצו &quot;הוסף&quot;, ופתחו את <b>קוד הגמדים</b> ממסך הבית</Step>
+      </ol>
+    );
+  }
+  return (
+    <ScreenBody className="items-center gap-4 text-center"
+      footer={(
+        <div className="flex flex-col gap-2">
+          {primary}{!installed && skip}
+          {cb.onDemoRegistered && (
+            <button type="button" onClick={cb.onDemoRegistered}
+              className="min-h-[48px] w-full rounded-2xl border-2 border-dashed border-amber-300/70 bg-amber-300/10 px-3 text-base font-bold text-amber-200">
+              הדגמה בלבד: התקנו ופתחנו ממסך הבית
+            </button>
+          )}
+        </div>
+      )}>
+      <span className="tc-a-pop flex items-center justify-center rounded-[28%]"
+        style={{ width: fit(86, 110), height: fit(86, 110), background: 'linear-gradient(160deg, #3E2C74, #141a48)', boxShadow: '0 0 0 3px var(--tc-brass), 0 14px 40px rgba(0,0,0,.45)' }}>
+        <GnomeFigure bodyColor="green" hatColor="red" size={fit(60, 78)} />
+      </span>
+      <h2 className="tc-display text-[2rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>התקינו את המשחק</h2>
+      <p className="-mt-2 text-lg leading-snug">משחקים במסך מלא, כמו אפליקציה. בלי חנות ובלי הורדה.</p>
+      {body}
+      {!installed && platform !== 'inapp' && (
+        <p className="text-base leading-snug" style={{ color: 'var(--tc-soft)' }}>
+          כבר התקנתם? פתחו את <b>קוד הגמדים</b> ממסך הבית, ומשם סורקים גמדים בכפתור &quot;סרקו גמד&quot;.
+        </p>
+      )}
+    </ScreenBody>
   );
 }
 
@@ -506,6 +615,8 @@ function Screen({ v, cb }: { v: FreeGameView; cb: FreeGameCallbacks }) {
       return <PausedScreen />;
     case 'network':
       return <NetworkErrorScreen onRetry={cb.onRetry || (() => {})} problem={sc.problem} retryInSeconds={sc.retryInSeconds} />;
+    case 'install':
+      return <InstallScreen platform={sc.platform} canPrompt={sc.canPrompt} installed={sc.installed} cb={cb} />;
     case 'startAtScreen':
       return <StartAtScreenScreen gnome={sc.gnome} screenHint={v.screenHint} onDemoRegistered={cb.onDemoRegistered} />;
     case 'register':
@@ -561,7 +672,7 @@ function enterSound(v: FreeGameView): SfxName | null {
   }
 }
 
-const NO_HEADER: FreeGameView['screen']['kind'][] = ['startAtScreen', 'register', 'joined', 'loading', 'notFound', 'paused', 'network'];
+const NO_HEADER: FreeGameView['screen']['kind'][] = ['install', 'startAtScreen', 'register', 'joined', 'loading', 'notFound', 'paused', 'network'];
 
 export default function FreeGamePlayer({ view: v, callbacks }: { view: FreeGameView; callbacks: FreeGameCallbacks }) {
   const mutedRef = useRef(v.muted);

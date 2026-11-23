@@ -16,6 +16,7 @@ import type { TheCodeColor } from '@/types/thecode';
 import { RIDDLE_BANK } from '@/lib/thecode/riddleBank';
 import { alphabetFor, letterOfAnswer, matchLetter } from '@/lib/thecode/letters';
 import type { FreeGameView } from '@/components/thecode/free/types';
+import type { InstallPlatform } from '@/components/thecode/free/install';
 
 // ------------------------------------------------ the rules (easy to change)
 
@@ -150,6 +151,8 @@ export interface FreeCorrect {
 
 export type FreeScreen =
   | { kind: 'startAtScreen'; gnomeId: string | null }
+  /** Not registered: install the game to the home screen first (the first screen of every entry). */
+  | { kind: 'install' }
   | { kind: 'register' }
   /** Right after registering: "you are on the big screen!" while the screen celebrates the group. */
   | { kind: 'joined' }
@@ -181,6 +184,9 @@ export interface FreeDemoState {
   muted: boolean;
   /** Cliostro is "calling" (full-screen video call): after registering / when every gnome sleeps. */
   call: 'intro' | 'wellDone' | null;
+  /** Which phone the demo pretends to be on the install screen (demo bar). */
+  installPlatform: InstallPlatform;
+  installed: boolean;
 }
 
 export function createFreeDemoState(): FreeDemoState {
@@ -188,7 +194,7 @@ export function createFreeDemoState(): FreeDemoState {
   for (const g of FREE_GNOMES) gnomes[g.id] = { riddleIndex: 0, asleepUntil: null, wrongs: 0, hintBought: false };
   // The demo opens the way a real group starts: they scanned a gnome before registering.
   return {
-    screen: { kind: 'startAtScreen', gnomeId: FREE_GNOMES[4].id },
+    screen: { kind: 'install' },
     offsetMs: 0,
     group: null,
     points: 0,
@@ -200,6 +206,8 @@ export function createFreeDemoState(): FreeDemoState {
     correct: null,
     muted: false,
     call: null,
+    installPlatform: 'ios-safari',
+    installed: false,
   };
 }
 
@@ -248,7 +256,7 @@ export const isHot = (s: FreeDemoState) => s.streak >= HOT_STREAK_AT;
 /** A scan (camera, typed code or the demo bar). Unregistered → "start at the screen". */
 export function freeScan(s: FreeDemoState, gnomeId: string, realNow: number): FreeDemoState {
   if (!gnomeById(gnomeId)) return s;
-  if (!s.group) return { ...s, screen: { kind: 'startAtScreen', gnomeId } };
+  if (!s.group) return { ...s, screen: { kind: 'install' }, installed: false };
   const now = demoNow(s, realNow);
   if (isAsleep(s.gnomes[gnomeId], now)) return { ...s, screen: { kind: 'asleep', gnomeId } };
   return { ...s, pendingLetter: null, screen: { kind: 'riddle', gnomeId } };
@@ -351,6 +359,11 @@ export const freeShowIntro = (s: FreeDemoState): FreeDemoState => (s.group ? { .
 export const freeEndCall = (s: FreeDemoState): FreeDemoState => ({ ...s, call: null });
 export const freeCallMagician = (s: FreeDemoState, call: 'intro' | 'wellDone'): FreeDemoState => ({ ...s, call });
 
+/** Demo: the install dialog was accepted (Android) → "open it from the home screen". */
+export const freeDemoInstalled = (s: FreeDemoState): FreeDemoState => ({ ...s, installed: true });
+export const freeDemoPlatform = (s: FreeDemoState, installPlatform: InstallPlatform): FreeDemoState =>
+  ({ ...s, installPlatform, installed: false, group: null, screen: { kind: 'install' } });
+
 export const freeToggleMute = (s: FreeDemoState): FreeDemoState => ({ ...s, muted: !s.muted });
 
 // ------------------------------------------------ demo bar only
@@ -397,6 +410,7 @@ export function freeDemoSolveAllBut(s: FreeDemoState, keep: number, realNow: num
 /** Caption for the demo bar: what to try on this screen. */
 export function freeDemoCaption(s: FreeDemoState): string {
   switch (s.screen.kind) {
+    case 'install': return 'כל כניסה של טלפון לא רשום (כרטיס, גמד או המסך) מתחילה כאן. החליפו טלפון למטה: אייפון, אנדרואיד או וואטסאפ.';
     case 'startAtScreen': return 'קבוצה שעוד לא נרשמה סרקה גמד. בהדגמה: "נרשמנו במסך" ממשיך להרשמה.';
     case 'register': return 'ההרשמה עצמה (במשחק האמיתי אחרי סריקת הקוד שעל המסך הגדול).';
     case 'joined': return 'הקבוצה הופיעה עכשיו על המסך הגדול (חגיגת ההצטרפות). כשהחגיגה נגמרת, קליוסטרו מתקשר.';
@@ -425,6 +439,7 @@ export function freeDemoView(s: FreeDemoState, realNow: number, videos: FreeGame
   let screen: FreeGameView['screen'];
   switch (sc.kind) {
     case 'startAtScreen': screen = { kind: 'startAtScreen', gnome: sc.gnomeId ? gv(sc.gnomeId) : null }; break;
+    case 'install': screen = { kind: 'install', platform: s.installPlatform, canPrompt: s.installPlatform === 'android' && !s.installed, installed: s.installed }; break;
     case 'register': screen = { kind: 'register', mode: 'new' }; break;
     case 'scanner': screen = { kind: 'scanner', error: sc.error, camera: false, busy: false }; break;
     case 'riddle': screen = { kind: 'riddle' }; break;

@@ -12,6 +12,8 @@ import type { TheCodeBranding, TheCodeSelfieSettings } from '@/types/thecode';
 import { fetchPlayTransport, sendPhoto, type TheCodePlayTransport } from '@/components/thecode/live/api';
 import { EMPTY_IDENTITY, activeAuth, dropProfile, loadIdentity, saveIdentity, upsertProfile, type StoredIdentity } from '@/components/thecode/live/identity';
 import type { FreeCorrectView, FreeGameCallbacks, FreeGameView, FreeScreenView } from './types';
+import { useInstall } from './install';
+import { openCurrentUrlInBrowser } from '@/lib/inAppBrowser';
 
 export interface UseTheCodeFreeGameOptions {
   codeId: string;
@@ -61,7 +63,12 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
   const [openGnome, setOpenGnome] = useState<string | null>(null);
   const [flash, setFlash] = useState<Flash | null>(null);
   const [register, setRegister] = useState<{ mode: 'new' | 'recover'; nameError?: string; recoverError?: string } | null>(null);
-  const [startAtScreen, setStartAtScreen] = useState<TheCodeGnomeView | null>(opts.pendingGnome || null);
+  // Not registered, in a browser: offer to install first (Rani 23.11.2026); "continue without" is remembered for this tab.
+  const install = useInstall();
+  const [skipInstall, setSkipInstall] = useState(false);
+  useEffect(() => {
+    try { if (window.sessionStorage.getItem(`thecode_skip_install_${codeId}`) === '1') setSkipInstall(true); } catch { /* private mode */ }
+  }, [codeId]);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [pendingLetter, setPendingLetter] = useState<string | null>(null);
   const [wrongTick, setWrongTick] = useState(0);
@@ -182,7 +189,6 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     const ev = res.event;
     if (ev?.type === 'registered' || ev?.type === 'recovered') {
       setRegister(null);
-      setStartAtScreen(null);
       setFlash(null);
       // Registered at the screen: the big screen celebrates them now → then Cliostro calls.
       setView(ev.type === 'registered' ? 'joined' : 'board');
@@ -232,7 +238,7 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     const join = pendingRecoveryRef.current;
     const code = pendingScanRef.current;
     if (join) void send({ type: 'recover', recoveryCode: join }, true, null);
-    else if (code && activeAuth(id)) { setStartAtScreen(null); void send({ type: 'scan', code }, true); }
+    else if (code && activeAuth(id)) void send({ type: 'scan', code }, true);
     else void send({ type: 'state' }, false).then((r) => {
       // Resume an open riddle after a reload.
       if (r && r.ok && r.snapshot.free?.riddle) setView('riddle');
@@ -302,12 +308,18 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     },
     onEndCall: () => setCall(null),
     onCallMagician: (c) => setCall(c),
+    onInstall: () => { void install.prompt(); },
+    onSkipInstall: () => {
+      setSkipInstall(true);
+      try { window.sessionStorage.setItem(`thecode_skip_install_${codeId}`, '1'); } catch { /* private mode */ }
+    },
+    onOpenInBrowser: () => openCurrentUrlInBrowser(),
     onRetry: () => {
       const a = failedRef.current;
       setFailure(null);
       if (a) void send(a, a.type !== 'state'); else void send({ type: 'state' }, false);
     },
-  }), [send, putPhoto]);
+  }), [send, putPhoto, install, codeId]);
   const pendingLetterRef = useRef(pendingLetter);
   useEffect(() => { pendingLetterRef.current = pendingLetter; }, [pendingLetter]);
 
@@ -321,9 +333,10 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
   } else if (notFound) screen = { kind: 'notFound' };
   else if (!loaded || !snapshot) screen = { kind: 'loading' };
   else if (!player) {
-    screen = register ? { kind: 'register', ...register }
-      : startAtScreen ? { kind: 'startAtScreen', gnome: startAtScreen }
-      : { kind: 'register', mode: 'new' };
+    const offerInstall = !install.standalone && !skipInstall && install.platform !== 'desktop';
+    screen = offerInstall
+      ? { kind: 'install', platform: install.platform, canPrompt: install.canPrompt, installed: install.installed }
+      : register ? { kind: 'register', ...register } : { kind: 'register', mode: 'new' };
   } else if (!adv?.open) screen = { kind: 'paused' };
   else if (flash) {
     screen = flash.kind === 'correct' ? { kind: 'correct' } : flash;
