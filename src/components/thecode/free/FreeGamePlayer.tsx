@@ -15,6 +15,7 @@ import {
   useFit, useSfx,
 } from '@/components/thecode/player/ui';
 import { ScanButton } from '@/components/thecode/player/HuntScreens';
+import MagicianCall from './MagicianCall';
 import RegisterScreen from '@/components/thecode/player/RegisterScreen';
 import ScannerScreen from '@/components/thecode/player/ScannerScreen';
 import { Avatar } from '@/components/thecode/player/Avatar';
@@ -27,9 +28,9 @@ import {
 
 /** Cliostro's clips. Absent / empty = a drawn placeholder ("משבצת וידאו"). */
 export interface FreeGameVideos {
-  /** The explanation after registering. */
+  /** The explanation call right after registering. */
   intro?: string | null;
-  /** "כל הכבוד" on the finish screen. */
+  /** The "כל הכבוד" call when every gnome sleeps. */
   wellDone?: string | null;
 }
 
@@ -50,6 +51,10 @@ export interface FreeGameCallbacks {
   onToggleMute(): void;
   /** "?" in the header / the intro's button: show or leave the explanation screen. */
   onShowIntro(): void;
+  /** The magician's video call ended (hung up, clip over, "אחר כך"). */
+  onEndCall(): void;
+  /** Call the magician again from the rules / finish screen. */
+  onCallMagician(call: 'intro' | 'wellDone'): void;
   /** Demo only: the on-screen "continue as if registered" button. */
   onDemoRegistered?(): void;
 }
@@ -146,35 +151,31 @@ function GnomeCard({ g, p, now, onOpen }: { g: FreeGnome; p: FreeGnomeProgress; 
   );
 }
 
-/**
- * A clip of Cliostro the magician (the operator uploads it later). Plays inline with controls —
- * phones refuse autoplay with sound. No clip yet = a drawn placeholder that says what will be there.
- */
-function VideoSlot({ url, label }: { url?: string | null; label: string }) {
-  if (url) {
-    return <video src={url} controls playsInline preload="metadata" className="aspect-video w-full rounded-3xl bg-black object-cover" />;
-  }
-  return (
-    <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-3xl px-4 text-center"
-      style={{ background: 'radial-gradient(circle at 50% 30%, #3E2C74, #0A0E26 75%)', boxShadow: 'inset 0 0 0 1.5px rgba(244,183,64,.45)' }}>
-      <span className="absolute start-3 top-2 rounded-full bg-black/40 px-2 py-0.5 text-xs font-bold" style={{ color: 'var(--tc-soft)' }}>משבצת וידאו</span>
-      <span className="tc-a-bob text-5xl leading-none" aria-hidden>🎩</span>
-      <span className="tc-display text-xl leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>סרטון של הקוסם קליוסטרו</span>
-      <span className="text-sm leading-snug" style={{ color: 'var(--tc-soft)' }}>{label}</span>
-    </div>
-  );
-}
+/** What Cliostro says in each call — the "i" button shows it in writing during the call. */
+const INTRO_LINES = [
+  'מצאו גמד ער במקום וסרקו את הקוד שלו.',
+  'פתרו את החידה שלו: הקישו את האות הראשונה של התשובה.',
+  'אחרי החידה הגמד נרדם, ויתעורר אחר כך עם חידה חדשה.',
+  'כל חידה מוסיפה נקודות. בדקו איפה אתם על המסך הגדול!',
+];
+const WELL_DONE_LINES = [
+  'כל הכבוד! פתרתם את כל החידות שהגמדים שאלו היום.',
+  'גשו לקבלה, מחכה לכם שם פרס.',
+  'הגמדים יתעוררו בקרוב עם חידות חדשות.',
+];
 
 // ------------------------------------------------ screens
 
 /** After registering: Cliostro explains (video slot), the rules in three short lines, then go. */
-function IntroScreen({ video, onDone }: { video?: string | null; onDone(): void }) {
+function IntroScreen({ onDone, onCall }: { onDone(): void; onCall(): void }) {
   const sfx = useSfx();
   return (
     <ScreenBody className="items-center gap-4 text-center"
       footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={() => { sfx('tap'); onDone(); }}>יוצאים לחפש גמדים</button>}>
       <h2 className="tc-display text-[1.9rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>ככה משחקים</h2>
-      <VideoSlot url={video} label="הקוסם מסביר לקבוצה מה עושים" />
+      <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => { sfx('tap'); onCall(); }}>
+        <span aria-hidden>🧙‍♂️</span> לשוחח שוב עם הקוסם
+      </button>
       <ol className="flex w-full flex-col gap-2 text-start text-lg leading-snug">
         <li className="flex gap-3"><span aria-hidden>🔍</span><span>מצאו גמד ער במקום וסרקו את הקוד שלו</span></li>
         <li className="flex gap-3"><span aria-hidden>🔤</span><span>פתרו את החידה: הקישו את <b>האות הראשונה</b> של התשובה</span></li>
@@ -458,25 +459,28 @@ function AsleepScreen({ s, gnomeId, now, cb }: { s: FreeDemoState; gnomeId: stri
   );
 }
 
-function FinishedScreen({ s, now, video }: { s: FreeDemoState; now: number; video?: string | null }) {
+function FinishedScreen({ s, now, onCall }: { s: FreeDemoState; now: number; onCall(): void }) {
   const wakes = FREE_GNOMES.map((g) => s.gnomes[g.id].asleepUntil ?? 0).filter((t) => t > now);
   const first = wakes.length ? Math.min(...wakes) : null;
   return (
     <ScreenBody className="items-center justify-center gap-4 text-center">
       <Confetti burstKey={`done-${s.solved}`} />
-      <VideoSlot url={video} label="כל הכבוד! הקוסם מברך את הקבוצה" />
-      <h2 className="tc-display text-[2.4rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}><span aria-hidden>🎁 </span>סיימתם להיום!</h2>
+      <div className="tc-a-pop text-8xl leading-none" aria-hidden>🎁</div>
+      <h2 className="tc-display text-[2.4rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>סיימתם להיום!</h2>
       <p className="text-xl leading-snug">כל הגמדים ישנים. גשו לקבלה, מחכה לכם שם פרס.</p>
       <div className="flex items-center gap-2 text-4xl"><StarCoin size={34} /><CountUp value={s.points} /></div>
       <p className="text-lg" style={{ color: 'var(--tc-soft)' }}>פתרתם <span className="tc-num">{s.solved}</span> חידות</p>
       {first && (
         <p className="text-base" style={{ color: 'var(--tc-soft)' }}>הגמד הראשון יתעורר {wakeLabel(first, now)} עם חידה חדשה.</p>
       )}
+      <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={onCall}>
+        <span aria-hidden>🧙‍♂️</span> הברכה של הקוסם
+      </button>
     </ScreenBody>
   );
 }
 
-function Screen({ s, now, cb, videos }: { s: FreeDemoState; now: number; cb: FreeGameCallbacks; videos?: FreeGameVideos }) {
+function Screen({ s, now, cb }: { s: FreeDemoState; now: number; cb: FreeGameCallbacks }) {
   const sc = s.screen;
   switch (sc.kind) {
     case 'startAtScreen':
@@ -502,9 +506,9 @@ function Screen({ s, now, cb, videos }: { s: FreeDemoState; now: number; cb: Fre
     case 'asleep':
       return <AsleepScreen s={s} gnomeId={sc.gnomeId} now={now} cb={cb} />;
     case 'finished':
-      return <FinishedScreen s={s} now={now} video={videos?.wellDone} />;
+      return <FinishedScreen s={s} now={now} onCall={() => cb.onCallMagician('wellDone')} />;
     case 'intro':
-      return <IntroScreen video={videos?.intro} onDone={cb.onBoard} />;
+      return <IntroScreen onDone={cb.onBoard} onCall={() => cb.onCallMagician('intro')} />;
   }
 }
 
@@ -560,9 +564,14 @@ export default function FreeGamePlayer({ state, realNow, callbacks, videos }: { 
           )}
           <main className="relative flex-1">
             <div key={key} className="tc-a-rise absolute inset-0">
-              <Screen s={state} now={now} cb={callbacks} videos={videos} />
+              <Screen s={state} now={now} cb={callbacks} />
             </div>
           </main>
+          {state.call && (
+            <MagicianCall key={state.call} url={state.call === 'intro' ? videos?.intro : videos?.wellDone}
+              topic={state.call === 'intro' ? 'הקוסם מסביר לקבוצה מה עושים' : 'כל הכבוד! הקוסם מברך את הקבוצה'}
+              lines={state.call === 'intro' ? INTRO_LINES : WELL_DONE_LINES} onEnd={callbacks.onEndCall} />
+          )}
         </div>
       </div>
     </SfxContext.Provider>

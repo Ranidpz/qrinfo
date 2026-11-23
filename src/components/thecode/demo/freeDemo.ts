@@ -176,6 +176,8 @@ export interface FreeDemoState {
   wrongTick: number;
   correct: FreeCorrect | null;
   muted: boolean;
+  /** Cliostro is "calling" (full-screen video call): after registering / when every gnome sleeps. */
+  call: 'intro' | 'wellDone' | null;
 }
 
 export function createFreeDemoState(): FreeDemoState {
@@ -194,6 +196,7 @@ export function createFreeDemoState(): FreeDemoState {
     wrongTick: 0,
     correct: null,
     muted: false,
+    call: null,
   };
 }
 
@@ -256,7 +259,7 @@ export function freeScanCode(s: FreeDemoState, code: string, realNow: number): F
 }
 
 export function freeRegister(s: FreeDemoState, name: string, emoji: string): FreeDemoState {
-  return { ...s, group: { name: name.trim() || 'הקבוצה שלנו', emoji }, screen: { kind: 'intro' } };
+  return { ...s, group: { name: name.trim() || 'הקבוצה שלנו', emoji }, screen: { kind: 'intro' }, call: 'intro' };
 }
 
 export function freePickLetter(s: FreeDemoState, letter: string): FreeDemoState {
@@ -328,13 +331,18 @@ export const freeOpenScanner = (s: FreeDemoState): FreeDemoState => ({ ...s, scr
 /** Back to the board — or to the finish when every gnome sleeps. */
 export function freeToBoard(s: FreeDemoState, realNow: number): FreeDemoState {
   if (!s.group) return s;
-  const kind = allAsleep(s, demoNow(s, realNow)) ? 'finished' : 'board';
-  return { ...s, pendingLetter: null, screen: { kind } };
+  const done = allAsleep(s, demoNow(s, realNow));
+  // Reaching the finish: the magician calls to say well done (once per arrival).
+  const call = done && s.screen.kind !== 'finished' ? 'wellDone' : s.call;
+  return { ...s, pendingLetter: null, screen: { kind: done ? 'finished' : 'board' }, call };
 }
 
 export const freeShowBoard = (s: FreeDemoState): FreeDemoState => ({ ...s, pendingLetter: null, screen: s.group ? { kind: 'board' } : s.screen });
 
 export const freeShowIntro = (s: FreeDemoState): FreeDemoState => (s.group ? { ...s, screen: { kind: 'intro' } } : s);
+
+export const freeEndCall = (s: FreeDemoState): FreeDemoState => ({ ...s, call: null });
+export const freeCallMagician = (s: FreeDemoState, call: 'intro' | 'wellDone'): FreeDemoState => ({ ...s, call });
 
 export const freeToggleMute = (s: FreeDemoState): FreeDemoState => ({ ...s, muted: !s.muted });
 
@@ -384,7 +392,7 @@ export function freeDemoCaption(s: FreeDemoState): string {
   switch (s.screen.kind) {
     case 'startAtScreen': return 'קבוצה שעוד לא נרשמה סרקה גמד. בהדגמה: "נרשמנו במסך" ממשיך להרשמה.';
     case 'register': return 'ההרשמה עצמה (במשחק האמיתי אחרי סריקת הקוד שעל המסך הגדול).';
-    case 'intro': return 'משבצת לסרטון ההסבר של קליוסטרו. סרטון אמיתי: ‎?intro=כתובת';
+    case 'intro': return s.call ? 'קליוסטרו "מתקשר": ענו, ובזמן השיחה כפתור i פותח את הכתוב. סרטון אמיתי: ‎?intro=כתובת' : 'מסך הכללים אחרי השיחה. אפשר לשוחח שוב עם הקוסם.';
     case 'board': return 'הקישו על גמד ער כדי לסרוק אותו או לקנות רמז למקום שלו.';
     case 'gnome': return 'בהדגמה "מצאנו! סרקו" פותח את החידה מיד. בטלפון אמיתי נפתחת המצלמה.';
     case 'scanner': return 'מצלמה מדומה: סרקו גמד מהכפתורים למטה, או הקלידו קוד 101 עד 116.';
@@ -392,6 +400,6 @@ export function freeDemoCaption(s: FreeDemoState): string {
     case 'correct': return 'הגמד נרדם לקבוצה הזו. קפיצה בזמן תעיר אותו עם חידה חדשה.';
     case 'failed': return 'שתי טעויות: הגמד נרדם בלי נקודות ובלי הורדה.';
     case 'asleep': return 'סריקה של גמד ישן. קפיצה בזמן תעיר אותו.';
-    case 'finished': return 'כל הגמדים ישנים. משבצת לסרטון "כל הכבוד" (‎?welldone=כתובת). קפיצה בזמן מעירה אותם.';
+    case 'finished': return 'כל הגמדים ישנים: קליוסטרו מתקשר לברך (‎?welldone=כתובת). קפיצה בזמן מעירה אותם.';
   }
 }
