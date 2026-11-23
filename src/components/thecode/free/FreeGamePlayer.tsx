@@ -57,6 +57,33 @@ function SoundIcon({ muted }: { muted: boolean }) {
   );
 }
 
+/**
+ * The streak / hot chip between the group and the points. It measures its own room and steps
+ * down full → compact → flame only, so it never covers the group's photo or the points
+ * (Rani's iPhone, 23.11.2026: "🔥2" sat on the selfie with a four-digit score).
+ */
+function HotSlot({ hot, streak, target }: { hot: boolean; streak: number; target: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<'full' | 'compact' | 'icon'>('icon');
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const check = () => {
+      const room = el.clientWidth;
+      setFit(room >= 96 ? 'full' : room >= 60 ? 'compact' : 'icon');
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={box} className="flex min-w-0 flex-1 justify-center overflow-hidden">
+      <HotBadge hot={hot} streak={streak} target={target} fit={fit} />
+    </div>
+  );
+}
+
 function Header({ v, onBoard, onToggleMute, onHome, onHowTo }: { v: FreeGameView; onBoard?(): void; onToggleMute(): void; onHome: boolean; onHowTo(): void }) {
   const g = v.group!;
   return (
@@ -64,9 +91,7 @@ function Header({ v, onBoard, onToggleMute, onHome, onHowTo }: { v: FreeGameView
       <span className="tc-chip w-12 shrink-0 justify-center !px-0" title={g.name} aria-label={`הקבוצה: ${g.name}`}>
         <Avatar value={g.avatar} size={28} />
       </span>
-      <div className="flex min-w-0 flex-1 justify-center">
-        <HotBadge hot={v.hot} streak={Math.min(v.streak, v.hotStreakAt)} target={v.hotStreakAt} fit="compact" />
-      </div>
+      <HotSlot hot={v.hot} streak={Math.min(v.streak, v.hotStreakAt)} target={v.hotStreakAt} />
       <ScoreCounter points={v.points} />
       <button type="button" className="tc-chip tc-display w-11 shrink-0 justify-center !px-0 text-xl" onClick={onHowTo} aria-label="איך משחקים">?</button>
       <button type="button" className="tc-chip w-11 shrink-0 justify-center !px-0" onClick={onToggleMute} aria-label={v.muted ? 'הפעלת צלילים' : 'השתקת צלילים'}>
