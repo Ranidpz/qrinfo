@@ -284,8 +284,15 @@ function InstallScreen({ platform, canPrompt, installed, cb }: { platform: Insta
     );
   } else {
     // iPhone (Safari, or Chrome / Edge on iOS: the share button sits in the address bar).
+    // A link opened from WhatsApp shows in an in-app Safari view whose user agent does not say so
+    // (no reliable signal) — the first line tells them to open it in Safari first.
     body = (
       <ol className="flex w-full flex-col gap-2">
+        {platform === 'ios-safari' && (
+          <li className="rounded-2xl px-3 py-2 text-start text-base leading-snug" style={{ background: 'rgba(244,183,64,.12)', boxShadow: 'inset 0 0 0 1.5px rgba(244,183,64,.4)' }}>
+            פתחתם מתוך וואטסאפ? קודם לחצו על <b>סמל המצפן</b> למטה (פתיחה בספארי), ואז:
+          </li>
+        )}
         <Step n={1} icon={<ShareIcon />}>{platform === 'ios-safari' ? 'לחצו על כפתור השיתוף בשורת הכתובת (או ⋯ ואז שיתוף)' : 'לחצו על כפתור השיתוף בשורת הכתובת'}</Step>
         <Step n={2} icon={<AddIcon />}>גללו ובחרו &quot;הוספה למסך הבית&quot;</Step>
         <Step n={3}>לחצו &quot;הוסף&quot;, ופתחו את <b>קוד הגמדים</b> ממסך הבית</Step>

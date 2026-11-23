@@ -115,7 +115,10 @@ export default function GnomeScanner({ onText, paused, onCameraProblem }: Props)
 
   return (
     <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-black" style={{ boxShadow: 'inset 0 0 0 2px var(--tc-line)' }}>
-      <div id={elId} className="absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
+      {/* html5-qrcode draws its own frame (#qr-shaded-region, white corners) measured on the RAW video,
+          so it never lines up with the cropped (object-cover) picture or with our frame: hidden — ONE
+          frame, the screen's own (Rani's iPhone, 23.11.2026). */}
+      <div id={elId} className="absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover [&_#qr-shaded-region]:!hidden" />
       {!live && (
         <div className="absolute inset-0 flex items-center justify-center text-lg" style={{ color: 'var(--tc-soft)' }}>
           פותחים את המצלמה…

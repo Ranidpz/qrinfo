@@ -33,7 +33,10 @@ export async function GET(
       short_name: code?.title?.slice(0, 12) || 'QR',
       description: 'Experience powered by QR.info',
       start_url: `/v/${shortId}${pkSuffix}`,
-      scope: `/v/${shortId}`,
+      // קוד הגמדים: the whole site is in scope. A group moves between /g/{code} (a gnome scanned with
+      // the camera), /v/{shortId} and its redirects; anything outside the scope opens inside iPhone's
+      // embedded-browser frame (address bar + Safari toolbar) — Rani's installed app, 23.11.2026.
+      scope: primaryType === 'thecode' ? '/' : `/v/${shortId}`,
       display: 'standalone',
       orientation: 'portrait',
       background_color: backgroundColor,
