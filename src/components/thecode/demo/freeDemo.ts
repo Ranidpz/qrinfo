@@ -294,9 +294,10 @@ export function freeSubmitLetter(s: FreeDemoState, realNow: number): FreeDemoSta
   const half = p.wrongs > 0;
   const wasHot = isHot(s);
   const streak = s.streak + 1;
+  // As the engine: doubled once the streak BEFORE this answer reached HOT_STREAK_AT (the 4th on).
   const hot = streak >= HOT_STREAK_AT;
   const base = Math.round(POINTS_PER_RIDDLE * (half ? SECOND_ATTEMPT_FACTOR : 1));
-  const points = hot ? base * HOT_MULTIPLIER : base;
+  const points = wasHot ? base * HOT_MULTIPLIER : base;
   const next: FreeDemoState = {
     ...s,
     streak,
