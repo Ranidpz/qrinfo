@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TheCodeIssue } from '@/types/thecode';
 import type { AdminActions, AdminState, ImageUploader, VideoUploader } from '@/components/thecode/admin/model';
-import { createAdminActions } from '@/components/thecode/admin/reducer';
+import { createAdminActions, zeroPlayer } from '@/components/thecode/admin/reducer';
 import type { AdminNotice } from '@/components/thecode/admin/AdminShell';
 import { contentOf, mergeSaved, revertStatus, same, type Content } from './merge';
 import { createHttpTransport, type LoadError, type TheCodeAdminTransport } from './transport';
@@ -318,6 +318,15 @@ export function useTheCodeAdmin(codeId: string, opts: { transport?: TheCodeAdmin
           if (cur) commit({ ...cur, players: before });
           playerFailed('ההסרה נכשלה');
         });
+      },
+      // Not optimistic: a reset is big and final, so the screen waits for the server's answer.
+      resetGame: async (confirm) => {
+        const r = await transport.resetGame({ codeId, confirm });
+        if (r.ok && mounted.current) {
+          const cur = stateRef.current;
+          if (cur) commit({ ...cur, players: cur.players.map(zeroPlayer) });
+        }
+        return r;
       },
       removePlayerPhoto: (id) => {
         const before = stateRef.current?.players;

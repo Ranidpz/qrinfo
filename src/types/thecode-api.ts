@@ -335,6 +335,17 @@ export interface TheCodeAdminPlayerDeleteRequest {
 }
 
 /**
+ * POST /api/thecode/admin/reset — the owner starts a new round from the admin (same as the staff
+ * screen's reset): every group back to zero. `confirm` must be THECODE_RESET_WORD.
+ */
+export interface TheCodeAdminResetRequest {
+  codeId: string;
+  confirm: string;
+}
+
+export type TheCodeAdminResetResponse = { ok: true; groups: number } | { ok: false; error: 'badRequest' | 'server' };
+
+/**
  * Operator (requireCodeOwner, Bearer token): POST /api/thecode/admin/lobby-video-url
  * → a presigned R2 PUT for one big-screen slot (direct browser → R2, the 4.5 MB Vercel body
  * limit never applies). The admin then saves `TheCodeConfig.lobby.videos[slot] = publicUrl`

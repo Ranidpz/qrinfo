@@ -8,6 +8,7 @@ import BrandingCard from './BrandingCard';
 import HowToPlayCard from './HowToPlayCard';
 import { BigScreenCard, SelfieCard } from './LobbyCards';
 import StaffCard from './StaffCard';
+import ResetGame from './ResetGame';
 
 export default function SettingsScreen({ state, actions, report, uploadImage, uploadVideo, links }: ScreenProps) {
   const { config } = state;
@@ -120,6 +121,10 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
           <NumberInput label="ימים" value={config.retentionDays} onChange={(n) => actions.updateConfig({ retentionDays: n })} min={7} max={365} suffix="ימים בלי משחק" />
         </Row>
       </Section>
+
+      <div id="new-round" className="scroll-mt-32">
+        <ResetGame state={state} actions={actions} variant="card" />
+      </div>
     </div>
   );
 }

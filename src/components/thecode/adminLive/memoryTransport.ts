@@ -3,12 +3,12 @@
 // gnome codes, refused publish while the engine reports errors. Used by
 // `/play/the-code/admin?mock=1` (exercise the live hook with no server) and the merge tests.
 
-import type { TheCodeAdminLoadResponse, TheCodeAdminSaveResponse } from '@/types/thecode-api';
+import { THECODE_RESET_WORD, type TheCodeAdminLoadResponse, type TheCodeAdminSaveResponse } from '@/types/thecode-api';
 import type { TheCodeConfig, TheCodeRiddle } from '@/types/thecode';
 import { validateAdventure, canPublish } from '@/lib/thecode/engine';
 import { letterOfAnswer } from '@/lib/thecode/letters';
 import { resolveSelfie } from '@/lib/thecode/selfie';
-import { newGnomeCode, newManualCode } from '@/components/thecode/admin/reducer';
+import { newGnomeCode, newManualCode, zeroPlayer } from '@/components/thecode/admin/reducer';
 import type { TheCodeAdminTransport } from './transport';
 
 export interface MemoryServerControls {
@@ -102,6 +102,12 @@ export function createMemoryTransport(initial: TheCodeAdminLoadResponse): { tran
       await wait();
       db.players = db.players.filter((p) => p.id !== req.playerId);
       return { ok: true };
+    },
+    async resetGame(req) {
+      await wait();
+      if (req.confirm.trim() !== THECODE_RESET_WORD) return { ok: false, error: 'badRequest' };
+      db.players = db.players.map(zeroPlayer);
+      return { ok: true, groups: db.players.length };
     },
     async removePhoto(req) {
       await wait();

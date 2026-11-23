@@ -11,6 +11,7 @@ import type {
   TheCodeAdminLoadResponse,
   TheCodeAdminPlayerDeleteRequest,
   TheCodeAdminPlayerPatchRequest,
+  TheCodeAdminResetRequest,
   TheCodeAdminSaveRequest,
   TheCodeAdminSaveResponse,
 } from '@/types/thecode-api';
@@ -26,6 +27,8 @@ export type SaveResult = TheCodeAdminSaveResponse | { ok: false; error: 'network
 
 export type PlayerResult = { ok: true } | { ok: false; error: 'network' | 'server' | 'forbidden' };
 
+export type ResetResult = { ok: true; groups: number } | { ok: false; error: 'network' | 'server' | 'forbidden' | 'badRequest' };
+
 export interface TheCodeAdminTransport {
   load(codeId: string): Promise<LoadResult>;
   save(req: TheCodeAdminSaveRequest): Promise<SaveResult>;
@@ -36,6 +39,8 @@ export interface TheCodeAdminTransport {
   saveOnExit?(req: TheCodeAdminSaveRequest): boolean;
   patchPlayer(req: TheCodeAdminPlayerPatchRequest): Promise<PlayerResult>;
   deletePlayer(req: TheCodeAdminPlayerDeleteRequest): Promise<PlayerResult>;
+  /** POST /api/thecode/admin/reset — a new round: every group back to zero. */
+  resetGame(req: TheCodeAdminResetRequest): Promise<ResetResult>;
   /** Compress + upload one image for this adventure; resolves to its public URL. */
   uploadImage(codeId: string, file: File, onProgress: (fraction: number) => void, opts?: UploadOptions): Promise<string>;
   /** Big-screen video: presigned R2 PUT (POST lobby-video-url), then the file straight to R2. */
@@ -136,6 +141,17 @@ export function createHttpTransport(): TheCodeAdminTransport {
       try {
         const res = await authed(`${ADMIN}/players`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
         return res.ok ? { ok: true } : { ok: false, error: res.status === 403 ? 'forbidden' : 'server' };
+      } catch {
+        return { ok: false, error: 'network' };
+      }
+    },
+
+    async resetGame(req) {
+      try {
+        const res = await authed(`${ADMIN}/reset`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req) });
+        const data = await readJson<{ ok?: boolean; groups?: number }>(res);
+        if (res.ok && data?.ok) return { ok: true, groups: Number(data.groups) || 0 };
+        return { ok: false, error: res.status === 403 ? 'forbidden' : res.status === 400 ? 'badRequest' : 'server' };
       } catch {
         return { ok: false, error: 'network' };
       }

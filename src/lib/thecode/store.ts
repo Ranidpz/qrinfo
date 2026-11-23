@@ -43,6 +43,7 @@ import type {
   TheCodeSnapshot,
   TheCodeStaffAction,
   TheCodeStaffLogEntry,
+  TheCodeAdminResetResponse,
   TheCodeStaffAward,
   TheCodeStaffPlayer,
   TheCodeStaffResponse,
@@ -1034,12 +1035,33 @@ function isStaffToken(v: unknown): v is string {
 }
 
 async function writeStaffLog(codeId: string, member: TheCodeStaffMember, entry: Omit<TheCodeStaffLogEntry, 'at' | 'staffId' | 'staffName'>): Promise<void> {
+  await writeLogEntry(codeId, member.id, staffDisplayName(member), entry);
+}
+
+/** The owner's own actions from the admin go in the same log, so the venue sees who reset. */
+const OWNER_LOG_ID = 'owner';
+const OWNER_LOG_NAME = 'מסך הניהול';
+
+async function writeLogEntry(codeId: string, staffId: string, staffName: string, entry: Omit<TheCodeStaffLogEntry, 'at' | 'staffId' | 'staffName'>): Promise<void> {
   const ref = staffLogRef(codeId);
   await db().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const full: TheCodeStaffLogEntry = { at: Date.now(), staffId: member.id, staffName: staffDisplayName(member), ...entry };
+    const full: TheCodeStaffLogEntry = { at: Date.now(), staffId, staffName, ...entry };
     tx.set(ref, { entries: appendStaffLog(snap.data()?.entries, plain(full)) });
   });
+}
+
+/**
+ * The owner starts a new round from the admin — the same reset as the staff screen (caller has
+ * already checked ownership). The typed word is checked here too, never trusted from the UI.
+ */
+export async function adminResetGame(codeId: string, confirm: unknown): Promise<TheCodeAdminResetResponse> {
+  if (typeof confirm !== 'string' || confirm.trim() !== THECODE_RESET_WORD) return { ok: false, error: 'badRequest' };
+  const groups = await resetAllPlayers(codeId);
+  await writeLogEntry(codeId, OWNER_LOG_ID, OWNER_LOG_NAME, { action: 'resetGame', detail: String(groups) }).catch((e) =>
+    console.error('thecode owner reset log error:', e)
+  );
+  return { ok: true, groups };
 }
 
 /** Is this (normalized) phone an ACTIVE staff member of the adventure? */

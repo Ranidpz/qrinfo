@@ -5,6 +5,7 @@ import { Check, Eye, EyeOff, ImageOff, Luggage, Pencil, RefreshCw, Search, Trash
 import type { AdminPlayer, ScreenProps } from './model';
 import { timeAgo } from './helpers';
 import { Button, Card, EmptyState, IconButton, Pill, ScreenHeader, Segmented, cx } from './ui';
+import ResetGame from './ResetGame';
 
 export default function PlayersScreen({ state, actions, now, refresh }: ScreenProps) {
   const [removing, setRemoving] = useState<{ id: string; step: 1 | 2 } | null>(null);
@@ -152,6 +153,8 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
           })}
         </Card>
       )}
+
+      {state.players.length > 0 && <ResetGame state={state} actions={actions} variant="inline" />}
     </div>
   );
 }

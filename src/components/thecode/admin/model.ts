@@ -124,8 +124,16 @@ export interface AdminActions {
   /** Remove a group's selfie (the server deletes the file). */
   removePlayerPhoto(id: string): void;
 
+  /**
+   * A new round: every group back to zero points and progress (names, emoji, selfies and entry
+   * codes stay). `confirm` is the word the operator typed; the server checks it again.
+   */
+  resetGame(confirm: string): Promise<ResetGameResult>;
+
   reset(): void;
 }
+
+export type ResetGameResult = { ok: true; groups: number } | { ok: false; error: 'network' | 'server' | 'forbidden' | 'badRequest' };
 
 /** What every screen receives. */
 export interface ScreenProps {

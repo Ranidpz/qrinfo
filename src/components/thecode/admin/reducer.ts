@@ -5,7 +5,8 @@
 
 import type { TheCodeBranding, TheCodeConfig, TheCodeGnome } from '@/types/thecode';
 import { letterOfAnswer } from '@/lib/thecode/letters';
-import type { AdminActions, AdminState } from './model';
+import { THECODE_RESET_WORD } from '@/types/thecode-api';
+import type { AdminActions, AdminPlayer, AdminState } from './model';
 
 function randomFrom(alphabet: string, len: number): string {
   const bytes = new Uint8Array(len);
@@ -162,6 +163,18 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
     deletePlayer: (id) => set((s) => ({ ...s, players: s.players.filter((p) => p.id !== id) })),
     removePlayerPhoto: (id) => set((s) => ({ ...s, players: s.players.map((p) => (p.id === id ? { ...p, photoUrl: undefined } : p)) })),
 
+    resetGame: async (confirm) => {
+      if (confirm.trim() !== THECODE_RESET_WORD) return { ok: false, error: 'badRequest' };
+      // The setter may apply lazily (React), so the count comes from the screen, not from here.
+      set((s) => ({ ...s, players: s.players.map(zeroPlayer) }));
+      return { ok: true, groups: 0 };
+    },
+
     reset: opts.reset,
   };
+}
+
+/** What a new round leaves of a group on the admin's list (the server does the same). */
+export function zeroPlayer(p: AdminPlayer): AdminPlayer {
+  return { ...p, points: 0, weekPoints: 0, suitcases: 0, weekSuitcases: 0 };
 }
