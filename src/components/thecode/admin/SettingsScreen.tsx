@@ -21,6 +21,22 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
     <div className="mx-auto max-w-3xl space-y-6">
       <ScreenHeader title="הגדרות" summary="השינויים נשמרים מיד." />
 
+      {/* First (Rani 23.11.2026): the adventure's name is what the phones and the big screen show —
+          renaming the code in the dashboard does not change it. */}
+      <Section title="כללי">
+        <Field label="שם ההרפתקה" hint="מופיע לקבוצות ובלוח התוצאות.">
+          <input className="input" value={config.title} onChange={(e) => actions.updateConfig({ title: e.target.value })} />
+        </Field>
+        <Row label="שפת המשחק" hint="שפת לוח האותיות של הקבוצות.">
+          <Segmented label="שפת המשחק" value={config.language} onChange={(language) => actions.updateConfig({ language })} options={[{ value: 'he', label: 'עברית' }, { value: 'en', label: 'English' }]} />
+        </Row>
+        {config.language === 'en' && hebrewPhrases && (
+          <p className="text-sm text-danger">
+            המשפטים והתשובות כתובים בעברית, ולכן הם לא תקינים בשפה הזו ({report.errors} שגיאות).
+          </p>
+        )}
+      </Section>
+
       <div id="mode" className="scroll-mt-32">
         <FreeModeCard state={state} actions={actions} uploadVideo={uploadVideo} />
       </div>
@@ -45,19 +61,6 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
         <StaffCard state={state} actions={actions} links={links} />
       </div>
 
-      <Section title="כללי">
-        <Field label="שם ההרפתקה" hint="מופיע לקבוצות ובלוח התוצאות.">
-          <input className="input" value={config.title} onChange={(e) => actions.updateConfig({ title: e.target.value })} />
-        </Field>
-        <Row label="שפת המשחק" hint="שפת לוח האותיות של הקבוצות.">
-          <Segmented label="שפת המשחק" value={config.language} onChange={(language) => actions.updateConfig({ language })} options={[{ value: 'he', label: 'עברית' }, { value: 'en', label: 'English' }]} />
-        </Row>
-        {config.language === 'en' && hebrewPhrases && (
-          <p className="text-sm text-danger">
-            המשפטים והתשובות כתובים בעברית, ולכן הם לא תקינים בשפה הזו ({report.errors} שגיאות).
-          </p>
-        )}
-      </Section>
 
       <Section title="ניקוד">
         <Row label="נקודות לכל אות" hint="תשובה נכונה ליד הגמד הנכון.">
