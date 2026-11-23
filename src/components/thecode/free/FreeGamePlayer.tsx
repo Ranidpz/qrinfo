@@ -467,47 +467,57 @@ function RiddleScreen({ v, cb }: { v: FreeGameView; cb: FreeGameCallbacks }) {
   useEffect(() => { if (fresh) sfx('correct'); }, [fresh, sfx]);
   const left = r.attempts - r.wrongs;
   const half = Math.round(v.secondAttemptFactor * 100);
-  return (
-    <ScreenBody className="items-stretch gap-4"
-      footer={(
-        <div className="flex flex-col gap-2.5">
-          <div key={v.wrongTick} className={`flex min-h-[2.75rem] items-center justify-between gap-3 ${v.wrongTick && r.wrongs ? 'tc-a-shake' : ''}`}>
-            {r.wrongs > 0 && left > 0 ? (
-              <p role="alert" className="text-base font-bold leading-snug" style={{ color: 'var(--tc-coral)' }}>
-                {left === 1 ? 'לא זו האות. יש לכם עוד ניסיון אחד' : `לא זו האות. יש לכם עוד ${left} ניסיונות`}, על {half === 50 ? 'חצי מהנקודות' : `${half}% מהנקודות`}
-              </p>
-            ) : (
-              <>
-                <p className="text-base leading-snug">הקישו את <b>האות הראשונה</b> של התשובה</p>
-                <span className="shrink-0 rounded-full px-2.5 py-1 text-sm font-bold" style={{ background: 'rgba(255,244,218,.08)', color: 'var(--tc-soft)' }}>
-                  {r.attempts === 1 ? 'ניסיון אחד' : `${r.attempts} ניסיונות`}
-                </span>
-              </>
-            )}
-          </div>
-          <LetterPad picked={v.pendingLetter} disabled={v.submitting} onPick={(l) => { sfx('key'); cb.onPickLetter(l); }} />
-          <div className="flex items-center gap-3">
-            {v.pendingLetter ? <Tile letter={v.pendingLetter} size={46} className="tc-a-pop shrink-0" /> : <Socket size={46} className="shrink-0">{flash ? '✕' : '?'}</Socket>}
-            <button type="button" className="tc-btn tc-btn-primary flex-1 text-xl" disabled={!v.pendingLetter || v.submitting} onClick={() => { sfx('tap'); cb.onSubmitLetter(); }}>
-              {v.submitting ? 'בודקים…' : 'בדקו'}
-            </button>
-          </div>
-        </div>
-      )}>
-      <div className="flex items-center gap-3">
-        {g && <div className={fresh ? 'tc-a-hop' : ''}><GnomeStage gnome={view(g)} size={58} /></div>}
-        <div className="min-w-0 flex-1">
-          <p className={`tc-display text-[1.9rem] leading-none ${fresh ? 'tc-a-bounce-in' : ''}`} style={{ color: 'var(--tc-mint)' }}>הגמד ער!</p>
-          {g && <p className="mt-1 text-base" style={{ color: 'var(--tc-soft)' }}>גמד <span className="tc-num">{g.number}</span> שואל אתכם</p>}
-        </div>
-        <button type="button" className="tc-chip min-h-[44px] shrink-0" onClick={cb.onBoard}>ללוח</button>
+  // Rani (iPhone, 23.11.2026): the riddle comes first — the letter pad starts folded at the
+  // bottom and opens on a tap; open, the riddle stays above it in a compact card.
+  const [open, setOpen] = useState(false);
+  const wrongLine = r.wrongs > 0 && left > 0 && (
+    <p role="alert" className="text-base font-bold leading-snug" style={{ color: 'var(--tc-coral)' }}>
+      {left === 1 ? 'לא זו האות. יש לכם עוד ניסיון אחד' : `לא זו האות. יש לכם עוד ${left} ניסיונות`}, על {half === 50 ? 'חצי מהנקודות' : `${half}% מהנקודות`}
+    </p>
+  );
+  const footer = open ? (
+    <div className="flex flex-col gap-2.5">
+      <div key={v.wrongTick} className={`flex min-h-[2.75rem] items-center justify-between gap-3 ${v.wrongTick && r.wrongs ? 'tc-a-shake' : ''}`}>
+        {wrongLine || <p className="text-base leading-snug">הקישו את <b>האות הראשונה</b> של התשובה</p>}
+        <button type="button" className="tc-chip min-h-[40px] shrink-0" onClick={() => { sfx('tap'); setOpen(false); }} aria-label="קיפול לוח האותיות">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M6 9l6 6 6-6" /></svg>
+          לחידה
+        </button>
       </div>
-      <div className="tc-a-rise rounded-3xl px-5 py-5" style={{ background: 'linear-gradient(180deg, rgba(255,244,218,.1), rgba(255,244,218,.04))', boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }}>
-        {r.imageUrl && (
+      <LetterPad picked={v.pendingLetter} disabled={v.submitting} onPick={(l) => { sfx('key'); cb.onPickLetter(l); }} />
+      <div className="flex items-center gap-3">
+        {v.pendingLetter ? <Tile letter={v.pendingLetter} size={46} className="tc-a-pop shrink-0" /> : <Socket size={46} className="shrink-0">{flash ? '✕' : '?'}</Socket>}
+        <button type="button" className="tc-btn tc-btn-primary flex-1 text-xl" disabled={!v.pendingLetter || v.submitting} onClick={() => { sfx('tap'); cb.onSubmitLetter(); }}>
+          {v.submitting ? 'בודקים…' : 'בדקו'}
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div key={v.wrongTick} className={`flex flex-col gap-2.5 ${v.wrongTick && r.wrongs ? 'tc-a-shake' : ''}`}>
+      {wrongLine}
+      <button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={() => { sfx('tap'); setOpen(true); }}>
+        <span aria-hidden className="tc-display">אבג</span> פתרתם? בחרו את האות
+      </button>
+    </div>
+  );
+  return (
+    <ScreenBody className={`items-stretch ${open ? 'gap-2' : 'gap-4'}`} footer={footer}>
+      {!open && (
+        <div className="flex items-center gap-3">
+          {g && <div className={fresh ? 'tc-a-hop' : ''}><GnomeStage gnome={view(g)} size={58} /></div>}
+          <div className="min-w-0 flex-1">
+            <p className={`tc-display text-[1.9rem] leading-none ${fresh ? 'tc-a-bounce-in' : ''}`} style={{ color: 'var(--tc-mint)' }}>הגמד ער!</p>
+            {g && <p className="mt-1 text-base" style={{ color: 'var(--tc-soft)' }}>גמד <span className="tc-num">{g.number}</span> שואל אתכם</p>}
+          </div>
+          <button type="button" className="tc-chip min-h-[44px] shrink-0" onClick={cb.onBoard}>ללוח</button>
+        </div>
+      )}
+      <div className={`tc-a-rise rounded-3xl ${open ? 'px-4 py-3' : 'px-5 py-5'}`} style={{ background: 'linear-gradient(180deg, rgba(255,244,218,.1), rgba(255,244,218,.04))', boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }}>
+        {r.imageUrl && !open && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={r.imageUrl} alt="" className="mb-4 max-h-44 w-full rounded-2xl object-cover" />
         )}
-        <p className="tc-display text-[1.6rem] leading-snug">{r.text}</p>
+        <p className={`tc-display leading-snug ${open ? 'text-xl' : 'text-[1.6rem]'}`}>{r.text}</p>
       </div>
     </ScreenBody>
   );
