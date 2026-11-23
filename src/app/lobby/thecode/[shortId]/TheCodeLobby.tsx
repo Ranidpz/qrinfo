@@ -112,7 +112,9 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
       // A changed counter = scans of the on-screen QR (the director decides start vs count).
       const prev = lastScans.current ?? scans;
       lastScans.current = scans;
-      if (scans > prev) scan(scans - prev);
+      // Free mode: the drawn explainer is the guided game's (suitcases, phrase) — skip it; the phone's
+      // magician call explains. An uploaded explain clip still plays.
+      if (scans > prev && (live?.mode !== 'free' || live?.videos?.explain)) scan(scans - prev);
     }, (err) => {
       // Rules not deployed yet / offline: the board still works without live moments.
       console.warn('[lobby/thecode] live doc unavailable', err?.code || err);

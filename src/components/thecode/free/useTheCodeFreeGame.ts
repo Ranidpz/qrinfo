@@ -269,9 +269,9 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
   const finishedNow = !!free?.allAsleep && !flash && view === 'board';
   const wasFinished = useRef(false);
   useEffect(() => {
-    if (finishedNow && !wasFinished.current && free?.wellDoneVideo) setCall('wellDone');
+    if (finishedNow && !wasFinished.current) setCall('wellDone');
     wasFinished.current = finishedNow;
-  }, [finishedNow, free?.wellDoneVideo]);
+  }, [finishedNow]);
 
   const putPhoto = useCallback(async (auth: TheCodeAuth, shot: SelfieShot) => {
     setLocalPhoto(shot.preview);
@@ -324,7 +324,7 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     onShowIntro: () => { setFlash(null); setView('intro'); },
     onJoinedDone: () => {
       setView('intro');
-      if (snapshotRef.current?.free?.introVideo) setCall('intro');
+      setCall('intro'); // with no clip yet the call shows a black screen (Rani 23.11.2026)
     },
     onEndCall: () => setCall(null),
     onCallMagician: (c) => setCall(c),

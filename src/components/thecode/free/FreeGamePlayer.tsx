@@ -653,8 +653,9 @@ const WELCOME = 'הגמדים מסתתרים בכל המקום, וכל אחד מ
 
 function Screen({ v, cb }: { v: FreeGameView; cb: FreeGameCallbacks }) {
   const sc = v.screen;
-  const hasWellDone = !!v.videos.wellDone || !!v.demo;
-  const hasIntro = !!v.videos.intro || !!v.demo;
+  // The magician always calls (a black screen stands in until his clip is uploaded).
+  const hasWellDone = true;
+  const hasIntro = true;
   switch (sc.kind) {
     case 'loading':
       return <LoadingScreen branding={v.branding} venueName={v.venueName} />;
@@ -763,7 +764,7 @@ export default function FreeGamePlayer({ view: v, callbacks }: { view: FreeGameV
               <Screen v={v} cb={callbacks} />
             </div>
           </main>
-          {v.call && (callUrl || v.demo) && (
+          {v.call && (
             <MagicianCall key={v.call} url={callUrl}
               topic={v.call === 'intro' ? 'הקוסם מסביר לקבוצה מה עושים' : 'כל הכבוד! הקוסם מברך את הקבוצה'} onEnd={callbacks.onEndCall} />
           )}

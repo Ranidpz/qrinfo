@@ -122,6 +122,8 @@ async function main() {
   res = await play(null, { type: 'register', familyName: 'הבודקים החופשיים', emoji: '🍄' });
   check('register', res?.ok && !!res.auth, JSON.stringify(res).slice(0, 200));
   const auth = res.auth;
+  const lb0 = await http('GET', `/api/thecode/leaderboard?codeId=${codeId}&scope=screen`);
+  check('a new group is on the big-screen board at once (0 points)', (lb0.json?.rows || []).some((x) => x.familyName === 'הבודקים החופשיים' && x.points === 0), JSON.stringify(lb0.json).slice(0, 200));
   check('board: 4 gnomes awake', res.snapshot.free?.gnomes?.length === 4 && res.snapshot.free.gnomes.every((g) => g.status === 'awake'));
   const live1 = (await codeRef.collection('thecodeLobby').doc('live').get()).data();
   check('big screen got the "joined" event', (live1?.events || []).some((e) => e.kind === 'joined' && e.familyName === 'הבודקים החופשיים'));

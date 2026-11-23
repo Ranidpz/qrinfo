@@ -24,7 +24,7 @@ export interface MagicianCallProps {
 
 const NAME = 'הקוסם קליוסטרו';
 /** Without a clip the placeholder call hangs up by itself after this long. */
-const PLACEHOLDER_MS = 7000;
+const PLACEHOLDER_MS = 6000;
 
 const STYLE = `
 @keyframes tcm-ring { 0% { transform: scale(1); opacity: .55 } 100% { transform: scale(1.9); opacity: 0 } }
@@ -36,12 +36,18 @@ const STYLE = `
 @media (prefers-reduced-motion: reduce) { .tcm-ring, .tcm-answer, .tcm-dot { animation: none !important; } }
 `;
 
+/** The magician's face in a round frame — cropped from the big screen's wizard art (merlush-v2). */
 function Magician({ size }: { size: number }) {
   return (
-    <span className="relative flex items-center justify-center rounded-full"
-      style={{ width: size, height: size, background: 'radial-gradient(circle at 50% 35%, #5B3FA6, #1A1240)', boxShadow: '0 0 0 4px var(--tc-brass), 0 20px 60px rgba(0,0,0,.5)' }}>
-      <span aria-hidden style={{ fontSize: size * 0.55, lineHeight: 1 }}>🧙‍♂️</span>
-    </span>
+    <span aria-hidden className="relative block rounded-full"
+      style={{
+        width: size, height: size,
+        backgroundColor: '#0A0E2A',
+        backgroundImage: 'url(/thecode/lobby/merlush-v2.webp)',
+        backgroundSize: '492% auto',
+        backgroundPosition: '26.3% 20%',
+        boxShadow: '0 0 0 4px var(--tc-brass), 0 20px 60px rgba(0,0,0,.5)',
+      }} />
   );
 }
 
@@ -89,7 +95,7 @@ export default function MagicianCall({ url, topic, onEnd }: MagicianCallProps) {
 
   return (
     <div dir="rtl" role="dialog" aria-modal="true" aria-label={`שיחת וידאו מ${NAME}`} className="absolute inset-0 z-50 overflow-hidden"
-      style={{ background: 'radial-gradient(120% 80% at 50% 20%, #2B1D5C, #070A22 70%)' }}>
+      style={{ background: live ? '#000' : 'radial-gradient(120% 80% at 50% 20%, #2B1D5C, #070A22 70%)' }}>
       <style>{STYLE}</style>
 
       {!live ? (
@@ -129,12 +135,8 @@ export default function MagicianCall({ url, topic, onEnd }: MagicianCallProps) {
               onTimeUpdate={(e) => setElapsed(e.currentTarget.currentTime * 1000)}
               className="absolute inset-0 h-full w-full bg-black object-cover" />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
-              <span className="absolute start-5 top-16 rounded-full bg-black/40 px-2.5 py-1 text-xs font-bold" style={{ color: 'var(--tc-soft)' }}>משבצת וידאו</span>
-              <div className="tc-a-bob"><Magician size={180} /></div>
-              <p className="tc-display text-2xl leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>כאן ירוץ הסרטון של קליוסטרו</p>
-              <p className="text-base leading-snug" style={{ color: 'var(--tc-soft)' }}>{topic}</p>
-            </div>
+            // No clip yet: a black screen in the call frame (Rani 23.11.2026), until the real clip arrives.
+            <div className="absolute inset-0 bg-black" aria-label={topic} />
           )}
           {/* the call bar */}
           <div className="absolute inset-x-0 top-0 flex items-center justify-between px-5 pb-6 pt-4"

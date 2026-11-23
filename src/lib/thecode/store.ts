@@ -583,7 +583,7 @@ export async function leaderboard(
   if (!codeSnap.exists) return null;
   const media = ((codeSnap.data()?.media || []) as { type?: string; thecodeConfig?: { title?: string } }[]).find((m) => m.type === 'thecode');
   if (!media) return null;
-  const [advSnap] = await db().getAll(adventureRef(codeId), { fieldMask: ['config.selfie', 'config.lobby'] });
+  const [advSnap] = await db().getAll(adventureRef(codeId), { fieldMask: ['config.selfie', 'config.lobby', 'config.mode'] });
   const advConfig = advSnap.data()?.config || {};
   const selfie = resolveSelfie({ selfie: advConfig.selfie });
   const screen = resolveBoard(advConfig.lobby as TheCodeLobbySettings | undefined);
@@ -612,6 +612,24 @@ export async function leaderboard(
   let board: TheCodeBoardPeriod = effective === 'all' ? 'all' : 'week';
   let key: string | null = effective === 'all' ? null : weekKey(now, THECODE_TIME_ZONE);
   let rows = await readRows(key);
+  // Free mode (Rani 23.11.2026): the game starts at the screen, so a group appears on the board (and,
+  // with a selfie, in the parade) as soon as it joins — with 0 points, after everyone who scored.
+  if (advConfig.mode === 'free' && rows.length < LEADER_ROWS) {
+    const since = now - 7 * 86_400_000;
+    const fresh = await playersCol(codeId).orderBy('createdAt', 'desc').limit(LEADER_ROWS).get();
+    const have = new Set(rows.map((r) => r.id));
+    for (const doc of fresh.docs) {
+      if (rows.length >= LEADER_ROWS) break;
+      const d = doc.data();
+      if (have.has(doc.id) || d.hidden || (key && Number(d.createdAt) < since)) continue;
+      const pts = key ? Number(d.week?.[key]?.points) || 0 : Number(d.points) || 0;
+      if (pts > 0) continue; // a scorer is already ranked above
+      const row: TheCodeLeaderRow = { id: doc.id, familyName: String(d.familyName || ''), emoji: String(d.emoji || ''), points: 0, suitcases: 0, gnomesFound: Array.isArray(d.foundGnomeIds) ? d.foundGnomeIds.length : 0 };
+      const photoUrl = visiblePhotoUrl(d as TheCodePlayer, selfie, now);
+      if (photoUrl) row.photoUrl = photoUrl;
+      rows.push(row);
+    }
+  }
   if (!rows.length && effective === 'week' && scope === 'screen' && screen.fallback) {
     const last = prevWeekKey(now, THECODE_TIME_ZONE);
     const lastRows = await readRows(last);
