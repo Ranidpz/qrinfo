@@ -16,7 +16,8 @@
 //   it is only sold when the group can pay. Hints do not break the streak in this mode.
 // - Hot streak exactly as the guided engine: ×hotMultiplier once the streak BEFORE the answer
 //   reached hotStreakAt. Any wrong letter resets the streak.
-// - Letters are a collection only (no phrase, no suitcase). Every gnome asleep = "done for now".
+// - No letters are collected (Rani 23.11.2026: "להסיר את האוסף") — only points and gnomes.
+//   The first letter is just how a group answers. Every gnome asleep = "done for now".
 //
 // Storage: the free state rides on the player document as `free` (see TheCodeFreePlayer).
 // `run` stays null in this mode. points / streak / solvedRiddleIds / foundGnomeIds are the
@@ -97,17 +98,8 @@ export interface TheCodeFreeGnomeState {
   last?: { riddleId: string; result: 'full' | 'half' | 'failed'; points: number; letter?: string; at: number };
 }
 
-export interface TheCodeFreeLetter {
-  letter: string;
-  gnomeId: string;
-  riddleId: string;
-  at: number;
-}
-
 export interface TheCodeFreeState {
   gnomes: Record<string, TheCodeFreeGnomeState>;
-  /** Letters in the order they were collected. */
-  letters: TheCodeFreeLetter[];
 }
 
 /** A player document of a free-mode adventure. */
@@ -124,7 +116,7 @@ const emptyGnome = (): TheCodeFreeGnomeState => ({ done: 0, wrongs: 0, hintsUsed
 function cloneFree(f: TheCodeFreeState | undefined): TheCodeFreeState {
   const gnomes: Record<string, TheCodeFreeGnomeState> = {};
   for (const [id, g] of Object.entries(f?.gnomes || {})) gnomes[id] = { ...g, last: g.last ? { ...g.last } : undefined };
-  return { gnomes, letters: (f?.letters || []).map((l) => ({ ...l })) };
+  return { gnomes };
 }
 
 function clonePlayer(p: TheCodeFreePlayer): TheCodeFreePlayer {
@@ -203,8 +195,8 @@ export interface TheCodeFreeBoardGnome {
   status: TheCodeFreeGnomeStatus;
   /** With 'asleep'. */
   wakesAt?: number;
-  /** How the last riddle here ended (letter only when it was won). */
-  last?: { result: 'full' | 'half' | 'failed'; letter?: string };
+  /** How the last riddle here ended. */
+  last?: { result: 'full' | 'half' | 'failed' };
   /** Location hints bought so far, and the price of the next one (null = none left). */
   hintsShown: string[];
   nextHintCost: number | null;
@@ -212,7 +204,6 @@ export interface TheCodeFreeBoardGnome {
 
 export interface TheCodeFreeBoard {
   gnomes: TheCodeFreeBoardGnome[];
-  letters: { letter: string; gnomeId: string }[];
   /** No gnome is awake for this group right now ("done for today"). */
   allAsleep: boolean;
   /** The earliest wake time of a sleeping gnome, if any. */
@@ -250,13 +241,12 @@ export function freeBoard(player: TheCodeFreePlayer, ctx: TheCodeFreeContext): T
       nextHintCost: used < hints.length ? shared.hintCost : null,
     };
     if (wakesAt !== undefined) row.wakesAt = wakesAt;
-    if (status === 'asleep' && st.last) row.last = st.last.letter ? { result: st.last.result, letter: st.last.letter } : { result: st.last.result };
+    if (status === 'asleep' && st.last) row.last = { result: st.last.result };
     gnomes.push(row);
   }
   const wakes = gnomes.map((g) => g.wakesAt).filter((t): t is number => t !== undefined);
   const board: TheCodeFreeBoard = {
     gnomes,
-    letters: (player.free?.letters || []).map((l) => ({ letter: l.letter, gnomeId: l.gnomeId })),
     allAsleep: gnomes.length > 0 && !gnomes.some((g) => g.status === 'awake'),
   };
   if (wakes.length) board.nextWakeAt = Math.min(...wakes);
@@ -415,7 +405,6 @@ export function freeAnswer(
   p.points += points;
   addUnique(p.solvedRiddleIds, riddle.id);
   addUnique(p.foundGnomeIds, input.gnomeId);
-  p.free!.letters.push({ letter, gnomeId: input.gnomeId, riddleId: riddle.id, at: ctx.now });
   sleepNow();
   g.last = { riddleId: riddle.id, result: secondTry ? 'half' : 'full', points, letter, at: ctx.now };
   p.free!.gnomes[input.gnomeId] = g;

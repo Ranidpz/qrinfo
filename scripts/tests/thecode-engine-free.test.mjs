@@ -90,7 +90,7 @@ test('fresh group: every gnome awake, any gnome can be scanned', () => {
   assert.deepEqual(s.outcome, { kind: 'riddle', gnomeId: 'g2', riddleId: 'r2a', attemptsLeft: 2 });
 });
 
-test('correct first try: full points, letter collected, gnome sleeps for the refresh', () => {
+test('correct first try: full points, gnome sleeps for the refresh, no letter collection', () => {
   const r = play(deepFreeze(newPlayer()), 'g1', 'א');
   assert.equal(r.outcome.kind, 'correct');
   assert.equal(r.outcome.points, 100);
@@ -100,7 +100,8 @@ test('correct first try: full points, letter collected, gnome sleeps for the ref
   assert.equal(r.player.points, 100);
   assert.deepEqual(r.player.solvedRiddleIds, ['r1a']);
   assert.deepEqual(r.player.foundGnomeIds, ['g1']);
-  assert.deepEqual(r.player.free.letters.map((l) => l.letter), ['א']);
+  assert.equal(r.player.free.letters, undefined);
+  assert.equal('letters' in F.freeBoard(r.player, ctx()), false);
   const again = F.freeScan(r.player, 'g1', ctx(NOON + 10 * MIN));
   assert.equal(again.outcome.kind, 'asleep');
   assert.equal(again.outcome.last, 'full');
@@ -122,7 +123,6 @@ test('wrong then right = half points; two wrong = asleep, no points, never negat
   assert.equal(b.outcome.kind, 'failed');
   assert.equal(b.player.points, 50);
   assert.equal(b.player.streak, 0);
-  assert.equal(b.player.free.letters.length, 1);
   assert.equal(b.outcome.allAsleep, true);
   assert.equal(F.freeBoard(b.player, c).gnomes.find((g) => g.gnomeId === 'g2').last.result, 'failed');
 });

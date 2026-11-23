@@ -12,7 +12,7 @@ import { THECODE_STYLE } from '@/components/thecode/player/styles';
 import { gameSfx, type SfxName } from '@/components/thecode/player/sfx';
 import {
   Confetti, CountUp, GnomeStage, HintCard, HotBadge, ScoreCounter, ScreenBody, SfxContext, Socket, StarCoin, Tile,
-  letterName, useFit, useSfx,
+  useFit, useSfx,
 } from '@/components/thecode/player/ui';
 import { ScanButton } from '@/components/thecode/player/HuntScreens';
 import RegisterScreen from '@/components/thecode/player/RegisterScreen';
@@ -109,23 +109,11 @@ function Header({ s, onBoard, onToggleMute, onHome, onHowTo }: { s: FreeDemoStat
 
 /** "42 ד׳" / "3 ש׳" / "מחר 08:00" — fits under a small gnome on the board (no colons in a duration: they flip in RTL). */
 function shortWake(until: number, now: number): string {
-  const min = Math.max(1, Math.ceil((until - now) / 60_000));
+  const min = Math.max(1, Math.round((until - now) / 60_000));
   if (min <= 90) return `${min} ד׳`;
   if (min < 12 * 60) return `${Math.round(min / 60)} ש׳`;
   const d = new Date(until);
   return `${d.getDate() === new Date(now).getDate() ? '' : 'מחר '}${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-/** The collected letters — a collection only (no phrase, no suitcase in the free game). */
-function LetterStrip({ letters, size = 30, emptyText }: { letters: { letter: string }[]; size?: number; emptyText?: string }) {
-  if (!letters.length) {
-    return emptyText ? <p className="text-center text-base" style={{ color: 'var(--tc-soft)' }}>{emptyText}</p> : null;
-  }
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-1.5" aria-label={`אספתם ${letters.length} אותיות`}>
-      {letters.map((l, i) => <Tile key={i} letter={l.letter} size={size} className="tc-a-drop" />)}
-    </div>
-  );
 }
 
 function GnomeCard({ g, p, now, onOpen }: { g: FreeGnome; p: FreeGnomeProgress; now: number; onOpen(): void }) {
@@ -146,7 +134,7 @@ function GnomeCard({ g, p, now, onOpen }: { g: FreeGnome; p: FreeGnomeProgress; 
         <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[13px] font-bold leading-none" style={{ color: 'var(--tc-soft)' }}>
           {p.last === 'failed'
             ? <span aria-hidden style={{ color: 'var(--tc-coral)' }}>✕</span>
-            : p.lastLetter ? <Tile letter={p.lastLetter} size={16} /> : null}
+            : p.last ? <span aria-hidden style={{ color: 'var(--tc-mint)' }}>✓</span> : null}
           <span aria-hidden>💤</span><span className="tc-num">{shortWake(p.asleepUntil!, now)}</span>
         </span>
       ) : (
@@ -249,16 +237,9 @@ function BoardScreen({ s, now, cb }: { s: FreeDemoState; now: number; cb: FreeGa
           {awake < FREE_GNOMES.length && <>, <span className="tc-num">{FREE_GNOMES.length - awake}</span> ישנים</>}
         </p>
       </div>
-      {s.letters.length ? (
-        <div className="flex items-center gap-2 rounded-2xl px-3 py-2" style={{ background: 'var(--tc-panel)', boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }}>
-          <span className="shrink-0 text-sm font-bold" style={{ color: 'var(--tc-soft)' }}>האותיות<br />שלכם</span>
-          <div className="min-w-0 flex-1"><LetterStrip letters={s.letters} size={24} /></div>
-        </div>
-      ) : (
-        <p className="-mt-1 text-base leading-snug" style={{ color: 'var(--tc-soft)' }}>
-          מצאו גמד ער, סרקו ופתרו את החידה שלו. הקישו על גמד בשביל רמז למקום שלו.
-        </p>
-      )}
+      <p className="-mt-1 text-base leading-snug" style={{ color: 'var(--tc-soft)' }}>
+        מצאו גמד ער, סרקו ופתרו את החידה שלו. הקישו על גמד בשביל רמז למקום שלו.
+      </p>
       <div className="grid grid-cols-4 gap-2" role="list" aria-label="לוח הגמדים">
         {FREE_GNOMES.map((g) => (
           <div role="listitem" key={g.id}><GnomeCard g={g} p={s.gnomes[g.id]} now={now} onOpen={() => cb.onOpenGnome(g.id)} /></div>
@@ -417,9 +398,8 @@ function CorrectScreen({ s, now, cb }: { s: FreeDemoState; now: number; cb: Free
           </button>
         </div>
       )}>
-      <Confetti burstKey={`${c.gnomeId}-${s.letters.length}`} />
+      <Confetti burstKey={`${c.gnomeId}-${s.solved}`} />
       <p className="tc-display tc-a-rise text-[2rem] leading-none" style={{ color: 'var(--tc-mint)' }}>נכון!</p>
-      <p className="tc-a-rise -mb-1 text-xl font-bold">אספתם את האות</p>
       <div className="relative">
         <div aria-hidden className="tc-rays absolute -inset-16 opacity-40"
           style={{ background: 'repeating-conic-gradient(from 0deg, rgba(255,217,120,.35) 0 10deg, transparent 10deg 30deg)', borderRadius: '50%', maskImage: 'radial-gradient(closest-side, #000 40%, transparent)' }} />
@@ -429,7 +409,6 @@ function CorrectScreen({ s, now, cb }: { s: FreeDemoState; now: number; cb: Free
         <span style={{ color: 'var(--tc-soft)' }}>התשובה: </span>
         <span style={{ color: 'var(--tc-brass-hi)' }}>{c.answerWord}</span>
       </p>
-      {letterName(c.letter) && <p className="-mt-2 text-base" style={{ color: 'var(--tc-soft)' }}>האות {letterName(c.letter)}</p>}
       <p className="tc-num tc-a-pop tc-delay-3 text-5xl font-black" style={{ color: 'var(--tc-mint)', textShadow: '0 6px 30px rgba(54,227,154,.45)' }}>
         +<CountUp value={shown} duration={700} />
       </p>
@@ -484,12 +463,12 @@ function FinishedScreen({ s, now, video }: { s: FreeDemoState; now: number; vide
   const first = wakes.length ? Math.min(...wakes) : null;
   return (
     <ScreenBody className="items-center justify-center gap-4 text-center">
-      <Confetti burstKey={`done-${s.letters.length}`} />
+      <Confetti burstKey={`done-${s.solved}`} />
       <VideoSlot url={video} label="כל הכבוד! הקוסם מברך את הקבוצה" />
       <h2 className="tc-display text-[2.4rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}><span aria-hidden>🎁 </span>סיימתם להיום!</h2>
       <p className="text-xl leading-snug">כל הגמדים ישנים. גשו לקבלה, מחכה לכם שם פרס.</p>
       <div className="flex items-center gap-2 text-4xl"><StarCoin size={34} /><CountUp value={s.points} /></div>
-      <LetterStrip letters={s.letters} size={30} />
+      <p className="text-lg" style={{ color: 'var(--tc-soft)' }}>פתרתם <span className="tc-num">{s.solved}</span> חידות</p>
       {first && (
         <p className="text-base" style={{ color: 'var(--tc-soft)' }}>הגמד הראשון יתעורר {wakeLabel(first, now)} עם חידה חדשה.</p>
       )}

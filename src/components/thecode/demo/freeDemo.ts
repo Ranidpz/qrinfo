@@ -133,11 +133,6 @@ export interface FreeGnomeProgress {
   hintBought: boolean;
 }
 
-export interface FreeCollected {
-  letter: string;
-  gnomeId: string;
-}
-
 export interface FreeCorrect {
   gnomeId: string;
   letter: string;
@@ -173,7 +168,8 @@ export interface FreeDemoState {
   group: { name: string; emoji: string } | null;
   points: number;
   streak: number;
-  letters: FreeCollected[];
+  /** Riddles solved (no letters are collected in the free game — Rani 23.11.2026). */
+  solved: number;
   gnomes: Record<string, FreeGnomeProgress>;
   pendingLetter: string | null;
   /** Bumps on every wrong letter (the riddle shakes). */
@@ -192,7 +188,7 @@ export function createFreeDemoState(): FreeDemoState {
     group: null,
     points: 0,
     streak: 0,
-    letters: [],
+    solved: 0,
     gnomes,
     pendingLetter: null,
     wrongTick: 0,
@@ -218,7 +214,7 @@ export const isAsleep = (p: FreeGnomeProgress, now: number) => p.asleepUntil !==
 
 /** "בעוד 42 דקות" / "בעוד שעה ו־5 דק׳" / "מחר ב־08:00". */
 export function wakeLabel(until: number, now: number): string {
-  const min = Math.max(1, Math.ceil((until - now) / 60_000));
+  const min = Math.max(1, Math.round((until - now) / 60_000));
   if (min < 60) return min === 1 ? 'בעוד דקה' : `בעוד ${min} דקות`;
   const h = Math.floor(min / 60);
   const m = min % 60;
@@ -305,7 +301,7 @@ export function freeSubmitLetter(s: FreeDemoState, realNow: number): FreeDemoSta
     streak,
     points: s.points + points,
     pendingLetter: null,
-    letters: [...s.letters, { letter: riddle.letter, gnomeId }],
+    solved: s.solved + 1,
     gnomes: fallAsleep(s, gnomeId, now, { last: half ? 'half' : 'full', lastLetter: riddle.letter }),
   };
   return {
@@ -375,7 +371,7 @@ export function freeDemoSolveAllBut(s: FreeDemoState, keep: number, realNow: num
     next = {
       ...next,
       points: next.points + POINTS_PER_RIDDLE,
-      letters: [...next.letters, { letter: r.letter, gnomeId: g.id }],
+      solved: next.solved + 1,
       gnomes: fallAsleep(next, g.id, now, { last: 'full', lastLetter: r.letter }),
     };
     left--;
