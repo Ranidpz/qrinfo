@@ -154,19 +154,6 @@ function GnomeCard({ g, p, now, onOpen }: { g: FreeGnome; p: FreeGnomeProgress; 
   );
 }
 
-/** What Cliostro says in each call — the "i" button shows it in writing during the call. */
-const INTRO_LINES = [
-  'מצאו גמד ער במקום וסרקו את הקוד שלו.',
-  'פתרו את החידה שלו: הקישו את האות הראשונה של התשובה.',
-  'אחרי החידה הגמד נרדם, ויתעורר אחר כך עם חידה חדשה.',
-  'כל חידה מוסיפה נקודות. בדקו איפה אתם על המסך הגדול!',
-];
-const WELL_DONE_LINES = [
-  'כל הכבוד! פתרתם את כל החידות שהגמדים שאלו היום.',
-  'גשו לקבלה, מחכה לכם שם פרס.',
-  'הגמדים יתעוררו בקרוב עם חידות חדשות.',
-];
-
 // ------------------------------------------------ screens
 
 /**
@@ -598,8 +585,7 @@ export default function FreeGamePlayer({ state, realNow, callbacks, videos }: { 
           </main>
           {state.call && (
             <MagicianCall key={state.call} url={state.call === 'intro' ? videos?.intro : videos?.wellDone}
-              topic={state.call === 'intro' ? 'הקוסם מסביר לקבוצה מה עושים' : 'כל הכבוד! הקוסם מברך את הקבוצה'}
-              lines={state.call === 'intro' ? INTRO_LINES : WELL_DONE_LINES} onEnd={callbacks.onEndCall} />
+              topic={state.call === 'intro' ? 'הקוסם מסביר לקבוצה מה עושים' : 'כל הכבוד! הקוסם מברך את הקבוצה'} onEnd={callbacks.onEndCall} />
           )}
         </div>
       </div>
