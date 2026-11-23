@@ -73,10 +73,12 @@ export function defaultTheCodeConfig(title = 'קוד הגמדים'): TheCodeConf
 
 /** The world-readable stub kept on the code doc's media item. */
 export function toPublicConfig(
-  config: Pick<TheCodeConfig, 'title' | 'status' | 'language' | 'branding'>
+  config: Pick<TheCodeConfig, 'title' | 'status' | 'language' | 'branding' | 'mode'>
 ): TheCodePublicConfig {
   const out: TheCodePublicConfig = { title: config.title, status: config.status, language: config.language };
   if (config.branding) out.branding = config.branding;
+  // Absent = guided (old stubs stay byte-for-byte); the viewer picks the free app from it.
+  if (config.mode === 'free') out.mode = 'free';
   return out;
 }
 
@@ -355,6 +357,25 @@ export function normalizeAdventure(
     config.selfie = resolveSelfie({ selfie: isObj(c.selfie) ? (c.selfie as unknown as TheCodeConfig['selfie']) : undefined });
     const lobby = normalizeLobby(c.lobby, opts.videoBase);
     if (lobby) config.lobby = lobby;
+    // Free mode (23.11.2026): absent = guided. Settings: numbers clamped, junk dropped,
+    // Cliostro's clips only https on our own R2 (like the big-screen videos).
+    if (c.mode === 'free') config.mode = 'free';
+    if (isObj(c.free)) {
+      const f = c.free as Record<string, unknown>;
+      const free: NonNullable<TheCodeConfig['free']> = {};
+      const refresh = ranged(f.refreshMinutes, 1, 14 * 24 * 60);
+      if (refresh !== null) free.refreshMinutes = Math.round(refresh);
+      const attempts = ranged(f.attemptsPerRiddle, 1, 5);
+      if (attempts !== null) free.attemptsPerRiddle = Math.round(attempts);
+      const factor = ranged(f.secondAttemptFactor, 0, 1);
+      if (factor !== null) free.secondAttemptFactor = factor;
+      if (typeof f.wrapRiddles === 'boolean') free.wrapRiddles = f.wrapRiddles;
+      const hint = line(f.screenHint, 160);
+      if (hint) free.screenHint = hint;
+      if (isAllowedLobbyVideoUrl(f.introVideo, opts.videoBase)) free.introVideo = f.introVideo;
+      if (isAllowedLobbyVideoUrl(f.wellDoneVideo, opts.videoBase)) free.wellDoneVideo = f.wellDoneVideo;
+      if (Object.keys(free).length) config.free = free;
+    }
     // Venue staff: stays in this locked doc only (toPublicConfig never copies it).
     const staff = normalizeStaff(c.staff, opts.now ?? Date.now());
     if (staff.length) config.staff = staff;

@@ -234,6 +234,42 @@ export interface TheCodePlayResult {
   auth?: TheCodeAuth;
 }
 
+// =================================================================
+// Game modes beyond the guided game (free mode, 23.11.2026)
+// =================================================================
+
+/**
+ * A game mode other than 'guided' plugs in here instead of being imported, so this module's
+ * imports (and the tests that wire them) stay as they are. Free mode registers itself from
+ * src/lib/thecode/server/freeMode.ts, which the play route imports.
+ */
+export interface TheCodeModeActResult {
+  next: TheCodePlayer;
+  event?: TheCodePlayEvent;
+  lobbyKinds?: TheCodeLobbyEvent['kind'][];
+  /** Blind stats counters, same shape as the guided game's. */
+  gnomeScanned?: string;
+  riddleStat?: { riddleId: string; field: keyof TheCodeRiddleStats };
+}
+export interface TheCodeModeExtension {
+  /** This mode's snapshot, built on the guided one (pure; never an answer). */
+  snapshot(adv: TheCodeAdventureData, player: TheCodePlayer | null, now: number, base: TheCodeSnapshot): TheCodeSnapshot;
+  /** An action in this mode, inside the play transaction. null = not this mode's → the guided path. */
+  act(input: { before: TheCodePlayer; action: TheCodePlayAction; ctx: TheCodeContext; scannedGnomeId: string | null }): TheCodeModeActResult | null;
+}
+const modeExtensions: Partial<Record<NonNullable<TheCodeConfig['mode']>, TheCodeModeExtension>> = {};
+export function registerTheCodeMode(mode: NonNullable<TheCodeConfig['mode']>, ext: TheCodeModeExtension): void {
+  modeExtensions[mode] = ext;
+}
+const extensionFor = (config: TheCodeConfig) => (config.mode && config.mode !== 'guided' ? modeExtensions[config.mode] : undefined);
+
+/** The snapshot every player response carries: the guided one + the mode's own part. */
+function snapshotFor(adv: TheCodeAdventureData, player: TheCodePlayer | null, now: number): TheCodeSnapshot {
+  const base = buildSnapshot(adv, player, now, THECODE_TIME_ZONE);
+  const ext = extensionFor(adv.config);
+  return ext ? ext.snapshot(adv, player, now, base) : base;
+}
+
 async function loadAdventureOrThrow(codeId: string): Promise<AdventureDoc> {
   const adv = readAdventure(await adventureRef(codeId).get());
   if (!adv) throw new TheCodeStoreError('notFound', 404);
@@ -266,7 +302,7 @@ async function register(codeId: string, action: Extract<TheCodePlayAction, { typ
   await playersCol(codeId).doc(id).create(playerDoc(player, server, adv.config.retentionDays));
   await pushLobbyEvents(codeId, [lobbyEventFor(player, 'joined', { id: lobbyEventId(id), now, selfie: resolveSelfie(adv.config) })]);
   return {
-    snapshot: buildSnapshot(adv, player, now, THECODE_TIME_ZONE),
+    snapshot: snapshotFor(adv, player, now),
     event: { type: 'registered' },
     auth: { playerId: id, token },
   };
@@ -294,7 +330,7 @@ async function recover(codeId: string, action: Extract<TheCodePlayAction, { type
     return { adv, player, now };
   });
   return {
-    snapshot: buildSnapshot(out.adv, out.player, out.now, THECODE_TIME_ZONE),
+    snapshot: snapshotFor(out.adv, out.player, out.now),
     event: { type: 'recovered' },
     auth: { playerId: out.player.id, token },
   };
@@ -332,7 +368,7 @@ export async function playAction(
   if (!auth) {
     if (action.type !== 'state') throw new TheCodeStoreError('needRegister', 401);
     const adv = await loadAdventureOrThrow(codeId);
-    return { snapshot: buildSnapshot(adv, null, Date.now(), THECODE_TIME_ZONE) };
+    return { snapshot: snapshotFor(adv, null, Date.now()) };
   }
   if (!isValidPlayerId(auth.playerId)) throw new TheCodeStoreError('unauthorized', 401);
 
@@ -367,7 +403,14 @@ export async function playAction(
       stats.riddles = { ...(stats.riddles || {}), [riddleId]: { [field]: FieldValue.increment(1) } };
     };
 
-    switch (action.type) {
+    const modeResult = extensionFor(adv.config)?.act({ before, action, ctx, scannedGnomeId }) ?? null;
+    if (modeResult) {
+      next = modeResult.next;
+      event = modeResult.event;
+      lobbyKinds.push(...(modeResult.lobbyKinds || []));
+      if (modeResult.gnomeScanned) stats.gnomes = { [modeResult.gnomeScanned]: { scans: FieldValue.increment(1), lastScanAt: now } };
+      if (modeResult.riddleStat) bumpRiddle(modeResult.riddleStat.riddleId, modeResult.riddleStat.field);
+    } else switch (action.type) {
       case 'state': {
         next = { ...repairRun(before, ctx).player, lastSeenAt: now };
         break;
@@ -473,7 +516,7 @@ export async function playAction(
     await pushLobbyEvents(codeId, result.lobbyKinds.map((kind) =>
       lobbyEventFor(result.next, kind, { id: lobbyEventId(result.next.id), now: result.now, selfie })));
   }
-  return { snapshot: buildSnapshot(result.adv, result.next, result.now, THECODE_TIME_ZONE), event: result.event };
+  return { snapshot: snapshotFor(result.adv, result.next, result.now), event: result.event };
 }
 
 // =================================================================
@@ -511,6 +554,8 @@ export async function lookupGnome(raw: unknown): Promise<TheCodeGnomeLookupRespo
     howToPlay: resolveHowToPlay(adv.config, resolveRules(adv.config.rules)),
     selfie: resolveSelfie(adv.config),
     howToPlayTheme: adv.config.howToPlayTheme ?? 'night',
+    ...(adv.config.mode === 'free' ? { mode: 'free' as const } : {}),
+    ...(adv.config.mode === 'free' && adv.config.free?.screenHint ? { screenHint: adv.config.free.screenHint } : {}),
   };
 }
 
@@ -700,7 +745,10 @@ export async function saveAdventure(codeId: string, body: unknown): Promise<TheC
     const norm = normalizeAdventure(b.config, b.riddles, stored?.config ?? null, { videoBase: getR2Config()?.publicUrl ?? null });
     if (!norm.ok) return { ok: false, error: 'badRequest' };
     const { config, riddles } = norm;
-    const issues = validateAdventure(config, riddles);
+    // Free mode has no phrases and no suitcases: those checks do not apply (the free engine's
+    // own operator checks run in the admin UI).
+    const PHRASE_ONLY = new Set(['PHRASE_LETTER_MISSING', 'PHRASE_INVALID_CHARS', 'PHRASE_TOO_SHORT', 'NO_ACTIVE_PHRASE', 'FEW_FRESH_ROUNDS']);
+    const issues = validateAdventure(config, riddles).filter((i) => config.mode !== 'free' || !PHRASE_ONLY.has(i.code));
     if (config.status === 'published' && !canPublish(issues)) return { ok: false, error: 'invalid', issues };
     const created = await assignGnomeCodes(tx, config.gnomes); // reads only
 
@@ -720,8 +768,8 @@ export async function saveAdventure(codeId: string, body: unknown): Promise<TheC
       tx.update(codeRef(codeId), { media: nextMedia });
     }
     // The big screen reads its videos — and whether to invite groups to the parade — from the public live doc.
-    tx.set(lobbyRef(codeId), { videos: lobbyVideosOf(config), selfies: resolveSelfie(config).enabled },
-      { mergeFields: ['videos', 'selfies'] });
+    tx.set(lobbyRef(codeId), { videos: lobbyVideosOf(config), selfies: resolveSelfie(config).enabled, mode: config.mode === 'free' ? 'free' : 'guided' },
+      { mergeFields: ['videos', 'selfies', 'mode'] });
     return { ok: true, version, config, riddles, issues };
   });
 }
@@ -1154,6 +1202,7 @@ async function resetAllPlayers(codeId: string): Promise<number> {
         solvedRiddleIds: [],
         foundGnomeIds: [],
         run: null,
+        free: FieldValue.delete(),
         week: FieldValue.delete(),
         award: FieldValue.delete(),
       });

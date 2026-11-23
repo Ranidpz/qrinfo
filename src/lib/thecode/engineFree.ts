@@ -19,18 +19,26 @@
 // - No letters are collected (Rani 23.11.2026: "להסיר את האוסף") — only points and gnomes.
 //   The first letter is just how a group answers. Every gnome asleep = "done for now".
 //
-// Storage: the free state rides on the player document as `free` (see TheCodeFreePlayer).
+// Storage: the free state rides on the player document as `free` (TheCodePlayer.free).
 // `run` stays null in this mode. points / streak / solvedRiddleIds / foundGnomeIds are the
 // SAME fields the guided game uses, so the board, lobby, staff screen and prize keep working.
-// The contract change (TheCodePlayer.free, rules.free, config.mode) belongs to the planning
-// session — until then the types live here.
+// Contract: TheCodeConfig.mode / .free, TheCodePlayer.free and the outcome types live in
+// src/types/thecode.ts; the wire shapes in src/types/thecode-api.ts.
 
 import type {
   TheCodeConfig,
+  TheCodeFreeAnswerOutcome,
+  TheCodeFreeGnomeState,
+  TheCodeFreeHintOutcome,
+  TheCodeFreeScanOutcome,
+  TheCodeFreeSettings,
+  TheCodeFreeState,
   TheCodeIssue,
   TheCodePlayer,
   TheCodeRiddle,
 } from '@/types/thecode';
+
+export type { TheCodeFreeAnswerOutcome, TheCodeFreeGnomeState, TheCodeFreeHintOutcome, TheCodeFreeScanOutcome, TheCodeFreeState };
 import { isAdventureOpen, resolveRules, riddleLetter, type TheCodeContext } from './engine';
 import { matchLetter } from './letters';
 
@@ -64,7 +72,7 @@ export const MAX_REFRESH_MINUTES = 14 * 24 * 60;
 export const FEW_RIDDLES_PER_GNOME = 3;
 
 /** Merge operator values over the defaults; junk falls back, numbers are clamped. */
-export function resolveFreeRules(rules?: Partial<TheCodeFreeRules> | null): TheCodeFreeRules {
+export function resolveFreeRules(rules?: Partial<TheCodeFreeRules> | TheCodeFreeSettings | null): TheCodeFreeRules {
   const out: TheCodeFreeRules = { ...DEFAULT_FREE_RULES };
   if (!rules) return out;
   const num = (v: unknown, min: number, max: number) =>
@@ -82,41 +90,23 @@ export function resolveFreeRules(rules?: Partial<TheCodeFreeRules> | null): TheC
 // State
 // =================================================================
 
-export interface TheCodeFreeGnomeState {
-  /** Riddles this group finished at this gnome (solved or failed) — the index of the next one. */
-  done: number;
-  /** While in the future the gnome sleeps for this group. */
-  asleepUntil?: number;
-  /** The riddle shown at the last scan (pinned, so an admin edit mid-answer changes nothing). */
-  riddleId?: string;
-  scannedAt?: number;
-  /** Wrong letters on the current riddle. */
-  wrongs: number;
-  /** Location hints bought for this gnome (they stay: the gnome never moves). */
-  hintsUsed: number;
-  /** How the last riddle ended — the board shows it on the sleeping gnome. */
-  last?: { riddleId: string; result: 'full' | 'half' | 'failed'; points: number; letter?: string; at: number };
-}
-
-export interface TheCodeFreeState {
-  gnomes: Record<string, TheCodeFreeGnomeState>;
-}
-
-/** A player document of a free-mode adventure. */
-export type TheCodeFreePlayer = TheCodePlayer & { free?: TheCodeFreeState };
+/** A player document of a free-mode adventure (TheCodePlayer carries `free`). */
+export type TheCodeFreePlayer = TheCodePlayer;
 
 /** The free rules + the shared rules, read from the context's config (where the server keeps them). */
 export interface TheCodeFreeContext extends TheCodeContext {
-  /** Free-mode rules. Absent = DEFAULT_FREE_RULES. */
+  /** Free-mode rules. Absent = the adventure's own `config.free`, then DEFAULT_FREE_RULES. */
   freeRules?: Partial<TheCodeFreeRules> | null;
 }
+
+const rulesOf = (ctx: TheCodeFreeContext) => resolveFreeRules(ctx.freeRules ?? ctx.config.free);
 
 const emptyGnome = (): TheCodeFreeGnomeState => ({ done: 0, wrongs: 0, hintsUsed: 0 });
 
 function cloneFree(f: TheCodeFreeState | undefined): TheCodeFreeState {
   const gnomes: Record<string, TheCodeFreeGnomeState> = {};
   for (const [id, g] of Object.entries(f?.gnomes || {})) gnomes[id] = { ...g, last: g.last ? { ...g.last } : undefined };
-  return { gnomes };
+  return { gnomes, solved: f?.solved ?? 0 };
 }
 
 function clonePlayer(p: TheCodeFreePlayer): TheCodeFreePlayer {
@@ -217,7 +207,7 @@ function spotHints(config: TheCodeConfig, gnomeId: string): string[] {
 }
 
 function statusOf(p: TheCodeFreePlayer, gnomeId: string, ctx: TheCodeFreeContext): { status: TheCodeFreeGnomeStatus; wakesAt?: number } {
-  const rules = resolveFreeRules(ctx.freeRules);
+  const rules = rulesOf(ctx);
   const g = gnomeStateOf(p, gnomeId);
   if (sleeping(g, ctx.now)) return { status: 'asleep', wakesAt: g.asleepUntil };
   if (!nextRiddle(g, freeRiddlesOf(gnomeId, ctx.riddles), rules)) return { status: 'noRiddles' };
@@ -262,14 +252,6 @@ export function freeAllAsleep(player: TheCodeFreePlayer, ctx: TheCodeFreeContext
 // Scan
 // =================================================================
 
-export type TheCodeFreeScanOutcome =
-  | { kind: 'riddle'; gnomeId: string; riddleId: string; attemptsLeft: number }
-  | { kind: 'asleep'; gnomeId: string; wakesAt: number; last?: 'full' | 'half' | 'failed' }
-  | { kind: 'noRiddles'; gnomeId: string }
-  | { kind: 'gnomeOff' }
-  | { kind: 'unknownGnome' }
-  | { kind: 'paused' };
-
 export interface TheCodeFreeScanResult {
   player: TheCodeFreePlayer;
   outcome: TheCodeFreeScanOutcome;
@@ -280,7 +262,7 @@ export function freeScan(player: TheCodeFreePlayer, gnomeId: string, ctx: TheCod
   if (!isAdventureOpen(ctx.config, ctx.now, ctx.timeZone)) return { player, outcome: { kind: 'paused' } };
   if (!gnomeOf(ctx.config, gnomeId)) return { player, outcome: { kind: 'unknownGnome' } };
   if (!isGnomeOn(ctx.config, gnomeId)) return { player, outcome: { kind: 'gnomeOff' } };
-  const rules = resolveFreeRules(ctx.freeRules);
+  const rules = rulesOf(ctx);
   const st = gnomeStateOf(player, gnomeId);
   if (sleeping(st, ctx.now)) {
     const outcome: TheCodeFreeScanOutcome = { kind: 'asleep', gnomeId, wakesAt: st.asleepUntil! };
@@ -313,18 +295,6 @@ export function freeScan(player: TheCodeFreePlayer, gnomeId: string, ctx: TheCod
 // Answer
 // =================================================================
 
-export type TheCodeFreeAnswerOutcome =
-  | {
-      kind: 'correct'; letter: string; answerWord: string; points: number;
-      /** Right after a wrong letter → the reduced points. */
-      secondTry: boolean; hot: boolean; becameHot: boolean; spellingTip?: string;
-      wakesAt: number; allAsleep: boolean;
-    }
-  | { kind: 'wrong'; attemptsLeft: number }
-  | { kind: 'failed'; wakesAt: number; allAsleep: boolean }
-  | { kind: 'noRiddle' }
-  | { kind: 'paused' };
-
 export interface TheCodeFreeAnswerResult {
   player: TheCodeFreePlayer;
   outcome: TheCodeFreeAnswerOutcome;
@@ -346,7 +316,7 @@ export function freeAnswer(
   ctx: TheCodeFreeContext
 ): TheCodeFreeAnswerResult {
   if (!isAdventureOpen(ctx.config, ctx.now, ctx.timeZone)) return { player, outcome: { kind: 'paused' }, replayed: false };
-  const rules = resolveFreeRules(ctx.freeRules);
+  const rules = rulesOf(ctx);
   const shared = resolveRules(ctx.config.rules);
   const st = gnomeStateOf(player, input.gnomeId);
 
@@ -405,6 +375,7 @@ export function freeAnswer(
   p.points += points;
   addUnique(p.solvedRiddleIds, riddle.id);
   addUnique(p.foundGnomeIds, input.gnomeId);
+  p.free!.solved = (p.free!.solved ?? 0) + 1;
   sleepNow();
   g.last = { riddleId: riddle.id, result: secondTry ? 'half' : 'full', points, letter, at: ctx.now };
   p.free!.gnomes[input.gnomeId] = g;
@@ -420,14 +391,6 @@ export function freeAnswer(
 // =================================================================
 // Location hint
 // =================================================================
-
-export type TheCodeFreeHintOutcome =
-  | { kind: 'hint'; gnomeId: string; text: string; cost: number; remaining: number }
-  | { kind: 'notEnoughPoints'; cost: number }
-  | { kind: 'noMoreHints' }
-  | { kind: 'notAwake' }
-  | { kind: 'unknownGnome' }
-  | { kind: 'paused' };
 
 export interface TheCodeFreeHintResult {
   player: TheCodeFreePlayer;

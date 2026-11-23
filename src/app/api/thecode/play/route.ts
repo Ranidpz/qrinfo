@@ -6,11 +6,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIp, validateOrigin } from '@/lib/rateLimit';
 import { isValidCodeId, playAction, TheCodeStoreError } from '@/lib/thecode/store';
+// Free mode plugs itself into the store on import (src/lib/thecode/server/freeMode.ts).
+import '@/lib/thecode/server/freeMode';
 import type { TheCodePlayAction, TheCodePlayError, TheCodePlayResponse } from '@/types/thecode-api';
 
 export const dynamic = 'force-dynamic';
 
-const ACTIONS = new Set(['state', 'register', 'recover', 'scan', 'answer', 'hint', 'arrangeHelp', 'open', 'newSuitcase', 'updateProfile']);
+const ACTIONS = new Set(['state', 'register', 'recover', 'scan', 'answer', 'hint', 'arrangeHelp', 'open', 'newSuitcase', 'updateProfile', 'freeAnswer', 'freeHint']);
 const IP_LIMIT = { maxRequests: 900, windowMs: 60_000 };
 
 function fail(error: TheCodePlayError, status: number, retryAfterSeconds?: number) {

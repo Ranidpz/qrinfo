@@ -13,9 +13,13 @@ import type {
   TheCodeBranding,
   TheCodeColor,
   TheCodeConfig,
+  TheCodeFreeAnswerOutcome,
+  TheCodeFreeHintOutcome,
+  TheCodeFreeScanOutcome,
   TheCodeGnomeStats,
   TheCodeIssue,
   TheCodeLanguage,
+  TheCodeMode,
   TheCodeRiddle,
   TheCodeRiddleStats,
   TheCodeSelfieSettings,
@@ -51,7 +55,12 @@ export type TheCodePlayAction =
   /** "עריכת הקבוצה" from the profile sheet, any time in the game. Same name rules as
    *  register (error 'invalidName'); at least one field. The selfie itself goes through
    *  POST/DELETE /api/thecode/photo. */
-  | { type: 'updateProfile'; familyName?: string; emoji?: string };
+  | { type: 'updateProfile'; familyName?: string; emoji?: string }
+  /** Free mode: a letter for the riddle shown at `gnomeId`. `riddleId` = the riddle the phone
+   *  showed (makes retries idempotent). A free-mode scan is the ordinary `scan` action. */
+  | { type: 'freeAnswer'; gnomeId: string; riddleId: string; letter: string }
+  /** Free mode: buy the next location hint of one gnome. */
+  | { type: 'freeHint'; gnomeId: string };
 
 export interface TheCodePlayRequest {
   /** The adventure = the code document id. */
@@ -129,8 +138,52 @@ export interface TheCodePlayerView {
   suitcasesOpened: number;
 }
 
+/** Free mode: one gnome on the group's board. Every gnome is shown (any of them may be scanned). */
+export interface TheCodeFreeGnomeView {
+  gnome: TheCodeGnomeView;
+  status: 'awake' | 'asleep' | 'noRiddles';
+  /** Server epoch ms, with 'asleep'. */
+  wakesAt?: number;
+  /** How the last riddle at this gnome ended (on a sleeping gnome). */
+  last?: 'full' | 'half' | 'failed';
+  /** Location hints bought so far, and the price of the next one (null = none left). */
+  hints: string[];
+  nextHintCost: number | null;
+}
+
+/** Free mode: the riddle the group scanned and has not answered yet (never its answer). */
+export interface TheCodeFreeRiddleView {
+  gnomeId: string;
+  riddleId: string;
+  text: string;
+  imageUrl?: string;
+  /** Wrong letters so far on it / attempts in all. */
+  wrongs: number;
+  attempts: number;
+}
+
+export interface TheCodeFreeView {
+  gnomes: TheCodeFreeGnomeView[];
+  /** No gnome is awake for this group ("סיימתם להיום"). */
+  allAsleep: boolean;
+  nextWakeAt?: number;
+  riddle: TheCodeFreeRiddleView | null;
+  /** Riddles solved this round. */
+  solved: number;
+  attemptsPerRiddle: number;
+  secondAttemptFactor: number;
+  hintCost: number;
+  /** Cliostro's "video call" clips (absent = no call). */
+  introVideo?: string;
+  wellDoneVideo?: string;
+}
+
 export interface TheCodeSnapshot {
   adventure: {
+    /** Absent = 'guided'. */
+    mode?: TheCodeMode;
+    /** Free mode: where the big screen stands (for "start at the screen"). */
+    screenHint?: string;
     title: string;
     language: TheCodeLanguage;
     /** false = paused, draft or outside active hours → "המשחק בהפסקה". */
@@ -151,6 +204,8 @@ export interface TheCodeSnapshot {
   album: { found: TheCodeGnomeView[]; total: number };
   /** A fresh suitcase exists for this family (false → "פתחתם את כל המזוודות"). */
   canStartNew: boolean;
+  /** Free mode only (with a player): the group's gnome board. */
+  free?: TheCodeFreeView | null;
 }
 
 /** What just happened — drives the one-off animation. The snapshot is the truth. */
@@ -163,7 +218,11 @@ export type TheCodePlayEvent =
   | { type: 'hint'; hintKind: 'location' | 'riddle'; given: boolean; cost: number }
   | { type: 'arrangeHelp'; given: boolean; cost: number; position?: number; letter?: string }
   | { type: 'open'; opened: boolean; bonus: number }
-  | { type: 'newSuitcase'; started: boolean };
+  | { type: 'newSuitcase'; started: boolean }
+  /** Free mode. `gnome` = the scanned gnome (absent for unknownGnome). */
+  | { type: 'freeScan'; outcome: TheCodeFreeScanOutcome; gnome?: TheCodeGnomeView }
+  | { type: 'freeAnswer'; outcome: TheCodeFreeAnswerOutcome }
+  | { type: 'freeHint'; outcome: TheCodeFreeHintOutcome };
 
 export type TheCodePlayError =
   | 'notFound'          // no such adventure
@@ -202,7 +261,11 @@ export type TheCodeGnomeLookupResponse =
       howToPlay: string[];
       howToPlayTheme: 'night' | 'light' | 'brand';
       /** Group selfies — always filled by the server through resolveSelfie(). */
-      selfie: TheCodeSelfieSettings }
+      selfie: TheCodeSelfieSettings;
+      /** Absent = 'guided'. In free mode an unregistered group is sent to the big screen first. */
+      mode?: TheCodeMode;
+      /** Free mode: where the big screen stands. */
+      screenHint?: string }
   | { ok: false; error: 'notFound' };
 
 // =================================================================
@@ -257,6 +320,8 @@ export interface TheCodeLobbyLive {
   videos?: { idle?: string; explain?: string; after?: string };
   /** Group selfies on? Mirrored on every admin save. ABSENT = on (old docs, and the default). */
   selfies?: boolean;
+  /** Mirrored on every admin save. 'free' → a new group gets the full-screen join celebration. */
+  mode?: TheCodeMode;
 }
 
 /** POST /api/thecode/lobby-scan — called by /v/{shortId}?src=lobby. Public, rate-limited. */

@@ -174,6 +174,87 @@ export interface TheCodeLobbySettings {
 }
 
 /**
+ * Which game an adventure plays. ABSENT = 'guided' = the original game, unchanged:
+ * the engine sends the group to a target gnome, letters build a secret phrase, a suitcase opens.
+ * 'free' (Rani + Cliostro + Kondra, 23.11.2026): any awake gnome may be scanned, a riddle per
+ * gnome, the gnome sleeps for that group until it wakes with its next riddle; no letters, no
+ * suitcase, no target. Engine: src/lib/thecode/engineFree.ts. Switch only with a round reset.
+ */
+export type TheCodeMode = 'guided' | 'free';
+
+/** Free-mode settings. Every field optional — read through resolveFreeRules() in engineFree.ts. */
+export interface TheCodeFreeSettings {
+  /** Minutes a gnome sleeps for a group after its riddle (1 … 14 days). Default 60. */
+  refreshMinutes?: number;
+  /** Letters a group may try per riddle. Default 2. */
+  attemptsPerRiddle?: number;
+  /** Share of the points for a right answer after a wrong one. Default 0.5. */
+  secondAttemptFactor?: number;
+  /** After a gnome's last riddle: back to the first (default) or stay done. */
+  wrapRiddles?: boolean;
+  /** Where the big screen stands — shown to a group that scanned a gnome before registering. */
+  screenHint?: string;
+  /** Cliostro's clips (R2), played as a full-screen "video call": right after registering, and
+   *  when every gnome sleeps. Any text is edited into the clip itself. Absent = no call. */
+  introVideo?: string;
+  wellDoneVideo?: string;
+}
+
+/** One gnome's state for one group in free mode. */
+export interface TheCodeFreeGnomeState {
+  /** Riddles this group finished at this gnome (solved or failed) — the index of the next one. */
+  done: number;
+  /** While in the future the gnome sleeps for this group. */
+  asleepUntil?: number;
+  /** The riddle shown at the last scan (pinned, so an admin edit mid-answer changes nothing). */
+  riddleId?: string;
+  scannedAt?: number;
+  /** Wrong letters on the current riddle. */
+  wrongs: number;
+  /** Location hints bought for this gnome (they stay: the gnome never moves). */
+  hintsUsed: number;
+  /** How the last riddle ended — the board shows it on the sleeping gnome. */
+  last?: { riddleId: string; result: 'full' | 'half' | 'failed'; points: number; letter?: string; at: number };
+}
+
+/** A group's free-mode state (TheCodePlayer.free). */
+export interface TheCodeFreeState {
+  gnomes: Record<string, TheCodeFreeGnomeState>;
+  /** Riddles solved in this round (for "פתרתם N חידות"). */
+  solved?: number;
+}
+
+export type TheCodeFreeScanOutcome =
+  | { kind: 'riddle'; gnomeId: string; riddleId: string; attemptsLeft: number }
+  | { kind: 'asleep'; gnomeId: string; wakesAt: number; last?: 'full' | 'half' | 'failed' }
+  | { kind: 'noRiddles'; gnomeId: string }
+  | { kind: 'gnomeOff' }
+  | { kind: 'unknownGnome' }
+  | { kind: 'paused' };
+
+export type TheCodeFreeAnswerOutcome =
+  | {
+      kind: 'correct'; letter: string;
+      /** The answer word — fine to send now: the group just got it right. */
+      answerWord: string; points: number;
+      /** Right after a wrong letter → the reduced points. */
+      secondTry: boolean; hot: boolean; becameHot: boolean; spellingTip?: string;
+      wakesAt: number; allAsleep: boolean;
+    }
+  | { kind: 'wrong'; attemptsLeft: number }
+  | { kind: 'failed'; wakesAt: number; allAsleep: boolean }
+  | { kind: 'noRiddle' }
+  | { kind: 'paused' };
+
+export type TheCodeFreeHintOutcome =
+  | { kind: 'hint'; gnomeId: string; text: string; cost: number; remaining: number }
+  | { kind: 'notEnoughPoints'; cost: number }
+  | { kind: 'noMoreHints' }
+  | { kind: 'notAwake' }
+  | { kind: 'unknownGnome' }
+  | { kind: 'paused' };
+
+/**
  * The ONLY part of an adventure that is world-readable: a stub on the code's media
  * item (`thecodeConfig`), kept in sync by the server on every admin save. Everything
  * else (spots, gnomes, phrases, rules, riddles) is server-only — see TheCodeConfig.
@@ -183,6 +264,8 @@ export interface TheCodePublicConfig {
   status: 'draft' | 'published' | 'paused';
   language: TheCodeLanguage;
   branding?: TheCodeBranding;
+  /** Absent = 'guided'. The viewer picks the free player app from it. */
+  mode?: TheCodeMode;
 }
 
 /**
@@ -215,6 +298,10 @@ export interface TheCodeConfig {
   selfie?: TheCodeSelfieSettings;
   /** Big-screen videos. Absent = the drawn placeholder scenes. */
   lobby?: TheCodeLobbySettings;
+  /** Absent = 'guided' (the original game). */
+  mode?: TheCodeMode;
+  /** Free-mode settings (used when mode === 'free'). */
+  free?: TheCodeFreeSettings;
   /** Venue staff allowed into the staff screen (/staff/thecode/{shortId}) by WhatsApp code.
    *  Lives ONLY in the locked adventure doc — never on the public stub. */
   staff?: TheCodeStaffMember[];
@@ -294,6 +381,9 @@ export interface TheCodePlayer {
   solvedRiddleIds: string[];
   foundGnomeIds: string[];          // The "gnome album"
   run: TheCodeRun | null;
+  /** Free mode only: which gnome sleeps for this group, which riddle comes next. `run` stays null.
+   *  The round reset clears it. */
+  free?: TheCodeFreeState;
   /** The prize handed at the reception desk. One per group per round; a game reset clears it. */
   award?: TheCodeAward;
   createdAt: number;
