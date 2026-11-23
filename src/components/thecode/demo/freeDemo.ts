@@ -155,6 +155,8 @@ export interface FreeCorrect {
 export type FreeScreen =
   | { kind: 'startAtScreen'; gnomeId: string | null }
   | { kind: 'register' }
+  /** Right after registering (and from "?" in the header): Cliostro's explanation + the rules. */
+  | { kind: 'intro' }
   | { kind: 'board' }
   | { kind: 'scanner'; error: string | null }
   | { kind: 'gnome'; gnomeId: string }
@@ -258,7 +260,7 @@ export function freeScanCode(s: FreeDemoState, code: string, realNow: number): F
 }
 
 export function freeRegister(s: FreeDemoState, name: string, emoji: string): FreeDemoState {
-  return { ...s, group: { name: name.trim() || 'הקבוצה שלנו', emoji }, screen: { kind: 'board' } };
+  return { ...s, group: { name: name.trim() || 'הקבוצה שלנו', emoji }, screen: { kind: 'intro' } };
 }
 
 export function freePickLetter(s: FreeDemoState, letter: string): FreeDemoState {
@@ -336,6 +338,8 @@ export function freeToBoard(s: FreeDemoState, realNow: number): FreeDemoState {
 
 export const freeShowBoard = (s: FreeDemoState): FreeDemoState => ({ ...s, pendingLetter: null, screen: s.group ? { kind: 'board' } : s.screen });
 
+export const freeShowIntro = (s: FreeDemoState): FreeDemoState => (s.group ? { ...s, screen: { kind: 'intro' } } : s);
+
 export const freeToggleMute = (s: FreeDemoState): FreeDemoState => ({ ...s, muted: !s.muted });
 
 // ------------------------------------------------ demo bar only
@@ -384,6 +388,7 @@ export function freeDemoCaption(s: FreeDemoState): string {
   switch (s.screen.kind) {
     case 'startAtScreen': return 'קבוצה שעוד לא נרשמה סרקה גמד. בהדגמה: "נרשמנו במסך" ממשיך להרשמה.';
     case 'register': return 'ההרשמה עצמה (במשחק האמיתי אחרי סריקת הקוד שעל המסך הגדול).';
+    case 'intro': return 'משבצת לסרטון ההסבר של קליוסטרו. סרטון אמיתי: ‎?intro=כתובת';
     case 'board': return 'הקישו על גמד ער כדי לסרוק אותו או לקנות רמז למקום שלו.';
     case 'gnome': return 'בהדגמה "מצאנו! סרקו" פותח את החידה מיד. בטלפון אמיתי נפתחת המצלמה.';
     case 'scanner': return 'מצלמה מדומה: סרקו גמד מהכפתורים למטה, או הקלידו קוד 101 עד 116.';
@@ -391,6 +396,6 @@ export function freeDemoCaption(s: FreeDemoState): string {
     case 'correct': return 'הגמד נרדם לקבוצה הזו. קפיצה בזמן תעיר אותו עם חידה חדשה.';
     case 'failed': return 'שתי טעויות: הגמד נרדם בלי נקודות ובלי הורדה.';
     case 'asleep': return 'סריקה של גמד ישן. קפיצה בזמן תעיר אותו.';
-    case 'finished': return 'כל הגמדים ישנים. קפיצה בזמן מעירה אותם לסבב הבא.';
+    case 'finished': return 'כל הגמדים ישנים. משבצת לסרטון "כל הכבוד" (‎?welldone=כתובת). קפיצה בזמן מעירה אותם.';
   }
 }

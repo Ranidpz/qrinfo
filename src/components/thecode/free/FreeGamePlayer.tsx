@@ -25,6 +25,14 @@ import {
   type FreeDemoState, type FreeGnome, type FreeGnomeProgress,
 } from '@/components/thecode/demo/freeDemo';
 
+/** Cliostro's clips. Absent / empty = a drawn placeholder ("משבצת וידאו"). */
+export interface FreeGameVideos {
+  /** The explanation after registering. */
+  intro?: string | null;
+  /** "כל הכבוד" on the finish screen. */
+  wellDone?: string | null;
+}
+
 export interface FreeGameCallbacks {
   onRegister(name: string, emoji: string): void;
   onOpenGnome(gnomeId: string): void;
@@ -40,6 +48,8 @@ export interface FreeGameCallbacks {
   /** Back to the board without an answer (leaving a riddle costs nothing). */
   onBoard(): void;
   onToggleMute(): void;
+  /** "?" in the header / the intro's button: show or leave the explanation screen. */
+  onShowIntro(): void;
   /** Demo only: the on-screen "continue as if registered" button. */
   onDemoRegistered?(): void;
 }
@@ -71,7 +81,7 @@ function SoundIcon({ muted }: { muted: boolean }) {
   );
 }
 
-function Header({ s, onBoard, onToggleMute, onHome }: { s: FreeDemoState; onBoard?(): void; onToggleMute(): void; onHome: boolean }) {
+function Header({ s, onBoard, onToggleMute, onHome, onHowTo }: { s: FreeDemoState; onBoard?(): void; onToggleMute(): void; onHome: boolean; onHowTo(): void }) {
   const g = s.group!;
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
@@ -82,6 +92,7 @@ function Header({ s, onBoard, onToggleMute, onHome }: { s: FreeDemoState; onBoar
         <HotBadge hot={isHot(s)} streak={Math.min(s.streak, HOT_STREAK_AT)} target={HOT_STREAK_AT} fit="compact" />
       </div>
       <ScoreCounter points={s.points} />
+      <button type="button" className="tc-chip tc-display w-11 shrink-0 justify-center !px-0 text-xl" onClick={onHowTo} aria-label="איך משחקים">?</button>
       <button type="button" className="tc-chip w-11 shrink-0 justify-center !px-0" onClick={onToggleMute} aria-label={s.muted ? 'הפעלת צלילים' : 'השתקת צלילים'}>
         <SoundIcon muted={s.muted} />
       </button>
@@ -147,7 +158,44 @@ function GnomeCard({ g, p, now, onOpen }: { g: FreeGnome; p: FreeGnomeProgress; 
   );
 }
 
+/**
+ * A clip of Cliostro the magician (the operator uploads it later). Plays inline with controls —
+ * phones refuse autoplay with sound. No clip yet = a drawn placeholder that says what will be there.
+ */
+function VideoSlot({ url, label }: { url?: string | null; label: string }) {
+  if (url) {
+    return <video src={url} controls playsInline preload="metadata" className="aspect-video w-full rounded-3xl bg-black object-cover" />;
+  }
+  return (
+    <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-3xl px-4 text-center"
+      style={{ background: 'radial-gradient(circle at 50% 30%, #3E2C74, #0A0E26 75%)', boxShadow: 'inset 0 0 0 1.5px rgba(244,183,64,.45)' }}>
+      <span className="absolute start-3 top-2 rounded-full bg-black/40 px-2 py-0.5 text-xs font-bold" style={{ color: 'var(--tc-soft)' }}>משבצת וידאו</span>
+      <span className="tc-a-bob text-5xl leading-none" aria-hidden>🎩</span>
+      <span className="tc-display text-xl leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>סרטון של הקוסם קליוסטרו</span>
+      <span className="text-sm leading-snug" style={{ color: 'var(--tc-soft)' }}>{label}</span>
+    </div>
+  );
+}
+
 // ------------------------------------------------ screens
+
+/** After registering: Cliostro explains (video slot), the rules in three short lines, then go. */
+function IntroScreen({ video, onDone }: { video?: string | null; onDone(): void }) {
+  const sfx = useSfx();
+  return (
+    <ScreenBody className="items-center gap-4 text-center"
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={() => { sfx('tap'); onDone(); }}>יוצאים לחפש גמדים</button>}>
+      <h2 className="tc-display text-[1.9rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>ככה משחקים</h2>
+      <VideoSlot url={video} label="הקוסם מסביר לקבוצה מה עושים" />
+      <ol className="flex w-full flex-col gap-2 text-start text-lg leading-snug">
+        <li className="flex gap-3"><span aria-hidden>🔍</span><span>מצאו גמד ער במקום וסרקו את הקוד שלו</span></li>
+        <li className="flex gap-3"><span aria-hidden>🔤</span><span>פתרו את החידה: הקישו את <b>האות הראשונה</b> של התשובה</span></li>
+        <li className="flex gap-3"><span aria-hidden>💤</span><span>הגמד נרדם, ויתעורר אחר כך עם חידה חדשה</span></li>
+        <li className="flex gap-3"><span aria-hidden>⭐</span><span>כל חידה מוסיפה נקודות. בדקו איפה אתם על המסך הגדול</span></li>
+      </ol>
+    </ScreenBody>
+  );
+}
 
 /** "Can't find the screen?" — reveals the venue's hint for where the big screen stands (free). */
 function ScreenHint() {
@@ -431,14 +479,14 @@ function AsleepScreen({ s, gnomeId, now, cb }: { s: FreeDemoState; gnomeId: stri
   );
 }
 
-function FinishedScreen({ s, now }: { s: FreeDemoState; now: number }) {
+function FinishedScreen({ s, now, video }: { s: FreeDemoState; now: number; video?: string | null }) {
   const wakes = FREE_GNOMES.map((g) => s.gnomes[g.id].asleepUntil ?? 0).filter((t) => t > now);
   const first = wakes.length ? Math.min(...wakes) : null;
   return (
     <ScreenBody className="items-center justify-center gap-4 text-center">
       <Confetti burstKey={`done-${s.letters.length}`} />
-      <div className="tc-a-pop text-8xl leading-none" aria-hidden>🎁</div>
-      <h2 className="tc-display text-[2.6rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>סיימתם להיום!</h2>
+      <VideoSlot url={video} label="כל הכבוד! הקוסם מברך את הקבוצה" />
+      <h2 className="tc-display text-[2.4rem] leading-tight" style={{ color: 'var(--tc-brass-hi)' }}><span aria-hidden>🎁 </span>סיימתם להיום!</h2>
       <p className="text-xl leading-snug">כל הגמדים ישנים. גשו לקבלה, מחכה לכם שם פרס.</p>
       <div className="flex items-center gap-2 text-4xl"><StarCoin size={34} /><CountUp value={s.points} /></div>
       <LetterStrip letters={s.letters} size={30} />
@@ -449,7 +497,7 @@ function FinishedScreen({ s, now }: { s: FreeDemoState; now: number }) {
   );
 }
 
-function Screen({ s, now, cb }: { s: FreeDemoState; now: number; cb: FreeGameCallbacks }) {
+function Screen({ s, now, cb, videos }: { s: FreeDemoState; now: number; cb: FreeGameCallbacks; videos?: FreeGameVideos }) {
   const sc = s.screen;
   switch (sc.kind) {
     case 'startAtScreen':
@@ -475,7 +523,9 @@ function Screen({ s, now, cb }: { s: FreeDemoState; now: number; cb: FreeGameCal
     case 'asleep':
       return <AsleepScreen s={s} gnomeId={sc.gnomeId} now={now} cb={cb} />;
     case 'finished':
-      return <FinishedScreen s={s} now={now} />;
+      return <FinishedScreen s={s} now={now} video={videos?.wellDone} />;
+    case 'intro':
+      return <IntroScreen video={videos?.intro} onDone={cb.onBoard} />;
   }
 }
 
@@ -499,7 +549,7 @@ function enterSound(s: FreeDemoState): SfxName | null {
 const NO_HEADER: FreeDemoState['screen']['kind'][] = ['startAtScreen', 'register'];
 
 /** `realNow` ticks in the parent; the demo clock adds the time-travel offset. */
-export default function FreeGamePlayer({ state, realNow, callbacks }: { state: FreeDemoState; realNow: number; callbacks: FreeGameCallbacks }) {
+export default function FreeGamePlayer({ state, realNow, callbacks, videos }: { state: FreeDemoState; realNow: number; callbacks: FreeGameCallbacks; videos?: FreeGameVideos }) {
   const mutedRef = useRef(state.muted);
   useEffect(() => { mutedRef.current = state.muted; }, [state.muted]);
   const play = useCallback((name: SfxName) => { if (!mutedRef.current) gameSfx().play(name); }, []);
@@ -526,12 +576,12 @@ export default function FreeGamePlayer({ state, realNow, callbacks }: { state: F
         <div dir="rtl" lang="he" className="tc-root flex flex-col" onPointerDown={() => gameSfx().unlock()}>
           <div className="tc-stars" aria-hidden />
           {showHeader && (
-            <Header s={state} onToggleMute={callbacks.onToggleMute} onHome={onBoardScreen}
+            <Header s={state} onToggleMute={callbacks.onToggleMute} onHome={onBoardScreen} onHowTo={() => { play('tap'); callbacks.onShowIntro(); }}
               onBoard={onBoardScreen ? undefined : () => { play('tap'); callbacks.onBoard(); }} />
           )}
           <main className="relative flex-1">
             <div key={key} className="tc-a-rise absolute inset-0">
-              <Screen s={state} now={now} cb={callbacks} />
+              <Screen s={state} now={now} cb={callbacks} videos={videos} />
             </div>
           </main>
         </div>
