@@ -22,6 +22,7 @@ import { LoadingScreen, NetworkErrorScreen, NotFoundScreen, PausedScreen } from 
 import { Avatar } from '@/components/thecode/player/Avatar';
 import type { PlayerGnomeView } from '@/components/thecode/player/types';
 import { alphabetFor } from '@/lib/thecode/letters';
+import { PoweredBy } from '@/components/thecode/player/Branding';
 import MagicianCall from './MagicianCall';
 import { JOIN_FLY_MS, JOIN_SHOW_MS } from './JoinCelebration';
 import { wakeLabel, type FreeGameCallbacks, type FreeGameView, type FreeGnomeView } from './types';
@@ -159,10 +160,14 @@ function GnomeCard({ g, now, onOpen }: { g: FreeGnomeView; now: number; onOpen()
  */
 function JoinedScreen({ v, onDone }: { v: FreeGameView; onDone(): void }) {
   const fit = useFit();
+  // The live game re-renders every second (its clock) and hands a new `onDone` each time — keep the
+  // latest in a ref so the timer runs ONCE from mount (keyed on onDone it restarted forever: stuck).
+  const doneRef = useRef(onDone);
+  useEffect(() => { doneRef.current = onDone; });
   useEffect(() => {
-    const t = setTimeout(onDone, JOIN_SHOW_MS + JOIN_FLY_MS);
+    const t = setTimeout(() => doneRef.current(), JOIN_SHOW_MS + JOIN_FLY_MS);
     return () => clearTimeout(t);
-  }, [onDone]);
+  }, []);
   return (
     <ScreenBody className="items-center justify-center gap-5 text-center">
       <Confetti burstKey="joined" />
@@ -247,15 +252,60 @@ function Step({ n, icon, children }: { n: number; icon?: React.ReactNode; childr
   );
 }
 
+const HOLD_SKIP_MS = 5000;
+
+/** "המשיכו בלי להתקין" must be HELD (Rani 23.11.2026: a tap was too easy, nobody installed): it
+ *  fills over 5 seconds and continues only when full; letting go early empties it. */
+function HoldToSkip({ onDone }: { onDone(): void }) {
+  const [holding, setHolding] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const doneRef = useRef(onDone);
+  useEffect(() => { doneRef.current = onDone; });
+  const stop = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    setHolding(false);
+  };
+  const start = () => {
+    if (timer.current) return;
+    setHolding(true);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      setHolding(false);
+      try { navigator.vibrate?.(30); } catch { /* not supported */ }
+      doneRef.current();
+    }, HOLD_SKIP_MS);
+  };
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  return (
+    <button type="button"
+      className="tc-btn tc-btn-ghost relative w-full flex-col overflow-hidden select-none"
+      style={{ touchAction: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', gap: 2, padding: '10px 1.4rem' }}
+      onPointerDown={(e) => { e.preventDefault(); start(); }}
+      onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
+      onContextMenu={(e) => e.preventDefault()}
+      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); start(); } }}
+      onKeyUp={(e) => { if (e.key === 'Enter' || e.key === ' ') stop(); }}
+      onBlur={stop}>
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 start-0"
+        style={{
+          width: holding ? '100%' : '0%',
+          background: 'linear-gradient(90deg, rgba(244,183,64,.45), rgba(244,183,64,.25))',
+          transition: holding ? `width ${HOLD_SKIP_MS}ms linear` : 'width .25s ease-out',
+        }} />
+      <span className="relative">המשיכו בלי להתקין</span>
+      <span className="relative text-sm font-normal" style={{ color: 'var(--tc-soft)' }}>
+        {holding ? 'המשיכו להחזיק…' : 'החזיקו את הכפתור 5 שניות'}
+      </span>
+    </button>
+  );
+}
+
 /** Before registering: add the game to the home screen, instructions per phone (Rani 23.11.2026). */
 function InstallScreen({ platform, canPrompt, installed, cb }: { platform: InstallPlatform; canPrompt: boolean; installed: boolean; cb: FreeGameCallbacks }) {
   const sfx = useSfx();
   const fit = useFit();
-  const skip = (
-    <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => { sfx('tap'); cb.onSkipInstall?.(); }}>
-      המשיכו בלי להתקין
-    </button>
-  );
+  const skip = <HoldToSkip onDone={() => { sfx('tap'); cb.onSkipInstall?.(); }} />;
   let body: React.ReactNode;
   let primary: React.ReactNode = null;
   if (installed) {
@@ -310,6 +360,7 @@ function InstallScreen({ platform, canPrompt, installed, cb }: { platform: Insta
               הדגמה בלבד: התקנו ופתחנו ממסך הבית
             </button>
           )}
+          <PoweredBy />
         </div>
       )}>
       <span className="tc-a-pop flex items-center justify-center rounded-[28%]"
@@ -343,6 +394,7 @@ export function StartAtScreenScreen({ gnome, screenHint, onScanScreen, onDemoReg
               הדגמה בלבד: סרקנו את הגמד שעל המסך
             </button>
           )}
+          <PoweredBy />
         </div>
       )}>
       {gnome ? <GnomeStage gnome={gnome} size={fit(76, 110)} className="tc-a-pop" /> : <div className="tc-a-pop text-7xl leading-none" aria-hidden>📺</div>}

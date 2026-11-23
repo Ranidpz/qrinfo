@@ -68,6 +68,7 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
   const [register, setRegister] = useState<{ mode: 'new' | 'recover'; nameError?: string; recoverError?: string } | null>(null);
   // Not registered, in a browser: offer to install first (Rani 23.11.2026); "continue without" is remembered for this tab.
   const install = useInstall();
+  const installPrompt = install.prompt; // stable (useCallback) — `install` itself is a new object every render
   const [skipInstall, setSkipInstall] = useState(false);
   // Registration opens only after the big screen's code was scanned (Rani 23.11.2026).
   const [screenScanned, setScreenScanned] = useState(!!opts.fromScreen);
@@ -328,7 +329,7 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     },
     onEndCall: () => setCall(null),
     onCallMagician: (c) => setCall(c),
-    onInstall: () => { void install.prompt(); },
+    onInstall: () => { void installPrompt(); },
     onSkipInstall: () => {
       setSkipInstall(true);
       try { window.sessionStorage.setItem(`thecode_skip_install_${codeId}`, '1'); } catch { /* private mode */ }
@@ -339,7 +340,7 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
       setFailure(null);
       if (a) void send(a, a.type !== 'state'); else void send({ type: 'state' }, false);
     },
-  }), [send, putPhoto, install, codeId]);
+  }), [send, putPhoto, installPrompt, codeId]);
   const pendingLetterRef = useRef(pendingLetter);
   useEffect(() => { pendingLetterRef.current = pendingLetter; }, [pendingLetter]);
 

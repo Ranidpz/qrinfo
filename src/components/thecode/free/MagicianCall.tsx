@@ -68,6 +68,9 @@ export default function MagicianCall({ url, topic, onEnd }: MagicianCallProps) {
   const [elapsed, setElapsed] = useState(0);
   const secs = Math.floor(elapsed / 1000);
   const video = useRef<HTMLVideoElement>(null);
+  // Latest onEnd without restarting the hang-up timer on every parent render (the live clock ticks each second).
+  const endRef = useRef(onEnd);
+  useEffect(() => { endRef.current = onEnd; });
 
   // A soft ring while it rings.
   useEffect(() => {
@@ -82,9 +85,9 @@ export default function MagicianCall({ url, topic, onEnd }: MagicianCallProps) {
     if (!live || url) return;
     const start = Date.now();
     const t = setInterval(() => setElapsed(Date.now() - start), 250);
-    const end = setTimeout(onEnd, PLACEHOLDER_MS);
+    const end = setTimeout(() => endRef.current(), PLACEHOLDER_MS);
     return () => { clearInterval(t); clearTimeout(end); };
-  }, [live, url, onEnd]);
+  }, [live, url]);
 
   const answer = () => {
     sfx('tap');

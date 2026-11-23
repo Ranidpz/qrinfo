@@ -25,12 +25,14 @@ export interface ParadeWalker { id: string; name: string; avatar: string; rank: 
 /** At most this many walk at once: the top of the board among groups with a selfie. */
 export const PARADE_MAX = 10;
 
-/** The walkers in queue order: the board's ranking, groups with a selfie only, the first 10. */
-export function paradeRoster(teams: ParadeTeam[], max = PARADE_MAX): ParadeWalker[] {
+/** The walkers in queue order: the board's ranking, groups with a selfie only, the first 10.
+ *  `everyone` (free mode): emoji groups walk too — joining the game = joining the parade. */
+export function paradeRoster(teams: ParadeTeam[], max = PARADE_MAX, everyone = false): ParadeWalker[] {
   return [...teams]
     .sort((a, b) => b.points - a.points)
-    .map((t, i) => ({ id: t.id, name: t.name, avatar: t.avatar, rank: i + 1 }))
-    .filter((t) => isPhotoAvatar(t.avatar))
+    // rank 0 = not on the table yet (free mode lists only groups that scored) → no number badge
+    .map((t, i) => ({ id: t.id, name: t.name, avatar: t.avatar, rank: everyone && t.points <= 0 ? 0 : i + 1 }))
+    .filter((t) => isPhotoAvatar(t.avatar) || (everyone && !!t.avatar))
     .slice(0, max);
 }
 
@@ -228,7 +230,7 @@ export default function SelfieParade({ walkers, hidden }: { walkers: ParadeWalke
           <div className="tcl-walker-body h-full w-full">
             <div key={t.id} className="tcl-walker-face h-full w-full">
               <WalkerPhoto url={t.avatar} />
-              <span className="tcl-walker-rank">{t.rank}</span>
+              {t.rank > 0 && <span className="tcl-walker-rank">{t.rank}</span>}
               <span className="tcl-walker-name">{t.name}</span>
             </div>
           </div>
@@ -240,6 +242,15 @@ export default function SelfieParade({ walkers, hidden }: { walkers: ParadeWalke
 
 function WalkerPhoto({ url }: { url: string }) {
   const [failed, setFailed] = useState(false);
+  // An emoji group (free mode): the emoji in a round brass-ringed badge, same size as a photo.
+  if (!isPhotoAvatar(url)) {
+    return (
+      <span className="flex h-full w-full items-center justify-center rounded-full"
+        style={{ background: 'radial-gradient(circle, #3E2C74, #141a48)', boxShadow: '0 0 0 0.3vh var(--tc-brass), 0 0.5vh 1.2vh rgba(0,0,0,.4)', fontSize: 'calc(var(--d) * .55)', lineHeight: 1 }}>
+        {url}
+      </span>
+    );
+  }
   if (failed) return <span className="block h-full w-full rounded-full" style={{ background: 'rgba(244,183,64,.25)', boxShadow: '0 0 0 0.3vh var(--tc-brass)' }} />;
   return (
     // eslint-disable-next-line @next/next/no-img-element

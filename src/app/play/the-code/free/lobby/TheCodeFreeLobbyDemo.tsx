@@ -142,7 +142,7 @@ export default function TheCodeFreeLobbyDemo() {
   }, [setBoard, pushMoments, startJoin]);
 
   return (
-    <LobbyStage stage={stage} gameName="אחוזת הגמדים" subtitle="הטבלה של השבוע" qrUrl={url} videos={slots} placeholderLabels
+    <LobbyStage stage={stage} gameName="אחוזת הגמדים" subtitle="הטבלה של השבוע" qrUrl={url} videos={slots} placeholderLabels free
       aside={<><span className="tc-num" style={{ color: 'var(--tc-brass-hi)' }}>{stage.teams.length}</span> קבוצות משחקות עכשיו</>}>
       {join && <JoinCelebration event={join} onDone={onJoinDone} />}
       <DemoPanel phase={stage.phase} onScan={() => stage.scan()} onJoin={startJoin} busy={!!join} />

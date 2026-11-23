@@ -49,6 +49,7 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
   const seenEvents = useRef<Set<string> | null>(null);
   // Free mode: every new group gets the full-screen celebration (one at a time), not a banner.
   const freeRef = useRef(false);
+  const [freeMode, setFreeMode] = useState(false);
   const [joins, setJoins] = useState<JoinEvent[]>([]);
   const joinSeq = useRef(0);
   const routeEvents = useCallback((events: TheCodeLobbyEvent[]) => {
@@ -95,6 +96,7 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
       setVideos(live?.videos || {});
       setSelfies(live?.selfies !== false);
       freeRef.current = live?.mode === 'free';
+      setFreeMode(live?.mode === 'free');
       const events = Array.isArray(live?.events) ? live!.events : [];
       const scans = typeof live?.lobbyScans === 'number' ? live.lobbyScans : 0;
 
@@ -134,7 +136,7 @@ export default function TheCodeLobby({ codeId, shortId, title, logoUrl }: { code
     <div className={theCodeFont.variable}>
       <LobbyStage stage={stage} gameName={title} logoUrl={logoUrl} subtitle={BOARD_TITLE[board]} qrUrl={qrUrl}
         videos={{ idle: videos?.idle, explain: videos?.explain, after: videos?.after }}
-        inviteParade={selfies}>
+        inviteParade={selfies} free={freeMode}>
         {joins[0] && <JoinCelebration key={joins[0].key} event={joins[0]} onDone={onJoinDone} />}
       </LobbyStage>
     </div>

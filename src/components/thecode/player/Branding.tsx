@@ -8,6 +8,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import type { TheCodeBranding } from '@/types/thecode';
+import { APP_VERSION } from '@/lib/version';
 import { LOGO_BOX } from '@/lib/thecode/brandingLayout';
 import { READABLE_LARGE, contrastOn, isHexColor, luminance, worstContrast } from '@/lib/thecode/contrast';
 
@@ -141,17 +142,23 @@ export function PlacedBrandLogo({ url, name, style }: { url?: string; name: stri
   );
 }
 
-/** "Powered by The Q" → the site's home page in a new tab. Small and quiet, opening screen only. */
+/** "Powered by The Q · by Playzone" → the site's home page in a new tab, and the version under it
+ *  (Rani 23.11.2026: an installed app can run an old build — the number tells which one).
+ *  Small and quiet, opening screens only. */
 export function PoweredBy() {
   return (
-    <a href="https://qr.playzones.app" target="_blank" rel="noopener" dir="ltr"
-      className="mx-auto flex min-h-[32px] select-none items-center justify-center gap-1.5 text-[11px] transition-opacity hover:opacity-100"
-      style={{ color: 'var(--tc-soft)', opacity: 0.75 }}>
-      <span>Powered by</span>
-      <span className="font-bold tracking-tight" style={{ color: 'var(--tc-cream)' }}>The Q</span>
-      <svg width="10" height="11" viewBox="0 0 10 11" aria-hidden>
-        <path d="M0 0.8 L10 5.5 L0 10.2 Z" fill="var(--tc-brass)" />
-      </svg>
-    </a>
+    <div className="flex flex-col items-center">
+      <a href="https://qr.playzones.app" target="_blank" rel="noopener" dir="ltr"
+        className="mx-auto flex min-h-[32px] select-none items-center justify-center gap-1.5 text-[11px] transition-opacity hover:opacity-100"
+        style={{ color: 'var(--tc-soft)', opacity: 0.75 }}>
+        <span>Powered by</span>
+        <span className="font-bold tracking-tight" style={{ color: 'var(--tc-cream)' }}>The Q</span>
+        <svg width="10" height="11" viewBox="0 0 10 11" aria-hidden>
+          <path d="M0 0.8 L10 5.5 L0 10.2 Z" fill="var(--tc-brass)" />
+        </svg>
+        <span>by Playzone</span>
+      </a>
+      <span dir="ltr" className="-mt-1.5 select-none text-[10px] tabular-nums" style={{ color: 'var(--tc-soft)', opacity: 0.55 }}>v{APP_VERSION}</span>
+    </div>
   );
 }

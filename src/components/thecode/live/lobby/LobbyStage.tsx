@@ -489,12 +489,16 @@ interface StageProps {
   aside?: ReactNode;
   /** Selfies on (the default): invite the groups under the board to join the parade. */
   inviteParade?: boolean;
+  /** Free mode (Rani 23.11.2026): every group walks in the parade (emoji too), and the table lists
+   *  only groups that scored — a new group with 0 points is on the parade, not "first place". */
+  free?: boolean;
   children?: ReactNode;
 }
 
-export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, videos, placeholderLabels, aside, inviteParade = true, children }: StageProps) {
-  const { teams, banner, climb, delta, phase, sceneKey, extraScans, rows, onSceneDone } = stage;
-  const parade = useMemo(() => paradeRoster(teams), [teams]);
+export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, videos, placeholderLabels, aside, inviteParade = true, free = false, children }: StageProps) {
+  const { teams: allTeams, banner, climb, delta, phase, sceneKey, extraScans, rows, onSceneDone } = stage;
+  const parade = useMemo(() => paradeRoster(allTeams, undefined, free), [allTeams, free]);
+  const teams = useMemo(() => (free ? allTeams.filter((t) => t.points > 0) : allTeams), [allTeams, free]);
   const [sound, setSound] = useState<SoundState>('unknown');
   const report = useCallback((s: SoundState) => setSound((cur) => (cur === 'on' ? 'on' : s)), []);
   const soundCtx = useMemo(() => ({ state: sound, report }), [sound, report]);
