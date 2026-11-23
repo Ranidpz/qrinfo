@@ -13,6 +13,7 @@
 
 import type { TheCodeConfig, TheCodeGnome, TheCodeIssue, TheCodeRiddle } from '@/types/thecode';
 import { analyzeAdventure, MIN_PHRASE_LETTERS, riddleLetter } from '@/lib/thecode/engine';
+import { freeAdventureIssues } from '@/lib/thecode/engineFree';
 import { invalidPhraseChars, phraseLetters, phraseWordLengths, soundAlikes } from '@/lib/thecode/letters';
 import { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { AdminState, AdventureReport, CoverageLetter, MissingLetter, PhraseCoverage } from '@/components/thecode/admin/model';
@@ -250,7 +251,13 @@ export function buildAdventureReport(state: AdminState): AdventureReport {
     if (cov && !r.playable) cov.playable = false;
   }
 
-  const issues = engine.issues.map((i) => {
+  // Free mode: no phrases, no suitcases — their checks do not apply; the free engine's own do.
+  const PHRASE_ONLY = new Set(['PHRASE_LETTER_MISSING', 'PHRASE_INVALID_CHARS', 'PHRASE_TOO_SHORT', 'NO_ACTIVE_PHRASE', 'FEW_FRESH_ROUNDS']);
+  const engineIssues = config.mode === 'free'
+    ? [...engine.issues.filter((i) => !PHRASE_ONLY.has(i.code) && i.code !== 'GNOME_WITHOUT_RIDDLE'), ...freeAdventureIssues(config, riddles)]
+    : engine.issues;
+  const issues = engineIssues.map((i) => {
+    if (config.mode === 'free') return i;
     if (i.code !== 'FEW_FRESH_ROUNDS') return reword(i, state, phrases);
     const n = engine.freshSuitcases;
     const short = letterStock.filter((l) => l.supply < l.demand).map((l) => letterLabel(l.letter));

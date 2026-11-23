@@ -8,6 +8,7 @@ import BrandingCard from './BrandingCard';
 import HowToPlayCard from './HowToPlayCard';
 import { BigScreenCard, SelfieCard } from './LobbyCards';
 import StaffCard from './StaffCard';
+import FreeModeCard from './FreeModeCard';
 import ResetGame from './ResetGame';
 
 export default function SettingsScreen({ state, actions, report, uploadImage, uploadVideo, links }: ScreenProps) {
@@ -19,6 +20,10 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <ScreenHeader title="הגדרות" summary="השינויים נשמרים מיד." />
+
+      <div id="mode" className="scroll-mt-32">
+        <FreeModeCard state={state} actions={actions} uploadVideo={uploadVideo} />
+      </div>
 
       <div id="branding" className="scroll-mt-32">
         <BrandingCard state={state} actions={actions} uploadImage={uploadImage} uploadVideo={uploadVideo} />
