@@ -81,7 +81,13 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
   const [busy, setBusy] = useState(false);
   const [muted, setMuted] = useState(false);
   const [call, setCall] = useState<'intro' | 'wellDone' | null>(null);
-  const [localPhoto, setLocalPhoto] = useState<string | null>(null);
+  const callRef = useRef(call);
+  callRef.current = call;
+  const [startBurst, setStartBurst] = useState(0);
+  // A selfie just taken (show = its preview) or removed (show = null) shows AT ONCE and stays until the
+  // server's copy is really there: a snapshot still carrying the old URL (a poll that left before the
+  // upload) can't bring the old photo back, and the new R2 image is preloaded before the swap.
+  const [pendingPhoto, setPendingPhoto] = useState<{ show: string | null; prevUrl: string | null } | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const identityRef = useRef(identity);
@@ -277,13 +283,29 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
   const [photoBusy, setPhotoBusy] = useState(false);
   /** A selfie up (shot) or removed (null). The local preview shows at once; the server copy wins after. */
   const putPhoto = useCallback(async (auth: TheCodeAuth, shot: SelfieShot | null) => {
-    if (shot) setLocalPhoto(shot.preview);
+    setPendingPhoto({ show: shot ? shot.preview : null, prevUrl: snapshotRef.current?.player?.photoUrl ?? null });
     setPhotoBusy(true);
     const r = await sendPhoto(codeId, auth, shot ? shot.blob : null);
     setPhotoBusy(false);
-    if (r.ok) { lastRefreshRef.current = 0; await send({ type: 'state' }, false); }
-    setLocalPhoto(null);
+    if (!r.ok) { setPendingPhoto(null); return; }
+    lastRefreshRef.current = 0;
+    await send({ type: 'state' }, false);
   }, [codeId, send]);
+  const serverPhoto = snapshot?.player?.photoUrl ?? null;
+  useEffect(() => {
+    if (!pendingPhoto || photoBusy || serverPhoto === pendingPhoto.prevUrl) return;
+    if (!serverPhoto) { setPendingPhoto(null); return; }
+    let live = true;
+    const img = new Image();
+    img.onload = img.onerror = () => { if (live) setPendingPhoto(null); };
+    img.src = serverPhoto;
+    return () => { live = false; };
+  }, [pendingPhoto, photoBusy, serverPhoto]);
+  useEffect(() => { // never stuck on the preview (the server kept the old photo, the refresh failed…)
+    if (!pendingPhoto || photoBusy) return;
+    const t = setTimeout(() => setPendingPhoto(null), 20_000);
+    return () => clearTimeout(t);
+  }, [pendingPhoto, photoBusy]);
 
   // ---- callbacks
   const callbacks = useMemo<FreeGameCallbacks>(() => ({
@@ -328,10 +350,13 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     onToggleMute: () => setMuted((m) => { writeMuted(!m); return !m; }),
     onShowIntro: () => { setFlash(null); setView('intro'); },
     onJoinedDone: () => {
-      setView('intro');
+      setView('board'); // the call ends straight on the gnome board (Rani 24.11.2026)
       setCall('intro'); // with no clip yet the call shows a black screen (Rani 23.11.2026)
     },
-    onEndCall: () => setCall(null),
+    onEndCall: () => {
+      if (callRef.current === 'intro') { setFlash(null); setView('board'); setStartBurst((n) => n + 1); }
+      setCall(null);
+    },
     onSetPhoto: (shot) => { const a = activeAuth(identityRef.current); if (a) void putPhoto(a, shot); },
     onRemovePhoto: () => { const a = activeAuth(identityRef.current); if (a) void putPhoto(a, null); },
     onUpdateProfile: async (patch) => {
@@ -395,15 +420,16 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
   else if (free?.allAsleep) screen = { kind: 'finished' };
   else screen = { kind: 'board' };
 
+  const shownPhoto = pendingPhoto ? pendingPhoto.show : player?.photoUrl ?? null;
   const v: FreeGameView = {
     screen,
     now: serverNow,
     venueName: adv?.title || '',
-    group: player ? { name: player.familyName, avatar: localPhoto || player.photoUrl || player.emoji } : null,
+    group: player ? { name: player.familyName, avatar: shownPhoto || player.emoji } : null,
     profile: player ? {
       id: player.id, familyName: player.familyName, emoji: player.emoji, recoveryCode: player.recoveryCode,
       points: player.points, streak: player.streak, hot: !!player.hot, suitcasesOpened: 0,
-      ...((localPhoto || player.photoUrl) ? { photoUrl: (localPhoto || player.photoUrl)! } : {}),
+      ...(shownPhoto ? { photoUrl: shownPhoto } : {}),
     } : null,
     photoBusy,
     points: player?.points ?? 0,
@@ -427,6 +453,7 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
     secondAttemptFactor: free?.secondAttemptFactor ?? 0.5,
     muted,
     call,
+    startBurst,
     videos: { intro: free?.introVideo ?? null, wellDone: free?.wellDoneVideo ?? null },
     screenHint: adv?.screenHint || opts.screenHint,
     branding: adv?.branding ?? opts.branding ?? null,

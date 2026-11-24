@@ -88,6 +88,8 @@ export interface FreeGameView {
   muted: boolean;
   /** Cliostro is calling (full-screen video call). */
   call: 'intro' | 'wellDone' | null;
+  /** Bumps when Cliostro's intro call ends: the phone lands on the gnome board with a confetti burst. */
+  startBurst?: number;
   videos: { intro?: string | null; wellDone?: string | null };
   /** Where the big screen stands (start-at-screen hint). */
   screenHint?: string;

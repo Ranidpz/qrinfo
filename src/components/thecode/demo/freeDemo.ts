@@ -184,6 +184,7 @@ export interface FreeDemoState {
   muted: boolean;
   /** Cliostro is "calling" (full-screen video call): after registering / when every gnome sleeps. */
   call: 'intro' | 'wellDone' | null;
+  startBurst?: number;
   /** Which phone the demo pretends to be on the install screen (demo bar). */
   installPlatform: InstallPlatform;
   installed: boolean;
@@ -275,7 +276,7 @@ export function freeRegister(s: FreeDemoState, name: string, emoji: string): Fre
 
 /** The big screen finished celebrating the group → Cliostro calls at once (Rani: "בום שיחה"). */
 export const freeJoinedDone = (s: FreeDemoState): FreeDemoState =>
-  (s.screen.kind === 'joined' ? { ...s, screen: { kind: 'intro' }, call: 'intro' } : s);
+  (s.screen.kind === 'joined' ? { ...s, screen: { kind: 'board' }, call: 'intro' } : s);
 
 export function freePickLetter(s: FreeDemoState, letter: string): FreeDemoState {
   return { ...s, pendingLetter: letter };
@@ -356,7 +357,9 @@ export const freeShowBoard = (s: FreeDemoState): FreeDemoState => ({ ...s, pendi
 
 export const freeShowIntro = (s: FreeDemoState): FreeDemoState => (s.group ? { ...s, screen: { kind: 'intro' } } : s);
 
-export const freeEndCall = (s: FreeDemoState): FreeDemoState => ({ ...s, call: null });
+/** The intro call ends on the gnome board with a confetti burst; the well-done call leaves the screen as it is. */
+export const freeEndCall = (s: FreeDemoState): FreeDemoState =>
+  (s.call === 'intro' ? { ...s, call: null, screen: { kind: 'board' }, startBurst: (s.startBurst ?? 0) + 1 } : { ...s, call: null });
 export const freeCallMagician = (s: FreeDemoState, call: 'intro' | 'wellDone'): FreeDemoState => ({ ...s, call });
 
 /** Installed / "continue in the browser" → to the big screen (scan the gnome on it to register). */
@@ -496,6 +499,7 @@ export function freeDemoView(s: FreeDemoState, realNow: number, videos: FreeGame
     secondAttemptFactor: SECOND_ATTEMPT_FACTOR,
     muted: s.muted,
     call: s.call,
+    startBurst: s.startBurst ?? 0,
     videos,
     screenHint: SCREEN_HINT,
     demo: true,

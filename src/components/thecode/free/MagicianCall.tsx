@@ -103,7 +103,7 @@ export default function MagicianCall({ url, topic, onEnd }: MagicianCallProps) {
   }, [live, url]);
 
   const answer = () => {
-    sfx('tap');
+    // No sound on "ענו" (Rani 24.11.2026): the ring stops and the call simply opens.
     setLive(true);
     // Inside the tap: the browser allows sound now.
     requestAnimationFrame(() => { void video.current?.play().catch(() => {}); });

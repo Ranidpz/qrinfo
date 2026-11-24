@@ -830,6 +830,9 @@ export default function FreeGamePlayer({ view: v, callbacks }: { view: FreeGameV
             selfie={v.selfie} photoBusy={v.photoBusy} onSetPhoto={callbacks.onSetPhoto} onRemovePhoto={callbacks.onRemovePhoto}
             onUpdateProfile={callbacks.onUpdateProfile} muted={v.muted} onToggleMute={callbacks.onToggleMute}
             onClose={() => setSheetOpen(false)} onSwitch={() => setSheetOpen(false)} />
+          {!!v.startBurst && !v.call && (
+            <div aria-hidden className="pointer-events-none absolute inset-0 z-30"><Confetti burstKey={`start-${v.startBurst}`} /></div>
+          )}
           {v.call && (
             <MagicianCall key={v.call} url={callUrl}
               topic={v.call === 'intro' ? 'הקוסם מסביר לקבוצה מה עושים' : 'כל הכבוד! הקוסם מברך את הקבוצה'} onEnd={callbacks.onEndCall} />

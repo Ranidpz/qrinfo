@@ -5,7 +5,7 @@
 // (same consent line) or remove the photo. Pure overlay: the game underneath keeps its place.
 // What is SELECTED is what shows: picking an emoji while the group has a photo removes the photo.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar } from './Avatar';
 import { SelfieFlow, SymbolRow } from './SymbolPicker';
 import { useSfx } from './ui';
@@ -101,6 +101,46 @@ export default function ProfileSheet(p: Props) {
   const [step, setStep] = useState<'consent' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Closing (Rani, iPhone 24.11.2026: no way out, and pulling the sheet down reloaded the whole page):
+  // a ✕ in the corner, a tap above the sheet, or a pull-down from the top of the sheet. The pull is
+  // handled here with a non-passive touchmove, so Safari's pull-to-refresh never sees it.
+  const closeRef = useRef(() => {});
+  closeRef.current = () => { setEditing(false); onClose(); };
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState(0);
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!open || !el) return;
+    let x0 = 0, y0 = 0, dy = 0, mode: 'idle' | 'pull' | 'off' = 'off';
+    const start = (e: TouchEvent) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dy = 0; mode = el.scrollTop <= 0 ? 'idle' : 'off'; };
+    const move = (e: TouchEvent) => {
+      if (mode === 'off') return;
+      const dx = e.touches[0].clientX - x0;
+      dy = e.touches[0].clientY - y0;
+      if (mode === 'idle') {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        mode = dy > 0 && dy > Math.abs(dx) ? 'pull' : 'off'; // sideways (the symbol row) / up = scroll as usual
+        if (mode === 'off') return;
+      }
+      e.preventDefault();
+      setDrag(Math.max(0, dy));
+    };
+    const end = () => {
+      if (mode === 'pull' && dy > 90) closeRef.current();
+      mode = 'off';
+      setDrag(0);
+    };
+    el.addEventListener('touchstart', start, { passive: true });
+    el.addEventListener('touchmove', move, { passive: false });
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
+    return () => {
+      el.removeEventListener('touchstart', start);
+      el.removeEventListener('touchmove', move);
+      el.removeEventListener('touchend', end);
+      el.removeEventListener('touchcancel', end);
+    };
+  }, [open]);
 
   if (!open) return null;
   const selfieOn = !!selfie?.enabled && !!onSetPhoto;
@@ -144,9 +184,16 @@ export default function ProfileSheet(p: Props) {
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="הקבוצות בטלפון הזה">
-      <button type="button" aria-label="סגירה" className="absolute inset-0 bg-black/60" onClick={() => { setEditing(false); onClose(); }} />
-      <div className="tc-a-rise relative max-h-[92%] overflow-y-auto rounded-t-[28px] px-5 pb-8 pt-3" style={{ background: 'linear-gradient(180deg,#1E2766,#141A48)', boxShadow: '0 -10px 40px rgba(0,0,0,.5)' }}>
-        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/25" aria-hidden />
+      <button type="button" aria-label="סגירה" className="absolute inset-0 bg-black/60" onClick={() => closeRef.current()} />
+      <div ref={panelRef} className="tc-a-rise relative max-h-[88%] overflow-y-auto overscroll-contain rounded-t-[28px] px-5 pb-8 pt-3"
+        style={{ background: 'linear-gradient(180deg,#1E2766,#141A48)', boxShadow: '0 -10px 40px rgba(0,0,0,.5)',
+          ...(drag ? { transform: `translateY(${drag}px)`, opacity: Math.max(0.4, 1 - drag / 400), animation: 'none' } : {}) }}>
+        <div className="relative mb-3 flex h-11 items-start justify-center">
+          <div className="mt-1 h-1.5 w-12 rounded-full bg-white/25" aria-hidden />
+          <button type="button" aria-label="סגירה" onClick={() => { sfx('tap'); closeRef.current(); }}
+            className="absolute end-[-6px] top-0 flex h-11 w-11 items-center justify-center rounded-full text-xl"
+            style={{ background: 'rgba(255,244,218,.1)', color: 'var(--tc-cream)' }}>✕</button>
+        </div>
         {editing && profile ? (
           <EditGroup profile={profile} selfieOn={selfieOn} name={name} setName={setName} value={value} setValue={setValue}
             shot={shot} error={error} saving={saving || !!photoBusy} onCamera={() => setStep('consent')}
