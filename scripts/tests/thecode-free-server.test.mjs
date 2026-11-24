@@ -145,3 +145,15 @@ test('becoming hot pushes a lobby moment', () => {
   }
   assert.deepEqual(last.lobbyKinds, ['hot']);
 });
+
+test("a gnome's own location hints reach the phone only after they were bought", () => {
+  const a = adv({ gnomes: [{ ...gnome('g1', 1), hints: ['מאחורי העציץ הסודי'] }, gnome('g2', 2)] });
+  let p = act(a, newPlayer(), { type: 'scan', code: 'x' }, 'g2').next;
+  p = act(a, p, { type: 'freeAnswer', gnomeId: 'g2', riddleId: 'r2', letter: 'ד' }).next; // 100 points
+  assert.ok(!JSON.stringify(snap(a, p)).includes('מאחורי העציץ הסודי'), 'unbought gnome hint leaked');
+  p = act(a, p, { type: 'freeHint', gnomeId: 'g1' }).next; // the spot's hint first
+  assert.ok(!JSON.stringify(snap(a, p)).includes('מאחורי העציץ הסודי'));
+  p = act(a, p, { type: 'freeHint', gnomeId: 'g1' }).next; // then the gnome's own
+  assert.deepEqual(snap(a, p).free.gnomes.find((g) => g.gnome.id === 'g1').hints, ['בלובי ליד הפסנתר', 'מאחורי העציץ הסודי']);
+  assert.ok(!JSON.stringify(snap(a, p).free.gnomes.map((g) => g.gnome)).includes('hints'), 'gnome view carries no hints field');
+});

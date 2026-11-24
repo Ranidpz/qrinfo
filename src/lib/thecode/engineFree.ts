@@ -12,7 +12,8 @@
 //   (`refreshMinutes` after — the operator picks days / hours / minutes), then asks its NEXT riddle.
 //   Every group sees the same riddles in the same order (the admin's riddle order per gnome).
 //   After the last riddle it starts over (`wrapRiddles`, default) — or stays done.
-// - A location hint for a gnome costs `hintCost` (each further hint of the spot again);
+// - A location hint for a gnome costs `hintCost` (each further hint again): the spot's hints,
+//   then the gnome's own (`TheCodeGnome.hints`, general → exact);
 //   it is only sold when the group can pay. Hints do not break the streak in this mode.
 // - Hot streak exactly as the guided engine: ×hotMultiplier once the streak BEFORE the answer
 //   reached hotStreakAt. Any wrong letter resets the streak.
@@ -70,6 +71,22 @@ export const MAX_REFRESH_MINUTES = 14 * 24 * 60;
 
 /** Below this many published riddles on a gnome the operator gets a warning. */
 export const FEW_RIDDLES_PER_GNOME = 3;
+
+/** The one-click bank fill tops every gnome up to this many riddles (Rani 24.11.2026). */
+export const TARGET_RIDDLES_PER_GNOME = 5;
+
+/** Location hints a gnome may carry on top of its spot's hints. */
+export const MAX_GNOME_HINTS = 3;
+
+/**
+ * Guided-only operator checks that do not apply to a free adventure: no phrases, no suitcases,
+ * no colour hunt (a group scanning a look-alike simply plays that gnome). The admin report, the
+ * demo server and the real server (`store.ts`, inline copy — it must not gain imports) drop them.
+ */
+export const FREE_IGNORED_ISSUES: ReadonlySet<string> = new Set([
+  'PHRASE_LETTER_MISSING', 'PHRASE_INVALID_CHARS', 'PHRASE_TOO_SHORT', 'NO_ACTIVE_PHRASE', 'FEW_FRESH_ROUNDS',
+  'DUPLICATE_COLORS_AT_SPOT', 'CONFUSABLE_COLORS_AT_SPOT',
+]);
 
 /** Merge operator values over the defaults; junk falls back, numbers are clamped. */
 export function resolveFreeRules(rules?: Partial<TheCodeFreeRules> | TheCodeFreeSettings | null): TheCodeFreeRules {
@@ -200,10 +217,12 @@ export interface TheCodeFreeBoard {
   nextWakeAt?: number;
 }
 
-function spotHints(config: TheCodeConfig, gnomeId: string): string[] {
+/** A gnome's location hints, general → exact: its spot's hints, then the gnome's own. */
+export function gnomeLocationHints(config: TheCodeConfig, gnomeId: string): string[] {
   const g = gnomeOf(config, gnomeId);
   const spot = (config.spots || []).find((s) => s.id === g?.spotId);
-  return (spot?.hints || []).filter(Boolean);
+  const own = (g?.hints || []).filter((h) => typeof h === 'string' && h.trim()).slice(0, MAX_GNOME_HINTS);
+  return [...(spot?.hints || []).filter(Boolean), ...own];
 }
 
 function statusOf(p: TheCodeFreePlayer, gnomeId: string, ctx: TheCodeFreeContext): { status: TheCodeFreeGnomeStatus; wakesAt?: number } {
@@ -222,7 +241,7 @@ export function freeBoard(player: TheCodeFreePlayer, ctx: TheCodeFreeContext): T
     if (!isGnomeOn(ctx.config, g.id)) continue;
     const st = gnomeStateOf(player, g.id);
     const { status, wakesAt } = statusOf(player, g.id, ctx);
-    const hints = spotHints(ctx.config, g.id);
+    const hints = gnomeLocationHints(ctx.config, g.id);
     const used = Math.min(st.hintsUsed, hints.length);
     const row: TheCodeFreeBoardGnome = {
       gnomeId: g.id,
@@ -402,7 +421,7 @@ export function freeBuyHint(player: TheCodeFreePlayer, gnomeId: string, ctx: The
   if (!isAdventureOpen(ctx.config, ctx.now, ctx.timeZone)) return { player, outcome: { kind: 'paused' } };
   if (!gnomeOf(ctx.config, gnomeId) || !isGnomeOn(ctx.config, gnomeId)) return { player, outcome: { kind: 'unknownGnome' } };
   if (statusOf(player, gnomeId, ctx).status !== 'awake') return { player, outcome: { kind: 'notAwake' } };
-  const hints = spotHints(ctx.config, gnomeId);
+  const hints = gnomeLocationHints(ctx.config, gnomeId);
   const st = gnomeStateOf(player, gnomeId);
   if (st.hintsUsed >= hints.length) return { player, outcome: { kind: 'noMoreHints' } };
   const cost = resolveRules(ctx.config.rules).hintCost;
@@ -425,17 +444,25 @@ export function resetFreeState(player: TheCodeFreePlayer): TheCodeFreePlayer {
   return p;
 }
 
-/** Warnings for the operator before publishing a free adventure (no phrase is needed). */
+/**
+ * The operator's checks before publishing a free adventure (no phrase is needed).
+ * A gnome with no riddle is a warning (the phone shows it as done); only an adventure where NO
+ * gnome asks anything is blocked (Rani 24.11.2026).
+ */
 export function freeAdventureIssues(config: TheCodeConfig, riddles: TheCodeRiddle[]): TheCodeIssue[] {
   const issues: TheCodeIssue[] = [];
   const he = config.language !== 'en';
+  let ready = 0;
+  let on = 0;
   for (const g of config.gnomes || []) {
     if (!isGnomeOn(config, g.id)) continue;
+    on++;
     const have = freeRiddlesOf(g.id, riddles).length;
+    if (have > 0) ready++;
     if (have === 0) {
       issues.push({
-        severity: 'error', code: 'GNOME_WITHOUT_RIDDLE', gnomeId: g.id, have: 0,
-        message: he ? `לגמד ${g.number} אין חידה פעילה` : `Gnome ${g.number} has no published riddle`,
+        severity: 'warning', code: 'GNOME_WITHOUT_RIDDLE', gnomeId: g.id, have: 0,
+        message: he ? `לגמד ${g.number} אין חידה, ולכן הוא יופיע לקבוצות כגמד שסיים.` : `Gnome ${g.number} has no published riddle`,
       });
     } else if (have < FEW_RIDDLES_PER_GNOME) {
       issues.push({
@@ -445,6 +472,12 @@ export function freeAdventureIssues(config: TheCodeConfig, riddles: TheCodeRiddl
           : `Gnome ${g.number} has only ${have} riddle(s); returning groups will see them again.`,
       });
     }
+  }
+  if (on > 0 && ready === 0) {
+    issues.unshift({
+      severity: 'error', code: 'GNOME_WITHOUT_RIDDLE', have: 0,
+      message: he ? 'אף גמד עוד לא שואל חידה. הוסיפו חידות לגמדים.' : 'No gnome has a published riddle yet.',
+    });
   }
   return issues;
 }

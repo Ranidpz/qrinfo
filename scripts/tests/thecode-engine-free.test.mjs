@@ -228,8 +228,36 @@ test('round reset drops the free state; operator issues', () => {
   const p = play(newPlayer(), 'g1', 'א').player;
   assert.equal(F.resetFreeState(p).free, undefined);
   const issues = F.freeAdventureIssues(config({ gnomes: [...config().gnomes, gnome('g3', 3, 's1')] }), RIDDLES);
+  // A gnome without a riddle only warns (the phone shows it as done) — Rani 24.11.2026.
   assert.deepEqual(issues.map((x) => [x.code, x.gnomeId, x.severity]), [
     ['FEW_FRESH_ROUNDS', 'g2', 'warning'],
-    ['GNOME_WITHOUT_RIDDLE', 'g3', 'error'],
+    ['GNOME_WITHOUT_RIDDLE', 'g3', 'warning'],
   ]);
+  // …but an adventure where no gnome asks anything cannot be published.
+  const none = F.freeAdventureIssues(config(), []);
+  assert.equal(none[0].severity, 'error');
+  assert.equal(none[0].gnomeId, undefined);
+  assert.equal(none.filter((x) => x.severity === 'error').length, 1);
+});
+
+test('location hints: the spot first, then the gnome\'s own (general → exact)', () => {
+  const cfg = config({ gnomes: [gnome('g1', 1, 's1', { hints: ['מאחורי העציץ', ' ', 'ליד הספסל', 'רביעי', 'חמישי'] }), gnome('g2', 2, 's2')] });
+  // Blank rows are skipped; at most MAX_GNOME_HINTS (3) of the gnome's own.
+  assert.deepEqual(F.gnomeLocationHints(cfg, 'g1'), ['בלובי', 'ליד הפסנתר', 'מאחורי העציץ', 'ליד הספסל', 'רביעי']);
+  assert.deepEqual(F.gnomeLocationHints(cfg, 'g2'), ['בגינה']);
+  const c = ctx(NOON, { config: cfg });
+  let p = play(newPlayer(), 'g2', 'ד', c).player;
+  p = { ...p, points: 1000 };
+  const texts = [];
+  for (let i = 0; i < 5; i++) {
+    const h = F.freeBuyHint(p, 'g1', c);
+    assert.equal(h.outcome.kind, 'hint');
+    texts.push(h.outcome.text);
+    p = h.player;
+  }
+  assert.deepEqual(texts, ['בלובי', 'ליד הפסנתר', 'מאחורי העציץ', 'ליד הספסל', 'רביעי']);
+  assert.equal(F.freeBuyHint(p, 'g1', c).outcome.kind, 'noMoreHints');
+  // A spot without hints: the gnome's own are the whole chain.
+  const bare = config({ spots: [{ id: 's1', name: 'לובי', hints: [], isActive: true }], gnomes: [gnome('g1', 1, 's1', { hints: ['על המדף'] })] });
+  assert.deepEqual(F.gnomeLocationHints(bare, 'g1'), ['על המדף']);
 });

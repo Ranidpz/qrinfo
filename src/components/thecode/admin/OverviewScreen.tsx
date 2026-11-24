@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import type { AdminTab } from './nav';
-import { Check, ChevronLeft, Image as ImageIcon, CircleAlert, CircleCheck, Copy, ExternalLink, Luggage, Pause, Play, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Check, ChevronLeft, Image as ImageIcon, CircleAlert, CircleCheck, Copy, ExternalLink, Luggage, Pause, Play, RefreshCw, Shapes, TriangleAlert } from 'lucide-react';
 import type { TheCodeIssue } from '@/types/thecode';
 import type { ScreenProps } from './model';
 import { fixLabel, targetForIssue } from './nav';
-import { isProbablyMissing, isRiddleTooHard, timeAgo } from './helpers';
+import { durationLabel, isFreeMode, isProbablyMissing, isRiddleTooHard, timeAgo } from './helpers';
+import { FEW_RIDDLES_PER_GNOME, TARGET_RIDDLES_PER_GNOME } from '@/lib/thecode/engineFree';
 import { Button, Card, Pill, cx, Tip } from './ui';
 import { BankFillButton } from './BankDialogs';
 import { hasBranding } from './BrandingCard';
@@ -24,12 +25,18 @@ const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'neu
 };
 
 /** Warnings that repeat per gnome are folded into one line. */
-function foldWarnings(issues: TheCodeIssue[], gnomeNo: (id?: string) => number | undefined) {
+function foldWarnings(issues: TheCodeIssue[], gnomeNo: (id?: string) => number | undefined, free: boolean) {
   const out: { key: string; message: string; issue: TheCodeIssue }[] = [];
-  const fold: Partial<Record<TheCodeIssue['code'], (nums: string) => string>> = {
-    GNOME_NOT_VERIFIED: (n) => `גמדים ${n} עוד לא נסרקו במקום.`,
-    GNOME_WITHOUT_RIDDLE: (n) => `לגמדים ${n} אין חידה במשחק, ולכן אף קבוצה לא תגיע אליהם.`,
-  };
+  const fold: Partial<Record<TheCodeIssue['code'], (nums: string) => string>> = free
+    ? {
+        GNOME_NOT_VERIFIED: (n) => `גמדים ${n} עוד לא נסרקו במקום.`,
+        GNOME_WITHOUT_RIDDLE: (n) => `לגמדים ${n} אין חידה, ולכן קבוצות יראו אותם כגמדים שסיימו.`,
+        FEW_FRESH_ROUNDS: (n) => `לגמדים ${n} יש פחות מ־${FEW_RIDDLES_PER_GNOME} חידות. קבוצות שיחזרו אליהם יקבלו שוב חידה שכבר ענו עליה.`,
+      }
+    : {
+        GNOME_NOT_VERIFIED: (n) => `גמדים ${n} עוד לא נסרקו במקום.`,
+        GNOME_WITHOUT_RIDDLE: (n) => `לגמדים ${n} אין חידה במשחק, ולכן אף קבוצה לא תגיע אליהם.`,
+      };
   const groups = new Map<string, TheCodeIssue[]>();
   for (const i of issues) {
     if (fold[i.code]) groups.set(i.code, [...(groups.get(i.code) || []), i]);
@@ -55,7 +62,8 @@ export default function OverviewScreen({
   const status = STATUS[config.status];
   const errors = report.issues.filter((i) => i.severity === 'error');
   const gnomeNo = (id?: string) => config.gnomes.find((g) => g.id === id)?.number;
-  const warnings = foldWarnings(report.issues.filter((i) => i.severity === 'warning'), gnomeNo);
+  const free = isFreeMode(config) ? report.free : undefined;
+  const warnings = foldWarnings(report.issues.filter((i) => i.severity === 'warning'), gnomeNo, !!free);
   const canPublish = report.errors === 0;
 
   const runCheck = () => {
@@ -109,7 +117,9 @@ export default function OverviewScreen({
               {config.status === 'published'
                 ? 'קבוצות יכולות לשחק עכשיו.'
                 : config.status === 'paused'
-                ? 'קבוצות שסורקות גמד רואות "המשחק בהפסקה". ההתקדמות שלהן נשמרת.'
+                ? free
+                  ? 'קבוצות שסורקות גמד רואות "המשחק בהפסקה". הנקודות שלהן נשמרות.'
+                  : 'קבוצות שסורקות גמד רואות "המשחק בהפסקה". ההתקדמות שלהן נשמרת.'
                 : 'ההרפתקה עוד לא פתוחה לקבוצות.'}
             </div>
           </div>
@@ -124,7 +134,9 @@ export default function OverviewScreen({
         {config.status === 'published' && confirmPause && (
           <div className="mt-4 rounded-lg bg-warning/10 px-4 py-3 text-sm">
             <p className="text-amber-800 dark:text-amber-300">
-              להשהות את המשחק? קבוצות שבאמצע מזוודה יראו &quot;המשחק בהפסקה&quot; כשיסרקו גמד. כל ההתקדמות שלהן נשמרת, והן ימשיכו מאותה נקודה כשתחדשו.
+              {free
+                ? 'להשהות את המשחק? קבוצות יראו "המשחק בהפסקה" כשיסרקו גמד. הנקודות שלהן נשמרות, וגמדים שנרדמו ימשיכו להתעורר בזמן.'
+                : <>להשהות את המשחק? קבוצות שבאמצע מזוודה יראו &quot;המשחק בהפסקה&quot; כשיסרקו גמד. כל ההתקדמות שלהן נשמרת, והן ימשיכו מאותה נקודה כשתחדשו.</>}
             </p>
             <div className="mt-3 flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setConfirmPause(false)}>ביטול</Button>
@@ -150,7 +162,7 @@ export default function OverviewScreen({
         {config.status === 'published' && !canPublish && (
           <div className="mt-4 flex items-center gap-2 text-sm text-danger">
             <CircleAlert size={16} aria-hidden />
-            יש שגיאות בתוכן. קבוצות ימשיכו לשחק רק במשפטים התקינים.
+            {free ? 'יש שגיאות בתוכן. קבוצות ימשיכו לשחק בגמדים שיש להם חידות.' : 'יש שגיאות בתוכן. קבוצות ימשיכו לשחק רק במשפטים התקינים.'}
           </div>
         )}
       </Card>
@@ -177,7 +189,7 @@ export default function OverviewScreen({
         <div className="flex flex-wrap items-center justify-between gap-4 p-6">
           <div>
             <h2 className="text-lg font-semibold">בדיקת מוכנות</h2>
-            <p className="text-text-secondary">בודקת שכל משפט סודי אפשר להשלים, ושכל גמד אפשר למצוא.</p>
+            <p className="text-text-secondary">{free ? 'בודקת שלכל גמד יש חידות, ושכל גמד אפשר למצוא.' : 'בודקת שכל משפט סודי אפשר להשלים, ושכל גמד אפשר למצוא.'}</p>
           </div>
           <Button variant={checked ? 'secondary' : 'primary'} icon={RefreshCw} onClick={runCheck} disabled={checking} className={checking ? '[&_svg]:animate-spin' : ''}>
             {checking ? 'בודקים…' : checked ? 'בדקו שוב' : 'בדקו הרפתקה'}
@@ -207,12 +219,19 @@ export default function OverviewScreen({
                     <IssueRow key={n} message={i.message} tone="danger" label={fixLabel(i)} onFix={() => navigate(targetForIssue(i))} />
                   ))}
                 </ul>
-                {errors.some((i) => i.code === 'PHRASE_LETTER_MISSING') && (
+                {!free && errors.some((i) => i.code === 'PHRASE_LETTER_MISSING') && (
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     <BankFillButton onClick={() => navigate({ tab: 'riddles', fill: true })} />
                     <span className="text-sm text-text-secondary">נשלים את האותיות החסרות בחידות מוכנות — תראו אותן לפני שהן נכנסות.</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {free && free.gnomesOn > 0 && free.minRiddles < FEW_RIDDLES_PER_GNOME && (
+              <div className="flex flex-wrap items-center gap-3 border-t border-border px-6 py-4">
+                <BankFillButton onClick={() => navigate({ tab: 'riddles', fill: true })} />
+                <span className="text-sm text-text-secondary">נשלים לכל גמד עד {TARGET_RIDDLES_PER_GNOME} חידות מוכנות — תראו אותן לפני שהן נכנסות.</span>
               </div>
             )}
 
@@ -236,19 +255,41 @@ export default function OverviewScreen({
       </Card>
 
       {/* Numbers */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat
-          big
-          icon={Luggage}
-          value={report.freshSuitcases}
-          label="מזוודות חדשות לקבוצה"
-          tone={report.freshSuitcases < 2 ? 'warning' : undefined}
-          onClick={() => navigate({ tab: 'phrases' })}
-        />
-        <Stat value={`${playable}/${activePhrases}`} label="משפטים מוכנים" onClick={() => navigate({ tab: 'phrases' })} />
-        <Stat value={`${activeGnomes}/${config.gnomes.length}`} label="גמדים פעילים" onClick={() => navigate({ tab: 'gnomes' })} />
-        <Stat value={published} label="חידות במשחק" onClick={() => navigate({ tab: 'riddles' })} />
-      </div>
+      {free ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Stat
+            big
+            icon={Shapes}
+            value={`${free.gnomesReady}/${free.gnomesOn}`}
+            label="גמדים עם חידות"
+            tone={free.gnomesReady < free.gnomesOn ? 'warning' : undefined}
+            onClick={() => navigate({ tab: 'riddles' })}
+          />
+          <Stat value={free.riddlesInGame} label="חידות במשחק" onClick={() => navigate({ tab: 'riddles' })} />
+          <Stat
+            text
+            value={free.repeatAfterMinutes === null ? '—' : durationLabel(free.repeatAfterMinutes)}
+            label={free.wrapRiddles ? 'עד שחידה חוזרת על עצמה' : 'עד שגמד מסיים את החידות'}
+            tone={free.gnomesOn > 0 && free.minRiddles < FEW_RIDDLES_PER_GNOME ? 'warning' : undefined}
+            onClick={() => navigate({ tab: 'riddles' })}
+          />
+          <Stat text value={durationLabel(free.refreshMinutes)} label="גמד מתעורר אחרי" onClick={() => navigate({ tab: 'settings' })} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Stat
+            big
+            icon={Luggage}
+            value={report.freshSuitcases}
+            label="מזוודות חדשות לקבוצה"
+            tone={report.freshSuitcases < 2 ? 'warning' : undefined}
+            onClick={() => navigate({ tab: 'phrases' })}
+          />
+          <Stat value={`${playable}/${activePhrases}`} label="משפטים מוכנים" onClick={() => navigate({ tab: 'phrases' })} />
+          <Stat value={`${activeGnomes}/${config.gnomes.length}`} label="גמדים פעילים" onClick={() => navigate({ tab: 'gnomes' })} />
+          <Stat value={published} label="חידות במשחק" onClick={() => navigate({ tab: 'riddles' })} />
+        </div>
+      )}
 
       {/* Field alerts — things the venue team should go and look at */}
       <Card className="p-6">
@@ -284,6 +325,14 @@ export default function OverviewScreen({
   );
 }
 
+const FREE_STEPS: { tab: AdminTab; title: string; text: string }[] = [
+  { tab: 'spots', title: 'מקומות', text: 'איפה במתחם יעמדו הגמדים, עם רמזים שיובילו אליהם.' },
+  { tab: 'gnomes', title: 'גמדים', text: 'כמה גמדים בכל מקום, ובאילו צבעים.' },
+  { tab: 'riddles', title: 'חידות', text: `${FEW_RIDDLES_PER_GNOME} חידות לפחות לכל גמד, על משהו שרואים ממנו.` },
+  { tab: 'settings', title: 'הגדרות המשחק החופשי', text: 'אחרי כמה זמן גמד מתעורר, וכמה ניסיונות יש לכל חידה.' },
+  { tab: 'overview', title: 'פרסום', text: 'בדקו מוכנות ופרסמו — וקבוצות יכולות לשחק.' },
+];
+
 const STEPS: { tab: AdminTab; title: string; text: string }[] = [
   { tab: 'spots', title: 'מקומות', text: 'איפה במתחם יעמדו הגמדים, עם רמזים שיובילו אליהם.' },
   { tab: 'gnomes', title: 'גמדים', text: 'כמה גמדים בכל מקום, ובאילו צבעים.' },
@@ -295,13 +344,24 @@ const STEPS: { tab: AdminTab; title: string; text: string }[] = [
 /** Leads a brand-new operator through the order that works. Hidden once everything is done. */
 function GettingStarted({ state, report, navigate }: Pick<ScreenProps, 'state' | 'report' | 'navigate'>) {
   const { config, riddles } = state;
-  const done = [
-    config.spots.length > 0,
-    config.gnomes.length > 0,
-    riddles.some((r) => r.status === 'published'),
-    config.phrases.some((p) => p.isActive && report.phrases[p.id]?.playable),
-    config.status === 'published',
-  ];
+  const free = isFreeMode(config) ? report.free : undefined;
+  const steps = free ? FREE_STEPS : STEPS;
+  const done = free
+    ? [
+        config.spots.length > 0,
+        config.gnomes.length > 0,
+        free.gnomesOn > 0 && free.minRiddles >= FEW_RIDDLES_PER_GNOME,
+        // The free settings have defaults that work; the step is done once the operator set any.
+        !!config.free && Object.keys(config.free).length > 0,
+        config.status === 'published',
+      ]
+    : [
+        config.spots.length > 0,
+        config.gnomes.length > 0,
+        riddles.some((r) => r.status === 'published'),
+        config.phrases.some((p) => p.isActive && report.phrases[p.id]?.playable),
+        config.status === 'published',
+      ];
   // Once only "publish" is left, the status card above already says it — no need to repeat.
   if (done.slice(0, 4).every(Boolean)) return null;
   const nextIdx = done.findIndex((d) => !d);
@@ -312,7 +372,7 @@ function GettingStarted({ state, report, navigate }: Pick<ScreenProps, 'state' |
       <h2 className="text-lg font-semibold">{fresh ? 'בואו נבנה את ההרפתקה' : 'ממשיכים לבנות'}</h2>
       <p className="text-text-secondary">{fresh ? 'חמישה צעדים, בסדר הזה. אפשר לחזור ולשנות כל דבר בהמשך.' : 'זה מה שנשאר עד שקבוצות יוכלו לשחק.'}</p>
       <ol className="mt-4 space-y-2">
-        {STEPS.map((st, i) => (
+        {steps.map((st, i) => (
           <li key={st.title}>
             <button
               type="button"
@@ -407,6 +467,7 @@ function Stat({
   icon: Icon,
   big,
   tone,
+  text,
 }: {
   value: number | string;
   label: string;
@@ -414,6 +475,8 @@ function Stat({
   icon?: typeof Luggage;
   big?: boolean;
   tone?: 'warning';
+  /** A Hebrew value ("3 שעות"): right-to-left and a smaller size. */
+  text?: boolean;
 }) {
   return (
     <button
@@ -427,7 +490,9 @@ function Stat({
     >
       <div className="flex items-center gap-2">
         {Icon && <Icon size={20} className={tone === 'warning' ? 'text-warning' : 'text-accent'} aria-hidden />}
-        <span className="text-3xl font-bold tabular-nums" dir="ltr">{value}</span>
+        {text
+          ? <span className="text-xl font-bold leading-9">{value}</span>
+          : <span className="text-3xl font-bold tabular-nums" dir="ltr">{value}</span>}
       </div>
       <div className="mt-1 text-sm text-text-secondary">{label}</div>
     </button>

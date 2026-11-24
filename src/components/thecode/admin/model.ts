@@ -75,6 +75,26 @@ export interface AdventureReport {
   phrases: Record<string, PhraseCoverage>;
   /** Per letter used by playable phrases: how often phrases need it vs usable riddles for it. */
   letterStock: { letter: string; demand: number; supply: number }[];
+  /** Free mode only: what the overview shows instead of suitcases and phrases. */
+  free?: FreeReadiness;
+}
+
+export interface FreeReadiness {
+  /** Switched-on gnomes (gnome and spot on). */
+  gnomesOn: number;
+  /** …of them with at least one riddle in the game. */
+  gnomesReady: number;
+  /** Fewest playable riddles on a switched-on gnome (0 when there is none). */
+  minRiddles: number;
+  /** Playable riddles over all switched-on gnomes. */
+  riddlesInGame: number;
+  /** Minutes a gnome sleeps for a group. */
+  refreshMinutes: number;
+  /** After the last riddle the gnome starts over (true) or stays done. */
+  wrapRiddles: boolean;
+  /** A group that comes back every time a gnome wakes meets a repeat after this many minutes
+   *  (riddles of the poorest gnome × sleep). null = no gnome has a riddle. */
+  repeatAfterMinutes: number | null;
 }
 
 export interface NewGnomeSpec {
@@ -113,6 +133,8 @@ export interface AdminActions {
   /** Changing answerWord re-derives `letter` — the letter is never typed. */
   updateRiddle(id: string, patch: Partial<Omit<TheCodeRiddle, 'id' | 'gnomeId' | 'letter'>>): void;
   deleteRiddle(id: string): void;
+  /** Free mode: one place earlier / later among the riddles of the same gnome (the asking order). */
+  moveRiddle(id: string, dir: 'up' | 'down'): void;
 
   addPhrase(text: string): string;
   updatePhrase(id: string, patch: Partial<Omit<TheCodePhrase, 'id'>>): void;

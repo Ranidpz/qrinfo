@@ -9,6 +9,7 @@ import type { TheCodeIssue } from '@/types/thecode';
 import type { AdminActions, AdminLinks, AdminRefresh, AdminState, AdventureReport, ImageUploader, PhraseCoverage, VideoUploader, ScreenProps } from './model';
 import { fixLabel, targetForIssue, type AdminTab, type AdminTarget } from './nav';
 import { IconButton, cx } from './ui';
+import { isFreeMode } from './helpers';
 import OverviewScreen from './OverviewScreen';
 import SpotsScreen from './SpotsScreen';
 import GnomesScreen from './GnomesScreen';
@@ -92,7 +93,11 @@ export default function AdminShell({
   };
 
   const props: ScreenProps = { state, report, actions, navigate, target, coverageOf, now, uploadImage, uploadVideo, links, refresh };
-  const tab = target.tab;
+  // The free game has no secret phrases: their tab is hidden (the phrases stay in the data, so
+  // switching back to the guided game loses nothing) and a link to it lands on the overview.
+  const free = isFreeMode(state.config);
+  const tabs = free ? TABS.filter((t) => t.id !== 'phrases') : TABS;
+  const tab = free && target.tab === 'phrases' ? 'overview' : target.tab;
 
   return (
     <div dir="rtl" lang="he" className="min-h-dvh bg-bg-primary text-text-primary" style={{ fontFamily: 'var(--font-assistant), system-ui, sans-serif' }}>
@@ -118,7 +123,7 @@ export default function AdminShell({
         </div>
         {/* Phone / tablet: one scrollable row of tabs */}
         <nav aria-label="ניווט" className="flex gap-1 overflow-x-auto px-2 pb-2 [scrollbar-width:none] lg:hidden">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <TabButton key={t.id} tab={t} active={tab === t.id} errors={t.id === 'overview' ? report.errors : 0} onClick={() => navigate({ tab: t.id })} compact />
           ))}
         </nav>
@@ -126,7 +131,7 @@ export default function AdminShell({
 
       <div className="flex">
         <nav aria-label="ניווט" className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-56 shrink-0 flex-col gap-1 border-e border-border bg-bg-secondary p-3 lg:flex print:hidden">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <TabButton key={t.id} tab={t} active={tab === t.id} errors={t.id === 'overview' ? report.errors : 0} onClick={() => navigate({ tab: t.id })} />
           ))}
         </nav>

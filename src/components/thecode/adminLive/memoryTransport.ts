@@ -6,6 +6,7 @@
 import { THECODE_RESET_WORD, type TheCodeAdminLoadResponse, type TheCodeAdminSaveResponse } from '@/types/thecode-api';
 import type { TheCodeConfig, TheCodeRiddle } from '@/types/thecode';
 import { validateAdventure, canPublish } from '@/lib/thecode/engine';
+import { FREE_IGNORED_ISSUES } from '@/lib/thecode/engineFree';
 import { letterOfAnswer } from '@/lib/thecode/letters';
 import { resolveSelfie } from '@/lib/thecode/selfie';
 import { newGnomeCode, newManualCode, zeroPlayer } from '@/components/thecode/admin/reducer';
@@ -27,7 +28,10 @@ function normalize(config: TheCodeConfig, riddles: TheCodeRiddle[]) {
   c.title = c.title.trim();
   c.spots = c.spots.map((s) => ({ ...s, name: s.name.trim(), hints: s.hints.map((h) => h.trim()).filter(Boolean), safetyNote: trim(s.safetyNote) || undefined, outdoor: s.outdoor === true ? true : undefined }));
   c.phrases = c.phrases.map((p) => ({ ...p, text: p.text.trim() }));
-  c.gnomes = c.gnomes.map((g) => ({ ...g, code: g.code || newGnomeCode(), manualCode: g.manualCode || newManualCode() }));
+  c.gnomes = c.gnomes.map((g) => {
+    const hints = (g.hints || []).map((h) => h.trim()).filter(Boolean).slice(0, 3);
+    return { ...g, code: g.code || newGnomeCode(), manualCode: g.manualCode || newManualCode(), hints: hints.length ? hints : undefined };
+  });
   // Like the server: drop empty fields, one line of ≤140 chars, no branding when nothing is left.
   // (URLs are not forced to https here — the fake upload returns blob: URLs.)
   if (c.branding) {
@@ -88,7 +92,7 @@ export function createMemoryTransport(initial: TheCodeAdminLoadResponse): { tran
       }
       if (req.baseVersion !== db.version) return { ok: false, error: 'conflict', version: db.version } satisfies TheCodeAdminSaveResponse;
       const n = normalize(req.config, req.riddles);
-      const issues = validateAdventure(n.config, n.riddles);
+      const issues = validateAdventure(n.config, n.riddles).filter((i) => n.config.mode !== 'free' || !FREE_IGNORED_ISSUES.has(i.code));
       if (n.config.status === 'published' && !canPublish(issues)) return { ok: false, error: 'invalid', issues };
       db = { ...db, version: db.version + 1, config: n.config, riddles: n.riddles };
       return { ok: true, version: db.version, config: clone(n.config), riddles: clone(n.riddles), issues };

@@ -142,6 +142,20 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
         }),
       })),
     deleteRiddle: (id) => set((s) => ({ ...s, riddles: s.riddles.filter((r) => r.id !== id) })),
+    // Swaps the riddle with its neighbour OF THE SAME GNOME (the free game asks them in this order).
+    moveRiddle: (id, dir) =>
+      set((s) => {
+        const at = s.riddles.findIndex((r) => r.id === id);
+        if (at < 0) return s;
+        const gnomeId = s.riddles[at].gnomeId;
+        const step = dir === 'up' ? -1 : 1;
+        let j = at + step;
+        while (j >= 0 && j < s.riddles.length && s.riddles[j].gnomeId !== gnomeId) j += step;
+        if (j < 0 || j >= s.riddles.length) return s;
+        const riddles = s.riddles.slice();
+        [riddles[at], riddles[j]] = [riddles[j], riddles[at]];
+        return { ...s, riddles };
+      }),
 
     addPhrase: (text) => {
       const id = newEntityId('p');
@@ -176,5 +190,5 @@ export function createAdminActions(set: AdminSetter, opts: ReducerOptions): Admi
 
 /** What a new round leaves of a group on the admin's list (the server does the same). */
 export function zeroPlayer(p: AdminPlayer): AdminPlayer {
-  return { ...p, points: 0, weekPoints: 0, suitcases: 0, weekSuitcases: 0 };
+  return { ...p, points: 0, weekPoints: 0, suitcases: 0, weekSuitcases: 0, ...(p.solved !== undefined ? { solved: 0 } : {}) };
 }

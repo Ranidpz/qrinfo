@@ -400,3 +400,80 @@ export function planBankFill(
 
   return { add, unfilled };
 }
+
+// ---------------------------------------------------------------- one-click fill, free game
+
+export interface FreeBankFillPlan {
+  /** In the order to add them: each gnome's new riddles in asking order. */
+  add: BankFillItem[];
+  /** Gnomes the bank could not bring up to the target (it ran out). */
+  short: { gnomeId: string; missing: number }[];
+}
+
+/**
+ * Free game (Rani 24.11.2026): tops every switched-on gnome up to `target` playable riddles from
+ * the bank. Nothing existing is changed. Answers stay unique in the adventure (as above), the
+ * place fits first, then the easiest, and two riddles in a row of one gnome start with different
+ * letters (a group should not answer ב׳ twice running). Gnomes take turns, so the best-fitting
+ * riddles are shared instead of all going to the lowest number. The caller adds them as
+ * `published`, in this order — the order the free game asks them.
+ */
+export function planFreeBankFill(
+  config: Pick<TheCodeConfig, 'spots' | 'gnomes'>,
+  riddles: TheCodeRiddle[],
+  target: number
+): FreeBankFillPlan {
+  const spots = new Map((config.spots || []).map((s) => [s.id, s] as const));
+  const gnomes = (config.gnomes || [])
+    .filter((g) => g.isActive && spots.get(g.spotId)?.isActive)
+    .sort((a, b2) => a.number - b2.number);
+  const placeOf = new Map(gnomes.map((g) => [g.id, placeOfSpotName(spots.get(g.spotId)?.name || '')] as const));
+  const have = new Map<string, number>(gnomes.map((g) => [g.id, 0] as const));
+  const lastLetter = new Map<string, string>();
+  for (const r of riddles || []) {
+    const letter = letterOfAnswer(r.answerWord || '');
+    if (!have.has(r.gnomeId) || r.status !== 'published' || !letter) continue;
+    have.set(r.gnomeId, (have.get(r.gnomeId) || 0) + 1);
+    lastLetter.set(r.gnomeId, letter);
+  }
+
+  const used = usedBy(riddles || []);
+  const perGnome = new Map<string, BankFillItem[]>(gnomes.map((g) => [g.id, []] as const));
+  const pickFor = (gnomeId: string): BankRiddle | null => {
+    const place = placeOf.get(gnomeId) || 'any';
+    const after = lastLetter.get(gnomeId);
+    const pick = RIDDLE_BANK
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => !used.texts.has(norm(r.text)) && !used.answers.has(norm(r.answerWord)))
+      .sort((a, b2) =>
+        Number(bankLetter(a.r) === after) - Number(bankLetter(b2.r) === after) ||
+        placeRank(a.r, place) - placeRank(b2.r, place) ||
+        a.r.difficulty - b2.r.difficulty ||
+        a.i - b2.i)[0]?.r;
+    if (!pick) return null;
+    used.texts.add(norm(pick.text));
+    used.answers.add(norm(pick.answerWord));
+    return pick;
+  };
+
+  let progress = true;
+  while (progress) {
+    progress = false;
+    for (const g of gnomes) {
+      if ((have.get(g.id) || 0) >= target) continue;
+      const bank = pickFor(g.id);
+      if (!bank) continue;
+      const letter = bankLetter(bank);
+      perGnome.get(g.id)!.push({ gnomeId: g.id, bank, letter });
+      have.set(g.id, (have.get(g.id) || 0) + 1);
+      lastLetter.set(g.id, letter);
+      progress = true;
+    }
+  }
+
+  const add = gnomes.flatMap((g) => perGnome.get(g.id) || []);
+  const short = gnomes
+    .filter((g) => (have.get(g.id) || 0) < target)
+    .map((g) => ({ gnomeId: g.id, missing: target - (have.get(g.id) || 0) }));
+  return { add, short };
+}

@@ -43,7 +43,8 @@ export function targetForIssue(issue: TheCodeIssue): AdminTarget {
     case 'GNOME_NOT_VERIFIED':
       return { tab: 'setup', gnomeId: issue.gnomeId };
     case 'FEW_FRESH_ROUNDS':
-      return { tab: 'phrases' };
+      // Free mode names the gnome that is short of riddles; the guided one is about letters.
+      return issue.gnomeId ? { tab: 'riddles', gnomeId: issue.gnomeId } : { tab: 'phrases' };
     case 'GNOMES_CLUSTERED':
       return { tab: 'gnomes', spotId: issue.spotId };
     case 'GNOME_COLOR_UNAVAILABLE':
@@ -71,7 +72,7 @@ export function fixLabel(issue: TheCodeIssue): string {
     case 'GNOME_NOT_VERIFIED':
       return 'למצב התקנה';
     case 'FEW_FRESH_ROUNDS':
-      return 'לאותיות';
+      return issue.gnomeId ? 'הוסיפו חידות' : 'לאותיות';
     case 'GNOMES_CLUSTERED':
       return 'לגמדים';
     case 'GNOME_COLOR_UNAVAILABLE':

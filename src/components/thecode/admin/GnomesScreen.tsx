@@ -5,7 +5,8 @@ import { BadgeCheck, CircleAlert, CircleHelp, Plus, Printer, Sparkles, Trash2, T
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome } from '@/types/thecode';
 import type { NewGnomeSpec, ScreenProps } from './model';
-import { SILENT_AFTER_DAYS, comboKey, confusableColors, isProbablyMissing, suggestCombos, timeAgo } from './helpers';
+import { SILENT_AFTER_DAYS, comboKey, confusableColors, isFreeMode, isProbablyMissing, suggestCombos, timeAgo } from './helpers';
+import { FEW_RIDDLES_PER_GNOME, MAX_GNOME_HINTS } from '@/lib/thecode/engineFree';
 import { Button, ColorPicker, Dialog, EmptyState, Field, OutdoorPill, Pill, ScreenHeader, Segmented, Tip, Toggle, cx } from './ui';
 
 /** Plain-words explanations of every status label (Rani: "למה כתוב לי 'כנראה נעלם'?"). */
@@ -17,6 +18,8 @@ export const TIPS = {
   missing: `אומת, אבל אף אחד לא סרק אותו כבר ${SILENT_AFTER_DAYS} ימים. כדאי לבדוק שהוא עדיין במקום.`,
   toggle: 'כבוי = המשחק מדלג על הגמד הזה.',
   noRiddle: 'לגמד אין חידה במשחק, ולכן קבוצות לא יישלחו אליו.',
+  noRiddleFree: 'לגמד אין חידה, ולכן קבוצות יראו אותו כגמד שסיים. הוסיפו לו חידות.',
+  fewRiddlesFree: `לגמד יש פחות מ־${FEW_RIDDLES_PER_GNOME} חידות. קבוצה שחוזרת אליו תקבל שוב חידה שכבר ענתה עליה.`,
 };
 import { allowedGnomeColors } from '@/lib/thecode/engine';
 
@@ -32,6 +35,9 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
   const [dragId, setDragId] = useState<string | null>(null);
   const [overSpot, setOverSpot] = useState<string | null>(null);
   const [created, setCreated] = useState<number[] | null>(null);
+  // The free game has no colour hunt: a look-alike pair is never flagged (scanning either one
+  // simply plays that gnome). The report already drops those checks in free mode.
+  const free = isFreeMode(config);
 
   useEffect(() => {
     // A gnome target opens its editor; a spot-only target opens "produce gnomes" for that spot.
@@ -58,7 +64,7 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
    * whoever runs the venue months later has to see it without opening anything.
    */
   const flagOf = (g: TheCodeGnome): GnomeFlag | null => {
-    if (!g.isActive) return null;
+    if (!g.isActive || free) return null;
     const others = config.gnomes.filter((o) => o.spotId === g.spotId && o.id !== g.id && o.isActive);
     const twin = others.find((o) => comboKey(o) === comboKey(g));
     if (twin) return {
@@ -89,7 +95,7 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
   const editing = config.gnomes.find((g) => g.id === editingId) || null;
   const orphans = config.gnomes.filter((g) => !config.spots.some((s) => s.id === g.spotId));
   const groups = [
-    ...config.spots.map((s) => ({ id: s.id, name: s.name, active: s.isActive, outdoor: !!s.outdoor, noHint: !s.hints.some((h) => h.trim()), gnomes: config.gnomes.filter((g) => g.spotId === s.id) })),
+    ...config.spots.map((s) => ({ id: s.id, name: s.name, active: s.isActive, outdoor: !!s.outdoor, noHint: !s.hints.some((h) => h.trim()) && !(free && gnomesCarryHints(config.gnomes.filter((g) => g.spotId === s.id))), gnomes: config.gnomes.filter((g) => g.spotId === s.id) })),
     ...(orphans.length ? [{ id: '', name: 'בלי מקום', active: true, outdoor: false, noHint: false, gnomes: orphans }] : []),
   ];
   const attentionCount = config.gnomes.filter(needsAttention).length;
@@ -148,6 +154,7 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
           gnomeStats={gnomeStats}
           missingOf={(g) => isProbablyMissing(g, gnomeStats[g.id], config.status, now)}
           flagOf={flagOf}
+          free={free}
           now={now}
           onOpen={setEditingId}
           onToggle={(id, v) => actions.updateGnome(id, { isActive: v })}
@@ -207,6 +214,7 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
                         stats={gnomeStats[g.id]}
                         missing={isProbablyMissing(g, gnomeStats[g.id], config.status, now)}
                         flagged={flagOf(g)}
+                        free={free}
                         now={now}
                         dragging={dragId === g.id}
                         drag={dragProps(g)}
@@ -228,6 +236,7 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
           spots={config.spots}
           neighbours={config.gnomes.filter((g) => g.spotId === editing.spotId && g.id !== editing.id && g.isActive)}
           riddles={riddleCount(editing.id)}
+          free={free}
           onClose={() => setEditingId(null)}
           onChange={(patch) => actions.updateGnome(editing.id, patch)}
           onDelete={() => {
@@ -258,7 +267,7 @@ export default function GnomesScreen({ state, report, actions, navigate, target,
 
 /** All the gnomes in one grid, ordered by their number (Rani 14.11.2026). Each card says where it stands. */
 function NumbersView({
-  gnomes, spotNameOf, riddleCount, gnomeStats, missingOf, flagOf, now, onOpen, onToggle,
+  gnomes, spotNameOf, riddleCount, gnomeStats, missingOf, flagOf, free, now, onOpen, onToggle,
 }: {
   gnomes: TheCodeGnome[];
   spotNameOf: (spotId: string) => string;
@@ -266,6 +275,7 @@ function NumbersView({
   gnomeStats: Record<string, { scans: number; lastScanAt?: number } | undefined>;
   missingOf: (g: TheCodeGnome) => boolean;
   flagOf: (g: TheCodeGnome) => GnomeFlag | null;
+  free: boolean;
   now: number;
   onOpen: (id: string) => void;
   onToggle: (id: string, v: boolean) => void;
@@ -281,6 +291,7 @@ function NumbersView({
           stats={gnomeStats[g.id]}
           missing={missingOf(g)}
           flagged={flagOf(g)}
+          free={free}
           now={now}
           spotName={spotNameOf(g.spotId)}
           onOpen={() => onOpen(g.id)}
@@ -312,6 +323,7 @@ function GnomeCard({
   stats,
   missing,
   flagged,
+  free,
   now,
   spotName,
   dragging,
@@ -324,6 +336,7 @@ function GnomeCard({
   stats?: { scans: number; lastScanAt?: number };
   missing: boolean;
   flagged: GnomeFlag | null;
+  free?: boolean;
   now: number;
   /** Shown only in the by-number view, where the places are not the headings. */
   spotName?: string;
@@ -390,8 +403,13 @@ function GnomeCard({
             </Tip>
           )}
           {g.isActive && riddles === 0 && (
-            <Tip text={TIPS.noRiddle}>
+            <Tip text={free ? TIPS.noRiddleFree : TIPS.noRiddle}>
               <Pill tone="warning">בלי חידה</Pill>
+            </Tip>
+          )}
+          {free && g.isActive && riddles > 0 && riddles < FEW_RIDDLES_PER_GNOME && (
+            <Tip text={TIPS.fewRiddlesFree}>
+              <Pill tone="warning">{riddles === 1 ? 'חידה אחת' : `${riddles} חידות`}</Pill>
             </Tip>
           )}
         </div>
@@ -405,11 +423,54 @@ function GnomeCard({
   );
 }
 
+/** Free mode: the gnome carries its own location hints when its spot's hints say the hints are enough. */
+function gnomesCarryHints(gnomes: TheCodeGnome[]): boolean {
+  const on = gnomes.filter((g) => g.isActive);
+  return on.length > 0 && on.every((g) => (g.hints || []).some((h) => h.trim()));
+}
+
+/**
+ * Free mode (Rani 24.11.2026): location hints for THIS gnome. A group buys the spot's hints first
+ * (general), then these (exact) — "behind the big pot, next to the bench".
+ */
+function GnomeHintsField({ gnome, spotHints, onChange }: { gnome: TheCodeGnome; spotHints: number; onChange: (hints: string[] | undefined) => void }) {
+  const hints = gnome.hints || [];
+  const rows = hints.length < MAX_GNOME_HINTS ? [...hints, ''] : hints;
+  const set = (i: number, v: string) => {
+    const next = rows.slice();
+    next[i] = v;
+    // Keep what is typed (spaces too) while editing; an emptied row goes. The server trims.
+    const kept = next.filter((h) => h !== '');
+    onChange(kept.length ? kept.slice(0, MAX_GNOME_HINTS) : undefined);
+  };
+  return (
+    <Field
+      label="רמזי מיקום לגמד"
+      hint={`קבוצה קונה אותם אחרי ${spotHints === 0 ? 'הרמזים של המקום (למקום עוד אין רמז)' : spotHints === 1 ? 'הרמז של המקום' : `${spotHints} הרמזים של המקום`}. מהכללי אל המדויק, עד ${MAX_GNOME_HINTS}.`}
+    >
+      <div className="space-y-2">
+        {rows.map((h, i) => (
+          <input
+            key={i}
+            className="input"
+            maxLength={160}
+            value={h}
+            aria-label={`רמז מיקום ${i + 1}`}
+            placeholder={i === 0 ? 'למשל: מאחורי העציץ הגדול, ליד הספסל' : 'רמז מדויק יותר'}
+            onChange={(e) => set(i, e.target.value)}
+          />
+        ))}
+      </div>
+    </Field>
+  );
+}
+
 function GnomeEditor({
   gnome: g,
   spots,
   neighbours,
   riddles,
+  free,
   onClose,
   onChange,
   onDelete,
@@ -419,6 +480,7 @@ function GnomeEditor({
   spots: ScreenProps['state']['config']['spots'];
   neighbours: TheCodeGnome[];
   riddles: number;
+  free: boolean;
   onClose: () => void;
   onChange: (patch: Partial<TheCodeGnome>) => void;
   onDelete: () => void;
@@ -427,8 +489,8 @@ function GnomeEditor({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const mySpot = spots.find((s) => s.id === g.spotId);
   const allowed = allowedGnomeColors(mySpot);
-  const twin = neighbours.find((n) => comboKey(n) === comboKey(g));
-  const alike = neighbours.find((n) => confusableColors(n, g));
+  const twin = free ? undefined : neighbours.find((n) => comboKey(n) === comboKey(g));
+  const alike = free ? undefined : neighbours.find((n) => confusableColors(n, g));
 
   return (
     <Dialog
@@ -441,7 +503,9 @@ function GnomeEditor({
             <>
               <span className="me-auto text-sm text-danger">
                 {riddles > 0
-                  ? `למחוק את הגמד ואת ${riddles === 1 ? 'החידה שלו' : `${riddles} החידות שלו`}? קבוצות שנשלחו אליו יקבלו את האות מגמד אחר, והלוחית שלו תפסיק לעבוד.`
+                  ? free
+                    ? `למחוק את הגמד ואת ${riddles === 1 ? 'החידה שלו' : `${riddles} החידות שלו`}? הוא יורד מהלוח של הקבוצות, והלוחית שלו תפסיק לעבוד.`
+                    : `למחוק את הגמד ואת ${riddles === 1 ? 'החידה שלו' : `${riddles} החידות שלו`}? קבוצות שנשלחו אליו יקבלו את האות מגמד אחר, והלוחית שלו תפסיק לעבוד.`
                   : 'למחוק את הגמד? הלוחית שלו תפסיק לעבוד.'}
               </span>
               <Button variant="ghost" onClick={() => setConfirmDelete(false)}>ביטול</Button>
@@ -493,11 +557,15 @@ function GnomeEditor({
           </select>
         </Field>
 
+        {free && <GnomeHintsField gnome={g} spotHints={(mySpot?.hints || []).filter((h) => h.trim()).length} onChange={(hints) => onChange({ hints })} />}
+
         <div className="divide-y divide-border rounded-xl border border-border px-4">
           <div className="flex items-center justify-between gap-4 py-3">
             <div>
               <div className="font-medium">פעיל</div>
-              <div className="text-sm text-text-secondary">כבוי = שבור או חסר. קבוצות באמצע משחק יקבלו את האות ממקום אחר.</div>
+              <div className="text-sm text-text-secondary">
+                {free ? 'כבוי = שבור או חסר. הגמד יורד מהלוח של הקבוצות עד שתפעילו אותו שוב.' : 'כבוי = שבור או חסר. קבוצות באמצע משחק יקבלו את האות ממקום אחר.'}
+              </div>
             </div>
             <Toggle checked={g.isActive} onChange={(v) => onChange({ isActive: v })} label="פעיל" />
           </div>
@@ -513,9 +581,17 @@ function GnomeEditor({
               <CircleHelp size={18} className="text-text-secondary" aria-hidden />
               חידות
             </span>
-            <span className={cx('text-sm', riddles ? 'text-text-secondary' : 'text-amber-600 dark:text-amber-400')}>
-              {riddles === 0 ? 'אין חידה במשחק — הוסיפו' : riddles === 1 ? 'חידה אחת' : `${riddles} חידות`}
-            </span>
+            {free ? (
+              <span className={cx('text-sm', riddles >= FEW_RIDDLES_PER_GNOME ? 'text-text-secondary' : 'text-amber-600 dark:text-amber-400')}>
+                {riddles === 0
+                  ? 'אין חידה — הוסיפו'
+                  : `${riddles === 1 ? 'חידה אחת' : `${riddles} חידות`}${riddles < FEW_RIDDLES_PER_GNOME ? ` · כדאי לפחות ${FEW_RIDDLES_PER_GNOME}` : ''}`}
+              </span>
+            ) : (
+              <span className={cx('text-sm', riddles ? 'text-text-secondary' : 'text-amber-600 dark:text-amber-400')}>
+                {riddles === 0 ? 'אין חידה במשחק — הוסיפו' : riddles === 1 ? 'חידה אחת' : `${riddles} חידות`}
+              </span>
+            )}
           </button>
         </div>
       </div>

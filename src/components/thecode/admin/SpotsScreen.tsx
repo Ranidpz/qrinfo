@@ -87,6 +87,7 @@ export default function SpotsScreen({ state, actions, navigate, target, uploadIm
               onAddGnomes={() => navigate({ tab: 'gnomes', spotId: selected.id })}
               focusHint={!!target.hint && target.spotId === selected.id}
               uploadImage={uploadImage}
+              free={state.config.mode === 'free'}
             />
           ) : (
             <div className="hidden items-center justify-center rounded-xl border border-dashed border-border p-12 text-text-secondary lg:flex">
@@ -109,8 +110,11 @@ function SpotEditor({
   onAddGnomes,
   uploadImage,
   focusHint,
+  free,
 }: {
   focusHint?: boolean;
+  /** Free game: hints are bought (spot first, then the gnome's own). */
+  free?: boolean;
   spot: TheCodeSpot;
   gnomes: ScreenProps['state']['config']['gnomes'];
   onBack: () => void;
@@ -167,7 +171,9 @@ function SpotEditor({
         <div className="mt-5 flex flex-wrap items-start gap-3 rounded-xl bg-warning/10 px-4 py-3 text-sm">
           <TriangleAlert size={16} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden />
           <span className="min-w-0 flex-1 text-amber-800 dark:text-amber-300">
-            בלי רמז הקבוצות רואות רק את שם המקום. הוסיפו רמז אחד לפחות, מהכללי אל המדויק.
+            {free
+              ? 'בלי רמז, קבוצה שלא מוצאת את הגמדים כאן לא תוכל לקנות רמז. הוסיפו רמז למקום, או לכל גמד בכרטיס שלו.'
+              : 'בלי רמז הקבוצות רואות רק את שם המקום. הוסיפו רמז אחד לפחות, מהכללי אל המדויק.'}
           </span>
           <Button size="sm" variant="primary" icon={Plus} onClick={() => focusHintAt(0)}>הוסיפו רמז</Button>
         </div>
@@ -197,7 +203,11 @@ function SpotEditor({
       <div className="mt-6 space-y-4">
         <div>
           <h3 className="font-semibold">רמזים לקבוצות</h3>
-          <p className="text-sm text-text-secondary">קבוצה מקבלת קודם את רמז האזור, ואם צריך — רמז קרוב יותר ואז מדויק.</p>
+          <p className="text-sm text-text-secondary">
+            {free
+              ? 'קבוצה קונה בנקודות קודם את רמז האזור, ואם צריך — רמז קרוב יותר ואז מדויק. אחריהם היא יכולה לקנות את הרמזים שכתבתם לגמד עצמו.'
+              : 'קבוצה מקבלת קודם את רמז האזור, ואם צריך — רמז קרוב יותר ואז מדויק.'}
+          </p>
         </div>
         {HINT_LEVELS.map((h, i) => (
           <Field key={i} label={h.label}>

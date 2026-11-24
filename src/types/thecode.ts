@@ -48,6 +48,9 @@ export interface TheCodeGnome {
   hatColor: TheCodeColor;
   isActive: boolean;            // Off = missing/broken; engine swaps or gifts its letter
   verifiedOnSite?: boolean;     // Operator scanned it in place during setup
+  /** Free mode: location hints for THIS gnome, sold after the spot's hints (0–3, general → exact).
+   *  Admin-only like the rest of the adventure; the guided game ignores them. */
+  hints?: string[];
 }
 
 // -----------------------------------------------------------------
@@ -490,5 +493,7 @@ export interface TheCodeAdminPlayer {
   weekPoints: number;
   suitcases: number;
   weekSuitcases: number;
+  /** Free mode: riddles this group solved (repeats after a wrap count again). */
+  solved?: number;
   lastSeenAt: number;
 }

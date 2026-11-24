@@ -249,6 +249,8 @@ export function normalizeAdventure(
         isActive: bool(v.isActive, true),
       };
       if (typeof v.verifiedOnSite === 'boolean') g.verifiedOnSite = v.verifiedOnSite;
+      const gh = hintList(v.hints);
+      if (gh.length) g.hints = gh;
       return g;
     });
     ids(gnomes, 'gnomes');
