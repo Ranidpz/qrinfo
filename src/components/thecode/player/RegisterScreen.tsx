@@ -81,7 +81,7 @@ export default function RegisterScreen(p: Props) {
         <div style={panel ?? undefined}><CodeTitle small={!logo} smaller={!!logo} look={look.text} /></div>
         <div className="tc-a-rise text-center">
           <h2 className="tc-display text-3xl">כבר שיחקתם אצלנו?</h2>
-          <p className="mt-2 text-lg" style={{ color: 'var(--tc-soft)' }}>הקלידו את קוד השחזור של הקבוצה, והנקודות והמזוודות יחזרו אליכם.</p>
+          <p className="mt-2 text-lg" style={{ color: 'var(--tc-soft)' }}>הקלידו את קוד השחזור שלכם, והנקודות והמזוודות יחזרו אליכם.</p>
         </div>
         <label className="block">
           <span className="sr-only">קוד שחזור</span>
@@ -100,10 +100,10 @@ export default function RegisterScreen(p: Props) {
         {pop}
         <button type="button" className="tc-btn tc-btn-primary w-full" style={look.button} disabled={code.replace(/[^A-Z0-9]/g, '').length < 4}
           onClick={() => { sfx('tap'); setAttempt((a) => a + 1); p.onRecover(code); }}>
-          שחזרו את הקבוצה
+          חזרה למשחק שלכם
         </button>
         <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => p.onMode('new')}>
-          אנחנו קבוצה חדשה
+          אנחנו חדשים כאן
         </button>
         <PoweredBy />
       </ScreenBody>
@@ -136,7 +136,7 @@ export default function RegisterScreen(p: Props) {
         <div className="tc-a-rise tc-delay-1">
           <CodeTitle small={!!p.firstGnome && !logo} smaller={!!logo} look={look.text} />
           <p className="mt-3 whitespace-pre-line text-center text-lg" style={look.text ?? { color: branded ? 'var(--tc-cream)' : 'var(--tc-soft)', textShadow: branded && !look.chromeDark ? '0 1px 8px rgba(0,0,0,.6)' : undefined }}>
-            {p.addingProfile ? 'עוד קבוצה משחקת מהטלפון הזה? בחרו לה כינוי.' : (p.branding?.welcomeText?.trim() || `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`)}
+            {p.addingProfile ? 'עוד מישהו משחק מהטלפון הזה? בחרו לו כינוי.' : (p.branding?.welcomeText?.trim() || `הגמדים של ${p.venueName} שומרים על מזוודות נעולות. מי יפצח את הקוד?`)}
           </p>
         </div>
       </div>

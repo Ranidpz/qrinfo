@@ -95,7 +95,7 @@ function SelfieTip({ onOpen, onDismiss }: { onOpen(): void; onDismiss(): void })
       <span aria-hidden className="absolute -top-[9px] start-6 h-0 w-0 border-x-[10px] border-b-[10px] border-x-transparent" style={{ borderBottomColor: 'var(--tc-brass)' }} />
       <div className="tc-a-bob flex items-start gap-2 rounded-2xl p-3 pe-2" style={{ background: 'var(--tc-brass)', color: '#1B1440', boxShadow: '0 12px 30px rgba(0,0,0,.45)', animationDuration: '2.4s' }}>
         <button type="button" onClick={onOpen} className="flex-1 text-start text-base font-bold leading-snug">
-          <span aria-hidden className="me-1">📸</span>העלו סלפי של הקבוצה, והוא יופיע על המסך הגדול. לחצו כאן
+          <span aria-hidden className="me-1">📸</span>העלו סלפי, והוא יופיע על המסך הגדול. לחצו כאן
         </button>
         <button type="button" onClick={onDismiss} aria-label="סגירת ההודעה" className="-mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg font-black" style={{ background: 'rgba(27,20,64,.12)' }}>✕</button>
       </div>
@@ -109,7 +109,7 @@ function Header({ v, onBoard, onToggleMute, onHome, onHowTo, onGroup, tip }: { v
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
       {tip && <SelfieTip onOpen={tip.onOpen} onDismiss={tip.onDismiss} />}
       {/* the group's symbol opens its sheet: name, symbol, selfie, recovery code (Rani 24.11.2026) */}
-      <button type="button" className="tc-chip w-12 shrink-0 justify-center !px-0" title={g.name} aria-label={`הקבוצה ${g.name}: עריכה וקוד שחזור`}
+      <button type="button" className="tc-chip w-12 shrink-0 justify-center !px-0" title={g.name} aria-label={`${g.name}: הפרופיל שלכם וקוד שחזור`}
         onClick={onGroup} disabled={!onGroup}>
         <Avatar value={g.avatar} size={28} />
       </button>
@@ -425,7 +425,7 @@ export function StartAtScreenScreen({ gnome, screenHint, onScanScreen, onDemoReg
         <ol className="flex flex-col gap-2">
           <li><span aria-hidden className="me-2">📺</span>חפשו את המסך הגדול של הגמדים במקום</li>
           <li><span aria-hidden className="me-2">📷</span>סרקו את הגמד שעל המסך בכפתור למטה</li>
-          <li><span aria-hidden className="me-2">🍄</span>בחרו שם לקבוצה, והופיעו על המסך!</li>
+          <li><span aria-hidden className="me-2">🍄</span>בחרו לכם כינוי, והופיעו על המסך!</li>
         </ol>
       </HintCard>
       {screenHint && <ScreenHint hint={screenHint} />}
@@ -720,7 +720,7 @@ function FinishedScreen({ v, onCall }: { v: FreeGameView; onCall?(): void }) {
   );
 }
 
-const WELCOME = 'הגמדים מסתתרים בכל המקום, וכל אחד מחכה עם חידה. בחרו כינוי לקבוצה ויוצאים לדרך!';
+const WELCOME = 'הגמדים מסתתרים בכל המקום, וכל אחד מחכה עם חידה. בחרו לכם כינוי ויוצאים לדרך!';
 
 function Screen({ v, cb }: { v: FreeGameView; cb: FreeGameCallbacks }) {
   const sc = v.screen;
@@ -866,7 +866,7 @@ export default function FreeGamePlayer({ view: v, callbacks }: { view: FreeGameV
           )}
           {v.call && (
             <MagicianCall key={v.call} url={callUrl}
-              topic={v.call === 'intro' ? 'הקוסם מסביר לקבוצה מה עושים' : 'כל הכבוד! הקוסם מברך את הקבוצה'} onEnd={callbacks.onEndCall} />
+              topic={v.call === 'intro' ? 'הקוסם מסביר לכם מה עושים' : 'כל הכבוד! הקוסם מברך אתכם'} onEnd={callbacks.onEndCall} />
           )}
         </div>
       </div>

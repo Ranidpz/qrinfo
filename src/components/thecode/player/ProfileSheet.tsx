@@ -68,10 +68,10 @@ function EditGroup({ profile, selfieOn, name, setName, value, setValue, shot, er
     <div className="tc-a-rise flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <Avatar value={value} size={56} />
-        <h2 className="tc-display text-2xl">עריכת הקבוצה</h2>
+        <h2 className="tc-display text-2xl">עריכת הפרופיל</h2>
       </div>
       <label className="block">
-        <span className="tc-display mb-2 block text-lg">השם של הקבוצה</span>
+        <span className="tc-display mb-2 block text-lg">הכינוי שלכם</span>
         <input value={name} onChange={(e) => setName(e.target.value.slice(0, MAX_NAME))} autoComplete="off" enterKeyHint="done"
           className="h-14 w-full rounded-2xl bg-black/30 px-4 text-xl font-bold outline-none focus:ring-4 focus:ring-[var(--tc-brass)]"
           style={{ boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }} />
@@ -183,7 +183,7 @@ export default function ProfileSheet(p: Props) {
   };
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="הקבוצות בטלפון הזה">
+    <div className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="הפרופילים בטלפון הזה">
       <button type="button" aria-label="סגירה" className="absolute inset-0 bg-black/60" onClick={() => closeRef.current()} />
       <div ref={panelRef} className="tc-a-rise relative max-h-[88%] overflow-y-auto overscroll-contain rounded-t-[28px] px-5 pb-8 pt-3"
         style={{ background: 'linear-gradient(180deg,#1E2766,#141A48)', boxShadow: '0 -10px 40px rgba(0,0,0,.5)',
@@ -221,12 +221,12 @@ export default function ProfileSheet(p: Props) {
             <div className="mt-3 flex gap-2">
               {canEdit && (
                 <button type="button" className="tc-btn tc-btn-ghost flex-1 !text-base" onClick={startEdit}>
-                  <span aria-hidden>✏️</span> עריכת הקבוצה
+                  <span aria-hidden>✏️</span> עריכת הפרופיל
                 </button>
               )}
               {onAdd && (
                 <button type="button" className="tc-btn tc-btn-ghost flex-1 !text-base" onClick={onAdd}>
-                  <span aria-hidden>＋</span> קבוצה נוספת
+                  <span aria-hidden>＋</span> עוד פרופיל
                 </button>
               )}
             </div>

@@ -271,7 +271,7 @@ export function freeScanCode(s: FreeDemoState, code: string, realNow: number): F
 }
 
 export function freeRegister(s: FreeDemoState, name: string, emoji: string): FreeDemoState {
-  return { ...s, group: { name: name.trim() || 'הקבוצה שלנו', emoji }, screen: { kind: 'joined' } };
+  return { ...s, group: { name: name.trim() || 'השחקנים שלנו', emoji }, screen: { kind: 'joined' } };
 }
 
 /** The big screen finished celebrating the group → Cliostro calls at once (Rani: "בום שיחה"). */
@@ -419,13 +419,13 @@ export function freeDemoCaption(s: FreeDemoState): string {
     case 'install': return 'כל כניסה של טלפון לא רשום (כרטיס, גמד או המסך) מתחילה כאן. החליפו טלפון למטה: אייפון, אנדרואיד או וואטסאפ.';
     case 'startAtScreen': return 'אחרי ההתקנה: הולכים למסך הגדול וסורקים את הגמד שעליו. בהדגמה הכפתור "סורק" מיד וממשיך להרשמה.';
     case 'register': return 'ההרשמה עצמה (במשחק האמיתי אחרי סריקת הקוד שעל המסך הגדול).';
-    case 'joined': return 'הקבוצה הופיעה עכשיו על המסך הגדול (חגיגת ההצטרפות). כשהחגיגה נגמרת, קליוסטרו מתקשר.';
+    case 'joined': return 'הופעתם עכשיו על המסך הגדול (חגיגת ההצטרפות). כשהחגיגה נגמרת, קליוסטרו מתקשר.';
     case 'intro': return s.call ? 'קליוסטרו "מתקשר": ענו, והסרטון עולה במסך מלא (הכתוב יהיה בתוך הסרטון). סרטון אמיתי: ‎?intro=כתובת' : 'מסך הכללים אחרי השיחה. אפשר לשוחח שוב עם הקוסם.';
     case 'board': return 'הקישו על גמד ער כדי לסרוק אותו או לקנות רמז למקום שלו.';
     case 'gnome': return 'בהדגמה "מצאנו! סרקו" פותח את החידה מיד. בטלפון אמיתי נפתחת המצלמה.';
     case 'scanner': return 'מצלמה מדומה: סרקו גמד מהכפתורים למטה, או הקלידו קוד 101 עד 116.';
     case 'riddle': return 'נסו תשובה נכונה, או אות לא נכונה פעם אחת (חצי נקודות) ופעמיים (הגמד נרדם).';
-    case 'correct': return 'הגמד נרדם לקבוצה הזו. קפיצה בזמן תעיר אותו עם חידה חדשה.';
+    case 'correct': return 'הגמד נרדם לכם. קפיצה בזמן תעיר אותו עם חידה חדשה.';
     case 'failed': return 'שתי טעויות: הגמד נרדם בלי נקודות ובלי הורדה.';
     case 'asleep': return 'סריקה של גמד ישן. קפיצה בזמן תעיר אותו.';
     case 'finished': return 'כל הגמדים ישנים: קליוסטרו מתקשר לברך (‎?welldone=כתובת). קפיצה בזמן מעירה אותם.';

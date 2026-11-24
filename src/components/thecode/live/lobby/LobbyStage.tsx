@@ -47,7 +47,7 @@ function MomentBanner({ m }: { m: LobbyMoment }) {
     ? { bg: 'linear-gradient(90deg,#1F8F5F,#36E39A)', fg: '#03261A', icon: '🧳', text: `${m.name} פתחו מזוודה!` }
     : m.kind === 'hot'
       ? { bg: 'linear-gradient(90deg,#FF8A2B,#FFC24B)', fg: '#2A0E00', icon: '🔥', text: `${m.name} שחקנים חמים!` }
-      : { bg: 'linear-gradient(90deg,#F4B740,#FFD978)', fg: '#2A1600', icon: '👋', text: `קבוצת ${m.name} הצטרפה!` };
+      : { bg: 'linear-gradient(90deg,#F4B740,#FFD978)', fg: '#2A1600', icon: '👋', text: `${m.name} הצטרפו!` };
   return (
     <div className="tc-a-stamp flex items-center gap-[1.6vw] rounded-full px-[2.6vw] py-[1.4vh]"
       style={{ background: look.bg, color: look.fg, boxShadow: '0 1.5vh 5vh rgba(0,0,0,.45)' }}>
@@ -176,7 +176,7 @@ const STEP_MS = 2600;
 const GO_MS = 2800;
 
 const EXPLAIN_STEPS = [
-  { icon: '📱', title: 'סרקו את הקוד שעל המסך', text: 'ותנו שם לקבוצה שלכם' },
+  { icon: '📱', title: 'סרקו את הקוד שעל המסך', text: 'ובחרו לכם כינוי' },
   { icon: 'gnome', title: 'חפשו את הגמד', text: 'לפי הצבעים של הגוף והמצנפת' },
   { icon: '🔤', title: 'פתרו את החידה', text: 'והקישו על האות הראשונה של התשובה' },
   { icon: '🧳', title: 'סדרו את האותיות', text: 'פצחו את המשפט הסודי ופתחו מזוודה' },
@@ -376,7 +376,7 @@ function ExplainScene({ url, extraScans, onDone, burstKey }: { url: string | nul
       {extraScans > 0 && (
         <p className="tc-a-pop absolute right-[3vw] top-[4vh] z-10 rounded-full px-[1.8vw] py-[1vh] text-[3vh] font-bold" key={`extra-${extraScans}`}
           style={{ background: 'rgba(54,227,154,.18)', color: 'var(--tc-mint)', boxShadow: 'inset 0 0 0 2px rgba(54,227,154,.5)' }}>
-          עוד <span className="tc-num">{extraScans}</span> {extraScans === 1 ? 'קבוצה הצטרפה' : 'קבוצות הצטרפו'} בזמן ההסבר
+          עוד <span className="tc-num">{extraScans}</span> {extraScans === 1 ? 'הצטרף' : 'הצטרפו'} בזמן ההסבר
         </p>
       )}
 
@@ -547,11 +547,11 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
               <h2 className="tc-display text-[3vh]" style={{ color: 'var(--tc-soft)', textShadow: '0 1px 8px rgba(0,0,0,.6)' }}>{subtitle}</h2>
               {aside && <p className="tc-display text-[2.8vh]" style={{ color: 'var(--tc-soft)', textShadow: '0 1px 8px rgba(0,0,0,.6)' }}>{aside}</p>}
             </div>
-            <ol className="relative pt-[1.2vh]" style={{ height: `${rows * ROW_VH + 2.4}vh` }} aria-label="טבלת הקבוצות">
+            <ol className="relative pt-[1.2vh]" style={{ height: `${rows * ROW_VH + 2.4}vh` }} aria-label="טבלת הניקוד">
               {!teams.length && (
                 <li className="flex h-full flex-col items-center justify-center gap-[2vh] text-center">
                   <span className="tc-display text-[5vh]" style={{ color: 'var(--tc-brass-hi)' }}>הטבלה עוד ריקה</span>
-                  <span className="text-[3vh]" style={{ color: 'var(--tc-soft)' }}>הקבוצה הראשונה שתמצא גמד תופיע כאן</span>
+                  <span className="text-[3vh]" style={{ color: 'var(--tc-soft)' }}>הראשונים שימצאו גמד יופיעו כאן</span>
                 </li>
               )}
               {teams.map((t) => {
@@ -597,7 +597,7 @@ export default function LobbyStage({ stage, gameName, logoUrl, subtitle, qrUrl, 
                 style={{ background: 'rgba(10,14,40,.72)', boxShadow: 'inset 0 0 0 1px rgba(244,183,64,.3)' }}>
                 <span className="text-[2.9vh]" aria-hidden>🤳</span>
                 <span className="tc-display text-[2.7vh]" style={{ color: 'var(--tc-brass-hi)' }}>הצטרפו אל מצעד הגמדים</span>
-                <span className="text-[2.3vh]" style={{ color: 'var(--tc-soft)' }}>העלו סלפי קבוצתי מהטלפון</span>
+                <span className="text-[2.3vh]" style={{ color: 'var(--tc-soft)' }}>העלו סלפי מהטלפון</span>
               </p>
             )}
             </section>

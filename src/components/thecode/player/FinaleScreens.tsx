@@ -179,7 +179,7 @@ export function SuitcaseScreen({ suitcase, onNext }: { suitcase: SuitcaseView; o
   const scale = fit(52, 100) / 100;
   return (
     <ScreenBody className="items-center justify-center gap-3 text-center"
-      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onNext}>לטבלת הקבוצות</button>}>
+      footer={<button type="button" className="tc-btn tc-btn-primary w-full text-xl" onClick={onNext}>לטבלת הניקוד</button>}>
       <Confetti burstKey={suitcase.suitcaseNumber} />
       <p className="tc-display tc-a-rise text-xl" style={{ color: 'var(--tc-soft)' }}>מזוודה מספר <span className="tc-num">{suitcase.suitcaseNumber}</span> נפתחה!</p>
       <p className="tc-display tc-a-pop text-5xl leading-tight" style={{ color: 'var(--tc-brass-hi)' }}>{suitcase.phraseText}</p>
@@ -255,7 +255,7 @@ function Leaderboard({ rows, meOutside }: { rows: LeaderRowView[]; meOutside?: {
         <p className="mt-2 text-center" style={{ color: 'var(--tc-soft)' }}>אתם במקום <span className="tc-num">{meOutside.rank}</span></p>
       ) : null}
       {!rows.length && (
-        <p className="text-center text-lg" style={{ color: 'var(--tc-soft)' }}>עוד אין קבוצות בטבלה. הנקודות הראשונות יכניסו אתכם אליה!</p>
+        <p className="text-center text-lg" style={{ color: 'var(--tc-soft)' }}>הטבלה עוד ריקה. הנקודות הראשונות יכניסו אתכם אליה!</p>
       )}
     </div>
   );

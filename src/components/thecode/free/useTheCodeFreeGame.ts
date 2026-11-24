@@ -168,7 +168,7 @@ export function useTheCodeFreeGame(opts: UseTheCodeFreeGameOptions): { view: Fre
           setRegister({ mode: 'new', nameError: 'הכינוי הזה לא מתאים. בחרו כינוי אחר.' });
           break;
         case 'recoveryNotFound':
-          setRegister({ mode: 'recover', recoverError: 'לא מצאנו קבוצה עם הקוד הזה. בדקו אותו ונסו שוב.' });
+          setRegister({ mode: 'recover', recoverError: 'לא מצאנו משחק עם הקוד הזה. בדקו אותו ונסו שוב.' });
           break;
         default:
           if (user || !snapshotRef.current) {

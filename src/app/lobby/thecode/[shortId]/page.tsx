@@ -9,7 +9,7 @@ import TheCodeLobby from './TheCodeLobby';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'קוד הגמדים — טבלת הקבוצות',
+  title: 'קוד הגמדים — טבלת הניקוד',
   robots: { index: false, follow: false },
 };
 

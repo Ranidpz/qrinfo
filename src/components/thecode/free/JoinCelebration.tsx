@@ -63,7 +63,7 @@ export default function JoinCelebration({ event, onDone }: { event: JoinEvent; o
           </div>
         </div>
         <div className={`tcj-text text-center ${out ? 'out' : ''}`}>
-          <p className="tc-display text-[4.4vh] leading-none" style={{ color: 'var(--tc-soft)' }}>קבוצה חדשה במשחק!</p>
+          <p className="tc-display text-[4.4vh] leading-none" style={{ color: 'var(--tc-soft)' }}>הצטרפו למשחק!</p>
           <p className="tc-display mt-[1.6vh] text-[9vh] leading-none" style={{ color: 'var(--tc-brass)', textShadow: '0 4px 0 #6E400C, 0 18px 40px rgba(244,183,64,.4)' }}>
             {event.name}
           </p>

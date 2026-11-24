@@ -128,7 +128,7 @@ export function SelfieFlow({ step, days, onCancel, onPhoto }: SelfieFlowProps) {
             <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/25" aria-hidden />
             <div className="mb-3 flex items-center gap-3">
               <span className="flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'rgba(244,183,64,.18)', color: 'var(--tc-brass-hi)' }}><CameraIcon /></span>
-              <h2 id="tc-selfie-title" className="tc-display text-3xl leading-tight">סלפי של הקבוצה</h2>
+              <h2 id="tc-selfie-title" className="tc-display text-3xl leading-tight">סלפי שלכם</h2>
             </div>
             {/* Final wording is Rani's call — this is the demo draft. */}
             <ul className="mb-5 flex flex-col gap-2 text-lg leading-snug">

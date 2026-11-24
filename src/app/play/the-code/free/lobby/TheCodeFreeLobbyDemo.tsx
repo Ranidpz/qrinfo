@@ -74,7 +74,7 @@ function DemoPanel({ phase, onScan, onJoin, busy }: { phase: LobbyPhase; onScan(
       <span className="text-sm">מצב: <b>{label}</b></span>
       <button type="button" onClick={onJoin} disabled={busy}
         className="min-h-[40px] rounded-xl bg-slate-900 px-3 text-sm font-semibold text-white active:scale-95 disabled:opacity-40">
-        קבוצה מצטרפת
+        מצטרפים חדשים
       </button>
       <button type="button" onClick={onScan} className="min-h-[40px] rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-slate-300 active:scale-95">
         מדמים סריקה
@@ -143,7 +143,7 @@ export default function TheCodeFreeLobbyDemo() {
 
   return (
     <LobbyStage stage={stage} gameName="אחוזת הגמדים" subtitle="הטבלה של השבוע" qrUrl={url} videos={slots} placeholderLabels free
-      aside={<><span className="tc-num" style={{ color: 'var(--tc-brass-hi)' }}>{stage.teams.length}</span> קבוצות משחקות עכשיו</>}>
+      aside={<>במשחק עכשיו: <span className="tc-num" style={{ color: 'var(--tc-brass-hi)' }}>{stage.teams.length}</span></>}>
       {join && <JoinCelebration event={join} onDone={onJoinDone} />}
       <DemoPanel phase={stage.phase} onScan={() => stage.scan()} onJoin={startJoin} busy={!!join} />
     </LobbyStage>

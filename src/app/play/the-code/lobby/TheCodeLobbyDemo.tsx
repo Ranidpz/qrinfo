@@ -157,7 +157,7 @@ export default function TheCodeLobbyDemo() {
 
   return (
     <LobbyStage stage={stage} gameName="מלכת שבא אילת" logoUrl={logo} subtitle="הטבלה של השבוע" qrUrl={url} videos={slots} placeholderLabels
-      aside={<><span className="tc-num" style={{ color: 'var(--tc-brass-hi)' }}>{stage.teams.length}</span> קבוצות משחקות עכשיו</>}>
+      aside={<>במשחק עכשיו: <span className="tc-num" style={{ color: 'var(--tc-brass-hi)' }}>{stage.teams.length}</span></>}>
       <DemoScanPanel phase={stage.phase} onScan={() => stage.scan()} />
     </LobbyStage>
   );

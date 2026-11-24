@@ -101,7 +101,7 @@ function Header({ state, onProfiles, onHowTo, onHome }: { state: PlayerState; on
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
       <button type="button" className="tc-chip w-12 shrink-0 justify-center !px-0" onClick={onProfiles}
-        aria-label={`הקבוצה: ${p.familyName}. צלילים, החלפת קבוצה וקוד שחזור`} title={p.familyName}>
+        aria-label={`${p.familyName}: צלילים, החלפת פרופיל וקוד שחזור`} title={p.familyName}>
         <Avatar value={avatarOf(p)} size={28} />
       </button>
       <HotSlot profileId={p.id} hot={p.hot} streak={Math.min(p.streak, HOT_STREAK_AT)} />
