@@ -8,6 +8,7 @@ import type { CSSProperties } from 'react';
 import { HowToPlayButton } from './HowToPlaySheet';
 import { Avatar } from './Avatar';
 import { EMOJIS, SelfieFlow, SymbolRow } from './SymbolPicker';
+import NoticePop from './NoticePop';
 import { GnomeStage, ScreenBody, useSfx } from './ui';
 import type { PlayerGnomeView, SelfieShot } from './types';
 
@@ -57,6 +58,12 @@ export default function RegisterScreen(p: Props) {
   const usingPhoto = !!photo && emoji === photo.preview;
   const [selfieStep, setSelfieStep] = useState<'consent' | null>(null);
   const canGo = name.trim().length >= 2;
+  // Errors float as a pop-up (Rani 24.11.2026): the button sits in the footer and the line above
+  // it was off-screen. Each press is an attempt; closing dismisses that attempt's message.
+  const [attempt, setAttempt] = useState(0);
+  const [dismissed, setDismissed] = useState(-1);
+  const popText = dismissed === attempt ? null : (p.mode === 'recover' ? p.recoverError : p.nameError);
+  const pop = <NoticePop text={popText} onClose={() => setDismissed(attempt)} />;
   // A logo the venue placed itself floats over the screen (TheCodePlayer); else it sits in the flow here.
   const placed = isLogoPlaced(p.branding);
   const logo = placed ? undefined : p.branding?.logoUrl;
@@ -90,9 +97,9 @@ export default function RegisterScreen(p: Props) {
             style={{ boxShadow: 'inset 0 0 0 1.5px var(--tc-line)' }}
           />
         </label>
-        {p.recoverError && <p role="alert" className="tc-a-shake text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{p.recoverError}</p>}
+        {pop}
         <button type="button" className="tc-btn tc-btn-primary w-full" style={look.button} disabled={code.replace(/[^A-Z0-9]/g, '').length < 4}
-          onClick={() => { sfx('tap'); p.onRecover(code); }}>
+          onClick={() => { sfx('tap'); setAttempt((a) => a + 1); p.onRecover(code); }}>
           שחזרו את הקבוצה
         </button>
         <button type="button" className="tc-btn tc-btn-ghost w-full" onClick={() => p.onMode('new')}>
@@ -108,7 +115,7 @@ export default function RegisterScreen(p: Props) {
     <ScreenBody className="items-stretch gap-5" plainFooter={branded}
       footer={
         <button type="button" className="tc-btn tc-btn-primary w-full text-xl" style={look.button} disabled={!canGo}
-          onClick={() => { sfx('correct'); p.onRegister(name, usingPhoto ? lastEmoji : emoji, usingPhoto ? photo! : undefined); }}>
+          onClick={() => { sfx('correct'); setAttempt((a) => a + 1); p.onRegister(name, usingPhoto ? lastEmoji : emoji, usingPhoto ? photo! : undefined); }}>
           <Avatar value={emoji} size={30} /> יוצאים לדרך
         </button>
       }>
@@ -153,7 +160,7 @@ export default function RegisterScreen(p: Props) {
           onChange={(v) => { setEmoji(v); if (!photo || v !== photo.preview) setLastEmoji(v); }} />
       </fieldset>
 
-      {p.nameError && <p role="alert" className="tc-a-shake text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{p.nameError}</p>}
+      {pop}
       <p className="text-center text-sm" style={{ color: 'var(--tc-soft)' }}>
         {allowSelfie ? 'בלי שמות אמיתיים. סלפי רק אם תרצו, ובסוף הוא נמחק.' : 'בלי שמות אמיתיים ובלי תמונות. רק כינוי וסמל.'}
       </p>

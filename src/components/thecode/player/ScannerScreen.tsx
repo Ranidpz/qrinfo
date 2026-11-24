@@ -4,9 +4,10 @@
 // The manual code is always offered — it is also the way in when the camera is denied
 // or missing. In the demo (`camera: false`) a simulated viewfinder stands in for the camera.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import GnomeScanner, { type CameraProblem } from '../live/GnomeScanner';
 import { normalizeManualCode, parseGnomeQr } from '../live/gnomeCode';
+import NoticePop from './NoticePop';
 import { HintCard, ScreenBody, useSfx } from './ui';
 import type { ScannerView } from './types';
 
@@ -71,9 +72,26 @@ export default function ScannerScreen({ scanner, onScanCode, onClose, onOtherTex
   const showCamera = scanner.camera && !problem;
   const manualOpen = typing || !!problem;
   const error = localError || scanner.error;
+  // A wrong scan floats as a pop-up (Rani 24.11.2026 — under the camera it was below the fold).
+  // Each scan is an "attempt"; closing the pop-up dismisses that attempt's message, and the same
+  // rejected QR is then ignored for a few seconds so a camera still aimed at it doesn't reopen it.
+  const [attempt, setAttempt] = useState(0);
+  const [dismissed, setDismissed] = useState(-1);
+  const lastTextRef = useRef<string | null>(null);
+  const ignoreRef = useRef<{ text: string; until: number } | null>(null);
+  const popOpen = !!error && dismissed !== attempt;
+  const closePop = () => {
+    setDismissed(attempt);
+    setLocalError(null);
+    if (lastTextRef.current) ignoreRef.current = { text: lastTextRef.current, until: Date.now() + 4000 };
+  };
 
   const onText = (text: string) => {
-    if (scanner.busy) return;
+    if (scanner.busy || popOpen) return;
+    const ig = ignoreRef.current;
+    if (ig && ig.text === text && Date.now() < ig.until) return;
+    lastTextRef.current = text;
+    setAttempt((a) => a + 1);
     if (onOtherText?.(text)) {
       sfx('scan');
       setLocalError(null);
@@ -93,6 +111,8 @@ export default function ScannerScreen({ scanner, onScanCode, onClose, onOtherTex
   const submitManual = () => {
     const code = normalizeManualCode(manual);
     if (!code || scanner.busy) return;
+    lastTextRef.current = null;
+    setAttempt((a) => a + 1);
     sfx('tap');
     setLocalError(null);
     onScanCode(code);
@@ -108,7 +128,7 @@ export default function ScannerScreen({ scanner, onScanCode, onClose, onOtherTex
 
       {!problem && (
         <div className="relative">
-          {showCamera ? <GnomeScanner onText={onText} paused={scanner.busy} onCameraProblem={setProblem} /> : <SimulatedViewfinder />}
+          {showCamera ? <GnomeScanner onText={onText} paused={scanner.busy || popOpen} onCameraProblem={setProblem} /> : <SimulatedViewfinder />}
           <Frame />
           {scanner.busy && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#0B1030]/75">
@@ -121,8 +141,8 @@ export default function ScannerScreen({ scanner, onScanCode, onClose, onOtherTex
 
       <div aria-live="polite">
         {problem && <HintCard tone="brass" className="text-lg">{PROBLEM_TEXT[problem]}</HintCard>}
-        {error && <p role="alert" className="tc-a-shake mt-2 text-center text-lg font-bold" style={{ color: 'var(--tc-coral)' }}>{error}</p>}
       </div>
+      <NoticePop text={popOpen ? error : null} onClose={closePop} />
 
       {noManual ? null : manualOpen ? (
         <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); submitManual(); }}>
