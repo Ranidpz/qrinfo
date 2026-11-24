@@ -171,7 +171,7 @@ export interface FreeDemoState {
   screen: FreeScreen;
   /** Demo time travel: added to the real clock. */
   offsetMs: number;
-  group: { name: string; emoji: string } | null;
+  group: { name: string; emoji: string; photo?: string } | null;
   points: number;
   streak: number;
   /** Riddles solved (no letters are collected in the free game — Rani 23.11.2026). */
@@ -465,11 +465,13 @@ export function freeDemoView(s: FreeDemoState, realNow: number, videos: FreeGame
     screen,
     now,
     venueName: FREE_VENUE_NAME,
-    group: s.group ? { name: s.group.name, avatar: s.group.emoji } : null,
+    group: s.group ? { name: s.group.name, avatar: s.group.photo || s.group.emoji } : null,
     profile: s.group ? {
       id: 'demo', familyName: s.group.name, emoji: s.group.emoji, recoveryCode: 'GNOME7',
       points: s.points, streak: s.streak, hot: isHot(s), suitcasesOpened: 0,
+      ...(s.group.photo ? { photoUrl: s.group.photo } : {}),
     } : null,
+    selfie: { enabled: true, days: 14 },
     points: s.points,
     streak: s.streak,
     hot: isHot(s),
@@ -509,5 +511,13 @@ export function freeDemoView(s: FreeDemoState, realNow: number, videos: FreeGame
 /** Demo: the group's sheet — rename / pick another symbol. */
 export function freeDemoEditGroup(s: FreeDemoState, patch: { familyName?: string; emoji?: string }): FreeDemoState {
   if (!s.group) return s;
-  return { ...s, group: { name: patch.familyName ?? s.group.name, emoji: patch.emoji ?? s.group.emoji } };
+  return { ...s, group: { ...s.group, name: patch.familyName ?? s.group.name, emoji: patch.emoji ?? s.group.emoji } };
+}
+
+/** The demo's selfie stays on this phone only (a data URL), never uploaded. */
+export function freeDemoSetPhoto(s: FreeDemoState, photo: string | null): FreeDemoState {
+  if (!s.group) return s;
+  const group = { ...s.group };
+  if (photo) group.photo = photo; else delete group.photo;
+  return { ...s, group };
 }

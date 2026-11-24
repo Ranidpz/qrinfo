@@ -12,6 +12,7 @@ import {
   freeOpenGnome, freeOpenScanner, freeShowIntro, freeEndCall, freeCallMagician, freeJoinedDone, freeDemoView, freeDemoInstalled, freeDemoPlatform, freeDemoToScreen, freePickLetter, freeRegister, freeScan, freeScanCode, freeShowBoard, freeSubmitLetter,
   freeToBoard, freeToggleMute, isAsleep, msToNextWake, type FreeDemoState,
   freeDemoEditGroup,
+  freeDemoSetPhoto,
 } from '@/components/thecode/demo/freeDemo';
 import GnomeFigure from '@/components/thecode/GnomeFigure';
 
@@ -136,6 +137,8 @@ export default function TheCodeFreeDemo() {
       onCallMagician: (call) => setS((x) => freeCallMagician(x, call)),
       onDemoRegistered: on(freeDemoToScreen),
       onUpdateProfile: async (patch) => { setS((x) => freeDemoEditGroup(x, patch)); return 'ok'; },
+      onSetPhoto: (shot) => setS((x) => freeDemoSetPhoto(x, shot.preview)),
+      onRemovePhoto: () => setS((x) => freeDemoSetPhoto(x, null)),
     };
   }, []);
 

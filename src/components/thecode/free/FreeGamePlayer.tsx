@@ -87,10 +87,27 @@ function HotSlot({ hot, streak, target }: { hot: boolean; streak: number; target
   );
 }
 
-function Header({ v, onBoard, onToggleMute, onHome, onHowTo, onGroup }: { v: FreeGameView; onBoard(): void; onToggleMute(): void; onHome: boolean; onHowTo(): void; onGroup?(): void }) {
+/** "Put your selfie on the big screen" — a bubble pointing at the group symbol (Rani 24.11.2026): on the
+ *  board, once the group has solved a gnome, while it has no photo. Closed for good once used or dismissed. */
+function SelfieTip({ onOpen, onDismiss }: { onOpen(): void; onDismiss(): void }) {
+  return (
+    <div className="tc-a-drop absolute start-2 top-full z-30 mt-1 w-[min(270px,78vw)]" role="note">
+      <span aria-hidden className="absolute -top-[9px] start-6 h-0 w-0 border-x-[10px] border-b-[10px] border-x-transparent" style={{ borderBottomColor: 'var(--tc-brass)' }} />
+      <div className="tc-a-bob flex items-start gap-2 rounded-2xl p-3 pe-2" style={{ background: 'var(--tc-brass)', color: '#1B1440', boxShadow: '0 12px 30px rgba(0,0,0,.45)', animationDuration: '2.4s' }}>
+        <button type="button" onClick={onOpen} className="flex-1 text-start text-base font-bold leading-snug">
+          <span aria-hidden className="me-1">📸</span>העלו סלפי של הקבוצה, והוא יופיע על המסך הגדול. לחצו כאן
+        </button>
+        <button type="button" onClick={onDismiss} aria-label="סגירת ההודעה" className="-mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg font-black" style={{ background: 'rgba(27,20,64,.12)' }}>✕</button>
+      </div>
+    </div>
+  );
+}
+
+function Header({ v, onBoard, onToggleMute, onHome, onHowTo, onGroup, tip }: { v: FreeGameView; onBoard(): void; onToggleMute(): void; onHome: boolean; onHowTo(): void; onGroup?(): void; tip?: { onOpen(): void; onDismiss(): void } | null }) {
   const g = v.group!;
   return (
     <header className="relative z-20 flex items-center gap-2 px-4 pb-2 pt-3">
+      {tip && <SelfieTip onOpen={tip.onOpen} onDismiss={tip.onDismiss} />}
       {/* the group's symbol opens its sheet: name, symbol, selfie, recovery code (Rani 24.11.2026) */}
       <button type="button" className="tc-chip w-12 shrink-0 justify-center !px-0" title={g.name} aria-label={`הקבוצה ${g.name}: עריכה וקוד שחזור`}
         onClick={onGroup} disabled={!onGroup}>
@@ -803,6 +820,19 @@ export default function FreeGamePlayer({ view: v, callbacks }: { view: FreeGameV
   const [sheetOpen, setSheetOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const onBoardScreen = v.screen.kind === 'board';
+  const tipKey = v.profile ? `tc-selfie-tip-${v.profile.id}` : null;
+  const [tipDone, setTipDone] = useState(true);
+  useEffect(() => {
+    if (!tipKey) return;
+    try { setTipDone(localStorage.getItem(tipKey) === '1'); } catch { setTipDone(false); }
+  }, [tipKey]);
+  const closeTip = () => {
+    setTipDone(true);
+    try { if (tipKey) localStorage.setItem(tipKey, '1'); } catch { /* private mode: closed for this visit */ }
+  };
+  const openSheet = () => { play('tap'); closeTip(); setSheetOpen(true); };
+  const showTip = onBoardScreen && !tipDone && !sheetOpen && !v.call && v.solved >= 1
+    && !!v.selfie?.enabled && !!callbacks.onSetPhoto && !!v.profile && !v.profile.photoUrl;
   const callUrl = v.call === 'intro' ? v.videos.intro : v.call === 'wellDone' ? v.videos.wellDone : null;
 
   return (
@@ -813,7 +843,8 @@ export default function FreeGamePlayer({ view: v, callbacks }: { view: FreeGameV
           <div className="tc-stars" aria-hidden />
           {showHeader && (
             <Header v={v} onToggleMute={callbacks.onToggleMute} onHome={onBoardScreen} onHowTo={() => { play('tap'); callbacks.onShowIntro(); }}
-              onGroup={v.profile && callbacks.onUpdateProfile ? () => { play('tap'); setSheetOpen(true); } : undefined}
+              onGroup={v.profile && callbacks.onUpdateProfile ? openSheet : undefined}
+              tip={showTip ? { onOpen: openSheet, onDismiss: () => { play('tap'); closeTip(); } } : null}
               onBoard={() => {
                 play('tap');
                 // Already on the board: back to its top (a tap that did nothing felt broken).
