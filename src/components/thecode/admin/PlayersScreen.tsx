@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Eye, EyeOff, ImageOff, Luggage, Pencil, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
+import { Check, CircleHelp, Eye, EyeOff, ImageOff, Luggage, Pencil, RefreshCw, Search, Trash2, Trophy, X } from 'lucide-react';
 import type { AdminPlayer, ScreenProps } from './model';
 import { timeAgo } from './helpers';
 import { Button, Card, EmptyState, IconButton, Pill, ScreenHeader, Segmented, cx } from './ui';
@@ -16,6 +16,8 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
 
   const pts = (p: AdminPlayer) => (period === 'week' ? p.weekPoints : p.points);
   const bags = (p: AdminPlayer) => (period === 'week' ? p.weekSuitcases : p.suitcases);
+  // Free game: no suitcases — the group's solved riddles instead (since the last new round).
+  const free = state.config.mode === 'free';
   const q = query.trim();
   const list = state.players
     .filter((p) => (period === 'all' ? true : p.weekPoints > 0))
@@ -86,7 +88,13 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
                         {p.hidden && <Pill>מוסתר מהלוח</Pill>}
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 text-sm text-text-secondary">
-                        <span className="inline-flex items-center gap-1"><Luggage size={14} aria-hidden />{bags(p)}</span>
+                        {free ? (
+                          <span className="inline-flex items-center gap-1" title="חידות שהקבוצה פתרה מאז הסבב האחרון">
+                            <CircleHelp size={14} aria-hidden />{(p.solved ?? 0) === 1 ? 'חידה אחת' : `${p.solved ?? 0} חידות`}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1"><Luggage size={14} aria-hidden />{bags(p)}</span>
+                        )}
                         <span>{timeAgo(p.lastSeenAt, now)}</span>
                         {p.originalName && <span className="truncate">נרשמו בשם: {p.originalName}</span>}
                       </div>
@@ -125,7 +133,7 @@ export default function PlayersScreen({ state, actions, now, refresh }: ScreenPr
                   <div className="basis-full rounded-lg bg-danger/5 px-3 py-2 text-sm sm:basis-auto">
                     <div className="text-red-700 dark:text-red-400">
                       {removing.step === 1
-                        ? `להסיר את "${p.familyName}"? הנקודות, המזוודות וההתקדמות שלה יימחקו.`
+                        ? `להסיר את "${p.familyName}"? ${free ? 'הנקודות וההתקדמות שלה יימחקו.' : 'הנקודות, המזוודות וההתקדמות שלה יימחקו.'}`
                         : 'בטוחים? אי אפשר לבטל את זה, והקבוצה תצטרך להירשם מחדש.'}
                     </div>
                     <div className="mt-2 flex justify-end gap-2">

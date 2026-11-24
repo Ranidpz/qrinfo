@@ -8,16 +8,18 @@
 //    missing letter (draft / disabled / gnome off / spot off) → the fastest fix;
 //  - letter stock (demand vs supply per letter);
 //  - operator wording: the screens say "משפט" (approved demo copy), the engine says "ביטוי",
-//    so every issue message is re-worded here from the issue's own fields.
+//    so every issue message is re-worded here from the issue's own fields;
+//  - free mode (`config.mode === 'free'`): the guided-only checks are dropped (FREE_IGNORED_ISSUES),
+//    the free engine's checks added, and the shared ones worded for the free game.
 // Pure — safe in the browser, used by both the demo and the live admin.
 
 import type { TheCodeConfig, TheCodeGnome, TheCodeIssue, TheCodeRiddle } from '@/types/thecode';
 import { analyzeAdventure, MIN_PHRASE_LETTERS, riddleLetter } from '@/lib/thecode/engine';
-import { freeAdventureIssues } from '@/lib/thecode/engineFree';
+import { FREE_IGNORED_ISSUES, freeAdventureIssues, freeRiddlesOf, resolveFreeRules } from '@/lib/thecode/engineFree';
 import { invalidPhraseChars, phraseLetters, phraseWordLengths, soundAlikes } from '@/lib/thecode/letters';
 import { describeGnome } from '@/components/thecode/GnomeFigure';
-import type { AdminState, AdventureReport, CoverageLetter, MissingLetter, PhraseCoverage } from '@/components/thecode/admin/model';
-import { comboKey, confusableColors, letterLabel } from '@/components/thecode/admin/helpers';
+import type { AdminState, AdventureReport, CoverageLetter, FreeReadiness, MissingLetter, PhraseCoverage } from '@/components/thecode/admin/model';
+import { comboKey, confusableColors, durationLabel, letterLabel } from '@/components/thecode/admin/helpers';
 
 interface Usable {
   /** letter → usable gnome ids (active gnome on an active spot with a published riddle for it). */
@@ -225,6 +227,63 @@ function reword(issue: TheCodeIssue, state: AdminState, phrases: Record<string, 
   return out;
 }
 
+/** Free mode: what the overview shows instead of suitcases and phrases. */
+export function freeReadiness(config: TheCodeConfig, riddles: TheCodeRiddle[]): FreeReadiness {
+  const spots = new Map(config.spots.map((s) => [s.id, s]));
+  const on = config.gnomes.filter((g) => g.isActive && spots.get(g.spotId)?.isActive);
+  const counts = on.map((g) => freeRiddlesOf(g.id, riddles).length);
+  const ready = counts.filter((n) => n > 0);
+  const rules = resolveFreeRules(config.free);
+  const minRiddles = counts.length ? Math.min(...counts) : 0;
+  const poorest = ready.length ? Math.min(...ready) : 0;
+  return {
+    gnomesOn: on.length,
+    gnomesReady: ready.length,
+    minRiddles,
+    riddlesInGame: counts.reduce((a, b) => a + b, 0),
+    refreshMinutes: rules.refreshMinutes,
+    wrapRiddles: rules.wrapRiddles,
+    repeatAfterMinutes: poorest ? poorest * rules.refreshMinutes : null,
+  };
+}
+
+/** Free mode wording of the issues whose meaning changes without a phrase and a suitcase. */
+function rewordFree(issue: TheCodeIssue, state: AdminState): TheCodeIssue {
+  const { config } = state;
+  const gnome = config.gnomes.find((g) => g.id === issue.gnomeId);
+  const spot = config.spots.find((s) => s.id === issue.spotId);
+  const rules = resolveFreeRules(config.free);
+  switch (issue.code) {
+    case 'GNOME_WITHOUT_RIDDLE':
+      return {
+        ...issue,
+        message: gnome
+          ? `לגמד ${gnome.number} אין חידה, ולכן קבוצות יראו אותו כגמד שסיים. הוסיפו לו חידות.`
+          : 'אף גמד עוד לא שואל חידה. הוסיפו חידות לגמדים כדי לפרסם.',
+      };
+    case 'FEW_FRESH_ROUNDS': {
+      const have = issue.have ?? 0;
+      return {
+        ...issue,
+        message: `לגמד ${gnome?.number} יש רק ${have === 1 ? 'חידה אחת' : `${have} חידות`}. קבוצה שתחזור אליו תקבל שוב חידה שכבר ענתה עליה אחרי ${durationLabel(have * rules.refreshMinutes)}.`,
+      };
+    }
+    case 'SPOT_WITHOUT_HINT':
+      return {
+        ...issue,
+        message: `למקום "${spot?.name}" אין רמז מיקום, וגם לגמדים שבו אין. קבוצה שלא מוצאת אותם לא תוכל לקנות רמז. הוסיפו רמז למקום או לגמד.`,
+      };
+    default:
+      return reword(issue, state, {});
+  }
+}
+
+/** Free mode: a spot without hints is fine when every gnome there carries its own. */
+function freeSpotCovered(config: TheCodeConfig, spotId: string | undefined): boolean {
+  const there = config.gnomes.filter((g) => g.spotId === spotId && g.isActive);
+  return there.length > 0 && there.every((g) => (g.hints || []).some((h) => h.trim()));
+}
+
 /** The report every screen renders. Issues + fresh suitcases come from the engine. */
 export function buildAdventureReport(state: AdminState): AdventureReport {
   const { config, riddles } = state;
@@ -251,13 +310,21 @@ export function buildAdventureReport(state: AdminState): AdventureReport {
     if (cov && !r.playable) cov.playable = false;
   }
 
-  // Free mode: no phrases, no suitcases — their checks do not apply; the free engine's own do.
-  const PHRASE_ONLY = new Set(['PHRASE_LETTER_MISSING', 'PHRASE_INVALID_CHARS', 'PHRASE_TOO_SHORT', 'NO_ACTIVE_PHRASE', 'FEW_FRESH_ROUNDS']);
-  const engineIssues = config.mode === 'free'
-    ? [...engine.issues.filter((i) => !PHRASE_ONLY.has(i.code) && i.code !== 'GNOME_WITHOUT_RIDDLE'), ...freeAdventureIssues(config, riddles)]
-    : engine.issues;
-  const issues = engineIssues.map((i) => {
-    if (config.mode === 'free') return i;
+  // Free mode: no phrases, no suitcases, no colour hunt — their checks do not apply; the free
+  // engine's own do, and the shared ones are worded for the free game.
+  if (config.mode === 'free') {
+    const freeIssues = [
+      ...engine.issues.filter((i) => !FREE_IGNORED_ISSUES.has(i.code) && i.code !== 'GNOME_WITHOUT_RIDDLE' &&
+        !(i.code === 'SPOT_WITHOUT_HINT' && freeSpotCovered(config, i.spotId))),
+      ...freeAdventureIssues(config, riddles),
+    ].map((i) => rewordFree(i, state));
+    const freeErrors = freeIssues.filter((i) => i.severity === 'error').length;
+    return {
+      issues: freeIssues, errors: freeErrors, warnings: freeIssues.length - freeErrors,
+      freshSuitcases: engine.freshSuitcases, phrases, letterStock, free: freeReadiness(config, riddles),
+    };
+  }
+  const issues = engine.issues.map((i) => {
     if (i.code !== 'FEW_FRESH_ROUNDS') return reword(i, state, phrases);
     const n = engine.freshSuitcases;
     const short = letterStock.filter((l) => l.supply < l.demand).map((l) => letterLabel(l.letter));

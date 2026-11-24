@@ -669,6 +669,7 @@ function adminPlayer(id: string, d: DocumentData, key: string, photoUrl?: string
     weekPoints: Number(d.week?.[key]?.points) || 0,
     suitcases: Number(d.suitcasesOpened) || 0,
     weekSuitcases: Number(d.week?.[key]?.suitcases) || 0,
+    ...(d.free ? { solved: Number(d.free.solved) || 0 } : {}),
     lastSeenAt: Number(d.lastSeenAt) || 0,
   };
   if (typeof d.originalName === 'string' && d.originalName !== p.familyName) p.originalName = d.originalName;
@@ -765,10 +766,14 @@ export async function saveAdventure(codeId: string, body: unknown): Promise<TheC
     const norm = normalizeAdventure(b.config, b.riddles, stored?.config ?? null, { videoBase: getR2Config()?.publicUrl ?? null });
     if (!norm.ok) return { ok: false, error: 'badRequest' };
     const { config, riddles } = norm;
-    // Free mode has no phrases and no suitcases: those checks do not apply (the free engine's
-    // own operator checks run in the admin UI).
-    const PHRASE_ONLY = new Set(['PHRASE_LETTER_MISSING', 'PHRASE_INVALID_CHARS', 'PHRASE_TOO_SHORT', 'NO_ACTIVE_PHRASE', 'FEW_FRESH_ROUNDS']);
-    const issues = validateAdventure(config, riddles).filter((i) => config.mode !== 'free' || !PHRASE_ONLY.has(i.code));
+    // Free mode has no phrases, no suitcases and no colour hunt: those checks do not apply (the
+    // free engine's own operator checks run in the admin UI). Same list as FREE_IGNORED_ISSUES in
+    // engineFree.ts — copied, because this file must not gain imports.
+    const FREE_IGNORED = new Set([
+      'PHRASE_LETTER_MISSING', 'PHRASE_INVALID_CHARS', 'PHRASE_TOO_SHORT', 'NO_ACTIVE_PHRASE', 'FEW_FRESH_ROUNDS',
+      'DUPLICATE_COLORS_AT_SPOT', 'CONFUSABLE_COLORS_AT_SPOT',
+    ]);
+    const issues = validateAdventure(config, riddles).filter((i) => config.mode !== 'free' || !FREE_IGNORED.has(i.code));
     if (config.status === 'published' && !canPublish(issues)) return { ok: false, error: 'invalid', issues };
     const created = await assignGnomeCodes(tx, config.gnomes); // reads only
 

@@ -113,3 +113,24 @@ export function suggestCombos(count: number, taken: NewGnomeSpec[], shuffle = fa
   }
   return out;
 }
+
+/** The adventure runs the free game (`mode: 'free'`); absent = the guided game. */
+export function isFreeMode(config: Pick<TheCodeConfig, 'mode'>): boolean {
+  return config.mode === 'free';
+}
+
+/** "45 דקות" · "שעה" · "3 שעות" · "יום" · "2 ימים ו־3 שעות" — for sleep and repeat times. */
+export function durationLabel(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes));
+  const days = Math.floor(m / 1440);
+  const hours = Math.floor((m % 1440) / 60);
+  const mins = m % 60;
+  const part = (n: number, one: string, two: string, many: string) => (n === 1 ? one : n === 2 ? two : `${n} ${many}`);
+  const parts = [
+    days ? part(days, 'יום', 'יומיים', 'ימים') : '',
+    hours ? part(hours, 'שעה', 'שעתיים', 'שעות') : '',
+    mins ? part(mins, 'דקה', '2 דקות', 'דקות') : '',
+  ].filter(Boolean);
+  if (!parts.length) return '0 דקות';
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} ו־${parts[parts.length - 1]}`;
+}

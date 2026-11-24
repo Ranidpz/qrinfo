@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Check, ChevronDown, ChevronLeft, Sparkles, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, BookOpen, Check, ChevronDown, ChevronLeft, Sparkles, ChevronRight, CircleAlert, CircleHelp, Lightbulb, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
 import GnomeFigure, { describeGnome } from '@/components/thecode/GnomeFigure';
 import type { TheCodeGnome, TheCodeRiddle } from '@/types/thecode';
 import { alphabetFor, isAmbiguousLetter, letterOfAnswer, soundAlikes } from '@/lib/thecode/letters';
 import type { RiddleStats, ScreenProps } from './model';
-import { isRiddleTooHard, letterLabel } from './helpers';
+import { durationLabel, isFreeMode, isRiddleTooHard, letterLabel } from './helpers';
+import { FEW_RIDDLES_PER_GNOME, TARGET_RIDDLES_PER_GNOME, resolveFreeRules } from '@/lib/thecode/engineFree';
 import { Button, Card, EmptyState, Field, LetterTile, Pill, ScreenHeader, Segmented, Toggle, cx, Tip } from './ui';
 import ImageDropZone from './ImageDropZone';
 import { BankFillButton, BankFillDialog, BankPickerDialog, addFromBank } from './BankDialogs';
@@ -37,6 +38,9 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
   const [picking, setPicking] = useState<{ gnomeId: string; letter: string | null } | null>(null);
   const [filling, setFilling] = useState(!!target.fill);
   const [filled, setFilled] = useState<number | null>(null);
+  // Free game: no letters to collect — riddles are asked per gnome in this screen's order.
+  const free = isFreeMode(config);
+  const freeRules = resolveFreeRules(config.free);
 
   useEffect(() => {
     if (target.gnomeId) setGnomeId(target.gnomeId);
@@ -70,6 +74,7 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
           riddles={riddles}
           report={report}
           initialLetter={picking!.letter}
+          free={free}
           onAdd={(b) => {
             const id = addFromBank(actions, pickGnome.id, b);
             setGnomeId(pickGnome.id);
@@ -113,7 +118,9 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
       <style>{`@keyframes thecode-reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }`}</style>
       <ScreenHeader
         title="חידות"
-        summary={`הסתובבו במקום שבו עומד הגמד וכתבו לו ${TARGET_MIN} עד ${TARGET_MAX} חידות על מה שרואים סביבו. אפשר גם שאלות ידע. האות הראשונה של התשובה נכנסת לאוסף.`}
+        summary={free
+          ? `הסתובבו במקום שבו עומד הגמד וכתבו לו ${FEW_RIDDLES_PER_GNOME} עד ${TARGET_RIDDLES_PER_GNOME} חידות על מה שרואים סביבו. כל הקבוצות מקבלות אותן באותו סדר: החידה הראשונה, ואחרי שהגמד מתעורר החידה הבאה. עונים באות הראשונה של התשובה.`
+          : `הסתובבו במקום שבו עומד הגמד וכתבו לו ${TARGET_MIN} עד ${TARGET_MAX} חידות על מה שרואים סביבו. אפשר גם שאלות ידע. האות הראשונה של התשובה נכנסת לאוסף.`}
         actions={<BankFillButton onClick={() => setFilling(true)} />}
       />
       {dialogs}
@@ -128,7 +135,7 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
         </div>
       )}
 
-      {wantLetter && (
+      {wantLetter && !free && (
         <LetterFinder
           letter={wantLetter}
           gnomes={sorted.filter((g) => g.isActive)}
@@ -164,7 +171,7 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold">#{g.number}</div>
                     <div className="truncate text-sm text-text-secondary">{spotName(g)}</div>
-                    <RiddleCount n={pub.length} waiting={mine.length - pub.length} active={g.isActive} letters={[...new Set(pub.map((r) => r.letter))]} />
+                    <RiddleCount n={pub.length} waiting={mine.length - pub.length} active={g.isActive} letters={free ? [] : [...new Set(pub.map((r) => r.letter))]} free={free} />
                   </div>
                 </button>
               );
@@ -190,13 +197,15 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
                 <Button variant="primary" icon={Plus} onClick={() => addRiddle(gnome.id)}>הוסיפו חידה</Button>
               </div>
             </div>
-            <TargetLine n={bank.filter((r) => r.status === 'published').length} />
+            {free
+              ? <FreeTargetLine n={bank.filter((r) => r.status === 'published').length} refreshMinutes={freeRules.refreshMinutes} wrap={freeRules.wrapRiddles} />
+              : <TargetLine n={bank.filter((r) => r.status === 'published').length} />}
             {!gnome.isActive && (
               <div className="mb-4 rounded-lg bg-bg-hover px-3 py-2 text-sm text-text-secondary">הגמד כבוי, ולכן החידות שלו לא משתתפות כרגע במשחק.</div>
             )}
 
             {bank.length === 0 ? (
-              <EmptyState icon={CircleHelp} title="לגמד הזה אין חידה" text="חידה אחת מספיקה כדי להתחיל. שאלו על משהו שרואים מהמקום שבו הגמד עומד." action={
+              <EmptyState icon={CircleHelp} title="לגמד הזה אין חידה" text={free ? `כדאי לפחות ${FEW_RIDDLES_PER_GNOME}, כדי שקבוצה שחוזרת תקבל חידה חדשה. שאלו על משהו שרואים מהמקום שבו הגמד עומד.` : 'חידה אחת מספיקה כדי להתחיל. שאלו על משהו שרואים מהמקום שבו הגמד עומד.'} action={
                   <div className="flex flex-wrap justify-center gap-2">
                     <Button variant="primary" icon={BookOpen} onClick={() => setPicking({ gnomeId: gnome.id, letter: wantLetter })}>חידה מהמאגר</Button>
                     <Button icon={Plus} onClick={() => addRiddle(gnome.id)}>כתבו חידה</Button>
@@ -204,12 +213,23 @@ export default function RiddlesScreen({ state, report, actions, navigate, target
                 } />
             ) : (
               <div className="space-y-3">
-                {bank.map((r) => (
+                {free && bank.length > 1 && (
+                  <p className="text-sm text-text-secondary">
+                    הסדר כאן הוא הסדר שבו הקבוצות מקבלות את החידות. חידה חדשה בסוף הרשימה לא משנה כלום לקבוצות שכבר משחקות. הזזה או מחיקה באמצע העונה עלולות לגרום לקבוצה לדלג על חידה אחת או לקבל אחת שוב.
+                  </p>
+                )}
+                {bank.map((r, i) => (
                   <RiddleCard
                     key={r.id}
                     riddle={r}
                     stats={riddleStats[r.id]}
                     language={config.language}
+                    free={free}
+                    order={free ? orderOf(bank, r.id) : undefined}
+                    onMove={free && bank.length > 1 ? {
+                      up: i > 0 ? () => actions.moveRiddle(r.id, 'up') : undefined,
+                      down: i < bank.length - 1 ? () => actions.moveRiddle(r.id, 'down') : undefined,
+                    } : undefined}
                     open={openRiddle === r.id}
                     onToggle={() => setOpenRiddle(openRiddle === r.id ? null : r.id)}
                     onChange={(patch) => actions.updateRiddle(r.id, patch)}
@@ -277,10 +297,19 @@ function LetterFinder({
   );
 }
 
+/** Free game: the asking position of a riddle among its gnome's riddles in the game (1-based). */
+function orderOf(bank: TheCodeRiddle[], id: string): number | undefined {
+  const at = bank.filter((r) => r.status === 'published' && letterOfAnswer(r.answerWord)).findIndex((r) => r.id === id);
+  return at < 0 ? undefined : at + 1;
+}
+
 function RiddleCard({
   riddle: r,
   stats,
   language,
+  free,
+  order,
+  onMove,
   open,
   onToggle,
   onChange,
@@ -291,6 +320,10 @@ function RiddleCard({
   riddle: TheCodeRiddle;
   stats?: RiddleStats;
   language: 'he' | 'en';
+  /** Free game: no letters collected, no solving hints or difficulty, an asking order. */
+  free?: boolean;
+  order?: number;
+  onMove?: { up?: () => void; down?: () => void };
   open: boolean;
   onToggle: () => void;
   onChange: (patch: Partial<TheCodeRiddle>) => void;
@@ -319,7 +352,16 @@ function RiddleCard({
   return (
     <Card className={cx(open && 'ring-2 ring-accent/30')}>
       <div className="flex min-h-14 w-full flex-wrap items-center gap-x-2 pe-2">
-      <button type="button" onClick={onToggle} className="flex min-w-[14rem] flex-1 items-center gap-3 py-3 ps-4 text-start">
+      {onMove && (
+        <div className="flex flex-col ps-1">
+          <MoveButton icon={ArrowUp} label="הזיזו למעלה" onClick={onMove.up} />
+          <MoveButton icon={ArrowDown} label="הזיזו למטה" onClick={onMove.down} />
+        </div>
+      )}
+      <button type="button" onClick={onToggle} className={cx('flex min-w-[14rem] flex-1 items-center gap-3 py-3 text-start', onMove ? 'ps-1' : 'ps-4')}>
+        {free && (
+          <span className="w-12 shrink-0 text-center text-sm text-text-secondary tabular-nums">{order ? `חידה ${order}` : '—'}</span>
+        )}
         <LetterTile letter={letter || '?'} size="sm" tone={letter ? 'ok' : 'missing'} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">{r.answerWord || 'חידה חדשה'}</div>
@@ -374,14 +416,16 @@ function RiddleCard({
 
           {step >= 2 && (
           <Reveal>
-          {step === 2 && !hasAnswer && <StepGuide>עכשיו כתבו את התשובה — מילה אחת. האות הראשונה שלה היא האות שהקבוצה אוספת.</StepGuide>}
+          {step === 2 && !hasAnswer && (
+            <StepGuide>{free ? 'עכשיו כתבו את התשובה — מילה אחת. הקבוצה עונה באות הראשונה שלה.' : 'עכשיו כתבו את התשובה — מילה אחת. האות הראשונה שלה היא האות שהקבוצה אוספת.'}</StepGuide>
+          )}
           <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
-            <Field label="התשובה" hint="מילה אחת. רק האות הראשונה שלה נאספת.">
+            <Field label="התשובה" hint={free ? 'מילה אחת. הקבוצה עונה באות הראשונה שלה.' : 'מילה אחת. רק האות הראשונה שלה נאספת.'}>
               <input className="input text-lg" value={r.answerWord} placeholder="למשל: שעון" onChange={(e) => onChange({ answerWord: e.target.value })} />
             </Field>
             <div className="flex items-center gap-3 sm:flex-col sm:items-center sm:pt-6">
               <LetterTile letter={letter || '?'} tone={letter && !wrongAlphabet ? 'ok' : 'missing'} />
-              <span className="text-sm text-text-secondary">{letter ? `האות שתיאסף: ${letterLabel(letter)}` : 'אין עדיין אות'}</span>
+              <span className="text-sm text-text-secondary">{letter ? `${free ? 'האות הנכונה' : 'האות שתיאסף'}: ${letterLabel(letter)}` : 'אין עדיין אות'}</span>
             </div>
           </div>
 
@@ -396,8 +440,8 @@ function RiddleCard({
 
           {step >= 3 && (
           <Reveal>
-          {stepNow === 3 && r.status === 'published' && !r.imageUrl && !r.hints.length && (
-            <StepGuide tone="done">החידה במשחק. אם תרצו, הוסיפו רמזים או תמונה — זה לא חובה.</StepGuide>
+          {stepNow === 3 && r.status === 'published' && !r.imageUrl && (free || !r.hints.length) && (
+            <StepGuide tone="done">{free ? 'החידה במשחק. אם תרצו, הוסיפו תמונה — זה לא חובה.' : 'החידה במשחק. אם תרצו, הוסיפו רמזים או תמונה — זה לא חובה.'}</StepGuide>
           )}
 
           {ambiguous && (
@@ -424,6 +468,9 @@ function RiddleCard({
             onChange={(url) => onChange({ imageUrl: url })}
           />
 
+          {/* The free game sells location hints only (spot + gnome) — solving hints and the
+              difficulty stay in the data, unused, so switching back to guided loses nothing. */}
+          {!free && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Lightbulb size={16} className="text-text-secondary" aria-hidden /> רמזים לפתרון (עד 3, מהכללי למדויק)
@@ -444,11 +491,14 @@ function RiddleCard({
               />
             ))}
           </div>
+          )}
 
           <div className="flex flex-wrap items-end gap-6">
+            {!free && (
             <Field label="רמת קושי">
               <Segmented label="רמת קושי" value={r.difficulty} onChange={(d) => onChange({ difficulty: d })} options={[{ value: 1, label: 'קלה' }, { value: 2, label: 'בינונית' }, { value: 3, label: 'קשה' }]} />
             </Field>
+            )}
             <Field label="במשחק" hint={missing ? `${missing} — אחרי שתשלימו, החידה תיכנס למשחק.` : r.status === 'published' ? 'קבוצות יכולות לקבל את החידה.' : 'החידה שמורה, אבל קבוצות לא יקבלו אותה.'}>
               <div className="flex items-center gap-3">
                 <Toggle
@@ -469,9 +519,9 @@ function RiddleCard({
               <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
                 <span><b className="tabular-nums">{stats.correct}</b> פתרו נכון</span>
                 <span><b className="tabular-nums">{stats.wrong}</b> טעו</span>
-                <span><b className="tabular-nums">{stats.hints}</b> ביקשו רמז</span>
+                {!free && <span><b className="tabular-nums">{stats.hints}</b> ביקשו רמז</span>}
               </div>
-              {hard && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">הרבה קבוצות נתקעות כאן. נסו ניסוח פשוט יותר או רמז ראשון ברור יותר.</p>}
+              {hard && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">{free ? 'הרבה קבוצות נתקעות כאן. נסו ניסוח פשוט יותר.' : 'הרבה קבוצות נתקעות כאן. נסו ניסוח פשוט יותר או רמז ראשון ברור יותר.'}</p>}
             </div>
           )}
           </Reveal>
@@ -481,7 +531,11 @@ function RiddleCard({
             {confirmDelete ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-danger">
-                  {r.status === 'published' ? 'למחוק את החידה? קבוצות שבאמצע מזוודה יקבלו את האות שלה מגמד אחר.' : 'למחוק את החידה?'}
+                  {r.status !== 'published'
+                    ? 'למחוק את החידה?'
+                    : free
+                      ? 'למחוק את החידה? קבוצות שכבר עברו אותה עלולות לדלג על החידה שאחריה.'
+                      : 'למחוק את החידה? קבוצות שבאמצע מזוודה יקבלו את האות שלה מגמד אחר.'}
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>ביטול</Button>
                 <Button size="sm" variant="danger" icon={Trash2} onClick={onDelete}>מחקו</Button>
@@ -497,16 +551,19 @@ function RiddleCard({
 }
 
 /** In-game riddles of a gnome in words, against the 2–5 target, plus the letters it gives. */
-function RiddleCount({ n, waiting, active, letters }: { n: number; waiting: number; active: boolean; letters: string[] }) {
-  const low = active && n < TARGET_MIN;
+function RiddleCount({ n, waiting, active, letters, free }: { n: number; waiting: number; active: boolean; letters: string[]; free?: boolean }) {
+  const min = free ? FEW_RIDDLES_PER_GNOME : TARGET_MIN;
+  const max = free ? TARGET_RIDDLES_PER_GNOME : TARGET_MAX;
+  const low = active && n < min;
   const count = n === 0 ? 'אין חידות במשחק' : n === 1 ? 'חידה אחת' : `${n} חידות`;
-  const title = `${n === 1 ? 'חידה אחת' : `${n} חידות`} במשחק לגמד הזה. כדאי ${TARGET_MIN} עד ${TARGET_MAX}, כדי שקבוצות שונות יקבלו שאלות שונות.${letters.length ? ` הגמד נותן את ${letters.length === 1 ? 'האות' : 'האותיות'} ${letters.join(', ')}.` : ''}${waiting > 0 ? ` עוד ${waiting} לא במשחק.` : ''}`;
+  const why = free ? 'כדי שקבוצה שחוזרת לגמד תקבל חידה חדשה' : 'כדי שקבוצות שונות יקבלו שאלות שונות';
+  const title = `${n === 1 ? 'חידה אחת' : `${n} חידות`} במשחק לגמד הזה. כדאי ${min} עד ${max}, ${why}.${letters.length ? ` הגמד נותן את ${letters.length === 1 ? 'האות' : 'האותיות'} ${letters.join(', ')}.` : ''}${waiting > 0 ? ` עוד ${waiting} לא במשחק.` : ''}`;
   return (
     <Tip text={title} interactive className="mt-0.5">
     <div className="flex flex-wrap items-center gap-x-2 text-xs">
       <span className={low ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-text-secondary'}>
         {count}
-        {low && ` · כדאי ${TARGET_MIN} עד ${TARGET_MAX}`}
+        {low && ` · כדאי ${min} עד ${max}`}
       </span>
       {letters.length > 0 && <span className="text-text-secondary">אותיות: <b className="text-text-primary">{letters.join(', ')}</b></span>}
       {waiting > 0 && <span className="text-text-secondary">· {waiting === 1 ? 'אחת לא במשחק' : `${waiting} לא במשחק`}</span>}
@@ -522,6 +579,39 @@ function TargetLine({ n }: { n: number }) {
       {n === 0 ? 'אין עדיין חידה במשחק' : n === 1 ? 'חידה אחת במשחק' : `${n} חידות במשחק`} · כדאי {TARGET_MIN} עד {TARGET_MAX}
       {low && ' — כדאי להוסיף'}
     </div>
+  );
+}
+
+/** Free game: the target, and when a group that keeps coming back meets a riddle again. */
+function FreeTargetLine({ n, refreshMinutes, wrap }: { n: number; refreshMinutes: number; wrap: boolean }) {
+  const low = n < FEW_RIDDLES_PER_GNOME;
+  const count = n === 0 ? 'אין עדיין חידה במשחק' : n === 1 ? 'חידה אחת במשחק' : `${n} חידות במשחק`;
+  const after = n > 0 ? durationLabel(n * refreshMinutes) : '';
+  return (
+    <div className={cx('-mt-2 mb-4 text-sm', low ? 'text-amber-700 dark:text-amber-400' : 'text-text-secondary')}>
+      {count} · כדאי {FEW_RIDDLES_PER_GNOME} עד {TARGET_RIDDLES_PER_GNOME}
+      {n > 0 && (
+        <span className="block text-text-secondary">
+          {wrap
+            ? `גמד מתעורר אחרי ${durationLabel(refreshMinutes)}, ולכן קבוצה שחוזרת אליו כל פעם תקבל שוב את החידה הראשונה אחרי ${after}.`
+            : `גמד מתעורר אחרי ${durationLabel(refreshMinutes)}. אחרי ${after} הוא יסיים את החידות שלו לאותה קבוצה.`}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MoveButton({ icon: Icon, label, onClick }: { icon: typeof ArrowUp; label: string; onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      aria-label={label}
+      className="inline-flex size-9 items-center justify-center rounded-md text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-30 disabled:hover:bg-transparent"
+    >
+      <Icon size={16} aria-hidden />
+    </button>
   );
 }
 

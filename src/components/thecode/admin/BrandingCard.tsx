@@ -18,7 +18,11 @@ const OPENING_VIDEO_MAX = 30 * 1024 * 1024;
 export const hasBranding = (b?: TheCodeBranding) =>
   !!(b && (b.backgroundUrl || b.logoUrl || b.welcomeText || b.backgroundType || b.backgroundVideoUrl || b.textColor || b.buttonColor));
 
-export const defaultWelcome = (title: string) => `ברוכים הבאים ל${title.trim() || 'הרפתקה'}! מצאו את הגמדים ופתחו את המזוודה.`;
+export const defaultWelcome = (title: string, free?: boolean) =>
+  free
+    // What the free phone app shows when the venue wrote nothing (`WELCOME` in free/FreeGamePlayer.tsx).
+    ? 'הגמדים מסתתרים בכל המקום, וכל אחד מחכה עם חידה. בחרו כינוי לקבוצה ויוצאים לדרך!'
+    : `ברוכים הבאים ל${title.trim() || 'הרפתקה'}! מצאו את הגמדים ופתחו את המזוודה.`;
 
 type BgType = NonNullable<TheCodeBranding['backgroundType']>;
 
@@ -132,7 +136,7 @@ export default function BrandingCard({ state, actions, uploadImage, uploadVideo 
               className="input"
               maxLength={WELCOME_MAX}
               value={b.welcomeText || ''}
-              placeholder={defaultWelcome(config.title)}
+              placeholder={defaultWelcome(config.title, config.mode === 'free')}
               onChange={(e) => set({ welcomeText: e.target.value.replace(/[\r\n]+/g, ' ') || undefined })}
             />
             <span className="mt-1 block text-end text-xs text-text-secondary tabular-nums">{(b.welcomeText || '').length}/{WELCOME_MAX}</span>
@@ -151,7 +155,7 @@ export default function BrandingCard({ state, actions, uploadImage, uploadVideo 
 
         <div className="flex flex-col items-center">
           <span className="mb-2 text-sm font-medium text-text-secondary">כך הקבוצות יראו את מסך הפתיחה</span>
-          <PhonePreview branding={b} title={config.title} onLayout={(patch) => set(patch)} />
+          <PhonePreview branding={b} title={config.title} free={config.mode === 'free'} onLayout={(patch) => set(patch)} />
         </div>
       </div>
     </Card>
@@ -225,7 +229,7 @@ type Layout = Pick<TheCodeBranding, 'backgroundFocus' | 'backgroundZoom' | 'logo
  * also the editor: drag the background to frame it (pinch on a phone), drag the logo to place
  * it, sliders for zoom / logo size. Moves are previewed locally and saved ONCE on release.
  */
-export function PhonePreview({ branding, title, onLayout }: { branding: TheCodeBranding; title: string; onLayout?: (patch: Layout) => void }) {
+export function PhonePreview({ branding, title, free, onLayout }: { branding: TheCodeBranding; title: string; free?: boolean; onLayout?: (patch: Layout) => void }) {
   const [live, setLive] = useState<Layout | null>(null);
   const liveRef = useRef<Layout | null>(null);
   const b: TheCodeBranding = live ? { ...branding, ...live } : branding;
@@ -369,7 +373,7 @@ export function PhonePreview({ branding, title, onLayout }: { branding: TheCodeB
           <div className="mt-auto" style={openingTextPanel(b) ?? undefined}>
             <div className="text-3xl font-extrabold tracking-tight drop-shadow">קוד הגמדים</div>
             <p className={b.welcomeText ? 'mt-2 line-clamp-3 text-sm leading-snug opacity-90 drop-shadow' : 'mt-2 line-clamp-3 text-sm italic leading-snug opacity-50'}>
-              {b.welcomeText || defaultWelcome(title)}
+              {b.welcomeText || defaultWelcome(title, free)}
             </p>
           </div>
           <div className="mt-5 w-full space-y-2">

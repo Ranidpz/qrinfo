@@ -1,7 +1,14 @@
 # קוד הגמדים — operator admin for FREE mode (plan, 24.11.2026)
 
-Status: PLAN — waiting for Rani's decisions (D1–D8 below). Nothing built yet.
-Branch: `claude/thecode-free-admin-9ca5ea`.
+Status: BUILT 24.11.2026 on branch `claude/thecode-free-admin-9ca5ea` — Rani approved all eight
+recommendations (D1–D8) as written. Not on main yet.
+
+Where it landed: one switch `isFreeMode()` (admin/helpers.ts); report + readiness in
+`adminLive/report.ts` (`freeReadiness`, `rewordFree`); the guided-only list `FREE_IGNORED_ISSUES`
+in engineFree.ts (copied inline in store.ts `saveAdventure`); per-gnome hints
+`TheCodeGnome.hints` → `gnomeLocationHints()`; bank fill `planFreeBankFill()` (riddleBank.ts,
+target `TARGET_RIDDLES_PER_GNOME` 5, warning below `FEW_RIDDLES_PER_GNOME` 3); reorder action
+`moveRiddle`; tests `scripts/tests/thecode-free-admin.test.mjs`.
 
 Rani (24.11.2026): "the interface still has leftovers from the previous mode … adapt it to the
 content of the new free-mode game" + "we already have gnomes ready and everything".

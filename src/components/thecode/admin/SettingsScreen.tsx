@@ -16,6 +16,9 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
   const r = config.rules;
   const rule = (key: keyof TheCodeRules) => (n: number) => actions.updateRules({ [key]: n });
   const hebrewPhrases = config.phrases.some((p) => /[א-ת]/.test(p.text));
+  // The free game has no suitcase, no wrong-scan penalty and no answer cooldown (its attempts
+  // live in the free-game card), and the phone's "how to play" is fixed.
+  const free = config.mode === 'free';
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -27,10 +30,10 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
         <Field label="שם ההרפתקה" hint="מופיע לקבוצות ובלוח התוצאות.">
           <input className="input" value={config.title} onChange={(e) => actions.updateConfig({ title: e.target.value })} />
         </Field>
-        <Row label="שפת המשחק" hint="שפת לוח האותיות של הקבוצות.">
+        <Row label="שפת המשחק" hint={free ? 'שפת המקשים שבהם הקבוצות עונות.' : 'שפת לוח האותיות של הקבוצות.'}>
           <Segmented label="שפת המשחק" value={config.language} onChange={(language) => actions.updateConfig({ language })} options={[{ value: 'he', label: 'עברית' }, { value: 'en', label: 'English' }]} />
         </Row>
-        {config.language === 'en' && hebrewPhrases && (
+        {config.language === 'en' && hebrewPhrases && !free && (
           <p className="text-sm text-danger">
             המשפטים והתשובות כתובים בעברית, ולכן הם לא תקינים בשפה הזו ({report.errors} שגיאות).
           </p>
@@ -46,7 +49,16 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
       </div>
 
       <div id="how-to-play" className="scroll-mt-32">
-        <HowToPlayCard state={state} actions={actions} />
+        {free ? (
+          <Card className="p-6">
+            <h2 className="mb-1 text-lg font-semibold">איך משחקים</h2>
+            <p className="text-sm text-text-secondary">
+              במשחק החופשי הטלפון מציג הסבר קצר וקבוע, ואחרי ההרשמה הקוסם מסביר בשיחת הווידאו. את הסרטון מעלים בכרטיס &quot;סוג המשחק&quot; למעלה.
+            </p>
+          </Card>
+        ) : (
+          <HowToPlayCard state={state} actions={actions} />
+        )}
       </div>
 
       <div id="selfie" className="scroll-mt-32">
@@ -63,23 +75,36 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
 
 
       <Section title="ניקוד">
-        <Row label="נקודות לכל אות" hint="תשובה נכונה ליד הגמד הנכון.">
-          <NumberInput label="נקודות לכל אות" value={r.pointsPerLetter} onChange={rule('pointsPerLetter')} min={1} max={100} />
-        </Row>
-        <Row label="בונוס פתיחת מזוודה">
-          <NumberInput label="בונוס פתיחת מזוודה" value={r.suitcaseBonus} onChange={rule('suitcaseBonus')} min={0} max={500} step={5} />
-        </Row>
+        {free ? (
+          <Row label="נקודות לכל חידה" hint="תשובה נכונה בניסיון הראשון. בניסיון השני הקבוצה מקבלת חצי.">
+            <NumberInput label="נקודות לכל חידה" value={r.pointsPerLetter} onChange={rule('pointsPerLetter')} min={1} max={100} />
+          </Row>
+        ) : (
+          <>
+            <Row label="נקודות לכל אות" hint="תשובה נכונה ליד הגמד הנכון.">
+              <NumberInput label="נקודות לכל אות" value={r.pointsPerLetter} onChange={rule('pointsPerLetter')} min={1} max={100} />
+            </Row>
+            <Row label="בונוס פתיחת מזוודה">
+              <NumberInput label="בונוס פתיחת מזוודה" value={r.suitcaseBonus} onChange={rule('suitcaseBonus')} min={0} max={500} step={5} />
+            </Row>
+          </>
+        )}
         <Row label="רצף חם" hint="אחרי כמה תשובות נכונות ברצף הניקוד מוכפל, עד הטעות הבאה.">
           <div className="flex flex-wrap items-center gap-2">
             <NumberInput label="תשובות ברצף" value={r.hotStreakAt} onChange={rule('hotStreakAt')} min={2} max={10} suffix="ברצף" />
             <NumberInput label="מכפיל" value={r.hotMultiplier} onChange={rule('hotMultiplier')} min={1} max={5} suffix="× נקודות" />
           </div>
         </Row>
-        <Row label="מחיר רמז" hint="הרמז הראשון חינם. כל רמז נוסף עולה נקודות ושובר את הרצף.">
-          <NumberInput label="מחיר רמז" value={r.hintCost} onChange={rule('hintCost')} min={0} max={50} suffix="נקודות" />
+        <Row
+          label={free ? 'מחיר רמז מיקום' : 'מחיר רמז'}
+          hint={free ? 'כל רמז שמראה איפה הגמד עולה נקודות. הוא לא שובר את הרצף, ונמכר רק לקבוצה שיש לה מספיק נקודות.' : 'הרמז הראשון חינם. כל רמז נוסף עולה נקודות ושובר את הרצף.'}
+        >
+          <NumberInput label={free ? 'מחיר רמז מיקום' : 'מחיר רמז'} value={r.hintCost} onChange={rule('hintCost')} min={0} max={50} suffix="נקודות" />
         </Row>
+        {free && <p className="text-sm text-text-secondary">הניקוד לא יורד מתחת לאפס. תשובה שגויה רק מאפסת את הרצף.</p>}
       </Section>
 
+      {!free && (
       <Section title="טעויות">
         <Row label="סריקות שגויות בחינם" hint="כמה פעמים מותר לסרוק גמד לא נכון בכל משימה בלי לאבד נקודות.">
           <Segmented label="סריקות שגויות בחינם" value={r.freeWrongScans} onChange={rule('freeWrongScans')} options={[1, 2, 3].map((n) => ({ value: n, label: String(n) }))} />
@@ -98,6 +123,7 @@ export default function SettingsScreen({ state, actions, report, uploadImage, up
         </Row>
         <p className="text-sm text-text-secondary">הניקוד לא יורד מתחת לאפס, ואותיות שנאספו לא נלקחות.</p>
       </Section>
+      )}
 
       <Section title="שעות פעילות">
         <ToggleRow

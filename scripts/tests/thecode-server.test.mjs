@@ -506,3 +506,13 @@ test('admin save keeps the staff list out of the public stub', () => {
   assert.equal(JSON.stringify(A.toPublicConfig(res.config)).includes('staff'), false);
   assert.equal('staff' in A.normalizeAdventure(A.defaultTheCodeConfig(), [], null).config, false);
 });
+
+test("free mode: a gnome's location hints are kept trimmed, at most 3; none = no field", () => {
+  const base = { status: 'draft', title: 'מלון', language: 'he', spots: [{ id: 's1', name: 'לובי', hints: [], isActive: true }], phrases: [], rules: {} };
+  const g = (id, hints) => ({ id, number: 1, spotId: 's1', bodyColor: 'red', hatColor: 'blue', isActive: true, ...(hints ? { hints } : {}) });
+  const r = A.normalizeAdventure({ ...base, gnomes: [g('g1', ['  ליד   הספסל ', '', 42, 'שני', 'שלישי', 'רביעי']), g('g2', ['', '  ']), g('g3')] }, [], null);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.config.gnomes[0].hints, ['ליד הספסל', 'שני', 'שלישי']);
+  assert.equal('hints' in r.config.gnomes[1], false);
+  assert.equal('hints' in r.config.gnomes[2], false);
+});

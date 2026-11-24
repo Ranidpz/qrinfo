@@ -10,14 +10,16 @@ import {
   bankLetter,
   placeOfSpotName,
   planBankFill,
+  planFreeBankFill,
   suggestFromBank,
-  type BankFillPlan,
+  type BankFillItem,
   type BankRiddle,
   type RiddlePlace,
 } from '@/lib/thecode/riddleBank';
 import { alphabetFor } from '@/lib/thecode/letters';
 import type { AdminActions, AdminState, AdventureReport } from './model';
-import { letterLabel } from './helpers';
+import { isFreeMode, letterLabel } from './helpers';
+import { TARGET_RIDDLES_PER_GNOME } from '@/lib/thecode/engineFree';
 import { Button, Dialog, LetterTile, Pill, cx } from './ui';
 
 // הקוד admin — the ready-made riddle bank (src/lib/thecode/riddleBank.ts) for operators who
@@ -54,6 +56,7 @@ export function BankPickerDialog({
   riddles,
   report,
   initialLetter,
+  free,
   onAdd,
   onWriteOwn,
   onClose,
@@ -63,6 +66,8 @@ export function BankPickerDialog({
   riddles: TheCodeRiddle[];
   report: AdventureReport;
   initialLetter?: string | null;
+  /** Free game: no phrases, so no letter is "missing". */
+  free?: boolean;
   onAdd: (bank: BankRiddle) => void;
   onWriteOwn: () => void;
   onClose: () => void;
@@ -70,7 +75,7 @@ export function BankPickerDialog({
   const [letter, setLetter] = useState<string | null>(initialLetter ?? null);
   const [place, setPlace] = useState<RiddlePlace>(() => placeOfSpotName(spotName));
   const [difficulty, setDifficulty] = useState<1 | 2 | 3 | null>(null);
-  const lacking = useMemo(() => lackingLetters(report), [report]);
+  const lacking = useMemo(() => (free ? new Set<string>() : lackingLetters(report)), [report, free]);
   const list = useMemo(() => suggestFromBank({ letter, place, difficulty, riddles }), [letter, place, difficulty, riddles]);
 
   return (
@@ -186,11 +191,13 @@ export function BankFillDialog({
   onClose,
 }: {
   state: AdminState;
-  onApply: (plan: BankFillPlan) => void;
+  onApply: (plan: { add: BankFillItem[] }) => void;
   onClose: () => void;
 }) {
-  const plan = useMemo(() => planBankFill(state.config, state.riddles), [state.config, state.riddles]);
   const { config } = state;
+  const free = isFreeMode(config);
+  const plan = useMemo(() => planBankFill(state.config, state.riddles), [state.config, state.riddles]);
+  if (free) return <FreeBankFillDialog state={state} onApply={onApply} onClose={onClose} />;
   const gnome = (id: string) => config.gnomes.find((g) => g.id === id);
   const spotName = (g?: TheCodeGnome) => config.spots.find((s) => s.id === g?.spotId)?.name || '';
   const phraseText = (id?: string) => config.phrases.find((p) => p.id === id)?.text;
@@ -268,6 +275,84 @@ export function BankFillDialog({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+/** Free game: every gnome topped up to TARGET_RIDDLES_PER_GNOME riddles, shown per gnome first. */
+function FreeBankFillDialog({ state, onApply, onClose }: { state: AdminState; onApply: (plan: { add: BankFillItem[] }) => void; onClose: () => void }) {
+  const { config } = state;
+  const plan = useMemo(() => planFreeBankFill(config, state.riddles, TARGET_RIDDLES_PER_GNOME), [config, state.riddles]);
+  const gnome = (id: string) => config.gnomes.find((g) => g.id === id);
+  const spotName = (g?: TheCodeGnome) => config.spots.find((s) => s.id === g?.spotId)?.name || '';
+  const byGnome = [...new Set(plan.add.map((i) => i.gnomeId))].map((id) => ({ id, items: plan.add.filter((i) => i.gnomeId === id) }));
+  const nothing = plan.add.length === 0;
+
+  return (
+    <Dialog
+      open
+      wide
+      onClose={onClose}
+      title="השלמת חידות מהמאגר"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>{nothing ? 'סגרו' : 'ביטול'}</Button>
+          {!nothing && (
+            <Button variant="primary" icon={Sparkles} onClick={() => onApply(plan)}>
+              {plan.add.length === 1 ? 'הוסיפו חידה אחת' : `הוסיפו ${plan.add.length} חידות`}
+            </Button>
+          )}
+        </>
+      }
+    >
+      {nothing ? (
+        <div className="rounded-xl bg-success/10 px-4 py-5 text-center">
+          <div className="font-semibold text-green-700 dark:text-green-400">לכל גמד כבר יש {TARGET_RIDDLES_PER_GNOME} חידות לפחות</div>
+          <p className="mt-1 text-sm text-text-secondary">אין מה להוסיף. אפשר תמיד להוסיף חידה לגמד מסוים במסך שלו.</p>
+        </div>
+      ) : (
+        <>
+          <p className="text-sm text-text-secondary">
+            נשלים לכל גמד עד {TARGET_RIDDLES_PER_GNOME} חידות, מתאימות למקום שלו ומהקלות. הן נכנסות ישר למשחק אחרי החידות שכבר יש לו, ואפשר לערוך או למחוק כל אחת אחר כך.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {byGnome.map(({ id, items }) => {
+              const g = gnome(id);
+              return (
+                <li key={id} className="rounded-xl border border-border px-3 py-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    {g && <GnomeFigure bodyColor={g.bodyColor} hatColor={g.hatColor} size={28} />}
+                    <span className="font-semibold">גמד {g?.number}</span>
+                    <span className="truncate text-sm text-text-secondary">{spotName(g)}</span>
+                    <span className="ms-auto text-sm text-text-secondary">{items.length === 1 ? 'חידה אחת' : `${items.length} חידות`}</span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {items.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <LetterTile letter={item.letter} size="sm" tone="ok" />
+                        <span className="min-w-0 flex-1">
+                          {item.bank.text} <span className="text-text-secondary">· תשובה: <b className="text-text-primary">{item.bank.answerWord}</b></span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
+      {plan.short.length > 0 && (
+        <div className="mt-4 rounded-xl bg-warning/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+          <div className="flex items-center gap-2 font-semibold">
+            <TriangleAlert size={16} aria-hidden /> המאגר נגמר
+          </div>
+          <p className="mt-1">
+            לגמדים {plan.short.map((x) => gnome(x.gnomeId)?.number).join(', ')} עדיין יהיו פחות מ־{TARGET_RIDDLES_PER_GNOME} חידות. כתבו להם עוד חידות בעצמכם.
+          </p>
         </div>
       )}
     </Dialog>
