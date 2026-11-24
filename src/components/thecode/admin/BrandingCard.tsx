@@ -21,7 +21,7 @@ export const hasBranding = (b?: TheCodeBranding) =>
 export const defaultWelcome = (title: string, free?: boolean) =>
   free
     // What the free phone app shows when the venue wrote nothing (`WELCOME` in free/FreeGamePlayer.tsx).
-    ? 'הגמדים מסתתרים בכל המקום, וכל אחד מחכה עם חידה. בחרו כינוי לקבוצה ויוצאים לדרך!'
+    ? 'הגמדים מסתתרים בכל המקום, וכל אחד מחכה עם חידה. בחרו לכם כינוי ויוצאים לדרך!'
     : `ברוכים הבאים ל${title.trim() || 'הרפתקה'}! מצאו את הגמדים ופתחו את המזוודה.`;
 
 type BgType = NonNullable<TheCodeBranding['backgroundType']>;
