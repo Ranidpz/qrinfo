@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getQRCodeByShortId } from '@/lib/db';
+import { manifestIcons } from '@/lib/appIcons';
 
 export async function GET(
   request: NextRequest,
@@ -19,14 +20,8 @@ export async function GET(
     const themeColor = qvoteMedia?.qvoteConfig?.branding?.colors?.buttonBackground || '#3b82f6';
     const backgroundColor = qvoteMedia?.qvoteConfig?.branding?.colors?.background || '#ffffff';
 
-    // Android / desktop install icon: 10 בול gets its stopwatch, Social Wall its own icon, everything else the Q
+    // Android / desktop install icon: each experience type has its own (src/lib/appIcons.ts)
     const primaryType = code?.media?.[0]?.type;
-    const icon = (px: number) =>
-      primaryType === 'tenbool'
-        ? `/api/og/tenbool?icon=${px}`
-        : primaryType === 'socialwall'
-          ? px === 192 ? '/play/social-wall/icon-192.png' : '/play/social-wall/icon.png'
-          : `/icons/icon-${px}x${px}.png`;
 
     const manifest = {
       name: code?.title || 'QR Experience',
@@ -42,32 +37,7 @@ export async function GET(
       background_color: backgroundColor,
       theme_color: themeColor,
       id: `/v/${shortId}${pkSuffix}`,
-      icons: [
-        {
-          src: icon(192),
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: icon(192),
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'maskable'
-        },
-        {
-          src: icon(512),
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: icon(512),
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'maskable'
-        }
-      ]
+      icons: manifestIcons(primaryType),
     };
 
     return NextResponse.json(manifest, {
@@ -89,32 +59,7 @@ export async function GET(
       background_color: '#ffffff',
       theme_color: '#3b82f6',
       id: `/v/${shortId}${pkSuffix}`,
-      icons: [
-        {
-          src: '/icons/icon-192x192.png',
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: '/icons/icon-192x192.png',
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'maskable'
-        },
-        {
-          src: '/icons/icon-512x512.png',
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: '/icons/icon-512x512.png',
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'maskable'
-        }
-      ]
+      icons: manifestIcons(undefined),
     }, {
       headers: {
         'Content-Type': 'application/manifest+json',

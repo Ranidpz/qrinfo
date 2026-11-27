@@ -6,15 +6,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { lookupGnome } from '@/lib/thecode/store';
+import { manifestIcons } from '@/lib/appIcons';
 
 export const dynamic = 'force-dynamic';
 
-const ICONS = [
-  { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-  { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-  { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-  { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-];
+// קוד הגמדים installs with the gnome's head (src/lib/appIcons.ts).
+const ICONS = manifestIcons('thecode');
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;

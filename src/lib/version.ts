@@ -1,5 +1,5 @@
 // App version - update this when making important changes
-export const APP_VERSION = '1.29.49';
+export const APP_VERSION = '1.29.50';
 
 // Changelog for user notifications
 export interface VersionUpdate {
@@ -13,6 +13,10 @@ export interface VersionUpdate {
 }
 
 export const CHANGELOG: VersionUpdate[] = [
+  { version: '1.29.50', date: '2026-11-27', highlights: {
+    he: ['לכל חוויה איקון משלה כשמתקינים אותה למסך הבית'],
+    en: ['Each experience now installs to the home screen with its own icon'],
+  } },
   { version: '1.29.49', date: '2026-11-24', highlights: {
     he: ['שיפורים בחוויה חדשה שנמצאת בבדיקה פנימית'],
     en: ['Improvements to a new experience in internal testing'],

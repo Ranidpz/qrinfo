@@ -4,6 +4,7 @@ import { getQRCodeByShortId } from '@/lib/db';
 import { cache } from 'react';
 import { getAdminDb } from '@/lib/firebase-admin';
 import ViewerClient from './ViewerClient';
+import { appIconUrl } from '@/lib/appIcons';
 
 // generateMetadata and the page both need the code: React's request-scoped cache makes that ONE
 // Firestore read per view instead of two (a Selfie Beam doc with its gallery can be ~1MB).
@@ -243,13 +244,8 @@ export async function generateMetadata({ params, searchParams }: ViewerPageProps
       },
       icons: {
         icon: '/favicon.svg',
-        // iPhone "Add to Home Screen" icon; 10 בול and Social Wall install with their own icons
-        apple:
-          primaryMediaType === 'tenbool'
-            ? '/api/og/tenbool?icon=180'
-            : primaryMediaType === 'socialwall'
-              ? '/play/social-wall/apple-icon.png'
-              : '/icons/apple-touch-icon.png',
+        // iPhone "Add to Home Screen" icon: each experience type has its own (src/lib/appIcons.ts)
+        apple: appIconUrl(primaryMediaType, 180),
       },
       openGraph: {
         title: ogTitle,

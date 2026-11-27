@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import GnomeLanding from './GnomeLanding';
+import { appIconUrl } from '@/lib/appIcons';
 
 // הקוד — where a gnome's printed QR lands when scanned with the phone's own camera.
 // Public, no locale (middleware skips /g/). The lookup + the game run client-side
@@ -15,6 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
     robots: { index: false, follow: false },
     manifest: `/g/${code}/manifest.json`,
     appleWebApp: { capable: true, title: 'קוד הגמדים', statusBarStyle: 'black-translucent' },
+    icons: { icon: '/favicon.svg', apple: appIconUrl('thecode', 180) },
   };
 }
 
